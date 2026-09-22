@@ -23,7 +23,7 @@ class MlnFfiStyleImageStretchTest {
       val style =
         assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
-      style.addImage(
+      style.setImage(
         IMAGE_ID,
         ImageBitmap(140, 120),
         sdf = false,

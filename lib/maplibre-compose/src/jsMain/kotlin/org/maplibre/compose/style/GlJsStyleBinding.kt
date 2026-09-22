@@ -198,7 +198,8 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
-  override fun addImage(definition: StyleImageDefinition) {
+  // GL JS runs the remove and add in one task, so no frame renders between them.
+  override fun setImage(definition: StyleImageDefinition) {
     requireLoaded()
     val (id, snapshot, sdf, stretch) = definition
     val image = snapshot.toImageBitmap()
@@ -224,20 +225,31 @@ internal class GlJsStyleBinding(
         }
       }
     mutate("add image '$id'") {
-      if (map.hasImage(id)) map.removeImage(id)
-      map.addImage(id, pixels, metadata)
-      indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
-      indicators.values.forEach { it.resourceChanged() }
+      val previous = map.getImage(id)
+      if (previous != null) map.removeImage(id)
+      val before = errorCount
+      try {
+        map.addImage(id, pixels, metadata)
+      } finally {
+        // A rejected replacement keeps the previous image instead of leaving none.
+        if (previous != null && (errorCount != before || !map.hasImage(id))) {
+          map.addImage(id, previous.data, previous.unsafeCast<StyleImageMetadata>())
+        }
+      }
+      if (errorCount == before) {
+        indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
+        indicators.values.forEach { it.resourceChanged() }
+      }
     }
   }
 
-  override fun removeImage(id: String) {
+  override fun removeImage(id: String): Boolean {
     requireLoaded()
     indicatorImages.remove(id)
     indicators.values.forEach { it.resourceChanged() }
-    mutate("remove image '$id'") {
-      if (map.hasImage(id)) map.removeImage(id)
-    }
+    if (!map.hasImage(id)) return false
+    mutate("remove image '$id'") { map.removeImage(id) }
+    return true
   }
 
   override fun imageExists(id: String): Boolean {

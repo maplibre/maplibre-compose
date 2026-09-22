@@ -297,14 +297,14 @@ internal class MapSnapshotterImplementation(
           override fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapSnapshotterImplementation.removeStyleSource(id, expectedStyle, identity)
 
-          override fun addStyleImage(
+          override fun setStyleImage(
             id: String,
             image: ImageBitmap,
             sdf: Boolean,
             stretch: ImageStretch?,
             expectedStyle: StyleBinding?,
           ) =
-            this@MapSnapshotterImplementation.addStyleImage(id, image, sdf, stretch, expectedStyle)
+            this@MapSnapshotterImplementation.setStyleImage(id, image, sdf, stretch, expectedStyle)
 
           override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapSnapshotterImplementation.removeStyleImage(id, expectedStyle, identity)
@@ -608,7 +608,7 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  internal fun addStyleImage(
+  internal fun setStyleImage(
     id: String,
     image: ImageBitmap,
     sdf: Boolean,
@@ -617,26 +617,22 @@ internal class MapSnapshotterImplementation(
   ): StyleImageHandle {
     val record = ImperativeImageRecord()
     val reservation = StyleMutationReservation()
+    var previous: ImperativeImageRecord? = null
     val binding = lock.withLock {
       requireOpenLocked()
       expectedStyle?.let(::requireStyleHandleLocked)
       requireNoDesiredImage(id)
       requireNoActiveStyleOperation()
-      if (id in imperativeImages) {
-        throw StyleHandleException("Image ID '$id' already exists in style")
-      }
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
-        imperativeImages[id] = record
+        previous = imperativeImages.put(id, record)
         activeStyleMutation = reservation
       }
     }
     var committed = false
     try {
-      if (binding.imageExists(id) == true) {
-        throw StyleHandleException("Image ID '$id' already exists in style")
-      }
+      binding.setImage(id, image, sdf, stretch)
+      // A replaced image ends the previous handle's identity, even though the ID stays.
       binding.identity.images.remove(id)
-      binding.addImage(id, image, sdf, stretch)
       val handle = lock.withLock {
         requireStyleHandleLocked(binding)
         StyleImageHandleImpl(id, style, binding)
@@ -644,10 +640,14 @@ internal class MapSnapshotterImplementation(
       committed = true
       return handle
     } catch (error: StyleMutationException) {
-      throw StyleHandleException("Could not add image '$id': ${error.message}", error)
+      throw StyleHandleException("Could not set image '$id': ${error.message}", error)
     } finally {
       lock.withLock {
-        if (!committed && imperativeImages[id] === record) imperativeImages.remove(id)
+        if (!committed && imperativeImages[id] === record) {
+          // A failed replacement leaves the previous image in the engine under its record.
+          val restored = previous
+          if (restored == null) imperativeImages.remove(id) else imperativeImages[id] = restored
+        }
         completeStyleMutation(reservation)
       }
     }
@@ -668,14 +668,13 @@ internal class MapSnapshotterImplementation(
       }
     }
     try {
-      if (binding.imageExists(id) == false) return false
-      binding.removeImage(id)
+      val removed = binding.removeImage(id)
       lock.withLock {
         requireStyleHandleLocked(binding)
         imperativeImages.remove(id)
         binding.identity.images.remove(id)
       }
-      return true
+      return removed
     } catch (error: StyleMutationException) {
       throw StyleHandleException("Could not remove image '$id': ${error.message}", error)
     } finally {

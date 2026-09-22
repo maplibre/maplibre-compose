@@ -12,7 +12,12 @@ internal class StyleReconciler {
   private var binding: StyleBinding? = null
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
-  private val images = linkedMapOf<String, StyleImageDefinition>()
+
+  /**
+   * The image this reconciler wrote for each ID it may have installed, or null while a write has
+   * not been accepted and the engine may hold either image.
+   */
+  private val images = linkedMapOf<String, StyleImageDefinition?>()
 
   /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
@@ -224,19 +229,23 @@ internal class StyleReconciler {
 
   private fun syncImages(style: StyleBinding, desired: List<StyleImageDefinition>) {
     val desiredById = desired.associateBy(StyleImageDefinition::id)
-    images.values.toList().forEach { applied ->
-      val next = desiredById[applied.id]
-      if (next == null || next != applied) {
-        style.removeImage(applied.id)
-        style.identity.images.remove(applied.id)
-        images.remove(applied.id)
+    images.keys.toList().forEach { id ->
+      if (id !in desiredById) {
+        style.removeImage(id)
+        style.identity.images.remove(id)
+        images.remove(id)
       }
     }
     desired.forEach { definition ->
-      if (definition.id !in images) {
-        style.addImage(definition)
-        images[definition.id] = definition
-      }
+      val id = definition.id
+      if (images[id] == definition) return@forEach
+      // Replaced in place, so no frame renders without the image. Recorded as applied only once
+      // the engine has accepted it, so a failed write is replaced again on the next revision, and
+      // removed if the next revision drops the ID instead.
+      images[id] = null
+      style.setImage(definition)
+      style.identity.images.remove(id)
+      images[id] = definition
     }
   }
 

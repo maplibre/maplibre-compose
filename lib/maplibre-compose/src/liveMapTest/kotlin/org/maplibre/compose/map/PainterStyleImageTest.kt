@@ -18,7 +18,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageStretch
@@ -48,16 +47,16 @@ class PainterStyleImageTest {
   }
 
   @Test
-  fun painter_registration_returns_a_removable_image_and_rejects_duplicates() = runMapTest {
+  fun painter_registration_returns_a_removable_image_and_replaces_in_place() = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val images = fixture.state.style.images
-      val handle = images.add("marker", ColorPainter(Color.Red), Density(2f), LayoutDirection.Rtl)
+      val handle = images.set("marker", ColorPainter(Color.Red), Density(2f), LayoutDirection.Rtl)
       assertNotNull(images["marker"])
-      assertFailsWith<StyleHandleException> {
-        images.add("marker", ColorPainter(Color.Blue), Density(2f), LayoutDirection.Rtl)
-      }
-      assertTrue(handle.remove())
+      val replacement =
+        images.set("marker", ColorPainter(Color.Blue), Density(2f), LayoutDirection.Rtl)
+      assertFailsWith<IllegalStateException> { handle.remove() }
+      assertTrue(replacement.remove())
       assertNull(images["marker"])
     }
   }
@@ -121,7 +120,7 @@ class PainterStyleImageTest {
           }
         }
       assertFailsWith<IllegalStateException> {
-        fixture.state.style.images.add("stale", painter, Density(1f), LayoutDirection.Ltr)
+        fixture.state.style.images.set("stale", painter, Density(1f), LayoutDirection.Ltr)
       }
       fixture.loadStyle(fixture.state.style.baseStyle)
       assertNull(fixture.state.style.images["stale"])
@@ -142,11 +141,11 @@ class PainterStyleImageTest {
         }
       val images = fixture.state.style.images
       assertFailsWith<CancellationException> {
-        images.add("marker", painter, Density(1f), LayoutDirection.Ltr)
+        images.set("marker", painter, Density(1f), LayoutDirection.Ltr)
       }
       assertNull(images["marker"])
       assertTrue(
-        images.add("marker", ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr).remove()
+        images.set("marker", ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr).remove()
       )
     }
   }

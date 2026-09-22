@@ -117,12 +117,13 @@ internal open class MlnFfiStyleBinding(
   override val logger: MapLog?
     get() = loggerProvider()
 
-  override fun addImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition) {
     val (id, snapshot, sdf, stretch) = definition
     val image = snapshot.toImageBitmap()
     val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    // The engine replaces an existing image in place, so no existence read is needed.
     mutateMap { map ->
       try {
         map.setStyleImage(
@@ -156,15 +157,14 @@ internal open class MlnFfiStyleBinding(
       it.styleImageStretches(id)
     }
 
-  override fun removeImage(id: String) {
+  override fun removeImage(id: String): Boolean =
     mutateMap {
       try {
         it.removeStyleImage(id)
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
-    }
-  }
+    } ?: false
 
   override fun imageExists(id: String): Boolean? = readMap { it.styleImageInfo(id) != null }
 

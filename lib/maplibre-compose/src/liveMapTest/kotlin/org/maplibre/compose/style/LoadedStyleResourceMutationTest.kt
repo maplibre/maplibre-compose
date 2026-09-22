@@ -30,7 +30,7 @@ class LoadedStyleResourceMutationTest {
         GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
       )
       assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["imperative"])
-      fixture.state.style.images.add("imperative", ImageBitmap(1, 1))
+      fixture.state.style.images.set("imperative", ImageBitmap(1, 1))
       fixture.settle()
 
       assertTrue(fixture.state.style.images["imperative"]!!.asMutable!!.remove())

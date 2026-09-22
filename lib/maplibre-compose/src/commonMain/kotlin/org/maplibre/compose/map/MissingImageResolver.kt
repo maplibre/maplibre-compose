@@ -19,7 +19,7 @@ import org.maplibre.compose.util.ImageStretch
 public typealias MissingImageResolver = suspend (id: String) -> ResolvedStyleImage?
 
 /**
- * The image that a [MissingImageResolver] supplies, with the options that [StyleImages.add] takes
+ * The image that a [MissingImageResolver] supplies, with the options that [StyleImages.set] takes
  * for it.
  */
 @Immutable

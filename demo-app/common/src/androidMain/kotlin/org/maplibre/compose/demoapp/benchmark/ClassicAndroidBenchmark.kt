@@ -195,9 +195,8 @@ private class ClassicAndroidDriver(private val fixture: BenchmarkFixture, val vi
       .build()
 
   private fun replaceImage(index: Int) {
-    val style = checkNotNull(map.style)
-    style.removeImage("workload-image")
-    style.addImage("workload-image", images[index])
+    // The SDK replaces an existing image in place.
+    checkNotNull(map.style).addImage("workload-image", images[index])
   }
 
   private fun layers(show: Boolean) {

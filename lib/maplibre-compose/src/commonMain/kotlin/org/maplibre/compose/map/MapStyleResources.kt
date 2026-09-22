@@ -109,27 +109,34 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
 /** Provides structural commands for style images in the current loaded-style generation. */
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {
-  /** Adds a style image. The command fails when [id] already exists. */
-  public fun add(
+  /**
+   * Adds a style image, or replaces the image with [id] in place.
+   *
+   * A replacement keeps the map drawing the previous image until the new one is in place. Removing
+   * and re-adding an image instead can draw a frame without it, and on MapLibre Native that frame
+   * re-lays out every symbol tile. Handles for the previous image expire. The command fails when
+   * [id] belongs to an image that the style content declares.
+   */
+  public fun set(
     id: String,
     image: ImageBitmap,
     sdf: Boolean = false,
     stretch: ImageStretch? = null,
   ): MutableStyleImageHandle {
-    return checkNotNull(style.requireOwner().addStyleImage(id, image, sdf, stretch).asMutable)
+    return checkNotNull(style.requireOwner().setStyleImage(id, image, sdf, stretch).asMutable)
   }
 
   /**
-   * Renders [painter] once and adds it to the current ready style. Returns after registration.
+   * Renders [painter] once and sets it as the image with [id]. Returns after registration.
    *
    * Pass the drawing environment's [density] and [layoutDirection] explicitly. See
    * [ResolvedStyleImage.fromPainter] for sizing and drawing options. The image keeps [id] until
    * removed or the style is replaced; later painter changes do not update it.
    *
-   * The command fails if [id] already exists, or if the style is replaced or becomes unavailable
-   * while rendering. Cancellation before registration leaves the style unchanged.
+   * The command fails if the style is replaced or becomes unavailable while rendering. Cancellation
+   * before registration leaves the style unchanged.
    */
-  public suspend fun add(
+  public suspend fun set(
     id: String,
     painter: Painter,
     density: Density,
@@ -155,7 +162,7 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
       )
     currentCoroutineContext().ensureActive()
     return checkNotNull(
-      owner.addStyleImage(id, resolved.image, resolved.sdf, resolved.stretch, binding).asMutable
+      owner.setStyleImage(id, resolved.image, resolved.sdf, resolved.stretch, binding).asMutable
     )
   }
 

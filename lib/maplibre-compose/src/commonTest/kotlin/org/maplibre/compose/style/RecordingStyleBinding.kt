@@ -31,6 +31,7 @@ internal class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
+  private val refusedImageReplacements: Set<String> = emptySet(),
   private val refusedLayerProperties: Set<String> = emptySet(),
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
@@ -73,6 +74,9 @@ internal class RecordingStyleBinding(
   val imageIds: Set<String>
     get() = images.keys
 
+  /** Every [setImage] ID, for in-place replacement assertions. */
+  val replacedImages: MutableList<String> = mutableListOf()
+
   var customVectorProvider: VectorTileProvider? = null
     private set
 
@@ -89,18 +93,21 @@ internal class RecordingStyleBinding(
 
   override val logger: MapLog? = null
 
-  override fun addImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition) {
     if (!addImageHookInvoked) {
       addImageHookInvoked = true
       beforeAddImage?.invoke(definition.id)
     }
-    check(definition.id !in images) { "Image ID '${definition.id}' already exists in style" }
+    if (definition.id in images) {
+      if (definition.id in refusedImageReplacements) {
+        throw StyleMutationException("Image '${definition.id}' was refused", null)
+      }
+      replacedImages += definition.id
+    }
     images[definition.id] = definition.image
   }
 
-  override fun removeImage(id: String) {
-    check(images.remove(id) != null) { "Image ID '$id' not found in style" }
-  }
+  override fun removeImage(id: String): Boolean = images.remove(id) != null
 
   override fun imageExists(id: String): Boolean = id in images
 
