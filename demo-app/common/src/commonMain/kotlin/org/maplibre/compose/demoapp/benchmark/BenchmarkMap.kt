@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -155,7 +156,9 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       driver.run(state, BenchmarkWorkload(config.durationMs))
       driver.reset(state)
       // Same order as the classic driver: the status frame and collection precede the counter.
+      // Frame callbacks run before recomposition, so cross two frames for the status to render.
       onStatus("Measuring", true)
+      repeat(2) { withFrameNanos {} }
       benchmarkCollectGarbage()
       benchmarkCpu(true)
       countingCpu = true
