@@ -2,82 +2,78 @@
 
 package org.maplibre.compose.style
 
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
-import kotlin.time.TimeSource
-import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
+import org.maplibre.compose.mlnffi.parkForTest
 
 class MlnFfiLayerSummaryReadTest {
 
   /**
    * Reading a large style's layer metadata must not hold the map owner thread for the whole read.
-   * While it does, native render feedback is never drained, so a transition that started before the
-   * read does not advance and the map jumps to its end state.
+   * While it does, nothing else reaches that thread and native render feedback is never drained, so
+   * a transition that started before the read does not advance and the map jumps to its end state.
    */
   @Test
-  fun reading_a_large_style_lets_native_render_feedback_through() {
+  fun reading_a_large_style_releases_the_owner_thread() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(largeStyle(LAYER_COUNT))
       fixture.pumpUntilRendered()
       fixture.settle()
       val style = assertNotNull(fixture.style as? MlnFfiStyleBinding, "Errors: ${fixture.errors}")
 
-      // How many frames a host presents while reading depends on how fast it reads and renders, so
-      // the same read runs twice on it: once in slices, and once held in a single owner-thread call
-      // the way it was read before slicing.
-      val sliced = fixture.readWhileRendering(style) { style.layerSummaries() }
-      val whole = fixture.readWhileRendering(style) { style.layerSummaries(Duration.INFINITE) }
+      // How long a host takes over the read is its own business, so the same read runs twice on it:
+      // once in slices, and once held in a single owner-thread call the way it was read before.
+      val sliced = readWhileProbing(style) { style.layerSummaries() }
+      val whole = readWhileProbing(style) { style.layerSummaries(Duration.INFINITE) }
 
       assertEquals(LAYER_COUNT, sliced.summaries.size)
       assertEquals(LAYER_COUNT, whole.summaries.size)
-
-      // A host that reads every layer within one slice has nothing to yield between calls, and the
-      // two reads are then the same read.
-      if (whole.elapsed < STYLE_READ_SLICE * MIN_SLICES) return
-
-      // A frame renders only after the owner thread drains a native update, so frames during a read
-      // count the times it yielded. The single call leaves the request made before the read and the
-      // one made after it, and nothing in between.
       assertTrue(
-        sliced.frames > whole.frames,
-        "reading $LAYER_COUNT layers in $STYLE_READ_SLICE slices rendered ${sliced.frames} " +
-          "frames in ${sliced.elapsed}, no more than the ${whole.frames} frames of the single " +
-          "call in ${whole.elapsed}: the sliced read did not yield",
+        sliced.probes > whole.probes,
+        "reading $LAYER_COUNT layers in $STYLE_READ_SLICE slices let ${sliced.probes} other " +
+          "owner-thread calls through, no more than the ${whole.probes} of the single call: the " +
+          "sliced read did not yield",
       )
     }
   }
 
-  private class Read(
-    val summaries: Map<String, LayerSummary>,
-    val frames: Long,
-    val elapsed: Duration,
-  )
+  private class Read(val summaries: Map<String, LayerSummary>, val probes: Int)
 
-  /** Reads with a renderer thread presenting frames, while a transition feeds it native updates. */
-  private fun BridgeMapFixture.readWhileRendering(
+  /**
+   * Runs [read] while another thread asks the owner thread for something small, and counts the
+   * calls that finished before the read did. The loop drains native events after every owner-thread
+   * call, so a read that lets other calls through is a read that lets render feedback through.
+   */
+  private fun readWhileProbing(
     style: MlnFfiStyleBinding,
     read: () -> Map<String, LayerSummary>,
   ): Read {
-    style.setLayerProperty(
-      layerId = "layer-0",
-      name = "background-color",
-      value = JsonPrimitive(nextColor()),
-      kind = LayerPropertyKind.PAINT,
-    )
-    val framesBefore = renderedFrames.load()
-    val started = TimeSource.Monotonic.markNow()
-    val summaries = whileRenderingOnRendererThread(read)
-    return Read(summaries, renderedFrames.load() - framesBefore, started.elapsedNow())
+    val probing = AtomicBoolean(true)
+    val probes = AtomicInt(0)
+    val prober =
+      MlnFfiOwnerThread("maplibre-compose-test-prober") {
+        while (probing.load()) {
+          style.layerExists("layer-0")
+          probes.addAndFetch(1)
+        }
+      }
+    prober.start()
+    // The probe proves nothing until it is running, so the read waits for its first call.
+    while (probes.load() == 0) parkForTest(1L)
+    val before = probes.load()
+    val summaries = read()
+    val during = probes.load() - before
+    probing.store(false)
+    check(prober.join(PROBE_STOP_TIMEOUT_MILLIS)) { "the probe thread did not stop" }
+    return Read(summaries, during)
   }
-
-  private var color = 0
-
-  /** A new color each read, so each one runs against a transition of its own. */
-  private fun nextColor(): String = COLORS[color++ % COLORS.size]
 
   private fun largeStyle(layers: Int): BaseStyle {
     val entries =
@@ -91,9 +87,6 @@ class MlnFfiLayerSummaryReadTest {
     /** Enough layers that one owner-thread time slice cannot read them all. */
     const val LAYER_COUNT = 600
 
-    /** Slices a read must span before the frames rendered during it say anything. */
-    const val MIN_SLICES = 4
-
-    val COLORS = listOf("#00ff00", "#ff0000", "#ffff00")
+    const val PROBE_STOP_TIMEOUT_MILLIS = 30_000L
   }
 }

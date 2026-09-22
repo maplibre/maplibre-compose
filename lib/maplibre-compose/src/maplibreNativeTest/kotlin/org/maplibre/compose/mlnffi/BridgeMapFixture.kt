@@ -5,7 +5,6 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -149,9 +148,6 @@ private constructor(
   var hasRendered: Boolean = false
     internal set
 
-  /** Frames this fixture has presented, for tests that watch rendering from another thread. */
-  val renderedFrames: AtomicLong = AtomicLong(0)
-
   /** Renders one frame, with the same producer-access contract as [MlnFfiMapSurface]. */
   fun frame(
     extent: MapExtent = initialExtent,
@@ -174,7 +170,6 @@ private constructor(
               "The production ${driver.backends} bridge did not present frame ${frame.frameId}"
             }
             hasRendered = true
-            renderedFrames.addAndFetch(1)
           }
         }
     } finally {
@@ -280,8 +275,6 @@ private constructor(
     val thread = RendererThread(driver) { frame() }
     rendererThread = thread
     thread.start()
-    // A block that measures rendering must not start before the thread that drives it does.
-    thread.awaitFrameStarted()
     val result = runCatching(block)
     rendererThread = null
     thread.stop()?.let { renderFailure ->
@@ -476,11 +469,6 @@ private constructor(
       enqueue { result = runCatching { driver.withRendererAccess(action) } }.awaitUntilOpen()
       return checkNotNull(result) { "The test renderer thread stopped before running an access" }
         .getOrThrow()
-    }
-
-    /** Waits until the loop has begun a frame, so a caller does not race its first one. */
-    fun awaitFrameStarted() {
-      enqueue {}.awaitUntilOpen()
     }
 
     /** Stops the thread and returns what failed on it, if anything. */
