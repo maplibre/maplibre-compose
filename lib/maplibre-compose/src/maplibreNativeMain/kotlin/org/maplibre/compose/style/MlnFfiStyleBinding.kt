@@ -178,8 +178,8 @@ internal open class MlnFfiStyleBinding(
   override fun getSources(): List<Source> =
     readInSlices(
         STYLE_READ_SLICE,
-        ids = { map -> map.styleSourceIds().filter { isStyleSource(map, it) } },
-        read = { map, id -> reconstructSource(map, id) },
+        ids = { map -> map.styleSourceIds() },
+        read = { map, id -> if (isStyleSource(map, id)) reconstructSource(map, id) else null },
       )
       .map { it.second }
 
@@ -204,7 +204,8 @@ internal open class MlnFfiStyleBinding(
   /**
    * Reads the ids to visit and then each one through [read], as many per owner-thread call as fit
    * in [slice]. A large style pays a few round trips instead of one per id, and each call still
-   * ends soon enough for the render feedback between calls to advance a transition. An id [read]
+   * ends soon enough for the render feedback between calls to advance a transition. [ids] is one
+   * engine call, and everything an id costs belongs in [read] so the slice bounds it. An id [read]
    * has nothing for is left out, and a call that finds no map ends the read.
    */
   private fun <T> readInSlices(
@@ -218,8 +219,8 @@ internal open class MlnFfiStyleBinding(
     do {
       val reached =
         readMap { map ->
-          val list = all ?: ids(map).also { all = it }
           val deadline = TimeSource.Monotonic.markNow() + slice
+          val list = all ?: ids(map).also { all = it }
           var index = next
           while (index < list.size) {
             val id = list[index++]
