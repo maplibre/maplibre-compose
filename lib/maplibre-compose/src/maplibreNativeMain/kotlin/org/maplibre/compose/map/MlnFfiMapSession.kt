@@ -941,7 +941,12 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
-        viewportSnapshotStale = true
+        // The transform does not change between the events of one drain, so the first camera
+        // event of a drain marks the mirror stale for all of them.
+        if (!cameraEventInDrain) {
+          cameraEventInDrain = true
+          viewportSnapshotStale = true
+        }
         postPresentationEvent(engine, lease, mapEvent) {
           if (viewportSnapshotStale) loop?.map?.let(::snapshotViewport)
         }
@@ -1314,6 +1319,9 @@ internal class MlnFfiMapSession(
    * drain, rather than after every drain.
    */
   private var viewportSnapshotStale = false
+
+  /** Owner thread only. True from the first camera event of a drain until the drain ends. */
+  private var cameraEventInDrain = false
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
@@ -2081,6 +2089,7 @@ internal class MlnFfiMapSession(
         lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
       }
     }
+    cameraEventInDrain = false
     // A detached presentation cannot publish events, but accepted command fences still finish.
     finishPendingGesture(map)
     flushTransitionResumes()
