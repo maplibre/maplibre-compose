@@ -123,7 +123,7 @@ internal open class MlnFfiStyleBinding(
     val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
-    mutateMap { map ->
+    mutateMap(repaint = false) { map ->
       try {
         map.setStyleImage(
           imageId = id,
@@ -326,20 +326,24 @@ internal open class MlnFfiStyleBinding(
     return checkNotNull(result).getOrThrow()
   }
 
-  /** Requests a repaint after native accepts the mutation. */
-  fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
-
   /**
-   * Requests a repaint after native accepts the mutation.
+   * Runs [action] on the owner thread and returns after it has run or been dropped.
    *
-   * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
+   * With [repaint], a repaint is requested after native accepts the mutation. A mutation that the
+   * engine already reports as an update (layers, layer properties, images, sources, light, state)
+   * passes false: a second update would render again inside the placement transition that the first
+   * frame starts, and the engine then repaints until that transition ends.
    */
-  open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+  fun <T> mutateMap(repaint: Boolean = true, action: (MapHandle) -> T): T? =
+    mutateMap({}, repaint, action)
+
+  /** [mutateMap] where [abandon] runs when [action] will not run. */
+  open fun <T> mutateMap(abandon: () -> Unit, repaint: Boolean, action: (MapHandle) -> T): T? {
     requireLoadedStyle()
     var result: Result<T>? = null
     if (
       !accessMap { map ->
-        result = runCatching { action(map).also { requestRepaint(map) } }
+        result = runCatching { action(map).also { if (repaint) requestRepaint(map) } }
       }
     ) {
       abandon()
@@ -369,24 +373,27 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Queues [action] for the owner thread and returns at once. Requests a repaint after it runs. An
+   * Queues [action] for the owner thread and returns at once. [repaint] is as in [mutateMap]. An
    * engine refusal inside [action] is the action's to report: nothing waits for the result.
    */
-  private fun postMutation(action: (MapHandle) -> Unit) {
+  private fun postMutation(repaint: Boolean = true, action: (MapHandle) -> Unit) {
     requireLoadedStyle()
     postMap(
       { map ->
         if (!isLoaded) return@postMap
         action(map)
-        requestRepaint(map)
+        if (repaint) requestRepaint(map)
       },
       {},
     )
   }
 
-  /** Runs [action] on the owner thread, reporting an engine refusal as a rejected write. */
+  /**
+   * Runs [action] on the owner thread, reporting an engine refusal as a rejected write. The engine
+   * reports every write it accepts as an update.
+   */
   private fun postWrite(target: String, value: JsonElement?, action: (MapHandle) -> Unit) {
-    postMutation { map ->
+    postMutation(repaint = false) { map ->
       try {
         action(map)
       } catch (error: MaplibreException) {
@@ -891,7 +898,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
-    mutateMap { map ->
+    mutateMap(repaint = false) { map ->
       try {
         map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
       } catch (error: MaplibreException) {
@@ -900,11 +907,11 @@ internal open class MlnFfiStyleBinding(
     } != null
 
   override fun removeLayer(layerId: String) {
-    mutateMap { map -> map.removeStyleLayer(layerId) }
+    mutateMap(repaint = false) { map -> map.removeStyleLayer(layerId) }
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String) {
-    mutateMap { map -> map.moveStyleLayer(layerId, beforeLayerId) }
+    mutateMap(repaint = false) { map -> map.moveStyleLayer(layerId, beforeLayerId) }
   }
 
   override fun setLayerProperty(
@@ -913,7 +920,7 @@ internal open class MlnFfiStyleBinding(
     value: JsonElement,
     kind: LayerPropertyKind,
   ) {
-    mutateMap { map ->
+    mutateMap(repaint = false) { map ->
       try {
         applyLayerWrite(map, layerId, name, value, kind)
       } catch (error: MaplibreException) {
@@ -923,7 +930,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutateMap { map ->
+    mutateMap(repaint = false) { map ->
       try {
         map.setLayerFilter(layerId, filter.toJsonBytes())
       } catch (error: MaplibreException) {
@@ -939,7 +946,7 @@ internal open class MlnFfiStyleBinding(
    */
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     if (writes.isEmpty()) return
-    postMutation { map ->
+    postMutation(repaint = false) { map ->
       writes.forEach { write ->
         try {
           applyLayerWrite(map, write.layerId, write.name, write.value, write.kind)

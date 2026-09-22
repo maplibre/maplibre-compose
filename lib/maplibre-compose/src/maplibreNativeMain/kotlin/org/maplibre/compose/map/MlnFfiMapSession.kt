@@ -1205,10 +1205,11 @@ internal class MlnFfiMapSession(
             lifecycleCallbacks.onStyleReady(engine, style, this)
           }
         }
-      } else {
-        onMap { it.requestRepaint() }
+        requestRender()
       }
-      requestRender()
+      // Each write above requests its own repaint on the owner thread, and the engine's update
+      // event requests the frame. A render requested from here would draw the previous update
+      // first, and that extra frame restarts the engine's placement transition every time.
       return changes
     } catch (error: CancellationException) {
       throw error

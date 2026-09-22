@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
@@ -39,27 +40,7 @@ class MlnFfiStylePresentationTest {
       // Readiness publishes on the map's main thread, which the pump drains.
       fixture.pumpUntil("the style readiness to publish") { readyCount == 1 }
       assertEquals(1, readyCount)
-      val updated =
-        DesiredStyleRevision(
-          emptyList(),
-          listOf(
-            DesiredStyleLayer(
-              TestLayer("application", "background")
-                .apply {
-                  paint(
-                    "background-color",
-                    (const(Color.Green).compile(ExpressionContext.None)).asLayerProperty(),
-                  )
-                }
-                .definition(),
-              Anchor.Top,
-              null,
-              null,
-            )
-          ),
-          emptyList(),
-        )
-      session.reconcileStyleRevision(updated)
+      session.reconcileStyleRevision(applicationRevision(Color.Green))
       val extent = BridgeMapFixture.DEFAULT_EXTENT
       fixture.pumpUntil("the updated paint to render") {
         fixture
@@ -103,6 +84,24 @@ class MlnFfiStylePresentationTest {
     }
   }
 
+  /**
+   * A paint change at idle with no transition must cost one frame. A second render request for the
+   * same change draws the previous update first, and a frame inside the engine's placement
+   * transition window makes it repaint until that window ends.
+   */
+  @Test
+  fun a_paint_update_at_idle_renders_one_frame() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(UNANIMATED_STYLE)
+      fixture.session.reconcileStyleRevision(APPLICATION_REVISION)
+      fixture.awaitSettled()
+
+      fixture.session.reconcileStyleRevision(applicationRevision(Color.Green))
+      val rendered = fixture.awaitRenderOnDemand(600.milliseconds)
+      assertEquals(1, rendered, "a paint update rendered more than one frame")
+    }
+  }
+
   @Test
   fun a_replacement_base_style_waits_for_application_content_before_presentation() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
@@ -137,7 +136,7 @@ class MlnFfiStylePresentationTest {
   private companion object {
     val APPLICATION_COLOR = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
 
-    val APPLICATION_REVISION =
+    fun applicationRevision(color: Color) =
       DesiredStyleRevision(
         sources = emptyList(),
         layers =
@@ -148,8 +147,7 @@ class MlnFfiStylePresentationTest {
                   .apply {
                     paint(
                       "background-color",
-                      (const(Color(APPLICATION_COLOR_ARGB)).compile(ExpressionContext.None))
-                        .asLayerProperty(),
+                      (const(color).compile(ExpressionContext.None)).asLayerProperty(),
                     )
                   }
                   .definition(),
@@ -161,9 +159,16 @@ class MlnFfiStylePresentationTest {
         images = emptyList(),
       )
 
+    val APPLICATION_REVISION = applicationRevision(Color(APPLICATION_COLOR_ARGB))
+
     val INITIAL_STYLE =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}"""
+      )
+
+    val UNANIMATED_STYLE =
+      BaseStyle.Json(
+        """{"version":8,"transition":{"duration":0},"sources":{},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}"""
       )
 
     val REPLACEMENT_STYLE =

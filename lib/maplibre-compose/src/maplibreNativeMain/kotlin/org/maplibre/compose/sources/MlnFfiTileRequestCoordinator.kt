@@ -97,6 +97,7 @@ internal class MlnFfiTileRequestCoordinator<T>(
   ) {
     current.binding.mutateMap(
       abandon = { forget(tileId, current.generation, token) },
+      repaint = true,
       action = { map ->
         if (!forget(tileId, current.generation, token)) return@mutateMap
         result.fold(

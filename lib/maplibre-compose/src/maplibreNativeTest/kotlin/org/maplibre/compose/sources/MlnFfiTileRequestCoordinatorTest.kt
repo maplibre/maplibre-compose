@@ -136,7 +136,11 @@ class MlnFfiTileRequestCoordinatorTest {
 
     override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
-    override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+    override fun <T> mutateMap(
+      abandon: () -> Unit,
+      repaint: Boolean,
+      action: (MapHandle) -> T,
+    ): T? {
       abandon()
       onDrop()
       return null
