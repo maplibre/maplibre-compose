@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -116,124 +117,36 @@ public fun FillLayer(
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledFilter = compile(filter)
-  val compiledSortKey = compile(sortKey)
-  val compiledTranslate = compile(translate)
-  val compiledAntialias = compile(antialias)
-  val compiledOpacity = compile(opacity)
-  val compiledLayerOpacity = compile(layerOpacity)
-  val compiledColor = compile(color)
-  val compiledPattern = compile(pattern)
-  val compiledTranslateAnchor = compile(translateAnchor)
-  val compiledOutlineColor = compile(outlineColor)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { FillLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledSortKey) { layer.setFillSortKey(it) }
-      set(compiledAntialias) { layer.setFillAntialias(it) }
-      set(compiledOpacity) { layer.setFillOpacity(it) }
-      set(opacityTransition) { layer.setFillOpacityTransition(it) }
-      set(compiledLayerOpacity) { layer.setFillLayerOpacity(it) }
-      set(layerOpacityTransition) { layer.setFillLayerOpacityTransition(it) }
-      set(compiledColor) { layer.setFillColor(it) }
-      set(colorTransition) { layer.setFillColorTransition(it) }
-      set(compiledOutlineColor) { layer.setFillOutlineColor(it) }
-      set(outlineColorTransition) { layer.setFillOutlineColorTransition(it) }
-      set(compiledTranslate) { layer.setFillTranslate(it) }
-      set(translateTransition) { layer.setFillTranslateTransition(it) }
-      set(compiledTranslateAnchor) { layer.setFillTranslateAnchor(it) }
-      set(compiledPattern) { layer.setFillPattern(it) }
-      set(patternTransition) { layer.setFillPatternTransition(it) }
-    },
+    type = "fill",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
-}
-
-internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "fill"
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setFillSortKey(sortKey: LayerProperty<FloatValue>) {
-    setLayoutProperty("fill-sort-key", sortKey)
-  }
-
-  fun setFillAntialias(antialias: LayerProperty<BooleanValue>) {
-    setPaintProperty("fill-antialias", antialias)
-  }
-
-  fun setFillOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("fill-opacity", opacity)
-  }
-
-  fun setFillOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-opacity", options)
-  }
-
-  fun setFillLayerOpacity(layerOpacity: LayerProperty<FloatValue>) {
-    setPaintProperty("fill-layer-opacity", layerOpacity)
-  }
-
-  fun setFillLayerOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-layer-opacity", options)
-  }
-
-  fun setFillColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("fill-color", color)
-  }
-
-  fun setFillColorTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-color", options)
-  }
-
-  fun setFillOutlineColor(outlineColor: LayerProperty<ColorValue>) {
-    setPaintProperty("fill-outline-color", outlineColor)
-  }
-
-  fun setFillOutlineColorTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-outline-color", options)
-  }
-
-  fun setFillTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("fill-translate", translate)
-  }
-
-  fun setFillTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-translate", options)
-  }
-
-  fun setFillTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("fill-translate-anchor", translateAnchor)
-  }
-
-  fun setFillPattern(pattern: LayerProperty<ImageValue?>) {
-    setPaintProperty("fill-pattern", pattern)
-  }
-
-  fun setFillPatternTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-pattern", options)
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("fill-sort-key", sortKey)
+    paint("fill-antialias", antialias)
+    paint("fill-opacity", opacity)
+    paintTransition("fill-opacity", opacityTransition)
+    paint("fill-layer-opacity", layerOpacity)
+    paintTransition("fill-layer-opacity", layerOpacityTransition)
+    paint("fill-color", color)
+    paintTransition("fill-color", colorTransition)
+    paint("fill-outline-color", outlineColor)
+    paintTransition("fill-outline-color", outlineColorTransition)
+    paint("fill-translate", translate)
+    paintTransition("fill-translate", translateTransition)
+    paint("fill-translate-anchor", translateAnchor)
+    paint("fill-pattern", pattern)
+    paintTransition("fill-pattern", patternTransition)
   }
 }

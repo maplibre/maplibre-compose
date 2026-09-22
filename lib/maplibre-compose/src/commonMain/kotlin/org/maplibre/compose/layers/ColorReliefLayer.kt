@@ -1,6 +1,7 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -45,49 +46,21 @@ public fun ColorReliefLayer(
   opacityTransition: TransitionOptions? = null,
   resampling: Expression<RasterResampling>? = null,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledColor = compile(color)
-  val compiledOpacity = compile(opacity)
-  val compiledResampling = compile(resampling)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { ColorReliefLayer(id = id, source = source) },
-    update = {
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(visible) { layer.visible = it }
-      set(compiledColor) { layer.setColorReliefColor(it) }
-      set(compiledOpacity) { layer.setColorReliefOpacity(it) }
-      set(opacityTransition) { layer.setColorReliefOpacityTransition(it) }
-      set(compiledResampling) { layer.setResampling(it) }
-    },
+    type = "color-relief",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
-}
-
-internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : Layer(id) {
-
-  override val type: String = "color-relief"
-
-  override val sourceId: String = source.id
-
-  fun setColorReliefColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("color-relief-color", color)
-  }
-
-  fun setColorReliefOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("color-relief-opacity", opacity)
-  }
-
-  fun setColorReliefOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("color-relief-opacity", options)
-  }
-
-  fun setResampling(resampling: LayerProperty<RasterResampling>) {
-    setPaintProperty("resampling", resampling)
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("color-relief-color", color)
+    paint("color-relief-opacity", opacity)
+    paintTransition("color-relief-opacity", opacityTransition)
+    paint("resampling", resampling)
   }
 }

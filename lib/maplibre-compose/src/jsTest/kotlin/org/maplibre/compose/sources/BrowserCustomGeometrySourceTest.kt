@@ -13,7 +13,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
-import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.install
@@ -42,7 +42,7 @@ class BrowserCustomGeometrySourceTest {
           release.await()
           noFeatures()
         }
-      val layer = FillLayer("empty-fill", source)
+      val layer = TestLayer("empty-fill", "fill", source)
       style.install(source)
       style.install(layer)
 
@@ -72,7 +72,7 @@ class BrowserCustomGeometrySourceTest {
             }
             noFeatures()
           }
-        val layer = FillLayer("failing-fill", source)
+        val layer = TestLayer("failing-fill", "fill", source)
         val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
         style.install(layer)
         fixture.pumpUntil("the provider to start") { requests == 1 }
@@ -119,7 +119,7 @@ class BrowserCustomGeometrySourceTest {
           )
         }
       val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
-      style.install(FillLayer("in-flight-fill", source))
+      style.install(TestLayer("in-flight-fill", "fill", source))
       fun names(): List<String> =
         style
           .withMap { map ->

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -107,124 +108,36 @@ public fun FillExtrusionLayer(
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledFilter = compile(filter)
-  val compiledOpacity = compile(opacity)
-  val compiledColor = compile(color)
-  val compiledTranslate = compile(translate)
-  val compiledTranslateAnchor = compile(translateAnchor)
-  val compiledPattern = compile(pattern)
-  val compiledHeight = compile(height)
-  val compiledBase = compile(base)
-  val compiledRoundedCornerDistance = compile(roundedCornerDistance)
-  val compiledVerticalGradient = compile(verticalGradient)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { FillExtrusionLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
-      set(compiledTranslate) { layer.setFillExtrusionTranslate(it) }
-      set(translateTransition) { layer.setFillExtrusionTranslateTransition(it) }
-      set(compiledTranslateAnchor) { layer.setFillExtrusionTranslateAnchor(it) }
-      set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
-      set(opacityTransition) { layer.setFillExtrusionOpacityTransition(it) }
-      set(compiledColor) { layer.setFillExtrusionColor(it) }
-      set(colorTransition) { layer.setFillExtrusionColorTransition(it) }
-      set(compiledPattern) { layer.setFillExtrusionPattern(it) }
-      set(patternTransition) { layer.setFillExtrusionPatternTransition(it) }
-      set(compiledHeight) { layer.setFillExtrusionHeight(it) }
-      set(heightTransition) { layer.setFillExtrusionHeightTransition(it) }
-      set(compiledBase) { layer.setFillExtrusionBase(it) }
-      set(baseTransition) { layer.setFillExtrusionBaseTransition(it) }
-      set(compiledVerticalGradient) { layer.setFillExtrusionVerticalGradient(it) }
-    },
+    type = "fill-extrusion",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
-}
-
-internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "fill-extrusion"
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setFillExtrusionOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("fill-extrusion-opacity", opacity)
-  }
-
-  fun setFillExtrusionOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-opacity", options)
-  }
-
-  fun setFillExtrusionColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("fill-extrusion-color", color)
-  }
-
-  fun setFillExtrusionColorTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-color", options)
-  }
-
-  fun setFillExtrusionTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("fill-extrusion-translate", translate)
-  }
-
-  fun setFillExtrusionTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-translate", options)
-  }
-
-  fun setFillExtrusionTranslateAnchor(anchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("fill-extrusion-translate-anchor", anchor)
-  }
-
-  fun setFillExtrusionPattern(pattern: LayerProperty<ImageValue?>) {
-    setPaintProperty("fill-extrusion-pattern", pattern)
-  }
-
-  fun setFillExtrusionPatternTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-pattern", options)
-  }
-
-  fun setFillExtrusionHeight(height: LayerProperty<FloatValue>) {
-    setPaintProperty("fill-extrusion-height", height)
-  }
-
-  fun setFillExtrusionHeightTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-height", options)
-  }
-
-  fun setFillExtrusionBase(base: LayerProperty<FloatValue>) {
-    setPaintProperty("fill-extrusion-base", base)
-  }
-
-  fun setFillExtrusionBaseTransition(options: TransitionOptions?) {
-    setPaintTransition("fill-extrusion-base", options)
-  }
-
-  fun setFillExtrusionRoundedCornerDistance(distance: LayerProperty<FloatValue>) {
-    setLayoutProperty("fill-extrusion-rounded-corner-distance", distance)
-  }
-
-  fun setFillExtrusionVerticalGradient(verticalGradient: LayerProperty<BooleanValue>) {
-    setPaintProperty("fill-extrusion-vertical-gradient", verticalGradient)
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("fill-extrusion-rounded-corner-distance", roundedCornerDistance)
+    paint("fill-extrusion-translate", translate)
+    paintTransition("fill-extrusion-translate", translateTransition)
+    paint("fill-extrusion-translate-anchor", translateAnchor)
+    paint("fill-extrusion-opacity", opacity)
+    paintTransition("fill-extrusion-opacity", opacityTransition)
+    paint("fill-extrusion-color", color)
+    paintTransition("fill-extrusion-color", colorTransition)
+    paint("fill-extrusion-pattern", pattern)
+    paintTransition("fill-extrusion-pattern", patternTransition)
+    paint("fill-extrusion-height", height)
+    paintTransition("fill-extrusion-height", heightTransition)
+    paint("fill-extrusion-base", base)
+    paintTransition("fill-extrusion-base", baseTransition)
+    paint("fill-extrusion-vertical-gradient", verticalGradient)
   }
 }

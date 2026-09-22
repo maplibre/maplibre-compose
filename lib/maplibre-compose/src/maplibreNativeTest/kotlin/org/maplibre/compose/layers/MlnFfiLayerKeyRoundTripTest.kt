@@ -40,26 +40,28 @@ class MlnFfiLayerKeyRoundTripTest {
           )
           .also { source -> style.install(source) }
 
-      val beforeAttach = SymbolLayer("before", source)
+      val beforeAttach = TestLayer("before", "symbol", source)
       beforeAttach.sourceLayer = "places"
       beforeAttach.minZoom = 3f
       beforeAttach.maxZoom = 15f
       beforeAttach.visible = false
-      beforeAttach.setFilter(
+      beforeAttach.root(
+        "filter",
         ((Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
       style.install(beforeAttach)
 
-      val afterAttach = SymbolLayer("after", source)
+      val afterAttach = TestLayer("after", "symbol", source)
       val afterHandle = style.install(afterAttach)
       afterAttach.sourceLayer = "roads"
       afterAttach.minZoom = 4f
       afterAttach.maxZoom = 16f
       afterAttach.visible = false
-      afterAttach.setFilter(
+      afterAttach.root(
+        "filter",
         ((Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
       afterHandle.update(afterAttach.definition())
 

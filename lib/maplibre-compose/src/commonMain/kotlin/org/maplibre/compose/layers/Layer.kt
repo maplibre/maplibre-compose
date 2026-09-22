@@ -1,158 +1,194 @@
 package org.maplibre.compose.layers
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ComposeNode
+import androidx.compose.runtime.currentComposer
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import org.maplibre.compose.style.LayerDefinition
+import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.LayerNode
+import org.maplibre.compose.style.MapNodeApplier
+import org.maplibre.compose.style.ResolvedLayerDefinition
 import org.maplibre.compose.style.StyleProperty
-import org.maplibre.compose.style.TRANSITION_SUFFIX
-import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.toTransitionJson
+import org.maplibre.compose.style.styleFontScale
+import org.maplibre.compose.util.MaplibreComposable
 
-/** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
-private val ROOT_KEYS =
-  setOf("id", "type", "source", "source-layer", "minzoom", "maxzoom", "filter")
+/**
+ * Declares a layer of any engine-supported [type]. The surrounding [Anchor] determines placement.
+ * The layer is removed when it leaves composition and restored after a style reload.
+ *
+ * [properties] describes the complete layer on each invocation; omitted properties are removed. It
+ * is a regular Kotlin builder, so call composable helpers before this block. Named properties and
+ * JSON pass to the engine without Compose's style-spec filtering. Expressions support managed
+ * images and text units. Paint transitions follow the system animation-duration scale.
+ *
+ * [source] installs and retains a managed source. Without it, a root `source` property may name an
+ * existing source. Conflicting source IDs are an error. Paint, layout, filter, and zoom changes
+ * update the installed layer; changes to its type, source, source-layer, or other root fields
+ * replace it. Engine support for properties and feature queries depends on the layer type.
+ * Composition owns the layer; its handle is read-only.
+ */
+@Composable
+@MaplibreComposable
+public fun Layer(
+  id: String,
+  type: String,
+  source: Source? = null,
+  onClick: FeaturesClickHandler? = null,
+  onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  properties: LayerProperties.() -> Unit = {},
+) {
+  Layer(id, type, source, onClick, onLongClick, onDoubleClick, hitPadding, false, properties)
+}
 
-internal sealed class Layer(val id: String) {
-
-  /** The layer's `type` in the style spec, e.g. `fill`. */
-  protected abstract val type: String
-
-  /** The source this layer draws from, or null for layers that have none, such as background. */
-  protected open val sourceId: String? = null
-
-  private val imageProperties = mutableMapOf<StyleProperty, LayerProperty<*>>()
-
-  internal val declaredImageProperties: Map<StyleProperty, LayerProperty<*>>
-    get() = imageProperties.toMap()
-
-  private val layout = mutableMapOf<String, JsonElement>()
-  private val paint = mutableMapOf<String, JsonElement>()
-  private val root = mutableMapOf<String, JsonElement>()
-
-  var minZoom: Float
-    get() = (root["minzoom"] as? JsonPrimitive)?.content?.toFloatOrNull() ?: 0f
-    set(value) {
-      setRootProperty("minzoom", JsonPrimitive(value))
+// Built-ins retain their documented cross-engine filtering; preparation and ownership are shared.
+@Composable
+@MaplibreComposable
+internal fun Layer(
+  id: String,
+  type: String,
+  source: Source? = null,
+  onClick: FeaturesClickHandler? = null,
+  onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  filterUnsupportedProperties: Boolean,
+  properties: LayerProperties.() -> Unit,
+) {
+  validateLayer(id, type, hitPadding)
+  val density = LocalDensity.current
+  val direction = LocalLayoutDirection.current
+  val fontScale = styleFontScale()
+  val locals = currentComposer.currentCompositionLocalMap
+  val cache =
+    remember(density, direction, fontScale, locals) {
+      // Headless style compositions need a graphics context only if a property contains a painter.
+      LayerPropertyCache(
+        LayerPropertyCompiler(density, direction, fontScale) { locals[LocalGraphicsContext] }
+      )
     }
-
-  var maxZoom: Float
-    get() = (root["maxzoom"] as? JsonPrimitive)?.content?.toFloatOrNull() ?: 24f
-    set(value) {
-      setRootProperty("maxzoom", JsonPrimitive(value))
+  cache.begin()
+  val builder = LayerProperties(cache)
+  val snapshot =
+    try {
+      builder.properties()
+      builder.finish(id, type, source?.id, filterUnsupportedProperties)
+    } finally {
+      builder.close()
+      cache.end()
     }
+  LayerNode(
+    snapshot.definition,
+    snapshot.images,
+    source,
+    onClick,
+    onLongClick,
+    onDoubleClick,
+    hitPadding,
+  )
+}
 
-  var visible: Boolean
-    get() = (layout["visibility"] as? JsonPrimitive)?.content != "none"
-    set(value) {
-      // The style spec has no boolean here; visibility is the string "visible" or "none".
-      setLayoutProperty("visibility", JsonPrimitive(if (value) "visible" else "none"))
+/**
+ * Declares a complete JSON layer without Compose's style-spec filtering or expression conversion.
+ * [id] supplies the identity; an `id` in [definition] must match. Raw image names must already
+ * exist in the style. Use [Layer] for expressions containing painters or bitmaps.
+ *
+ * Raw transition timing is passed unchanged, without the system animation-duration scale. Other
+ * lifecycle, source ownership, and update rules are the same as [Layer].
+ */
+@Composable
+@MaplibreComposable
+public fun RawLayer(
+  id: String,
+  definition: JsonObject,
+  source: Source? = null,
+  onClick: FeaturesClickHandler? = null,
+  onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+) {
+  val type = definition["type"]
+  require(type is JsonPrimitive && type.isString && type.content.isNotBlank()) {
+    "Layer type must be a nonblank string"
+  }
+  validateLayer(id, type.content, hitPadding)
+  require(definition["id"] == null || definition["id"] == JsonPrimitive(id)) {
+    "Layer ID conflicts with its definition"
+  }
+  listOf("layout", "paint").forEach { section ->
+    require(definition[section] == null || definition[section] is JsonObject) {
+      "Layer $section must be an object"
     }
-
-  protected fun setLayoutProperty(name: String, value: JsonElement) {
-    layout[name] = value
   }
+  val sourceId = layerSourceId(definition, source?.id)
+  val json = definition.mapValuesTo(mutableMapOf()) { (_, value) -> value.snapshot() }
+  json["id"] = JsonPrimitive(id)
+  if (sourceId != null) json["source"] = JsonPrimitive(sourceId)
+  val resolved =
+    ResolvedLayerDefinition(id, type.content, sourceId, JsonObject(json), scaleTransitions = false)
+  LayerNode(resolved, emptyMap(), source, onClick, onLongClick, onDoubleClick, hitPadding)
+}
 
-  protected fun setPaintProperty(name: String, value: JsonElement) {
-    paint[name] = value
+@Composable
+@MaplibreComposable
+private fun LayerNode(
+  definition: ResolvedLayerDefinition,
+  images: Map<StyleProperty, LayerProperty<*>>,
+  source: Source?,
+  onClick: FeaturesClickHandler?,
+  onLongClick: FeaturesClickHandler?,
+  onDoubleClick: FeaturesClickHandler?,
+  hitPadding: Dp,
+) {
+  val anchor = LocalAnchor.current
+  val clickGroup = LocalLayerClickGroup.current
+  key(definition.id, definition.type, definition.sourceId, definition.value["source-layer"]) {
+    ComposeNode<LayerNode, MapNodeApplier>(
+      factory = { LayerNode(definition, anchor) },
+      update = {
+        set(definition) { this.definition = it }
+        set(images) { imageProperties = it }
+        set(source) { this.source = it }
+        set(anchor) { this.anchor = it }
+        set(onClick) { this.onClick = it }
+        set(onLongClick) { this.onLongClick = it }
+        set(onDoubleClick) { this.onDoubleClick = it }
+        set(hitPadding) { this.hitPadding = it }
+        set(clickGroup) { this.clickGroup = it }
+      },
+    )
   }
+}
 
-  protected fun setLayoutProperty(name: String, value: LayerProperty<*>) {
-    setProperty("layout", layout, name, value)
+private fun validateLayer(id: String, type: String, hitPadding: Dp) {
+  require(id.isNotBlank()) { "Layer ID must not be blank" }
+  require(type.isNotBlank()) { "Layer type must not be blank" }
+  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
+    "hitPadding must be finite and nonnegative"
   }
+}
 
-  protected fun setPaintProperty(name: String, value: LayerProperty<*>) {
-    setProperty("paint", paint, name, value)
-  }
-
-  private fun setProperty(
-    section: String?,
-    target: MutableMap<String, JsonElement>,
-    name: String,
-    value: LayerProperty<*>,
-  ) {
-    val path = StyleProperty(section, name)
-    if (value.images.isEmpty()) {
-      imageProperties.remove(path)
-      target[name] = value.resolve(emptyMap())
-    } else {
-      target.remove(name)
-      imageProperties[path] = value
+internal fun layerSourceId(
+  properties: Map<String, JsonElement>,
+  managedSourceId: String?,
+): String? {
+  val declared =
+    properties["source"]?.let {
+      require(it is JsonPrimitive && it.isString) { "Layer source must be a string" }
+      it.content
     }
+  require(managedSourceId == null || declared == null || managedSourceId == declared) {
+    "Layer source conflicts with its managed source"
   }
-
-  /**
-   * Sets the transition of the paint property [property], named without the `-transition` suffix. A
-   * null [options] removes the key, which returns the property to the style's global transition.
-   */
-  protected fun setPaintTransition(property: String, options: TransitionOptions?) {
-    val key = property + TRANSITION_SUFFIX
-    if (options == null) paint.remove(key) else paint[key] = options.toTransitionJson()
-  }
-
-  /**
-   * Sets a top-level layer property, by style-spec name. These must be present in the JSON that
-   * creates the layer, not pushed afterwards.
-   */
-  protected fun setRootProperty(name: String, value: JsonElement) {
-    root[name] = value
-  }
-
-  /**
-   * Sets this layer's filter. An unset filter must stay null: MapLibre reads a null filter as
-   * "match every feature", and anything else has to be a non-empty array — a scalar `true` fails
-   * the whole layer.
-   */
-  protected fun setFilterExpression(filter: LayerProperty<*>) {
-    setProperty(null, root, "filter", filter)
-  }
-
-  /** Sets this layer's filter from style JSON, for [UnknownLayer]. Same null contract. */
-  protected fun setFilterJson(filter: JsonElement) {
-    root["filter"] = filter
-  }
-
-  /** Unsupported property names and their error messages. */
-  private val unsupportedProperties = mutableMapOf<String, String>()
-
-  /**
-   * Omits an unsupported [value] and records [reason] for one warning after attachment.
-   *
-   * A null literal does not set the property and does not produce a warning. Use the loaded style's
-   * unsupported-property table when an engine does not implement the property.
-   */
-  protected fun skipUnsupportedProperty(
-    name: String,
-    value: LayerProperty<*>,
-    reason: String,
-  ) {
-    if (value.images.isEmpty() && value.resolve(emptyMap()) == JsonNull) return
-    unsupportedProperties[name] = reason
-  }
-
-  /**
-   * Returns the properties already representable as style JSON, omitting null values. Image
-   * properties remain in [declaredImageProperties] until the composition owner resolves them.
-   */
-  internal fun toJson(): JsonObject = buildJsonObject {
-    // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
-    put("id", id)
-    put("type", type)
-    sourceId?.let { put("source", it) }
-    root.forEach { (key, value) -> if (key in ROOT_KEYS && value !is JsonNull) put(key, value) }
-    layout
-      .filterTo(mutableMapOf()) { (_, value) -> value !is JsonNull }
-      .let { if (it.isNotEmpty()) put("layout", JsonObject(it)) }
-    paint
-      .filterTo(mutableMapOf()) { (_, value) -> value !is JsonNull }
-      .let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
-  }
-
-  internal fun definition(): LayerDefinition =
-    LayerDefinition(id, type, sourceId, toJson(), unsupportedProperties.toMap())
-
-  override fun toString() = "${this::class.simpleName}(id=\"$id\")"
+  return managedSourceId ?: declared
 }

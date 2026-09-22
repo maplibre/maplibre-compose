@@ -2,6 +2,7 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -47,56 +48,22 @@ public fun BackgroundLayer(
   pattern: Expression<ImageValue?>? = null,
   patternTransition: TransitionOptions? = null,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledOpacity = compile(opacity)
-  val compiledColor = compile(color)
-  val compiledPattern = compile(pattern)
-
-  LayerNode(
+  Layer(
     id = id,
-    factory = { BackgroundLayer(id = id) },
-    update = {
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(visible) { layer.visible = it }
-      set(compiledColor) { layer.setBackgroundColor(it) }
-      set(colorTransition) { layer.setBackgroundColorTransition(it) }
-      set(compiledPattern) { layer.setBackgroundPattern(it) }
-      set(patternTransition) { layer.setBackgroundPatternTransition(it) }
-      set(compiledOpacity) { layer.setBackgroundOpacity(it) }
-      set(opacityTransition) { layer.setBackgroundOpacityTransition(it) }
-    },
+    type = "background",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
-}
-
-internal class BackgroundLayer(id: String) : Layer(id) {
-
-  override val type: String = "background"
-
-  fun setBackgroundColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("background-color", color)
-  }
-
-  fun setBackgroundColorTransition(options: TransitionOptions?) {
-    setPaintTransition("background-color", options)
-  }
-
-  fun setBackgroundPattern(pattern: LayerProperty<ImageValue?>) {
-    setPaintProperty("background-pattern", pattern)
-  }
-
-  fun setBackgroundPatternTransition(options: TransitionOptions?) {
-    setPaintTransition("background-pattern", options)
-  }
-
-  fun setBackgroundOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("background-opacity", opacity)
-  }
-
-  fun setBackgroundOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("background-opacity", options)
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("background-color", color)
+    paintTransition("background-color", colorTransition)
+    paint("background-pattern", pattern)
+    paintTransition("background-pattern", patternTransition)
+    paint("background-opacity", opacity)
+    paintTransition("background-opacity", opacityTransition)
   }
 }

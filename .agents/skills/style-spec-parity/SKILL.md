@@ -22,8 +22,9 @@ mise run style-spec:parity -- --spec /path/to/v8.json
 
 `--check` fails when a layer type, source type, or paint or layout property that
 the pinned engines implement is missing on an engine that implements it, written
-with the other kind, or wrapped in a setter that nothing calls, or when the
-native unsupported table disagrees with pinned support.
+with the other kind, or when the native unsupported table disagrees with pinned
+support. The catalog reads the named `type` argument of `Layer` calls and their
+`paint`, `layout`, `root`, and `paintTransition` declarations.
 
 A `sdk-support` version counts only when it is at most the pin. `maplibre-js` in
 `gradle/libs.versions.toml` is the GL JS pin, and `maplibre-styleSpec` pins the
@@ -48,7 +49,7 @@ Each spec property's `sdk-support.basic functionality` field is a version string
 on engines that implement it, and an issue URL on engines that do not.
 
 - **js and native both implement it at the pins.** Write the property in
-  `commonMain` with the matching `setPaintProperty` or `setLayoutProperty`.
+  `commonMain` with the matching `paint` or `layout` declaration.
 - **js implements it, native does not.** Write it in `commonMain` and list it on
   the native binding so a write cannot refuse the whole layer.
 - **Native renders a property that JS only stores.** Keep the property in
@@ -67,9 +68,10 @@ until the API exposes it.
 
 ## Add a property both engines implement
 
-1. Add the composable parameter and a setter that calls `setLayoutProperty` or
-   `setPaintProperty` with the spec name. Follow the surrounding layer. A new
-   enum belongs next to the others in
+1. Add the composable parameter and a `layout` or `paint` declaration with the
+   spec name in its `Layer` properties block. Built-in and plugin wrappers share
+   the same layer implementation. Follow the surrounding layer. A new enum
+   belongs next to the others in
    `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/expressions/value/`.
 2. Default to the spec default when writing it on native is safe. Use `nil()`
    when the property is optional and an unset value should stay absent.
@@ -79,7 +81,9 @@ until the API exposes it.
 
 ## Add a property native lacks
 
-Keep the setter in `commonMain`. The binding decides what reaches the engine.
+Keep the declaration in `commonMain`. Built-in compatibility filtering decides
+what reaches the engine. Generic plugin declarations must preserve properties
+that Compose does not recognize.
 
 1. Default the composable parameter to `nil()`. A spec default that is always
    written would log an unsupported warning on every layer of that type.
@@ -95,8 +99,9 @@ Keep the setter in `commonMain`. The binding decides what reaches the engine.
 add a case per table row.
 
 A value one engine rejects, on a property it otherwise implements, stays out of
-that table. `skipUnsupportedProperty` or the live `StyleMutationException`
-handler covers a rejected value.
+that table. Record an `unsupported` declaration diagnostic when the wrapper
+omits an unsafe value; otherwise the live `StyleMutationException` handler
+covers a rejected value.
 
 When a later native release implements the property, delete the table row and
 move the test from the `glJsOnly*` list into the shared cases.
@@ -106,9 +111,7 @@ move the test from the `glJsOnly*` list into the shared cases.
 A whole type has no binding filter like a property does. Put the public
 composable in the source set that has the engine:
 
-- Native only: `maplibreNativeMain`, as `LocationIndicatorLayer` does. The
-  internal `Layer` class can stay in `commonMain` so style reconstruction and
-  native tests share it.
+- Native only: `maplibreNativeMain`, as `LocationIndicatorLayer` does.
 - GL JS only: `jsMain`.
 
 The other platform's demo or helper uses `expect`/`actual` when it needs a

@@ -19,7 +19,7 @@ import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
@@ -130,9 +130,10 @@ class MlnFfiSurfaceLossTest {
           options = GeoJsonOptions(),
         )
       style.install(source)
-      val layer = CircleLayer("circles", source)
-      layer.setCircleRadius((const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setCircleColor(
+      val layer = TestLayer("circles", "circle", source)
+      layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.paint(
+        "circle-color",
         (switch(
               condition(
                 all(
@@ -144,7 +145,7 @@ class MlnFfiSurfaceLossTest {
               fallback = const(Color.Blue),
             )
             .compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
       style.install(layer)
 

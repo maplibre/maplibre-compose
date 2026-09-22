@@ -18,7 +18,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.style.BaseStyle
@@ -52,10 +52,13 @@ class GeoJsonSourceUpdateTest {
             GeoJsonOptions(),
           )
         fixture.state.style.sources.add(source)
-        val layer = CircleLayer(LAYER_ID, source)
-        layer.setCircleRadius((const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
-        layer.setCircleColor((const(Color.Black)).asLayerProperty())
-        layer.setCircleOpacity((const(1.0f)).asLayerProperty())
+        val layer = TestLayer(LAYER_ID, "circle", source)
+        layer.paint(
+          "circle-radius",
+          (const(16.dp).compile(ExpressionContext.None)).asLayerProperty(),
+        )
+        layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
+        layer.paint("circle-opacity", (const(1.0f)).asLayerProperty())
         style.install(layer)
         val sourceHandle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
 
@@ -118,9 +121,9 @@ class GeoJsonSourceUpdateTest {
       val binding = fixture.style as MlnFfiStyleBinding
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
-      val layer = CircleLayer(LAYER_ID, source)
-      layer.setCircleRadius((const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setCircleColor((const(Color.Black)).asLayerProperty())
+      val layer = TestLayer(LAYER_ID, "circle", source)
+      layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
       binding.install(layer)
       fixture.pumpUntil("the initial point to render") {
         fixture.readPixel(256, 256).isNear(CIRCLE)
@@ -189,9 +192,9 @@ class GeoJsonSourceUpdateTest {
           GeoJsonOptions(synchronousUpdate = true),
         )
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
-      val layer = CircleLayer(LAYER_ID, source)
-      layer.setCircleRadius((const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setCircleColor((const(Color.Black)).asLayerProperty())
+      val layer = TestLayer(LAYER_ID, "circle", source)
+      layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
       binding.install(layer)
       fixture.pumpUntil("the initial point to render") {
         fixture.readPixel(256, 256).isNear(CIRCLE)

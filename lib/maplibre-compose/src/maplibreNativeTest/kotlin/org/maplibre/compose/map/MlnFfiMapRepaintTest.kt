@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
@@ -33,8 +33,8 @@ class MlnFfiMapRepaintTest {
       }
       val style = checkNotNull(fixture.style)
       val layer =
-        BackgroundLayer("green").apply {
-          setBackgroundColor((const(Color.Green)).asLayerProperty())
+        TestLayer("green", "background").apply {
+          paint("background-color", (const(Color.Green)).asLayerProperty())
         }
       fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { style.install(layer) }
       fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { style.uninstall(layer) }

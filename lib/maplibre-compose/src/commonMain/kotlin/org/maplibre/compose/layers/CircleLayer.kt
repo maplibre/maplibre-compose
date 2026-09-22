@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -112,152 +113,41 @@ public fun CircleLayer(
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledFilter = compile(filter)
-  val compiledSortKey = compile(sortKey)
-  val compiledTranslate = compile(translate)
-  val compiledTranslateAnchor = compile(translateAnchor)
-  val compiledOpacity = compile(opacity)
-  val compiledColor = compile(color)
-  val compiledBlur = compile(blur)
-  val compiledRadius = compile(radius)
-  val compiledStrokeOpacity = compile(strokeOpacity)
-  val compiledStrokeColor = compile(strokeColor)
-  val compiledStrokeWidth = compile(strokeWidth)
-  val compiledPitchScale = compile(pitchScale)
-  val compiledPitchAlignment = compile(pitchAlignment)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { CircleLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledSortKey) { layer.setCircleSortKey(it) }
-      set(compiledRadius) { layer.setCircleRadius(it) }
-      set(radiusTransition) { layer.setCircleRadiusTransition(it) }
-      set(compiledColor) { layer.setCircleColor(it) }
-      set(colorTransition) { layer.setCircleColorTransition(it) }
-      set(compiledBlur) { layer.setCircleBlur(it) }
-      set(blurTransition) { layer.setCircleBlurTransition(it) }
-      set(compiledOpacity) { layer.setCircleOpacity(it) }
-      set(opacityTransition) { layer.setCircleOpacityTransition(it) }
-      set(compiledTranslate) { layer.setCircleTranslate(it) }
-      set(translateTransition) { layer.setCircleTranslateTransition(it) }
-      set(compiledTranslateAnchor) { layer.setCircleTranslateAnchor(it) }
-      set(compiledPitchScale) { layer.setCirclePitchScale(it) }
-      set(compiledPitchAlignment) { layer.setCirclePitchAlignment(it) }
-      set(compiledStrokeWidth) { layer.setCircleStrokeWidth(it) }
-      set(strokeWidthTransition) { layer.setCircleStrokeWidthTransition(it) }
-      set(compiledStrokeColor) { layer.setCircleStrokeColor(it) }
-      set(strokeColorTransition) { layer.setCircleStrokeColorTransition(it) }
-      set(compiledStrokeOpacity) { layer.setCircleStrokeOpacity(it) }
-      set(strokeOpacityTransition) { layer.setCircleStrokeOpacityTransition(it) }
-    },
+    type = "circle",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
-}
-
-internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "circle"
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setCircleSortKey(sortKey: LayerProperty<FloatValue>) {
-    setLayoutProperty("circle-sort-key", sortKey)
-  }
-
-  fun setCircleRadius(radius: LayerProperty<DpValue>) {
-    setPaintProperty("circle-radius", radius)
-  }
-
-  fun setCircleRadiusTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-radius", options)
-  }
-
-  fun setCircleColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("circle-color", color)
-  }
-
-  fun setCircleColorTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-color", options)
-  }
-
-  fun setCircleBlur(blur: LayerProperty<FloatValue>) {
-    setPaintProperty("circle-blur", blur)
-  }
-
-  fun setCircleBlurTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-blur", options)
-  }
-
-  fun setCircleOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("circle-opacity", opacity)
-  }
-
-  fun setCircleOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-opacity", options)
-  }
-
-  fun setCircleTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("circle-translate", translate)
-  }
-
-  fun setCircleTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-translate", options)
-  }
-
-  fun setCircleTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("circle-translate-anchor", translateAnchor)
-  }
-
-  fun setCirclePitchScale(pitchScale: LayerProperty<CirclePitchScale>) {
-    setPaintProperty("circle-pitch-scale", pitchScale)
-  }
-
-  fun setCirclePitchAlignment(pitchAlignment: LayerProperty<CirclePitchAlignment>) {
-    setPaintProperty("circle-pitch-alignment", pitchAlignment)
-  }
-
-  fun setCircleStrokeWidth(strokeWidth: LayerProperty<DpValue>) {
-    setPaintProperty("circle-stroke-width", strokeWidth)
-  }
-
-  fun setCircleStrokeWidthTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-stroke-width", options)
-  }
-
-  fun setCircleStrokeColor(strokeColor: LayerProperty<ColorValue>) {
-    setPaintProperty("circle-stroke-color", strokeColor)
-  }
-
-  fun setCircleStrokeColorTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-stroke-color", options)
-  }
-
-  fun setCircleStrokeOpacity(strokeOpacity: LayerProperty<FloatValue>) {
-    setPaintProperty("circle-stroke-opacity", strokeOpacity)
-  }
-
-  fun setCircleStrokeOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("circle-stroke-opacity", options)
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("circle-sort-key", sortKey)
+    paint("circle-radius", radius)
+    paintTransition("circle-radius", radiusTransition)
+    paint("circle-color", color)
+    paintTransition("circle-color", colorTransition)
+    paint("circle-blur", blur)
+    paintTransition("circle-blur", blurTransition)
+    paint("circle-opacity", opacity)
+    paintTransition("circle-opacity", opacityTransition)
+    paint("circle-translate", translate)
+    paintTransition("circle-translate", translateTransition)
+    paint("circle-translate-anchor", translateAnchor)
+    paint("circle-pitch-scale", pitchScale)
+    paint("circle-pitch-alignment", pitchAlignment)
+    paint("circle-stroke-width", strokeWidth)
+    paintTransition("circle-stroke-width", strokeWidthTransition)
+    paint("circle-stroke-color", strokeColor)
+    paintTransition("circle-stroke-color", strokeColorTransition)
+    paint("circle-stroke-opacity", strokeOpacity)
+    paintTransition("circle-stroke-opacity", strokeOpacityTransition)
   }
 }

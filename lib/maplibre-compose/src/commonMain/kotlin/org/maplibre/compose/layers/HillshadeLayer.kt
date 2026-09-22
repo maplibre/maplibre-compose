@@ -2,6 +2,7 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -76,100 +77,30 @@ public fun HillshadeLayer(
   exaggerationTransition: TransitionOptions? = null,
   resampling: Expression<RasterResampling>? = null,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledShadowColor = compile(shadowColor)
-  val compiledHighlightColor = compile(highlightColor)
-  val compiledAccentColor = compile(accentColor)
-  val compiledMethod = compile(method)
-  val compiledIlluminationDirection = compile(illuminationDirection)
-  val compiledIlluminationAltitude = compile(illuminationAltitude)
-  val compiledIlluminationAnchor = compile(illuminationAnchor)
-  val compiledExaggeration = compile(exaggeration)
-  val compiledResampling = compile(resampling)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { HillshadeLayer(id = id, source = source) },
-    update = {
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(visible) { layer.visible = it }
-      set(compiledMethod) { layer.setHillshadeMethod(it) }
-      set(compiledIlluminationDirection) { layer.setHillshadeIlluminationDirection(it) }
-      set(compiledIlluminationAltitude) { layer.setHillshadeIlluminationAltitude(it) }
-      set(compiledIlluminationAnchor) { layer.setHillshadeIlluminationAnchor(it) }
-      set(compiledExaggeration) { layer.setHillshadeExaggeration(it) }
-      set(exaggerationTransition) { layer.setHillshadeExaggerationTransition(it) }
-      set(compiledResampling) { layer.setResampling(it) }
-      set(compiledShadowColor) { layer.setHillshadeShadowColor(it) }
-      set(shadowColorTransition) { layer.setHillshadeShadowColorTransition(it) }
-      set(compiledHighlightColor) { layer.setHillshadeHighlightColor(it) }
-      set(highlightColorTransition) { layer.setHillshadeHighlightColorTransition(it) }
-      set(compiledAccentColor) { layer.setHillshadeAccentColor(it) }
-      set(accentColorTransition) { layer.setHillshadeAccentColorTransition(it) }
-    },
+    type = "hillshade",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
-}
-
-internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Layer(id) {
-
-  override val type: String = "hillshade"
-
-  override val sourceId: String = source.id
-
-  fun setHillshadeMethod(method: LayerProperty<HillshadeMethod>) {
-    setPaintProperty("hillshade-method", method)
-  }
-
-  fun setHillshadeIlluminationDirection(direction: LayerProperty<FloatOrVectorValue<Number>>) {
-    setPaintProperty("hillshade-illumination-direction", direction)
-  }
-
-  fun setHillshadeIlluminationAltitude(altitude: LayerProperty<FloatOrVectorValue<Number>>) {
-    setPaintProperty("hillshade-illumination-altitude", altitude)
-  }
-
-  fun setHillshadeIlluminationAnchor(anchor: LayerProperty<IlluminationAnchor>) {
-    setPaintProperty("hillshade-illumination-anchor", anchor)
-  }
-
-  fun setHillshadeExaggeration(exaggeration: LayerProperty<FloatValue>) {
-    setPaintProperty("hillshade-exaggeration", exaggeration)
-  }
-
-  fun setHillshadeExaggerationTransition(options: TransitionOptions?) {
-    setPaintTransition("hillshade-exaggeration", options)
-  }
-
-  fun setHillshadeShadowColor(shadowColor: LayerProperty<ColorValue>) {
-    setPaintProperty("hillshade-shadow-color", shadowColor)
-  }
-
-  fun setHillshadeShadowColorTransition(options: TransitionOptions?) {
-    setPaintTransition("hillshade-shadow-color", options)
-  }
-
-  fun setHillshadeHighlightColor(highlightColor: LayerProperty<ColorValue>) {
-    setPaintProperty("hillshade-highlight-color", highlightColor)
-  }
-
-  fun setHillshadeHighlightColorTransition(options: TransitionOptions?) {
-    setPaintTransition("hillshade-highlight-color", options)
-  }
-
-  fun setHillshadeAccentColor(accentColor: LayerProperty<ColorValue>) {
-    setPaintProperty("hillshade-accent-color", accentColor)
-  }
-
-  fun setHillshadeAccentColorTransition(options: TransitionOptions?) {
-    setPaintTransition("hillshade-accent-color", options)
-  }
-
-  fun setResampling(resampling: LayerProperty<RasterResampling>) {
-    setPaintProperty("resampling", resampling)
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("hillshade-method", method)
+    paint("hillshade-illumination-direction", illuminationDirection)
+    paint("hillshade-illumination-altitude", illuminationAltitude)
+    paint("hillshade-illumination-anchor", illuminationAnchor)
+    paint("hillshade-exaggeration", exaggeration)
+    paintTransition("hillshade-exaggeration", exaggerationTransition)
+    paint("resampling", resampling)
+    paint("hillshade-shadow-color", shadowColor)
+    paintTransition("hillshade-shadow-color", shadowColorTransition)
+    paint("hillshade-highlight-color", highlightColor)
+    paintTransition("hillshade-highlight-color", highlightColorTransition)
+    paint("hillshade-accent-color", accentColor)
+    paintTransition("hillshade-accent-color", accentColorTransition)
   }
 }
