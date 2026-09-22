@@ -175,10 +175,13 @@ internal open class MlnFfiStyleBinding(
     if (!isStyleSource(map, id)) null else reconstructSource(map, id)
   }
 
-  override fun getSources(): List<Source> = readMap { map ->
-    map.styleSourceIds().filter { isStyleSource(map, it) }.mapNotNull { reconstructSource(map, it) }
-  }
-    .orEmpty()
+  override fun getSources(): List<Source> =
+    readInSlices(
+        STYLE_READ_SLICE,
+        ids = { map -> map.styleSourceIds().filter { isStyleSource(map, it) } },
+        read = { map, id -> reconstructSource(map, id) },
+      )
+      .map { it.second }
 
   override fun sourceIds(): List<String> = readMap { map ->
     map.styleSourceIds().filter { isStyleSource(map, it) }
@@ -192,32 +195,42 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  /**
-   * Reads as many layers per owner-thread call as fit in [LAYER_READ_SLICE], so a large style does
-   * not pay a round trip per layer while each call still ends soon enough for the render feedback
-   * between calls to advance a transition.
-   */
-  override fun layerSummaries(): Map<String, LayerSummary> = layerSummaries(LAYER_READ_SLICE)
+  override fun layerSummaries(): Map<String, LayerSummary> = layerSummaries(STYLE_READ_SLICE)
 
   /** [slice] bounds one owner-thread call. Tests compare slice lengths on the same host. */
-  internal fun layerSummaries(slice: Duration): Map<String, LayerSummary> {
-    val ids = layerIds()
-    val summaries = LinkedHashMap<String, LayerSummary>(ids.size)
+  internal fun layerSummaries(slice: Duration): Map<String, LayerSummary> =
+    readInSlices(slice, ids = { it.styleLayerIds() }, read = ::layerSummary).toMap()
+
+  /**
+   * Reads the ids to visit and then each one through [read], as many per owner-thread call as fit
+   * in [slice]. A large style pays a few round trips instead of one per id, and each call still
+   * ends soon enough for the render feedback between calls to advance a transition. An id [read]
+   * has nothing for is left out, and a call that finds no map ends the read.
+   */
+  private fun <T> readInSlices(
+    slice: Duration,
+    ids: (MapHandle) -> List<String>,
+    read: (MapHandle, String) -> T?,
+  ): List<Pair<String, T>> {
+    val items = mutableListOf<Pair<String, T>>()
+    var all: List<String>? = null
     var next = 0
-    while (next < ids.size) {
-      val read =
+    do {
+      val reached =
         readMap { map ->
+          val list = all ?: ids(map).also { all = it }
           val deadline = TimeSource.Monotonic.markNow() + slice
           var index = next
-          do {
-            val id = ids[index++]
-            layerSummary(map, id)?.let { summaries[id] = it }
-          } while (index < ids.size && deadline.hasNotPassedNow())
+          while (index < list.size) {
+            val id = list[index++]
+            read(map, id)?.let { items += id to it }
+            if (deadline.hasPassedNow()) break
+          }
           index
-        } ?: return summaries
-      next = read
-    }
-    return summaries
+        } ?: return items
+      next = reached
+    } while (next < (all?.size ?: 0))
+    return items
   }
 
   /** Owner thread only. Null for a layer the engine added for itself. */
@@ -1165,7 +1178,7 @@ private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
 }
 
 /**
- * How long one owner-thread call may spend reading layer metadata. A frame at 120 Hz is 8 ms, so a
+ * How long one owner-thread call may spend reading style metadata. A frame at 120 Hz is 8 ms, so a
  * slice well under that leaves the render feedback between calls able to advance a transition.
  */
-internal val LAYER_READ_SLICE = 2.milliseconds
+internal val STYLE_READ_SLICE = 2.milliseconds

@@ -280,6 +280,8 @@ private constructor(
     val thread = RendererThread(driver) { frame() }
     rendererThread = thread
     thread.start()
+    // A block that measures rendering must not start before the thread that drives it does.
+    thread.awaitFrameStarted()
     val result = runCatching(block)
     rendererThread = null
     thread.stop()?.let { renderFailure ->
@@ -474,6 +476,11 @@ private constructor(
       enqueue { result = runCatching { driver.withRendererAccess(action) } }.awaitUntilOpen()
       return checkNotNull(result) { "The test renderer thread stopped before running an access" }
         .getOrThrow()
+    }
+
+    /** Waits until the loop has begun a frame, so a caller does not race its first one. */
+    fun awaitFrameStarted() {
+      enqueue {}.awaitUntilOpen()
     }
 
     /** Stops the thread and returns what failed on it, if anything. */

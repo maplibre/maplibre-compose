@@ -37,14 +37,14 @@ class MlnFfiLayerSummaryReadTest {
 
       // A host that reads every layer within one slice has nothing to yield between calls, and the
       // two reads are then the same read.
-      if (whole.elapsed < LAYER_READ_SLICE * MIN_SLICES) return
+      if (whole.elapsed < STYLE_READ_SLICE * MIN_SLICES) return
 
       // A frame renders only after the owner thread drains a native update, so frames during a read
       // count the times it yielded. The single call leaves the request made before the read and the
       // one made after it, and nothing in between.
       assertTrue(
         sliced.frames > whole.frames,
-        "reading $LAYER_COUNT layers in $LAYER_READ_SLICE slices rendered ${sliced.frames} " +
+        "reading $LAYER_COUNT layers in $STYLE_READ_SLICE slices rendered ${sliced.frames} " +
           "frames in ${sliced.elapsed}, no more than the ${whole.frames} frames of the single " +
           "call in ${whole.elapsed}: the sliced read did not yield",
       )
