@@ -198,14 +198,6 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
-  override fun addImage(definition: StyleImageDefinition) {
-    requireLoaded()
-    if (map.hasImage(definition.id)) {
-      throw StyleMutationException("Image ID '${definition.id}' already exists in style", null)
-    }
-    setImage(definition)
-  }
-
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
     requireLoaded()

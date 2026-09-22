@@ -238,7 +238,7 @@ class BrowserLocationIndicatorTest {
           val style = host.loadedBinding as GlJsStyleBinding
           val bitmap = ImageBitmap(24, 24)
           Canvas(bitmap).drawRect(Rect(0f, 0f, 24f, 24f), Paint().apply { color = Color.Red })
-          style.addImage("dot", bitmap, false, null)
+          style.setImage("dot", bitmap, false, null)
           style.addLayer(
             Json.parseToJsonElement(
                 """{
@@ -413,7 +413,7 @@ class BrowserLocationIndicatorTest {
             )
           }
           Canvas(bitmap).drawRect(Rect(0f, 0f, 24f, 24f), Paint().apply { color = Color.Blue })
-          style.addImage("dot", bitmap, false, null, replace = true)
+          style.setImage("dot", bitmap, false, null)
           host.drawOnce(target)
           assertEquals(2, indicator.uploadCount, "replaced image uploads exactly once")
           assertTrue(

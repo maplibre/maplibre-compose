@@ -297,22 +297,14 @@ internal class MapSnapshotterImplementation(
           override fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapSnapshotterImplementation.removeStyleSource(id, expectedStyle, identity)
 
-          override fun addStyleImage(
+          override fun setStyleImage(
             id: String,
             image: ImageBitmap,
             sdf: Boolean,
             stretch: ImageStretch?,
             expectedStyle: StyleBinding?,
-            replace: Boolean,
           ) =
-            this@MapSnapshotterImplementation.addStyleImage(
-              id,
-              image,
-              sdf,
-              stretch,
-              expectedStyle,
-              replace,
-            )
+            this@MapSnapshotterImplementation.setStyleImage(id, image, sdf, stretch, expectedStyle)
 
           override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapSnapshotterImplementation.removeStyleImage(id, expectedStyle, identity)
@@ -616,13 +608,12 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  internal fun addStyleImage(
+  internal fun setStyleImage(
     id: String,
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
     expectedStyle: StyleBinding? = null,
-    replace: Boolean = false,
   ): StyleImageHandle {
     val record = ImperativeImageRecord()
     val reservation = StyleMutationReservation()
@@ -632,9 +623,6 @@ internal class MapSnapshotterImplementation(
       expectedStyle?.let(::requireStyleHandleLocked)
       requireNoDesiredImage(id)
       requireNoActiveStyleOperation()
-      if (!replace && id in imperativeImages) {
-        throw StyleHandleException("Image ID '$id' already exists in style")
-      }
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
         previous = imperativeImages.put(id, record)
         activeStyleMutation = reservation
@@ -642,7 +630,7 @@ internal class MapSnapshotterImplementation(
     }
     var committed = false
     try {
-      binding.addImage(id, image, sdf, stretch, replace)
+      binding.setImage(id, image, sdf, stretch)
       // A replaced image ends the previous handle's identity, even though the ID stays.
       binding.identity.images.remove(id)
       val handle = lock.withLock {
@@ -652,7 +640,7 @@ internal class MapSnapshotterImplementation(
       committed = true
       return handle
     } catch (error: StyleMutationException) {
-      throw StyleHandleException("Could not add image '$id': ${error.message}", error)
+      throw StyleHandleException("Could not set image '$id': ${error.message}", error)
     } finally {
       lock.withLock {
         if (!committed && imperativeImages[id] === record) {

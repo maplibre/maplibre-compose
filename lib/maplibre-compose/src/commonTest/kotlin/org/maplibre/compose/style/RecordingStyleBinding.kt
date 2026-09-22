@@ -93,18 +93,11 @@ internal class RecordingStyleBinding(
 
   override val logger: MapLog? = null
 
-  override fun addImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition) {
     if (!addImageHookInvoked) {
       addImageHookInvoked = true
       beforeAddImage?.invoke(definition.id)
     }
-    if (definition.id in images) {
-      throw StyleMutationException("Image ID '${definition.id}' already exists in style", null)
-    }
-    images[definition.id] = definition.image
-  }
-
-  override fun setImage(definition: StyleImageDefinition) {
     if (definition.id in images) {
       if (definition.id in refusedImageReplacements) {
         throw StyleMutationException("Image '${definition.id}' was refused", null)

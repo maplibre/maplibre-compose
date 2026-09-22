@@ -60,9 +60,6 @@ internal interface StyleBinding {
 
   val logger: MapLog?
 
-  /** Adds an image. Fails with [StyleMutationException] when its ID is already in the style. */
-  fun addImage(definition: StyleImageDefinition)
-
   /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
@@ -70,15 +67,8 @@ internal interface StyleBinding {
    */
   fun setImage(definition: StyleImageDefinition)
 
-  fun addImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    stretch: ImageStretch?,
-    replace: Boolean = false,
-  ) {
-    val definition = StyleImageDefinition(id, ImageSnapshot.capture(image), sdf, stretch)
-    if (replace) setImage(definition) else addImage(definition)
+  fun setImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
+    setImage(StyleImageDefinition(id, ImageSnapshot.capture(image), sdf, stretch))
   }
 
   /** @return whether [id] was in the style. */

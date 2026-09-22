@@ -359,13 +359,12 @@ internal class MapStyleAuthority(
     }
   }
 
-  override fun addStyleImage(
+  override fun setStyleImage(
     id: String,
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
     expectedStyle: StyleBinding?,
-    replace: Boolean,
   ): StyleImageHandle {
     lifecycle.requireMain()
     val record = ImperativeImageRecord(fromResolver = false)
@@ -376,9 +375,6 @@ internal class MapStyleAuthority(
       expectedStyle?.let(::requireStyleHandle)
       requireNoDesiredImage(id)
       requireNoActiveStyleMutation()
-      if (!replace && id in imperativeImages) {
-        throw StyleHandleException("Image ID '$id' already exists in style")
-      }
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
         previous = imperativeImages.put(id, record)
         activeStyleMutation = reservation
@@ -386,7 +382,7 @@ internal class MapStyleAuthority(
     }
     var committed = false
     try {
-      binding.addImage(id, image, sdf, stretch, replace)
+      binding.setImage(id, image, sdf, stretch)
       // A replaced image ends the previous handle's identity, even though the ID stays.
       binding.identity.images.remove(id)
       val handle = run {
@@ -396,7 +392,7 @@ internal class MapStyleAuthority(
       committed = true
       return handle
     } catch (error: StyleMutationException) {
-      throw StyleHandleException("Could not add image '$id': ${error.message}", error)
+      throw StyleHandleException("Could not set image '$id': ${error.message}", error)
     } finally {
       run {
         if (!committed && imperativeImages[id] === record) {
@@ -520,7 +516,7 @@ internal class MapStyleAuthority(
       // An engine eviction ends the previous image identity, even when its ID is reused.
       binding.identity.images.remove(imageId)
       withContext(readDispatcher) {
-        binding.addImage(imageId, resolved.image, resolved.sdf, resolved.stretch)
+        binding.setImage(imageId, resolved.image, resolved.sdf, resolved.stretch)
       }
       committed = !lifecycle.isClosed && style.isCurrentLoadedStyle(binding)
     } catch (error: CancellationException) {
