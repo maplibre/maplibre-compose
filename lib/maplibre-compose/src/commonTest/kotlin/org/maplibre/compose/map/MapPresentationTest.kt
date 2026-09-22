@@ -1130,6 +1130,22 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_rejected_add_over_a_base_image_keeps_its_handle() {
+    val fixture = presentationFixture()
+    val image = FakeImageBitmap(1, 1)
+    val binding = RecordingStyleBinding(images = listOf("marker" to image))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val existing = assertNotNull(fixture.state.style.images["marker"]?.asMutable)
+
+    assertFailsWith<StyleHandleException> { fixture.state.style.images.add("marker", image) }
+
+    assertTrue(existing.remove())
+    assertFalse(binding.imageExists("marker"))
+    fixture.close()
+  }
+
+  @Test
   fun an_image_prepared_for_a_previous_style_cannot_enter_the_ready_replacement() {
     val fixture = presentationFixture()
     try {
