@@ -197,14 +197,17 @@ internal open class MlnFfiStyleBinding(
    * not pay a round trip per layer while each call still ends soon enough for the render feedback
    * between calls to advance a transition.
    */
-  override fun layerSummaries(): Map<String, LayerSummary> {
+  override fun layerSummaries(): Map<String, LayerSummary> = layerSummaries(LAYER_READ_SLICE)
+
+  /** [slice] bounds one owner-thread call. Tests compare slice lengths on the same host. */
+  internal fun layerSummaries(slice: Duration): Map<String, LayerSummary> {
     val ids = layerIds()
     val summaries = LinkedHashMap<String, LayerSummary>(ids.size)
     var next = 0
     while (next < ids.size) {
       val read =
         readMap { map ->
-          val deadline = TimeSource.Monotonic.markNow() + LAYER_READ_SLICE
+          val deadline = TimeSource.Monotonic.markNow() + slice
           var index = next
           do {
             val id = ids[index++]
@@ -1165,4 +1168,4 @@ private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
  * How long one owner-thread call may spend reading layer metadata. A frame at 120 Hz is 8 ms, so a
  * slice well under that leaves the render feedback between calls able to advance a transition.
  */
-private val LAYER_READ_SLICE = 2.milliseconds
+internal val LAYER_READ_SLICE = 2.milliseconds

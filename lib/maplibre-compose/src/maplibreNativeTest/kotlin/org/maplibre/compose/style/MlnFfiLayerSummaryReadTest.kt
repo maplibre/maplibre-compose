@@ -6,6 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 
@@ -22,30 +24,60 @@ class MlnFfiLayerSummaryReadTest {
       fixture.loadStyle(largeStyle(LAYER_COUNT))
       fixture.pumpUntilRendered()
       fixture.settle()
-      val style = assertNotNull(fixture.style)
+      val style = assertNotNull(fixture.style as? MlnFfiStyleBinding, "Errors: ${fixture.errors}")
 
-      // A transition keeps native producing updates for the render thread to consume.
-      style.setLayerProperty(
-        layerId = "layer-0",
-        name = "background-color",
-        value = JsonPrimitive("#00ff00"),
-        kind = LayerPropertyKind.PAINT,
-      )
+      // How many frames a host presents while reading depends on how fast it reads and renders, so
+      // the same read runs twice on it: once in slices, and once held in a single owner-thread call
+      // the way it was read before slicing.
+      val sliced = fixture.readWhileRendering(style) { style.layerSummaries() }
+      val whole = fixture.readWhileRendering(style) { style.layerSummaries(Duration.INFINITE) }
 
-      val before = fixture.renderedFrames.load()
-      val summaries = fixture.whileRenderingOnRendererThread { style.layerSummaries() }
-      val rendered = fixture.renderedFrames.load() - before
+      assertEquals(LAYER_COUNT, sliced.summaries.size)
+      assertEquals(LAYER_COUNT, whole.summaries.size)
 
-      assertEquals(LAYER_COUNT, summaries.size)
-      // A frame renders only after the owner thread drains a native update, so frames during the
-      // read count the times it yielded. Reading every layer in one call leaves the request made
-      // before the read and the one made after it, and nothing in between.
+      // A host that reads every layer within one slice has nothing to yield between calls, and the
+      // two reads are then the same read.
+      if (whole.elapsed < LAYER_READ_SLICE * MIN_SLICES) return
+
+      // A frame renders only after the owner thread drains a native update, so frames during a read
+      // count the times it yielded. The single call leaves the request made before the read and the
+      // one made after it, and nothing in between.
       assertTrue(
-        rendered >= MIN_YIELDED_FRAMES,
-        "only $rendered frames rendered while reading $LAYER_COUNT layers: the read did not yield",
+        sliced.frames > whole.frames,
+        "reading $LAYER_COUNT layers in $LAYER_READ_SLICE slices rendered ${sliced.frames} " +
+          "frames in ${sliced.elapsed}, no more than the ${whole.frames} frames of the single " +
+          "call in ${whole.elapsed}: the sliced read did not yield",
       )
     }
   }
+
+  private class Read(
+    val summaries: Map<String, LayerSummary>,
+    val frames: Long,
+    val elapsed: Duration,
+  )
+
+  /** Reads with a renderer thread presenting frames, while a transition feeds it native updates. */
+  private fun BridgeMapFixture.readWhileRendering(
+    style: MlnFfiStyleBinding,
+    read: () -> Map<String, LayerSummary>,
+  ): Read {
+    style.setLayerProperty(
+      layerId = "layer-0",
+      name = "background-color",
+      value = JsonPrimitive(nextColor()),
+      kind = LayerPropertyKind.PAINT,
+    )
+    val framesBefore = renderedFrames.load()
+    val started = TimeSource.Monotonic.markNow()
+    val summaries = whileRenderingOnRendererThread(read)
+    return Read(summaries, renderedFrames.load() - framesBefore, started.elapsedNow())
+  }
+
+  private var color = 0
+
+  /** A new color each read, so each one runs against a transition of its own. */
+  private fun nextColor(): String = COLORS[color++ % COLORS.size]
 
   private fun largeStyle(layers: Int): BaseStyle {
     val entries =
@@ -59,7 +91,9 @@ class MlnFfiLayerSummaryReadTest {
     /** Enough layers that one owner-thread time slice cannot read them all. */
     const val LAYER_COUNT = 600
 
-    /** Measured: about 7 frames while yielding, and 2 without. */
-    const val MIN_YIELDED_FRAMES = 4
+    /** Slices a read must span before the frames rendered during it say anything. */
+    const val MIN_SLICES = 4
+
+    val COLORS = listOf("#00ff00", "#ff0000", "#ffff00")
   }
 }
