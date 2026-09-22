@@ -65,9 +65,9 @@ def _layer_file(
     _write(
         root,
         f"lib/maplibre-compose/src/{source_set}/kotlin/org/maplibre/compose/layers/{filename}",
-        f'@Composable fun Demo() {{ Layer(definition = layerDefinition("{layer_type}") {{\n'
+        f'@Composable fun Demo() {{ Layer(id = "test", type = "{layer_type}") {{\n'
         f"  {writes}\n"
-        f"}}) }}\n",
+        f"}} }}\n",
     )
 
 
@@ -319,9 +319,9 @@ class AuditTest(unittest.TestCase):
             _write(
                 root,
                 _LAYERS_DIR + "FillLayer.kt",
-                "@Composable fun FillLayer() { Layer(definition = builtInLayerDefinition(\n"
+                "@Composable fun FillLayer() { Layer(\n"
                 '  type = "fill",\n'
-                ') { paint("fill-opacity", opacity) }) }\n',
+                ') { paint("fill-opacity", opacity) } }\n',
             )
             _write(
                 root,

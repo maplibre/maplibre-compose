@@ -25,7 +25,6 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.RawLayer
-import org.maplibre.compose.layers.layerDefinition
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
@@ -143,11 +142,10 @@ fun PluginMeshLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      layerDefinition("plugin-mesh") {
-        paint("mesh-opacity", opacity)
-      },
-  )
+    type = "plugin-mesh",
+  ) {
+    paint("mesh-opacity", opacity)
+  }
 }
 
 // #endregion plugin-layer

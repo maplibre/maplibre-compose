@@ -112,32 +112,32 @@ public fun FillExtrusionLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("fill-extrusion") {
-        root("source-layer", JsonPrimitive(sourceLayer))
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        root("filter", filter)
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        layout("fill-extrusion-rounded-corner-distance", roundedCornerDistance)
-        paint("fill-extrusion-translate", translate)
-        paintTransition("fill-extrusion-translate", translateTransition)
-        paint("fill-extrusion-translate-anchor", translateAnchor)
-        paint("fill-extrusion-opacity", opacity)
-        paintTransition("fill-extrusion-opacity", opacityTransition)
-        paint("fill-extrusion-color", color)
-        paintTransition("fill-extrusion-color", colorTransition)
-        paint("fill-extrusion-pattern", pattern)
-        paintTransition("fill-extrusion-pattern", patternTransition)
-        paint("fill-extrusion-height", height)
-        paintTransition("fill-extrusion-height", heightTransition)
-        paint("fill-extrusion-base", base)
-        paintTransition("fill-extrusion-base", baseTransition)
-        paint("fill-extrusion-vertical-gradient", verticalGradient)
-      },
+    type = "fill-extrusion",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("fill-extrusion-rounded-corner-distance", roundedCornerDistance)
+    paint("fill-extrusion-translate", translate)
+    paintTransition("fill-extrusion-translate", translateTransition)
+    paint("fill-extrusion-translate-anchor", translateAnchor)
+    paint("fill-extrusion-opacity", opacity)
+    paintTransition("fill-extrusion-opacity", opacityTransition)
+    paint("fill-extrusion-color", color)
+    paintTransition("fill-extrusion-color", colorTransition)
+    paint("fill-extrusion-pattern", pattern)
+    paintTransition("fill-extrusion-pattern", patternTransition)
+    paint("fill-extrusion-height", height)
+    paintTransition("fill-extrusion-height", heightTransition)
+    paint("fill-extrusion-base", base)
+    paintTransition("fill-extrusion-base", baseTransition)
+    paint("fill-extrusion-vertical-gradient", verticalGradient)
+  }
 }

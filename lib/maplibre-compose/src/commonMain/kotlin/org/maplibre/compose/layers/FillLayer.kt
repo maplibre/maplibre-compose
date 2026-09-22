@@ -121,32 +121,32 @@ public fun FillLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("fill") {
-        root("source-layer", JsonPrimitive(sourceLayer))
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        root("filter", filter)
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        layout("fill-sort-key", sortKey)
-        paint("fill-antialias", antialias)
-        paint("fill-opacity", opacity)
-        paintTransition("fill-opacity", opacityTransition)
-        paint("fill-layer-opacity", layerOpacity)
-        paintTransition("fill-layer-opacity", layerOpacityTransition)
-        paint("fill-color", color)
-        paintTransition("fill-color", colorTransition)
-        paint("fill-outline-color", outlineColor)
-        paintTransition("fill-outline-color", outlineColorTransition)
-        paint("fill-translate", translate)
-        paintTransition("fill-translate", translateTransition)
-        paint("fill-translate-anchor", translateAnchor)
-        paint("fill-pattern", pattern)
-        paintTransition("fill-pattern", patternTransition)
-      },
+    type = "fill",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("fill-sort-key", sortKey)
+    paint("fill-antialias", antialias)
+    paint("fill-opacity", opacity)
+    paintTransition("fill-opacity", opacityTransition)
+    paint("fill-layer-opacity", layerOpacity)
+    paintTransition("fill-layer-opacity", layerOpacityTransition)
+    paint("fill-color", color)
+    paintTransition("fill-color", colorTransition)
+    paint("fill-outline-color", outlineColor)
+    paintTransition("fill-outline-color", outlineColorTransition)
+    paint("fill-translate", translate)
+    paintTransition("fill-translate", translateTransition)
+    paint("fill-translate-anchor", translateAnchor)
+    paint("fill-pattern", pattern)
+    paintTransition("fill-pattern", patternTransition)
+  }
 }

@@ -2,112 +2,106 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
+import androidx.compose.runtime.currentComposer
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.style.PreparedLayerDefinition
+import org.maplibre.compose.style.ResolvedLayerDefinition
 import org.maplibre.compose.style.StyleProperty
+import org.maplibre.compose.style.styleFontScale
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
- * Declares a layer using named JSON properties or expressions. The surrounding [Anchor] determines
- * placement. The layer is removed when it leaves composition and restored after a style reload.
+ * Declares a layer of any engine-supported [type]. The surrounding [Anchor] determines placement.
+ * The layer is removed when it leaves composition and restored after a style reload.
  *
- * [source] installs and retains a managed source. Without it, the definition may name an existing
- * source using its root `source` property. A conflicting source ID is an error.
+ * [properties] describes the complete layer on each invocation; omitted properties are removed. It
+ * is a regular Kotlin builder, so call composable helpers before this block. Named properties and
+ * JSON pass to the engine without Compose's style-spec filtering. Expressions support managed
+ * images and text units. Paint transitions follow the system animation-duration scale.
  *
- * Paint, layout, filter, and zoom changes update the installed layer. Changes to its type, source,
- * source-layer, or other root fields replace it. Engine support for properties and feature queries
- * depends on the layer type. Composition owns its definition; its handle is read-only.
+ * [source] installs and retains a managed source. Without it, a root `source` property may name an
+ * existing source. Conflicting source IDs are an error. Paint, layout, filter, and zoom changes
+ * update the installed layer; changes to its type, source, source-layer, or other root fields
+ * replace it. Engine support for properties and feature queries depends on the layer type.
+ * Composition owns the layer; its handle is read-only.
  */
 @Composable
 @MaplibreComposable
 public fun Layer(
   id: String,
-  definition: LayerDefinition,
+  type: String,
   source: Source? = null,
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
+  properties: LayerProperties.() -> Unit = {},
 ) {
-  require(id.isNotBlank()) { "Layer ID must not be blank" }
-  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
-    "hitPadding must be finite and nonnegative"
-  }
-  val compiler = rememberPropertyCompiler()
-  val properties = linkedMapOf<StyleProperty, JsonElement>()
-  val images = linkedMapOf<StyleProperty, LayerProperty<*>>()
-  definition.properties.forEach { (path, value) ->
-    when (value) {
-      is LayerValue.Json -> properties[path] = value.value
-      is LayerValue.Expression ->
-        key(path) {
-          val property = compiler.withUnits(value.units)(value.value)
-          if (property.images.isNotEmpty()) images[path] = property
-          else
-            property
-              .resolve(emptyMap())
-              .takeUnless { it == JsonNull }
-              ?.let { properties[path] = it }
-        }
+  Layer(id, type, source, onClick, onLongClick, onDoubleClick, hitPadding, false, properties)
+}
+
+// Built-ins retain their documented cross-engine filtering; preparation and ownership are shared.
+@Composable
+@MaplibreComposable
+internal fun Layer(
+  id: String,
+  type: String,
+  source: Source? = null,
+  onClick: FeaturesClickHandler? = null,
+  onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  filterUnsupportedProperties: Boolean,
+  properties: LayerProperties.() -> Unit,
+) {
+  validateLayer(id, type, hitPadding)
+  val density = LocalDensity.current
+  val direction = LocalLayoutDirection.current
+  val fontScale = styleFontScale()
+  val locals = currentComposer.currentCompositionLocalMap
+  val cache =
+    remember(density, direction, fontScale, locals) {
+      // Headless style compositions need a graphics context only if a property contains a painter.
+      LayerPropertyCache(
+        LayerPropertyCompiler(density, direction, fontScale) { locals[LocalGraphicsContext] }
+      )
     }
-  }
-  val declaredSource =
-    (properties[SourceProperty] ?: definition.json?.get("source"))?.let {
-      require(it is JsonPrimitive && it.isString) { "Layer source must be a string" }
-      it.content
+  cache.begin()
+  val builder = LayerProperties(cache)
+  val snapshot =
+    try {
+      builder.properties()
+      builder.finish(id, type, source?.id, filterUnsupportedProperties)
+    } finally {
+      builder.close()
+      cache.end()
     }
-  require(source == null || declaredSource == null || source.id == declaredSource) {
-    "Layer source conflicts with its managed source"
-  }
-  val prepared =
-    PreparedLayerDefinition(
-      id = id,
-      type = definition.type,
-      sourceId = source?.id ?: declaredSource,
-      properties = properties,
-      imageProperties = images,
-      json = definition.json,
-      unsupportedProperties = definition.unsupportedProperties,
-      filterUnsupportedProperties = definition.filterUnsupportedProperties,
-    )
-  val anchor = LocalAnchor.current
-  val clickGroup = LocalLayerClickGroup.current
-  key(
-    id,
-    definition.type,
-    prepared.sourceId,
-    properties[SourceLayerProperty] ?: definition.json?.get("source-layer"),
-  ) {
-    ComposeNode<LayerNode, MapNodeApplier>(
-      factory = { LayerNode(prepared, anchor) },
-      update = {
-        set(prepared) { updateDefinition(it) }
-        set(source) { this.source = it }
-        set(anchor) { this.anchor = it }
-        set(onClick) { this.onClick = it }
-        set(onLongClick) { this.onLongClick = it }
-        set(onDoubleClick) { this.onDoubleClick = it }
-        set(hitPadding) { this.hitPadding = it }
-        set(clickGroup) { this.clickGroup = it }
-      },
-    )
-  }
+  LayerNode(
+    snapshot.definition,
+    snapshot.images,
+    source,
+    onClick,
+    onLongClick,
+    onDoubleClick,
+    hitPadding,
+  )
 }
 
 /**
  * Declares a complete JSON layer without Compose's style-spec filtering or expression conversion.
  * [id] supplies the identity; an `id` in [definition] must match. Raw image names must already
- * exist in the style. Use [Layer] and [layerDefinition] for expressions containing painters or
- * bitmaps.
+ * exist in the style. Use [Layer] for expressions containing painters or bitmaps.
  *
  * Raw transition timing is passed unchanged, without the system animation-duration scale. Other
  * lifecycle, source ownership, and update rules are the same as [Layer].
@@ -127,6 +121,7 @@ public fun RawLayer(
   require(type is JsonPrimitive && type.isString && type.content.isNotBlank()) {
     "Layer type must be a nonblank string"
   }
+  validateLayer(id, type.content, hitPadding)
   require(definition["id"] == null || definition["id"] == JsonPrimitive(id)) {
     "Layer ID conflicts with its definition"
   }
@@ -135,10 +130,65 @@ public fun RawLayer(
       "Layer $section must be an object"
     }
   }
-  val declaration =
-    LayerDefinition(type.content, emptyMap(), json = definition.snapshot() as JsonObject)
-  Layer(id, declaration, source, onClick, onLongClick, onDoubleClick, hitPadding)
+  val sourceId = layerSourceId(definition, source?.id)
+  val json = definition.mapValuesTo(mutableMapOf()) { (_, value) -> value.snapshot() }
+  json["id"] = JsonPrimitive(id)
+  if (sourceId != null) json["source"] = JsonPrimitive(sourceId)
+  val resolved =
+    ResolvedLayerDefinition(id, type.content, sourceId, JsonObject(json), scaleTransitions = false)
+  LayerNode(resolved, emptyMap(), source, onClick, onLongClick, onDoubleClick, hitPadding)
 }
 
-private val SourceProperty = StyleProperty(null, "source")
-private val SourceLayerProperty = StyleProperty(null, "source-layer")
+@Composable
+@MaplibreComposable
+private fun LayerNode(
+  definition: ResolvedLayerDefinition,
+  images: Map<StyleProperty, LayerProperty<*>>,
+  source: Source?,
+  onClick: FeaturesClickHandler?,
+  onLongClick: FeaturesClickHandler?,
+  onDoubleClick: FeaturesClickHandler?,
+  hitPadding: Dp,
+) {
+  val anchor = LocalAnchor.current
+  val clickGroup = LocalLayerClickGroup.current
+  key(definition.id, definition.type, definition.sourceId, definition.value["source-layer"]) {
+    ComposeNode<LayerNode, MapNodeApplier>(
+      factory = { LayerNode(definition, anchor) },
+      update = {
+        set(definition) { this.definition = it }
+        set(images) { imageProperties = it }
+        set(source) { this.source = it }
+        set(anchor) { this.anchor = it }
+        set(onClick) { this.onClick = it }
+        set(onLongClick) { this.onLongClick = it }
+        set(onDoubleClick) { this.onDoubleClick = it }
+        set(hitPadding) { this.hitPadding = it }
+        set(clickGroup) { this.clickGroup = it }
+      },
+    )
+  }
+}
+
+private fun validateLayer(id: String, type: String, hitPadding: Dp) {
+  require(id.isNotBlank()) { "Layer ID must not be blank" }
+  require(type.isNotBlank()) { "Layer type must not be blank" }
+  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
+    "hitPadding must be finite and nonnegative"
+  }
+}
+
+internal fun layerSourceId(
+  properties: Map<String, JsonElement>,
+  managedSourceId: String?,
+): String? {
+  val declared =
+    properties["source"]?.let {
+      require(it is JsonPrimitive && it.isString) { "Layer source must be a string" }
+      it.content
+    }
+  require(managedSourceId == null || declared == null || managedSourceId == declared) {
+    "Layer source conflicts with its managed source"
+  }
+  return managedSourceId ?: declared
+}

@@ -23,8 +23,8 @@ mise run style-spec:parity -- --spec /path/to/v8.json
 `--check` fails when a layer type, source type, or paint or layout property that
 the pinned engines implement is missing on an engine that implements it, written
 with the other kind, or when the native unsupported table disagrees with pinned
-support. The catalog reads `layerDefinition` and `builtInLayerDefinition` types
-and their `paint`, `layout`, `root`, and `paintTransition` declarations.
+support. The catalog reads the named `type` argument of `Layer` calls and their
+`paint`, `layout`, `root`, and `paintTransition` declarations.
 
 A `sdk-support` version counts only when it is at most the pin. `maplibre-js` in
 `gradle/libs.versions.toml` is the GL JS pin, and `maplibre-styleSpec` pins the
@@ -69,9 +69,9 @@ until the API exposes it.
 ## Add a property both engines implement
 
 1. Add the composable parameter and a `layout` or `paint` declaration with the
-   spec name in its `builtInLayerDefinition` builder. Built-in and plugin
-   wrappers both use the public `Layer` composable. Follow the surrounding
-   layer. A new enum belongs next to the others in
+   spec name in its `Layer` properties block. Built-in and plugin wrappers share
+   the same layer implementation. Follow the surrounding layer. A new enum
+   belongs next to the others in
    `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/expressions/value/`.
 2. Default to the spec default when writing it on native is safe. Use `nil()`
    when the property is optional and an unset value should stay absent.

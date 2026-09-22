@@ -77,27 +77,27 @@ public fun RasterLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("raster") {
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        paint("raster-opacity", opacity)
-        paintTransition("raster-opacity", opacityTransition)
-        paint("raster-hue-rotate", hueRotate)
-        paintTransition("raster-hue-rotate", hueRotateTransition)
-        paint("raster-brightness-min", brightnessMin)
-        paintTransition("raster-brightness-min", brightnessMinTransition)
-        paint("raster-brightness-max", brightnessMax)
-        paintTransition("raster-brightness-max", brightnessMaxTransition)
-        paint("raster-saturation", saturation)
-        paintTransition("raster-saturation", saturationTransition)
-        paint("raster-contrast", contrast)
-        paintTransition("raster-contrast", contrastTransition)
-        paint("raster-resampling", resampling)
-        paint("raster-fade-duration", fadeDuration)
-      },
+    type = "raster",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("raster-opacity", opacity)
+    paintTransition("raster-opacity", opacityTransition)
+    paint("raster-hue-rotate", hueRotate)
+    paintTransition("raster-hue-rotate", hueRotateTransition)
+    paint("raster-brightness-min", brightnessMin)
+    paintTransition("raster-brightness-min", brightnessMinTransition)
+    paint("raster-brightness-max", brightnessMax)
+    paintTransition("raster-brightness-max", brightnessMaxTransition)
+    paint("raster-saturation", saturation)
+    paintTransition("raster-saturation", saturationTransition)
+    paint("raster-contrast", contrast)
+    paintTransition("raster-contrast", contrastTransition)
+    paint("raster-resampling", resampling)
+    paint("raster-fade-duration", fadeDuration)
+  }
 }

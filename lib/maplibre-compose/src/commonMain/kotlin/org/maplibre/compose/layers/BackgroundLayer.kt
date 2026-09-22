@@ -51,19 +51,19 @@ public fun BackgroundLayer(
 
   Layer(
     id = id,
-    definition =
-      builtInLayerDefinition("background") {
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        paint("background-color", color)
-        paintTransition("background-color", colorTransition)
-        paint("background-pattern", pattern)
-        paintTransition("background-pattern", patternTransition)
-        paint("background-opacity", opacity)
-        paintTransition("background-opacity", opacityTransition)
-      },
+    type = "background",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("background-color", color)
+    paintTransition("background-color", colorTransition)
+    paint("background-pattern", pattern)
+    paintTransition("background-pattern", patternTransition)
+    paint("background-opacity", opacity)
+    paintTransition("background-opacity", opacityTransition)
+  }
 }

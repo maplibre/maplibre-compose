@@ -30,6 +30,27 @@ import org.maplibre.compose.style.rememberStyleComposition
 @OptIn(ExperimentalTestApi::class)
 class GenericLayerCompositionTest {
   @Test
+  fun state_reads_in_the_properties_block_trigger_updates() = runPlainComposeUiTest {
+    val recording = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    var opacity by mutableStateOf(0.5f)
+    setContent {
+      rememberStyleComposition(
+        maybeStyle = recording,
+        applyRevision = { style, revision -> reconciler.apply(style, revision) },
+        content = { Layer("plugin", "plugin") { paint("plugin-opacity", const(opacity)) } },
+      )
+    }
+    waitForIdle()
+    runOnIdle { opacity = 0.25f }
+    waitForIdle()
+    assertEquals(
+      JsonPrimitive(0.25f),
+      recording.layers.getValue("plugin")["paint"]!!.jsonObject["plugin-opacity"],
+    )
+  }
+
+  @Test
   fun raw_layers_preserve_json_patch_properties_and_replace_unknown_root_changes() =
     runPlainComposeUiTest {
       val recording = RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))
@@ -129,12 +150,8 @@ private val pluginBitmap = FakeImageBitmap(2, 2)
 // Uses only public layer APIs, as a separately published plugin would.
 @Composable
 private fun PluginLayer(id: String, source: Source, opacity: Expression<FloatValue>?) {
-  Layer(
-    id,
-    layerDefinition("plugin") {
-      if (opacity != null) paint("plugin-opacity", opacity)
-      layout("plugin-image", image(pluginBitmap))
-    },
-    source,
-  )
+  Layer(id, "plugin", source) {
+    if (opacity != null) paint("plugin-opacity", opacity)
+    layout("plugin-image", image(pluginBitmap))
+  }
 }

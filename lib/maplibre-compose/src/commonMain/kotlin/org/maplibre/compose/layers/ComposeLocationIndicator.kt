@@ -61,45 +61,45 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
   }
   Layer(
     id = id,
-    definition =
-      builtInLayerDefinition("location-indicator") {
-        paintTransition("location", locationTransition)
-        paintTransition("bearing", bearingTiming)
-        paintTransition("accuracy-radius", accuracyTiming)
-        paintTransition("bearing-accuracy", sectorTiming)
-        paintTransition("bearing-accuracy-radius", sectorTiming)
-        paintTransition("bearing-accuracy-color", sectorTiming)
-        paint(
-          "bearing-accuracy",
-          const(
-            if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
-            else 0f
-          ),
-        )
-        paint("bearing-accuracy-radius", properties.bearingAccuracyRadius)
-        paint("bearing-accuracy-color", properties.bearingAccuracyColor)
-        root("minzoom", JsonPrimitive(properties.minZoom))
-        root("maxzoom", JsonPrimitive(properties.maxZoom))
-        layout("visibility", JsonPrimitive(if (properties.visible) "visible" else "none"))
-        locationIndicatorImage("top-image", properties.topImage)
-        locationIndicatorImage("bearing-image", properties.bearingImage.takeIf { bearing != null })
-        locationIndicatorImage("shadow-image", properties.shadowImage)
-        paint("location", locationIndicatorPositionJson(target))
-        paint("bearing", const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f))
-        paint("accuracy-radius", const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
-        paint("accuracy-radius-color", const(properties.accuracyRadiusColor))
-        paint("accuracy-radius-border-color", const(properties.accuracyRadiusBorderColor))
-        paint("top-image-size", const(properties.topImageSize))
-        paint("bearing-image-size", const(properties.bearingImageSize))
-        paint("shadow-image-size", const(properties.shadowImageSize))
-        paint("image-tilt-displacement", const(properties.imageTiltDisplacement))
-        paint("perspective-compensation", const(properties.perspectiveCompensation))
-      },
+    type = "location-indicator",
+    filterUnsupportedProperties = true,
     onClick = properties.onClick?.asFeaturesClickHandler(),
     onLongClick = properties.onLongClick?.asFeaturesClickHandler(),
     onDoubleClick = properties.onDoubleClick?.asFeaturesClickHandler(),
     hitPadding = properties.hitPadding,
-  )
+  ) {
+    paintTransition("location", locationTransition)
+    paintTransition("bearing", bearingTiming)
+    paintTransition("accuracy-radius", accuracyTiming)
+    paintTransition("bearing-accuracy", sectorTiming)
+    paintTransition("bearing-accuracy-radius", sectorTiming)
+    paintTransition("bearing-accuracy-color", sectorTiming)
+    paint(
+      "bearing-accuracy",
+      const(
+        if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
+        else 0f
+      ),
+    )
+    paint("bearing-accuracy-radius", properties.bearingAccuracyRadius)
+    paint("bearing-accuracy-color", properties.bearingAccuracyColor)
+    root("minzoom", JsonPrimitive(properties.minZoom))
+    root("maxzoom", JsonPrimitive(properties.maxZoom))
+    layout("visibility", JsonPrimitive(if (properties.visible) "visible" else "none"))
+    locationIndicatorImage("top-image", properties.topImage)
+    locationIndicatorImage("bearing-image", properties.bearingImage.takeIf { bearing != null })
+    locationIndicatorImage("shadow-image", properties.shadowImage)
+    paint("location", locationIndicatorPositionJson(target))
+    paint("bearing", const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f))
+    paint("accuracy-radius", const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
+    paint("accuracy-radius-color", const(properties.accuracyRadiusColor))
+    paint("accuracy-radius-border-color", const(properties.accuracyRadiusBorderColor))
+    paint("top-image-size", const(properties.topImageSize))
+    paint("bearing-image-size", const(properties.bearingImageSize))
+    paint("shadow-image-size", const(properties.shadowImageSize))
+    paint("image-tilt-displacement", const(properties.imageTiltDisplacement))
+    paint("perspective-compensation", const(properties.perspectiveCompensation))
+  }
 }
 
 private class IndicatorHistory {
@@ -125,7 +125,7 @@ internal fun locationIndicatorPositionJson(location: Position): JsonArray =
     )
   )
 
-internal fun LayerDefinitionBuilder.locationIndicatorImage(
+internal fun LayerProperties.locationIndicatorImage(
   name: String,
   expression: Expression<ImageValue?>?,
 ) {

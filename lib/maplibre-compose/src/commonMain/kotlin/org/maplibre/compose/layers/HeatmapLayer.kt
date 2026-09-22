@@ -79,25 +79,25 @@ public fun HeatmapLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("heatmap") {
-        root("source-layer", JsonPrimitive(sourceLayer))
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        root("filter", filter)
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        paint("heatmap-radius", radius)
-        paintTransition("heatmap-radius", radiusTransition)
-        paint("heatmap-weight", weight)
-        paint("heatmap-intensity", intensity)
-        paintTransition("heatmap-intensity", intensityTransition)
-        paint("heatmap-color", color)
-        paint("heatmap-opacity", opacity)
-        paintTransition("heatmap-opacity", opacityTransition)
-      },
+    type = "heatmap",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("heatmap-radius", radius)
+    paintTransition("heatmap-radius", radiusTransition)
+    paint("heatmap-weight", weight)
+    paint("heatmap-intensity", intensity)
+    paintTransition("heatmap-intensity", intensityTransition)
+    paint("heatmap-color", color)
+    paint("heatmap-opacity", opacity)
+    paintTransition("heatmap-opacity", opacityTransition)
+  }
 }

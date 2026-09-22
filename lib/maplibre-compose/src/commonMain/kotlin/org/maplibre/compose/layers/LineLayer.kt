@@ -164,44 +164,44 @@ public fun LineLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("line") {
-        root("source-layer", JsonPrimitive(sourceLayer))
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        root("filter", filter)
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        layout("line-cap", cap)
-        layout("line-join", join)
-        layout("line-miter-limit", miterLimit)
-        layout("line-round-limit", roundLimit)
-        layout("line-sort-key", sortKey)
-        paint("line-opacity", opacity)
-        paintTransition("line-opacity", opacityTransition)
-        paint("line-layer-opacity", layerOpacity)
-        paintTransition("line-layer-opacity", layerOpacityTransition)
-        paint("line-color", color)
-        paintTransition("line-color", colorTransition)
-        paint("line-translate", translate)
-        paintTransition("line-translate", translateTransition)
-        paint("line-translate-anchor", translateAnchor)
-        paint("line-width", width)
-        paintTransition("line-width", widthTransition)
-        paint("line-gap-width", gapWidth)
-        paintTransition("line-gap-width", gapWidthTransition)
-        paint("line-offset", offset)
-        paintTransition("line-offset", offsetTransition)
-        paint("line-blur", blur)
-        paintTransition("line-blur", blurTransition)
-        paint("line-dasharray", dasharray)
-        paintTransition("line-dasharray", dasharrayTransition)
-        paint("line-pattern", pattern)
-        paintTransition("line-pattern", patternTransition)
-        paint("line-gradient", gradient)
-      },
+    type = "line",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("line-cap", cap)
+    layout("line-join", join)
+    layout("line-miter-limit", miterLimit)
+    layout("line-round-limit", roundLimit)
+    layout("line-sort-key", sortKey)
+    paint("line-opacity", opacity)
+    paintTransition("line-opacity", opacityTransition)
+    paint("line-layer-opacity", layerOpacity)
+    paintTransition("line-layer-opacity", layerOpacityTransition)
+    paint("line-color", color)
+    paintTransition("line-color", colorTransition)
+    paint("line-translate", translate)
+    paintTransition("line-translate", translateTransition)
+    paint("line-translate-anchor", translateAnchor)
+    paint("line-width", width)
+    paintTransition("line-width", widthTransition)
+    paint("line-gap-width", gapWidth)
+    paintTransition("line-gap-width", gapWidthTransition)
+    paint("line-offset", offset)
+    paintTransition("line-offset", offsetTransition)
+    paint("line-blur", blur)
+    paintTransition("line-blur", blurTransition)
+    paint("line-dasharray", dasharray)
+    paintTransition("line-dasharray", dasharrayTransition)
+    paint("line-pattern", pattern)
+    paintTransition("line-pattern", patternTransition)
+    paint("line-gradient", gradient)
+  }
 }

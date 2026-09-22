@@ -117,37 +117,37 @@ public fun CircleLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("circle") {
-        root("source-layer", JsonPrimitive(sourceLayer))
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        root("filter", filter)
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        layout("circle-sort-key", sortKey)
-        paint("circle-radius", radius)
-        paintTransition("circle-radius", radiusTransition)
-        paint("circle-color", color)
-        paintTransition("circle-color", colorTransition)
-        paint("circle-blur", blur)
-        paintTransition("circle-blur", blurTransition)
-        paint("circle-opacity", opacity)
-        paintTransition("circle-opacity", opacityTransition)
-        paint("circle-translate", translate)
-        paintTransition("circle-translate", translateTransition)
-        paint("circle-translate-anchor", translateAnchor)
-        paint("circle-pitch-scale", pitchScale)
-        paint("circle-pitch-alignment", pitchAlignment)
-        paint("circle-stroke-width", strokeWidth)
-        paintTransition("circle-stroke-width", strokeWidthTransition)
-        paint("circle-stroke-color", strokeColor)
-        paintTransition("circle-stroke-color", strokeColorTransition)
-        paint("circle-stroke-opacity", strokeOpacity)
-        paintTransition("circle-stroke-opacity", strokeOpacityTransition)
-      },
+    type = "circle",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("circle-sort-key", sortKey)
+    paint("circle-radius", radius)
+    paintTransition("circle-radius", radiusTransition)
+    paint("circle-color", color)
+    paintTransition("circle-color", colorTransition)
+    paint("circle-blur", blur)
+    paintTransition("circle-blur", blurTransition)
+    paint("circle-opacity", opacity)
+    paintTransition("circle-opacity", opacityTransition)
+    paint("circle-translate", translate)
+    paintTransition("circle-translate", translateTransition)
+    paint("circle-translate-anchor", translateAnchor)
+    paint("circle-pitch-scale", pitchScale)
+    paint("circle-pitch-alignment", pitchAlignment)
+    paint("circle-stroke-width", strokeWidth)
+    paintTransition("circle-stroke-width", strokeWidthTransition)
+    paint("circle-stroke-color", strokeColor)
+    paintTransition("circle-stroke-color", strokeColorTransition)
+    paint("circle-stroke-opacity", strokeOpacity)
+    paintTransition("circle-stroke-opacity", strokeOpacityTransition)
+  }
 }

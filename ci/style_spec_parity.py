@@ -27,9 +27,7 @@ NATIVE_BINDING = pathlib.Path(
     "org/maplibre/compose/style/MlnFfiStyleBinding.kt"
 )
 
-LAYER_TYPE = re.compile(
-    r'\b(?:layerDefinition|builtInLayerDefinition)\(\s*(?:type\s*=\s*)?"([^"]+)"'
-)
+LAYER_TYPE = re.compile(r'\bLayer\([^)]*?\btype\s*=\s*"([^"]+)"')
 PROPERTY_WRITE = re.compile(r'\b(?P<kind>layout|paint|root)\(\s*"(?P<name>[^"]+)"')
 TRANSITION_WRITE = re.compile(r'\bpaintTransition\(\s*"(?P<name>[^"]+)"')
 UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')

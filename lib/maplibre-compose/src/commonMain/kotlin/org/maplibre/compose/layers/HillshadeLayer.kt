@@ -81,26 +81,26 @@ public fun HillshadeLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("hillshade") {
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        paint("hillshade-method", method)
-        paint("hillshade-illumination-direction", illuminationDirection)
-        paint("hillshade-illumination-altitude", illuminationAltitude)
-        paint("hillshade-illumination-anchor", illuminationAnchor)
-        paint("hillshade-exaggeration", exaggeration)
-        paintTransition("hillshade-exaggeration", exaggerationTransition)
-        paint("resampling", resampling)
-        paint("hillshade-shadow-color", shadowColor)
-        paintTransition("hillshade-shadow-color", shadowColorTransition)
-        paint("hillshade-highlight-color", highlightColor)
-        paintTransition("hillshade-highlight-color", highlightColorTransition)
-        paint("hillshade-accent-color", accentColor)
-        paintTransition("hillshade-accent-color", accentColorTransition)
-      },
+    type = "hillshade",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("hillshade-method", method)
+    paint("hillshade-illumination-direction", illuminationDirection)
+    paint("hillshade-illumination-altitude", illuminationAltitude)
+    paint("hillshade-illumination-anchor", illuminationAnchor)
+    paint("hillshade-exaggeration", exaggeration)
+    paintTransition("hillshade-exaggeration", exaggerationTransition)
+    paint("resampling", resampling)
+    paint("hillshade-shadow-color", shadowColor)
+    paintTransition("hillshade-shadow-color", shadowColorTransition)
+    paint("hillshade-highlight-color", highlightColor)
+    paintTransition("hillshade-highlight-color", highlightColorTransition)
+    paint("hillshade-accent-color", accentColor)
+    paintTransition("hillshade-accent-color", accentColorTransition)
+  }
 }

@@ -50,17 +50,17 @@ public fun ColorReliefLayer(
   Layer(
     id = id,
     source = source,
-    definition =
-      builtInLayerDefinition("color-relief") {
-        root("minzoom", JsonPrimitive(minZoom))
-        root("maxzoom", JsonPrimitive(maxZoom))
-        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
-        paint("color-relief-color", color)
-        paint("color-relief-opacity", opacity)
-        paintTransition("color-relief-opacity", opacityTransition)
-        paint("resampling", resampling)
-      },
+    type = "color-relief",
+    filterUnsupportedProperties = true,
     onClick = null,
     onLongClick = null,
-  )
+  ) {
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    paint("color-relief-color", color)
+    paint("color-relief-opacity", opacity)
+    paintTransition("color-relief-opacity", opacityTransition)
+    paint("resampling", resampling)
+  }
 }

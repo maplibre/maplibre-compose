@@ -51,13 +51,14 @@ class LocationIndicatorLayerTest {
     val dynamic = image(FunctionCall.of("get", const("icon")).cast<StringValue>())
     assertTrue(!ConstantImageExpression(image(const(12.sp).convertToString())).isSupported)
     val definition =
-      builtInLayerDefinition("location-indicator") {
+      testLayerPropertyCache().snapshot {
         locationIndicatorImage("top-image", dynamic)
       }
-    assertTrue(definition.properties.isEmpty())
+    assertTrue(definition.images.isEmpty())
+    assertTrue("layout" !in definition.definition.value)
     assertEquals(
       mapOf("top-image" to "MapLibre Native reads only a constant image here"),
-      definition.unsupportedProperties,
+      definition.definition.unsupportedProperties,
     )
   }
 
