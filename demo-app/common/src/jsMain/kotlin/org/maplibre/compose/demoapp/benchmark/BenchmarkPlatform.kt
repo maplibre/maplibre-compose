@@ -15,6 +15,9 @@ internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
 
 internal actual fun benchmarkCpu(active: Boolean) {}
 
+/** Browsers expose no collection request. */
+internal actual fun benchmarkCollectGarbage() {}
+
 @Composable
 internal actual fun ClassicAndroidBenchmark(
   fixture: BenchmarkFixture,

@@ -22,3 +22,7 @@ internal actual fun benchmarkCpu(active: Boolean) {
   if (active) startCpuMillis = Process.getElapsedCpuTime()
   else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpuMillis}")
 }
+
+internal actual fun benchmarkCollectGarbage() {
+  System.gc()
+}

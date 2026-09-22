@@ -35,6 +35,11 @@ internal actual fun benchmarkCpu(active: Boolean) {
     println("MAP_BENCHMARK CPU ${(now - startCpuNanos) / 1e6}")
 }
 
+@OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+internal actual fun benchmarkCollectGarbage() {
+  kotlin.native.runtime.GC.collect()
+}
+
 @Composable
 internal actual fun ClassicAndroidBenchmark(
   fixture: BenchmarkFixture,
