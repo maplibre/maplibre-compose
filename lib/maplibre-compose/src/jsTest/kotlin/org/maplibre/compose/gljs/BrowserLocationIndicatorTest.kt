@@ -413,7 +413,7 @@ class BrowserLocationIndicatorTest {
             )
           }
           Canvas(bitmap).drawRect(Rect(0f, 0f, 24f, 24f), Paint().apply { color = Color.Blue })
-          style.addImage("dot", bitmap, false, null)
+          style.addImage("dot", bitmap, false, null, replace = true)
           host.drawOnce(target)
           assertEquals(2, indicator.uploadCount, "replaced image uploads exactly once")
           assertTrue(
