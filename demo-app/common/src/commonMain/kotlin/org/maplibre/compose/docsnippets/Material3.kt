@@ -32,7 +32,7 @@ fun Material3() {
     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
       val mapState = checkNotNull(LocalMapState.current)
       ScaleBar(
-        metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 }, // (1)!
+        metersPerDp = { mapState.cameraPosition.metersPerDp }, // (1)!
         modifier = Modifier.align(Alignment.TopStart),
       ) // (2)!
       CompassButton(modifier = Modifier.align(Alignment.TopEnd))

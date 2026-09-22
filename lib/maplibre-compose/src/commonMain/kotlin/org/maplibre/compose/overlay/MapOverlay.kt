@@ -106,7 +106,7 @@ public class MapOverlay(
       val mapState = checkNotNull(LocalMapState.current)
       DefaultControls {
         DisappearingScaleBar(
-          metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 },
+          metersPerDp = { mapState.cameraPosition.metersPerDp },
           zoom = { mapState.cameraPosition.zoom },
           modifier = Modifier.align(Alignment.TopStart),
         )

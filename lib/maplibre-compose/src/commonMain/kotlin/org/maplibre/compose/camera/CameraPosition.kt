@@ -3,6 +3,7 @@ package org.maplibre.compose.camera
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -25,6 +26,16 @@ public data class CameraPosition(
   public val zoom: Double = 1.0,
   public val padding: DpPadding = DpPadding.Zero,
 ) {
+  /**
+   * Meters per device independent pixel at [target]: the map's scale where the camera points.
+   *
+   * This needs only the camera, which the map publishes on its own. The same scale is on
+   * [Viewport][org.maplibre.compose.camera.Viewport] as well, but reading it there also computes
+   * the viewport's corners.
+   */
+  public val metersPerDp: Double
+    get() = metersPerDpAtLatitude(zoom, target.latitude)
+
   /** Targets every property, including properties equal to the current camera value. */
   public fun toCameraUpdate(): CameraUpdate = CameraUpdate(target, zoom, bearing, tilt, padding)
 }
