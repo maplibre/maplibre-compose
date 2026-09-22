@@ -1294,8 +1294,8 @@ internal class MlnFfiMapSession(
   ) {
     /**
      * The corners this camera renders. Unprojecting them is a quarter of the owner thread's work
-     * during camera motion, and most maps never read them, so they are derived from the frozen
-     * projection when something asks, and kept for later readers of the same publish.
+     * during camera motion, so they are derived from the frozen projection on the thread that asks
+     * for them, and kept for later readers of the same publish.
      */
     @Volatile private var derivedExtents: MapViewportExtents? = extents
 
@@ -1346,7 +1346,6 @@ internal class MlnFfiMapSession(
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
-    viewportSnapshotStale = false
     val geometry = map.readViewportGeometry(appliedViewportInsets)
     publishViewport(
       MirroredViewport(
@@ -1361,6 +1360,8 @@ internal class MlnFfiMapSession(
           } else null,
       )
     )
+    // Cleared last: a read that throws leaves the mirror stale so a later refresh retries it.
+    viewportSnapshotStale = false
   }
 
   private fun retireProjection() {
@@ -1866,6 +1867,9 @@ internal class MlnFfiMapSession(
                 lifecycle.acceptEngineEvent(engine) {
                   val authorityAccepted =
                     lifecycleAuthority.acceptEnginePlatformAccess(this) {
+                      // Raw access can change the transform without an event, so the mirror is
+                      // refreshed when this drain ends.
+                      viewportSnapshotStale = true
                       result = runCatching { PlatformMapScope(map).block() }
                     }
                   if (!authorityAccepted) {
