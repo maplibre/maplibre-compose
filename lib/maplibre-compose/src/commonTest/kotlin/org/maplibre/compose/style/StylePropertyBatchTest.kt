@@ -77,7 +77,7 @@ class StylePropertyBatchTest {
     assertEquals(JsonPrimitive("yellow"), style.layerProperty("b", "background-color"))
   }
 
-  private fun revision(vararg layers: LayerDefinition): DesiredStyleRevision =
+  private fun revision(vararg layers: ResolvedLayerDefinition): DesiredStyleRevision =
     DesiredStyleRevision(
       sources = emptyList(),
       layers = layers.map { DesiredStyleLayer(it, Anchor.Top, null, null) },
@@ -89,8 +89,8 @@ class StylePropertyBatchTest {
     color: String,
     transition: String? = null,
     opacity: Double = 1.0,
-  ): LayerDefinition =
-    LayerDefinition(
+  ): ResolvedLayerDefinition =
+    ResolvedLayerDefinition(
       id = id,
       type = "background",
       sourceId = null,

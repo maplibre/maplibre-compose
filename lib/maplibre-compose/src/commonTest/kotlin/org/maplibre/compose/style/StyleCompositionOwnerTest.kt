@@ -15,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,8 +31,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerProperty
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.GeoJsonData
@@ -59,16 +60,16 @@ class StyleCompositionOwnerTest {
     runCurrent()
     assertTrue(starts.isEmpty())
     val sprite =
-      BackgroundLayer("layer-0").apply {
-        setBackgroundPattern(image("sprite").compile(ExpressionContext.None).asLayerProperty())
+      TestLayer("layer-0", "background").apply {
+        paint(
+          "background-pattern",
+          image("sprite").compile(ExpressionContext.None).asLayerProperty(),
+        )
       }
-    declarations.send(
-      StyleDeclaration(
-        emptyList(),
-        listOf(DeclaredStyleLayer(DesiredStyleLayer(sprite.definition(), Anchor.Top, null, null))),
-      )
-    )
+    val spriteLayer = DesiredStyleLayer(sprite.definition(), Anchor.Top, null, null)
+    declarations.send(StyleDeclaration(emptyList(), listOf(DeclaredStyleLayer(spriteLayer))))
     runCurrent()
+    assertSame(spriteLayer, revisions.last().layers.single())
     val spriteValue = paint(revisions.last())["background-pattern"]
     declarations.send(declaration(listOf(first, first, equalPixels)))
     runCurrent()
@@ -159,8 +160,8 @@ class StyleCompositionOwnerTest {
       ),
       requests.mapIndexed { index, request ->
         val layer =
-          BackgroundLayer("layer-$index").apply {
-            setBackgroundOpacity(const(opacity).asLayerProperty())
+          TestLayer("layer-$index", "background").apply {
+            paint("background-opacity", const(opacity).asLayerProperty())
           }
         DeclaredStyleLayer(
           DesiredStyleLayer(layer.definition(), Anchor.Top, null, null),

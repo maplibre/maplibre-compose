@@ -36,7 +36,7 @@ internal class StyleNode(
 
   private fun snapshotDeclaration(): StyleDeclaration {
     val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
-    val layerNodes = children.filterIsInstance<LayerNode<*>>()
+    val layerNodes = children.filterIsInstance<LayerNode>()
     val sources =
       layerNodes
         .mapNotNull { it.source }
@@ -49,8 +49,8 @@ internal class StyleNode(
           base == null
         }
     layerNodes.forEach {
-      require(it.layer.id !in baseLayerIds) {
-        "Layer ID '${it.layer.id}' already exists in base style"
+      require(it.definition.id !in baseLayerIds) {
+        "Layer ID '${it.definition.id}' already exists in base style"
       }
     }
     return StyleDeclaration(
@@ -61,7 +61,7 @@ internal class StyleNode(
         layerNodes.map { node ->
           DeclaredStyleLayer(
             DesiredStyleLayer(
-              definition = node.layer.definition(),
+              definition = node.definition,
               anchor = node.anchor,
               onClick = node.onClick,
               onLongClick = node.onLongClick,
@@ -70,7 +70,7 @@ internal class StyleNode(
               registration = node.registration,
               clickGroup = node.clickGroup,
             ),
-            node.layer.declaredImageProperties,
+            node.imageProperties,
           )
         },
     )

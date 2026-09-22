@@ -97,6 +97,7 @@ internal class StyleCompositionOwner(
         val layers =
           declaration.layers.map { declared ->
             val layer = declared.layer
+            if (declared.imageProperties.isEmpty()) return@map layer
             val value = layer.definition.value.toMutableMap()
             declared.imageProperties.forEach { (path, property) ->
               val key = (layer.registration ?: layer.definition.id) to path

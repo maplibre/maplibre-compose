@@ -2,6 +2,7 @@ package org.maplibre.compose.interaction
 
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import kotlin.time.Duration
 import org.maplibre.compose.interaction.internal.DragBinding
 import org.maplibre.compose.interaction.internal.DragFitBoundsSettings
@@ -22,14 +23,17 @@ import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 
 @MapInteractionDsl
 public class DragPanBuilder internal constructor(from: DragPanSettings) {
-  /** Recognition distance for non-mouse pointers, in dp. */
+  /**
+   * Recognition distance for non-mouse pointers, in dp. [Dp.Unspecified] (the default) uses
+   * Compose's local touch slop.
+   */
   public var startSlop: Dp = from.startSlop
 
   /** Recognition distance for mouse pointers, in dp; independent of [startSlop]. */
   public var mouseStartSlop: Dp = from.mouseStartSlop
 
   internal fun build(): DragPanSettings {
-    requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
+    if (startSlop.isSpecified) requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     requireNonnegativeFinite(mouseStartSlop.value.toDouble(), "mouseStartSlop")
     return DragPanSettings(startSlop, mouseStartSlop)
   }
@@ -234,6 +238,11 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   }
 }
 
+/**
+ * Two-pointer transforms first cross the Compose host's touch slop. Component thresholds below
+ * apply in addition to that initial recognition distance. Host-recognized trackpad gestures have
+ * already passed host recognition.
+ */
 @MapInteractionDsl
 public class TransformBuilder internal constructor(from: TransformBinding) {
   private val panBuilder = TransformPanBuilder(from.pan)
@@ -394,6 +403,10 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
     secondaryClickBuilder.apply(block)
   }
 
+  /**
+   * Recognizes a held contact after the host's long-press timeout. Independently timed overlay
+   * handlers can also recognize the hold before either handler consumes another pointer event.
+   */
   public fun longPress(block: TapBindingBuilder.() -> Unit) {
     longPressBuilder.apply(block)
   }

@@ -71,6 +71,7 @@ internal class PointerTransform(
   private val onStart: (CameraComponent) -> Boolean,
   private val onDelta: (CameraComponent, TransformDecision) -> Boolean,
   maximumFlingVelocity: Float = Float.MAX_VALUE,
+  private val touchSlopPx: Float,
 ) {
   val firstId = first.id
   val secondId = second.id
@@ -89,6 +90,10 @@ internal class PointerTransform(
   private val rotationVelocity = GestureVelocityTracker()
   private var totalRotation = 0.0
   private var closed = false
+  private var pastTouchSlop = touchSlopPx <= 0f
+  private var admissionPan = Offset.Zero
+  private var admissionZoom = 1.0
+  private var admissionRotation = 0.0
 
   init {
     policy.reset(origin)
@@ -103,6 +108,9 @@ internal class PointerTransform(
     scaleVelocity.resetTracking()
     rotationVelocity.resetTracking()
     policy.reset(origin)
+    admissionPan = Offset.Zero
+    admissionZoom = 1.0
+    admissionRotation = 0.0
     record(origin)
   }
 
@@ -125,7 +133,31 @@ internal class PointerTransform(
       return false
     }
 
-    val motion = PairMotion(origin, current, next)
+    var motion = PairMotion(origin, current, next)
+    if (!pastTouchSlop) {
+      admissionPan += motion.pan
+      admissionZoom *= motion.scale
+      admissionRotation += motion.rotation
+      // Match Compose detectTransformGestures: accumulated motion uses the preceding
+      // centroid radius (half the pair span), and admission requires strictly greater slop.
+      val radius = current.distance / 2.0
+      val zoomMotion = abs(1.0 - admissionZoom) * radius
+      val rotationMotion = abs(admissionRotation * kotlin.math.PI * radius / 180.0)
+      if (
+        admissionPan.getDistance() <= touchSlopPx &&
+          zoomMotion <= touchSlopPx &&
+          rotationMotion <= touchSlopPx
+      ) {
+        current = next
+        return false
+      }
+      pastTouchSlop = true
+      // Do not replay motion withheld while descendants could still claim the gesture.
+      // Camera component thresholds now apply from the sample preceding admission.
+      origin = current
+      policy.reset(origin)
+      motion = PairMotion(origin, current, next)
+    }
     totalRotation += motion.rotation
     record(next)
     current = next

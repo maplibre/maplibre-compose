@@ -4,7 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import kotlin.time.Duration
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.ConstantImageExpression
+import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Position
@@ -54,68 +59,47 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
     history.bearingAvailable = bearing != null
     history.accuracyAvailable = accuracyRadius != null
   }
-  val compile = rememberPropertyCompiler()
-
-  val compiledBearing =
-    compile(const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f))
-  val compiledAccuracyRadius = compile(const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
-  val compiledAccuracyRadiusColor = compile(const(properties.accuracyRadiusColor))
-  val compiledAccuracyRadiusBorderColor = compile(const(properties.accuracyRadiusBorderColor))
-  val compiledBearingAccuracy =
-    compile(
-      const(
-        if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
-        else 0f
-      )
-    )
-  val compiledBearingAccuracyRadius = compile(properties.bearingAccuracyRadius)
-  val compiledBearingAccuracyColor = compile(properties.bearingAccuracyColor)
-  val compiledTopImage = compile(properties.topImage)
-  val compiledBearingImage = compile(properties.bearingImage.takeIf { bearing != null })
-  val compiledShadowImage = compile(properties.shadowImage)
-  val compiledTopImageSize = compile(const(properties.topImageSize))
-  val compiledBearingImageSize = compile(const(properties.bearingImageSize))
-  val compiledShadowImageSize = compile(const(properties.shadowImageSize))
-  val compiledImageTiltDisplacement = compile(const(properties.imageTiltDisplacement))
-  val compiledPerspectiveCompensation = compile(const(properties.perspectiveCompensation))
-
-  LayerNode(
+  Layer(
     id = id,
-    factory = { LocationIndicatorLayer(id = id) },
-    update = {
-      set(locationTransition) { layer.setLocationTransition(it) }
-      set(bearingTiming) { layer.setBearingTransition(it) }
-      set(accuracyTiming) { layer.setAccuracyRadiusTransition(it) }
-      set(sectorTiming) {
-        layer.setBearingAccuracyTransition(it)
-        layer.setBearingAccuracyRadiusTransition(it)
-        layer.setBearingAccuracyColorTransition(it)
-      }
-      set(compiledBearingAccuracy) { layer.setBearingAccuracy(it) }
-      set(compiledBearingAccuracyRadius) { layer.setBearingAccuracyRadius(it) }
-      set(compiledBearingAccuracyColor) { layer.setBearingAccuracyColor(it) }
-      set(properties.minZoom) { layer.minZoom = it }
-      set(properties.maxZoom) { layer.maxZoom = it }
-      set(properties.visible) { layer.visible = it }
-      set(compiledTopImage) { layer.setTopImage(it) }
-      set(compiledBearingImage) { layer.setBearingImage(it) }
-      set(compiledShadowImage) { layer.setShadowImage(it) }
-      set(target) { layer.setLocation(it) }
-      set(compiledBearing) { layer.setBearing(it) }
-      set(compiledAccuracyRadius) { layer.setAccuracyRadius(it) }
-      set(compiledAccuracyRadiusColor) { layer.setAccuracyRadiusColor(it) }
-      set(compiledAccuracyRadiusBorderColor) { layer.setAccuracyRadiusBorderColor(it) }
-      set(compiledTopImageSize) { layer.setTopImageSize(it) }
-      set(compiledBearingImageSize) { layer.setBearingImageSize(it) }
-      set(compiledShadowImageSize) { layer.setShadowImageSize(it) }
-      set(compiledImageTiltDisplacement) { layer.setImageTiltDisplacement(it) }
-      set(compiledPerspectiveCompensation) { layer.setPerspectiveCompensation(it) }
-    },
+    type = "location-indicator",
+    filterUnsupportedProperties = true,
     onClick = properties.onClick?.asFeaturesClickHandler(),
     onLongClick = properties.onLongClick?.asFeaturesClickHandler(),
     onDoubleClick = properties.onDoubleClick?.asFeaturesClickHandler(),
     hitPadding = properties.hitPadding,
-  )
+  ) {
+    paintTransition("location", locationTransition)
+    paintTransition("bearing", bearingTiming)
+    paintTransition("accuracy-radius", accuracyTiming)
+    paintTransition("bearing-accuracy", sectorTiming)
+    paintTransition("bearing-accuracy-radius", sectorTiming)
+    paintTransition("bearing-accuracy-color", sectorTiming)
+    paint(
+      "bearing-accuracy",
+      const(
+        if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
+        else 0f
+      ),
+    )
+    paint("bearing-accuracy-radius", properties.bearingAccuracyRadius)
+    paint("bearing-accuracy-color", properties.bearingAccuracyColor)
+    root("minzoom", JsonPrimitive(properties.minZoom))
+    root("maxzoom", JsonPrimitive(properties.maxZoom))
+    layout("visibility", JsonPrimitive(if (properties.visible) "visible" else "none"))
+    locationIndicatorImage("top-image", properties.topImage)
+    locationIndicatorImage("bearing-image", properties.bearingImage.takeIf { bearing != null })
+    locationIndicatorImage("shadow-image", properties.shadowImage)
+    paint("location", locationIndicatorPositionJson(target))
+    paint("bearing", const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f))
+    paint("accuracy-radius", const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
+    paint("accuracy-radius-color", const(properties.accuracyRadiusColor))
+    paint("accuracy-radius-border-color", const(properties.accuracyRadiusBorderColor))
+    paint("top-image-size", const(properties.topImageSize))
+    paint("bearing-image-size", const(properties.bearingImageSize))
+    paint("shadow-image-size", const(properties.shadowImageSize))
+    paint("image-tilt-displacement", const(properties.imageTiltDisplacement))
+    paint("perspective-compensation", const(properties.perspectiveCompensation))
+  }
 }
 
 private class IndicatorHistory {
@@ -129,4 +113,23 @@ internal fun unwrapLongitude(longitude: Double, previous: Double?): Double {
   if (previous == null) return longitude
   val delta = ((longitude - previous + 180) % 360 + 360) % 360 - 180
   return previous + delta
+}
+
+/** The style property uses latitude, longitude, altitude rather than GeoJSON coordinate order. */
+internal fun locationIndicatorPositionJson(location: Position): JsonArray =
+  JsonArray(
+    listOf(
+      JsonPrimitive(location.latitude),
+      JsonPrimitive(location.longitude),
+      JsonPrimitive(location.altitude ?: 0.0),
+    )
+  )
+
+internal fun LayerProperties.locationIndicatorImage(
+  name: String,
+  expression: Expression<ImageValue?>?,
+) {
+  val image = ConstantImageExpression(expression)
+  if (image.isSupported) layout(name, image)
+  else unsupported(name, "MapLibre Native reads only a constant image here")
 }

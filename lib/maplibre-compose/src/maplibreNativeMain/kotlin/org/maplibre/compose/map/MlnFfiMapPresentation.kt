@@ -20,16 +20,16 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
  * change this lifetime.
  */
 @Composable
-internal fun MlnFfiMapPresentation(
+internal fun <T> MlnFfiMapPresentation(
   renderBackend: MapRenderBackend,
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> Unit,
-) {
+  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
+): T {
   val compatibility =
     NativeEngineCompatibility(renderBackend, LocalDensity.current.density.toDouble())
-  key(compatibility) {
+  return key(compatibility) {
     MapPresentationContent(state, presentationOwner, options) { binding ->
       val session = rememberMlnFfiMapSession(compatibility, state, binding)
       content(session, binding.clicks)

@@ -2,6 +2,7 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -55,12 +56,13 @@ internal sealed interface SourceDefinition {
 }
 
 /** Defines an immutable layer. The desired style revision specifies its placement. */
-internal data class LayerDefinition(
+internal data class ResolvedLayerDefinition(
   val id: String,
   val type: String,
   val sourceId: String?,
   val value: JsonObject,
   val unsupportedProperties: Map<String, String> = emptyMap(),
+  val filterUnsupportedProperties: Boolean = false,
 )
 
 /** Defines a resolved image without a painter, composition, or loaded-style reference. */
@@ -103,3 +105,18 @@ internal data class RasterDemCapabilities(
   val supportsCustomDemEncoding: Boolean,
   val supportsRasterDemScheme: Boolean,
 )
+
+/** Preserve every engine-reported field when describing an existing layer. */
+internal fun resolvedLayerDefinition(id: String, value: JsonObject): ResolvedLayerDefinition =
+  ResolvedLayerDefinition(
+    id,
+    (value["type"] as? JsonPrimitive)?.content.orEmpty(),
+    (value["source"] as? JsonPrimitive)?.content,
+    JsonObject(value + ("id" to JsonPrimitive(id))),
+  )
+
+/** Root fields without a portable live setter are construction inputs. */
+internal fun ResolvedLayerDefinition.constructionProperties():
+  Map<String, kotlinx.serialization.json.JsonElement> = value.filterKeys {
+  it !in setOf("layout", "paint", "filter", "minzoom", "maxzoom")
+}

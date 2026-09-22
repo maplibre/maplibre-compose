@@ -63,4 +63,14 @@ Every transitionable paint property has a matching transition parameter, named
 after the property. The default, null, uses the global transition that
 <Api of="StyleTransition" /> reads and sets.
 
+## Use another layer type
+
+Use <Api of="Layer" /> for a layer type without a built-in composable. You can
+wrap it in a typed composable to reuse in your app or publish in a plugin library:
+
+<Code code={region(layers, "plugin-layer")} lang="kotlin" title="PluginMeshLayer.kt" />
+
+The renderer must support the layer type and its properties. See the
+<Api of="LayerProperties" /> API reference for the available property setters.
+
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/

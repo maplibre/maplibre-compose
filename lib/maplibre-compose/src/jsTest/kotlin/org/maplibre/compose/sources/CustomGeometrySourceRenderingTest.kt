@@ -16,7 +16,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
-import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
@@ -52,8 +52,11 @@ class CustomGeometrySourceRenderingTest {
             cover(tile.bounds)
           }
         fixture.state.style.sources.add(source)
-        val layer = FillLayer("custom-geometry-fill", source)
-        layer.setFillColor((const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty())
+        val layer = TestLayer("custom-geometry-fill", "fill", source)
+        layer.paint(
+          "fill-color",
+          (const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty(),
+        )
         style.install(layer)
 
         fixture.pumpUntilPixel("the custom geometry polygon to render", CENTER, CENTER, BLUE)
@@ -73,9 +76,12 @@ class CustomGeometrySourceRenderingTest {
           cover(it.bounds)
         }
       fixture.state.style.sources.add(source)
-      val layer = FillLayer("custom-geometry-fill", source)
+      val layer = TestLayer("custom-geometry-fill", "fill", source)
       layer.sourceLayer = "ignored"
-      layer.setFillColor((const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty())
+      layer.paint(
+        "fill-color",
+        (const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty(),
+      )
       style.install(layer)
 
       fixture.pumpUntilPixel(
@@ -141,14 +147,15 @@ class CustomGeometrySourceRenderingTest {
         cover(tile.bounds, featureName)
       }
     val handle = assertIs<CustomGeometrySourceHandle>(state.style.sources.add(source))
-    val layer = FillLayer("custom-geometry-fill", source)
-    layer.setFillColor(
+    val layer = TestLayer("custom-geometry-fill", "fill", source)
+    layer.paint(
+      "fill-color",
       (switch(
             condition(test = feature["name"] eq const(SECOND_NAME), output = const(Color.Red)),
             fallback = const(Color.Blue),
           )
           .compile(ExpressionContext.None))
-        .asLayerProperty()
+        .asLayerProperty(),
     )
     assertNotNull(style).install(layer)
     pumpUntilPixel("the provider's first features to render", CENTER, CENTER, BLUE)
@@ -171,7 +178,7 @@ class CustomGeometrySourceRenderingTest {
           }
         }
       style.install(source)
-      style.install(FillLayer("custom-geometry-fill", source))
+      style.install(TestLayer("custom-geometry-fill", "fill", source))
       fixture.pumpUntil("the custom geometry provider to start") { state.started }
 
       fixture.loadStyle(REPLACEMENT_STYLE)
@@ -197,7 +204,7 @@ class CustomGeometrySourceRenderingTest {
             state.cancelled = true
           }
         }
-      val layer = FillLayer("custom-geometry-fill", source)
+      val layer = TestLayer("custom-geometry-fill", "fill", source)
       style.install(source)
       style.install(layer)
       fixture.pumpUntil("the custom geometry provider to start") { state.started }

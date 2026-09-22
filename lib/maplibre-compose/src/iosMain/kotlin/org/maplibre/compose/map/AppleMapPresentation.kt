@@ -221,7 +221,7 @@ internal constructor(
             LocalDensity provides Density(scale, density.fontScale),
             LocalLayoutDirection provides layoutDirection,
           ) {
-            Content()
+            Content { _, _ -> }
           }
         }
     } catch (error: Throwable) {
@@ -236,11 +236,11 @@ internal constructor(
 
   /** The Compose host calls this inline, preserving its locals, effects, and frame clock. */
   @Composable
-  internal fun Content(
+  internal fun <T> Content(
     options: MapViewOptions = this.options,
-    content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> Unit = { _, _ -> },
-  ) {
-    if (isClosed || state.isClosed) return
+    content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
+  ): T? {
+    if (isClosed || state.isClosed) return null
     val available = remember { MapRenderBackend.METAL in loadRuntimeBackends(logger) }
     DisposableEffect(available) {
       if (!available)
@@ -249,7 +249,7 @@ internal constructor(
         }
       onDispose {}
     }
-    MlnFfiMapPresentation(MapRenderBackend.METAL, state, owner, options) { session, clicks ->
+    return MlnFfiMapPresentation(MapRenderBackend.METAL, state, owner, options) { session, clicks ->
       val controller =
         remember(session) {
           AppleMlnFfiSurfaceController(session, logger, options.renderOptions.maximumFps) { error ->

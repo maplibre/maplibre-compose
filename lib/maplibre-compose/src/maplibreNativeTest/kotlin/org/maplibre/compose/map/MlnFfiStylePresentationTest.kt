@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
@@ -44,10 +44,11 @@ class MlnFfiStylePresentationTest {
           emptyList(),
           listOf(
             DesiredStyleLayer(
-              BackgroundLayer("application")
+              TestLayer("application", "background")
                 .apply {
-                  setBackgroundColor(
-                    (const(Color.Green).compile(ExpressionContext.None)).asLayerProperty()
+                  paint(
+                    "background-color",
+                    (const(Color.Green).compile(ExpressionContext.None)).asLayerProperty(),
                   )
                 }
                 .definition(),
@@ -143,11 +144,12 @@ class MlnFfiStylePresentationTest {
           listOf(
             DesiredStyleLayer(
               definition =
-                BackgroundLayer("application")
+                TestLayer("application", "background")
                   .apply {
-                    setBackgroundColor(
+                    paint(
+                      "background-color",
                       (const(Color(APPLICATION_COLOR_ARGB)).compile(ExpressionContext.None))
-                        .asLayerProperty()
+                        .asLayerProperty(),
                     )
                   }
                   .definition(),

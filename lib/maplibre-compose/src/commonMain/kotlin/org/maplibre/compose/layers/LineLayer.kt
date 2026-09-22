@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -159,192 +160,48 @@ public fun LineLayer(
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledFilter = compile(filter)
-  val compiledSortKey = compile(sortKey)
-  val compiledTranslate = compile(translate)
-  val compiledTranslateAnchor = compile(translateAnchor)
-  val compiledOpacity = compile(opacity)
-  val compiledLayerOpacity = compile(layerOpacity)
-  val compiledColor = compile(color)
-  val compiledDasharray = compile(dasharray)
-  val compiledPattern = compile(pattern)
-  val compiledGradient = compile(gradient)
-  val compiledBlur = compile(blur)
-  val compiledWidth = compile(width)
-  val compiledGapWidth = compile(gapWidth)
-  val compiledOffset = compile(offset)
-  val compiledCap = compile(cap)
-  val compiledJoin = compile(join)
-  val compiledMiterLimit = compile(miterLimit)
-  val compiledRoundLimit = compile(roundLimit)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { LineLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledCap) { layer.setLineCap(it) }
-      set(compiledJoin) { layer.setLineJoin(it) }
-      set(compiledMiterLimit) { layer.setLineMiterLimit(it) }
-      set(compiledRoundLimit) { layer.setLineRoundLimit(it) }
-      set(compiledSortKey) { layer.setLineSortKey(it) }
-      set(compiledOpacity) { layer.setLineOpacity(it) }
-      set(opacityTransition) { layer.setLineOpacityTransition(it) }
-      set(compiledLayerOpacity) { layer.setLineLayerOpacity(it) }
-      set(layerOpacityTransition) { layer.setLineLayerOpacityTransition(it) }
-      set(compiledColor) { layer.setLineColor(it) }
-      set(colorTransition) { layer.setLineColorTransition(it) }
-      set(compiledTranslate) { layer.setLineTranslate(it) }
-      set(translateTransition) { layer.setLineTranslateTransition(it) }
-      set(compiledTranslateAnchor) { layer.setLineTranslateAnchor(it) }
-      set(compiledWidth) { layer.setLineWidth(it) }
-      set(widthTransition) { layer.setLineWidthTransition(it) }
-      set(compiledGapWidth) { layer.setLineGapWidth(it) }
-      set(gapWidthTransition) { layer.setLineGapWidthTransition(it) }
-      set(compiledOffset) { layer.setLineOffset(it) }
-      set(offsetTransition) { layer.setLineOffsetTransition(it) }
-      set(compiledBlur) { layer.setLineBlur(it) }
-      set(blurTransition) { layer.setLineBlurTransition(it) }
-      set(compiledDasharray) { layer.setLineDasharray(it) }
-      set(dasharrayTransition) { layer.setLineDasharrayTransition(it) }
-      set(compiledPattern) { layer.setLinePattern(it) }
-      set(patternTransition) { layer.setLinePatternTransition(it) }
-      set(compiledGradient) { layer.setLineGradient(it) }
-    },
+    type = "line",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
-}
-
-internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "line"
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setLineCap(cap: LayerProperty<LineCap>) {
-    setLayoutProperty("line-cap", cap)
-  }
-
-  fun setLineJoin(join: LayerProperty<LineJoin>) {
-    setLayoutProperty("line-join", join)
-  }
-
-  fun setLineMiterLimit(miterLimit: LayerProperty<FloatValue>) {
-    setLayoutProperty("line-miter-limit", miterLimit)
-  }
-
-  fun setLineRoundLimit(roundLimit: LayerProperty<FloatValue>) {
-    setLayoutProperty("line-round-limit", roundLimit)
-  }
-
-  fun setLineSortKey(sortKey: LayerProperty<FloatValue>) {
-    setLayoutProperty("line-sort-key", sortKey)
-  }
-
-  fun setLineOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("line-opacity", opacity)
-  }
-
-  fun setLineOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("line-opacity", options)
-  }
-
-  fun setLineLayerOpacity(layerOpacity: LayerProperty<FloatValue>) {
-    setPaintProperty("line-layer-opacity", layerOpacity)
-  }
-
-  fun setLineLayerOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("line-layer-opacity", options)
-  }
-
-  fun setLineColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("line-color", color)
-  }
-
-  fun setLineColorTransition(options: TransitionOptions?) {
-    setPaintTransition("line-color", options)
-  }
-
-  fun setLineTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("line-translate", translate)
-  }
-
-  fun setLineTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("line-translate", options)
-  }
-
-  fun setLineTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("line-translate-anchor", translateAnchor)
-  }
-
-  fun setLineWidth(width: LayerProperty<DpValue>) {
-    setPaintProperty("line-width", width)
-  }
-
-  fun setLineWidthTransition(options: TransitionOptions?) {
-    setPaintTransition("line-width", options)
-  }
-
-  fun setLineGapWidth(gapWidth: LayerProperty<DpValue>) {
-    setPaintProperty("line-gap-width", gapWidth)
-  }
-
-  fun setLineGapWidthTransition(options: TransitionOptions?) {
-    setPaintTransition("line-gap-width", options)
-  }
-
-  fun setLineOffset(offset: LayerProperty<DpValue>) {
-    setPaintProperty("line-offset", offset)
-  }
-
-  fun setLineOffsetTransition(options: TransitionOptions?) {
-    setPaintTransition("line-offset", options)
-  }
-
-  fun setLineBlur(blur: LayerProperty<DpValue>) {
-    setPaintProperty("line-blur", blur)
-  }
-
-  fun setLineBlurTransition(options: TransitionOptions?) {
-    setPaintTransition("line-blur", options)
-  }
-
-  fun setLineDasharray(dasharray: LayerProperty<VectorValue<Number>>) {
-    setPaintProperty("line-dasharray", dasharray)
-  }
-
-  fun setLineDasharrayTransition(options: TransitionOptions?) {
-    setPaintTransition("line-dasharray", options)
-  }
-
-  fun setLinePattern(pattern: LayerProperty<ImageValue?>) {
-    setPaintProperty("line-pattern", pattern)
-  }
-
-  fun setLinePatternTransition(options: TransitionOptions?) {
-    setPaintTransition("line-pattern", options)
-  }
-
-  fun setLineGradient(gradient: LayerProperty<ColorValue>) {
-    setPaintProperty("line-gradient", gradient)
+  ) {
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("line-cap", cap)
+    layout("line-join", join)
+    layout("line-miter-limit", miterLimit)
+    layout("line-round-limit", roundLimit)
+    layout("line-sort-key", sortKey)
+    paint("line-opacity", opacity)
+    paintTransition("line-opacity", opacityTransition)
+    paint("line-layer-opacity", layerOpacity)
+    paintTransition("line-layer-opacity", layerOpacityTransition)
+    paint("line-color", color)
+    paintTransition("line-color", colorTransition)
+    paint("line-translate", translate)
+    paintTransition("line-translate", translateTransition)
+    paint("line-translate-anchor", translateAnchor)
+    paint("line-width", width)
+    paintTransition("line-width", widthTransition)
+    paint("line-gap-width", gapWidth)
+    paintTransition("line-gap-width", gapWidthTransition)
+    paint("line-offset", offset)
+    paintTransition("line-offset", offsetTransition)
+    paint("line-blur", blur)
+    paintTransition("line-blur", blurTransition)
+    paint("line-dasharray", dasharray)
+    paintTransition("line-dasharray", dasharrayTransition)
+    paint("line-pattern", pattern)
+    paintTransition("line-pattern", patternTransition)
+    paint("line-gradient", gradient)
   }
 }

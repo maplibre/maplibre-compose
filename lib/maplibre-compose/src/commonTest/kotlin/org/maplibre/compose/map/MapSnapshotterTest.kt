@@ -26,7 +26,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -249,7 +249,7 @@ class MapSnapshotterTest {
     val binding =
       RecordingStyleBinding(
         sources = listOf(source),
-        layers = listOf(BackgroundLayer("base-layer")),
+        layers = listOf(TestLayer("base-layer", "background")),
       )
     val runtime =
       mapRuntimeForTest(

@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.TextUnitContextExpression
 import org.maplibre.compose.expressions.ast.UnitConversion
@@ -17,7 +18,6 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpPaddingValue
 import org.maplibre.compose.expressions.value.DpValue
-import org.maplibre.compose.expressions.value.FloatOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.FormattedValue
 import org.maplibre.compose.expressions.value.IconPitchAlignment
@@ -49,20 +49,20 @@ import org.maplibre.compose.util.MaplibreComposable
 private const val ASSUMED_SP = 16f // MapLibre's default text size
 
 @Composable
-private fun rememberDpCompiler() =
-  rememberPropertyCompiler(
+private fun rememberDpContext() =
+  LayerExpressionContext(
     emScale = UnitConversion(const(ASSUMED_SP), styleFontScale()),
     spScale = styleFontScale(),
   )
 
 @Composable
-private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerPropertyCompiler {
+private fun rememberEmContext(textSize: Expression<TextUnitValue>): LayerExpressionContext {
   val textSizeSp =
     remember(textSize) {
       TextUnitContextExpression(textSize, emScale = const(ASSUMED_SP), spScale = const(1f))
     }
   val spScale = remember(textSizeSp) { UnitConversion(const(1f), textSizeSp.cast(), divide = true) }
-  return rememberPropertyCompiler(emScale = const(1f), spScale = spScale)
+  return LayerExpressionContext(emScale = const(1f), spScale = spScale)
 }
 
 /**
@@ -571,470 +571,101 @@ public fun SymbolLayer(
   hitPadding: Dp = 0.dp,
 ) {
   // Scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057.
-  val compileWithDpTextSize = rememberDpCompiler()
-  val compileWithEmTextSize = rememberEmCompiler(textSize)
-  val compile = rememberPropertyCompiler()
+  val contextWithDpTextSize = rememberDpContext()
+  val contextWithEmTextSize = rememberEmContext(textSize)
 
-  val compiledFilter = compile(filter)
-  val compiledSortKey = compile(sortKey)
-  val compiledSpacing = compile(spacing)
-  val compiledAvoidEdges = compile(avoidEdges)
-  val compiledZOrder = compile(zOrder)
-  val compiledHeightOffset = compile(heightOffset)
-  val compiledHeightAnchor = compile(heightAnchor)
-  val compiledPlacement = compile(placement)
-
-  val compiledIconImage = compile(iconImage)
-  val compiledIconOpacity = compile(iconOpacity)
-  val compiledIconColor = compile(iconColor)
-  val compiledIconHaloColor = compile(iconHaloColor)
-  val compiledIconHaloWidth = compile(iconHaloWidth)
-  val compiledIconHaloBlur = compile(iconHaloBlur)
-  val compiledIconSize = compile(iconSize)
-  val compiledIconRotationAlignment = compile(iconRotationAlignment)
-  val compiledIconPitchAlignment = compile(iconPitchAlignment)
-  val compiledIconTextFit = compile(iconTextFit)
-  val compiledIconTextFitPadding = compile(iconTextFitPadding)
-  val compiledIconKeepUpright = compile(iconKeepUpright)
-  val compiledIconRotate = compile(iconRotate)
-  val compiledIconAnchor = compile(iconAnchor)
-  val compiledIconOffset = compile(iconOffset)
-  val compiledIconPadding = compile(iconPadding)
-  val compiledIconAllowOverlap = compile(iconAllowOverlap)
-  val compiledIconOverlap = compile(iconOverlap)
-  val compiledIconIgnorePlacement = compile(iconIgnorePlacement)
-  val compiledIconOptional = compile(iconOptional)
-  val compiledIconTranslate = compile(iconTranslate)
-  val compiledIconTranslateAnchor = compile(iconTranslateAnchor)
-
-  val compiledTextField = compile(textField)
-  val compiledTextOpacity = compile(textOpacity)
-  val compiledTextColor = compile(textColor)
-  val compiledTextHaloColor = compile(textHaloColor)
-  val compiledTextHaloWidth = compile(textHaloWidth)
-  val compiledTextHaloBlur = compile(textHaloBlur)
-  val compiledTextFont = compile(textFont)
-  val compiledTextSizeDp = compileWithDpTextSize(textSize)
-  val compiledTextTransform = compile(textTransform)
-  val compiledTextLetterSpacing = compileWithEmTextSize(textLetterSpacing)
-  val compiledTextRotationAlignment = compile(textRotationAlignment)
-  val compiledTextPitchAlignment = compile(textPitchAlignment)
-  val compiledTextMaxAngle = compile(textMaxAngle)
-  val compiledTextMaxWidth = compileWithEmTextSize(textMaxWidth)
-  val compiledTextLineHeight = compileWithEmTextSize(textLineHeight)
-  val compiledTextJustify = compile(textJustify)
-  val compiledTextWritingMode = compile(textWritingMode)
-  val compiledTextKeepUpright = compile(textKeepUpright)
-  val compiledTextRotate = compile(textRotate)
-  val compiledTextAnchor = compile(textAnchor)
-  val compiledTextOffset = compileWithEmTextSize(textOffset)
-  val compiledTextVariableAnchor = compile(textVariableAnchor)
-  val compiledTextRadialOffset = compileWithEmTextSize(textRadialOffset)
-  val compiledTextVariableAnchorOffset = compileWithEmTextSize(textVariableAnchorOffset)
-  val compiledTextPadding = compile(textPadding)
-  val compiledTextAllowOverlap = compile(textAllowOverlap)
-  val compiledTextOverlap = compile(textOverlap)
-  val compiledTextIgnorePlacement = compile(textIgnorePlacement)
-  val compiledTextOptional = compile(textOptional)
-  val compiledTextTranslate = compile(textTranslate)
-  val compiledTextTranslateAnchor = compile(textTranslateAnchor)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { SymbolLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledPlacement) { layer.setSymbolPlacement(it) }
-      set(compiledSpacing) { layer.setSymbolSpacing(it) }
-      set(compiledAvoidEdges) { layer.setSymbolAvoidEdges(it) }
-      set(compiledSortKey) { layer.setSymbolSortKey(it) }
-      set(compiledZOrder) { layer.setSymbolZOrder(it) }
-      set(compiledHeightOffset) { layer.setSymbolHeightOffset(it) }
-      set(compiledHeightAnchor) { layer.setSymbolHeightAnchor(it) }
-
-      set(compiledIconAllowOverlap) { layer.setIconAllowOverlap(it) }
-      set(compiledIconOverlap) { layer.setIconOverlap(it) }
-      set(compiledIconIgnorePlacement) { layer.setIconIgnorePlacement(it) }
-      set(compiledIconOptional) { layer.setIconOptional(it) }
-      set(compiledIconRotationAlignment) { layer.setIconRotationAlignment(it) }
-      set(compiledIconSize) { layer.setIconSize(it) }
-      set(compiledIconTextFit) { layer.setIconTextFit(it) }
-      set(compiledIconTextFitPadding) { layer.setIconTextFitPadding(it) }
-      set(compiledIconImage) { layer.setIconImage(it) }
-      set(compiledIconRotate) { layer.setIconRotate(it) }
-      set(compiledIconPadding) { layer.setIconPadding(it) }
-      set(compiledIconKeepUpright) { layer.setIconKeepUpright(it) }
-      set(compiledIconOffset) { layer.setIconOffset(it) }
-      set(compiledIconAnchor) { layer.setIconAnchor(it) }
-      set(compiledIconPitchAlignment) { layer.setIconPitchAlignment(it) }
-      set(compiledIconOpacity) { layer.setIconOpacity(it) }
-      set(iconOpacityTransition) { layer.setIconOpacityTransition(it) }
-      set(compiledIconColor) { layer.setIconColor(it) }
-      set(iconColorTransition) { layer.setIconColorTransition(it) }
-      set(compiledIconHaloColor) { layer.setIconHaloColor(it) }
-      set(iconHaloColorTransition) { layer.setIconHaloColorTransition(it) }
-      set(compiledIconHaloWidth) { layer.setIconHaloWidth(it) }
-      set(iconHaloWidthTransition) { layer.setIconHaloWidthTransition(it) }
-      set(compiledIconHaloBlur) { layer.setIconHaloBlur(it) }
-      set(iconHaloBlurTransition) { layer.setIconHaloBlurTransition(it) }
-      set(compiledIconTranslate) { layer.setIconTranslate(it) }
-      set(iconTranslateTransition) { layer.setIconTranslateTransition(it) }
-      set(compiledIconTranslateAnchor) { layer.setIconTranslateAnchor(it) }
-
-      set(compiledTextPitchAlignment) { layer.setTextPitchAlignment(it) }
-      set(compiledTextRotationAlignment) { layer.setTextRotationAlignment(it) }
-      set(compiledTextField) { layer.setTextField(it) }
-      set(compiledTextFont) { layer.setTextFont(it) }
-      set(compiledTextSizeDp.cast<DpValue>()) { layer.setTextSize(it) }
-      set(compiledTextMaxWidth.cast<FloatValue>()) { layer.setTextMaxWidth(it) }
-      set(compiledTextLineHeight.cast<FloatValue>()) { layer.setTextLineHeight(it) }
-      set(compiledTextLetterSpacing.cast<FloatValue>()) { layer.setTextLetterSpacing(it) }
-      set(compiledTextJustify) { layer.setTextJustify(it) }
-      set(compiledTextRadialOffset.cast<FloatValue>()) { layer.setTextRadialOffset(it) }
-      set(compiledTextVariableAnchor) { layer.setTextVariableAnchor(it) }
-      set(compiledTextVariableAnchorOffset) { layer.setTextVariableAnchorOffset(it) }
-      set(compiledTextAnchor) { layer.setTextAnchor(it) }
-      set(compiledTextMaxAngle) { layer.setTextMaxAngle(it) }
-      set(compiledTextWritingMode) { layer.setTextWritingMode(it) }
-      set(compiledTextRotate) { layer.setTextRotate(it) }
-      set(compiledTextPadding) { layer.setTextPadding(it) }
-      set(compiledTextKeepUpright) { layer.setTextKeepUpright(it) }
-      set(compiledTextTransform) { layer.setTextTransform(it) }
-      set(compiledTextOffset.cast<FloatOffsetValue>()) { layer.setTextOffset(it) }
-      set(compiledTextAllowOverlap) { layer.setTextAllowOverlap(it) }
-      set(compiledTextOverlap) { layer.setTextOverlap(it) }
-      set(compiledTextIgnorePlacement) { layer.setTextIgnorePlacement(it) }
-      set(compiledTextOptional) { layer.setTextOptional(it) }
-      set(compiledTextOpacity) { layer.setTextOpacity(it) }
-      set(textOpacityTransition) { layer.setTextOpacityTransition(it) }
-      set(compiledTextColor) { layer.setTextColor(it) }
-      set(textColorTransition) { layer.setTextColorTransition(it) }
-      set(compiledTextHaloColor) { layer.setTextHaloColor(it) }
-      set(textHaloColorTransition) { layer.setTextHaloColorTransition(it) }
-      set(compiledTextHaloWidth) { layer.setTextHaloWidth(it) }
-      set(textHaloWidthTransition) { layer.setTextHaloWidthTransition(it) }
-      set(compiledTextHaloBlur) { layer.setTextHaloBlur(it) }
-      set(textHaloBlurTransition) { layer.setTextHaloBlurTransition(it) }
-      set(compiledTextTranslate) { layer.setTextTranslate(it) }
-      set(textTranslateTransition) { layer.setTextTranslateTransition(it) }
-      set(compiledTextTranslateAnchor) { layer.setTextTranslateAnchor(it) }
-    },
+    type = "symbol",
+    filterUnsupportedProperties = true,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
-  )
-}
-
-internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "symbol"
-
-  override val sourceId: String = source.id
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setSymbolPlacement(placement: LayerProperty<SymbolPlacement>) {
-    setLayoutProperty("symbol-placement", placement)
-  }
-
-  fun setSymbolSpacing(spacing: LayerProperty<DpValue>) {
-    setLayoutProperty("symbol-spacing", spacing)
-  }
-
-  fun setSymbolAvoidEdges(avoidEdges: LayerProperty<BooleanValue>) {
-    setLayoutProperty("symbol-avoid-edges", avoidEdges)
-  }
-
-  fun setSymbolSortKey(sortKey: LayerProperty<FloatValue>) {
-    setLayoutProperty("symbol-sort-key", sortKey)
-  }
-
-  fun setSymbolZOrder(zOrder: LayerProperty<SymbolZOrder>) {
-    setLayoutProperty("symbol-z-order", zOrder)
-  }
-
-  fun setSymbolHeightOffset(offset: LayerProperty<FloatValue>) {
-    setLayoutProperty("symbol-height-offset", offset)
-  }
-
-  fun setSymbolHeightAnchor(anchor: LayerProperty<SymbolHeightAnchor>) {
-    setLayoutProperty("symbol-height-anchor", anchor)
-  }
-
-  fun setIconAllowOverlap(allowOverlap: LayerProperty<BooleanValue>) {
-    setLayoutProperty("icon-allow-overlap", allowOverlap)
-  }
-
-  fun setIconOverlap(overlap: LayerProperty<StringValue>) {
-    setLayoutProperty("icon-overlap", overlap)
-  }
-
-  fun setIconIgnorePlacement(ignorePlacement: LayerProperty<BooleanValue>) {
-    setLayoutProperty("icon-ignore-placement", ignorePlacement)
-  }
-
-  fun setIconOptional(optional: LayerProperty<BooleanValue>) {
-    setLayoutProperty("icon-optional", optional)
-  }
-
-  fun setIconRotationAlignment(rotationAlignment: LayerProperty<IconRotationAlignment>) {
-    setLayoutProperty("icon-rotation-alignment", rotationAlignment)
-  }
-
-  fun setIconSize(size: LayerProperty<FloatValue>) {
-    setLayoutProperty("icon-size", size)
-  }
-
-  fun setIconTextFit(textFit: LayerProperty<IconTextFit>) {
-    setLayoutProperty("icon-text-fit", textFit)
-  }
-
-  fun setIconTextFitPadding(textFitPadding: LayerProperty<DpPaddingValue>) {
-    setLayoutProperty("icon-text-fit-padding", textFitPadding)
-  }
-
-  fun setIconImage(image: LayerProperty<ImageValue?>) {
-    setLayoutProperty("icon-image", image)
-  }
-
-  fun setIconRotate(rotate: LayerProperty<FloatValue>) {
-    setLayoutProperty("icon-rotate", rotate)
-  }
-
-  fun setIconPadding(padding: LayerProperty<DpPaddingValue>) {
-    setLayoutProperty("icon-padding", padding)
-  }
-
-  fun setIconKeepUpright(keepUpright: LayerProperty<BooleanValue>) {
-    setLayoutProperty("icon-keep-upright", keepUpright)
-  }
-
-  fun setIconOffset(offset: LayerProperty<DpOffsetValue>) {
-    setLayoutProperty("icon-offset", offset)
-  }
-
-  fun setIconAnchor(anchor: LayerProperty<SymbolAnchor>) {
-    setLayoutProperty("icon-anchor", anchor)
-  }
-
-  fun setIconPitchAlignment(pitchAlignment: LayerProperty<IconPitchAlignment>) {
-    setLayoutProperty("icon-pitch-alignment", pitchAlignment)
-  }
-
-  fun setIconOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("icon-opacity", opacity)
-  }
-
-  fun setIconOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-opacity", options)
-  }
-
-  fun setIconColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("icon-color", color)
-  }
-
-  fun setIconColorTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-color", options)
-  }
-
-  fun setIconHaloColor(haloColor: LayerProperty<ColorValue>) {
-    setPaintProperty("icon-halo-color", haloColor)
-  }
-
-  fun setIconHaloColorTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-halo-color", options)
-  }
-
-  fun setIconHaloWidth(haloWidth: LayerProperty<DpValue>) {
-    setPaintProperty("icon-halo-width", haloWidth)
-  }
-
-  fun setIconHaloWidthTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-halo-width", options)
-  }
-
-  fun setIconHaloBlur(haloBlur: LayerProperty<DpValue>) {
-    setPaintProperty("icon-halo-blur", haloBlur)
-  }
-
-  fun setIconHaloBlurTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-halo-blur", options)
-  }
-
-  fun setIconTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("icon-translate", translate)
-  }
-
-  fun setIconTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("icon-translate", options)
-  }
-
-  fun setIconTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("icon-translate-anchor", translateAnchor)
-  }
-
-  fun setTextPitchAlignment(pitchAlignment: LayerProperty<TextPitchAlignment>) {
-    setLayoutProperty("text-pitch-alignment", pitchAlignment)
-  }
-
-  fun setTextRotationAlignment(rotationAlignment: LayerProperty<TextRotationAlignment>) {
-    setLayoutProperty("text-rotation-alignment", rotationAlignment)
-  }
-
-  fun setTextField(field: LayerProperty<FormattedValue?>) {
-    setLayoutProperty("text-field", field)
-  }
-
-  fun setTextFont(font: LayerProperty<ListValue<StringValue>>) {
-    setLayoutProperty("text-font", font)
-  }
-
-  fun setTextSize(size: LayerProperty<DpValue>) {
-    setLayoutProperty("text-size", size)
-  }
-
-  fun setTextMaxWidth(maxWidth: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-max-width", maxWidth)
-  }
-
-  fun setTextLineHeight(lineHeight: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-line-height", lineHeight)
-  }
-
-  fun setTextLetterSpacing(letterSpacing: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-letter-spacing", letterSpacing)
-  }
-
-  fun setTextJustify(justify: LayerProperty<TextJustify>) {
-    setLayoutProperty("text-justify", justify)
-  }
-
-  fun setTextRadialOffset(radialOffset: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-radial-offset", radialOffset)
-  }
-
-  fun setTextVariableAnchor(variableAnchor: LayerProperty<ListValue<SymbolAnchor>>) {
-    setLayoutProperty("text-variable-anchor", variableAnchor)
-  }
-
-  fun setTextVariableAnchorOffset(
-    variableAnchorOffset: LayerProperty<TextVariableAnchorOffsetValue>
   ) {
-    setLayoutProperty("text-variable-anchor-offset", variableAnchorOffset)
-  }
+    root("source-layer", JsonPrimitive(sourceLayer))
+    root("minzoom", JsonPrimitive(minZoom))
+    root("maxzoom", JsonPrimitive(maxZoom))
+    root("filter", filter)
+    layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+    layout("symbol-placement", placement)
+    layout("symbol-spacing", spacing)
+    layout("symbol-avoid-edges", avoidEdges)
+    layout("symbol-sort-key", sortKey)
+    layout("symbol-z-order", zOrder)
+    layout("symbol-height-offset", heightOffset)
+    layout("symbol-height-anchor", heightAnchor)
 
-  fun setTextAnchor(anchor: LayerProperty<SymbolAnchor>) {
-    setLayoutProperty("text-anchor", anchor)
-  }
+    layout("icon-allow-overlap", iconAllowOverlap)
+    layout("icon-overlap", iconOverlap)
+    layout("icon-ignore-placement", iconIgnorePlacement)
+    layout("icon-optional", iconOptional)
+    layout("icon-rotation-alignment", iconRotationAlignment)
+    layout("icon-size", iconSize)
+    layout("icon-text-fit", iconTextFit)
+    layout("icon-text-fit-padding", iconTextFitPadding)
+    layout("icon-image", iconImage)
+    layout("icon-rotate", iconRotate)
+    layout("icon-padding", iconPadding)
+    layout("icon-keep-upright", iconKeepUpright)
+    layout("icon-offset", iconOffset)
+    layout("icon-anchor", iconAnchor)
+    layout("icon-pitch-alignment", iconPitchAlignment)
+    paint("icon-opacity", iconOpacity)
+    paintTransition("icon-opacity", iconOpacityTransition)
+    paint("icon-color", iconColor)
+    paintTransition("icon-color", iconColorTransition)
+    paint("icon-halo-color", iconHaloColor)
+    paintTransition("icon-halo-color", iconHaloColorTransition)
+    paint("icon-halo-width", iconHaloWidth)
+    paintTransition("icon-halo-width", iconHaloWidthTransition)
+    paint("icon-halo-blur", iconHaloBlur)
+    paintTransition("icon-halo-blur", iconHaloBlurTransition)
+    paint("icon-translate", iconTranslate)
+    paintTransition("icon-translate", iconTranslateTransition)
+    paint("icon-translate-anchor", iconTranslateAnchor)
 
-  fun setTextMaxAngle(maxAngle: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-max-angle", maxAngle)
-  }
-
-  fun setTextWritingMode(writingMode: LayerProperty<ListValue<TextWritingMode>>) {
-    setLayoutProperty("text-writing-mode", writingMode)
-  }
-
-  fun setTextRotate(rotate: LayerProperty<FloatValue>) {
-    setLayoutProperty("text-rotate", rotate)
-  }
-
-  fun setTextPadding(padding: LayerProperty<DpValue>) {
-    setLayoutProperty("text-padding", padding)
-  }
-
-  fun setTextKeepUpright(keepUpright: LayerProperty<BooleanValue>) {
-    setLayoutProperty("text-keep-upright", keepUpright)
-  }
-
-  fun setTextTransform(transform: LayerProperty<TextTransform>) {
-    setLayoutProperty("text-transform", transform)
-  }
-
-  fun setTextOffset(offset: LayerProperty<FloatOffsetValue>) {
-    setLayoutProperty("text-offset", offset)
-  }
-
-  fun setTextAllowOverlap(allowOverlap: LayerProperty<BooleanValue>) {
-    setLayoutProperty("text-allow-overlap", allowOverlap)
-  }
-
-  fun setTextOverlap(overlap: LayerProperty<SymbolOverlap>) {
-    setLayoutProperty("text-overlap", overlap)
-  }
-
-  fun setTextIgnorePlacement(ignorePlacement: LayerProperty<BooleanValue>) {
-    setLayoutProperty("text-ignore-placement", ignorePlacement)
-  }
-
-  fun setTextOptional(optional: LayerProperty<BooleanValue>) {
-    setLayoutProperty("text-optional", optional)
-  }
-
-  fun setTextOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("text-opacity", opacity)
-  }
-
-  fun setTextOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("text-opacity", options)
-  }
-
-  fun setTextColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("text-color", color)
-  }
-
-  fun setTextColorTransition(options: TransitionOptions?) {
-    setPaintTransition("text-color", options)
-  }
-
-  fun setTextHaloColor(haloColor: LayerProperty<ColorValue>) {
-    setPaintProperty("text-halo-color", haloColor)
-  }
-
-  fun setTextHaloColorTransition(options: TransitionOptions?) {
-    setPaintTransition("text-halo-color", options)
-  }
-
-  fun setTextHaloWidth(haloWidth: LayerProperty<DpValue>) {
-    setPaintProperty("text-halo-width", haloWidth)
-  }
-
-  fun setTextHaloWidthTransition(options: TransitionOptions?) {
-    setPaintTransition("text-halo-width", options)
-  }
-
-  fun setTextHaloBlur(haloBlur: LayerProperty<DpValue>) {
-    setPaintProperty("text-halo-blur", haloBlur)
-  }
-
-  fun setTextHaloBlurTransition(options: TransitionOptions?) {
-    setPaintTransition("text-halo-blur", options)
-  }
-
-  fun setTextTranslate(translate: LayerProperty<DpOffsetValue>) {
-    setPaintProperty("text-translate", translate)
-  }
-
-  fun setTextTranslateTransition(options: TransitionOptions?) {
-    setPaintTransition("text-translate", options)
-  }
-
-  fun setTextTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
-    setPaintProperty("text-translate-anchor", translateAnchor)
+    layout("text-pitch-alignment", textPitchAlignment)
+    layout("text-rotation-alignment", textRotationAlignment)
+    layout("text-field", textField)
+    layout("text-font", textFont)
+    layout("text-size", textSize, units = contextWithDpTextSize)
+    layout("text-max-width", textMaxWidth, units = contextWithEmTextSize)
+    layout("text-line-height", textLineHeight, units = contextWithEmTextSize)
+    layout("text-letter-spacing", textLetterSpacing, units = contextWithEmTextSize)
+    layout("text-justify", textJustify)
+    layout("text-radial-offset", textRadialOffset, units = contextWithEmTextSize)
+    layout("text-variable-anchor", textVariableAnchor)
+    layout(
+      "text-variable-anchor-offset",
+      textVariableAnchorOffset,
+      units = contextWithEmTextSize,
+    )
+    layout("text-anchor", textAnchor)
+    layout("text-max-angle", textMaxAngle)
+    layout("text-writing-mode", textWritingMode)
+    layout("text-rotate", textRotate)
+    layout("text-padding", textPadding)
+    layout("text-keep-upright", textKeepUpright)
+    layout("text-transform", textTransform)
+    layout("text-offset", textOffset, units = contextWithEmTextSize)
+    layout("text-allow-overlap", textAllowOverlap)
+    layout("text-overlap", textOverlap)
+    layout("text-ignore-placement", textIgnorePlacement)
+    layout("text-optional", textOptional)
+    paint("text-opacity", textOpacity)
+    paintTransition("text-opacity", textOpacityTransition)
+    paint("text-color", textColor)
+    paintTransition("text-color", textColorTransition)
+    paint("text-halo-color", textHaloColor)
+    paintTransition("text-halo-color", textHaloColorTransition)
+    paint("text-halo-width", textHaloWidth)
+    paintTransition("text-halo-width", textHaloWidthTransition)
+    paint("text-halo-blur", textHaloBlur)
+    paintTransition("text-halo-blur", textHaloBlurTransition)
+    paint("text-translate", textTranslate)
+    paintTransition("text-translate", textTranslateTransition)
+    paint("text-translate-anchor", textTranslateAnchor)
   }
 }

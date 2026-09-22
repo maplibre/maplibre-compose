@@ -19,8 +19,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToColor
 import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.value.LineCap
-import org.maplibre.compose.layers.CircleLayer
-import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.testing.MapTestResult
@@ -75,15 +74,17 @@ class StyleGlobalStateTest {
       fixture.loadStyle(STYLE)
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.getSource("points"))
-      val layer = CircleLayer("circle", source)
-      layer.setCircleRadius((const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setCircleColor(
+      val layer = TestLayer("circle", "circle", source)
+      layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.paint(
+        "circle-color",
         (globalState("color").convertToColor(const(Color.Red)).compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
-      layer.setFilter(
+      layer.root(
+        "filter",
         (globalState("show").asBoolean(const(true)).compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
       binding.install(layer)
       val state = fixture.state.style.globalState
@@ -106,13 +107,15 @@ class StyleGlobalStateTest {
       fixture.loadStyle(LINE_STYLE)
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.getSource("line"))
-      val layer = LineLayer("line", source)
-      layer.setLineWidth((const(40.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setLineCap(
-        (globalState("cap").asEnum<LineCap>().compile(ExpressionContext.None)).asLayerProperty()
+      val layer = TestLayer("line", "line", source)
+      layer.paint("line-width", (const(40.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.layout(
+        "line-cap",
+        (globalState("cap").asEnum<LineCap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      layer.setLineGradient(
-        (globalState("color").convertToColor().compile(ExpressionContext.None)).asLayerProperty()
+      layer.paint(
+        "line-gradient",
+        (globalState("color").convertToColor().compile(ExpressionContext.None)).asLayerProperty(),
       )
       binding.install(layer)
       val state = fixture.state.style.globalState

@@ -22,7 +22,7 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
@@ -389,6 +389,6 @@ class MapClickDispatcherTest {
 
   companion object {
     private fun layer(id: String) =
-      UnknownLayer(id, JsonObject(mapOf("type" to JsonPrimitive("circle"))))
+      TestLayer(id, JsonObject(mapOf("type" to JsonPrimitive("circle"))))
   }
 }

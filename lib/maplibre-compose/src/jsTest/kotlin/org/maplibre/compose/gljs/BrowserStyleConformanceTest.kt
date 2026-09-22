@@ -19,7 +19,6 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LocationIndicatorLayer
-import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
@@ -70,9 +69,7 @@ class BrowserStyleConformanceTest {
     val failures = mutableListOf<String>()
 
     fun liveSourceLayer(): String? =
-      ((style?.getLayer("switching-source-layer") as? UnknownLayer)
-          ?.definition
-          ?.get("source-layer"))
+      (style?.getLayer("switching-source-layer")?.value?.get("source-layer"))
         ?.jsonPrimitive
         ?.content
 
@@ -146,7 +143,7 @@ class BrowserStyleConformanceTest {
     }
     waitUntilMap("the custom indicator") { style?.layerIds() == listOf("user") }
     assertTrue(style!!.sourceIds().isEmpty())
-    assertEquals("location-indicator", style!!.getLayer("user")!!.definition().type)
+    assertEquals("location-indicator", style!!.getLayer("user")!!.type)
     accuracy = 40.meters
     bearing = Bearing.North
     waitForIdle()

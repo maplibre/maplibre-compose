@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
-import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
@@ -94,7 +93,7 @@ internal interface StyleBinding {
 
   fun sourceIds(): List<String> = getSources().map { it.id }
 
-  fun getLayer(id: String): Layer?
+  fun getLayer(id: String): ResolvedLayerDefinition?
 
   fun layerIds(): List<String>
 
@@ -104,7 +103,7 @@ internal interface StyleBinding {
    * separately; engines can override this to read metadata without reconstructing full layers.
    */
   fun layerSummaries(): Map<String, LayerSummary> =
-    layerIds().mapNotNull { id -> getLayer(id)?.definition()?.summary()?.let { id to it } }.toMap()
+    layerIds().mapNotNull { id -> getLayer(id)?.summary()?.let { id to it } }.toMap()
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -114,7 +113,7 @@ internal interface StyleBinding {
    */
   fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
 
-  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
+  fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean {
     requireCurrent()
     return addLayer(definition.value, beforeLayerId)
   }
@@ -513,7 +512,7 @@ internal interface StyleBinding {
  */
 internal data class LayerSummary(val type: String, val source: String?, val sourceLayer: String?)
 
-internal fun LayerDefinition.summary(): LayerSummary =
+internal fun ResolvedLayerDefinition.summary(): LayerSummary =
   LayerSummary(
     type = type,
     source = sourceId ?: value.rootString("source"),

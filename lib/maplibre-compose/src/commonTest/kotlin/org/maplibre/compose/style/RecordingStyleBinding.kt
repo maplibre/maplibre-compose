@@ -6,8 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
@@ -28,7 +27,7 @@ import org.maplibre.spatialk.geojson.Position
 internal class RecordingStyleBinding(
   images: List<Pair<String, ImageBitmap>> = emptyList(),
   sources: List<Source> = emptyList(),
-  layers: List<Layer> = emptyList(),
+  layers: List<TestLayer> = emptyList(),
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
@@ -120,8 +119,8 @@ internal class RecordingStyleBinding(
 
   override fun sourceIds(): List<String> = sources.keys.toList()
 
-  override fun getLayer(id: String): Layer? =
-    baseLayers[id] ?: layers[id]?.let { UnknownLayer(id, it) }
+  override fun getLayer(id: String): ResolvedLayerDefinition? =
+    layers[id]?.let { TestLayer(id, it).definition() }
 
   override fun layerIds() = orderedLayerIds.toList()
 
