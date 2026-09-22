@@ -1284,16 +1284,34 @@ internal class MlnFfiMapSession(
    * thread, so getters read this snapshot instead of hopping. The default answers reads made before
    * the first snapshot.
    */
-  private data class MirroredViewport(
+  private class MirroredViewport(
     val camera: CameraPosition = CameraPosition(),
     val effectivePadding: EdgeInsets = EdgeInsets.ZERO,
     val size: DpSize = DpSize.Zero,
-    val visibleRegion: VisibleRegion =
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
-    val visibleBounds: VisibleBounds = VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0)),
     val projection: MapProjectionHandle? = null,
     val wrappedProjection: MapProjectionHandle? = null,
-  )
+    extents: MapViewportExtents? = null,
+  ) {
+    /**
+     * The corners this camera renders. Unprojecting them is a quarter of the owner thread's work
+     * during camera motion, and most maps never read them, so they are derived from the frozen
+     * projection when something asks, and kept for later readers of the same publish.
+     */
+    @Volatile private var derivedExtents: MapViewportExtents? = extents
+
+    /** Call under the projection lock, which keeps [projection] open. */
+    fun extents(): MapViewportExtents {
+      derivedExtents?.let {
+        return it
+      }
+      val corners = projection?.let { unprojectedCorners(it, size) } ?: EMPTY_CORNERS
+      return MapViewportExtents(corners).also { derivedExtents = it }
+    }
+
+    /** Freezes what the projection can still answer, before the handle is closed. */
+    fun withoutProjection(): MirroredViewport =
+      MirroredViewport(camera, effectivePadding, size, null, null, extents())
+  }
 
   @Volatile private var mirroredViewport = MirroredViewport()
 
@@ -1332,8 +1350,6 @@ internal class MlnFfiMapSession(
         camera = geometry.camera,
         effectivePadding = geometry.padding,
         size = geometry.size,
-        visibleRegion = geometry.visibleRegion,
-        visibleBounds = geometry.visibleBounds,
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
         wrappedProjection =
@@ -1347,7 +1363,7 @@ internal class MlnFfiMapSession(
   private fun retireProjection() {
     val previous = projectionLock.withLock {
       val current = mirroredViewport
-      mirroredViewport = current.copy(projection = null, wrappedProjection = null)
+      mirroredViewport = current.withoutProjection()
       current
     }
     runCatching { previous.projection?.close() }
@@ -1774,9 +1790,13 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun getVisibleBounds(): VisibleBounds = mirroredViewport.visibleBounds
+  override fun getVisibleBounds(): VisibleBounds = projectionLock.withLock {
+    mirroredViewport.extents().bounds
+  }
 
-  override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
+  override fun getVisibleRegion(): VisibleRegion = projectionLock.withLock {
+    mirroredViewport.extents().region
+  }
 
   override fun getViewport(): Viewport? {
     // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once the
@@ -1785,10 +1805,11 @@ internal class MlnFfiMapSession(
     // One read so every property comes from the same publish.
     val mirror = mirroredViewport
     if (mirror.size == DpSize.Zero) return null
+    val extents = projectionLock.withLock { mirror.extents() }
     return Viewport(
       size = mirror.size,
-      visibleBounds = mirror.visibleBounds,
-      visibleRegion = mirror.visibleRegion,
+      visibleBounds = extents.bounds,
+      visibleRegion = extents.region,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
     )

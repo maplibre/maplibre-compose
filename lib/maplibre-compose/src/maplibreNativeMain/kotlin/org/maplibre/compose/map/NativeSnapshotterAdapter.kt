@@ -262,12 +262,21 @@ private class NativeSnapshotterAdapter(
   private suspend fun readViewport(request: MapSnapshotRequest): Viewport {
     val currentEngine = checkNotNull(engine)
     val extent = request.extent()
-    val applied =
+    // A snapshot is read once and never republished, so its extents are read with its camera.
+    val read =
       checkNotNull(
-        currentEngine.loop.call(action = { map -> map.readViewportGeometry(EdgeInsets.ZERO) })
+        currentEngine.loop.call(
+          action = { map ->
+            val geometry = map.readViewportGeometry(EdgeInsets.ZERO)
+            map.createProjection().use { projection ->
+              geometry to MapViewportExtents(unprojectedCorners(projection, geometry.size))
+            }
+          }
+        )
       ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
+    val (applied, extents) = read
     check(
       applied.size.width.value.toInt() == extent.width &&
         applied.size.height.value.toInt() == extent.height
@@ -277,8 +286,8 @@ private class NativeSnapshotterAdapter(
     }
     return Viewport(
       size = applied.size,
-      visibleBounds = applied.visibleBounds,
-      visibleRegion = applied.visibleRegion,
+      visibleBounds = extents.bounds,
+      visibleRegion = extents.region,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),
     )
