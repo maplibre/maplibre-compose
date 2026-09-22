@@ -2083,13 +2083,14 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+    // Cleared first: a failure below must not leave the next drain unable to mark the mirror stale.
+    cameraEventInDrain = false
     applyPendingViewport(map)
     if (viewportSnapshotStale) {
       ownerThreadRenderLease?.let { lease ->
         lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
       }
     }
-    cameraEventInDrain = false
     // A detached presentation cannot publish events, but accepted command fences still finish.
     finishPendingGesture(map)
     flushTransitionResumes()
