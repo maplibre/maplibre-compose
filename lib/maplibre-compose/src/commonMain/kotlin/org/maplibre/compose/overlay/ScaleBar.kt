@@ -37,6 +37,10 @@ import org.maplibre.spatialk.units.extensions.meters
  * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
  * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
  *
+ * [metersPerDp] is read while drawing: state read inside it redraws the bar when it changes, and
+ * the bar recomposes only when its stop changes. The map's scale changes every frame of a camera
+ * animation, so read it inside the lambda rather than capturing a value.
+ *
  * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
@@ -51,39 +55,6 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param barWidth scale bar width
  * @param textStyle Text style. The font size determines the scale bar height.
  * @param alignment horizontal alignment of the scale bar and text
- */
-@Composable
-public fun ScaleBar(
-  metersPerDp: Double,
-  modifier: Modifier = Modifier,
-  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
-  color: Color = ScaleBarDefaults.ContentColor,
-  haloColor: Color = ScaleBarDefaults.HaloColor,
-  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
-  barWidth: Dp = ScaleBarDefaults.BarWidth,
-  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
-  alignment: Alignment.Horizontal = Alignment.Start,
-) {
-  val current = rememberUpdatedState(metersPerDp)
-  ScaleBar(
-    metersPerDp = { current.value },
-    modifier = modifier,
-    measures = measures,
-    color = color,
-    haloColor = haloColor,
-    haloWidth = haloWidth,
-    barWidth = barWidth,
-    textStyle = textStyle,
-    alignment = alignment,
-  )
-}
-
-/**
- * [ScaleBar] that reads [metersPerDp] while drawing. State read inside [metersPerDp] redraws the
- * bar when it changes; the bar recomposes only when its stop changes. Use this form for a scale
- * that changes every frame, such as
- * [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] under a
- * camera animation.
  */
 @Composable
 public fun ScaleBar(

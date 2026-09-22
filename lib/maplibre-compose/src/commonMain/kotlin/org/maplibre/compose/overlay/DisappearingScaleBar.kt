@@ -26,6 +26,10 @@ import kotlinx.coroutines.flow.collectLatest
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration].
  *
+ * [metersPerDp] and [zoom] are read from state: a zoom change restarts the visibility timer and a
+ * scale change redraws the bar, neither recomposing it. The map's camera changes every frame of an
+ * animation, so read it inside the lambdas rather than capturing a value.
+ *
  * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
@@ -44,46 +48,6 @@ import kotlinx.coroutines.flow.collectLatest
  * @param visibilityDuration how long it should be visible after the zoom changed
  * @param enterTransition EnterTransition(s) used for the appearing animation
  * @param exitTransition ExitTransition(s) used for the disappearing animation
- */
-@Composable
-public fun DisappearingScaleBar(
-  metersPerDp: Double,
-  zoom: Double,
-  modifier: Modifier = Modifier,
-  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
-  color: Color = ScaleBarDefaults.ContentColor,
-  haloColor: Color = ScaleBarDefaults.HaloColor,
-  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
-  barWidth: Dp = ScaleBarDefaults.BarWidth,
-  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
-  alignment: Alignment.Horizontal = Alignment.Start,
-  visibilityDuration: Duration = 3.seconds,
-  enterTransition: EnterTransition = fadeIn(),
-  exitTransition: ExitTransition = fadeOut(),
-) {
-  val currentMetersPerDp = rememberUpdatedState(metersPerDp)
-  val currentZoom = rememberUpdatedState(zoom)
-  DisappearingScaleBar(
-    metersPerDp = { currentMetersPerDp.value },
-    zoom = { currentZoom.value },
-    modifier = modifier,
-    measures = measures,
-    color = color,
-    haloColor = haloColor,
-    haloWidth = haloWidth,
-    barWidth = barWidth,
-    textStyle = textStyle,
-    alignment = alignment,
-    visibilityDuration = visibilityDuration,
-    enterTransition = enterTransition,
-    exitTransition = exitTransition,
-  )
-}
-
-/**
- * [DisappearingScaleBar] that reads [metersPerDp] and [zoom] from state. A zoom change restarts the
- * visibility timer without recomposing the bar, and a scale change only redraws it. Use this form
- * with map state, whose camera changes every frame of an animation.
  */
 @Composable
 public fun DisappearingScaleBar(
