@@ -106,10 +106,14 @@ internal actual fun ClassicAndroidBenchmark(
       driver.run(BenchmarkWorkload(fixture.config.durationMs))
       driver.reset()
       onStatus("Measuring", true)
+      // Frame callbacks run before recomposition, so cross two frames for the status to render.
+      repeat(2) { withFrameNanos {} }
+      benchmarkCollectGarbage()
       benchmarkCpu(true)
       measuring = true
       recorder.start()
       driver.view.addOnDidFinishRenderingFrameListener(listener)
+      println("MAP_BENCHMARK MEASURE")
       val workload = BenchmarkWorkload(fixture.config.durationMs)
       driver.run(workload)
       val report = workload.report()

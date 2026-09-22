@@ -215,6 +215,12 @@ internal expect fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions
 /** Starts/stops the platform process CPU counter for the measured workload. */
 internal expect fun benchmarkCpu(active: Boolean)
 
+/**
+ * Collects garbage before the measured pass. Warm-up garbage and, on Android, ART's timed post-fork
+ * collection otherwise land inside some windows and not others.
+ */
+internal expect fun benchmarkCollectGarbage()
+
 @Composable
 internal expect fun ClassicAndroidBenchmark(
   fixture: BenchmarkFixture,
