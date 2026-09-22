@@ -8,7 +8,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
@@ -57,12 +61,56 @@ public fun DisappearingScaleBar(
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
 ) {
+  val currentMetersPerDp = rememberUpdatedState(metersPerDp)
+  val currentZoom = rememberUpdatedState(zoom)
+  DisappearingScaleBar(
+    metersPerDp = { currentMetersPerDp.value },
+    zoom = { currentZoom.value },
+    modifier = modifier,
+    measures = measures,
+    color = color,
+    haloColor = haloColor,
+    haloWidth = haloWidth,
+    barWidth = barWidth,
+    textStyle = textStyle,
+    alignment = alignment,
+    visibilityDuration = visibilityDuration,
+    enterTransition = enterTransition,
+    exitTransition = exitTransition,
+  )
+}
+
+/**
+ * [DisappearingScaleBar] that reads [metersPerDp] and [zoom] from state. A zoom change restarts the
+ * visibility timer without recomposing the bar, and a scale change only redraws it. Use this form
+ * with map state, whose camera changes every frame of an animation.
+ */
+@Composable
+public fun DisappearingScaleBar(
+  metersPerDp: () -> Double,
+  zoom: () -> Double,
+  modifier: Modifier = Modifier,
+  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
+  color: Color = ScaleBarDefaults.ContentColor,
+  haloColor: Color = ScaleBarDefaults.HaloColor,
+  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
+  barWidth: Dp = ScaleBarDefaults.BarWidth,
+  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
+  alignment: Alignment.Horizontal = Alignment.Start,
+  visibilityDuration: Duration = 3.seconds,
+  enterTransition: EnterTransition = fadeIn(),
+  exitTransition: ExitTransition = fadeOut(),
+) {
   val visible = remember { MutableTransitionState(true) }
+  val currentVisibilityDuration by rememberUpdatedState(visibilityDuration)
 
   LaunchedEffect(zoom) {
-    visible.targetState = true
-    delay(visibilityDuration)
-    visible.targetState = false
+    snapshotFlow { zoom() }
+      .collectLatest {
+        visible.targetState = true
+        delay(currentVisibilityDuration)
+        visible.targetState = false
+      }
   }
 
   AnimatedVisibility(

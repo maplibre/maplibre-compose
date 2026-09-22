@@ -68,6 +68,35 @@ public fun ScaleBar(
 }
 
 /**
+ * [ScaleBar] that reads [metersPerDp] while drawing, so a scale change redraws the bar without
+ * recomposing it. See [org.maplibre.compose.overlay.ScaleBar].
+ */
+@Composable
+public fun ScaleBar(
+  metersPerDp: () -> Double,
+  modifier: Modifier = Modifier,
+  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
+  color: Color = LocalContentColor.current,
+  haloColor: Color = backgroundColorFor(color),
+  haloWidth: Dp = 0.dp,
+  barWidth: Dp = 2.dp,
+  textStyle: TextStyle = MaterialTheme.typography.labelSmall,
+  alignment: Alignment.Horizontal = Alignment.Start,
+) {
+  BaseScaleBar(
+    metersPerDp = metersPerDp,
+    modifier = modifier,
+    measures = measures,
+    color = color,
+    haloColor = haloColor,
+    haloWidth = haloWidth,
+    barWidth = barWidth,
+    textStyle = textStyle,
+    alignment = alignment,
+  )
+}
+
+/**
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration]. This composable wraps [ScaleBar] with visibility animations.
  *
@@ -96,6 +125,44 @@ public fun ScaleBar(
 public fun DisappearingScaleBar(
   metersPerDp: Double,
   zoom: Double,
+  modifier: Modifier = Modifier,
+  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
+  color: Color = LocalContentColor.current,
+  haloColor: Color = backgroundColorFor(color),
+  haloWidth: Dp = 0.dp,
+  barWidth: Dp = 2.dp,
+  textStyle: TextStyle = MaterialTheme.typography.labelMedium,
+  alignment: Alignment.Horizontal = Alignment.Start,
+  visibilityDuration: Duration = 3.seconds,
+  enterTransition: EnterTransition = fadeIn(),
+  exitTransition: ExitTransition = fadeOut(),
+) {
+  BaseDisappearingScaleBar(
+    metersPerDp = metersPerDp,
+    zoom = zoom,
+    modifier = modifier,
+    measures = measures,
+    color = color,
+    haloColor = haloColor,
+    haloWidth = haloWidth,
+    barWidth = barWidth,
+    textStyle = textStyle,
+    alignment = alignment,
+    visibilityDuration = visibilityDuration,
+    enterTransition = enterTransition,
+    exitTransition = exitTransition,
+  )
+}
+
+/**
+ * [DisappearingScaleBar] that reads [metersPerDp] and [zoom] from state, so a camera change redraws
+ * the bar and restarts its timer without recomposing it. See
+ * [org.maplibre.compose.overlay.DisappearingScaleBar].
+ */
+@Composable
+public fun DisappearingScaleBar(
+  metersPerDp: () -> Double,
+  zoom: () -> Double,
   modifier: Modifier = Modifier,
   measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
   color: Color = LocalContentColor.current,

@@ -25,7 +25,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,14 +102,15 @@ public fun ExpandingAttributionButton(
   var expanded by remember { mutableStateOf(true) }
   val currentMapState = checkNotNull(LocalMapState.current)
 
-  // dismiss on any map gesture
-  LaunchedEffect(currentMapState.isCameraMoving, currentMapState.cameraMoveReason) {
-    if (
-      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
-    ) {
-      expanded = false
+  // Dismiss on any map gesture. Derived, so a programmatic camera change does not recompose this.
+  val gestureMoving by
+    remember(currentMapState) {
+      derivedStateOf {
+        currentMapState.isCameraMoving &&
+          currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
+      }
     }
-  }
+  if (gestureMoving) expanded = false
 
   val mapStyle = currentMapState.style
   val attributions by remember(mapStyle) { derivedStateOf { mapStyle.attributions() } }

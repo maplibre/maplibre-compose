@@ -136,18 +136,12 @@ internal fun demoMapControls(
     scale = {
       val mapState = checkNotNull(LocalMapState.current)
       val material3 = settings.useMaterial3Controls
-      val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
-      val zoom = mapState.cameraPosition.zoom
+      val metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 }
+      val zoom = { mapState.cameraPosition.zoom }
       if (material3) {
-        MaterialDisappearingScaleBar(
-          metersPerDp = metersPerDp,
-          zoom = zoom,
-        )
+        MaterialDisappearingScaleBar(metersPerDp = metersPerDp, zoom = zoom)
       } else {
-        DisappearingScaleBar(
-          metersPerDp = metersPerDp,
-          zoom = zoom,
-        )
+        DisappearingScaleBar(metersPerDp = metersPerDp, zoom = zoom)
       }
     },
     buttons = {

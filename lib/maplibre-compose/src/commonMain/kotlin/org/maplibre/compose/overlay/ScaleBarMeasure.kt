@@ -1,6 +1,7 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.intl.Locale
 import kotlin.math.pow
 import org.jetbrains.compose.resources.stringResource
@@ -99,7 +100,7 @@ public interface ScaleBarMeasure {
     @Composable
     protected open fun getText(stop: Double, unit: LengthUnit): String {
       val formatter = rememberNumberFormatter(Locale.current)
-      return "${formatter.format(stop)}\u202F${unit.symbol}"
+      return remember(formatter, stop, unit) { "${formatter.format(stop)}\u202F${unit.symbol}" }
     }
   }
 
@@ -113,7 +114,7 @@ public interface ScaleBarMeasure {
           Kilometers -> stringResource(Res.string.kilometers_symbol)
           else -> error("impossible")
         }
-      return "${formatter.format(stop)}\u202F$symbol"
+      return remember(formatter, stop, symbol) { "${formatter.format(stop)}\u202F$symbol" }
     }
   }
 
@@ -127,7 +128,7 @@ public interface ScaleBarMeasure {
           Miles -> stringResource(Res.string.miles_symbol)
           else -> error("impossible")
         }
-      return "${formatter.format(stop)}\u202F$symbol"
+      return remember(formatter, stop, symbol) { "${formatter.format(stop)}\u202F$symbol" }
     }
   }
 
@@ -141,7 +142,7 @@ public interface ScaleBarMeasure {
           Miles -> stringResource(Res.string.miles_symbol)
           else -> error("impossible")
         }
-      return "${formatter.format(stop)}\u202F$symbol"
+      return remember(formatter, stop, symbol) { "${formatter.format(stop)}\u202F$symbol" }
     }
   }
 }

@@ -5,12 +5,16 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -60,9 +64,39 @@ public fun ScaleBar(
   textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
-  // when map is not fully initialized yet
-  if (metersPerDp == 0.0) return
+  val current = rememberUpdatedState(metersPerDp)
+  ScaleBar(
+    metersPerDp = { current.value },
+    modifier = modifier,
+    measures = measures,
+    color = color,
+    haloColor = haloColor,
+    haloWidth = haloWidth,
+    barWidth = barWidth,
+    textStyle = textStyle,
+    alignment = alignment,
+  )
+}
 
+/**
+ * [ScaleBar] that reads [metersPerDp] while drawing. State read inside [metersPerDp] redraws the
+ * bar when it changes; the bar recomposes only when its stop changes. Use this form for a scale
+ * that changes every frame, such as
+ * [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] under a
+ * camera animation.
+ */
+@Composable
+public fun ScaleBar(
+  metersPerDp: () -> Double,
+  modifier: Modifier = Modifier,
+  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
+  color: Color = ScaleBarDefaults.ContentColor,
+  haloColor: Color = ScaleBarDefaults.HaloColor,
+  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
+  barWidth: Dp = ScaleBarDefaults.BarWidth,
+  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
+  alignment: Alignment.Horizontal = Alignment.Start,
+) {
   val textMeasurer = rememberTextMeasurer()
 
   // longest possible text
@@ -89,25 +123,39 @@ public fun ScaleBar(
     // scale bar start/end should not overlap horizontally with canvas bounds
     val maxBarLength = maxWidth - fullStrokeWidth
 
-    val params1 = scaleBarParameters(measures.primary, metersPerDp, maxBarLength)
-    val params2 = measures.secondary?.let { scaleBarParameters(it, metersPerDp, maxBarLength) }
+    // The stops change rarely; the bar lengths between them change with every scale change and
+    // are read while drawing, so a scale change alone recomposes nothing.
+    val stops by
+      remember(measures, maxBarLength) {
+        derivedStateOf {
+          // A zero scale means the map is not initialized yet.
+          val scale = metersPerDp().takeIf { it > 0.0 } ?: return@derivedStateOf null
+          val max = scale.meters * maxBarLength.value.toDouble()
+          Pair(
+            findStop(max, measures.primary.stops),
+            measures.secondary?.let { findStop(max, it.stops) },
+          )
+        }
+      }
+    val (primaryStop, secondaryStop) = stops ?: return@BoxWithConstraints
+    val primaryText = measures.primary.getText(primaryStop)
+    val secondaryText = secondaryStop?.let { checkNotNull(measures.secondary).getText(it) }
 
     Canvas(Modifier.fillMaxSize()) {
+      val scale = metersPerDp()
+      if (scale <= 0.0) return@Canvas
       val fullStrokeWidthPx = fullStrokeWidth.toPx()
       val textHeightPx = maxTextSizePx.height
-      val textHorizontalPaddingPx = textHorizontalPadding.toPx()
       val textVerticalPaddingPx = textVerticalPadding.toPx()
 
       // bar ends should go to the vertical center of the text
       val barEndsHeightPx = textHeightPx / 2f + textVerticalPaddingPx + fullStrokeWidthPx / 2f
 
       val paths = ArrayList<List<Offset>>(2)
-      val texts = ArrayList<Pair<Offset, TextLayoutResult>>(2)
-
       val alignmentSpacePx = ceil(size.width - fullStrokeWidthPx).toInt()
 
       run {
-        val barLengthPx = params1.barWidth.toPx().roundToInt()
+        val barLengthPx = (primaryStop.toDouble(Meters) / scale).dp.toPx().roundToInt()
         val offsetX =
           alignment.align(
             size = barLengthPx,
@@ -122,17 +170,11 @@ public fun ScaleBar(
             Offset(0f, -barEndsHeightPx),
           )
         )
-        texts.add(
-          Pair(
-            Offset(textHorizontalPaddingPx + fullStrokeWidthPx, 0f),
-            textMeasurer.measure(params1.text, textStyle),
-          )
-        )
       }
 
-      if (params2 != null) {
+      if (secondaryStop != null) {
         val y = textHeightPx + textVerticalPaddingPx
-        val barLengthPx = params2.barWidth.toPx().roundToInt()
+        val barLengthPx = (secondaryStop.toDouble(Meters) / scale).dp.toPx().roundToInt()
         val offsetX =
           alignment.align(
             size = barLengthPx,
@@ -147,15 +189,6 @@ public fun ScaleBar(
             Offset(0f, barEndsHeightPx),
           )
         )
-        texts.add(
-          Pair(
-            Offset(
-              textHorizontalPaddingPx + fullStrokeWidthPx,
-              y + textVerticalPaddingPx + fullStrokeWidthPx,
-            ),
-            textMeasurer.measure(params2.text, textStyle),
-          )
-        )
       }
 
       drawPathsWithHalo(
@@ -166,22 +199,73 @@ public fun ScaleBar(
         haloWidth = haloWidth.toPx(),
         cap = StrokeCap.Round,
       )
+    }
 
-      for ((offset, textLayoutResult) in texts) {
-        val offsetX =
-          alignment.align(
-            size = textLayoutResult.size.width,
-            space = ceil(size.width - 2 * offset.x).toInt(),
-            layoutDirection = layoutDirection,
-          ) + offset.x
-        drawTextWithHalo(
-          textLayoutResult = textLayoutResult,
-          topLeft = Offset(offsetX, offset.y),
-          color = color,
-          haloColor = haloColor,
-          haloWidth = haloWidth.toPx(),
-        )
-      }
+    ScaleBarLabels(
+      primary = primaryText,
+      secondary = secondaryText,
+      textStyle = textStyle,
+      color = color,
+      haloColor = haloColor,
+      haloWidth = haloWidth,
+      fullStrokeWidth = fullStrokeWidth,
+      textHeightPx = maxTextSizePx.height,
+      textHorizontalPadding = textHorizontalPadding,
+      textVerticalPadding = textVerticalPadding,
+      alignment = alignment,
+    )
+  }
+}
+
+/**
+ * The labels change only at a stop, so they draw in their own layer whose recording is reused
+ * between stops. Skipped while its inputs are unchanged.
+ */
+@Composable
+private fun ScaleBarLabels(
+  primary: String,
+  secondary: String?,
+  textStyle: TextStyle,
+  color: Color,
+  haloColor: Color,
+  haloWidth: Dp,
+  fullStrokeWidth: Dp,
+  textHeightPx: Int,
+  textHorizontalPadding: Dp,
+  textVerticalPadding: Dp,
+  alignment: Alignment.Horizontal,
+) {
+  val textMeasurer = rememberTextMeasurer()
+  val primaryLayout =
+    remember(textMeasurer, primary, textStyle) { textMeasurer.measure(primary, textStyle) }
+  val secondaryLayout =
+    remember(textMeasurer, secondary, textStyle) {
+      secondary?.let { textMeasurer.measure(it, textStyle) }
+    }
+  Canvas(Modifier.fillMaxSize().graphicsLayer()) {
+    val fullStrokeWidthPx = fullStrokeWidth.toPx()
+    val textVerticalPaddingPx = textVerticalPadding.toPx()
+    val x = textHorizontalPadding.toPx() + fullStrokeWidthPx
+    val texts = ArrayList<Pair<Offset, TextLayoutResult>>(2)
+    texts.add(Pair(Offset(x, 0f), primaryLayout))
+    if (secondaryLayout != null) {
+      val y = textHeightPx + textVerticalPaddingPx
+      texts.add(Pair(Offset(x, y + textVerticalPaddingPx + fullStrokeWidthPx), secondaryLayout))
+    }
+    for ((offset, textLayoutResult) in texts) {
+      val offsetX =
+        alignment.align(
+          size = textLayoutResult.size.width,
+          space = ceil(size.width - 2 * offset.x).toInt(),
+          layoutDirection = layoutDirection,
+        ) + offset.x
+      drawTextWithHalo(
+        textLayoutResult = textLayoutResult,
+        topLeft = Offset(offsetX, offset.y),
+        color = color,
+        haloColor = haloColor,
+        haloWidth = haloWidth.toPx(),
+      )
     }
   }
 }
@@ -203,23 +287,12 @@ public object ScaleBarDefaults {
   @Composable
   public fun measures(): ScaleBarMeasures {
     val region = Locale.current.region
-    val primary = systemDefaultPrimaryMeasure() ?: fallbackDefaultPrimaryMeasure(region)
-    return ScaleBarMeasures(primary = primary, secondary = defaultSecondaryMeasure(primary, region))
+    val system = systemDefaultPrimaryMeasure()
+    return remember(system, region) {
+      val primary = system ?: fallbackDefaultPrimaryMeasure(region)
+      ScaleBarMeasures(primary = primary, secondary = defaultSecondaryMeasure(primary, region))
+    }
   }
-}
-
-private data class ScaleBarParams(val barWidth: Dp, val text: String)
-
-@Composable
-private fun scaleBarParameters(
-  measure: ScaleBarMeasure,
-  metersPerDp: Double,
-  maxBarLength: Dp,
-): ScaleBarParams {
-  val max = metersPerDp.meters * maxBarLength.value.toDouble()
-  val stop = findStop(max, measure.stops)
-  val stopMeters = stop.toDouble(Meters)
-  return ScaleBarParams(barWidth = (stopMeters / metersPerDp).dp, text = measure.getText(stop))
 }
 
 /** Finds the largest stop at or below [max], or the first stop if all are larger. */

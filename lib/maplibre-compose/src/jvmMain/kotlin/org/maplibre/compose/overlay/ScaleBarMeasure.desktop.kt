@@ -1,11 +1,13 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.intl.Locale
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
 @Composable
 internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? =
-  macosSystemDefaultPrimaryMeasure()
+  remember(Locale.current) { macosSystemDefaultPrimaryMeasure() }
 
 internal fun macosSystemDefaultPrimaryMeasure(): ScaleBarMeasure? {
   if (!System.getProperty("os.name").orEmpty().startsWith("Mac", ignoreCase = true)) return null
