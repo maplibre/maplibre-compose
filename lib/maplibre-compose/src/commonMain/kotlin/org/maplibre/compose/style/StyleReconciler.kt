@@ -15,6 +15,12 @@ internal class StyleReconciler {
   private val images = linkedMapOf<String, StyleImageDefinition>()
 
   /**
+   * IDs whose last replacement failed. The engine may hold either image (the browser removes the
+   * old one before adding), so the next apply replaces again instead of adding.
+   */
+  private val unsettledImages = mutableSetOf<String>()
+
+  /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
    * engine's order is a cross-thread round trip on native engines, so it is tracked locally and
    * re-read only when it may have drifted: after a binding change or a failed revision.
@@ -155,6 +161,7 @@ internal class StyleReconciler {
     sources.clear()
     layers.clear()
     images.clear()
+    unsettledImages.clear()
     knownLayerIds = null
     baseLayers = null
   }
@@ -224,19 +231,27 @@ internal class StyleReconciler {
 
   private fun syncImages(style: StyleBinding, desired: List<StyleImageDefinition>) {
     val desiredById = desired.associateBy(StyleImageDefinition::id)
-    images.values.toList().forEach { applied ->
-      if (applied.id !in desiredById) {
-        style.removeImage(applied.id)
-        style.identity.images.remove(applied.id)
-        images.remove(applied.id)
+    (images.keys + unsettledImages).toList().forEach { id ->
+      if (id !in desiredById) {
+        style.removeImage(id)
+        style.identity.images.remove(id)
+        images.remove(id)
+        unsettledImages.remove(id)
       }
     }
     desired.forEach { definition ->
       val applied = images[definition.id]
       if (applied == definition) return@forEach
-      // A changed image is replaced in place so no frame renders without it.
-      if (applied == null) style.addImage(definition) else style.setImage(definition)
-      if (applied != null) style.identity.images.remove(definition.id)
+      if (applied == null && definition.id !in unsettledImages) {
+        style.addImage(definition)
+      } else {
+        // A changed image is replaced in place so no frame renders without it.
+        images.remove(definition.id)
+        unsettledImages.add(definition.id)
+        style.setImage(definition)
+        unsettledImages.remove(definition.id)
+        style.identity.images.remove(definition.id)
+      }
       images[definition.id] = definition
     }
   }
