@@ -233,10 +233,21 @@ internal class GlJsStyleBinding(
         }
       }
     mutate("add image '$id'") {
-      if (map.hasImage(id)) map.removeImage(id)
-      map.addImage(id, pixels, metadata)
-      indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
-      indicators.values.forEach { it.resourceChanged() }
+      val previous = map.getImage(id)
+      if (previous != null) map.removeImage(id)
+      val before = errorCount
+      try {
+        map.addImage(id, pixels, metadata)
+      } finally {
+        // A rejected replacement keeps the previous image instead of leaving none.
+        if (previous != null && (errorCount != before || !map.hasImage(id))) {
+          map.addImage(id, previous.data, previous.unsafeCast<StyleImageMetadata>())
+        }
+      }
+      if (errorCount == before) {
+        indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
+        indicators.values.forEach { it.resourceChanged() }
+      }
     }
   }
 
