@@ -354,6 +354,21 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     )
   }
 
+  /** [sourceHandle] for a source already read from the engine, or null when it has no object. */
+  private fun sourceHandle(current: StyleBinding, id: String, source: Source?): SourceHandle? =
+    owner.let { owner ->
+      val definition = owner?.desiredSourceDefinition(id)
+      val identity = current.identity.sources.get(id)
+      current.sourceHandle(
+        id = id,
+        source = source,
+        definition = definition,
+        currentDefinition = { owner?.desiredSourceDefinition(id) },
+        isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
+        operations = operationGuard(current),
+      )
+    }
+
   internal fun layerHandle(id: String): LayerHandle? {
     if (readyLoadedStyle() == null) return null
     return layersState[id]
@@ -418,9 +433,12 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       current.identity.sources.retain(ids.toSet())
       return ids.mapNotNull { id -> handles[id]?.let { id to it } }.toMap()
     }
-    val ids = current.sourceIds().toSet()
-    current.identity.sources.retain(ids)
-    return ids.mapNotNull { id -> sourceHandle(current, id)?.let { id to it } }.toMap()
+    // Two engine reads for every source, instead of an existence read and a definition read each.
+    // A source the engine cannot reconstruct still gets a handle from its composed definition.
+    val ids = current.sourceIds()
+    val sources = current.getSources().associateBy { it.id }
+    current.identity.sources.retain(ids.toSet())
+    return ids.mapNotNull { id -> sourceHandle(current, id, sources[id])?.let { id to it } }.toMap()
   }
 
   internal fun updateSources(sources: Map<String, SourceHandle>) {

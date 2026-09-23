@@ -315,7 +315,25 @@ internal fun StyleBinding.sourceHandle(
 ): SourceHandle? {
   requireCurrent()
   if (sourceExists(id) != true) return null
-  val source = getSource(id)
+  return sourceHandle(
+    id,
+    getSource(id),
+    definition,
+    currentDefinition,
+    isCurrentResource,
+    operations,
+  )
+}
+
+/** Builds the handle for [source], already read from the engine, without further engine reads. */
+internal fun StyleBinding.sourceHandle(
+  id: String,
+  source: Source?,
+  definition: SourceDefinition?,
+  currentDefinition: () -> SourceDefinition?,
+  isCurrentResource: () -> Boolean,
+  operations: StyleHandleOperationGuard,
+): SourceHandle? {
   val kind = sourceKind(definition, source) ?: return null
   val attribution = source?.attributionHtml.orEmpty()
   val composed = definition != null
