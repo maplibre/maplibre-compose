@@ -34,4 +34,44 @@ class AnchorPlacementTest {
       assertEquals(declared, fixture.state.style.layers.map { it.id }.toSet())
     }
   }
+
+  @Test
+  fun anchors_resolve_against_the_base_layers_of_the_loaded_style_after_a_reload(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(baseStyle("first-bottom", "first-top"))
+        fixture.declare {
+          Anchor.Below("first-top") { BackgroundLayer("under", visible = true) }
+        }
+        assertEquals(
+          listOf("first-bottom", "under", "first-top"),
+          fixture.state.style.layers.map { it.id },
+        )
+
+        fixture.loadStyle(baseStyle("second-bottom", "second-top"))
+        fixture.declare {
+          Anchor.Below("second-top") { BackgroundLayer("under", visible = true) }
+          Anchor.Above("first-top") { BackgroundLayer("over-unloaded", visible = true) }
+        }
+
+        val expected = listOf("over-unloaded", "second-bottom", "under", "second-top")
+        assertEquals(
+          expected,
+          assertNotNull(fixture.style).layerIds().filter { it in expected },
+        )
+        assertEquals(expected, fixture.state.style.layers.map { it.id })
+      }
+    }
+
+  private fun baseStyle(vararg layerIds: String) =
+    BaseStyle.Json(
+      """
+      {
+        "version": 8,
+        "sources": {},
+        "layers": [${layerIds.joinToString { """{ "id": "$it", "type": "background" }""" }}]
+      }
+      """
+        .trimIndent()
+    )
 }

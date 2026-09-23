@@ -502,6 +502,16 @@ internal interface StyleBinding {
  */
 internal data class LayerSummary(val type: String, val source: String?, val sourceLayer: String?)
 
+/**
+ * The base-style layers of this generation, keyed by ID in stack order. The first call reads them
+ * from the engine and every later call returns that read. Composition never modifies the base
+ * style, so the read stays valid for the generation, but it must happen before the composition adds
+ * its first layer: a layer in the engine at that time counts as a base layer.
+ */
+internal fun StyleBinding.baseLayerSummaries(): Map<String, LayerSummary> = identity.baseLayers {
+  layerSummaries()
+}
+
 internal fun ResolvedLayerDefinition.summary(): LayerSummary =
   LayerSummary(
     type = type,

@@ -11,6 +11,17 @@ internal class StyleIdentity private constructor() {
   val layers = ResourceIdentities()
   val images = ResourceIdentities()
 
+  private val baseLayers = AtomicReference<Map<String, LayerSummary>?>(null)
+
+  /** The base-style layers of this generation, in stack order: [read] once, then kept. */
+  fun baseLayers(read: () -> Map<String, LayerSummary>): Map<String, LayerSummary> {
+    baseLayers.load()?.let {
+      return it
+    }
+    val layers = read()
+    return if (baseLayers.compareAndSet(null, layers)) layers else checkNotNull(baseLayers.load())
+  }
+
   companion object {
     fun create(): StyleIdentity = StyleIdentity()
   }
