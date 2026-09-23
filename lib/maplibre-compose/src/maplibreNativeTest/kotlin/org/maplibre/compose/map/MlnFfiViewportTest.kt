@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -18,9 +19,15 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.toPosition
 import org.maplibre.nativeffi.camera.EdgeInsets
+import org.maplibre.nativeffi.geo.ScreenPoint
+import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.map.ProjectionModeOptions
 import org.maplibre.spatialk.geojson.Position
 
+@OptIn(DelicateMapApi::class)
 class MlnFfiViewportTest {
   @Test
   fun viewport_insets_do_not_stop_an_unanchored_camera_animation() = runBlocking {
@@ -92,6 +99,56 @@ class MlnFfiViewportTest {
       animation.await()
       assertEquals(target.zoom, fixture.session.getCameraPosition().zoom, 0.0001)
     }
+  }
+
+  @Test
+  fun raw_platform_map_access_that_changes_the_transform_refreshes_the_viewport() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      val state = fixture.state
+      state.publishPresentation(state.reservePresentation(), fixture.session)
+      fixture.bindState(state)
+      fixture.loadStyle(BaseStyle.Empty)
+      val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.0, tilt = 45.0)
+      state.setCameraPosition(camera)
+      fixture.pumpUntil("the starting viewport") {
+        fixture.session.getCameraPosition().zoom == camera.zoom &&
+          fixture.session.getViewport() != null
+      }
+      val before = fixture.session.getVisibleRegion()
+
+      // A projection mode change moves the viewport's corners without a camera event.
+      state.withPlatformMap {
+        map.projectionMode =
+          ProjectionModeOptions().also {
+            it.axonometric = true
+            it.xSkew = 0.5
+            it.ySkew = 0.5
+          }
+      }
+      val engineRegion = fixture.session.readMap { map -> map.visibleRegion() }
+      assertNotEquals(before, engineRegion, "the raw access must move the viewport")
+
+      fixture.awaitUntil("the viewport to reflect the raw access", timeout = 10.seconds) {
+        fixture.session.getVisibleRegion() == engineRegion
+      }
+      assertEquals(engineRegion, fixture.session.getViewport()?.visibleRegion)
+    }
+  }
+
+  private fun MapHandle.visibleRegion(): VisibleRegion {
+    val width = size.width.toDouble()
+    val height = size.height.toDouble()
+    val corners =
+      latLngsForPixelsUnwrapped(
+          listOf(
+            ScreenPoint(0.0, 0.0),
+            ScreenPoint(width, 0.0),
+            ScreenPoint(0.0, height),
+            ScreenPoint(width, height),
+          )
+        )
+        .map { it.toPosition() }
+    return VisibleRegion(corners[0], corners[1], corners[2], corners[3])
   }
 
   private fun checkInitialPadding(tilt: Double, cameraAfterPadding: Boolean) {
