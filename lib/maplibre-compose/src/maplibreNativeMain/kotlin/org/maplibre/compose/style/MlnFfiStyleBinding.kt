@@ -206,7 +206,8 @@ internal open class MlnFfiStyleBinding(
    * in [slice]. A large style pays a few round trips instead of one per id, and each call still
    * ends soon enough for the render feedback between calls to advance a transition. [ids] is one
    * engine call, and everything an id costs belongs in [read] so the slice bounds it. An id [read]
-   * has nothing for is left out, and a call that finds no map ends the read.
+   * has nothing for is left out. A call that finds no map abandons the read and returns nothing, as
+   * a single [readMap] call reads as null, so a caller never sees part of a style.
    */
   private fun <T> readInSlices(
     slice: Duration,
@@ -228,7 +229,7 @@ internal open class MlnFfiStyleBinding(
             if (deadline.hasPassedNow()) break
           }
           index
-        } ?: return items
+        } ?: return emptyList()
       next = reached
     } while (next < (all?.size ?: 0))
     return items

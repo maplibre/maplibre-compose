@@ -29,15 +29,16 @@ class MlnFfiLayerSummaryReadTest {
       val style = assertNotNull(fixture.style as? MlnFfiStyleBinding, "Errors: ${fixture.errors}")
 
       // How long a host takes over the read is its own business, so the same read runs twice on it:
-      // once in slices, and once held in a single owner-thread call the way it was read before.
-      val sliced = readWhileProbing(style) { style.layerSummaries() }
+      // once yielding after every layer, and once held in a single owner-thread call the way it was
+      // read before. A fast host fits every layer of the production slice into one call.
+      val sliced = readWhileProbing(style) { style.layerSummaries(Duration.ZERO) }
       val whole = readWhileProbing(style) { style.layerSummaries(Duration.INFINITE) }
 
       assertEquals(LAYER_COUNT, sliced.summaries.size)
       assertEquals(LAYER_COUNT, whole.summaries.size)
       assertTrue(
         sliced.probes > whole.probes,
-        "reading $LAYER_COUNT layers in $STYLE_READ_SLICE slices let ${sliced.probes} other " +
+        "reading $LAYER_COUNT layers one per owner-thread call let ${sliced.probes} other " +
           "owner-thread calls through, no more than the ${whole.probes} of the single call: the " +
           "sliced read did not yield",
       )
@@ -84,7 +85,9 @@ class MlnFfiLayerSummaryReadTest {
   }
 
   private companion object {
-    /** Enough layers that one owner-thread time slice cannot read them all. */
+    /**
+     * Enough owner-thread calls in the yielding read for the probe to land between some of them.
+     */
     const val LAYER_COUNT = 600
 
     const val PROBE_STOP_TIMEOUT_MILLIS = 30_000L
