@@ -358,6 +358,7 @@ class MapClickDispatcherTest {
             Position(-1.0, -1.0),
             Position(1.0, -1.0),
           ),
+          1.0,
         )
     }
 

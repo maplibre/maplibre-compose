@@ -1817,6 +1817,8 @@ internal class MlnFfiMapSession(
         size = mirror.size,
         visibleBounds = extents.bounds,
         visibleRegion = extents.region,
+        metersPerDpAtTarget =
+          metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
       )
     }
   }

@@ -31,7 +31,8 @@ import org.maplibre.compose.overlay.ScaleBarMeasures
  * [metersPerDp] is called while drawing. Read map state inside it rather than capturing a value.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
- *   scale. See [CameraPosition.metersPerDp][org.maplibre.compose.camera.CameraPosition.metersPerDp]
+ *   scale. See
+ *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,
  *   or otherwise the user's locale.
@@ -79,7 +80,8 @@ public fun ScaleBar(
  * inside them rather than capturing a value.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
- *   scale. See [CameraPosition.metersPerDp][org.maplibre.compose.camera.CameraPosition.metersPerDp]
+ *   scale. See
+ *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
  * @param zoom zoom level of the map
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,

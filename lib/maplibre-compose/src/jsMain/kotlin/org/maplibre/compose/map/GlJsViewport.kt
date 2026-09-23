@@ -10,6 +10,7 @@ import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.Position
@@ -28,6 +29,7 @@ internal fun MaplibreMap.readViewport(
     size = DpSize(width.dp, height.dp),
     visibleBounds = getBounds().toVisibleBounds(),
     visibleRegion = readVisibleRegion(width, height),
+    metersPerDpAtTarget = metersPerDpAtLatitude(getZoom(), getCenter().toPosition().latitude),
   )
 
 /** Reads the camera this map currently holds, with [viewportInsets] excluded from its padding. */
