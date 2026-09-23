@@ -940,8 +940,17 @@ internal class MlnFfiMapSession(
       // read is refreshed before the event is delivered.
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
-      RuntimeEventType.MAP_CAMERA_DID_CHANGE ->
-        postPresentationEvent(engine, lease, mapEvent) { loop?.map?.let(::snapshotViewport) }
+      RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
+        // The transform does not change between the events of one drain, so the first camera
+        // event of a drain marks the mirror stale for all of them.
+        if (!cameraEventInDrain) {
+          cameraEventInDrain = true
+          viewportSnapshotStale = true
+        }
+        postPresentationEvent(engine, lease, mapEvent) {
+          if (viewportSnapshotStale) loop?.map?.let(::snapshotViewport)
+        }
+      }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
         val payload = event.payload
@@ -1275,16 +1284,37 @@ internal class MlnFfiMapSession(
    * thread, so getters read this snapshot instead of hopping. The default answers reads made before
    * the first snapshot.
    */
-  private data class MirroredViewport(
+  private class MirroredViewport(
     val camera: CameraPosition = CameraPosition(),
     val effectivePadding: EdgeInsets = EdgeInsets.ZERO,
     val size: DpSize = DpSize.Zero,
-    val visibleRegion: VisibleRegion =
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
-    val visibleBounds: VisibleBounds = VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0)),
     val projection: MapProjectionHandle? = null,
     val wrappedProjection: MapProjectionHandle? = null,
-  )
+    extents: MapViewportExtents? = null,
+  ) {
+    /**
+     * The corners this camera renders. Unprojecting them is a quarter of the owner thread's work
+     * during camera motion, so they are derived from the frozen projection on the thread that asks
+     * for them, and kept for later readers of the same publish.
+     */
+    @Volatile private var derivedExtents: MapViewportExtents? = extents
+
+    /**
+     * Call under the projection lock, having read the mirror under that same lock: the owner thread
+     * closes a replaced publish's handles as soon as the lock is free.
+     */
+    fun extents(): MapViewportExtents {
+      derivedExtents?.let {
+        return it
+      }
+      val corners = projection?.let { unprojectedCorners(it, size) } ?: EMPTY_CORNERS
+      return MapViewportExtents(corners).also { derivedExtents = it }
+    }
+
+    /** Freezes what the projection can still answer, before the handle is closed. */
+    fun withoutProjection(): MirroredViewport =
+      MirroredViewport(camera, effectivePadding, size, null, null, extents())
+  }
 
   @Volatile private var mirroredViewport = MirroredViewport()
 
@@ -1304,16 +1334,24 @@ internal class MlnFfiMapSession(
     }
   }
 
+  /**
+   * Owner thread only. True from a camera event until the next snapshot. The engine reports every
+   * transform change as camera events, so the mirror is read again only after one of them, once per
+   * drain, rather than after every drain.
+   */
+  private var viewportSnapshotStale = false
+
+  /** Owner thread only. True from the first camera event of a drain until the drain ends. */
+  private var cameraEventInDrain = false
+
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
     val geometry = map.readViewportGeometry(appliedViewportInsets)
     publishViewport(
       MirroredViewport(
         camera = geometry.camera,
-        effectivePadding = map.camera.padding ?: EdgeInsets.ZERO,
+        effectivePadding = geometry.padding,
         size = geometry.size,
-        visibleRegion = geometry.visibleRegion,
-        visibleBounds = geometry.visibleBounds,
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
         wrappedProjection =
@@ -1322,12 +1360,14 @@ internal class MlnFfiMapSession(
           } else null,
       )
     )
+    // Cleared last: a read that throws leaves the mirror stale so a later refresh retries it.
+    viewportSnapshotStale = false
   }
 
   private fun retireProjection() {
     val previous = projectionLock.withLock {
       val current = mirroredViewport
-      mirroredViewport = current.copy(projection = null, wrappedProjection = null)
+      mirroredViewport = current.withoutProjection()
       current
     }
     runCatching { previous.projection?.close() }
@@ -1754,24 +1794,32 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun getVisibleBounds(): VisibleBounds = mirroredViewport.visibleBounds
+  override fun getVisibleBounds(): VisibleBounds = projectionLock.withLock {
+    mirroredViewport.extents().bounds
+  }
 
-  override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
+  override fun getVisibleRegion(): VisibleRegion = projectionLock.withLock {
+    mirroredViewport.extents().region
+  }
 
   override fun getViewport(): Viewport? {
     // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once the
     // map owner has acknowledged the render target's dimensions and applied padding.
     if (!hasViewport) return null
-    // One read so every property comes from the same publish.
-    val mirror = mirroredViewport
-    if (mirror.size == DpSize.Zero) return null
-    return Viewport(
-      size = mirror.size,
-      visibleBounds = mirror.visibleBounds,
-      visibleRegion = mirror.visibleRegion,
-      metersPerDpAtTarget =
-        metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
-    )
+    // One read under the lock that keeps its projection open: every property comes from the same
+    // publish, and the owner thread cannot close that publish's handles while they are read.
+    return projectionLock.withLock {
+      val mirror = mirroredViewport
+      if (mirror.size == DpSize.Zero) return@withLock null
+      val extents = mirror.extents()
+      Viewport(
+        size = mirror.size,
+        visibleBounds = extents.bounds,
+        visibleRegion = extents.region,
+        metersPerDpAtTarget =
+          metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
+      )
+    }
   }
 
   override fun setRenderSettings(value: RenderOptions) {
@@ -1819,6 +1867,9 @@ internal class MlnFfiMapSession(
                 lifecycle.acceptEngineEvent(engine) {
                   val authorityAccepted =
                     lifecycleAuthority.acceptEnginePlatformAccess(this) {
+                      // Raw access can change the transform without an event, so the mirror is
+                      // refreshed when this drain ends.
+                      viewportSnapshotStale = true
                       result = runCatching { PlatformMapScope(map).block() }
                     }
                   if (!authorityAccepted) {
@@ -2063,9 +2114,13 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+    // Cleared first: a failure below must not leave the next drain unable to mark the mirror stale.
+    cameraEventInDrain = false
     applyPendingViewport(map)
-    ownerThreadRenderLease?.let { lease ->
-      lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
+    if (viewportSnapshotStale) {
+      ownerThreadRenderLease?.let { lease ->
+        lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
+      }
     }
     // A detached presentation cannot publish events, but accepted command fences still finish.
     finishPendingGesture(map)
