@@ -284,6 +284,7 @@ private class NativeSnapshotterAdapter(
         "${extent.width}x${extent.height} logical pixels"
     }
     return Viewport(
+      cameraPosition = applied.camera,
       size = applied.size,
       visibleBounds = extents.bounds,
       visibleRegion = extents.region,

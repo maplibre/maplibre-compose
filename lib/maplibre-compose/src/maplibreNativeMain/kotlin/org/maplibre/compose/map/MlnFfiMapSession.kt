@@ -1813,6 +1813,7 @@ internal class MlnFfiMapSession(
       if (mirror.size == DpSize.Zero) return@withLock null
       val extents = mirror.extents()
       Viewport(
+        cameraPosition = mirror.camera,
         size = mirror.size,
         visibleBounds = extents.bounds,
         visibleRegion = extents.region,

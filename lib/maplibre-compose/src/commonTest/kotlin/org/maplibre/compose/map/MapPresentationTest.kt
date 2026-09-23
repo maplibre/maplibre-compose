@@ -2631,7 +2631,8 @@ internal open class PresentationTestAdapter(
 
   override fun getViewport(): Viewport? {
     viewportReads++
-    return currentViewport
+    // An engine renders its viewport with the camera it holds.
+    return currentViewport?.copy(cameraPosition = lastCameraPosition)
   }
 
   override fun setRenderSettings(value: RenderOptions) = Unit
@@ -2662,6 +2663,7 @@ internal open class PresentationTestAdapter(
 
 private fun testViewport(): Viewport =
   Viewport(
+    cameraPosition = CameraPosition(),
     size = DpSize(100.dp, 100.dp),
     visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =

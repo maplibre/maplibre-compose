@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.VisibleBounds
@@ -144,6 +145,7 @@ class MapStateEventReactionTest {
 
   private fun testViewport(): Viewport =
     Viewport(
+      cameraPosition = CameraPosition(),
       size = DpSize(100.dp, 100.dp),
       visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
       visibleRegion =

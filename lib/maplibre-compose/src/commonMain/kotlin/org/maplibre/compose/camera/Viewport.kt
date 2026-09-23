@@ -6,17 +6,19 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 
 /**
- * The map composable's size and visible area.
+ * One rendered transform of the map: its camera, size and visible area.
  *
  * Read a current instance from [org.maplibre.compose.map.MapState.viewport]. A new immutable
- * instance replaces it when the map has adopted a new camera or size. A composition that reads any
- * property recomposes exactly when the value changes. All properties of one instance describe the
- * same rendered transform and are consistent with each other.
+ * instance replaces it when the map has rendered a new camera or size. All properties of one
+ * instance describe the same frame.
  */
 @Immutable
 public data class Viewport
 internal constructor(
-  /** The size of the map composable this viewport was computed for. */
+  /** The camera this viewport was rendered with. */
+  public val cameraPosition: CameraPosition,
+
+  /** The size of the map composable this viewport was rendered at. */
   public val size: DpSize,
 
   /**

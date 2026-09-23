@@ -830,14 +830,20 @@ internal constructor(
   /** Set by the current presentation; recognized gestures are ignored without one. */
   internal var recognizedInput: RecognizedMapInput? = null
 
-  /** Current camera state. Padding excludes the presentation's viewport insets. */
+  /**
+   * The current camera: the last one the map rendered, or the initial or requested camera before
+   * the map renders. Padding excludes the presentation's viewport insets.
+   */
   public val cameraPosition: CameraPosition
     get() = attachmentAuthority.cameraPosition
 
   internal val currentMapAttachment: MapAttachment?
     get() = attachmentAuthority.current
 
-  /** Contains the current rendered viewport, or null while no viewport is available. */
+  /**
+   * The last rendered transform, or null until the map renders. Its camera, size and visible area
+   * describe the same frame.
+   */
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport
 
