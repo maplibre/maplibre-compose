@@ -8,7 +8,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,10 +20,14 @@ import androidx.compose.ui.unit.Dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration].
+ *
+ * [metersPerDp] is called while drawing and [zoom] is observed as snapshot state. Read map state
+ * inside them rather than capturing a value.
  *
  * The Material 3 module provides a themed version.
  *
@@ -43,8 +50,8 @@ import kotlinx.coroutines.delay
  */
 @Composable
 public fun DisappearingScaleBar(
-  metersPerDp: Double,
-  zoom: Double,
+  metersPerDp: () -> Double,
+  zoom: () -> Double,
   modifier: Modifier = Modifier,
   measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
   color: Color = ScaleBarDefaults.ContentColor,
@@ -58,11 +65,17 @@ public fun DisappearingScaleBar(
   exitTransition: ExitTransition = fadeOut(),
 ) {
   val visible = remember { MutableTransitionState(true) }
+  val currentVisibilityDuration by rememberUpdatedState(visibilityDuration)
+  // Keyed on nothing: a new zoom lambda must not restart the timer and show the bar.
+  val currentZoom by rememberUpdatedState(zoom)
 
-  LaunchedEffect(zoom) {
-    visible.targetState = true
-    delay(visibilityDuration)
-    visible.targetState = false
+  LaunchedEffect(Unit) {
+    snapshotFlow { currentZoom() }
+      .collectLatest {
+        visible.targetState = true
+        delay(currentVisibilityDuration)
+        visible.targetState = false
+      }
   }
 
   AnimatedVisibility(

@@ -49,6 +49,7 @@ internal fun mapRuntimeForTest(
 /** A viewport sized for [request], as a snapshotter adapter reports after applying the request. */
 internal fun viewportFor(request: MapSnapshotRequest): Viewport =
   Viewport(
+    cameraPosition = request.cameraPosition,
     size = DpSize(request.width.dp, request.height.dp),
     visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =

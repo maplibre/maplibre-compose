@@ -1864,11 +1864,14 @@ class MapPresentationTest {
     state.publishPresentation(token, adapter)
     assertNull(state.currentMapAttachment?.viewport)
 
-    val viewport = testViewport()
+    val rendered = CameraPosition(target = Position(12.0, 34.0), zoom = 5.0)
+    val viewport = testViewport().copy(cameraPosition = rendered)
     adapter.currentViewport = viewport
+    adapter.lastCameraPosition = rendered
     state.lifecycle.seedCurrentPresentationViewport(adapter)
 
     assertEquals(viewport, state.viewport)
+    assertEquals(rendered, state.cameraPosition)
     state.close()
     runtime.close()
   }
@@ -2647,7 +2650,8 @@ internal open class PresentationTestAdapter(
 
   override fun getViewport(): Viewport? {
     viewportReads++
-    return currentViewport
+    // An engine renders its viewport with the camera it holds.
+    return currentViewport?.copy(cameraPosition = lastCameraPosition)
   }
 
   override fun setRenderSettings(value: RenderOptions) = Unit
@@ -2678,6 +2682,7 @@ internal open class PresentationTestAdapter(
 
 private fun testViewport(): Viewport =
   Viewport(
+    cameraPosition = CameraPosition(),
     size = DpSize(100.dp, 100.dp),
     visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =

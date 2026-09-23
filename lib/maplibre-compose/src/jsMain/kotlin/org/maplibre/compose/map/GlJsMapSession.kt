@@ -88,7 +88,6 @@ import org.maplibre.compose.util.toLngLat
 import org.maplibre.compose.util.toLngLatBounds
 import org.maplibre.compose.util.toPaddingOptions
 import org.maplibre.compose.util.toPoint
-import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -820,25 +819,7 @@ internal class GlJsMapSession(
   private var viewportInsets: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
 
   override fun getCameraPosition(): CameraPosition =
-    withMap(requestedCamera ?: CameraPosition()) { map -> map.cameraPosition() }
-
-  private fun MaplibreMap.cameraPosition(): CameraPosition =
-    CameraPosition(
-      bearing = getBearing(),
-      target = getCenter().toPosition(),
-      tilt = getPitch(),
-      padding =
-        getPadding().let {
-          DpPadding(
-            // Fractional insets leave floating-point residue, and GL JS rejects negative padding.
-            left = (it.left - viewportInsets.left).coerceAtLeast(0.0).dp,
-            top = (it.top - viewportInsets.top).coerceAtLeast(0.0).dp,
-            right = (it.right - viewportInsets.right).coerceAtLeast(0.0).dp,
-            bottom = (it.bottom - viewportInsets.bottom).coerceAtLeast(0.0).dp,
-          )
-        },
-      zoom = getZoom(),
-    )
+    withMap(requestedCamera ?: CameraPosition()) { map -> map.readCameraPosition(viewportInsets) }
 
   override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
@@ -1026,7 +1007,7 @@ internal class GlJsMapSession(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition? {
-    val current = cameraPosition()
+    val current = readCameraPosition(viewportInsets)
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val extent = appliedExtent
     val width = extent.width.toDouble()
@@ -1110,7 +1091,7 @@ internal class GlJsMapSession(
       // the transform the conversions read all describe the same viewport here.
       val extent = appliedExtent
       if (extent.isEmpty) return@withMap null
-      map.readViewport(extent.width.toDouble(), extent.height.toDouble())
+      map.readViewport(extent.width.toDouble(), extent.height.toDouble(), viewportInsets)
     }
 
   override fun setRenderSettings(value: RenderOptions) {

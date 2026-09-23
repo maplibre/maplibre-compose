@@ -93,10 +93,11 @@ unchanged. For example, cap the calculated zoom before animating:
 
 ## Read the visible area
 
-<Api of="MapState.viewport" /> reports the current rendered size,
-visible bounds, and visible region. It is null until the map renders its
-first viewport. A composition that reads it recomposes when the camera moves or
-the map resizes:
+<Api of="MapState.viewport" /> reports the last rendered camera, size,
+visible bounds, and visible region, which all describe the same frame. It is
+null until the map renders its first viewport, while
+<Api of="MapState.cameraPosition" /> is available before that. A composition
+that reads the viewport recomposes when the camera moves or the map resizes:
 
 <Code code={region(camera, "viewport")} lang="kotlin" title="App.kt" />
 

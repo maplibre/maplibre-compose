@@ -69,7 +69,9 @@ block:
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
-1. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
+1. `ScaleBar` calls `metersPerDp` while it draws, so read the map state inside
+   the lambda rather than passing a value.
+2. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
    that `MapOverlay.Material3` uses fade in when the zoom or the orientation
    changes, and fade out once it settles.
 

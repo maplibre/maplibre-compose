@@ -87,20 +87,19 @@ internal class MapAttachmentAuthority(
       .viewport!!
 
   /**
-   * Publishes the camera and viewport of [adapter] and returns the presentation that holds them. A
-   * map with no readable viewport keeps the values it has, so a caller that reacts to a camera
-   * event still reaches its presentation.
+   * Publishes the viewport of [adapter], and the camera it was rendered with, and returns the
+   * presentation that holds them. A map with no readable viewport keeps the values it has, so a
+   * caller that reacts to a camera event still reaches its presentation.
    */
   internal fun synchronizeCamera(adapter: MapAdapter): MapAttachment? {
     lifecycle.requireMain()
     if (!lifecycle.acceptsPresentation(adapter)) return null
-    val cameraPosition = adapter.getCameraPosition()
     val viewport = adapter.getViewport()
     return run {
       if (!lifecycle.acceptsPresentation(adapter)) return@run null
       val current = current ?: return@run null
       if (viewport != null) {
-        cameraPositionState = cameraPosition
+        cameraPositionState = viewport.cameraPosition
         current.updateViewport(viewport)
       }
       current
@@ -228,6 +227,9 @@ internal class MapAttachmentAuthority(
     run {
       val current = current ?: return@run
       if (current.token != token || current.adapter !== adapter || current.viewport != null) return
+      // The seeded camera can predate a command applied at attach; that command's own camera
+      // event then corrects it through synchronizeCamera.
+      cameraPositionState = viewport.cameraPosition
       current.updateViewport(viewport)
     }
   }

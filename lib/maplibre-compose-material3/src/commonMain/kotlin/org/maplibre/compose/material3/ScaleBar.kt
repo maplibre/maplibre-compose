@@ -28,6 +28,8 @@ import org.maplibre.compose.overlay.ScaleBarMeasures
  * This is [org.maplibre.compose.overlay.ScaleBar] with its colors and typography taken from the
  * Material 3 theme.
  *
+ * [metersPerDp] is called while drawing. Read map state inside it rather than capturing a value.
+ *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
@@ -44,7 +46,7 @@ import org.maplibre.compose.overlay.ScaleBarMeasures
  */
 @Composable
 public fun ScaleBar(
-  metersPerDp: Double,
+  metersPerDp: () -> Double,
   modifier: Modifier = Modifier,
   measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
   color: Color = LocalContentColor.current,
@@ -74,6 +76,9 @@ public fun ScaleBar(
  * This is [org.maplibre.compose.overlay.DisappearingScaleBar] with its colors and typography taken
  * from the Material 3 theme.
  *
+ * [metersPerDp] is called while drawing and [zoom] is observed as snapshot state. Read map state
+ * inside them rather than capturing a value.
+ *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
@@ -94,8 +99,8 @@ public fun ScaleBar(
  */
 @Composable
 public fun DisappearingScaleBar(
-  metersPerDp: Double,
-  zoom: Double,
+  metersPerDp: () -> Double,
+  zoom: () -> Double,
   modifier: Modifier = Modifier,
   measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
   color: Color = LocalContentColor.current,

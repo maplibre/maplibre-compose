@@ -14,6 +14,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -348,6 +349,7 @@ class MapClickDispatcherTest {
     init {
       currentViewport =
         Viewport(
+          CameraPosition(),
           DpSize(100.dp, 100.dp),
           VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
           VisibleRegion(

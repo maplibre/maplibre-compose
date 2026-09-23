@@ -25,6 +25,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
 import org.maplibre.compose.util.toPaddingOptions
@@ -138,7 +139,11 @@ internal class GlJsSnapshotterAdapter(
    * synchronously, and the loaded style's projection shapes the bounds, so this runs after both.
    */
   private fun readViewport(map: MaplibreMap, request: MapSnapshotRequest): Viewport =
-    map.readViewport(request.width.toDouble(), request.height.toDouble())
+    map.readViewport(
+      request.width.toDouble(),
+      request.height.toDouble(),
+      viewportInsets = DpPadding.Zero.toPaddingOptions(),
+    )
 
   override suspend fun capture(
     request: MapSnapshotRequest,
