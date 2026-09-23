@@ -227,6 +227,9 @@ internal class MapAttachmentAuthority(
     run {
       val current = current ?: return@run
       if (current.token != token || current.adapter !== adapter || current.viewport != null) return
+      // The seeded camera can predate a command applied at attach; that command's own camera
+      // event then corrects it through synchronizeCamera.
+      cameraPositionState = viewport.cameraPosition
       current.updateViewport(viewport)
     }
   }
