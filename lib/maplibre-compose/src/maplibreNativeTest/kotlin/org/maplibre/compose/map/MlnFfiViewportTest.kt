@@ -110,8 +110,9 @@ class MlnFfiViewportTest {
       fixture.loadStyle(BaseStyle.Empty)
       val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.0, tilt = 45.0)
       state.setCameraPosition(camera)
-      fixture.pumpUntil("the starting camera") {
-        fixture.session.getCameraPosition().zoom == camera.zoom
+      fixture.pumpUntil("the starting viewport") {
+        fixture.session.getCameraPosition().zoom == camera.zoom &&
+          fixture.session.getViewport() != null
       }
       val before = fixture.session.getVisibleRegion()
 
