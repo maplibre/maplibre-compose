@@ -153,6 +153,5 @@ class MapStateEventReactionTest {
           nearLeft = Position(-1.0, -1.0),
           nearRight = Position(1.0, -1.0),
         ),
-      metersPerDpAtTarget = 1.0,
     )
 }

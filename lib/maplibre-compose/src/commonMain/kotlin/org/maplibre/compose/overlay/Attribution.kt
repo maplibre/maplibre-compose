@@ -25,11 +25,13 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import be.digitalia.compose.htmlconverter.HtmlStyle
 import be.digitalia.compose.htmlconverter.htmlToAnnotatedString
+import kotlinx.coroutines.flow.filter
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraMoveReason
@@ -102,15 +105,15 @@ public fun ExpandingAttributionButton(
   var expanded by remember { mutableStateOf(true) }
   val currentMapState = checkNotNull(LocalMapState.current)
 
-  // Dismiss on any map gesture. Derived, so a programmatic camera change does not recompose this.
-  val gestureMoving by
-    remember(currentMapState) {
-      derivedStateOf {
-        currentMapState.isCameraMoving &&
-          currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
-      }
+  // Dismiss when a gesture starts, not on every camera update: a tap to expand during a gesture
+  // stays expanded.
+  LaunchedEffect(currentMapState) {
+    snapshotFlow {
+      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
     }
-  if (gestureMoving) expanded = false
+      .filter { it }
+      .collect { expanded = false }
+  }
 
   val mapStyle = currentMapState.style
   val attributions by remember(mapStyle) { derivedStateOf { mapStyle.attributions() } }

@@ -26,9 +26,8 @@ import kotlinx.coroutines.flow.collectLatest
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration].
  *
- * [metersPerDp] and [zoom] are read from state: a zoom change restarts the visibility timer and a
- * scale change redraws the bar, neither recomposing it. The map's camera changes every frame of an
- * animation, so read it inside the lambdas rather than capturing a value.
+ * [metersPerDp] is called while drawing and [zoom] is observed as snapshot state. Read map state
+ * inside them rather than capturing a value.
  *
  * The Material 3 module provides a themed version.
  *

@@ -7,7 +7,6 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.Position
@@ -21,7 +20,6 @@ internal fun MaplibreMap.readViewport(width: Double, height: Double): Viewport =
     size = DpSize(width.dp, height.dp),
     visibleBounds = getBounds().toVisibleBounds(),
     visibleRegion = readVisibleRegion(width, height),
-    metersPerDpAtTarget = metersPerDpAtLatitude(getZoom(), getCenter().toPosition().latitude),
   )
 
 /** Unprojects the four corners of a [width] by [height] map into a visible region. */

@@ -28,7 +28,7 @@ import org.maplibre.compose.overlay.ScaleBarMeasures
  * This is [org.maplibre.compose.overlay.ScaleBar] with its colors and typography taken from the
  * Material 3 theme.
  *
- * [metersPerDp] is read while drawing, so a scale change redraws the bar without recomposing it.
+ * [metersPerDp] is called while drawing. Read map state inside it rather than capturing a value.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See [CameraPosition.metersPerDp][org.maplibre.compose.camera.CameraPosition.metersPerDp]
@@ -75,8 +75,8 @@ public fun ScaleBar(
  * This is [org.maplibre.compose.overlay.DisappearingScaleBar] with its colors and typography taken
  * from the Material 3 theme.
  *
- * [metersPerDp] and [zoom] are read from state, so a camera change redraws the bar and restarts its
- * timer without recomposing it.
+ * [metersPerDp] is called while drawing and [zoom] is observed as snapshot state. Read map state
+ * inside them rather than capturing a value.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See [CameraPosition.metersPerDp][org.maplibre.compose.camera.CameraPosition.metersPerDp]

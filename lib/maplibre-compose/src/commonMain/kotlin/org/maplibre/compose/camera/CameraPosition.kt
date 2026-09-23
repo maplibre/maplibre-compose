@@ -26,13 +26,7 @@ public data class CameraPosition(
   public val zoom: Double = 1.0,
   public val padding: DpPadding = DpPadding.Zero,
 ) {
-  /**
-   * Meters per device independent pixel at [target]: the map's scale where the camera points.
-   *
-   * This needs only the camera, which the map publishes on its own. The same scale is on
-   * [Viewport][org.maplibre.compose.camera.Viewport] as well, but reading it there also computes
-   * the viewport's corners.
-   */
+  /** Meters per device independent pixel at [target]: the map's scale where the camera points. */
   public val metersPerDp: Double
     get() = metersPerDpAtLatitude(zoom, target.latitude)
 

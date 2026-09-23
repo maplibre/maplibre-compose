@@ -114,7 +114,6 @@ public fun CompassButton(
       painter = needlePainter,
       contentDescription = contentDescription,
       modifier =
-        // Read in the layer block, so a camera change updates the layer without recomposing.
         Modifier.fillMaxSize().graphicsLayer {
           rotationZ = -currentMapState.cameraPosition.bearing.toFloat()
           rotationX = currentMapState.cameraPosition.tilt.toFloat()

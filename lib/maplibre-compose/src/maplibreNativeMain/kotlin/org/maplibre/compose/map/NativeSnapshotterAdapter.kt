@@ -17,7 +17,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
-import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
@@ -288,8 +287,6 @@ private class NativeSnapshotterAdapter(
       size = applied.size,
       visibleBounds = extents.bounds,
       visibleRegion = extents.region,
-      metersPerDpAtTarget =
-        metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),
     )
   }
 

@@ -69,10 +69,8 @@ block:
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
-1. The scale bar reads the scale from map state while it draws, so a camera
-   animation redraws the bar each frame without recomposing the overlay. The
-   scale comes from the camera; reading it from the viewport instead also
-   computes the viewport's corners.
+1. `ScaleBar` calls `metersPerDp` while it draws, so read the map state inside
+   the lambda rather than passing a value.
 2. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
    that `MapOverlay.Material3` uses fade in when the zoom or the orientation
    changes, and fade out once it settles.

@@ -37,9 +37,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
  * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
  *
- * [metersPerDp] is read while drawing: state read inside it redraws the bar when it changes, and
- * the bar recomposes only when its stop changes. The map's scale changes every frame of a camera
- * animation, so read it inside the lambda rather than capturing a value.
+ * [metersPerDp] is called while drawing. Read map state inside it rather than capturing a value.
  *
  * The Material 3 module provides a themed version.
  *
@@ -67,11 +65,9 @@ public fun ScaleBar(
   textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
-  // The derived stop and the draw block outlive a recomposition that passes a new lambda.
   val currentMetersPerDp by rememberUpdatedState(metersPerDp)
 
-  // A zero scale means the map is not initialized yet: emit no layout node, as the value-based
-  // overload did. Derived, so composition observes only the transition.
+  // A zero scale means the map is not initialized yet: emit no layout node.
   val initialized by remember { derivedStateOf { currentMetersPerDp() > 0.0 } }
   if (!initialized) return
 
@@ -101,8 +97,6 @@ public fun ScaleBar(
     // scale bar start/end should not overlap horizontally with canvas bounds
     val maxBarLength = maxWidth - fullStrokeWidth
 
-    // The stops change rarely; the bar lengths between them change with every scale change and
-    // are read while drawing, so a scale change alone recomposes nothing.
     val stops by
       remember(measures, maxBarLength) {
         derivedStateOf {
@@ -194,10 +188,6 @@ public fun ScaleBar(
   }
 }
 
-/**
- * The labels change only at a stop, so they draw in their own layer whose recording is reused
- * between stops. Skipped while its inputs are unchanged.
- */
 @Composable
 private fun ScaleBarLabels(
   primary: String,
