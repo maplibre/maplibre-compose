@@ -43,6 +43,7 @@ import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -268,6 +269,10 @@ internal class MapSnapshotterImplementation(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapSnapshotterImplementation.desiredSourceDefinition(id)
+
+          override fun desiredLayerSummary(id: String) = lock.withLock {
+            desiredRevision.layers.firstOrNull { it.definition.id == id }?.definition?.summary()
+          }
 
           override fun isSourceWritable(id: String): Boolean = lock.withLock {
             desiredRevision.sources.none { it.id == id }

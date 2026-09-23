@@ -28,9 +28,8 @@ internal class StyleReconciler {
 
   /**
    * The base-style layers of the bound generation, bottom to top, as anchor predicates see them.
-   * Base layers do not change within one generation, so they are read once per binding.
    */
-  private var baseLayers: List<LayerHandle>? = null
+  private var baseLayers: List<LayerHandle> = emptyList()
 
   fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
     style.requireCurrent()
@@ -66,7 +65,7 @@ internal class StyleReconciler {
       revision.layers.map { desired ->
         PlacedLayer(
           desired,
-          placements.getOrPut(desired.anchor) { placement(style, desired.anchor) },
+          placements.getOrPut(desired.anchor) { placement(desired.anchor) },
         )
       }
     val desiredLayers = placedLayers.associateBy { it.definition.id }
@@ -128,7 +127,7 @@ internal class StyleReconciler {
                     revision.animatorDurationScale,
                   ),
               )
-            changes.layers.add(id)
+            changes.layers[id] = desired.definition.summary()
             layers[id] = applied
             layerIds(style).insertBelow(id, before)
           } else {
@@ -161,35 +160,27 @@ internal class StyleReconciler {
     layers.clear()
     images.clear()
     knownLayerIds = null
-    baseLayers = null
+    baseLayers =
+      style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
   }
 
   private fun layerIds(style: StyleBinding): MutableList<String> =
     knownLayerIds ?: style.layerIds().toMutableList().also { knownLayerIds = it }
 
-  private fun baseLayers(style: StyleBinding): List<LayerHandle> =
-    baseLayers
-      ?: style
-        .layerSummaries()
-        .filterKeys { it !in layers }
-        .map { (id, summary) -> predicateLayerHandle(style, id, summary) }
-        .also { baseLayers = it }
-
   /** Resolves [anchor] against the base-style layers of the bound generation. */
-  private fun placement(style: StyleBinding, anchor: Anchor): Placement =
+  private fun placement(anchor: Anchor): Placement =
     when (anchor) {
       is Anchor.Top -> Placement.Top
       is Anchor.Bottom -> Placement.Bottom
       is Anchor.Below ->
-        baseLayers(style).firstOrNull { anchor.predicate(it) }?.let { Placement.Below(it.id) }
+        baseLayers.firstOrNull { anchor.predicate(it) }?.let { Placement.Below(it.id) }
           ?: Placement.Top
       is Anchor.Above -> {
-        val base = baseLayers(style)
-        val highest = base.indexOfLast { anchor.predicate(it) }
+        val highest = baseLayers.indexOfLast { anchor.predicate(it) }
         when {
           highest < 0 -> Placement.Bottom
-          highest == base.lastIndex -> Placement.Top
-          else -> Placement.Below(base[highest + 1].id)
+          highest == baseLayers.lastIndex -> Placement.Top
+          else -> Placement.Below(baseLayers[highest + 1].id)
         }
       }
     }
@@ -221,7 +212,7 @@ internal class StyleReconciler {
   }
 
   private fun removeLayer(applied: AppliedLayer, changes: StyleResourceChanges) {
-    changes.layers.add(applied.definition.id)
+    changes.layers[applied.definition.id] = null
     applied.installation.remove()
     knownLayerIds?.remove(applied.definition.id)
     layers.remove(applied.definition.id)
@@ -361,9 +352,13 @@ internal fun SourceDefinition.canUpdateTo(next: SourceDefinition): Boolean =
     else -> this == next
   }
 
-/** IDs touched by actual insertions, removals, or moves during an applied revision. */
+/**
+ * Resources an applied revision inserted, removed, or moved. [layers] maps an inserted layer to its
+ * summary and a removed layer to null; [layerOrder] is the engine's layer order after any insertion
+ * or move, and null when neither happened.
+ */
 internal class StyleResourceChanges(val identity: StyleIdentity? = null) {
   val sources = linkedSetOf<String>()
-  val layers = linkedSetOf<String>()
+  val layers = linkedMapOf<String, LayerSummary?>()
   var layerOrder: List<String>? = null
 }

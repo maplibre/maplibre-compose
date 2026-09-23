@@ -20,11 +20,13 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.ImageStretch
 
 /**
@@ -145,11 +147,8 @@ internal class MapStyleAuthority(
     // leave them unpublished: it would report no structural change and never repair the handles.
     withContext(NonCancellable) {
       changes.sources.forEach { refreshStyleSources(adapter, it) }
-      val layers =
-        readWhileCurrent(adapter, read) { style.readLayers(read.binding, changes.layers) }
-          ?: return@withContext
       if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
-      changes.layerOrder?.let { style.updateLayers(layers, it) }
+      changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
     }
   }
 
@@ -286,6 +285,10 @@ internal class MapStyleAuthority(
   override fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
     desiredStyleRevision.sources.firstOrNull { it.id == id }
       ?: imperativeSources.load()[id]?.definition
+
+  /** Answers from any thread: layer reads call it from the read dispatcher. */
+  override fun desiredLayerSummary(id: String): LayerSummary? =
+    desiredStyleRevision.layers.firstOrNull { it.definition.id == id }?.definition?.summary()
 
   override fun addStyleSource(source: Source): SourceHandle {
     lifecycle.requireMain()

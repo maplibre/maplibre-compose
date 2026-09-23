@@ -85,6 +85,7 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.baseLayerSummaries
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
@@ -198,6 +199,9 @@ internal interface MapStyleStateOwner {
   fun setBaseStyle(value: BaseStyle)
 
   fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
+
+  /** The summary of a layer the style content declares, or null for any other layer. */
+  fun desiredLayerSummary(id: String): LayerSummary?
 
   fun isSourceWritable(id: String): Boolean
 
@@ -445,17 +449,20 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     sourcesState = sources
   }
 
+  /**
+   * Handles for every layer in the engine's order: the generation's base layers and the layers the
+   * owner's style content declares. A layer that is neither, such as one the engine adds for
+   * itself, is omitted.
+   */
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
-    val summaries = current.layerSummaries()
+    val base = current.baseLayerSummaries()
+    val summaries =
+      current
+        .layerIds()
+        .mapNotNull { id -> (base[id] ?: owner?.desiredLayerSummary(id))?.let { id to it } }
+        .toMap()
     current.identity.layers.retain(summaries.keys)
     return summaries.mapValues { (id, summary) -> layerHandle(current, id, summary) }
-  }
-
-  /** Rereads the handles of [ids]; a removed layer maps to null. */
-  internal fun readLayers(current: StyleBinding, ids: Set<String>): Map<String, LayerHandle?> {
-    if (ids.isEmpty()) return emptyMap()
-    val summaries = current.layerSummaries()
-    return ids.associateWith { id -> summaries[id]?.let { layerHandle(current, id, it) } }
   }
 
   internal fun layerHandle(current: StyleBinding, id: String, summary: LayerSummary): LayerHandle {
@@ -468,10 +475,15 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     )
   }
 
-  internal fun updateLayers(handles: Map<String, LayerHandle?>, order: List<String>) {
+  /** Applies [changes] to the layer handles: a summary replaces a handle and null removes it. */
+  internal fun updateLayers(
+    current: StyleBinding,
+    changes: Map<String, LayerSummary?>,
+    order: List<String>,
+  ) {
     val updated = layersState.toMutableMap()
-    handles.forEach { (id, handle) ->
-      if (handle == null) updated.remove(id) else updated[id] = handle
+    changes.forEach { (id, summary) ->
+      if (summary == null) updated.remove(id) else updated[id] = layerHandle(current, id, summary)
     }
     layersState = order.mapNotNull { id -> updated[id]?.let { id to it } }.toMap()
   }
