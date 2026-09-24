@@ -189,7 +189,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
 }
 
 internal actual fun createMapFixture(extent: MapExtent): MapFixture {
-  // `pointAtWorker` keeps the first call. Pin the Karma-served worker here so a MapFixture
+  // `pointAtWorker` keeps the first call. Pin the locally served worker here so a MapFixture
   // test that runs before `runBrowserMapTest` still keeps the suite off the CDN.
   GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
   return GlJsMapFixture(extent)

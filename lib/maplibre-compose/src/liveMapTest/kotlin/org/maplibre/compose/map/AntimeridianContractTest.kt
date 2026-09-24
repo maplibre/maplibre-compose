@@ -1,6 +1,6 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
@@ -120,14 +120,16 @@ class AntimeridianContractTest {
         it.loadStyle(BaseStyle.Json(STRADDLING_FILL_STYLE))
         it.awaitMapReady()
         it.state.setCameraPosition(CameraPosition(target = Position(180.0, 0.0), zoom = 0.0))
+        // Cross the tile boundary: a point exactly on it can hit only one copy in WebKit.
+        val queryArea = DpRect(799.dp, 255.dp, 801.dp, 257.dp)
         it.pumpUntil("the style's features to become queryable") {
-          it.state.queryRenderedFeatures(offset = DpOffset(800.dp, 256.dp)).isNotEmpty()
+          it.state.queryRenderedFeatures(rect = queryArea).isNotEmpty()
         }
         // The wrapped world copy renders from its own tile, which can land after the first hit.
         it.settle()
 
         val hits =
-          it.state.queryRenderedFeatures(offset = DpOffset(800.dp, 256.dp)).mapNotNull { hit ->
+          it.state.queryRenderedFeatures(rect = queryArea).mapNotNull { hit ->
             hit.geometry as? Polygon
           }
         assertEquals(2, hits.size, "the straddling fill should come back split in two, was $hits")

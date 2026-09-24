@@ -18,12 +18,8 @@ import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.camera.CameraPosition
 
-/**
- * The worker URL Karma serves the suite, copied next to the test bundle by
- * `karma.config.d/maplibre-gl-worker.js`. The suite overrides the library's CDN default with this
- * so tests never reach the network.
- */
-internal const val LOCAL_WORKER_URL: String = "/maplibre-gl-worker.mjs"
+/** The local module worker copied into the browser test bundle. */
+internal const val LOCAL_WORKER_URL: String = "./maplibre-gl-worker.js"
 
 /**
  * Runs a browser test that hosts a real map, detached from compositing so it is never drawn. For

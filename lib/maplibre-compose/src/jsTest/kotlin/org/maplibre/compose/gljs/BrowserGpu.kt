@@ -19,7 +19,7 @@ internal class BrowserGpu(
   val skia: DirectContext,
 )
 
-/** Stood up at most once per Karma run; neither context is ever closed. */
+/** Stood up at most once per browser run; neither context is ever closed. */
 private val gpu: Promise<BrowserGpu> by lazy {
   Promise { resolve, reject ->
     onWasmReady {
