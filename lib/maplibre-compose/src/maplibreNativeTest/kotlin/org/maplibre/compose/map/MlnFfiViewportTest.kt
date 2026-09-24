@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -29,6 +30,35 @@ import org.maplibre.spatialk.geojson.Position
 
 @OptIn(DelicateMapApi::class)
 class MlnFfiViewportTest {
+  @Test
+  fun ground_scale_uses_the_native_projection_in_logical_pixels() {
+    BridgeMapFixture.create(initialExtent = BridgeMapFixture.RETINA_EXTENT).use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
+      fixture.session.setCameraPosition(CameraPosition(target = Position(10.0, 60.0), zoom = 9.0))
+      fixture.pumpUntil("the requested viewport") {
+        fixture.session.getViewport()?.cameraPosition?.zoom == 9.0
+      }
+      val session = fixture.session
+      val viewport = assertNotNull(session.getViewport())
+      val expected =
+        assertNotNull(
+          session.readMap { map ->
+            map.createProjection().use { projection ->
+              listOf(viewport.cameraPosition.target.latitude, -90.0, 90.0)
+                .map(projection::metersPerPixelAtLatitude)
+            }
+          }
+        )
+      assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtTarget)
+      assertEquals(
+        expected[0],
+        session.metersPerDpAtLatitude(viewport.cameraPosition.target.latitude),
+      )
+      assertEquals(expected[1], session.metersPerDpAtLatitude(-100.0))
+      assertEquals(expected[2], session.metersPerDpAtLatitude(100.0))
+    }
+  }
+
   @Test
   fun viewport_insets_do_not_stop_an_unanchored_camera_animation() = runBlocking {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")

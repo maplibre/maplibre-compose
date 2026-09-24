@@ -16,7 +16,6 @@ class StyleLayerSummariesTest {
 
       val summaries = style.layerSummaries()
 
-      // Native's own annotations layer is omitted, as getLayer omits it.
       assertEquals(
         mapOf(
           "backdrop" to LayerSummary("background", source = null, sourceLayer = null),

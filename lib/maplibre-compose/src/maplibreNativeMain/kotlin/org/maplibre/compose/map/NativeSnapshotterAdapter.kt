@@ -17,7 +17,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
-import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
@@ -269,14 +268,20 @@ private class NativeSnapshotterAdapter(
           action = { map ->
             val geometry = map.readViewportGeometry(EdgeInsets.ZERO)
             map.createProjection().use { projection ->
-              geometry to MapViewportExtents(unprojectedCorners(projection, geometry.size))
+              Triple(
+                geometry,
+                MapViewportExtents(unprojectedCorners(projection, geometry.size)),
+                projection.metersPerPixelAtLatitude(
+                  geometry.camera.target.latitude.coerceIn(-90.0, 90.0)
+                ),
+              )
             }
           }
         )
       ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
-    val (applied, extents) = read
+    val (applied, extents, metersPerDpAtTarget) = read
     check(
       applied.size.width.value.toInt() == extent.width &&
         applied.size.height.value.toInt() == extent.height
@@ -289,8 +294,7 @@ private class NativeSnapshotterAdapter(
       size = applied.size,
       visibleBounds = extents.bounds,
       visibleRegion = extents.region,
-      metersPerDpAtTarget =
-        metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),
+      metersPerDpAtTarget = metersPerDpAtTarget,
     )
   }
 
@@ -354,7 +358,6 @@ private class NativeSnapshotterAdapter(
         )
       },
       getScale = { currentDensity },
-      requestRepaint = {},
     )
 
   private fun readImage(request: MapSnapshotRequest): ImageBitmap {

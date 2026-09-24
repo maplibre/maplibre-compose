@@ -43,6 +43,29 @@ class MlnFfiMapRepaintTest {
   }
 
   @Test
+  fun a_paint_change_at_idle_renders_exactly_once() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(
+        BaseStyle.Json(
+          """{"version":8,"transition":{"duration":0,"delay":0},"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"#0000ff"}}]}"""
+        )
+      )
+      fixture.pumpUntilRendered()
+      fixture.settle()
+      checkNotNull(fixture.style)
+        .setLayerProperty(
+          "background",
+          "background-color",
+          JsonPrimitive("#00ff00"),
+          LayerPropertyKind.PAINT,
+        )
+      assertEquals(1, fixture.renderOnDemand(1.seconds))
+      assertTrue(fixture.readPixel(256, 256).isNear(RgbaPixel(0, 255, 0, 255)))
+      assertEquals(emptyList(), fixture.errors)
+    }
+  }
+
+  @Test
   fun a_paint_transition_waits_for_fresh_native_updates_then_finishes_and_settles() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(background("#0000ff"))

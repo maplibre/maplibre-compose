@@ -179,7 +179,7 @@ class StyleCompositionOrderTest {
     assertNull(changes.layerOrder)
   }
 
-  /** The engine's own layers, such as MapLibre Native's annotation layer, sit above the base. */
+  /** Layers outside the declared base style can sit above it. */
   @Test
   fun bottom_lands_under_a_layer_that_is_not_a_base_layer() {
     val style = RecordingStyleBinding(layers = listOf(TestLayer("engine-owned", "background")))

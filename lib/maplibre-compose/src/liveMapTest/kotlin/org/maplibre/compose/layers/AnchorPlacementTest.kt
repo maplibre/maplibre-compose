@@ -12,9 +12,8 @@ import org.maplibre.compose.testing.runMapTest
 class AnchorPlacementTest {
 
   /**
-   * An empty base style leaves each engine with only its own layers: none on MapLibre GL JS, the
-   * annotation layer on MapLibre Native. Neither may separate the top from the bottom, or be
-   * offered to a predicate.
+   * An empty base style offers no layers to anchor predicates. Application layers must not separate
+   * the top and bottom anchors.
    */
   @Test
   fun anchors_resolve_against_base_layers_only_on_an_empty_base(): MapTestResult = runMapTest {

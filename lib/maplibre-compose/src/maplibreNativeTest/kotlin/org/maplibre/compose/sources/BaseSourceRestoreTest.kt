@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -54,8 +53,6 @@ class BaseSourceRestoreTest {
           source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
         },
       )
-      // MapLibre's own, in every map whether or not anything draws an annotation.
-      assertNull(style.getSource(ANNOTATION_SOURCE_ID))
     }
   }
 
@@ -63,7 +60,6 @@ class BaseSourceRestoreTest {
     const val SOURCE_ID = "vec"
     const val RASTER_SOURCE_ID = "sat"
 
-    const val ANNOTATION_SOURCE_ID = "org.maplibre.annotations"
     const val ATTRIBUTION = "&copy; Nobody"
 
     /**

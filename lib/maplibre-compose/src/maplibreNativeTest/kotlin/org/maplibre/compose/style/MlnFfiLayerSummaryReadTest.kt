@@ -36,6 +36,7 @@ class MlnFfiLayerSummaryReadTest {
 
       assertEquals(LAYER_COUNT, sliced.summaries.size)
       assertEquals(LAYER_COUNT, whole.summaries.size)
+      assertEquals(whole.summaries, style.layerSummaries())
       assertTrue(
         sliced.probes > whole.probes,
         "reading $LAYER_COUNT layers one per owner-thread call let ${sliced.probes} other " +

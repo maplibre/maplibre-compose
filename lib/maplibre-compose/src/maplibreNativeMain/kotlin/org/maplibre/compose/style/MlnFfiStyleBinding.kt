@@ -97,7 +97,6 @@ internal open class MlnFfiStyleBinding(
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
-  private val requestRepaint: (MapHandle) -> Unit = MapHandle::requestRepaint,
 ) : StyleBinding {
   @Volatile private var loaded = true
   private val unloadActions = mutableSetOf<() -> Unit>()
@@ -170,30 +169,32 @@ internal open class MlnFfiStyleBinding(
   override fun imageExists(id: String): Boolean? = readMap { it.styleImageInfo(id) != null }
 
   override fun getSource(id: String): Source? = readMap { map ->
-    if (!isStyleSource(map, id)) null else reconstructSource(map, id)
+    if (!map.styleSourceExists(id)) null else reconstructSource(map, id)
   }
 
   override fun getSources(): List<Source> =
     readInSlices(
         STYLE_READ_SLICE,
         ids = { map -> map.styleSourceIds() },
-        read = { map, id -> if (isStyleSource(map, id)) reconstructSource(map, id) else null },
+        read = { map, id -> if (map.styleSourceExists(id)) reconstructSource(map, id) else null },
       )
       .map { it.second }
 
-  override fun sourceIds(): List<String> = readMap { map ->
-    map.styleSourceIds().filter { isStyleSource(map, it) }
-  }
-    .orEmpty()
+  override fun sourceIds(): List<String> = readMap { it.styleSourceIds() }.orEmpty()
 
   override fun getLayer(id: String): ResolvedLayerDefinition? = readMap { map ->
-    if (!isStyleLayer(map, id)) null else reconstructLayer(map, id)
+    if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
   }
 
-  /** The full engine order, annotation layer included: insertions and moves are relative to it. */
+  /** The full engine order: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  override fun layerSummaries(): Map<String, LayerSummary> = layerSummaries(STYLE_READ_SLICE)
+  override fun layerSummaries(): Map<String, LayerSummary> = readMap { map ->
+    map.styleLayers().associate { layer ->
+      layer.id to LayerSummary(layer.type, layer.sourceId, layer.sourceLayer)
+    }
+  }
+    .orEmpty()
 
   /** [slice] bounds one owner-thread call. Tests compare slice lengths on the same host. */
   internal fun layerSummaries(slice: Duration): Map<String, LayerSummary> =
@@ -233,28 +234,15 @@ internal open class MlnFfiStyleBinding(
     return items
   }
 
-  /** Owner thread only. Null for a layer the engine added for itself. */
+  /** Owner thread only. Null if the layer no longer exists. */
   private fun layerSummary(map: MapHandle, id: String): LayerSummary? {
     val type = map.styleLayerType(id) ?: return null
     val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
-    if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS) return null
     return LayerSummary(
       type = type,
       source = source,
       sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
     )
-  }
-
-  private fun isStyleSource(map: MapHandle, id: String): Boolean =
-    map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
-
-  /** MapLibre Native appends a layer that draws from its annotation source to every style. */
-  private fun isStyleLayer(map: MapHandle, id: String): Boolean {
-    if (!map.styleLayerExists(id)) return false
-    val sourceId = map.layerSourceId(id)
-    return sourceId.isEmpty() ||
-      !map.styleSourceExists(sourceId) ||
-      map.styleSourceType(sourceId) != SourceType.ANNOTATIONS
   }
 
   private fun reconstructSource(map: MapHandle, id: String): Source? =
@@ -363,20 +351,16 @@ internal open class MlnFfiStyleBinding(
     return checkNotNull(result).getOrThrow()
   }
 
-  /** Requests a repaint after native accepts the mutation. */
+  /** Runs a style mutation on the map owner thread. */
   fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
 
-  /**
-   * Requests a repaint after native accepts the mutation.
-   *
-   * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
-   */
+  /** Returns after [action] has run or been dropped. [abandon] runs when [action] will not run. */
   open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
     requireLoadedStyle()
     var result: Result<T>? = null
     if (
       !accessMap { map ->
-        result = runCatching { action(map).also { requestRepaint(map) } }
+        result = runCatching { action(map) }
       }
     ) {
       abandon()
@@ -406,8 +390,8 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Queues [action] for the owner thread and returns at once. Requests a repaint after it runs. An
-   * engine refusal inside [action] is the action's to report: nothing waits for the result.
+   * Queues [action] for the owner thread and returns at once. An engine refusal inside [action] is
+   * the action's to report: nothing waits for the result.
    */
   private fun postMutation(action: (MapHandle) -> Unit) {
     requireLoadedStyle()
@@ -415,7 +399,6 @@ internal open class MlnFfiStyleBinding(
       { map ->
         if (!isLoaded) return@postMap
         action(map)
-        requestRepaint(map)
       },
       {},
     )
@@ -612,7 +595,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
-    isStyleSource(map, sourceId)
+    map.styleSourceExists(sourceId)
   }
 
   /** The bitmap is converted on the caller so the owner-thread hop only uploads. */
@@ -730,7 +713,6 @@ internal open class MlnFfiStyleBinding(
           accessMap { map ->
             if (isLoaded && isCurrent()) {
               map.setGeoJsonSourceData(sourceId, prepared)
-              requestRepaint(map)
             }
           }
         },
