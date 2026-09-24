@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -26,11 +28,11 @@ kotlin {
   js {
     useEsModules()
     browser {
-      testTask {
-        useKarma {
-          useChromeHeadless()
-          useFirefoxHeadless()
-        }
+      @OptIn(ExperimentalJsTestDsl::class)
+      test {
+        chromium()
+        firefox()
+        webkit()
       }
     }
   }
@@ -38,6 +40,8 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   sourceSets {
+    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+
     listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
       .forEach {
         it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
@@ -72,3 +76,5 @@ kotlin {
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
   }
 }
+
+stageBrowserTestRunnerResources()

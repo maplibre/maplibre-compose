@@ -1,3 +1,7 @@
+import kotlin.time.Duration.Companion.minutes
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.targets.js.ir.DefaultIncrementalSyncTask
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -39,14 +43,24 @@ kotlin {
     // Compose UI browser tests need an executable binary so webpack can load the Skiko runtime
     // (CMP-4906).
     binaries.executable()
-    // The browser platform composites MapLibre GL JS into the Compose scene, so its tests need a
-    // real WebGL context; karma.config.d supplies the launchers that give one to each browser.
     browser {
-      testTask {
-        useKarma {
-          useChromeHeadless()
-          useFirefoxHeadless()
+      @OptIn(ExperimentalJsTestDsl::class)
+      test {
+        // This deadline covers the entire browser suite, not one test.
+        timeout.set(5.minutes)
+        chromium {
+          launchArgs.addAll(
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--enable-unsafe-swiftshader",
+            "--no-sandbox",
+          )
         }
+        firefox {
+          // Firefox needs an Xvfb display for software WebGL on Linux.
+          headless.set(!System.getProperty("os.name").startsWith("Linux"))
+        }
+        webkit()
       }
     }
   }
@@ -54,6 +68,8 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   sourceSets {
+    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+
     val jvmMain by getting
 
     listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
@@ -243,3 +259,47 @@ tasks.named<Test>("jvmTest") {
 }
 
 stageIosSimulatorTestResources()
+
+// The new browser runner bundles JavaScript but does not copy runtime resources.
+val browserTestRuntime =
+  tasks.named<DefaultIncrementalSyncTask>("jsTestTestDevelopmentExecutableCompileSync")
+val browserTestResources =
+  browserTestRuntime.flatMap { it.destinationDirectory }.map { it.resolve("composeResources") }
+val maplibreWorkerFiles = rootProject.layout.buildDirectory.dir("js/node_modules/maplibre-gl/dist")
+
+tasks.named("prepareWebpackBundleForKotlinJsTests") {
+  inputs.dir(browserTestResources)
+  inputs.files(
+    maplibreWorkerFiles.map { it.file("maplibre-gl-worker.mjs") },
+    maplibreWorkerFiles.map { it.file("maplibre-gl-shared.mjs") },
+  )
+  val bundleDirectory = layout.buildDirectory.dir("kotlinJsTest/dist")
+  doLast {
+    val bundle = bundleDirectory.get().asFile
+    val html = bundle.resolve("test.html")
+    html.writeText(
+      html
+        .readText()
+        .replace(
+          "// KOTLIN_TEST_BROWSER_CONFIG",
+          "config.mochaSetupOptions.timeout = 60000;",
+        )
+    )
+    browserTestResources.get().copyRecursively(bundle.resolve("composeResources"), overwrite = true)
+    // KGP's test server recognizes .js but serves .mjs as application/octet-stream.
+    for (name in listOf("maplibre-gl-worker", "maplibre-gl-shared")) {
+      bundle
+        .resolve("$name.js")
+        .writeText(
+          maplibreWorkerFiles
+            .get()
+            .file("$name.mjs")
+            .asFile
+            .readText()
+            .replace("maplibre-gl-shared.mjs", "maplibre-gl-shared.js")
+        )
+    }
+  }
+}
+
+stageBrowserTestRunnerResources()

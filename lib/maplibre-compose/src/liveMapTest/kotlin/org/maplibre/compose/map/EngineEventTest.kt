@@ -94,7 +94,7 @@ class EngineEventTest {
   private companion object {
     val UNREACHABLE_STYLE_URI: String =
       when (mapLibreFlavor) {
-        // The browser resolves a relative path against the Karma server, which answers 404.
+        // The browser resolves a relative path against the test server, which answers 404.
         MapLibreFlavor.GL_JS -> "/missing-maplibre-compose-style.json"
         MapLibreFlavor.NATIVE -> "https://example.invalid/style.json"
       }
