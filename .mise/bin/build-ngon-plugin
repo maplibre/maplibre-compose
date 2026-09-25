@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build MapLibre Native's sample n-gon layer plugin as a shared library for the
+# desktop demo app's earthquake hexbins, from the MapLibre Native commit that the pinned
+# maplibre-native-ffi release was built against. The plugin ABI structs must
+# match that revision exactly, so the commit is read from the FFI release tag
+# rather than pinned here.
+#
+# Only the plugin's own sources are fetched, four files behind a sparse
+# checkout; MapLibre Native itself is neither cloned in full nor built. The
+# shader header comes from the plugin's Node generator, and the plugin compiles
+# with the host C++ compiler in about a second.
+#
+# Output, laid out as a JVM resource root that demo-app/common's jvmMain picks
+# up: build/plugins/ngon-layer/resources/plugins/ngon-layer/<classifier>/
+#   libmln-ngon-layer.{dylib,so} or mln-ngon-layer.dll
+#   ngon-layer.properties        the MapLibre Native commit and FFI version
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+
+ffi_version="$(sed -n 's/^maplibre-nativeFfi = "\([^"]*\)".*/\1/p' gradle/libs.versions.toml)"
+if [[ -z "$ffi_version" ]]; then
+  echo "${0##*/}: maplibre-nativeFfi is not set in gradle/libs.versions.toml" >&2
+  exit 1
+fi
+ffi_tag="bindings/kotlin/v${ffi_version}"
+
+case "$(uname -s):$(uname -m)" in
+  Darwin:arm64) classifier=natives-macos-arm64 ;;
+  Linux:x86_64) classifier=natives-linux-x64 ;;
+  Linux:aarch64 | Linux:arm64) classifier=natives-linux-arm64 ;;
+  MINGW* | MSYS* | CYGWIN*)
+    case "$(uname -m)" in
+      aarch64 | arm64) classifier=natives-windows-arm64 ;;
+      *) classifier=natives-windows-x64 ;;
+    esac
+    ;;
+  *)
+    echo "${0##*/}: unsupported host $(uname -s) $(uname -m)" >&2
+    exit 2
+    ;;
+esac
+
+work=build/plugins/ngon-layer
+ffi_dir="$work/maplibre-native-ffi"
+mln_dir="$work/maplibre-native"
+generated="$work/generated"
+out="$work/resources/plugins/ngon-layer/$classifier"
+mkdir -p "$work"
+
+# The FFI release tag records its MapLibre Native revision as a submodule
+# pointer. A treeless, blobless clone of that one tag is a few hundred KiB.
+rm -rf "$ffi_dir"
+git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
+  https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
+mln_commit="$(git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}')"
+if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "${0##*/}: $ffi_tag has no third_party/maplibre-native submodule" >&2
+  exit 1
+fi
+echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
+
+if [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]; then
+  rm -rf "$mln_dir"
+  git init --quiet "$mln_dir"
+  git -C "$mln_dir" remote add origin https://github.com/maplibre/maplibre-native.git
+  git -C "$mln_dir" sparse-checkout set --no-cone \
+    /include/mln/plugin /plugins/ngon-layer/shared /plugins/ngon-layer/scripts
+  git -C "$mln_dir" fetch --quiet --depth 1 --filter=blob:none origin "$mln_commit"
+  git -C "$mln_dir" checkout --quiet FETCH_HEAD
+  echo "$mln_commit" >"$mln_dir/.commit"
+fi
+
+mkdir -p "$generated" "$out"
+node "$mln_dir/plugins/ngon-layer/scripts/generate-shaders.mjs" \
+  --output "$generated/ngon_shader_sources.hpp"
+
+source_file="$mln_dir/plugins/ngon-layer/shared/cpp/ngon_layer.cpp"
+includes=(
+  -I "$mln_dir/include"
+  -I "$mln_dir/plugins/ngon-layer/shared/include"
+  -I "$generated"
+)
+version_define="MLN_NGON_PLUGIN_VERSION=\"${mln_commit:0:9}\""
+
+case "$classifier" in
+  natives-macos-*)
+    library="$out/libmln-ngon-layer.dylib"
+    c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -dynamiclib \
+      -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
+    ;;
+  natives-linux-*)
+    library="$out/libmln-ngon-layer.so"
+    c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -fPIC -shared \
+      -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
+    ;;
+  natives-windows-*)
+    library="$out/mln-ngon-layer.dll"
+    if ! command -v cl >/dev/null; then
+      echo "${0##*/}: cl.exe is not on PATH; run from a Visual Studio developer shell" >&2
+      exit 2
+    fi
+    # The plugin's default version string stands in for the define here; cl's
+    # quoting of a string-valued define does not survive Git Bash.
+    cl /nologo /std:c++20 /EHsc /GR- /O2 /LD "${includes[@]}" "$source_file" \
+      /Fe:"$library" /Fo:"$generated/"
+    ;;
+esac
+
+cat >"$out/ngon-layer.properties" <<EOF
+maplibre-native.commit=$mln_commit
+maplibre-native-ffi.version=$ffi_version
+EOF
+
+echo "built $library"

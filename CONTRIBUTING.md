@@ -164,6 +164,17 @@ macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
 
 CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
 
+The Data visualization demo's Hexbins option draws with MapLibre Native's sample
+n-gon layer plugin, which is not published anywhere. `mise run deps:ngon-plugin`
+builds it: the script reads the pinned `maplibre-nativeFfi` version, resolves
+the MapLibre Native commit that release was built from, fetches only the
+plugin's sources, and compiles them with the host C++ compiler into
+`build/plugins/ngon-layer/`, where the demo's JVM resources pick it up. The
+build takes a few seconds and needs Node (from mise) and a C++ compiler (Xcode
+Command Line Tools, `build-essential`, or a Visual Studio developer shell).
+Without it, the option is absent and the demo works as before. Only the desktop
+demo loads the plugin.
+
 ### Android Auto
 
 The `demo-app/android-auto` app uses the Car App Library to display a Protomaps

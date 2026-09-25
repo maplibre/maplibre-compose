@@ -96,6 +96,11 @@ browser reads the query string (`/?route=settings/input`).
 On Android, record animations with `adb shell screenrecord` and split the frames
 with ffmpeg; single screencaps miss a 300ms transition.
 
+The Data visualization demo's Hexbins option draws with MapLibre Native's n-gon
+layer plugin, built by `mise run deps:ngon-plugin` from the MapLibre Native
+commit behind the pinned `maplibre-nativeFfi` version. The option appears only
+in the desktop demo, and only when that plugin library is on the classpath.
+
 - For repository prose and KDoc, use
   [docs-writing](.agents/skills/docs-writing/SKILL.md).
 - For a MapLibre GL JS upgrade, use

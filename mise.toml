@@ -98,6 +98,21 @@ run = "playwright install chromium --no-shell"
 [tasks."deps:chromium"]
 run = "mise deps install chromium"
 
+# MapLibre Native's sample n-gon layer plugin, which draws the desktop demo's
+# earthquake hexbins. Built from the MapLibre Native commit behind the pinned
+# maplibre-native-ffi release; see the script for the layout it produces.
+[deps.ngon-plugin]
+auto = false
+sources = ["gradle/libs.versions.toml", ".mise/bin/build-ngon-plugin"]
+outputs = [
+  "build/plugins/ngon-layer/resources/plugins/ngon-layer/*/ngon-layer.properties",
+]
+run = ".mise/bin/build-ngon-plugin"
+
+[tasks."deps:ngon-plugin"]
+description = "Build the n-gon layer plugin that draws the desktop demo's earthquake hexbins."
+run = "mise deps install ngon-plugin"
+
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
 # The type checker reads the types Astro generates.
