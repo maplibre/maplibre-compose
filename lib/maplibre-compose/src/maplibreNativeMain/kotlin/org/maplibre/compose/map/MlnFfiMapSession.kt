@@ -907,11 +907,6 @@ internal class MlnFfiMapSession(
           return
         }
         postStyleEvent(engine, acceptedStyle, mapEvent)
-        // A producer frame that started before this callback can still hold the previous style.
-        // requestRepaint dirties mbgl so the next renderUpdate draws instead of returning
-        // NO_UPDATE; requestRender lets that draw through the session skip gate.
-        loop?.map?.requestRepaint()
-        requestRender()
       }
 
       RuntimeEventType.MAP_IDLE -> {
@@ -1208,16 +1203,12 @@ internal class MlnFfiMapSession(
     try {
       val changes = styleReconciler.apply(binding, revision)
       if (!styleLoadTracker.contentReady) {
-        runOnMap { map ->
-          map.requestRepaint()
+        runOnMap {
           if (styleLoadTracker.reconciled(binding.identity)) {
             lifecycleCallbacks.onStyleReady(engine, style, this)
           }
         }
-      } else {
-        onMap { it.requestRepaint() }
       }
-      requestRender()
       return changes
     } catch (error: CancellationException) {
       throw error
@@ -1291,6 +1282,7 @@ internal class MlnFfiMapSession(
     val projection: MapProjectionHandle? = null,
     val wrappedProjection: MapProjectionHandle? = null,
     extents: MapViewportExtents? = null,
+    metersPerDpAtTarget: Double? = null,
   ) {
     /**
      * The corners this camera renders. Unprojecting them is a quarter of the owner thread's work
@@ -1298,6 +1290,18 @@ internal class MlnFfiMapSession(
      * for them, and kept for later readers of the same publish.
      */
     @Volatile private var derivedExtents: MapViewportExtents? = extents
+    private var derivedMetersPerDpAtTarget: Double? = metersPerDpAtTarget
+
+    /** Read under the projection lock, like [extents]. */
+    fun metersPerDpAtTarget(): Double =
+      derivedMetersPerDpAtTarget
+        ?: metersPerDpAtLatitude(camera.target.latitude).also {
+          derivedMetersPerDpAtTarget = it
+        }
+
+    fun metersPerDpAtLatitude(latitude: Double): Double =
+      projection?.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
+        ?: metersPerDpAtLatitude(camera.zoom, latitude)
 
     /**
      * Call under the projection lock, having read the mirror under that same lock: the owner thread
@@ -1313,7 +1317,7 @@ internal class MlnFfiMapSession(
 
     /** Freezes what the projection can still answer, before the handle is closed. */
     fun withoutProjection(): MirroredViewport =
-      MirroredViewport(camera, effectivePadding, size, null, null, extents())
+      MirroredViewport(camera, effectivePadding, size, null, null, extents(), metersPerDpAtTarget())
   }
 
   @Volatile private var mirroredViewport = MirroredViewport()
@@ -1817,8 +1821,7 @@ internal class MlnFfiMapSession(
         size = mirror.size,
         visibleBounds = extents.bounds,
         visibleRegion = extents.region,
-        metersPerDpAtTarget =
-          metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
+        metersPerDpAtTarget = mirror.metersPerDpAtTarget(),
       )
     }
   }
@@ -2028,8 +2031,9 @@ internal class MlnFfiMapSession(
     if (!accepted && continuation.isActive) continuation.resume(emptyList())
   }
 
-  override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(mirroredViewport.camera.zoom, latitude)
+  override fun metersPerDpAtLatitude(latitude: Double): Double = projectionLock.withLock {
+    mirroredViewport.metersPerDpAtLatitude(latitude)
+  }
 
   // endregion
 

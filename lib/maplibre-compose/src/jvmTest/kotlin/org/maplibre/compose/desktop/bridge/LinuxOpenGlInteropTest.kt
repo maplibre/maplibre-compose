@@ -301,10 +301,8 @@ class LinuxOpenGlInteropTest {
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style application and rendering run on different threads. A frame that started
-      // before
-      // the new style was observed is the previous style, even if the callback arrives before
-      // this loop looks again. Sample the load count first, then keep only a later frame.
+      // Wait for style application before pumping. Discarding a frame rendered during the
+      // style callback can consume the only requested frame and leave the map idle forever.
       while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +
@@ -312,10 +310,13 @@ class LinuxOpenGlInteropTest {
             "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
-        val loadsBeforePump = styleLoads
+        if (styleLoads < expectedStyleLoads) {
+          Thread.sleep(POLL_INTERVAL_MILLIS)
+          continue
+        }
         val pumped = pumpFrame(extent)
         lastResult = pumped.result
-        if (loadsBeforePump >= expectedStyleLoads && pumped.rendered) {
+        if (pumped.rendered) {
           renderedFrames++
           rendered = pumped.target
         }

@@ -43,7 +43,7 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
  * that still has one attached, so teardown waits for that thread to close it.
  *
  * This loop uses a dedicated [MlnFfiOwnerThread] rather than a dispatcher or a pooled executor.
- * maplibre-native-ffi#433 proposes an owner thread inside the C API, which would retire this class.
+ * maplibre-native-ffi#631 proposes an owner thread inside the C API, which would retire this class.
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
