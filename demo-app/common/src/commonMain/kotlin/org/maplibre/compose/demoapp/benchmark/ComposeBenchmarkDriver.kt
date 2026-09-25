@@ -239,16 +239,25 @@ internal fun tourCamera(progress: Double) =
 /** Readiness is based on engine events, with a bounded wait; style-ready alone is insufficient. */
 internal suspend fun awaitSettled(state: MapState) {
   withTimeout(15000) {
-    state.events.first { event ->
-      when (event) {
-        is MapEvent.StyleLoadFailed -> error(event.reason)
-        is MapEvent.SourceDataFailed -> throw event.cause
-        MapEvent.Idle -> state.style.loadState is StyleLoadState.Ready
-        is MapEvent.FrameRendered ->
-          event.stats?.let { it.mode == RenderStats.Mode.Full && !it.needsRepaint } == true &&
-            state.style.loadState is StyleLoadState.Ready
-        else -> false
+    val settled =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        state.events.first { event ->
+          when (event) {
+            is MapEvent.StyleLoadFailed -> error(event.reason)
+            is MapEvent.SourceDataFailed -> throw event.cause
+            MapEvent.Idle -> state.style.loadState is StyleLoadState.Ready
+            is MapEvent.FrameRendered ->
+              event.stats?.let { it.mode == RenderStats.Mode.Full && !it.needsRepaint } == true &&
+                state.style.loadState is StyleLoadState.Ready
+            else -> false
+          }
+        }
       }
-    }
+    // A settled map may have emitted its last frame before this subscription. Request one
+    // after subscribing; this handshake happens outside the measured workload.
+    benchmarkRequestRepaint(state)
+    settled.await()
   }
 }
+
+internal expect suspend fun benchmarkRequestRepaint(state: MapState)
