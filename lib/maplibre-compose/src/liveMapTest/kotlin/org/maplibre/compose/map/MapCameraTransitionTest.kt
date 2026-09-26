@@ -557,50 +557,6 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** A flight that changes only the bearing has no path to pace, so it eases instead of jumping. */
-  @Test
-  fun a_flight_with_no_path_eases_its_orientation(): MapTestResult = runMapTest {
-    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
-    createMapFixture().use {
-      it.startAt(FLIGHT_START)
-      val turned = FLIGHT_START.copy(bearing = 90.0)
-
-      val trace = it.cameraTraceWhileAnimating(turned, CameraAnimation.Fly())
-
-      assertTrue(
-        trace.any { camera -> camera.bearing > 5.0 && camera.bearing < 85.0 },
-        "the turn jumped to its target",
-      )
-      assertNear(turned.bearing, it.session.getCameraPosition().bearing, "the turn target bearing")
-    }
-  }
-
-  /** A zoom the map's range rejects leaves no path either, so the turn still eases. */
-  @Test
-  fun a_flight_whose_only_path_is_a_rejected_zoom_eases_its_orientation(): MapTestResult =
-    runMapTest {
-      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
-      createMapFixture().use {
-        it.startAt(FLIGHT_START)
-        it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(maxZoom = FLIGHT_START.zoom))
-        it.pump(frames = 2)
-        val turned = FLIGHT_START.copy(bearing = 90.0, zoom = FLIGHT_START.zoom + 1.0)
-
-        val trace = it.cameraTraceWhileAnimating(turned, CameraAnimation.Fly())
-
-        assertTrue(
-          trace.any { camera -> camera.bearing > 5.0 && camera.bearing < 85.0 },
-          "the turn jumped to its target",
-        )
-        assertNear(
-          turned.bearing,
-          it.session.getCameraPosition().bearing,
-          "the turn target bearing",
-        )
-        assertNear(FLIGHT_START.zoom, it.session.getCameraPosition().zoom, "the constrained zoom")
-      }
-    }
-
   /**
    * A minimum zoom below the natural path leaves the path alone. MapLibre Native would otherwise
    * zoom out to reach it.

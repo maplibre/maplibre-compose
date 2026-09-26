@@ -55,7 +55,6 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.camera.forPath
 import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -617,11 +616,7 @@ internal constructor(
   ): Unit = runLeaseBound {
     awaitViewportState()
     guard?.awaitDispatchTurn()
-    adapter.animateCamera(
-      update,
-      animation.forPathTo(update.applyTo(adapter.getCameraPosition())),
-      boundGuard(guard),
-    )
+    adapter.animateCamera(update, animation, boundGuard(guard))
   }
 
   suspend fun animateCameraAround(
@@ -648,29 +643,15 @@ internal constructor(
   ): Unit = runLeaseBound {
     awaitViewportState()
     guard?.awaitDispatchTurn()
-    val target = adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
     adapter.animateCameraToBounds(
       boundingBox,
       bearing,
       tilt,
       cameraPadding,
       fitPadding,
-      animation.forPathTo(target),
+      animation,
       boundGuard(guard),
     )
-  }
-
-  /**
-   * Resolves [CameraAnimation.forPath] against the zoom the map will apply. The engines also keep
-   * the center inside a bounding box constraint, which is not mirrored here. The receiver arrives
-   * already scaled by the animator duration scale, so a fallback ease it turns into is scaled here.
-   */
-  private fun CameraAnimation.forPathTo(target: CameraPosition): CameraAnimation {
-    val constraints = adapter.getCameraConstraints()
-    val constrained =
-      target.copy(zoom = target.zoom.coerceIn(constraints.minZoom, constraints.maxZoom))
-    val resolved = forPath(adapter.getCameraPosition(), constrained)
-    return if (resolved === this) this else resolved.scaledBy(systemAnimatorDurationScale())
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
@@ -948,7 +929,7 @@ internal constructor(
    * With a surface, [cameraPosition] updates when the backend reports the stopped position.
    */
   public fun stopCameraMovement() {
-    val guard = gestureAuthority.beginProgrammatic()
+    val guard = gestureAuthority.beginProgrammatic(supersededByAnyCommand = true)
     val attachment = run {
       requireOpen()
       if (!guard.isValid()) return

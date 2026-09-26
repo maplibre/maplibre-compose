@@ -21,9 +21,73 @@ import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.skipMapTest
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiIndependentCameraTest {
+  @Test
+  fun a_queued_camera_assignment_applies_before_a_following_partial_animation() = runBlocking {
+    fixture().use { fixture ->
+      val state = fixture.state
+      val padding = DpPadding(bottom = 80.dp)
+      state.setCameraPosition(state.cameraPosition.copy(padding = padding))
+      fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
+
+      val ownerHeld = MlnFfiGate()
+      assertTrue(fixture.session.postOwnerTaskForTest { ownerHeld.awaitUntilOpen() })
+      val animation =
+        try {
+          state.setCameraPosition(
+            state.cameraPosition.copy(target = Position(1.0, 1.0), padding = DpPadding.Zero)
+          )
+          async(start = CoroutineStart.UNDISPATCHED) {
+            state.animateCamera(
+              CameraUpdate(target = Position(2.0, 2.0)),
+              CameraAnimation.Ease(100.milliseconds),
+            )
+          }
+        } finally {
+          ownerHeld.open()
+        }
+
+      fixture.awaitUntil("the partial animation to finish") { animation.isCompleted }
+      animation.await()
+      assertEquals(2.0, state.cameraPosition.target.longitude, 0.001)
+      assertEquals(2.0, state.cameraPosition.target.latitude, 0.001)
+      assertEquals(DpPadding.Zero, state.cameraPosition.padding)
+    }
+  }
+
+  @Test
+  fun a_flight_uses_the_camera_from_a_queued_assignment() = runBlocking {
+    fixture().use { fixture ->
+      val state = fixture.state
+      val initial = state.cameraPosition
+      val ownerHeld = MlnFfiGate()
+      assertTrue(fixture.session.postOwnerTaskForTest { ownerHeld.awaitUntilOpen() })
+      val flight =
+        try {
+          state.setCameraPosition(initial.copy(target = Position(120.0, 0.0)))
+          async(start = CoroutineStart.UNDISPATCHED) {
+            state.animateCamera(CameraUpdate(target = initial.target), CameraAnimation.Fly())
+          }
+        } finally {
+          ownerHeld.open()
+        }
+
+      var lowestZoom = initial.zoom
+      fixture.awaitUntil("the flight back to the initial target to finish") {
+        lowestZoom = minOf(lowestZoom, state.cameraPosition.zoom)
+        flight.isCompleted
+      }
+      flight.await()
+      assertTrue(lowestZoom < initial.zoom - 0.5, "the flight did not zoom out: $lowestZoom")
+      assertEquals(initial.zoom, state.cameraPosition.zoom, 0.001)
+      assertEquals(initial.target.longitude, state.cameraPosition.target.longitude, 0.001)
+      assertEquals(initial.target.latitude, state.cameraPosition.target.latitude, 0.001)
+    }
+  }
+
   @Test
   fun an_inset_change_queued_after_replacing_an_anchor_preserves_the_replacement() = runBlocking {
     fixture().use { fixture ->
