@@ -102,8 +102,7 @@ run = "mise deps install chromium"
 
 [tasks."deps:ngon-plugin"]
 description = "Build the n-gon layer plugin that draws the desktop demo's earthquake hexbins."
-# Not a `deps` provider: those key freshness on output paths alone, which cannot
-# tell hosts apart in a checkout shared across machines. The script is idempotent.
+# Not a deps provider: output paths alone cannot tell hosts apart.
 run = ".mise/bin/build-ngon-plugin"
 
 [tasks.check]

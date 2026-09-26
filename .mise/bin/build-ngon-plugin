@@ -53,7 +53,6 @@ if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
 
-# A checkout shared across machines rebuilds for each host.
 host="$(uname -s)-$(uname -m)"
 if [[ -f "$library" && -f "$work/built-$host" ]] &&
   grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
