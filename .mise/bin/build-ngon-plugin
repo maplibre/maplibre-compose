@@ -25,7 +25,12 @@ case "$(uname -s)-$(uname -m)" in
   Linux-x86_64) target=x86_64-linux-gnu.2.17 library_file=libmln-ngon-layer.so ;;
   Linux-aarch64) target=aarch64-linux-gnu.2.17 library_file=libmln-ngon-layer.so ;;
   MINGW*-x86_64 | MSYS*-x86_64 | CYGWIN*-x86_64) target=x86_64-windows-gnu library_file=mln-ngon-layer.dll ;;
-  MINGW*-aarch64 | MSYS*-aarch64 | CYGWIN*-aarch64) target=aarch64-windows-gnu library_file=mln-ngon-layer.dll ;;
+  MINGW*-aarch64 | MSYS*-aarch64 | CYGWIN*-aarch64)
+    # Zig 0.16.0's native aarch64-windows toolchain segfaults in `zig c++`.
+    # The desktop demo already omits hexbins when the plugin library is absent.
+    echo "${0##*/}: skipping the n-gon plugin on Windows ARM64; Zig 0.16.0 segfaults in zig c++"
+    exit 0
+    ;;
   *)
     echo "${0##*/}: unsupported host $(uname -s) $(uname -m)" >&2
     exit 2
