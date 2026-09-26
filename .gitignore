@@ -28,6 +28,7 @@ dist/
 .astro/
 docs/public/api/
 docs/public/demo/
+docs/public/metrics-data/
 docs/src/generated/
 __pycache__/
 mise.local.toml

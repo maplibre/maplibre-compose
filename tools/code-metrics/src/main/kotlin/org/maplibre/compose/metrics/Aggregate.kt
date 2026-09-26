@@ -9,6 +9,7 @@ fun aggregate(files: List<FileFacts>, top: Int): Pair<Summary, Sections> {
   val sourceSets = sourceSetReports(files)
   val graph = packageGraph(main)
   val packages = packageReports(main, graph)
+  val modules = moduleReports(main)
   val distributions = distributions(main)
   val largest = largest(main, packages, top)
 
@@ -50,6 +51,13 @@ fun aggregate(files: List<FileFacts>, top: Int): Pair<Summary, Sections> {
       fileLocMax = dist("fileLoc").max,
       typeLinesP90 = dist("typeLines").p90,
       typeLinesMax = dist("typeLines").max,
+      cognitiveComplexMethods = main.sumOf { it.cognitiveComplexMethods() },
+      cyclomaticComplexMethods =
+        main.sumOf { file ->
+          file.functions.count { it.cyclomaticComplexity > detektDefaults.cyclomaticComplexMethod }
+        },
+      longMethods =
+        main.sumOf { file -> file.functions.count { it.lines > detektDefaults.longMethod } },
       packageEdges = graph.edges.size,
       packageCycles = cycles.size,
       packagesInCycles = cycles.flatten().toSet().size,
@@ -62,12 +70,13 @@ fun aggregate(files: List<FileFacts>, top: Int): Pair<Summary, Sections> {
       todoComments = files.sumOf { it.todoCount },
       suppressAnnotations = files.sumOf { it.suppressCount },
     )
-  return summary to Sections(sourceSets, packages, graph, distributions, largest)
+  return summary to Sections(sourceSets, packages, modules, graph, distributions, largest)
 }
 
 data class Sections(
   val sourceSets: List<SourceSetReport>,
   val packages: List<PackageReport>,
+  val modules: List<ModuleReport>,
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
@@ -227,6 +236,47 @@ private fun packageReports(main: List<FileFacts>, graph: PackageGraph): List<Pac
     .sortedBy { it.name }
 }
 
+/**
+ * Maps imports to the scanned modules that declare them. A type resolves to its module. A package
+ * member resolves to the importing module when that module has the package, and otherwise to every
+ * module that has it.
+ */
+internal class ModuleIndex(files: List<FileFacts>) {
+  private val typeModules =
+    files.flatMap { file -> file.types.map { file.qualify(it.name) to file.source.module } }.toMap()
+  private val packageModules =
+    files.groupBy({ it.packageName }, { it.source.module }).mapValues { it.value.toSet() }
+
+  fun modulesOf(import: Import, from: String): Set<String> {
+    typeModules[import.fqName]?.let {
+      return setOf(it)
+    }
+    val qualifier =
+      if (import.allUnder) import.fqName else import.fqName.substringBeforeLast('.', "")
+    typeModules[qualifier]?.let {
+      return setOf(it)
+    }
+    val modules = packageModules[qualifier] ?: return emptySet()
+    return if (from in modules) setOf(from) else modules
+  }
+}
+
+internal fun moduleReports(main: List<FileFacts>): List<ModuleReport> {
+  val index = ModuleIndex(main)
+  val dependsOn =
+    main
+      .groupBy { it.source.module }
+      .mapValues { (module, files) ->
+        files.flatMap { file -> file.imports.flatMap { index.modulesOf(it, module) } }.toSet() -
+          module
+      }
+  return dependsOn.keys.sorted().map { module ->
+    val ce = dependsOn.getValue(module).sorted()
+    val ca = dependsOn.filterValues { module in it }.keys.sorted()
+    ModuleReport(module, ce, ca, ratio(ce.size, ca.size + ce.size))
+  }
+}
+
 private fun functionId(path: String, function: FunctionFacts) =
   "$path:${function.line}:${function.name}"
 
@@ -260,6 +310,25 @@ internal fun distribution(values: List<Ranked>): Distribution {
     maxName = max.name,
   )
 }
+
+private fun FileFacts.cognitiveComplexMethods() = functions.count {
+  it.cognitiveComplexity > detektDefaults.cognitiveComplexMethod
+}
+
+fun fileReports(files: List<FileFacts>): List<FileReport> =
+  files
+    .filter { !it.source.isTest }
+    .map { file ->
+      FileReport(
+        path = file.source.relativePath,
+        module = file.source.module,
+        sourceSet = file.source.sourceSet,
+        packageName = file.packageName,
+        loc = file.loc,
+        functions = file.functions.size,
+        cognitiveComplexity = file.cognitiveComplexity,
+      )
+    }
 
 private fun largest(main: List<FileFacts>, packages: List<PackageReport>, top: Int): Largest {
   fun List<Ranked>.top() = sortedByDescending { it.value }.take(top)

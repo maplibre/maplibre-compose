@@ -253,6 +253,98 @@ class AnalysisTest {
   }
 
   @Test
+  fun `counts functions over Detekt's thresholds per summary and file`() {
+    val nested = (1..6).joinToString("") { "if (a > $it) { " } + "println()" + " }".repeat(6)
+    val flat = (1..14).joinToString("\n") { "if (a == $it) println()" }
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      """
+      package a
+      fun nested(a: Int) { $nested }
+      fun flat(a: Int) {
+      $flat
+      }
+      fun long() {
+      ${"println()\n".repeat(61)}
+      }
+      """
+        .trimIndent(),
+    )
+    write("lib/a/src/commonTest/kotlin/a/ATest.kt", "package a\nfun nestedTest(a: Int) { $nested }")
+
+    val files = analyze()
+    val (summary, _) = aggregate(files, top = 5)
+
+    assertEquals(1, summary.cognitiveComplexMethods)
+    assertEquals(1, summary.cyclomaticComplexMethods)
+    assertEquals(1, summary.longMethods)
+    val file = fileReports(files).single()
+    assertEquals("lib/a/src/commonMain/kotlin/a/A.kt", file.path)
+    assertEquals("a", file.packageName)
+    assertEquals(3, file.functions)
+    assertEquals(21 + 14, file.cognitiveComplexity)
+  }
+
+  @Test
+  fun `resolves module dependencies through types and split packages`() {
+    write("lib/core/src/commonMain/kotlin/core/Core.kt", "package core\nclass Core")
+    write("lib/core/src/commonMain/kotlin/shared/A.kt", "package shared\nfun fromCore() = 1")
+    write("lib/ext/src/commonMain/kotlin/shared/B.kt", "package shared\nfun fromExt() = 1")
+    write(
+      "lib/ext/src/commonMain/kotlin/ext/Ext.kt",
+      "package ext\nimport core.Core\nimport shared.fromExt\nfun ext(c: Core) = fromExt()",
+    )
+    write(
+      "lib/app/src/commonMain/kotlin/app/App.kt",
+      "package app\nimport shared.fromCore\nfun app() = fromCore()",
+    )
+
+    val modules = moduleReports(analyze()).associateBy { it.name }
+
+    // The split package resolves to the importer's own copy, or to every copy when it has none.
+    assertEquals(listOf("lib/core", "lib/ext"), modules.getValue("lib/app").dependsOn)
+    assertEquals(listOf("lib/core"), modules.getValue("lib/ext").dependsOn)
+    assertEquals(listOf("lib/app", "lib/ext"), modules.getValue("lib/core").dependedOnBy)
+    assertEquals(0.0, modules.getValue("lib/core").instability)
+    assertEquals(1.0, modules.getValue("lib/app").instability)
+  }
+
+  @Test
+  fun `scopes recompute percentiles from their own functions`() {
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      "package a\n" + (1..99).joinToString("\n") { "fun f$it() = 1" },
+    )
+    write(
+      "lib/b/src/commonMain/kotlin/b/B.kt",
+      "package b\nfun tall() {\n" + "println(1)\n".repeat(20) + "}",
+    )
+    write("lib/a/src/commonTest/kotlin/a/Test.kt", "package a\nfun test() = 1")
+    write(
+      "demo-app/app/src/commonMain/kotlin/demo/Demo.kt",
+      "package demo\nfun demo() { if (true) println(1) }",
+    )
+    val files =
+      discoverSourceFiles(root, listOf("lib", "demo-app")).map {
+        analyzeFile(it, parser.parse(it.relativePath, Files.readString(it.path)))
+      }
+    val scopes = scopedReports(files, 20)
+    val library = scopes.single { it.group == "library" && it.module == null }
+    assertEquals(100, library.summary.functions)
+    assertEquals(1, library.summary.functionLinesP90)
+    assertEquals(22, library.summary.functionLinesMax)
+    assertEquals(2, library.summary.testLoc)
+    val moduleB = scopes.single { it.module == "lib/b" }
+    assertEquals(1, moduleB.summary.functions)
+    assertEquals(22, moduleB.summary.functionLinesP90)
+    assertEquals(setOf("b"), moduleB.packages.map { it.name }.toSet())
+    assertEquals(
+      1,
+      scopes.single { it.group == "demo" && it.module == null }.summary.functions,
+    )
+  }
+
+  @Test
   fun `strongly connected components`() {
     val components =
       stronglyConnectedComponents(
