@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -19,8 +20,7 @@ def write_json(path, value):
 
 
 def scope_id(scope):
-    module = (scope["module"] or "all").replace("/", "_")
-    return f"{scope['group']}--{module}--{scope['sourceSet'] or 'all'}"
+    return scope["module"].replace("/", "_") if scope["module"] else scope["group"]
 
 
 def build_history(since, output, step):
@@ -70,50 +70,65 @@ def build_history(since, output, step):
     ).splitlines():
         parts = line.split()
         tags.setdefault(parts[-1], []).append(parts[0])
+    # Detekt's defaults for its CognitiveComplexMethod, CyclomaticComplexMethod and LongMethod rules.
+    thresholds = {
+        "functionCognitiveComplexity": 15,
+        "functionCyclomaticComplexity": 14,
+        "functionLines": 60,
+    }
+    summary_keys = ["loc", "testLoc", "functions", "packages", "packagesInCycles"]
+    # Replace earlier exports rather than leave files no index refers to.
+    shutil.rmtree(output, ignore_errors=True)
     entries, scopes, series = [], {}, {}
-    for commit in selected:
+    for index, commit in enumerate(selected):
         snapshot = json.loads((cache / f"{commit}.json").read_text())
-        prefix = f"snapshots/{version}/{commit}/"
         for scope in snapshot["scopes"]:
-            # Keep the history series small while retaining each distribution's center and tail.
-            for name, distribution in scope["distributions"].items():
-                stem = name.removesuffix("Complexity")
-                for percentile in ["p50", "p75", "p90", "p99", "max"]:
-                    scope["summary"][stem + percentile[0].upper() + percentile[1:]] = (
-                        distribution[percentile]
-                    )
             key = scope_id(scope)
-            scopes[key] = {k: scope[k] for k in ["group", "module", "sourceSet"]}
-            scopes[key].update(id=key, path=f"series/{version}/{key}.json")
-            series.setdefault(key, []).append(
-                {"commit": commit, "summary": scope["summary"]}
+            scopes[key] = {
+                "id": key,
+                "group": scope["group"],
+                "module": scope["module"],
+            }
+            values = {k: scope["summary"][k] for k in summary_keys}
+            for name, distribution in scope["distributions"].items():
+                for statistic in ["p90", "p99"]:
+                    values[f"{name}.{statistic}"] = distribution[statistic]
+                if name in thresholds:
+                    values[f"{name}.over"] = sum(
+                        count
+                        for value, count in distribution["histogram"].items()
+                        if int(value) > thresholds[name]
+                    )
+            columns = series.setdefault(key, {})
+            for name, value in values.items():
+                columns.setdefault(name, [None] * len(selected))[index] = value
+            write_json(
+                output / "snapshots" / commit / f"{key}.json",
+                {"commit": commit, **scope},
             )
-            write_json(output / prefix / f"{key}.json", {"commit": commit, **scope})
         entries.append(
             {
                 "commit": commit,
-                "commitDate": snapshot["commitDate"],
+                "date": snapshot["commitDate"],
                 "title": git("show", "-s", "--format=%s", commit),
                 "tags": tags.get(commit, []),
-                "path": prefix,
             }
         )
-    for key, points in series.items():
-        write_json(output / scopes[key]["path"], points)
+    for key, columns in series.items():
+        write_json(output / "series" / f"{key}.json", columns)
     # Publish the index last; all its referenced objects now exist.
     write_json(
         output / "index.json",
         {
-            "schemaVersion": 2,
-            "reporterVersion": version,
-            "since": since,
+            "schemaVersion": 3,
             "step": step,
             "totalCommits": len(commits),
-            "snapshots": entries,
+            "thresholds": thresholds,
+            "commits": entries,
             "scopes": list(scopes.values()),
         },
     )
-    print(f"Wrote {len(entries)} snapshots × up to {len(scopes)} scopes to {output}")
+    print(f"Wrote {len(entries)} commits × {len(scopes)} scopes to {output}")
 
 
 def main():

@@ -1,695 +1,462 @@
-import { Charts } from "./charts";
-import { renderDistribution } from "./distribution";
+import { TrendChart, type ChartSpec, type Timeline } from "./chart";
 import {
-  delta,
-  distributionMetrics,
-  metricDefinition,
+  declaration,
   format,
-  hotspotKinds,
+  formatDate,
+  formatDelta,
+  isRelease,
   repository,
-  sourceLink,
-  type Entry,
-  type History,
-  type Point,
+  sourceUrl,
+  type Index,
+  type Package,
+  type Ranked,
   type Scope,
+  type Series,
   type Snapshot,
-  type Summary,
 } from "./model";
 
+type Group = Scope["group"];
+
+const tiles: { key: string; label: string; note?: (index: Index, at: Series, i: number) => string }[] = [
+  { key: "loc", label: "Production code", note: () => "lines" },
+  { key: "testLoc", label: "Test code", note: () => "lines" },
+  { key: "functions", label: "Functions" },
+  {
+    key: "functionCognitiveComplexity.over",
+    label: "Complex functions",
+    note: (index) => `cognitive score over ${index.thresholds.functionCognitiveComplexity}`,
+  },
+  {
+    key: "functionLines.over",
+    label: "Long functions",
+    note: (index) => `over ${index.thresholds.functionLines} lines`,
+  },
+  {
+    key: "packagesInCycles",
+    label: "Packages in cycles",
+    note: (_, series, i) => `of ${format(series.packages?.[i])} packages`,
+  },
+];
+
+function charts(index: Index): ChartSpec[] {
+  const t = index.thresholds;
+  return [
+    {
+      title: "Code size",
+      unit: "lines",
+      series: [
+        { key: "loc", label: "Production" },
+        { key: "testLoc", label: "Tests" },
+      ],
+    },
+    {
+      title: "Functions over Detekt thresholds",
+      unit: "functions",
+      series: [
+        { key: "functionCognitiveComplexity.over", label: `Cognitive > ${t.functionCognitiveComplexity}` },
+        { key: "functionCyclomaticComplexity.over", label: `Cyclomatic > ${t.functionCyclomaticComplexity}` },
+        { key: "functionLines.over", label: `Length > ${t.functionLines}` },
+      ],
+    },
+    {
+      title: "Function cognitive complexity",
+      unit: "score",
+      series: [
+        { key: "functionCognitiveComplexity.p90", label: "p90" },
+        { key: "functionCognitiveComplexity.p99", label: "p99" },
+      ],
+    },
+    {
+      title: "Function length",
+      unit: "lines of code",
+      series: [
+        { key: "functionLines.p90", label: "p90" },
+        { key: "functionLines.p99", label: "p99" },
+      ],
+    },
+    {
+      title: "File length",
+      unit: "lines",
+      series: [
+        { key: "fileLoc.p90", label: "p90" },
+        { key: "fileLoc.p99", label: "p99" },
+      ],
+    },
+    {
+      title: "Packages in dependency cycles",
+      unit: "packages",
+      series: [{ key: "packagesInCycles", label: "Packages" }],
+    },
+  ];
+}
+
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const select = (id: string) => $<HTMLSelectElement>(id);
-const input = (id: string) => $<HTMLInputElement>(id);
-const date = (value: string) =>
-  new Date(value).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
-function node<K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className = "") {
-  const element = document.createElement(tag);
-  element.textContent = text;
-  element.className = className;
+
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Partial<HTMLElementTagNameMap[K]> = {},
+  ...children: (Node | string)[]
+) {
+  const element = Object.assign(document.createElement(tag), props);
+  element.append(...children);
   return element;
 }
-function link(text: string, href: string, className = "") {
-  const a = node("a", text, className);
-  a.href = href;
-  return a;
-}
-function options(control: HTMLSelectElement, entries: [string, string][], preferred = "") {
-  control.replaceChildren(
-    ...entries.map(([value, text]) => {
-      const option = node("option", text);
-      option.value = value;
-      return option;
-    }),
-  );
-  control.value = entries.some(([value]) => value === preferred)
-    ? preferred
-    : (entries[0]?.[0] ?? "");
-}
-const metricLabel = (key: string) => {
-  const label = key
-    .replace(/([A-Z])/g, " $1")
-    .toLowerCase()
-    .replace(/\b(sloc|lloc|cloc|loc|todo)\b/g, (word) => word.toUpperCase());
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
-interface Column {
-  key: string;
-  label: string;
-}
-interface Row {
-  name: string;
-  label: HTMLElement;
-  values: Record<string, number | string | null>;
+
+function moduleName(module: string) {
+  return module.split("/").at(-1)!;
 }
 
-export function start() {
-  const base = new URL($("dashboard").dataset.source!, location.href);
-  const params = new URL(location.href).searchParams;
-  let history: History;
-  let scope: Scope;
-  let entries: Entry[] = [];
-  let available: Entry[] = [];
-  let summaries = new Map<string, Summary>();
-  let selected: Entry;
-  let baseline: Entry;
-  let current: Snapshot | undefined;
-  let before: Snapshot | undefined;
-  let view = ["overview", "complexity", "dependencies", "size"].includes(params.get("view") ?? "")
-    ? params.get("view")!
-    : "overview";
-  let tab = ["packages", "distributions", "hotspots", "sourceSets", "summary"].includes(
-    params.get("tab") ?? "",
-  )
-    ? params.get("tab")!
-    : "packages";
-  let distributionMetric = params.get("metric") ?? "functionCognitiveComplexity";
-  if (!Object.hasOwn(distributionMetrics, distributionMetric))
-    distributionMetric = "functionCognitiveComplexity";
-  let sort = "value";
-  let descending = true;
-  let scopeRequest = 0;
-  let detailRequest = 0;
-  let scopeLoading = false;
-  const seriesCache = new Map<string, Promise<Point[]>>();
-  const snapshotCache = new Map<string, Promise<Snapshot>>();
-  const charts = new Charts(
-    $("charts"),
-    (commit) => {
-      select("selected").value = commit;
-      void changeSelection();
-    },
-    (metric) => {
-      distributionMetric = metric;
-      changeTab("distributions");
-      $("tab-distributions").focus();
-      $("breakdown").scrollIntoView({ block: "start" });
-    },
-  );
+async function fetchJson<T>(url: URL): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${response.status} ${url}`);
+  return response.json();
+}
 
-  function url(path: string) {
-    const value = new URL(path, base);
-    if (value.origin !== base.origin || !value.pathname.startsWith(base.pathname))
-      throw new Error("Invalid dataset path");
-    return value;
+export async function start() {
+  const root = document.querySelector<HTMLElement>(".metrics")!;
+  const base = new URL(root.dataset.source!, location.href);
+  const params = new URLSearchParams(location.search);
+
+  let index: Index;
+  try {
+    index = await fetchJson<Index>(new URL("index.json", base));
+  } catch {
+    $("metrics-status").textContent = "This build has no metrics data.";
+    return;
   }
-  async function read<T>(path: string): Promise<T> {
-    const response = await fetch(url(path));
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  }
-  function snapshot(entry: Entry) {
-    const key = `${entry.path}${scope.id}.json`;
-    if (!snapshotCache.has(key)) {
-      // Keep scrubbing through history from retaining every parsed report.
-      if (snapshotCache.size >= 12) snapshotCache.delete(snapshotCache.keys().next().value!);
-      snapshotCache.set(
-        key,
-        read<Snapshot>(key)
-          .then((report) => {
-            if (report.commit !== entry.commit) throw new Error("Snapshot commit mismatch");
-            return report;
-          })
-          .catch((error) => {
-            snapshotCache.delete(key);
-            throw error;
-          }),
-      );
-    }
-    return snapshotCache.get(key)!;
-  }
-  function save() {
-    if (!selected || !available.length) return;
-    const locationUrl = new URL(location.href);
-    const values = {
-      metric: distributionMetric,
-      scope: select("scope").value,
-      module: select("module").value,
-      sourceSet: select("source-set").value,
-      days: select("period").value,
-      view,
-      tab,
-      commit: selected.commit,
-      compare: input("compare").checked ? "1" : "0",
-      baseline: baseline.commit,
-    };
+  const { commits } = index;
+  const last = commits.length - 1;
+  $("metrics-coverage").textContent =
+    `${format(commits.length)} ${index.step > 1 ? `of ${format(index.totalCommits)} ` : ""}commits, ` +
+    `${formatDate(commits[0].date)} to ${formatDate(commits[last].date)}.`;
+
+  let group: Group = (["library", "demo", "all"] as const).find((g) => g === params.get("code")) ?? "library";
+  let module: string | null = params.get("module");
+  let series: Series = {};
+  let selected = Math.max(0, commits.findIndex((c) => c.commit === params.get("commit")));
+  if (!params.get("commit")) selected = last;
+  let hovered: number | null = null;
+  let scopeLoad = 0;
+  let detailLoad = 0;
+
+  const timeline: Timeline = {
+    commits,
+    times: commits.map((c) => Date.parse(c.date)),
+    releases: commits.flatMap((c, i) => c.tags.filter(isRelease).map((label) => ({ index: i, label }))),
+    hover(i) {
+      hovered = i;
+      trendCharts.forEach((chart) => chart.setCursor(hovered, selected));
+    },
+    select(i) {
+      if (i === selected) return;
+      selected = i;
+      showSelection();
+      void loadDetail();
+    },
+  };
+  const specs = charts(index);
+  const trendCharts = specs.map((spec) => new TrendChart(spec, timeline));
+  $("metrics-charts").append(...trendCharts.map((chart) => chart.element));
+
+  const scope = () =>
+    index.scopes.find((s) => (module ? s.module === module : s.module === null && s.group === group))!;
+
+  function saveUrl() {
+    const url = new URL(location.href);
+    const values = { code: group === "library" ? null : group, module, commit: selected === last ? null : commits[selected].commit };
     for (const [key, value] of Object.entries(values)) {
-      if (value) locationUrl.searchParams.set(key, value);
-      else locationUrl.searchParams.delete(key);
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
     }
-    window.history.replaceState(null, "", locationUrl);
+    history.replaceState(null, "", url);
   }
-  function moduleOptions(preferred = select("module").value) {
-    const group = select("scope").value;
-    const modules = [
-      ...new Set(
-        history.scopes
-          .filter((s) => s.module && (group === "all" || s.group === group))
-          .map((s) => s.module!),
-      ),
-    ].sort();
-    options(
-      select("module"),
-      [["", "All modules"], ...modules.map((module): [string, string] => [module, module])],
-      preferred,
+
+  // Scope controls.
+  const segments = [...document.querySelectorAll<HTMLButtonElement>(".metrics-segmented button")];
+  const moduleSelect = $<HTMLSelectElement>("metrics-module");
+  function showControls() {
+    for (const button of segments) button.setAttribute("aria-checked", String(button.dataset.group === group));
+    const modules = index.scopes
+      .filter((s) => s.module && (group === "all" || s.group === group))
+      .map((s) => s.module!)
+      .sort();
+    if (module && !modules.includes(module)) module = null;
+    moduleSelect.replaceChildren(
+      el("option", { value: "", textContent: "All modules" }),
+      ...modules.map((m) => el("option", { value: m, textContent: m })),
     );
+    moduleSelect.value = module ?? "";
   }
-  function matchingScopes() {
-    const module = select("module").value;
-    return history.scopes.filter((s) =>
-      module ? s.module === module : s.module === null && s.group === select("scope").value,
-    );
+  for (const button of segments)
+    button.addEventListener("click", () => {
+      group = button.dataset.group as Group;
+      void loadScope();
+    });
+  moduleSelect.addEventListener("change", () => {
+    module = moduleSelect.value || null;
+    void loadScope();
+  });
+  $("metrics-latest").addEventListener("click", () => timeline.select(last));
+
+  /** The release before [i] that the tiles compare against, or the first commit. */
+  function baseline(i: number) {
+    for (let j = i - 1; j >= 0; j--) {
+      const release = commits[j].tags.find(isRelease);
+      if (release) return { index: j, label: `since ${release}` };
+    }
+    return { index: 0, label: `since ${formatDate(commits[0].date)}` };
   }
-  function sourceSetOptions(preferred = select("source-set").value) {
-    const sets = [
-      ...new Set(
-        matchingScopes()
-          .map((s) => s.sourceSet)
-          .filter((s): s is string => s !== null),
-      ),
-    ].sort();
-    options(
-      select("source-set"),
-      [["", "All source sets"], ...sets.map((set): [string, string] => [set, set])],
-      preferred,
-    );
-  }
-  async function loadScope() {
-    scopeLoading = true;
-    for (const id of ["selected", "baseline", "compare", "period"])
-      $<HTMLInputElement>(id).disabled = true;
-    const version = ++scopeRequest;
-    detailRequest++;
-    current = undefined;
-    before = undefined;
-    $("detail-content").hidden = true;
-    $("retry-detail").hidden = true;
-    $("detail-status").textContent = "";
-    charts.clear();
-    charts.resetZoom();
-    $("status").textContent = "Loading scope history…";
-    $("status").hidden = false;
-    $("retry").hidden = true;
-    scope = matchingScopes().find((s) => s.sourceSet === (select("source-set").value || null))!;
-    try {
-      if (!scope) throw new Error("Scope unavailable");
-      const key = scope.id;
-      if (!seriesCache.has(key))
-        seriesCache.set(
-          key,
-          read<Point[]>(scope.path).catch((error) => {
-            seriesCache.delete(key);
-            throw error;
+
+  function showSelection() {
+    const commit = commits[selected];
+    const release = commit.tags.find(isRelease);
+    $("metrics-selection-label").textContent =
+      (selected === last ? "Latest commit" : release ? `Release ${release}` : "Selected commit") +
+      `, ${formatDate(commit.date)}`;
+    const link = $<HTMLAnchorElement>("metrics-selection-commit");
+    link.href = `${repository}/commit/${commit.commit}`;
+    link.textContent = commit.commit.slice(0, 7);
+    $("metrics-selection-title").textContent = commit.title;
+    $("metrics-latest").hidden = selected === last;
+    $("metrics-detail-commit").textContent =
+      `At ${commit.commit.slice(0, 7)}${release ? ` (${release})` : ""}, ${formatDate(commit.date)}.`;
+
+    const { index: before, label } = baseline(selected);
+    $("metrics-tiles").replaceChildren(
+      ...tiles.map((tile) => {
+        const column = series[tile.key] ?? [];
+        const value = column[selected];
+        const previous = column[before];
+        return el(
+          "div",
+          { className: "metrics-tile" },
+          el("div", { className: "metrics-tile-label", textContent: tile.label }),
+          el("div", { className: "metrics-tile-value", textContent: format(value) }),
+          el("div", { className: "metrics-muted", textContent: tile.note?.(index, series, selected) ?? " " }),
+          el("div", {
+            className: "metrics-tile-delta",
+            textContent: value != null && previous != null && selected > 0 ? `${formatDelta(value - previous)} ${label}` : " ",
           }),
         );
-      const points = await seriesCache.get(key)!;
-      if (version !== scopeRequest) return;
-      summaries = new Map(points.map((p) => [p.commit, p.summary]));
-      scopeLoading = false;
-      for (const id of ["selected", "baseline", "compare", "period"])
-        $<HTMLInputElement>(id).disabled = false;
-      $("status").hidden = true;
-      filterPeriod();
-    } catch {
-      if (version !== scopeRequest) return;
-      $("status").textContent = "Could not load this scope. Retry or select another scope.";
-      $("retry").hidden = false;
-      // Scope filters stay enabled, so a failed series can be left without reloading.
-    }
-  }
-  function filterPeriod() {
-    charts.resetZoom();
-    const latest = Math.max(...history.snapshots.map((entry) => Date.parse(entry.commitDate)));
-    const days = Number(select("period").value);
-    entries = history.snapshots.filter(
-      (entry) => !days || Date.parse(entry.commitDate) >= latest - days * 86400000,
-    );
-    available = entries.filter((entry) => summaries.has(entry.commit));
-    if (!available.length) {
-      detailRequest++;
-      charts.clear();
-      current = undefined;
-      before = undefined;
-      for (const id of ["selected", "baseline"]) {
-        options(select(id), []);
-        select(id).disabled = true;
-      }
-      input("compare").disabled = true;
-      $("download").hidden = true;
-      $("commit-caption").textContent = "";
-      $("detail-status").textContent = "";
-      $("sample-count").textContent = "0 snapshots";
-      $("detail-content").hidden = true;
-      $("status").hidden = false;
-      $("status").textContent =
-        "No measurements for this scope in the selected period. Choose a longer period or another scope.";
-      return;
-    }
-    for (const id of ["selected", "baseline"]) select(id).disabled = false;
-    input("compare").disabled = false;
-    $("download").hidden = false;
-    $("status").hidden = true;
-    const choices: [string, string][] = available.map((entry) => [
-      entry.commit,
-      `${date(entry.commitDate)} · ${entry.commit.slice(0, 7)} · ${entry.title}`,
-    ]);
-    options(
-      select("selected"),
-      choices,
-      available.find((entry) => entry.commit === (selected?.commit ?? params.get("commit")))
-        ?.commit ?? available.at(-1)!.commit,
-    );
-    options(
-      select("baseline"),
-      choices,
-      available.find((entry) => entry.commit === (baseline?.commit ?? params.get("baseline")))
-        ?.commit ?? available[0].commit,
-    );
-    $("sample-count").textContent =
-      `${available.length} snapshots${history.step > 1 ? ` · every ${history.step} commits` : ""}`;
-    const scopeText =
-      scope.module ??
-      { library: "Library", demo: "Demo", all: "Library + demo" }[scope.group] ??
-      scope.group;
-    $("scope-note").textContent = `${scopeText} / ${scope.sourceSet ?? "all source sets"}`;
-    void changeSelection();
-  }
-  function renderCharts() {
-    if (scopeLoading || !selected || !available.length) return;
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
-      button.setAttribute("aria-pressed", String(button.dataset.view === view));
-    charts.render(
-      entries,
-      summaries,
-      view,
-      selected,
-      input("compare").checked ? baseline : null,
-      input("releases").checked,
-    );
-  }
-  async function changeSelection() {
-    selected = available.find((entry) => entry.commit === select("selected").value)!;
-    baseline = available.find((entry) => entry.commit === select("baseline").value)!;
-    if (!selected || !baseline) return;
-    const compare = input("compare").checked;
-    $("baseline-label").hidden = !compare;
-    renderCharts();
-    save();
-    $("commit-caption").replaceChildren(
-      link(selected.commit.slice(0, 8), `${repository}/commit/${selected.commit}`),
-      document.createTextNode(
-        ` · ${selected.title}${compare ? ` · Comparing with ${baseline.commit.slice(0, 8)}` : ""}`,
-      ),
-    );
-    $<HTMLAnchorElement>("download").href = url(`${selected.path}${scope.id}.json`).href;
-    $("detail-content").hidden = true;
-    $("retry-detail").hidden = true;
-    $("detail-status").textContent = "Loading snapshot…";
-    const version = ++detailRequest;
-    try {
-      const reports = await Promise.all([
-        snapshot(selected),
-        ...(compare ? [snapshot(baseline)] : []),
-      ]);
-      if (version !== detailRequest) return;
-      [current, before] = reports;
-      $("detail-status").textContent = "";
-      $("detail-content").hidden = false;
-      renderTable();
-    } catch {
-      if (version !== detailRequest) return;
-      $("detail-status").textContent =
-        "Could not load this snapshot. Retry or select another commit.";
-      $("retry-detail").hidden = false;
-    }
-  }
-  function renderTable() {
-    if (!current) return;
-    const isDistribution = tab === "distributions";
-    $("distribution-detail").hidden = !isDistribution;
-    for (const element of document.querySelectorAll<HTMLElement>(
-      ".table-tools, #table-note, .table-scroll, #cycles",
-    ))
-      element.hidden = isDistribution;
-    if (isDistribution) {
-      renderDistribution(
-        $("distribution-detail"),
-        current,
-        before,
-        distributionMetric,
-        (metric) => {
-          distributionMetric = metric;
-          renderTable();
-          save();
-        },
-      );
-      return;
-    }
-    const compare = Boolean(before);
-    const rows: Row[] = [];
-    let columns: Column[] = [];
-    $("cycles").replaceChildren();
-    const comparison = (value: number, old: number | undefined) => ({
-      baseline: old ?? null,
-      change: old == null ? null : value - old,
-    });
-    if (tab === "packages") {
-      columns = [
-        { key: "value", label: "Lines" },
-        ...(compare
-          ? [
-              { key: "baseline", label: "Baseline" },
-              { key: "change", label: "Δ lines" },
-            ]
-          : []),
-        { key: "types", label: "Types" },
-        { key: "out", label: "Imports out" },
-        { key: "in", label: "Imports in" },
-        { key: "instability", label: "Instability" },
-      ];
-      const names = new Set(
-        [...current.packages, ...(before?.packages ?? [])].map((pkg) => pkg.name),
-      );
-      for (const name of names) {
-        const pkg = current.packages.find((p) => p.name === name);
-        const old = before?.packages.find((p) => p.name === name);
-        const display = pkg ?? old!;
-        const label = node("div");
-        label.append(node("span", name || "(root)", "code"));
-        if (compare && (!pkg || !old))
-          label.append(node("span", pkg ? "added" : "removed", "badge"));
-        const details = node("details");
-        details.append(
-          node("summary", "Dependencies"),
-          node("p", `Imports: ${display.dependsOn.join(", ") || "None"}`),
-          node("p", `Imported by: ${display.dependedOnBy.join(", ") || "None"}`),
-          node("p", `Source sets: ${display.sourceSets.join(", ")}`),
-        );
-        label.append(details);
-        rows.push({
-          name,
-          label,
-          values: {
-            value: pkg?.loc ?? 0,
-            ...comparison(pkg?.loc ?? 0, old?.loc ?? 0),
-            types: pkg?.types ?? 0,
-            out: pkg?.dependsOn.length ?? 0,
-            in: pkg?.dependedOnBy.length ?? 0,
-            instability: pkg?.instability ?? 0,
-          },
-        });
-      }
-      $("table-note").textContent =
-        "Complete package inventory for this scope. Instability measures dependency direction: imports out / (imports in + out).";
-      const groups = node("details");
-      groups.append(
-        node("summary", `Dependency cycles: ${current.packageGraph.cycles.length} groups`),
-      );
-      if (!current.packageGraph.cycles.length) groups.append(node("p", "No cycles in this scope."));
-      for (const cycle of current.packageGraph.cycles) {
-        const list = node("ul", "", "code");
-        list.append(...cycle.map((pkg) => node("li", pkg)));
-        groups.append(list);
-      }
-      $("cycles").append(groups);
-    } else if (tab === "hotspots") {
-      const kind = select("kind").value;
-      const ranked = current.largest[kind] ?? [];
-      columns = [
-        {
-          key: "value",
-          label:
-            kind === "functionsByCognitiveComplexity"
-              ? "Complexity"
-              : kind === "packagesByTypes"
-                ? "Types"
-                : "Lines",
-        },
-      ];
-      for (const item of ranked) {
-        const label = node("div");
-        const href = sourceLink(selected.commit, item.name);
-        const parts = item.name.split(":");
-        const name = parts.length > 1 ? parts.at(-1)! : parts[0].split("/").at(-1)!;
-        label.append(href ? link(name, href, "code") : node("span", item.name, "code"));
-        if (href)
-          label.append(
-            node("span", parts[0] + (/^\d+$/.test(parts[1] ?? "") ? `:${parts[1]}` : ""), "path"),
-          );
-        rows.push({ name: item.name, label, values: { value: item.value } });
-      }
-      $("table-note").textContent =
-        `Top ${ranked.length} entries in the selected snapshot. This is a truncated ranking. Changes are not calculated from top lists because an absent item may still exist.`;
-    } else if (tab === "sourceSets") {
-      columns = [
-        { key: "value", label: "Lines" },
-        ...(compare
-          ? [
-              { key: "baseline", label: "Baseline" },
-              { key: "change", label: "Δ lines" },
-            ]
-          : []),
-        { key: "files", label: "Files" },
-        { key: "cyclomatic", label: "Cyclomatic" },
-        { key: "cognitive", label: "Cognitive" },
-      ];
-      for (const set of current.sourceSets) {
-        if (select("kind").value !== "all" && (select("kind").value === "test") !== set.isTest)
-          continue;
-        const old = before?.sourceSets.find((s) => s.module === set.module && s.name === set.name);
-        const label = node("div");
-        label.append(
-          link(
-            set.name,
-            `${repository}/tree/${selected.commit}/${set.module}/src/${set.name}`,
-            "code",
-          ),
-          node("span", set.isTest ? "test" : "production", "badge"),
-          node("span", set.module, "path"),
-        );
-        rows.push({
-          name: `${set.module} ${set.name}`,
-          label,
-          values: {
-            value: set.loc,
-            ...comparison(set.loc, old?.loc ?? 0),
-            files: set.files,
-            cyclomatic: set.cyclomaticComplexity,
-            cognitive: set.cognitiveComplexity,
-          },
-        });
-      }
-      $("table-note").textContent =
-        "Modules and platform source sets within the selected scope. Test metrics are shown separately from production metrics.";
-    } else {
-      columns = [
-        { key: "value", label: "Value" },
-        ...(compare
-          ? [
-              { key: "baseline", label: "Baseline" },
-              { key: "change", label: "Change" },
-            ]
-          : []),
-      ];
-      for (const [key, value] of Object.entries(current.summary)) {
-        const label = node("div");
-        label.append(
-          node("span", metricLabel(key)),
-          node("span", metricDefinition(key), "metric-explanation"),
-        );
-        rows.push({
-          name: metricLabel(key),
-          label,
-          values: { value, ...comparison(value, before?.summary[key]) },
-        });
-      }
-      $("table-note").textContent =
-        "Production code unless a metric names tests. TODO and suppression counts include tests. Ratios are not percentages.";
-    }
-    if (!columns.some((column) => column.key === sort) && sort !== "name") sort = "value";
-    const query = input("search").value.toLowerCase();
-    const filtered = rows
-      .filter((row) => row.name.toLowerCase().includes(query))
-      .sort((a, b) => {
-        const left = sort === "name" ? a.name : (a.values[sort] ?? 0);
-        const right = sort === "name" ? b.name : (b.values[sort] ?? 0);
-        const order =
-          typeof left === "number" && typeof right === "number"
-            ? left - right
-            : String(left).localeCompare(String(right));
-        return descending ? -order : order;
-      });
-    const head = node("tr");
-    for (const column of [
-      { key: "name", label: tab === "summary" ? "Metric" : "Name" },
-      ...columns,
-    ]) {
-      const th = node("th", "", column.key === "name" ? "" : "numeric");
-      th.scope = "col";
-      th.setAttribute(
-        "aria-sort",
-        column.key === sort ? (descending ? "descending" : "ascending") : "none",
-      );
-      const button = node(
-        "button",
-        `${column.label}${column.key === sort ? (descending ? " ↓" : " ↑") : ""}`,
-      );
-      button.addEventListener("click", () => {
-        if (sort === column.key) descending = !descending;
-        else {
-          sort = column.key;
-          descending = column.key !== "name";
-        }
-        renderTable();
-      });
-      th.append(button);
-      head.append(th);
-    }
-    $("table-head").replaceChildren(head);
-    $("table-body").replaceChildren(
-      ...filtered.map((row) => {
-        const tr = node("tr");
-        const name = node("td");
-        name.append(row.label);
-        tr.append(name);
-        for (const column of columns) {
-          const value = row.values[column.key];
-          const text =
-            value == null
-              ? "—"
-              : typeof value === "number"
-                ? column.key === "change"
-                  ? delta(value, 0, 3)
-                  : format(value, 3)
-                : value;
-          tr.append(node("td", text, "numeric"));
-        }
-        return tr;
       }),
     );
-    $("row-count").textContent = `${filtered.length} / ${rows.length} rows`;
-    if (!filtered.length) {
-      const row = node("tr");
-      const cell = node("td", "No matching rows. Clear the filter or select another category.");
-      cell.colSpan = columns.length + 1;
-      row.append(cell);
-      $("table-body").append(row);
-    }
+    trendCharts.forEach((chart) => chart.setCursor(hovered, selected));
+    saveUrl();
   }
-  function changeTab(next: string) {
-    tab = next;
-    sort = tab === "summary" ? "name" : "value";
-    descending = tab !== "summary";
-    input("search").value = "";
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
-      const active = button.dataset.tab === tab;
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    }
-    $("breakdown").setAttribute("aria-labelledby", `tab-${tab}`);
-    $("kind-label").hidden = !["hotspots", "sourceSets"].includes(tab);
-    options(
-      select("kind"),
-      tab === "hotspots"
-        ? Object.entries(hotspotKinds)
-        : [
-            ["all", "Production + tests"],
-            ["main", "Production only"],
-            ["test", "Tests only"],
-          ],
-    );
-    renderTable();
-    save();
-  }
-  async function load() {
-    $("status").hidden = false;
-    $("status").textContent = "Loading history…";
-    $("retry").hidden = true;
+
+  async function loadScope() {
+    showControls();
+    const load = ++scopeLoad;
+    root.classList.add("metrics-loading");
     try {
-      history = await read<History>("index.json");
-      if (history.schemaVersion !== 2) throw new Error("Regenerate scoped history");
-      if (!history.snapshots.length) throw new Error("No measurements");
-      select("scope").value = ["library", "demo", "all"].includes(params.get("scope") ?? "")
-        ? params.get("scope")!
-        : "library";
-      select("period").value = ["0", "7", "30", "60"].includes(params.get("days") ?? "")
-        ? params.get("days")!
-        : "60";
-      input("compare").checked = params.get("compare") === "1";
-      moduleOptions(params.get("module") ?? "");
-      sourceSetOptions(params.get("sourceSet") ?? "");
-      changeTab(tab);
-      const latest = history.snapshots.at(-1)!;
-      $("updated").textContent = `${date(latest.commitDate)} · ${latest.commit.slice(0, 8)}`;
-      $("measurement-info").textContent =
-        `${history.snapshots.length} snapshots · reporter ${history.reporterVersion}`;
-      $("content").hidden = false;
-      await loadScope();
+      const next = await fetchJson<Series>(new URL(`series/${scope().id}.json`, base));
+      if (load !== scopeLoad) return;
+      series = next;
+      $("metrics-status").hidden = true;
+      $("metrics-body").hidden = false;
+      trendCharts.forEach((chart, i) =>
+        chart.setData(specs[i].series.map((s) => series[s.key] ?? [])),
+      );
+      showSelection();
+      await loadDetail();
     } catch {
-      $("status").hidden = false;
-      $("status").textContent =
-        "History is unavailable or needs updating. Run mise run metrics:site-data for a local dataset, then retry.";
-      $("retry").hidden = false;
+      if (load !== scopeLoad) return;
+      $("metrics-status").hidden = false;
+      $("metrics-status").textContent = "Couldn't load metrics data.";
+    } finally {
+      if (load === scopeLoad) root.classList.remove("metrics-loading");
     }
   }
-  select("scope").addEventListener("change", () => {
-    moduleOptions("");
-    sourceSetOptions("");
-    void loadScope();
-  });
-  select("module").addEventListener("change", () => {
-    sourceSetOptions();
-    void loadScope();
-  });
-  select("source-set").addEventListener("change", () => void loadScope());
-  select("period").addEventListener("change", filterPeriod);
-  select("selected").addEventListener("change", () => void changeSelection());
-  select("baseline").addEventListener("change", () => void changeSelection());
-  input("compare").addEventListener("change", () => void changeSelection());
-  input("releases").addEventListener("change", renderCharts);
-  $("reset-zoom").addEventListener("click", () => charts.resetZoom());
-  input("search").addEventListener("input", renderTable);
-  select("kind").addEventListener("change", renderTable);
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
-    button.addEventListener("click", () => {
-      view = button.dataset.view!;
-      renderCharts();
-      save();
-    });
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
-    button.addEventListener("click", () => changeTab(button.dataset.tab!));
-    button.addEventListener("keydown", (event) => {
-      const tabs = ["packages", "distributions", "hotspots", "sourceSets", "summary"];
-      let index = tabs.indexOf(tab);
-      if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
-      else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
-      else if (event.key === "Home") index = 0;
-      else if (event.key === "End") index = tabs.length - 1;
-      else return;
-      event.preventDefault();
-      changeTab(tabs[index]);
-      $(`tab-${tab}`).focus();
-    });
+
+  async function loadDetail() {
+    const load = ++detailLoad;
+    const commit = commits[selected].commit;
+    const status = $("metrics-detail-status");
+    $("metrics-detail").classList.add("metrics-stale");
+    let snapshot: Snapshot;
+    try {
+      snapshot = await fetchJson<Snapshot>(new URL(`snapshots/${commit}/${scope().id}.json`, base));
+    } catch {
+      if (load !== detailLoad) return;
+      status.textContent = `Not present at ${commits[selected].commit.slice(0, 7)}.`;
+      $("metrics-detail").hidden = true;
+      return;
+    }
+    if (load !== detailLoad) return;
+    status.textContent = "";
+    $("metrics-detail").hidden = false;
+    $("metrics-detail").classList.remove("metrics-stale");
+    showHotspots(snapshot);
+    showBreakdown(snapshot);
+    showPackages(snapshot);
   }
-  $("retry").addEventListener("click", () => void load());
-  $("retry-detail").addEventListener("click", () => void changeSelection());
-  void load();
+
+  function showHotspots(snapshot: Snapshot) {
+    const list = (title: string, measure: string, ranked: Ranked[], functions: boolean) => {
+      const items = ranked.slice(0, 10).map((entry) => {
+        const d = declaration(entry.name);
+        const context = [module ? null : moduleName(d.module), d.sourceSet, functions ? d.file : null];
+        return el(
+          "li",
+          {},
+          el("span", { className: "metrics-rank-value", textContent: format(entry.value) }),
+          el(
+            "span",
+            {},
+            el("a", { href: sourceUrl(snapshot.commit, d.path, d.line), textContent: d.name }),
+            el("span", { className: "metrics-muted", textContent: context.filter(Boolean).join(" · ") }),
+          ),
+        );
+      });
+      return el(
+        "section",
+        { className: "metrics-hotspot" },
+        el("h3", { textContent: title }),
+        el("p", { className: "metrics-muted", textContent: measure }),
+        el("ol", {}, ...items),
+      );
+    };
+    const { largest } = snapshot;
+    $("metrics-hotspots").replaceChildren(
+      list("Most complex functions", "cognitive complexity", largest.functionsByCognitiveComplexity, true),
+      list("Longest functions", "lines of code", largest.functionsByLines, true),
+      list("Largest files", "lines", largest.filesByLoc, false),
+    );
+  }
+
+  function table(
+    host: HTMLTableElement,
+    columns: { label: string; numeric?: boolean }[],
+    rows: (Node | string)[][],
+  ) {
+    host.replaceChildren(
+      el("thead", {}, el("tr", {}, ...columns.map((c) => el("th", { className: c.numeric ? "metrics-num" : "", textContent: c.label })))),
+      el(
+        "tbody",
+        {},
+        ...rows.map((row) =>
+          el("tr", {}, ...row.map((cell, i) => el("td", { className: columns[i].numeric ? "metrics-num" : "" }, cell))),
+        ),
+      ),
+    );
+  }
+
+  function showBreakdown(snapshot: Snapshot) {
+    const columns = [
+      { label: module ? "Source set" : "Module" },
+      { label: "Lines", numeric: true },
+      { label: "Test lines", numeric: true },
+      { label: "Functions", numeric: true },
+      { label: "Cognitive complexity (sum)", numeric: true },
+    ];
+    const groups = new Map<string, { loc: number; testLoc: number; functions: number; cognitive: number }>();
+    for (const set of snapshot.sourceSets) {
+      const key = module ? set.name : set.module;
+      const row = groups.get(key) ?? { loc: 0, testLoc: 0, functions: 0, cognitive: 0 };
+      if (set.isTest) row.testLoc += set.loc;
+      else {
+        row.loc += set.loc;
+        row.functions += set.functions;
+        row.cognitive += set.cognitiveComplexity;
+      }
+      groups.set(key, row);
+    }
+    const rows = [...groups].sort(([, a], [, b]) => b.loc - a.loc || b.testLoc - a.testLoc);
+    const total = rows.reduce((sum, [, row]) => sum + row.loc, 0) || 1;
+    $("breakdown").textContent = module ? `Source sets in ${moduleName(module)}` : "Modules";
+    table(
+      $("metrics-breakdown"),
+      columns,
+      rows.map(([name, row]) => {
+        const label = module
+          ? el("span", { textContent: name })
+          : el("button", {
+              className: "metrics-link-button",
+              textContent: moduleName(name),
+              title: name,
+              onclick: () => {
+                module = name;
+                void loadScope();
+              },
+            });
+        const share = el("span", { className: "metrics-share" });
+        share.style.width = `${(row.loc / total) * 100}%`;
+        return [
+          el("span", { className: "metrics-name-cell" }, label, share),
+          format(row.loc),
+          row.testLoc ? format(row.testLoc) : "–",
+          row.loc ? format(row.functions) : "–",
+          row.loc ? format(row.cognitive) : "–",
+        ];
+      }),
+    );
+  }
+
+  let showAllPackages = false;
+  function showPackages(snapshot: Snapshot) {
+    const names = snapshot.packages.map((p) => p.name);
+    const prefix = commonPrefix(names);
+    const short = (name: string) => (prefix && name.startsWith(prefix) ? name.slice(prefix.length) || name : name);
+    const inCycle = new Set(snapshot.packageGraph.cycles.flat());
+
+    const cycles = snapshot.packageGraph.cycles;
+    $("metrics-cycles").replaceChildren(
+      el(
+        "p",
+        {},
+        cycles.length
+          ? `${inCycle.size} of ${names.length} packages are in ${cycles.length === 1 ? "a dependency cycle" : `${cycles.length} dependency cycles`}.`
+          : `No dependency cycles among ${names.length} packages.`,
+        prefix ? ` Names are relative to ${prefix.replace(/\.$/, "")}.` : "",
+      ),
+      ...cycles.map((cycle) =>
+        el("ul", { className: "metrics-chips" }, ...cycle.map((name) => el("li", { textContent: short(name) }))),
+      ),
+    );
+
+    const sorted = [...snapshot.packages].sort((a, b) => b.loc - a.loc);
+    const visible = showAllPackages ? sorted : sorted.slice(0, 10);
+    table(
+      $("metrics-packages"),
+      [
+        { label: "Package" },
+        { label: "Lines", numeric: true },
+        { label: "Types", numeric: true },
+        { label: "Imports", numeric: true },
+        { label: "Imported by", numeric: true },
+        { label: "Instability", numeric: true },
+      ],
+      visible.map((p: Package) => [
+        el(
+          "span",
+          { className: "metrics-name-cell" },
+          el("code", { textContent: short(p.name), title: p.name }),
+          inCycle.has(p.name) ? el("span", { className: "metrics-tag", textContent: "cycle" }) : "",
+        ),
+        format(p.loc),
+        format(p.types),
+        format(p.dependsOn.length),
+        format(p.dependedOnBy.length),
+        p.instability.toFixed(2),
+      ]),
+    );
+    const more = $<HTMLButtonElement>("metrics-packages-more");
+    more.hidden = sorted.length <= 10;
+    more.textContent = showAllPackages ? "Show fewer packages" : `Show all ${sorted.length} packages`;
+    more.onclick = () => {
+      showAllPackages = !showAllPackages;
+      showPackages(snapshot);
+    };
+  }
+
+  await loadScope();
+}
+
+/** The longest dotted prefix, ending in a dot, shared by every name. */
+function commonPrefix(names: string[]) {
+  if (names.length < 2) return "";
+  const parts = names.map((n) => n.split("."));
+  const shared: string[] = [];
+  for (let i = 0; parts.every((p) => i < p.length - 1 && p[i] === parts[0][i]); i++) shared.push(parts[0][i]);
+  return shared.length ? `${shared.join(".")}.` : "";
 }

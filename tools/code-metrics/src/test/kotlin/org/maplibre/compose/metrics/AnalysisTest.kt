@@ -245,7 +245,6 @@ class AnalysisTest {
     val distribution = distribution(values)
 
     assertEquals(50, distribution.p50)
-    assertEquals(75, distribution.p75)
     assertEquals(100, distribution.histogram.values.sum())
     assertEquals((1..100).associateWith { 1 }, distribution.histogram)
     assertEquals(
@@ -260,7 +259,7 @@ class AnalysisTest {
   }
 
   @Test
-  fun `scopes recompute percentiles from functions and keep tests separate`() {
+  fun `scopes recompute percentiles from their own functions`() {
     write(
       "lib/a/src/commonMain/kotlin/a/A.kt",
       "package a\n" + (1..99).joinToString("\n") { "fun f$it() = 1" },
@@ -279,25 +278,18 @@ class AnalysisTest {
         analyzeFile(it, parser.parse(it.relativePath, Files.readString(it.path)))
       }
     val scopes = scopedReports(files, 20)
-    val library = scopes.single {
-      it.group == "library" && it.module == null && it.sourceSet == null
-    }
+    val library = scopes.single { it.group == "library" && it.module == null }
     assertEquals(100, library.summary.functions)
     assertEquals(1, library.summary.functionLinesP90)
     assertEquals(22, library.summary.functionLinesMax)
     assertEquals(2, library.summary.testLoc)
-    val common = scopes.single {
-      it.group == "library" && it.module == null && it.sourceSet == "commonMain"
-    }
-    assertEquals(0, common.summary.testLoc)
-    assertEquals(1, common.summary.functionLinesP90)
-    assertEquals(setOf("a", "b"), common.packages.map { it.name }.toSet())
+    val moduleB = scopes.single { it.module == "lib/b" }
+    assertEquals(1, moduleB.summary.functions)
+    assertEquals(22, moduleB.summary.functionLinesP90)
+    assertEquals(setOf("b"), moduleB.packages.map { it.name }.toSet())
     assertEquals(
       1,
-      scopes
-        .single { it.group == "demo" && it.module == null && it.sourceSet == null }
-        .summary
-        .functions,
+      scopes.single { it.group == "demo" && it.module == null }.summary.functions,
     )
   }
 

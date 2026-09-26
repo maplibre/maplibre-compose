@@ -20,7 +20,7 @@ Usage: code-metrics [options]
   --roots <a,b>       Directories to scan, relative to the repository. Default: lib,demo-app
   --out <file>        Write the JSON snapshot here. Default: print it to stdout.
   --top <n>           Length of each ranked list. Default: 20
-  --scopes            Include library, demo, module, and production source-set reports.
+  --scopes            Include reports for the library, the demo app, and each module.
   --refs-file <file>   Measure one commit hash per line. --out is an output directory.
 """
 

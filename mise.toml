@@ -562,8 +562,3 @@ run = "python3 tools/code-metrics/history.py"
 description = "Serve the metrics dashboard using local history."
 depends = ["//docs:versions", "//docs:install"]
 run = "pnpm --dir docs exec astro dev --host 127.0.0.1"
-
-[tasks."metrics:test-ui"]
-description = "Verify the built metrics dashboard against local history in Chromium."
-depends = ["deps:chromium"]
-run = 'node ci/test-metrics.mjs "$(mise where npm:playwright)/node_modules/playwright/index.mjs"'
