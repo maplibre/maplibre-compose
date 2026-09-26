@@ -134,7 +134,7 @@ def measure(commits, into):
     subprocess.run(command, check=True)
 
 
-def sync(store, start, rebuild):
+def sync(store, start, end, rebuild):
     index = None if rebuild else store.read("index.json")
     if index and index.get("schemaVersion") != SCHEMA_VERSION:
         raise SystemExit("The published index has another schema; sync with --rebuild.")
@@ -143,21 +143,21 @@ def sync(store, start, rebuild):
         thresholds = index["thresholds"]
         series = {key: store.read(f"series/{key}.json") or {} for key in scopes}
         last = entries[-1]["commit"]
-        head = git("rev-parse", "HEAD")
+        head = git("rev-parse", end)
         if is_ancestor(head, last):
-            commits = []  # HEAD is already indexed, as when a tag triggers the sync.
+            commits = []  # Already indexed, as when a tag triggers the sync.
         elif is_ancestor(last, head):
-            commits = first_parent(f"{last}..HEAD")
+            commits = first_parent(f"{last}..{head}")
         else:
             raise SystemExit(
-                f"The last indexed commit {last} is not in HEAD's history."
+                f"The last indexed commit {last} is not in {end}'s history."
             )
     else:
         entries, scopes, series, thresholds = [], {}, {}, None
-        commits = first_parent(f"{start}~..HEAD")
+        commits = first_parent(f"{start}~..{end}")
 
     titles = dict(
-        line.split(" ", 1) for line in git("log", "--format=%H %s", "HEAD").splitlines()
+        line.split(" ", 1) for line in git("log", "--format=%H %s", end).splitlines()
     )
     with tempfile.TemporaryDirectory() as temporary:
         if commits:
@@ -240,6 +240,9 @@ def main():
         "--from", dest="start", default="v0.14.0", help="First commit to measure"
     )
     parser.add_argument(
+        "--to", dest="end", default="HEAD", help="Last commit to measure"
+    )
+    parser.add_argument(
         "--rebuild", action="store_true", help="Measure every commit again"
     )
     target = parser.add_mutually_exclusive_group(required=True)
@@ -257,7 +260,7 @@ def main():
         if args.bucket
         else Directory(args.output)
     )
-    sync(store, args.start, args.rebuild)
+    sync(store, args.start, args.end, args.rebuild)
 
 
 if __name__ == "__main__":
