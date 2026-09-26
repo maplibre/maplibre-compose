@@ -22,9 +22,6 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
-/** The style layer type that MapLibre Native's n-gon plugin registers. */
-const val NGON_LAYER_TYPE = "ngon"
-
 /**
  * Draws each point in [source] as a regular polygon with [corners] sides, rendered by MapLibre
  * Native's sample n-gon layer plugin. This is the typed composable a plugin integration provides on
@@ -36,7 +33,7 @@ const val NGON_LAYER_TYPE = "ngon"
  * the renderer rejects the layer type.
  *
  * Every paint expression may use feature properties and feature state, and every numeric or color
- * property transitions.
+ * property transitions. The plugin implements feature queries, so clicks resolve to features.
  *
  * @param id Unique layer name.
  * @param source Data source; the plugin lays out point geometry only.
@@ -103,7 +100,7 @@ fun NgonLayer(
 ) {
   Layer(
     id = id,
-    type = NGON_LAYER_TYPE,
+    type = "ngon",
     source = source,
     onClick = onClick,
     onLongClick = onLongClick,

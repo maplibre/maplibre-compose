@@ -31,11 +31,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 
 object DataVizDemo : Demo {
   override val name = "Data visualization"
-  override val description: String
-    get() =
-      if (hexbins != null)
-        "A month of earthquakes as points, a heatmap, clusters, or hexagonal bins."
-      else "A month of earthquakes as points, a heatmap, or clusters."
+  override val description = "A month of earthquakes as points, a heatmap, or clusters."
 
   override val preferredLightStyle = Protomaps.Light
   override val preferredDarkStyle = Protomaps.Dark
@@ -157,7 +153,6 @@ object DataVizDemo : Demo {
 
   @Composable
   override fun PeekPanel(state: DemoAppState) {
-    // A menu rather than segments: four choices no longer fit one compact row.
     DropdownRow(
       label = "Visualization",
       options = modes,

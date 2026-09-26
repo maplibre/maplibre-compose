@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,14 +28,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.demoapp.demos.ngon.NgonLayer
 import org.maplibre.compose.demoapp.demos.ngon.NgonPlugin
-import org.maplibre.compose.demoapp.demos.ngon.NgonPluginState
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
-import org.maplibre.compose.expressions.dsl.times
-import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.CirclePitchScale
 import org.maplibre.compose.map.LocalMapState
@@ -49,16 +47,15 @@ import org.maplibre.spatialk.geojson.Position
 
 /** Available once the plugin registered; a build without the plugin library has no hexbin mode. */
 internal actual fun earthquakeHexbins(): EarthquakeHexbins? =
-  if (NgonPlugin.ensureRegistered() is NgonPluginState.Registered) NgonEarthquakeHexbins else null
+  if (NgonPlugin.isRegistered) NgonEarthquakeHexbins else null
 
 /**
  * Bins earthquakes into a hexagonal grid and draws one [NgonLayer] hexagon per cell. The grid is
  * laid out in screen space at the nearest whole zoom level and rebinned when the zoom crosses to
- * the next, so cells stay a readable size and tile exactly at that zoom. Color is a data-driven
- * paint property, and the hexagons lie on the map when it tilts.
+ * the next, so cells stay a readable size and tile exactly at that zoom.
  */
 internal object NgonEarthquakeHexbins : EarthquakeHexbins {
-  private var quakes by mutableStateOf<List<Quake>?>(null)
+  private var quakes by mutableStateOf<List<Position>?>(null)
 
   @Composable
   override fun MapContent(feedUri: String) {
@@ -66,8 +63,10 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
       if (quakes == null) quakes = runCatching { fetchQuakes(feedUri) }.getOrNull()
     }
     val loaded = quakes ?: return
-    val zoom = LocalMapState.current?.cameraPosition?.zoom ?: return
-    val level = round(zoom).toInt()
+    val mapState = LocalMapState.current ?: return
+    // Only the whole zoom level matters; reading the camera directly would recompose every frame.
+    val level by
+      remember(mapState) { derivedStateOf { round(mapState.cameraPosition.zoom).toInt() } }
     val bins = remember(loaded, level) { hexbin(loaded, level, CELL_RADIUS_DP) }
     val source = rememberGeoJsonSource(GeoJsonData.Features(bins.cells))
 
@@ -75,9 +74,9 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
       id = "earthquake-hexbins",
       source = source,
       corners = const(6f),
-      // TODO: make this a zoom ramp, `interpolate(exponential(2), zoom(), ...)`, once the plugin
-      // layer re-evaluates zoom-dependent paint properties as the camera zooms. Until then the
-      // radius is exact at the whole zoom the grid was built for and drifts until the next rebin.
+      // TODO: use a zoom ramp once MapLibre Native's plugin render layer re-evaluates
+      // zoom-dependent
+      // paint properties while zooming; until then the radius is exact only at the rebin zoom.
       radius = const(bins.radiusDp.dp),
       color =
         interpolate(
@@ -98,16 +97,11 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
   }
 }
 
-private class Quake(val position: Position)
-
-private suspend fun fetchQuakes(feedUri: String): List<Quake> {
+private suspend fun fetchQuakes(feedUri: String): List<Position> {
   val json = HttpClient().use { client -> client.get(feedUri).bodyAsText() }
   val collection =
     FeatureCollection.fromJsonOrNull<Geometry?, JsonObject?>(json) ?: return emptyList()
-  return collection.mapNotNull { quake ->
-    val point = quake.geometry as? Point ?: return@mapNotNull null
-    Quake(point.coordinates)
-  }
+  return collection.mapNotNull { (it.geometry as? Point)?.coordinates }
 }
 
 /** Bin cells for one zoom level, with the on-screen radius the grid was built for. */
@@ -117,30 +111,25 @@ private class Hexbins(val cells: FeatureCollection<Point, JsonObject>, val radiu
  * Groups [quakes] into pointy-top hexagons of about [cellRadiusDp] dp at zoom [level], laid out in
  * Web Mercator so the plugin's screen-space hexagons tile exactly. The radius is nudged so a whole
  * number of columns spans the world and cells merge across the antimeridian, where world copies
- * would otherwise show two half-offset hexagons. Each cell carries its `count` and a log-scaled
- * `share` of the busiest cell's count.
+ * would otherwise show two half-offset hexagons. Each cell carries `share`, the log-scaled ratio of
+ * its count to the busiest cell's.
  */
-private fun hexbin(quakes: List<Quake>, level: Int, cellRadiusDp: Float): Hexbins {
+private fun hexbin(quakes: List<Position>, level: Int, cellRadiusDp: Float): Hexbins {
   val columns =
     (WORLD_SIZE / (sqrt(3.0) * cellRadiusDp / 2.0.pow(level))).roundToInt().coerceAtLeast(1)
   val radius = WORLD_SIZE / (sqrt(3.0) * columns)
-  val cells = HashMap<Pair<Int, Int>, MutableList<Quake>>()
+  val counts = HashMap<Pair<Int, Int>, Int>()
   for (quake in quakes) {
-    val (x, y) = project(quake.position)
+    val (x, y) = project(quake)
     val (q, r) = hexAt(x, y, radius)
-    cells.getOrPut(q.mod(columns) to r) { mutableListOf() }.add(quake)
+    counts.merge(q.mod(columns) to r, 1, Int::plus)
   }
-  val busiest = cells.values.maxOfOrNull { it.size } ?: 1
-  val features = cells.map { (cell, members) ->
+  val busiest = counts.values.maxOrNull() ?: 1
+  val features = counts.map { (cell, count) ->
     val (x, y) = hexCenter(cell, radius)
-    val share = ln(1.0 + members.size) / ln(1.0 + busiest)
     Feature(
       geometry = Point(unproject(x.mod(WORLD_SIZE), y)),
-      properties =
-        buildJsonObject {
-          put("count", members.size)
-          put("share", share)
-        },
+      properties = buildJsonObject { put("share", ln(1.0 + count) / ln(1.0 + busiest)) },
     )
   }
   return Hexbins(FeatureCollection(features), (radius * 2.0.pow(level)).toFloat())

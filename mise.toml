@@ -100,12 +100,13 @@ run = "mise deps install chromium"
 
 # MapLibre Native's sample n-gon layer plugin, which draws the desktop demo's
 # earthquake hexbins. Built from the MapLibre Native commit behind the pinned
-# maplibre-native-ffi release; see the script for the layout it produces.
+# maplibre-native-ffi release. Unlike deps:benchmarks, the demo tasks do not
+# depend on it: it needs a C++ compiler, and the demo works without it.
 [deps.ngon-plugin]
 auto = false
 sources = ["gradle/libs.versions.toml", ".mise/bin/build-ngon-plugin"]
 outputs = [
-  "build/plugins/ngon-layer/resources/plugins/ngon-layer/*/ngon-layer.properties",
+  "demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/ngon-layer.properties",
 ]
 run = ".mise/bin/build-ngon-plugin"
 

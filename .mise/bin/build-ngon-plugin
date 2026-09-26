@@ -2,20 +2,16 @@
 set -euo pipefail
 
 # Build MapLibre Native's sample n-gon layer plugin as a shared library for the
-# desktop demo app's earthquake hexbins, from the MapLibre Native commit that the pinned
-# maplibre-native-ffi release was built against. The plugin ABI structs must
-# match that revision exactly, so the commit is read from the FFI release tag
-# rather than pinned here.
+# desktop demo's earthquake hexbins. The plugin ABI structs must match the
+# MapLibre Native revision the pinned maplibre-native-ffi release was built
+# against, so that commit is read from the FFI release tag rather than pinned
+# here. Only the plugin's own sources are fetched, behind a sparse checkout;
+# MapLibre Native itself is neither cloned in full nor built.
 #
-# Only the plugin's own sources are fetched, four files behind a sparse
-# checkout; MapLibre Native itself is neither cloned in full nor built. The
-# shader header comes from the plugin's Node generator, and the plugin compiles
-# with the host C++ compiler in about a second.
-#
-# Output, laid out as a JVM resource root that demo-app/common's jvmMain picks
-# up: build/plugins/ngon-layer/resources/plugins/ngon-layer/<classifier>/
-#   libmln-ngon-layer.{dylib,so} or mln-ngon-layer.dll
-#   ngon-layer.properties        the MapLibre Native commit and FFI version
+# Output, a JVM resource root that demo-app/common's jvmMain picks up:
+#   demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/
+#     libmln-ngon-layer.{dylib,so} or mln-ngon-layer.dll
+#     ngon-layer.properties        the MapLibre Native commit and FFI version
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$root"
@@ -27,31 +23,26 @@ if [[ -z "$ffi_version" ]]; then
 fi
 ffi_tag="bindings/kotlin/v${ffi_version}"
 
-case "$(uname -s):$(uname -m)" in
-  Darwin:arm64) classifier=natives-macos-arm64 ;;
-  Linux:x86_64) classifier=natives-linux-x64 ;;
-  Linux:aarch64 | Linux:arm64) classifier=natives-linux-arm64 ;;
-  MINGW* | MSYS* | CYGWIN*)
-    case "$(uname -m)" in
-      aarch64 | arm64) classifier=natives-windows-arm64 ;;
-      *) classifier=natives-windows-x64 ;;
-    esac
-    ;;
+case "$(uname -s)" in
+  Darwin) library_file=libmln-ngon-layer.dylib ;;
+  Linux) library_file=libmln-ngon-layer.so ;;
+  MINGW* | MSYS* | CYGWIN*) library_file=mln-ngon-layer.dll ;;
   *)
-    echo "${0##*/}: unsupported host $(uname -s) $(uname -m)" >&2
+    echo "${0##*/}: unsupported host $(uname -s)" >&2
     exit 2
     ;;
 esac
 
-work=build/plugins/ngon-layer
+work=demo-app/common/build/ngon-plugin
 ffi_dir="$work/maplibre-native-ffi"
 mln_dir="$work/maplibre-native"
 generated="$work/generated"
-out="$work/resources/plugins/ngon-layer/$classifier"
+out=demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer
+library="$out/$library_file"
 mkdir -p "$work"
 
 # The FFI release tag records its MapLibre Native revision as a submodule
-# pointer. A treeless, blobless clone of that one tag is a few hundred KiB.
+# pointer; a treeless, blobless clone of that one tag is enough to read it.
 rm -rf "$ffi_dir"
 git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
   https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
@@ -61,6 +52,11 @@ if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
+
+if [[ -f "$library" ]] && grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
+  echo "$library is up to date"
+  exit 0
+fi
 
 if [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]; then
   rm -rf "$mln_dir"
@@ -85,19 +81,16 @@ includes=(
 )
 version_define="MLN_NGON_PLUGIN_VERSION=\"${mln_commit:0:9}\""
 
-case "$classifier" in
-  natives-macos-*)
-    library="$out/libmln-ngon-layer.dylib"
+case "$library_file" in
+  *.dylib)
     c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -dynamiclib \
       -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
     ;;
-  natives-linux-*)
-    library="$out/libmln-ngon-layer.so"
+  *.so)
     c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -fPIC -shared \
       -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
     ;;
-  natives-windows-*)
-    library="$out/mln-ngon-layer.dll"
+  *.dll)
     if ! command -v cl >/dev/null; then
       echo "${0##*/}: cl.exe is not on PATH; run from a Visual Studio developer shell" >&2
       exit 2
@@ -109,9 +102,9 @@ case "$classifier" in
     ;;
 esac
 
-cat >"$out/ngon-layer.properties" <<EOF
+cat >"$out/ngon-layer.properties" <<PROPS
 maplibre-native.commit=$mln_commit
 maplibre-native-ffi.version=$ffi_version
-EOF
+PROPS
 
 echo "built $library"
