@@ -948,7 +948,7 @@ internal constructor(
    * With a surface, [cameraPosition] updates when the backend reports the stopped position.
    */
   public fun stopCameraMovement() {
-    val guard = gestureAuthority.beginProgrammatic()
+    val guard = gestureAuthority.beginProgrammatic(supersededByAnyCommand = true)
     val attachment = run {
       requireOpen()
       if (!guard.isValid()) return

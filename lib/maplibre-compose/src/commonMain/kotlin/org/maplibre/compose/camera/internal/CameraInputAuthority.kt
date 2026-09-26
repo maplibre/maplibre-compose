@@ -120,7 +120,11 @@ internal class CameraInputAuthority(private val owner: MapState) {
   /** Even input with no camera response invalidates an older click's camera fallthrough. */
   fun observeInput(): Long = fence.withLock { ++inputGeneration }
 
-  fun beginProgrammatic(job: Job? = null, concurrent: Boolean = false): CameraCommandGuard {
+  fun beginProgrammatic(
+    job: Job? = null,
+    concurrent: Boolean = false,
+    supersededByAnyCommand: Boolean = false,
+  ): CameraCommandGuard {
     owner.lifecycle.requireMain()
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
@@ -163,7 +167,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
         !owner.isClosed &&
           cameraGeneration == generation &&
           job?.isCancelled != true &&
-          (job != null || commandRevision == revision)
+          (!supersededByAnyCommand || commandRevision == revision)
       }
 
       override suspend fun awaitDispatchTurn() {
