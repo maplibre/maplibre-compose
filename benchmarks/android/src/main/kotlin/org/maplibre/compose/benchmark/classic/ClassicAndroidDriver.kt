@@ -66,7 +66,7 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
     map.uiSettings.apply {
       isCompassEnabled = false
       isLogoEnabled = false
-      isAttributionEnabled = false
+      isAttributionEnabled = config.scene == BenchmarkScene.Basemap
     }
     config.maximumFps?.let(view::setMaximumFps)
     withTimeout(15000) {

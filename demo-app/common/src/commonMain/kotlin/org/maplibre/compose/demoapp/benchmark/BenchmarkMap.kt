@@ -222,6 +222,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
         renderOptions = RenderOptions { maximumFps = config.maximumFps },
         overlay = {
           if (config.scenario == BenchmarkScenario.Overlays) include(MapOverlay.Default)
+          else if (config.scene == BenchmarkScene.Basemap) include(MapOverlay.AttributionOnly)
         },
       )
     }

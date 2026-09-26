@@ -54,7 +54,7 @@ Presets cover camera movement, style and source updates, layer changes, and
 other map operations. Supported implementations vary by workload; `recompose` is
 Compose-only, as is `overlays-points`, which runs the camera tour with the
 default Compose map controls. Other workloads hide optional map controls on both
-SDKs.
+SDKs, retaining attribution for real-data basemap scenes.
 
 Override preset settings with JSON, for example
 `--config '{"durationMs":3000,"rateHz":2}'`. See [cases.json](cases.json) for

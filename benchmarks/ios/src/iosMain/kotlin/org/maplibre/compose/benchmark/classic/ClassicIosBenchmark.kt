@@ -212,7 +212,7 @@ private class IosDriver(
     map.showsCompassView = false
     map.showsScale = false
     map.showsLogoView = false
-    map.showsAttributionButton = false
+    map.showsAttributionButton = config.scene == BenchmarkScene.Basemap
     map.autoresizingMask = UIViewAutoresizingFlexibleWidth or UIViewAutoresizingFlexibleHeight
     map.preferredFramesPerSecond =
       config.maximumFps?.toLong() ?: checkNotNull(container.window).screen.maximumFramesPerSecond
