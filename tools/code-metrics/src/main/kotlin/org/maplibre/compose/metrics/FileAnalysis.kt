@@ -70,6 +70,8 @@ data class Declaration(
 
 data class FunctionFacts(
   val name: String,
+  /** 1-based line of the declaration, which tells overloads apart. */
+  val line: Int,
   val lines: Int,
   val cyclomaticComplexity: Int,
   val cognitiveComplexity: Int,
@@ -144,13 +146,20 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
   val types = mutableListOf<TypeFacts>()
   val typeAliases = mutableListOf<TypeAliasFacts>()
 
-  fun visit(container: List<KtDeclaration>, enclosing: Visibility, prefix: String) {
+  fun visit(
+    container: List<KtDeclaration>,
+    enclosing: Visibility,
+    enclosingExpect: Boolean,
+    prefix: String,
+  ) {
     for (declaration in container) {
       // An `init` block has no name and cannot be documented or referenced.
       if (declaration is KtAnonymousInitializer) continue
       val visibility = declaration.visibility()
       val effective = narrowest(visibility, enclosing)
       val effectivelyPublic = effective.isPublicApi
+      // Members of an `expect` type are expected without repeating the keyword.
+      val isExpect = enclosingExpect || declaration.hasModifier(KtTokens.EXPECT_KEYWORD)
       val name = prefix + (declaration.name ?: "<anonymous>")
       declarations +=
         Declaration(
@@ -160,13 +169,13 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
           effectiveVisibility = effective,
           isEffectivelyPublic = effectivelyPublic,
           isOverride = declaration.hasModifier(KtTokens.OVERRIDE_KEYWORD),
-          isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+          isExpect = isExpect,
           isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
           hasKDoc = declaration.docComment != null,
         )
       when (declaration) {
         // An entry is a KtClassOrObject in the PSI but a value of its enum, not a type.
-        is KtEnumEntry -> visit(declaration.declarations, effective, "$name.")
+        is KtEnumEntry -> visit(declaration.declarations, effective, isExpect, "$name.")
         is KtClassOrObject -> {
           val members = declaration.declarations
           val constructor = declaration.primaryConstructor
@@ -183,7 +192,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
               isSealed = declaration.hasModifier(KtTokens.SEALED_KEYWORD),
               isFunInterface = declaration.hasModifier(KtTokens.FUN_KEYWORD),
               isExternal = declaration.hasModifier(KtTokens.EXTERNAL_KEYWORD),
-              isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+              isExpect = isExpect,
               isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
               lines = lines.spanOf(declaration),
               publicMembers =
@@ -210,7 +219,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
                 effectiveVisibility = constructorEffective,
                 isEffectivelyPublic = constructorEffective.isPublicApi,
                 isOverride = false,
-                isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+                isExpect = isExpect,
                 isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
                 hasKDoc = constructor.docComment != null || classDocumented,
               )
@@ -225,13 +234,13 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
                   effectiveVisibility = propertyEffective,
                   isEffectivelyPublic = propertyEffective.isPublicApi,
                   isOverride = property.hasModifier(KtTokens.OVERRIDE_KEYWORD),
-                  isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+                  isExpect = isExpect,
                   isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
                   hasKDoc = property.docComment != null || classDocumented,
                 )
             }
           }
-          visit(members, effective, "$name.")
+          visit(members, effective, isExpect, "$name.")
         }
         is KtTypeAlias ->
           declaration.getTypeReference()?.text?.let {
@@ -241,7 +250,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
       }
     }
   }
-  visit(file.declarations, enclosing = Visibility.PUBLIC, prefix = "")
+  visit(file.declarations, enclosing = Visibility.PUBLIC, enclosingExpect = false, prefix = "")
 
   // Every function body, including those of `object : X { }` literals, which the declaration
   // walk above cannot name. A local function is part of the function that declares it.
@@ -259,6 +268,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
     functions +=
       FunctionFacts(
         name = (owners.map { it.name ?: "<anonymous>" } + function.name).joinToString("."),
+        line = lines.lineOf(function.textRange.startOffset),
         lines = lines.spanOf(function),
         cyclomaticComplexity =
           1 + (function.bodyExpression?.let { CyclomaticComplexity.calculate(it) } ?: 0),

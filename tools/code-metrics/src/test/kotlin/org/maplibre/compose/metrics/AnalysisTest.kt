@@ -46,6 +46,7 @@ class AnalysisTest {
       files.map { it.sourceSet to it.isTest },
     )
     assertEquals("lib/a", files.first().module)
+    assertEquals(files, discoverSourceFiles(root, listOf("lib", "lib/a")))
   }
 
   @Test
@@ -65,6 +66,10 @@ class AnalysisTest {
       }
 
       public expect fun platform(): Int
+
+      public expect class Platform(id: Int) {
+        public val name: String
+      }
 
       public interface Listener {
         public fun onEvent()
@@ -93,7 +98,7 @@ class AnalysisTest {
     val byName = file.declarations.associateBy { it.name }
 
     assertEquals(
-      listOf("Outer", "Outer.Nested", "Listener", "Impl", "Color", "WithInit"),
+      listOf("Outer", "Outer.Nested", "Platform", "Listener", "Impl", "Color", "WithInit"),
       file.types.map { it.name },
     )
     assertEquals("entry", byName.getValue("Color.RED").kind)
@@ -105,6 +110,8 @@ class AnalysisTest {
     assertEquals(Visibility.INTERNAL, byName.getValue("Outer.hidden").visibility)
     assertEquals(false, byName.getValue("Outer.Nested.unreachable").isEffectivelyPublic)
     assertTrue(byName.getValue("platform").isExpect)
+    assertTrue(byName.getValue("Platform.name").isExpect)
+    assertTrue(byName.getValue("Platform.<init>").isExpect)
     assertTrue(byName.getValue("Impl.onEvent").isOverride)
     assertEquals(listOf("Listener"), file.types.single { it.name == "Impl" }.supertypes)
     assertEquals(1, file.types.single { it.name == "Outer" }.publicMembers)
@@ -471,5 +478,25 @@ class AnalysisTest {
     assertEquals(0, file.functions.single { it.name == "Owner.make" }.nestingDepth)
     assertTrue(anonymous.none { it.isEffectivelyPublic })
     assertNull(file.declarations.firstOrNull { it.name.contains("<anonymous>") })
+  }
+
+  @Test
+  fun `identifies functions by line so overloads stay distinct`() {
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      """
+      package a
+
+      fun f(x: Int) = x
+      fun f(x: String) = x
+      """,
+    )
+
+    val (_, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
+
+    assertEquals(
+      listOf("lib/a/src/commonMain/kotlin/a/A.kt:3:f", "lib/a/src/commonMain/kotlin/a/A.kt:4:f"),
+      sections.largest.functionsByLines.map { it.name }.sorted(),
+    )
   }
 }

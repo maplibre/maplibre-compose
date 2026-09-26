@@ -46,7 +46,8 @@ fun discoverSourceFiles(root: Path, scanRoots: List<String>): List<SourceFile> {
   for (scanRoot in scanRoots.map(root::resolve).filter { it.isDirectory() }) {
     Files.walkFileTree(scanRoot, visitor)
   }
-  return files.sortedBy { it.relativePath }
+  // Overlapping roots, such as `lib` and `lib/x`, reach the same files twice.
+  return files.distinctBy { it.relativePath }.sortedBy { it.relativePath }
 }
 
 private fun sourceFile(root: Path, path: Path): SourceFile? {

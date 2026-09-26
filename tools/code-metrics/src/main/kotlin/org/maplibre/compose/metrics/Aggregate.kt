@@ -364,15 +364,21 @@ private fun distributions(main: List<FileFacts>): Map<String, Distribution> {
     "typePublicMembers" to
       distribution(types.map { (path, t) -> named("$path:${t.name}", t.publicMembers) }),
     "functionLines" to
-      distribution(functions.map { (path, f) -> named("$path:${f.name}", f.lines) }),
+      distribution(functions.map { (path, f) -> named("$path:${f.line}:${f.name}", f.lines) }),
     "functionCyclomaticComplexity" to
-      distribution(functions.map { (path, f) -> named("$path:${f.name}", f.cyclomaticComplexity) }),
+      distribution(
+        functions.map { (path, f) -> named("$path:${f.line}:${f.name}", f.cyclomaticComplexity) }
+      ),
     "functionCognitiveComplexity" to
-      distribution(functions.map { (path, f) -> named("$path:${f.name}", f.cognitiveComplexity) }),
+      distribution(
+        functions.map { (path, f) -> named("$path:${f.line}:${f.name}", f.cognitiveComplexity) }
+      ),
     "functionNestingDepth" to
-      distribution(functions.map { (path, f) -> named("$path:${f.name}", f.nestingDepth) }),
+      distribution(
+        functions.map { (path, f) -> named("$path:${f.line}:${f.name}", f.nestingDepth) }
+      ),
     "functionParameters" to
-      distribution(functions.map { (path, f) -> named("$path:${f.name}", f.parameters) }),
+      distribution(functions.map { (path, f) -> named("$path:${f.line}:${f.name}", f.parameters) }),
   )
 }
 
@@ -401,9 +407,12 @@ private fun largest(main: List<FileFacts>, packages: List<PackageReport>, top: I
     typesByLines = types.map { (path, t) -> Ranked("$path:${t.name}", t.lines) }.top(),
     typesByPublicMembers =
       types.map { (path, t) -> Ranked("$path:${t.name}", t.publicMembers) }.top(),
-    functionsByLines = functions.map { (path, f) -> Ranked("$path:${f.name}", f.lines) }.top(),
+    functionsByLines =
+      functions.map { (path, f) -> Ranked("$path:${f.line}:${f.name}", f.lines) }.top(),
     functionsByCognitiveComplexity =
-      functions.map { (path, f) -> Ranked("$path:${f.name}", f.cognitiveComplexity) }.top(),
+      functions
+        .map { (path, f) -> Ranked("$path:${f.line}:${f.name}", f.cognitiveComplexity) }
+        .top(),
     packagesByTypes = packages.map { Ranked(it.name, it.types) }.top(),
     packagesByPublicDeclarations = packages.map { Ranked(it.name, it.publicDeclarations) }.top(),
   )

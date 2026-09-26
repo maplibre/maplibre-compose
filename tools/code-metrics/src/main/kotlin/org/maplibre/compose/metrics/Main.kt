@@ -94,8 +94,10 @@ fun main(args: Array<String>) {
 
 fun measure(options: Options): Snapshot {
   val git = GitRepository(options.repo)
+  runCatching { git.git("rev-parse", "--show-toplevel") }
+    .getOrElse { usageError("${options.repo} is not a git repository") }
   val ref = options.ref
-  // A working tree without commits still measures; a ref that does not resolve is a mistake.
+  // A repository without commits still measures; a ref that does not resolve is a mistake.
   val commit =
     if (ref == null) runCatching { git.commit("HEAD") }.getOrNull()
     else runCatching { git.commit(ref) }.getOrElse { usageError("unknown ref $ref") }
