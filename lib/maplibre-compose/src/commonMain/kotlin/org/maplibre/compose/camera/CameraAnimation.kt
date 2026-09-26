@@ -1,10 +1,8 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
-import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.util.mercatorPixelDistance
 
 /**
  * How the camera moves from its current position to a new one.
@@ -36,9 +34,7 @@ public sealed interface CameraAnimation {
    * remains legible over any distance.
    *
    * The flight takes [duration] when one is given. Otherwise its duration follows from the length
-   * of the path and [speed]. Set at most one of the two. A flight with no target or zoom change has
-   * no path to pace: without a duration it becomes an [Ease] with the default duration and the same
-   * [easing].
+   * of the path and [speed]. Set at most one of the two.
    *
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span
@@ -92,23 +88,3 @@ public data class CubicBezier(
     public val Linear: CubicBezier = CubicBezier(0.0, 0.0, 1.0, 1.0)
   }
 }
-
-/**
- * Returns the animation to run from [from] to [to], where [to] has the zoom the map will apply. A
- * speed-paced flight between the same center and zoom has no path length to derive a duration from,
- * and the engines disagree about it: MapLibre Native jumps and MapLibre GL JS eases for its own
- * default duration. Both instead run an [CameraAnimation.Ease] with the default duration. The path
- * test is the engines' own: the projected distance at the current zoom, in pixels.
- */
-internal fun CameraAnimation.forPath(from: CameraPosition, to: CameraPosition): CameraAnimation {
-  if (this !is CameraAnimation.Fly || duration != null) return this
-  val hasPath =
-    abs(to.zoom - from.zoom) > PATH_ZOOM_EPSILON ||
-      mercatorPixelDistance(from.zoom, from.target, to.target) > PATH_PIXEL_EPSILON
-  return if (hasPath) this else CameraAnimation.Ease(easing = easing)
-}
-
-/** GL JS treats a shorter projected path as too short to fly; MapLibre Native uses half this. */
-private const val PATH_PIXEL_EPSILON = 2e-6
-
-private const val PATH_ZOOM_EPSILON = 1e-6
