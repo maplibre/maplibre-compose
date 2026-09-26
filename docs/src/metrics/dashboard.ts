@@ -16,7 +16,8 @@ import {
   type Ranked,
   type Scope,
   type Series,
-  type Snapshot,
+  type CommitReport,
+  type ScopeReport,
 } from "./model";
 
 type Group = Scope["group"];
@@ -343,33 +344,35 @@ export async function start() {
     }
   }
 
+  let report: CommitReport | undefined;
   async function loadDetail() {
     const load = ++detailLoad;
     const commit = commits[selected].commit;
     const status = $("metrics-detail-status");
     $("metrics-detail").classList.add("metrics-stale");
-    let snapshot: Snapshot;
-    let files: FileReport[];
     try {
-      [snapshot, files] = await Promise.all([
-        fetchJson<Snapshot>(new URL(`snapshots/${commit}/${scope().id}.json`, base)),
-        fetchJson<FileReport[]>(new URL(`snapshots/${commit}/files.json`, base)),
-      ]);
+      // One file holds every scope, so changing scope reuses it.
+      if (report?.commit !== commit) {
+        const next = await fetchJson<CommitReport>(new URL(`snapshots/${commit}.json`, base));
+        if (load !== detailLoad) return;
+        report = next;
+      }
     } catch {
       if (load !== detailLoad) return;
-      status.textContent = `Not present at ${commits[selected].commit.slice(0, 7)}.`;
+      status.textContent = "Couldn't load this commit's data.";
       $("metrics-detail").hidden = true;
       return;
     }
-    if (load !== detailLoad) return;
-    status.textContent = "";
-    $("metrics-detail").hidden = false;
+    const scopeReport = report.scopes[scope().id];
+    status.textContent = scopeReport ? "" : `Not present at ${commit.slice(0, 7)}.`;
+    $("metrics-detail").hidden = !scopeReport;
     $("metrics-detail").classList.remove("metrics-stale");
-    showHotspots(snapshot);
-    showTree(snapshot, files);
+    if (!scopeReport) return;
+    showHotspots(commit, scopeReport);
+    showTree(commit, scopeReport, report.files);
   }
 
-  function showHotspots(snapshot: Snapshot) {
+  function showHotspots(commit: string, snapshot: ScopeReport) {
     const list = (title: string, measure: string | Node, ranked: Ranked[], functions: boolean) => {
       const items = ranked.slice(0, 10).map((entry) => {
         const d = declaration(entry.name);
@@ -381,7 +384,7 @@ export async function start() {
           el(
             "span",
             {},
-            el("a", { ...newTab, href: sourceUrl(snapshot.commit, d.path, d.line), textContent: d.name }),
+            el("a", { ...newTab, href: sourceUrl(commit, d.path, d.line), textContent: d.name }),
             el("span", { className: "metrics-muted", textContent: context.filter(Boolean).join(" · ") }),
           ),
         );
@@ -407,13 +410,13 @@ export async function start() {
     );
   }
 
-  function showTree(snapshot: Snapshot, files: FileReport[]) {
+  function showTree(commit: string, snapshot: ScopeReport, files: FileReport[]) {
     const modules = new Set(
       index.scopes.filter((s) => s.module && (group === "all" || s.group === group)).map((s) => s.module),
     );
     const inScope = files.filter((f) => (module ? f.module === module : modules.has(f.module)));
     const { packages, modules: moduleReports, packageGraph } = snapshot;
-    tree.show(inScope, packages, moduleReports, packageGraph.cycles, snapshot.commit, !module);
+    tree.show(inScope, packages, moduleReports, packageGraph.cycles, commit, !module);
     $("structure").textContent = module ? `Packages in ${moduleName(module)}` : "Modules";
   }
 

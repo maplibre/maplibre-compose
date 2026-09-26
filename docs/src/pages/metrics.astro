@@ -2,7 +2,10 @@
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 import "../styles/metrics.css";
 
-const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+// Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
+const source =
+  process.env.METRICS_DATA_URL ??
+  `${import.meta.env.BASE_URL.replace(/\/$/, "")}/metrics-data/`;
 ---
 
 <StarlightPage
@@ -14,7 +17,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     pagefind: false,
   }}
 >
-  <div class="metrics" data-source={`${base}/metrics-data/`}>
+  <div class="metrics" data-source={source}>
     <div class="metrics-toolbar">
       <div class="metrics-segmented" role="radiogroup" aria-label="Code">
         <button role="radio" data-group="library">Library</button>
@@ -44,7 +47,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
       <div id="metrics-tiles" class="metrics-tiles"></div>
 
-      <h2 id="trends">Over time</h2>
       <div id="metrics-charts" class="metrics-charts"></div>
 
       <h2 id="hotspots">Hotspots</h2>

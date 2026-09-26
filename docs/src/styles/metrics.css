@@ -213,6 +213,10 @@
 
 /* Charts */
 
+.metrics .metrics-charts {
+  margin-top: 2rem;
+}
+
 .metrics-charts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));

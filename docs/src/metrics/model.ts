@@ -1,7 +1,5 @@
 /** The data written by tools/code-metrics/history.py. */
 export interface Index {
-  totalCommits: number;
-  step: number;
   /** The values Detekt's complexity rules allow; the `*Methods` counts are functions above them. */
   thresholds: {
     cognitiveComplexMethod: number;
@@ -59,8 +57,15 @@ export interface ModuleReport {
   instability: number;
 }
 
-export interface Snapshot {
+/** Everything measured at one commit, in snapshots/<commit>.json. */
+export interface CommitReport {
   commit: string;
+  files: FileReport[];
+  /** By scope ID. A scope is absent when its code didn't exist at the commit. */
+  scopes: Record<string, ScopeReport>;
+}
+
+export interface ScopeReport {
   packages: Package[];
   modules: ModuleReport[];
   packageGraph: { cycles: string[][] };

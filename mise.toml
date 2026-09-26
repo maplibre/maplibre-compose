@@ -38,6 +38,7 @@ hk_version = "1.54.1"
 java_version = "zulu-25.36.15.0"
 jvl_version = "2026.05.03"
 ktfmt_version = "0.64"
+metrics_bucket = "maplibre-compose-metrics"
 node_version = "24.19.0"
 playwright_version = "1.62.1"
 pnpm_version = "10.33.2"
@@ -45,6 +46,7 @@ python_version = "3.14.7"
 ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
+wrangler_version = "4.125.0"
 xcodes_version = "2.0.3"
 zig_version = "0.16.0"
 appimagetool_version = "1.9.1"
@@ -85,6 +87,8 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
+# Where the code metrics dashboard reads its data; `mise run metrics:publish` writes it.
+METRICS_DATA_URL = "https://mlc-data.sargunv.dev/"
 
 [hooks]
 postinstall = ["hk install --mise --quiet"]
@@ -554,11 +558,28 @@ done
 run = "./gradlew :tools:code-metrics:test"
 
 [tasks."metrics:site-data"]
-description = "Generate local dashboard history; never uploads data."
+description = "Measure commits since v0.14.0 into docs/public/metrics-data for `metrics:dev`."
 depends = ["metrics:build"]
-run = "python3 tools/code-metrics/history.py"
+run = "python3 tools/code-metrics/history.py --output docs/public/metrics-data"
+
+[tasks."metrics:publish"]
+description = "Measure new commits on main into the dashboard's R2 bucket."
+depends = ["metrics:build"]
+tools = { "npm:wrangler" = "{{vars.wrangler_version}}" }
+run = 'python3 tools/code-metrics/history.py --bucket {{vars.metrics_bucket}} --url "$METRICS_DATA_URL"'
+
+[tasks."metrics:configure-bucket"]
+description = "Apply the dashboard bucket's CORS rules, which let any site read its data."
+tools = { "npm:wrangler" = "{{vars.wrangler_version}}" }
+run = "wrangler r2 bucket cors set {{vars.metrics_bucket}} --file tools/code-metrics/r2-cors.json --force"
+
+[tasks."metrics:check"]
+description = "Measure HEAD into build/metrics/check, exercising the dashboard's data path without publishing."
+depends = ["metrics:build"]
+run = "python3 tools/code-metrics/history.py --from HEAD --rebuild --output build/metrics/check"
 
 [tasks."metrics:dev"]
-description = "Serve the metrics dashboard using local history."
+description = "Serve the metrics dashboard with the data from `metrics:site-data`."
 depends = ["//docs:versions", "//docs:install"]
+env = { METRICS_DATA_URL = "/maplibre-compose/metrics-data/" }
 run = "pnpm --dir docs exec astro dev --host 127.0.0.1"

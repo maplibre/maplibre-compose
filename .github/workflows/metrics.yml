@@ -1,0 +1,40 @@
+name: Metrics
+
+# Measures new commits on main into the R2 bucket the code metrics page reads.
+# A release tag refreshes the tags in the published index.
+on:
+  push:
+    branches: [main]
+    tags: [v*.*.*]
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Measure every commit since v0.14.0 again with the current reporter.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Each sync appends to the index the previous one wrote.
+concurrency:
+  group: metrics
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    environment:
+      name: cloudflare-pages
+      deployment: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+      - run: mise run metrics:publish ${{ inputs.rebuild && '--rebuild' || '' }}
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
