@@ -83,13 +83,14 @@ internal fun Shape.problem(): String? {
       if (segmentsIntersect(a, b, c, d)) return "The outline crosses or touches itself."
     }
   }
+  val origin = points.first()
   val twiceArea =
     points.indices.sumOf { i ->
       val a = points[i]
       val b = points[(i + 1) % points.size]
-      a.x * b.y - b.x * a.y
+      (a.x - origin.x) * (b.y - origin.y) - (b.x - origin.x) * (a.y - origin.y)
     }
-  return if (kotlin.math.abs(twiceArea) < 1e-14) "The polygon needs some area." else null
+  return if (twiceArea == 0.0) "The polygon needs some area." else null
 }
 
 private data class PlanePoint(val x: Double, val y: Double)

@@ -107,6 +107,11 @@ class FeatureEditingStateTest {
     )
     assertEquals(square, state.shape)
     assertFalse(state.canUndo)
+    assertNull(
+      square
+        .copy(vertices = square.vertices.map { Position(it.longitude * 1e-6, it.latitude * 1e-6) })
+        .problem()
+    )
   }
 
   @Test

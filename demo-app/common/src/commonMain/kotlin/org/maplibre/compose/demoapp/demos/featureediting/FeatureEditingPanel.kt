@@ -31,8 +31,8 @@ import org.maplibre.compose.demoapp.flyTo
 import org.maplibre.spatialk.turf.measurement.area
 import org.maplibre.spatialk.turf.measurement.computeBbox
 import org.maplibre.spatialk.turf.measurement.length
-import org.maplibre.spatialk.units.extensions.inHectares
 import org.maplibre.spatialk.units.extensions.inMeters
+import org.maplibre.spatialk.units.extensions.inSquareMeters
 
 @Composable
 internal fun EditingActions(editor: FeatureEditingState) {
@@ -64,7 +64,10 @@ internal fun EditingActions(editor: FeatureEditingState) {
 internal fun EditingPanel(editor: FeatureEditingState, app: DemoAppState) {
   val shown = editor.displayed
   val geometry = shown.geometry
-  val problem = editor.message ?: shown.problem()
+  val problem =
+    editor.message
+      ?: if (editor.draft != null && shown.vertices.size < shown.kind.minimum) null
+      else shown.problem()
   val scope = rememberCoroutineScope()
   fun fit() {
     geometry?.let {
@@ -83,14 +86,23 @@ internal fun EditingPanel(editor: FeatureEditingState, app: DemoAppState) {
       style = MaterialTheme.typography.bodyMedium,
     )
     if (problem != null) Text(problem, color = MaterialTheme.colorScheme.error)
-    Text("${shown.vertices.size} vertices", style = MaterialTheme.typography.labelLarge)
+    Text(
+      "${shown.kind.label} · ${shown.vertices.size} vertices",
+      style = MaterialTheme.typography.labelLarge,
+    )
     if (geometry != null && shown.problem() == null) {
-      val length = geometry.length().inMeters.roundToInt()
+      val meters = geometry.length().inMeters
+      val length =
+        if (meters < 1000) "${meters.roundToInt()} m"
+        else "${(meters / 100).roundToInt() / 10.0} km"
       if (shown.kind == ShapeKind.Polygon) {
-        val hectares = (geometry.area().inHectares * 10).roundToInt() / 10.0
-        Text("$hectares ha", style = MaterialTheme.typography.headlineMedium)
-        Text("Perimeter · $length m", style = MaterialTheme.typography.bodyMedium)
-      } else Text("$length m", style = MaterialTheme.typography.headlineMedium)
+        val squareMeters = geometry.area().inSquareMeters
+        val area =
+          if (squareMeters < 10_000) "${squareMeters.roundToInt()} m²"
+          else "${(squareMeters / 1000).roundToInt() / 10.0} ha"
+        Text(area, style = MaterialTheme.typography.headlineMedium)
+        Text("Perimeter · $length", style = MaterialTheme.typography.bodyMedium)
+      } else Text(length, style = MaterialTheme.typography.headlineMedium)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       TextButton(onClick = ::fit, enabled = geometry != null) { Text("Fit shape") }
@@ -124,11 +136,11 @@ internal fun EditingPanel(editor: FeatureEditingState, app: DemoAppState) {
       }
     }
   }
-  SectionHeader("Simplify")
+  SectionHeader("Transform")
   var amount by remember(editor.shape, editor.draft) { mutableFloatStateOf(0f) }
   Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Text(
-      "Reduce the vertex count. The faint outline shows the original shape.",
+      "Simplify the outline. The faint line shows the original shape.",
       style = MaterialTheme.typography.bodyMedium,
     )
     Slider(
