@@ -46,6 +46,7 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
+zig_version = "0.16.0"
 appimagetool_version = "1.9.1"
 
 [tools]
@@ -57,6 +58,8 @@ appimagetool_version = "1.9.1"
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
 
 "core:java" = "{{vars.java_version}}"
+# Compiles the demo's n-gon layer plugin; see .mise/bin/build-ngon-plugin.
+"core:zig" = "{{vars.zig_version}}"
 "aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
 
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
@@ -97,6 +100,12 @@ run = "playwright install chromium --no-shell"
 
 [tasks."deps:chromium"]
 run = "mise deps install chromium"
+
+# MapLibre Native's n-gon layer plugin for the desktop demo's hexagonal bins.
+
+[tasks."deps:ngon-plugin"]
+description = "Build the n-gon layer plugin that draws the desktop demo's earthquake hexbins."
+run = ".mise/bin/build-ngon-plugin"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
@@ -184,11 +193,16 @@ description = "Boot an iPhone simulator and print its UDID."
 run = ".mise/bin/boot-ios-simulator"
 
 [tasks."build:ios:device"]
-description = "Link the demo framework for the iOS device target."
-run = "./gradlew :demo-app:common:linkDebugFrameworkIosArm64"
+description = "Link the demo and classic benchmark frameworks for the iOS device target."
+depends = ["deps:classic-ios"]
+run = """
+./gradlew :demo-app:common:linkDebugFrameworkIosArm64
+./gradlew :benchmarks:ios:linkDebugFrameworkIosArm64
+"""
 
 [tasks."test:ios"]
 description = "Run the iOS simulator test suite."
+depends = ["deps:classic-ios"]
 run = '''
 udid="$(.mise/bin/boot-ios-simulator)"
 ./gradlew iosSimulatorArm64Test -- --device "$udid"
@@ -338,6 +352,7 @@ run = '''
 
 [tasks."build:desktop-app"]
 description = "Package the demo app as an AppImage, DMG, or MSI for this host."
+depends = ["deps:ngon-plugin"]
 run = '''
 if [ "$(uname -s)" = Linux ]; then
   ./gradlew :demo-app:desktop:createDistributable
@@ -392,6 +407,7 @@ run = ".mise/bin/run-android-demo"
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
+depends = ["deps:ngon-plugin"]
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
@@ -435,6 +451,7 @@ run = '.mise/bin/run-ios-demo'
 
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
+depends = ["deps:ngon-plugin"]
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
@@ -482,7 +499,7 @@ run = "npx -y actions-up"
 auto = false
 sources = ["benchmarks/prepare_fixtures.py", "benchmarks/fixtures/*"]
 outputs = [
-  "demo-app/common/build/generated/benchmarkResources/files/benchmarks/.prepared",
+  "benchmarks/build/fixtures/benchmarks/.prepared",
 ]
 run = "python benchmarks/prepare_fixtures.py"
 
@@ -491,10 +508,16 @@ run = "mise deps install benchmarks"
 
 [tasks."benchmark:build:android"]
 depends = ["deps:benchmarks"]
-run = "./gradlew :demo-app:android:assembleRelease"
+run = """
+./gradlew :demo-app:android:assembleRelease
+./gradlew :benchmarks:android:assembleRelease
+"""
+[tasks."deps:classic-ios"]
+run = "python benchmarks/prepare_ios_sdk.py"
+
 [tasks."benchmark:build:ios"]
 depends = ["deps:benchmarks"]
-run = "./gradlew :demo-app:common:linkDebugFrameworkIosSimulatorArm64"
+run = "python benchmarks/build_ios.py"
 [tasks."benchmark:build:js"]
 depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentWebpack"
@@ -506,5 +529,40 @@ depends = ["deps:benchmarks"]
 run = "python benchmarks/run.py"
 [tasks."benchmark:compare"]
 run = "python benchmarks/compare.py"
+[tasks."benchmark:test:core"]
+run = "./gradlew :benchmarks:core:jvmTest"
+
 [tasks."benchmark:test"]
 run = "python -m unittest discover -s benchmarks"
+
+[tasks."metrics:build"]
+description = "Install the code metrics tool into tools/code-metrics/build/install."
+run = "./gradlew -q :tools:code-metrics:installDist"
+
+[tasks.metrics]
+description = "Measure code size, complexity, and structure into build/metrics/<name>.json."
+depends = ["metrics:build"]
+usage = '''
+flag "--ref <ref>" help="Measure the tracked files at this commit or tag instead of the working tree."
+flag "--out <file>" help="Snapshot path. Defaults to build/metrics/<ref>.json, or head.json for the working tree."
+'''
+run = '''
+args=(--repo "$MISE_PROJECT_ROOT")
+[ -n "$usage_ref" ] && args+=(--ref "$usage_ref")
+args+=(--out "${usage_out:-$MISE_PROJECT_ROOT/build/metrics/${usage_ref:-head}.json}")
+tools/code-metrics/build/install/code-metrics/bin/code-metrics "${args[@]}"
+'''
+
+[tasks."metrics:history"]
+description = "Measure every vMAJOR.MINOR.PATCH tag and the working tree into build/metrics/."
+depends = ["metrics:build"]
+run = '''
+bin=tools/code-metrics/build/install/code-metrics/bin/code-metrics
+for tag in $(git tag --list 'v*.*.*' --sort=v:refname); do
+  "$bin" --repo "$MISE_PROJECT_ROOT" --ref "$tag" --out "$MISE_PROJECT_ROOT/build/metrics/$tag.json"
+done
+"$bin" --repo "$MISE_PROJECT_ROOT" --out "$MISE_PROJECT_ROOT/build/metrics/head.json"
+'''
+
+[tasks."metrics:test"]
+run = "./gradlew :tools:code-metrics:test"

@@ -9,9 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.demoapp.benchmark.BenchmarkConfig
-import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
-import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.benchmark.BenchmarkConfig
+import org.maplibre.compose.benchmark.BenchmarkScenario
+import org.maplibre.compose.benchmark.allBenchmarkScenarios
 
 @Composable
 internal fun BenchmarksScreen(onBack: () -> Unit, onOpenScenario: (BenchmarkScenario) -> Unit) {

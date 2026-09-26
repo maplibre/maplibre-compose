@@ -1,4 +1,4 @@
-package org.maplibre.compose.demoapp.benchmark
+package org.maplibre.compose.benchmark
 
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
@@ -8,16 +8,14 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import org.maplibre.compose.map.MapEvent
 
 /** Engine statistics from one render event. */
 @Serializable
-internal data class FrameSample(
+data class FrameSample(
   @SerialName("encoding_ms") val encodingMs: Double? = null,
   @SerialName("rendering_ms") val renderingMs: Double? = null,
   @SerialName("draw_calls") val drawCalls: Long? = null,
@@ -26,37 +24,27 @@ internal data class FrameSample(
 
 /** Integrity report for the batched [FrameSample] lines. */
 @Serializable
-internal data class FrameStats(
+data class FrameStats(
   @SerialName("frames") val frames: Int,
   @SerialName("duration_ms") val durationMs: Double,
 )
 
 /**
- * Collects engine statistics from [MapEvent.FrameRendered] between [start] and [stop]. The public
- * event stream may drop events. These samples describe engine work, not display jank. Engine timing
- * fields are unavailable on the browser.
+ * Collects engine statistics from render events between [start] and [stop]. The public event stream
+ * may drop events. These samples describe engine work, not display jank. Engine timing fields are
+ * unavailable on the browser.
  */
-internal class BenchmarkFrameRecorder {
+class BenchmarkFrameRecorder {
   private var job: Job? = null
   private var samples: Channel<FrameSample>? = null
   private var start = TimeSource.Monotonic.markNow()
 
   /** Starts collecting from [events]. Must be paired with exactly one [stop]. */
-  fun start(scope: CoroutineScope, events: Flow<MapEvent>) {
+  fun start(scope: CoroutineScope, events: Flow<FrameSample>) {
     start()
     job =
       scope.launch(Dispatchers.Unconfined) {
-        events.filterIsInstance<MapEvent.FrameRendered>().collect { event ->
-          val stats = event.stats
-          record(
-            FrameSample(
-              encodingMs = stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
-              renderingMs = stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
-              drawCalls = stats?.drawCallCount,
-              mode = stats?.mode?.name?.lowercase(),
-            )
-          )
-        }
+        events.collect(::record)
       }
   }
 

@@ -1,6 +1,5 @@
-package org.maplibre.compose.demoapp.benchmark.scenarios
+package org.maplibre.compose.benchmark
 
-import androidx.compose.runtime.withFrameNanos
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.time.TimeSource
@@ -9,7 +8,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-internal data class WorkloadReport(
+data class WorkloadReport(
   val operations: Int,
   @SerialName("submission_count") val submissionCount: Int = 0,
   @SerialName("completion_count") val completionCount: Int = 0,
@@ -20,8 +19,12 @@ internal data class WorkloadReport(
 )
 
 /** The same workload clock is used for full warm-up passes and measured repetitions. */
-internal class BenchmarkWorkload(val durationMillis: Long) {
-  private val start = TimeSource.Monotonic.markNow()
+class BenchmarkWorkload(
+  val durationMillis: Long,
+  val nextFrame: suspend () -> Long,
+  timeSource: TimeSource = TimeSource.Monotonic,
+) {
+  private val start = timeSource.markNow()
   private var operations = 0
   private val submissions = mutableListOf<Double>()
   private val completions = mutableListOf<Double>()
@@ -47,9 +50,9 @@ internal class BenchmarkWorkload(val durationMillis: Long) {
   }
 
   suspend fun frames(block: (Double) -> Unit) {
-    val first = withFrameNanos { it }
+    val first = nextFrame()
     while (start.elapsedNow().inWholeMilliseconds < durationMillis) {
-      val now = withFrameNanos { it }
+      val now = nextFrame()
       if (start.elapsedNow().inWholeMilliseconds >= durationMillis) break
       block(((now - first) / 1e6 / durationMillis).coerceIn(0.0, 1.0))
       submitted()

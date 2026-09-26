@@ -113,7 +113,9 @@ If installing manually, use the version named in the
 Desktop consumes the published
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
 Multiplatform bindings. Unlike a source build of MapLibre Native, it needs no
-C++ toolchain, CMake, or vendored checkout.
+C++ toolchain, CMake, or vendored checkout. The demo and packaging tasks compile
+MapLibre Native's n-gon layer plugin, four source files, with Zig and Node from
+mise; `mise run deps:ngon-plugin` runs that step alone.
 
 The desktop tests drive a real GPU through a headless Vulkan device. On macOS
 the test runtime supplies MoltenVK through LWJGL, and CI installs a software

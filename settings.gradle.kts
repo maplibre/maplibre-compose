@@ -36,6 +36,9 @@ dependencyResolutionManagement {
 
 include(
   ":",
+  ":benchmarks:core",
+  ":benchmarks:android",
+  ":benchmarks:ios",
   ":demo-app",
   ":demo-app:common",
   ":demo-app:android",
@@ -66,4 +69,5 @@ include(
   ":lib:maplibre-compose-runtime-vulkan-windows-arm64",
   ":lib:maplibre-compose-runtime-opengl-windows-x64",
   ":lib:maplibre-compose-runtime-opengl-windows-arm64",
+  ":tools:code-metrics",
 )

@@ -1,9 +1,5 @@
 package org.maplibre.compose.map
 
-import android.graphics.PixelFormat
-import android.media.ImageReader
-import android.os.Handler
-import android.os.HandlerThread
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -20,7 +16,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -241,7 +236,7 @@ private enum class FailurePhase {
 }
 
 private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads: Set<Thread>) {
-  val consumer = LifecycleSurfaceConsumer()
+  val consumer = SurfaceConsumer(WIDTH, HEIGHT)
   var lifecycleOwner = PresentationLifecycleOwner()
   val activeEffects = AtomicInteger()
   val composedColor = AtomicInteger()
@@ -358,46 +353,6 @@ private suspend fun withLifecycleFixture(
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
     awaitNoNewRenderThreads(initialThreads)
-  }
-}
-
-/** Drain every buffer so renderer teardown cannot block behind an unread ImageReader queue. */
-private class LifecycleSurfaceConsumer : AutoCloseable {
-  private val thread = HandlerThread("map-lifecycle-test-consumer").apply { start() }
-  private val reader = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888, 3)
-  val surface = reader.surface
-  val frames = AtomicLong()
-  val centerArgb = AtomicInteger()
-
-  init {
-    reader.setOnImageAvailableListener(
-      { source ->
-        source.acquireLatestImage()?.use { image ->
-          val plane = image.planes.single()
-          val offset = (image.height / 2) * plane.rowStride + (image.width / 2) * plane.pixelStride
-          val bytes = plane.buffer
-          centerArgb.set(
-            android.graphics.Color.argb(
-              bytes.get(offset + 3).toInt() and 0xff,
-              bytes.get(offset).toInt() and 0xff,
-              bytes.get(offset + 1).toInt() and 0xff,
-              bytes.get(offset + 2).toInt() and 0xff,
-            )
-          )
-          frames.incrementAndGet()
-        }
-      },
-      Handler(thread.looper),
-    )
-  }
-
-  override fun close() {
-    reader.setOnImageAvailableListener(null, null)
-    reader.close()
-    surface.release()
-    thread.quitSafely()
-    thread.join(TIMEOUT_MILLIS)
-    assertFalse(thread.isAlive, "Image consumer thread did not stop")
   }
 }
 

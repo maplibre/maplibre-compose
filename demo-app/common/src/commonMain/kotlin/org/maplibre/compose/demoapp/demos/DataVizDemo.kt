@@ -11,7 +11,7 @@ import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.Protomaps
-import org.maplibre.compose.demoapp.design.SegmentedRow
+import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToString
@@ -32,6 +32,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 object DataVizDemo : Demo {
   override val name = "Data visualization"
   override val description = "A month of earthquakes as points, a heatmap, or clusters."
+
   override val preferredLightStyle = Protomaps.Light
   override val preferredDarkStyle = Protomaps.Dark
 
@@ -43,11 +44,17 @@ object DataVizDemo : Demo {
   private const val FEED_URI =
     "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson"
 
-  private enum class Mode {
-    Points,
-    Heatmap,
-    Clusters,
+  private enum class Mode(val label: String) {
+    Points("Points"),
+    Heatmap("Heatmap"),
+    Clusters("Clusters"),
+    Hexbins("Hexagonal bins"),
   }
+
+  // Hexagonal bins need the n-gon layer plugin, which only the desktop demo loads.
+  private val hexbins by lazy { earthquakeHexbins() }
+  private val modes: List<Mode>
+    get() = if (hexbins != null) Mode.entries else Mode.entries - Mode.Hexbins
 
   private var mode by mutableStateOf(Mode.Points)
 
@@ -60,6 +67,7 @@ object DataVizDemo : Demo {
         Mode.Points -> Points()
         Mode.Heatmap -> Heatmap()
         Mode.Clusters -> Clusters(style)
+        Mode.Hexbins -> hexbins?.MapContent(FEED_URI)
       }
     }
   }
@@ -143,10 +151,11 @@ object DataVizDemo : Demo {
 
   @Composable
   override fun PeekPanel(state: DemoAppState) {
-    SegmentedRow(
-      options = Mode.entries,
+    DropdownRow(
+      label = "Visualization",
+      options = modes,
       selected = mode,
-      optionLabel = { it.name },
+      optionLabel = { it.label },
       onSelect = { mode = it },
     )
   }

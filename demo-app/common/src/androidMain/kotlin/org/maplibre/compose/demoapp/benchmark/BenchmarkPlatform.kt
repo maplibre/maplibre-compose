@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp.benchmark
 import android.os.Process
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.renderMode

@@ -3,6 +3,7 @@
   "idle-basemap": { "workload": "idle", "scene": "basemap-sf" },
   "camera-basemap": { "workload": "camera", "scene": "basemap-sf" },
   "camera-points": { "workload": "camera", "scene": "points-1000" },
+  "overlays-points": { "workload": "overlays", "scene": "points-1000" },
   "animation-basemap": { "workload": "animation", "scene": "basemap-sf" },
   "paint-points": { "workload": "paint", "scene": "points-1000", "layers": 8 },
   "visibility-points": {

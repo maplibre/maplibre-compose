@@ -2,9 +2,9 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.benchmark.BenchmarkScenario
+import org.maplibre.compose.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
-import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 import org.maplibre.spatialk.geojson.Position
 
 /**

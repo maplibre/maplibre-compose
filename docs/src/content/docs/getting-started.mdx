@@ -186,6 +186,19 @@ Enable native access when you run the desktop app:
   </TabItem>
 </Tabs>
 
+#### Signed packages
+
+Signing an application can modify LWJGL's native libraries, particularly when
+re-signing macOS dylibs. This can cause LWJGL to print
+`Incompatible Java and native library versions detected` even though the libraries
+load and the map works normally.
+
+If signing changes these libraries and triggers the warning, add
+`-Dorg.lwjgl.util.NoHashChecks=true` to `compose.desktop.application.jvmArgs` in
+`build.gradle.kts`.
+
+See [LWJGL discussion #1007](https://github.com/orgs/LWJGL/discussions/1007).
+
 ### Web (JS)
 
 Compile the JS target to ES modules. Non-ESM builds are not supported.
