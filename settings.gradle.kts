@@ -66,4 +66,5 @@ include(
   ":lib:maplibre-compose-runtime-vulkan-windows-arm64",
   ":lib:maplibre-compose-runtime-opengl-windows-x64",
   ":lib:maplibre-compose-runtime-opengl-windows-arm64",
+  ":tools:code-metrics",
 )

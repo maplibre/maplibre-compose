@@ -1,0 +1,196 @@
+package org.maplibre.compose.metrics
+
+import kotlinx.serialization.Serializable
+
+/**
+ * One snapshot of the codebase. [summary] is flat so a trend can graph any of its fields; the other
+ * sections hold the detail behind each number.
+ */
+@Serializable
+data class Snapshot(
+  val schemaVersion: Int = 1,
+  val generatedAt: String,
+  val ref: String?,
+  val commit: String?,
+  val commitDate: String?,
+  val describe: String?,
+  val dirty: Boolean?,
+  val roots: List<String>,
+  val apiRoots: List<String>,
+  val summary: Summary,
+  val sourceSets: List<SourceSetReport>,
+  val packages: List<PackageReport>,
+  val packageGraph: PackageGraph,
+  val abstractions: List<AbstractionReport>,
+  val distributions: Map<String, Distribution>,
+  val largest: Largest,
+  val churn: ChurnReport?,
+)
+
+@Serializable
+data class Summary(
+  // Size. Main source sets only, unless the name says otherwise.
+  val files: Int,
+  val loc: Int,
+  val sloc: Int,
+  val lloc: Int,
+  val cloc: Int,
+  val testLoc: Int,
+  val testToMainLocRatio: Double,
+  val commentToSourceRatio: Double,
+  val packages: Int,
+  val types: Int,
+  val functions: Int,
+  // Complexity.
+  val cyclomaticComplexity: Int,
+  val cognitiveComplexity: Int,
+  val cyclomaticPer1000Lloc: Double,
+  val functionLinesP90: Int,
+  val functionLinesMax: Int,
+  val functionCyclomaticP90: Int,
+  val functionCyclomaticMax: Int,
+  val functionCognitiveP90: Int,
+  val functionCognitiveMax: Int,
+  val functionNestingDepthP90: Int,
+  val functionNestingDepthMax: Int,
+  val functionParametersP90: Int,
+  val functionParametersMax: Int,
+  val fileLocP90: Int,
+  val fileLocMax: Int,
+  val typeLinesP90: Int,
+  val typeLinesMax: Int,
+  val typePublicMembersP90: Int,
+  val typePublicMembersMax: Int,
+  // Structure.
+  val packageEdges: Int,
+  val packageCycles: Int,
+  val packagesInCycles: Int,
+  val bidirectionalPackagePairs: Int,
+  val meanPackageInstability: Double,
+  val packageSourceSetsMean: Double,
+  val packageSourceSetsMax: Int,
+  val expectDeclarations: Int,
+  val actualDeclarations: Int,
+  // Interfaces and abstract classes, excluding sealed hierarchies and external JS bindings.
+  val abstractions: Int,
+  val abstractionsWithSingleImplementation: Int,
+  val abstractionsWithNoImplementation: Int,
+  // API surface, over the api roots only: effectively public declarations that are not
+  // overrides or actuals.
+  val publicDeclarations: Int,
+  val internalDeclarations: Int,
+  val publicDeclarationsWithKDoc: Int,
+  val kdocCoverage: Double,
+  // Hygiene.
+  val todoComments: Int,
+  val suppressAnnotations: Int,
+)
+
+@Serializable
+data class SourceSetReport(
+  val module: String,
+  val name: String,
+  val isTest: Boolean,
+  val files: Int,
+  val loc: Int,
+  val sloc: Int,
+  val lloc: Int,
+  val cloc: Int,
+  val cyclomaticComplexity: Int,
+  val cognitiveComplexity: Int,
+  val types: Int,
+  val functions: Int,
+  val publicDeclarations: Int,
+  val internalDeclarations: Int,
+  val expectDeclarations: Int,
+  val actualDeclarations: Int,
+)
+
+@Serializable
+data class PackageReport(
+  val name: String,
+  val files: Int,
+  val loc: Int,
+  val types: Int,
+  val functions: Int,
+  val publicDeclarations: Int,
+  val internalDeclarations: Int,
+  val sourceSets: List<String>,
+  /** Packages this one imports (efferent coupling, Ce). */
+  val dependsOn: List<String>,
+  /** Packages importing this one (afferent coupling, Ca). */
+  val dependedOnBy: List<String>,
+  /** Ce / (Ca + Ce): 0 is fully stable, 1 fully unstable. */
+  val instability: Double,
+  val externalImports: Int,
+)
+
+@Serializable data class PackageEdge(val from: String, val to: String, val imports: Int)
+
+@Serializable
+data class PackageGraph(
+  val edges: List<PackageEdge>,
+  /** Strongly connected components with more than one package. */
+  val cycles: List<List<String>>,
+  val bidirectionalPairs: List<List<String>>,
+)
+
+@Serializable
+data class AbstractionReport(
+  val name: String,
+  val packageName: String,
+  val kind: String,
+  val isSealed: Boolean,
+  val isFunInterface: Boolean,
+  val isEffectivelyPublic: Boolean,
+  /** Named types listing this abstraction as a supertype. */
+  val mainImplementations: Int,
+  /** `object : X` literals. */
+  val mainAnonymousImplementations: Int,
+  /** `X { }` SAM-constructor calls, counted only for a fun interface. */
+  val mainSamImplementations: Int,
+  val testImplementations: Int,
+  val testAnonymousImplementations: Int,
+  val testSamImplementations: Int,
+  /**
+   * A star-imported reference matched this and another declaration of the same name, so it was
+   * counted for both.
+   */
+  val ambiguous: Boolean,
+)
+
+@Serializable
+data class Distribution(
+  val count: Int,
+  val mean: Double,
+  val p50: Int,
+  val p90: Int,
+  val p99: Int,
+  val max: Int,
+  val maxName: String?,
+)
+
+@Serializable data class Ranked(val name: String, val value: Int)
+
+@Serializable
+data class Largest(
+  val filesByLoc: List<Ranked>,
+  val typesByLines: List<Ranked>,
+  val typesByPublicMembers: List<Ranked>,
+  val functionsByLines: List<Ranked>,
+  val functionsByCognitiveComplexity: List<Ranked>,
+  val packagesByTypes: List<Ranked>,
+  val packagesByPublicDeclarations: List<Ranked>,
+)
+
+@Serializable
+data class ChurnReport(
+  val windowDays: Long,
+  val since: String,
+  /** Sum over files of the commits touching each file. */
+  val fileTouches: Int,
+  val filesTouched: Int,
+  val mostChanged: List<Ranked>,
+  /** Commits multiplied by lines: big files that keep changing. */
+  val hotspots: List<Ranked>,
+)
