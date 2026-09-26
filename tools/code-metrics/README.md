@@ -1,7 +1,7 @@
 # Code metrics
 
 A snapshot of the Kotlin under `lib/` and `demo-app/` at one commit: size,
-complexity, package dependencies, and churn, all measured from syntax. Compare
+complexity, and package dependencies, all measured from syntax. Compare
 snapshots to see whether the codebase is getting simpler.
 
 ```bash
@@ -18,7 +18,5 @@ it hold the detail behind each number:
 - `packageGraph`: import edges, cycles, and pairs that import each other.
 - `distributions` and `largest`: how file, type, and function sizes spread, and
   which are biggest.
-- `churn`: commits per file over the last 180 days, and hotspots by commits
-  times lines.
 
 `Report.kt` documents each field.

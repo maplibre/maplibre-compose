@@ -114,7 +114,10 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
       .map { function ->
         val owners = function.parents.filterIsInstance<KtClassOrObject>().toList().asReversed()
         FunctionFacts(
-          name = (owners.map { it.name ?: "<anonymous>" } + function.name).joinToString("."),
+          // `fun(x) = x` is a KtNamedFunction with no name.
+          name =
+            (owners.map { it.name ?: "<anonymous>" } + (function.name ?: "<anonymous>"))
+              .joinToString("."),
           // The node itself starts at any comment that leads the declaration.
           line = (function.nameIdentifier ?: function).node.line(file),
           lines = function.linesOfCode(),

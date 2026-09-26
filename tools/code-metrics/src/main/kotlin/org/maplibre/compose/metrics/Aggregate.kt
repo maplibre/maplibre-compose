@@ -2,10 +2,7 @@ package org.maplibre.compose.metrics
 
 import kotlin.math.ceil
 
-/** Commits per repository-relative path over a window, from git. */
-data class Churn(val windowDays: Long, val since: String, val commitsPerFile: Map<String, Int>)
-
-fun aggregate(files: List<FileFacts>, churn: Churn?, top: Int): Pair<Summary, Sections> {
+fun aggregate(files: List<FileFacts>, top: Int): Pair<Summary, Sections> {
   val main = files.filter { !it.source.isTest }
   val test = files.filter { it.source.isTest }
 
@@ -14,7 +11,6 @@ fun aggregate(files: List<FileFacts>, churn: Churn?, top: Int): Pair<Summary, Se
   val packages = packageReports(main, graph)
   val distributions = distributions(main)
   val largest = largest(main, packages, top)
-  val churnReport = churn?.let { churnReport(it, files, top) }
 
   val mainLoc = main.sumOf { it.loc }
   val testLoc = test.sumOf { it.loc }
@@ -66,7 +62,7 @@ fun aggregate(files: List<FileFacts>, churn: Churn?, top: Int): Pair<Summary, Se
       todoComments = files.sumOf { it.todoCount },
       suppressAnnotations = files.sumOf { it.suppressCount },
     )
-  return summary to Sections(sourceSets, packages, graph, distributions, largest, churnReport)
+  return summary to Sections(sourceSets, packages, graph, distributions, largest)
 }
 
 data class Sections(
@@ -75,7 +71,6 @@ data class Sections(
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
-  val churn: ChurnReport?,
 )
 
 private fun sourceSetReports(files: List<FileFacts>): List<SourceSetReport> =
@@ -277,24 +272,6 @@ private fun largest(main: List<FileFacts>, packages: List<PackageReport>, top: I
     functionsByCognitiveComplexity =
       functions.map { (path, f) -> Ranked(functionId(path, f), f.cognitiveComplexity) }.top(),
     packagesByTypes = packages.map { Ranked(it.name, it.types) }.top(),
-  )
-}
-
-private fun churnReport(churn: Churn, files: List<FileFacts>, top: Int): ChurnReport {
-  val loc = files.associate { it.source.relativePath to it.loc }
-  val kotlin = churn.commitsPerFile.filterKeys { it.endsWith(".kt") }
-  return ChurnReport(
-    windowDays = churn.windowDays,
-    since = churn.since,
-    fileTouches = kotlin.values.sum(),
-    filesTouched = kotlin.size,
-    mostChanged =
-      kotlin.map { (path, n) -> Ranked(path, n) }.sortedByDescending { it.value }.take(top),
-    hotspots =
-      kotlin
-        .mapNotNull { (path, n) -> loc[path]?.let { Ranked(path, n * it) } }
-        .sortedByDescending { it.value }
-        .take(top),
   )
 }
 

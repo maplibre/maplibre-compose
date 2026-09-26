@@ -53,9 +53,11 @@ fun discoverSourceFiles(root: Path, scanRoots: List<String>): List<SourceFile> {
 private fun sourceFile(root: Path, path: Path): SourceFile? {
   val relative = path.relativeTo(root)
   val segments = relative.map { it.name }
-  val srcIndex = segments.lastIndexOf("src")
-  if (srcIndex < 1 || srcIndex + 2 >= segments.size || segments[srcIndex + 2] != "kotlin")
-    return null
+  // The first `src/<sourceSet>/kotlin` triple, since a package directory may be named `src`.
+  val srcIndex =
+    (1 until segments.size - 2).firstOrNull {
+      segments[it] == "src" && segments[it + 2] == "kotlin"
+    } ?: return null
   return SourceFile(
     path = path,
     relativePath = segments.joinToString("/"),

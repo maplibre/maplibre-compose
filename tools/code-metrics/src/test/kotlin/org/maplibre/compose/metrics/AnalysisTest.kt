@@ -37,11 +37,12 @@ class AnalysisTest {
     write("lib/a/src/test/kotlin/a/BTest.kt", "package a")
     write("lib/a/build/generated/kotlin/a/Gen.kt", "package a")
     write("lib/a/src/commonMain/resources/notes.kt", "package a")
+    write("lib/a/src/commonMain/kotlin/a/src/InSrc.kt", "package a.src")
 
     val files = discoverSourceFiles(root, listOf("lib"))
 
     assertEquals(
-      listOf("commonMain" to false, "jvmTest" to true, "test" to true),
+      listOf("commonMain" to false, "commonMain" to false, "jvmTest" to true, "test" to true),
       files.map { it.sourceSet to it.isTest },
     )
     assertEquals("lib/a", files.first().module)
@@ -105,6 +106,8 @@ class AnalysisTest {
 
       fun flat() = 1
 
+      val anonymous = fun(x: Int) = x
+
       class Owner {
         val listener = object : Runnable {
           override fun run() {
@@ -121,7 +124,7 @@ class AnalysisTest {
     val branchy = byName.getValue("branchy")
 
     assertEquals(
-      listOf("branchy", "flat", "Owner.<anonymous>.run", "Owner.<anonymous>.local"),
+      listOf("branchy", "flat", "<anonymous>", "Owner.<anonymous>.run", "Owner.<anonymous>.local"),
       file.functions.map { it.name },
     )
     assertEquals(
@@ -136,7 +139,7 @@ class AnalysisTest {
         byName.getValue("Owner.<anonymous>.run").lines,
       ),
     )
-    assertEquals(23, file.loc)
+    assertEquals(25, file.loc)
     assertEquals(1, file.cloc)
   }
 
@@ -170,7 +173,7 @@ class AnalysisTest {
       "package c.util\n\nimport a.A\n\nval ignored = A::class",
     )
 
-    val (summary, sections) = aggregate(analyze(), churn = null, top = 5)
+    val (summary, sections) = aggregate(analyze(), top = 5)
     val graph = sections.packageGraph
 
     assertEquals(
@@ -216,7 +219,7 @@ class AnalysisTest {
       """,
     )
 
-    val (_, sections) = aggregate(analyze(), churn = null, top = 5)
+    val (_, sections) = aggregate(analyze(), top = 5)
 
     assertEquals(
       listOf("lib/a/src/commonMain/kotlin/a/A.kt:3:f", "lib/a/src/commonMain/kotlin/a/A.kt:4:f"),

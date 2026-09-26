@@ -19,7 +19,6 @@ Usage: code-metrics [options]
   --ref <git ref>     Measure the tracked files at this commit instead of the working tree.
   --roots <a,b>       Directories to scan, relative to the repository. Default: lib,demo-app
   --out <file>        Write the JSON snapshot here. Default: print it to stdout.
-  --churn-days <n>    Window for git churn, ending at the measured commit. Default: 180
   --top <n>           Length of each ranked list. Default: 20
 """
 
@@ -28,7 +27,6 @@ data class Options(
   val ref: String?,
   val roots: List<String>,
   val out: Path?,
-  val churnDays: Long,
   val top: Int,
 )
 
@@ -37,7 +35,6 @@ fun parseOptions(args: Array<String>): Options {
   var ref: String? = null
   var roots = listOf("lib", "demo-app")
   var out: Path? = null
-  var churnDays = 180L
   var top = 20
   val iterator = args.iterator()
   fun next(flag: String) =
@@ -48,7 +45,6 @@ fun parseOptions(args: Array<String>): Options {
       "--ref" -> ref = next(flag)
       "--roots" -> roots = next(flag).split(',').map { it.trim() }.filter { it.isNotEmpty() }
       "--out" -> out = Path.of(next(flag))
-      "--churn-days" -> churnDays = next(flag).toLongOrNull() ?: usageError("$flag needs a number")
       "--top" -> top = next(flag).toIntOrNull() ?: usageError("$flag needs a number")
       "--help",
       "-h" -> {
@@ -58,7 +54,7 @@ fun parseOptions(args: Array<String>): Options {
       else -> usageError("unknown option $flag")
     }
   }
-  return Options(repo.absolute().normalize(), ref, roots, out, churnDays, top)
+  return Options(repo.absolute().normalize(), ref, roots, out, top)
 }
 
 private fun usageError(message: String): Nothing {
@@ -99,12 +95,6 @@ fun measure(options: Options): Snapshot {
     if (ref == null) runCatching { git.commit("HEAD") }.getOrNull()
     else runCatching { git.commit(ref) }.getOrElse { usageError("unknown ref $ref") }
   val commitDate = commit?.let { git.commitDate(it) }
-  val since = commitDate?.minusDays(options.churnDays)
-
-  val churn =
-    if (commit == null || since == null) null
-    else
-      Churn(options.churnDays, since.toString(), git.commitsPerFile(commit, since, options.roots))
 
   val files =
     if (ref == null) {
@@ -119,7 +109,7 @@ fun measure(options: Options): Snapshot {
       }
     }
 
-  val (summary, sections) = aggregate(files, churn, options.top)
+  val (summary, sections) = aggregate(files, options.top)
   return Snapshot(
     generatedAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
     ref = ref,
@@ -134,7 +124,6 @@ fun measure(options: Options): Snapshot {
     packageGraph = sections.packageGraph,
     distributions = sections.distributions,
     largest = sections.largest,
-    churn = sections.churn,
   )
 }
 

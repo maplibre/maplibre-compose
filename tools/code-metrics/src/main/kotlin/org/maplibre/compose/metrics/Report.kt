@@ -22,7 +22,6 @@ data class Snapshot(
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
-  val churn: ChurnReport?,
 )
 
 @Serializable
@@ -136,16 +135,4 @@ data class Largest(
   val functionsByLines: List<Ranked>,
   val functionsByCognitiveComplexity: List<Ranked>,
   val packagesByTypes: List<Ranked>,
-)
-
-@Serializable
-data class ChurnReport(
-  val windowDays: Long,
-  val since: String,
-  /** Sum over files of the commits touching each file. */
-  val fileTouches: Int,
-  val filesTouched: Int,
-  val mostChanged: List<Ranked>,
-  /** Commits multiplied by lines: big files that keep changing. */
-  val hotspots: List<Ranked>,
 )
