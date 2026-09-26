@@ -24,16 +24,9 @@ import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * Draws each point in [source] as a regular polygon with [corners] sides, rendered by MapLibre
- * Native's sample n-gon layer plugin. This is the typed composable a plugin integration provides on
- * top of the generic [Layer]: every paint property the plugin declares becomes a parameter with the
- * same expression types the built-in layers use, and [Layer] compiles them into the style JSON the
- * plugin reads.
- *
- * The plugin must be registered before this layer enters composition; see [NgonPlugin]. Without it,
- * the renderer rejects the layer type.
- *
- * Every paint expression may use feature properties and feature state, and every numeric or color
- * property transitions. The plugin implements feature queries, so clicks resolve to features.
+ * Native's sample n-gon layer plugin. A typed wrapper over the generic [Layer]: each paint property
+ * the plugin declares is a parameter with the expression types the built-in layers use. The plugin
+ * must be registered first; see [NgonPlugin].
  *
  * @param id Unique layer name.
  * @param source Data source; the plugin lays out point geometry only.

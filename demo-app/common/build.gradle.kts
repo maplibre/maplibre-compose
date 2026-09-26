@@ -54,8 +54,7 @@ kotlin {
     jvmMain {
       dependsOn(androidJvmMain)
       dependsOn(nonAndroidMain)
-      // The n-gon layer plugin that `mise run deps:ngon-plugin` builds, when present. The Data
-      // visualization demo offers hexagonal bins only when it can load it from this resource root.
+      // The n-gon layer plugin from `mise run deps:ngon-plugin`, when built.
       resources.srcDir(layout.buildDirectory.dir("generated/ngonPlugin"))
     }
 

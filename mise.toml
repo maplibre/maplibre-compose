@@ -98,10 +98,7 @@ run = "playwright install chromium --no-shell"
 [tasks."deps:chromium"]
 run = "mise deps install chromium"
 
-# MapLibre Native's sample n-gon layer plugin, which draws the desktop demo's
-# earthquake hexbins. Built from the MapLibre Native commit behind the pinned
-# maplibre-native-ffi release. Unlike deps:benchmarks, the demo tasks do not
-# depend on it: it needs a C++ compiler, and the demo works without it.
+# MapLibre Native's n-gon layer plugin for the desktop demo's hexagonal bins.
 [deps.ngon-plugin]
 auto = false
 sources = ["gradle/libs.versions.toml", ".mise/bin/build-ngon-plugin"]

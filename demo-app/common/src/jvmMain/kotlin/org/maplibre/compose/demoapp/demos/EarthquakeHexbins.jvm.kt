@@ -45,15 +45,10 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 
-/** Available once the plugin registered; a build without the plugin library has no hexbin mode. */
 internal actual fun earthquakeHexbins(): EarthquakeHexbins? =
   if (NgonPlugin.isRegistered) NgonEarthquakeHexbins else null
 
-/**
- * Bins earthquakes into a hexagonal grid and draws one [NgonLayer] hexagon per cell. The grid is
- * laid out in screen space at the nearest whole zoom level and rebinned when the zoom crosses to
- * the next, so cells stay a readable size and tile exactly at that zoom.
- */
+/** One [NgonLayer] hexagon per bin, on a screen-space grid rebuilt at each whole zoom level. */
 internal object NgonEarthquakeHexbins : EarthquakeHexbins {
   private var quakes by mutableStateOf<List<Position>?>(null)
 
@@ -64,7 +59,7 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
     }
     val loaded = quakes ?: return
     val mapState = LocalMapState.current ?: return
-    // Only the whole zoom level matters; reading the camera directly would recompose every frame.
+    // Derived so that camera motion within a level does not recompose.
     val level by
       remember(mapState) { derivedStateOf { round(mapState.cameraPosition.zoom).toInt() } }
     val bins = remember(loaded, level) { hexbin(loaded, level, CELL_RADIUS_DP) }
@@ -74,9 +69,7 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
       id = "earthquake-hexbins",
       source = source,
       corners = const(6f),
-      // TODO: use a zoom ramp once MapLibre Native's plugin render layer re-evaluates
-      // zoom-dependent
-      // paint properties while zooming; until then the radius is exact only at the rebin zoom.
+      // TODO: a zoom ramp, once the plugin layer re-evaluates zoom-dependent paint while zooming.
       radius = const(bins.radiusDp.dp),
       color =
         interpolate(
@@ -104,15 +97,11 @@ private suspend fun fetchQuakes(feedUri: String): List<Position> {
   return collection.mapNotNull { (it.geometry as? Point)?.coordinates }
 }
 
-/** Bin cells for one zoom level, with the on-screen radius the grid was built for. */
 private class Hexbins(val cells: FeatureCollection<Point, JsonObject>, val radiusDp: Float)
 
 /**
- * Groups [quakes] into pointy-top hexagons of about [cellRadiusDp] dp at zoom [level], laid out in
- * Web Mercator so the plugin's screen-space hexagons tile exactly. The radius is nudged so a whole
- * number of columns spans the world and cells merge across the antimeridian, where world copies
- * would otherwise show two half-offset hexagons. Each cell carries `share`, the log-scaled ratio of
- * its count to the busiest cell's.
+ * Pointy-top hexagons of about [cellRadiusDp] dp at zoom [level] in Web Mercator. The radius is
+ * nudged so a whole number of columns spans the world and cells merge across the antimeridian.
  */
 private fun hexbin(quakes: List<Position>, level: Int, cellRadiusDp: Float): Hexbins {
   val columns =
@@ -135,11 +124,10 @@ private fun hexbin(quakes: List<Position>, level: Int, cellRadiusDp: Float): Hex
   return Hexbins(FeatureCollection(features), (radius * 2.0.pow(level)).toFloat())
 }
 
-/** Axial coordinates of the pointy-top hexagon containing a world-pixel point. */
 private fun hexAt(x: Double, y: Double, radius: Double): Pair<Int, Int> {
   val q = (sqrt(3.0) / 3 * x - y / 3) / radius
   val r = (2.0 / 3 * y) / radius
-  // Cube rounding: fix whichever axis rounding moved the most.
+  // Cube rounding.
   var rq = round(q)
   var rr = round(r)
   val rs = round(-q - r)
@@ -155,7 +143,6 @@ private fun hexCenter(cell: Pair<Int, Int>, radius: Double): Pair<Double, Double
   return radius * (sqrt(3.0) * q + sqrt(3.0) / 2 * r) to radius * 1.5 * r
 }
 
-/** Hexagon circumradius on screen at the zoom level the grid was built for. */
 private const val CELL_RADIUS_DP = 24f
 
 private const val WORLD_SIZE = 512.0

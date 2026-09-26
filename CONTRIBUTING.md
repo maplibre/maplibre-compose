@@ -164,14 +164,10 @@ macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
 
 CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
 
-The Data visualization demo's Hexagonal bins option draws with MapLibre Native's
-sample n-gon layer plugin, which is not published anywhere.
-`mise run
-deps:ngon-plugin` builds it in a few seconds from the MapLibre Native
-commit behind the pinned `maplibre-nativeFfi` version, using Node from mise and
-the host C++ compiler (Xcode Command Line Tools, `build-essential`, or a Visual
-Studio developer shell). Without it, the option is absent and the demo works as
-before. Only the desktop demo loads the plugin.
+The Data visualization demo's Hexagonal bins option needs MapLibre Native's
+n-gon layer plugin, which `mise run deps:ngon-plugin` builds from source with
+Node and the host C++ compiler. Without it the option is absent; only the
+desktop demo loads the plugin.
 
 ### Android Auto
 

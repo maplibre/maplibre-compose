@@ -51,9 +51,7 @@ object DataVizDemo : Demo {
     Hexbins("Hexagonal bins"),
   }
 
-  /**
-   * Hexagonal bins need MapLibre Native's n-gon layer plugin, which only the desktop demo loads.
-   */
+  // Hexagonal bins need the n-gon layer plugin, which only the desktop demo loads.
   private val hexbins by lazy { earthquakeHexbins() }
   private val modes: List<Mode>
     get() = if (hexbins != null) Mode.entries else Mode.entries - Mode.Hexbins

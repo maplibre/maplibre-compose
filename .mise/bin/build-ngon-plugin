@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build MapLibre Native's sample n-gon layer plugin as a shared library for the
-# desktop demo's earthquake hexbins. The plugin ABI structs must match the
-# MapLibre Native revision the pinned maplibre-native-ffi release was built
-# against, so that commit is read from the FFI release tag rather than pinned
-# here. Only the plugin's own sources are fetched, behind a sparse checkout;
-# MapLibre Native itself is neither cloned in full nor built.
-#
-# Output, a JVM resource root that demo-app/common's jvmMain picks up:
-#   demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/
-#     libmln-ngon-layer.{dylib,so} or mln-ngon-layer.dll
-#     ngon-layer.properties        the MapLibre Native commit and FFI version
+# Build MapLibre Native's sample n-gon layer plugin for the desktop demo. The
+# plugin ABI must match the MapLibre Native revision behind the pinned
+# maplibre-native-ffi release, so that commit is read from the FFI release tag.
+# Only the plugin's sources are fetched; MapLibre Native itself is not built.
+# Output: demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/, a JVM
+# resource root that demo-app/common's jvmMain picks up.
 
 root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$root"

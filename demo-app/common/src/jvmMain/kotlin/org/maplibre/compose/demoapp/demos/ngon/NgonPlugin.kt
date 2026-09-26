@@ -13,12 +13,8 @@ import kotlin.io.path.outputStream
 import org.maplibre.nativeffi.Maplibre
 
 /**
- * The n-gon layer plugin from MapLibre Native's `plugins/ngon-layer` sample. Registration is
- * process-wide and permanent, so it happens once and every later map shares it.
- *
- * `mise run deps:ngon-plugin` builds the plugin from the MapLibre Native commit behind the pinned
- * maplibre-native-ffi release and the desktop demo packages it as a resource. See
- * `.mise/bin/build-ngon-plugin`.
+ * MapLibre Native's sample n-gon layer plugin, built by `mise run deps:ngon-plugin` and packaged as
+ * a resource. Registration is process-wide, so it happens once.
  */
 internal object NgonPlugin {
   /** Whether the `ngon` layer type is registered. The first read loads the plugin. */
@@ -26,12 +22,7 @@ internal object NgonPlugin {
 
   private val log = Logger.withTag("NgonPlugin")
 
-  /**
-   * Loads the plugin library from the classpath through the Java FFM API and calls its C entry
-   * point, `mln_ngon_layer_register(register_function, error_buffer, capacity)`, with the
-   * registration function that maplibre-native-ffi exports. Both live in this JVM, so the plugin
-   * registers into the MapLibre Native the maps render with.
-   */
+  /** Loads the library through the Java FFM API and calls `mln_ngon_layer_register`. */
   private fun register(): Boolean {
     val libraryFile = System.mapLibraryName(LIBRARY_NAME)
     val library =
@@ -42,8 +33,7 @@ internal object NgonPlugin {
     }
     return try {
       val path = library.use { extract(it, libraryFile) }
-      // The library stays loaded for the process: MapLibre Native calls back into it from its tile
-      // workers and render thread for as long as an `ngon` layer exists.
+      // MapLibre Native calls back into the library for the rest of the process.
       val symbols = SymbolLookup.libraryLookup(path, Arena.global())
       val entryPoint =
         symbols.find("mln_ngon_layer_register").orElseThrow {
