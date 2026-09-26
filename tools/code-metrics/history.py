@@ -140,8 +140,12 @@ def sync(store, start, end, rebuild):
         raise SystemExit("The published index has another schema; sync with --rebuild.")
     if index:
         entries, scopes = index["commits"], {s["id"]: s for s in index["scopes"]}
-        thresholds = index["thresholds"]
+        thresholds, generation = index["thresholds"], index.get("generation", 0)
         series = {key: store.read(f"series/{key}.json") or {} for key in scopes}
+        # A failed sync can leave a series longer than the index it never updated.
+        for columns in series.values():
+            for name, column in columns.items():
+                columns[name] = column[: len(entries)]
         last = entries[-1]["commit"]
         head = git("rev-parse", end)
         if is_ancestor(head, last):
@@ -154,6 +158,8 @@ def sync(store, start, end, rebuild):
             )
     else:
         entries, scopes, series, thresholds = [], {}, {}, None
+        # Changes whenever snapshots are measured again, so cached copies are not reused.
+        generation = time.time_ns()
         commits = first_parent(f"{start}~..{end}")
 
     titles = dict(
@@ -223,6 +229,7 @@ def sync(store, start, end, rebuild):
         {
             "index.json": {
                 "schemaVersion": SCHEMA_VERSION,
+                "generation": generation,
                 "thresholds": thresholds,
                 "commits": entries,
                 "scopes": list(scopes.values()),

@@ -152,14 +152,17 @@ export async function start() {
   }
   const { commits } = index;
   const last = commits.length - 1;
+  // Cached series and snapshots stay valid until a new generation, or a new commit for series.
+  const version = index.generation ?? 0;
   const defs = definitions(index.thresholds);
   installTooltips(root);
 
   let group: Group = (["library", "demo", "all"] as const).find((g) => g === params.get("code")) ?? "library";
   let module: string | null = params.get("module");
   let series: Series = {};
-  let selected = Math.max(0, commits.findIndex((c) => c.commit === params.get("commit")));
-  if (!params.get("commit")) selected = last;
+  // A link to a commit the index no longer has opens the latest one.
+  const linked = commits.findIndex((c) => c.commit === params.get("commit"));
+  let selected = linked < 0 ? last : linked;
   let hovered: number | null = null;
   let scopeLoad = 0;
   let detailLoad = 0;
@@ -325,7 +328,7 @@ export async function start() {
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
     try {
-      const next = await fetchJson<Series>(new URL(`series/${scope().id}.json`, base));
+      const next = await fetchJson<Series>(new URL(`series/${scope().id}.json?v=${version}.${commits.length}`, base));
       if (load !== scopeLoad) return;
       series = next;
       $("metrics-status").hidden = true;
@@ -337,6 +340,7 @@ export async function start() {
       await loadDetail();
     } catch {
       if (load !== scopeLoad) return;
+      $("metrics-body").hidden = true;
       $("metrics-status").hidden = false;
       $("metrics-status").textContent = "Couldn't load metrics data.";
     } finally {
@@ -353,7 +357,7 @@ export async function start() {
     try {
       // One file holds every scope, so changing scope reuses it.
       if (report?.commit !== commit) {
-        const next = await fetchJson<CommitReport>(new URL(`snapshots/${commit}.json`, base));
+        const next = await fetchJson<CommitReport>(new URL(`snapshots/${commit}.json?v=${version}`, base));
         if (load !== detailLoad) return;
         report = next;
       }

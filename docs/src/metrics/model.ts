@@ -1,5 +1,7 @@
 /** The data written by tools/code-metrics/history.py. */
 export interface Index {
+  /** Changes when history is measured again; absent from indexes that predate it. */
+  generation?: number;
   /** The values Detekt's complexity rules allow; the `*Methods` counts are functions above them. */
   thresholds: {
     cognitiveComplexMethod: number;

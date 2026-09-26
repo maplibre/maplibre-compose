@@ -286,25 +286,34 @@ class AnalysisTest {
   }
 
   @Test
-  fun `resolves module dependencies through types and split packages`() {
+  fun `resolves module dependencies through declarations and split packages`() {
     write("lib/core/src/commonMain/kotlin/core/Core.kt", "package core\nclass Core")
     write("lib/core/src/commonMain/kotlin/shared/A.kt", "package shared\nfun fromCore() = 1")
     write("lib/ext/src/commonMain/kotlin/shared/B.kt", "package shared\nfun fromExt() = 1")
     write(
       "lib/ext/src/commonMain/kotlin/ext/Ext.kt",
-      "package ext\nimport core.Core\nimport shared.fromExt\nfun ext(c: Core) = fromExt()",
+      "package ext\nimport core.Core\nimport shared.*\nfun ext(c: Core) = fromExt()",
     )
     write(
       "lib/app/src/commonMain/kotlin/app/App.kt",
       "package app\nimport shared.fromCore\nfun app() = fromCore()",
     )
+    write(
+      "lib/star/src/commonMain/kotlin/star/Star.kt",
+      "package star\nimport shared.*\nfun star() = fromCore()",
+    )
 
     val modules = moduleReports(analyze()).associateBy { it.name }
 
-    // The split package resolves to the importer's own copy, or to every copy when it has none.
-    assertEquals(listOf("lib/core", "lib/ext"), modules.getValue("lib/app").dependsOn)
+    // A named import resolves to the module declaring it, even in a package split across modules.
+    assertEquals(listOf("lib/core"), modules.getValue("lib/app").dependsOn)
+    // A star import resolves to the importer's own copy of the package, or else to every copy.
     assertEquals(listOf("lib/core"), modules.getValue("lib/ext").dependsOn)
-    assertEquals(listOf("lib/app", "lib/ext"), modules.getValue("lib/core").dependedOnBy)
+    assertEquals(listOf("lib/core", "lib/ext"), modules.getValue("lib/star").dependsOn)
+    assertEquals(
+      listOf("lib/app", "lib/ext", "lib/star"),
+      modules.getValue("lib/core").dependedOnBy,
+    )
     assertEquals(0.0, modules.getValue("lib/core").instability)
     assertEquals(1.0, modules.getValue("lib/app").instability)
   }

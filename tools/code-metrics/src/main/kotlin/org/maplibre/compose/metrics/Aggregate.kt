@@ -237,19 +237,27 @@ private fun packageReports(main: List<FileFacts>, graph: PackageGraph): List<Pac
 }
 
 /**
- * Maps imports to the scanned modules that declare them. A type resolves to its module. A package
- * member resolves to the importing module when that module has the package, and otherwise to every
- * module that has it.
+ * Maps imports to the scanned modules that declare them. A type or top-level declaration resolves
+ * to the modules that declare it. Anything else in a package, such as a star import, resolves to
+ * the importing module when that module has the package, and otherwise to every module that has it.
  */
 internal class ModuleIndex(files: List<FileFacts>) {
   private val typeModules =
     files.flatMap { file -> file.types.map { file.qualify(it.name) to file.source.module } }.toMap()
+  private val topLevelModules =
+    files
+      .flatMap { file -> file.topLevelNames.map { file.qualify(it) to file.source.module } }
+      .groupBy({ it.first }, { it.second })
+      .mapValues { it.value.toSet() }
   private val packageModules =
     files.groupBy({ it.packageName }, { it.source.module }).mapValues { it.value.toSet() }
 
   fun modulesOf(import: Import, from: String): Set<String> {
     typeModules[import.fqName]?.let {
       return setOf(it)
+    }
+    topLevelModules[import.fqName]?.let {
+      return it
     }
     val qualifier =
       if (import.allUnder) import.fqName else import.fqName.substringBeforeLast('.', "")

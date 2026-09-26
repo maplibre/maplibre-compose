@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtEnumEntry
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtModifierList
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtVisitorVoid
@@ -69,6 +70,8 @@ data class FileFacts(
   val source: SourceFile,
   val packageName: String,
   val imports: List<Import>,
+  /** Names of the file's top-level classes, functions, properties, and type aliases. */
+  val topLevelNames: List<String>,
   val loc: Int,
   val sloc: Int,
   val lloc: Int,
@@ -132,6 +135,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
   return FileFacts(
     source = source,
     packageName = file.packageFqName.asString(),
+    topLevelNames = file.declarations.mapNotNull { (it as? KtNamedDeclaration)?.name },
     imports =
       file.importDirectives.mapNotNull { directive ->
         directive.importedFqName?.let { Import(it.asString(), directive.isAllUnder) }

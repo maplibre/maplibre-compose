@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class Snapshot(
-  val schemaVersion: Int = 1,
+  val schemaVersion: Int = 2,
   val generatedAt: String,
   val ref: String?,
   val commit: String?,
