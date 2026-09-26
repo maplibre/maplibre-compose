@@ -2,11 +2,7 @@ package org.maplibre.compose.map
 
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.PixelFormat
-import android.media.ImageReader
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,8 +21,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -76,7 +70,7 @@ class AndroidMapPresentationTest {
             fixture.awaitViewport(320f, 240f)
             assertTrue(first.surface.isValid, "Replacing a binding must not release its Surface")
 
-            val beforeDensity = second.frameCount.get()
+            val beforeDensity = second.frames.get()
             fixture.onMain { current.update(320, 240, 2f) }
             fixture.awaitViewport(160f, 120f)
             second.awaitColor(GREEN, after = beforeDensity)
@@ -120,7 +114,7 @@ class AndroidMapPresentationTest {
             }
             second.awaitColor(GREEN)
 
-            val beforeResize = second.frameCount.get()
+            val beforeResize = second.frames.get()
             fixture.onMain { current.update(240, 160, 2f) }
             fixture.awaitViewport(120f, 80f)
             second.awaitColor(GREEN, after = beforeResize)
@@ -140,7 +134,7 @@ class AndroidMapPresentationTest {
             }
             assertTrue(second.surface.isValid, "Closing a presenter must not release its Surface")
 
-            val beforeReattach = second.frameCount.get()
+            val beforeReattach = second.frames.get()
             fixture.onMain { presenter = newPresenter() }
             fixture.onMain { presenter.attachSurface(second.surface, 320, 240, 1f) }
             second.awaitColor(BLUE, after = beforeReattach)
@@ -251,7 +245,7 @@ class AndroidMapPresentationTest {
             fixture.await("Compose to release its presentation") { state.viewport == null }
           }
 
-          val beforeReattach = consumer.frameCount.get()
+          val beforeReattach = consumer.frames.get()
           fixture.onMain {
             presenter = newPresenter()
             presenter.attachSurface(consumer.surface, 256, 192, 1f)
@@ -407,76 +401,14 @@ private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) 
   }
 }
 
-/** Consuming every image prevents BufferQueue backpressure from stalling synchronous teardown. */
-private class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
-  private val thread = HandlerThread("map-surface-test-consumer").apply { start() }
-  private val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
-  private val pixel = AtomicReference<Pair<Long, Int>?>(null)
-  private val failure = AtomicReference<Throwable?>(null)
-  val frameCount = AtomicLong()
-  val surface = reader.surface
-
-  init {
-    reader.setOnImageAvailableListener(
-      { source ->
-        try {
-          source.acquireLatestImage()?.use { image ->
-            val plane = image.planes.single()
-            val offset =
-              (image.height / 2) * plane.rowStride + (image.width / 2) * plane.pixelStride
-            val bytes = plane.buffer
-            val rgba =
-              ((bytes.get(offset).toInt() and 0xff) shl 24) or
-                ((bytes.get(offset + 1).toInt() and 0xff) shl 16) or
-                ((bytes.get(offset + 2).toInt() and 0xff) shl 8) or
-                (bytes.get(offset + 3).toInt() and 0xff)
-            pixel.set(frameCount.incrementAndGet() to rgba)
-          }
-        } catch (error: Throwable) {
-          failure.compareAndSet(null, error)
-        }
-      },
-      Handler(thread.looper),
-    )
-  }
-
-  suspend fun awaitColor(expected: Int, after: Long = 0L) {
-    try {
-      withTimeout(TIMEOUT_MILLIS) {
-        while (true) {
-          failure.get()?.let { throw AssertionError("Could not consume Surface pixels", it) }
-          val frame = pixel.get()
-          if (frame != null && frame.first > after && frame.second == expected) return@withTimeout
-          delay(10)
-        }
-      }
-    } catch (error: Throwable) {
-      throw AssertionError(
-        "Expected Surface RGBA 0x${expected.toUInt().toString(16)} after frame $after; " +
-          "latest=${pixel.get()}",
-        error,
-      )
-    }
-  }
-
-  override fun close() {
-    reader.setOnImageAvailableListener(null, null)
-    reader.close()
-    surface.release()
-    thread.quitSafely()
-    thread.join(TIMEOUT_MILLIS)
-    assertFalse(thread.isAlive, "Image consumer thread did not stop")
-  }
-}
-
 private const val POINT =
   """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{}}"""
 private const val TIMEOUT_MILLIS = 10_000L
-private const val RED = -16776961
-private const val GREEN = 16711935
-private const val BLUE = 65535
-private const val YELLOW = -65281
-private const val MAGENTA = -16711681
+private const val RED = android.graphics.Color.RED
+private const val GREEN = android.graphics.Color.GREEN
+private const val BLUE = android.graphics.Color.BLUE
+private const val YELLOW = android.graphics.Color.YELLOW
+private const val MAGENTA = android.graphics.Color.MAGENTA
 
 // Intentionally inspect resources as well as LocalConfiguration: the host must configure both.
 @Suppress("LocalContextConfigurationRead")
