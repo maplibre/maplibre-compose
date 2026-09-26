@@ -18,7 +18,6 @@ Usage: code-metrics [options]
   --repo <dir>        Repository to measure. Default: the working directory.
   --ref <git ref>     Measure the tracked files at this commit instead of the working tree.
   --roots <a,b>       Directories to scan, relative to the repository. Default: lib,demo-app
-  --api-roots <a,b>   Roots whose public declarations count as API surface. Default: lib
   --out <file>        Write the JSON snapshot here. Default: print it to stdout.
   --churn-days <n>    Window for git churn, ending at the measured commit. Default: 180
   --top <n>           Length of each ranked list. Default: 20
@@ -28,7 +27,6 @@ data class Options(
   val repo: Path,
   val ref: String?,
   val roots: List<String>,
-  val apiRoots: List<String>,
   val out: Path?,
   val churnDays: Long,
   val top: Int,
@@ -38,7 +36,6 @@ fun parseOptions(args: Array<String>): Options {
   var repo = Path.of(".")
   var ref: String? = null
   var roots = listOf("lib", "demo-app")
-  var apiRoots = listOf("lib")
   var out: Path? = null
   var churnDays = 180L
   var top = 20
@@ -49,8 +46,7 @@ fun parseOptions(args: Array<String>): Options {
     when (val flag = iterator.next()) {
       "--repo" -> repo = Path.of(next(flag))
       "--ref" -> ref = next(flag)
-      "--roots" -> roots = next(flag).splitList()
-      "--api-roots" -> apiRoots = next(flag).splitList()
+      "--roots" -> roots = next(flag).split(',').map { it.trim() }.filter { it.isNotEmpty() }
       "--out" -> out = Path.of(next(flag))
       "--churn-days" -> churnDays = next(flag).toLongOrNull() ?: usageError("$flag needs a number")
       "--top" -> top = next(flag).toIntOrNull() ?: usageError("$flag needs a number")
@@ -62,10 +58,8 @@ fun parseOptions(args: Array<String>): Options {
       else -> usageError("unknown option $flag")
     }
   }
-  return Options(repo.absolute().normalize(), ref, roots, apiRoots, out, churnDays, top)
+  return Options(repo.absolute().normalize(), ref, roots, out, churnDays, top)
 }
-
-private fun String.splitList() = split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
 private fun usageError(message: String): Nothing {
   System.err.println("code-metrics: $message\n\n${USAGE.trim()}")
@@ -93,9 +87,12 @@ fun main(args: Array<String>) {
 }
 
 fun measure(options: Options): Snapshot {
-  val git = GitRepository(options.repo)
-  runCatching { git.git("rev-parse", "--show-toplevel") }
-    .getOrElse { usageError("${options.repo} is not a git repository") }
+  // Roots are relative to the repository, wherever --repo pointed inside it.
+  val root = runCatching {
+    Path.of(GitRepository(options.repo).git("rev-parse", "--show-toplevel").trim())
+  }
+    .getOrElse { usageError("${options.repo} is not in a git repository") }
+  val git = GitRepository(root)
   val ref = options.ref
   // A repository without commits still measures; a ref that does not resolve is a mistake.
   val commit =
@@ -111,7 +108,7 @@ fun measure(options: Options): Snapshot {
 
   val files =
     if (ref == null) {
-      analyzeTree(options.repo, options.roots)
+      analyzeTree(root, options.roots)
     } else {
       val export = Files.createTempDirectory("code-metrics")
       try {
@@ -122,7 +119,7 @@ fun measure(options: Options): Snapshot {
       }
     }
 
-  val (summary, sections) = aggregate(files, options.apiRoots, churn, options.top)
+  val (summary, sections) = aggregate(files, churn, options.top)
   return Snapshot(
     generatedAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
     ref = ref,
@@ -131,12 +128,10 @@ fun measure(options: Options): Snapshot {
     describe = commit?.let { git.describe(it) },
     dirty = if (ref == null && commit != null) git.isDirty(options.roots) else null,
     roots = options.roots,
-    apiRoots = options.apiRoots,
     summary = summary,
     sourceSets = sections.sourceSets,
     packages = sections.packages,
     packageGraph = sections.packageGraph,
-    abstractions = sections.abstractions,
     distributions = sections.distributions,
     largest = sections.largest,
     churn = sections.churn,
@@ -171,11 +166,6 @@ fun printSummary(snapshot: Snapshot) {
       "package source sets mean / max" to
         "%.1f / %d".format(summary.packageSourceSetsMean, summary.packageSourceSetsMax),
       "expect / actual" to "${summary.expectDeclarations} / ${summary.actualDeclarations}",
-      "abstractions / single impl / no impl" to
-        "${summary.abstractions} / ${summary.abstractionsWithSingleImplementation} / ${summary.abstractionsWithNoImplementation}",
-      "public / internal declarations" to
-        "${summary.publicDeclarations} / ${summary.internalDeclarations}",
-      "kdoc coverage" to "%.2f".format(summary.kdocCoverage),
       "todo / suppress" to "${summary.todoComments} / ${summary.suppressAnnotations}",
     )
   val width = rows.maxOf { it.first.length }

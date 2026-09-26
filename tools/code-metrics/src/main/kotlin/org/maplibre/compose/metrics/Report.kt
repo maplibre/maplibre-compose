@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * One snapshot of the codebase. [summary] is flat so a trend can graph any of its fields; the other
- * sections hold the detail behind each number.
+ * sections hold the detail behind each number. Everything is measured from syntax alone.
  */
 @Serializable
 data class Snapshot(
@@ -16,12 +16,10 @@ data class Snapshot(
   val describe: String?,
   val dirty: Boolean?,
   val roots: List<String>,
-  val apiRoots: List<String>,
   val summary: Summary,
   val sourceSets: List<SourceSetReport>,
   val packages: List<PackageReport>,
   val packageGraph: PackageGraph,
-  val abstractions: List<AbstractionReport>,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
   val churn: ChurnReport?,
@@ -51,16 +49,12 @@ data class Summary(
   val functionCyclomaticMax: Int,
   val functionCognitiveP90: Int,
   val functionCognitiveMax: Int,
-  val functionNestingDepthP90: Int,
-  val functionNestingDepthMax: Int,
   val functionParametersP90: Int,
   val functionParametersMax: Int,
   val fileLocP90: Int,
   val fileLocMax: Int,
   val typeLinesP90: Int,
   val typeLinesMax: Int,
-  val typePublicMembersP90: Int,
-  val typePublicMembersMax: Int,
   // Structure.
   val packageEdges: Int,
   val packageCycles: Int,
@@ -71,17 +65,7 @@ data class Summary(
   val packageSourceSetsMax: Int,
   val expectDeclarations: Int,
   val actualDeclarations: Int,
-  // Interfaces and abstract classes, excluding sealed hierarchies and external JS bindings.
-  val abstractions: Int,
-  val abstractionsWithSingleImplementation: Int,
-  val abstractionsWithNoImplementation: Int,
-  // API surface, over the api roots only: effectively public declarations that are not
-  // overrides or actuals.
-  val publicDeclarations: Int,
-  val internalDeclarations: Int,
-  val publicDeclarationsWithKDoc: Int,
-  val kdocCoverage: Double,
-  // Hygiene.
+  // Hygiene, over main and test code.
   val todoComments: Int,
   val suppressAnnotations: Int,
 )
@@ -100,8 +84,6 @@ data class SourceSetReport(
   val cognitiveComplexity: Int,
   val types: Int,
   val functions: Int,
-  val publicDeclarations: Int,
-  val internalDeclarations: Int,
   val expectDeclarations: Int,
   val actualDeclarations: Int,
 )
@@ -113,8 +95,6 @@ data class PackageReport(
   val loc: Int,
   val types: Int,
   val functions: Int,
-  val publicDeclarations: Int,
-  val internalDeclarations: Int,
   val sourceSets: List<String>,
   /** Packages this one imports (efferent coupling, Ce). */
   val dependsOn: List<String>,
@@ -122,6 +102,7 @@ data class PackageReport(
   val dependedOnBy: List<String>,
   /** Ce / (Ca + Ce): 0 is fully stable, 1 fully unstable. */
   val instability: Double,
+  /** Distinct imports of names outside the scanned code. */
   val externalImports: Int,
 )
 
@@ -133,30 +114,6 @@ data class PackageGraph(
   /** Strongly connected components with more than one package. */
   val cycles: List<List<String>>,
   val bidirectionalPairs: List<List<String>>,
-)
-
-@Serializable
-data class AbstractionReport(
-  val name: String,
-  val packageName: String,
-  val kind: String,
-  val isSealed: Boolean,
-  val isFunInterface: Boolean,
-  val isEffectivelyPublic: Boolean,
-  /** Named types listing this abstraction as a supertype. */
-  val mainImplementations: Int,
-  /** `object : X` literals. */
-  val mainAnonymousImplementations: Int,
-  /** `X { }` SAM-constructor calls, counted only for a fun interface. */
-  val mainSamImplementations: Int,
-  val testImplementations: Int,
-  val testAnonymousImplementations: Int,
-  val testSamImplementations: Int,
-  /**
-   * A star-imported reference matched this and another declaration of the same name, so it was
-   * counted for both.
-   */
-  val ambiguous: Boolean,
 )
 
 @Serializable
@@ -176,11 +133,9 @@ data class Distribution(
 data class Largest(
   val filesByLoc: List<Ranked>,
   val typesByLines: List<Ranked>,
-  val typesByPublicMembers: List<Ranked>,
   val functionsByLines: List<Ranked>,
   val functionsByCognitiveComplexity: List<Ranked>,
   val packagesByTypes: List<Ranked>,
-  val packagesByPublicDeclarations: List<Ranked>,
 )
 
 @Serializable

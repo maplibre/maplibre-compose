@@ -1,7 +1,7 @@
 # Code metrics
 
 A snapshot of the Kotlin under `lib/` and `demo-app/` at one commit: size,
-complexity, package dependencies, abstractions, API surface, and churn. Compare
+complexity, package dependencies, and churn, all measured from syntax. Compare
 snapshots to see whether the codebase is getting simpler.
 
 ```bash
@@ -16,8 +16,6 @@ it hold the detail behind each number:
 - `sourceSets`: size and declaration counts per module and source set.
 - `packages`: size, imports in and out, and instability.
 - `packageGraph`: import edges, cycles, and pairs that import each other.
-- `abstractions`: every interface and abstract class with its implementation
-  counts in main and test code.
 - `distributions` and `largest`: how file, type, and function sizes spread, and
   which are biggest.
 - `churn`: commits per file over the last 180 days, and hotspots by commits

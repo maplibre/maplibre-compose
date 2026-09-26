@@ -8,7 +8,6 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class AnalysisTest {
   private val root: Path = Files.createTempDirectory("code-metrics-test")
@@ -50,75 +49,44 @@ class AnalysisTest {
   }
 
   @Test
-  fun `records declarations with effective visibility and modifiers`() {
+  fun `records types by nested name and counts expect and actual declarations`() {
     write(
       "lib/a/src/commonMain/kotlin/a/A.kt",
       """
       package a
 
-      /** Documented. */
-      public class Outer {
-        public fun member() {}
-        internal fun hidden() {}
-        private class Nested {
-          public fun unreachable() {}
-        }
+      class Outer {
+        class Nested
+        companion object {}
+        init {}
       }
 
-      public expect fun platform(): Int
+      enum class Color { RED, GREEN }
 
-      public expect class Platform(id: Int) {
-        public val name: String
+      expect fun platform(): Int
+
+      expect class Platform(id: Int) {
+        val name: String
       }
 
-      public interface Listener {
-        public fun onEvent()
-      }
-
-      public class Impl : Listener {
-        override fun onEvent() {}
-      }
-
-      public enum class Color {
-        RED,
-        GREEN;
-
-        public fun hex(): String = ""
-      }
-
-      public class WithInit {
-        init {
-          println()
-        }
-      }
+      actual typealias Handle = Int
       """,
     )
 
     val file = analyze().single()
-    val byName = file.declarations.associateBy { it.name }
 
     assertEquals(
-      listOf("Outer", "Outer.Nested", "Platform", "Listener", "Impl", "Color", "WithInit"),
+      listOf("Outer", "Outer.Nested", "Outer.Companion", "Color", "Platform"),
       file.types.map { it.name },
     )
-    assertEquals("entry", byName.getValue("Color.RED").kind)
-    assertEquals(3, file.types.single { it.name == "Color" }.publicMembers)
-    assertEquals(0, file.types.single { it.name == "WithInit" }.publicMembers)
-    assertEquals(listOf("WithInit"), file.declarations.map { it.name }.filter { "WithInit" in it })
-    assertTrue(byName.getValue("Outer").hasKDoc)
-    assertTrue(byName.getValue("Outer.member").isEffectivelyPublic)
-    assertEquals(Visibility.INTERNAL, byName.getValue("Outer.hidden").visibility)
-    assertEquals(false, byName.getValue("Outer.Nested.unreachable").isEffectivelyPublic)
-    assertTrue(byName.getValue("platform").isExpect)
-    assertTrue(byName.getValue("Platform.name").isExpect)
-    assertTrue(byName.getValue("Platform.<init>").isExpect)
-    assertTrue(byName.getValue("Impl.onEvent").isOverride)
-    assertEquals(listOf("Listener"), file.types.single { it.name == "Impl" }.supertypes)
-    assertEquals(1, file.types.single { it.name == "Outer" }.publicMembers)
+    assertEquals(TypeKind.COMPANION, file.types.single { it.name == "Outer.Companion" }.kind)
+    assertEquals(5, file.types.single { it.name == "Outer" }.lines)
+    assertEquals(3, file.expectDeclarations)
+    assertEquals(1, file.actualDeclarations)
   }
 
   @Test
-  fun `measures functions and file lines`() {
+  fun `measures every named function as detekt does`() {
     write(
       "lib/a/src/commonMain/kotlin/a/A.kt",
       """
@@ -131,68 +99,45 @@ class AnalysisTest {
             if (i == 3) return i
           }
         }
+
         return 0
       }
 
       fun flat() = 1
+
+      class Owner {
+        val listener = object : Runnable {
+          override fun run() {
+            fun local() = 1
+            if (local() > 0) println()
+          }
+        }
+      }
       """,
     )
 
     val file = analyze().single()
-    val branchy = file.functions.single { it.name == "branchy" }
+    val byName = file.functions.associateBy { it.name }
+    val branchy = byName.getValue("branchy")
 
-    assertEquals(8, branchy.lines)
-    assertEquals(2, branchy.parameters)
-    assertEquals(4, branchy.cyclomaticComplexity)
-    assertEquals(2, branchy.nestingDepth)
-    assertEquals(1, file.functions.single { it.name == "flat" }.lines)
-    assertEquals(13, file.loc)
+    assertEquals(
+      listOf("branchy", "flat", "Owner.<anonymous>.run", "Owner.<anonymous>.local"),
+      file.functions.map { it.name },
+    )
+    assertEquals(
+      listOf(4, 8, 2, 4, 6, 1, 4),
+      listOf(
+        branchy.line,
+        branchy.lines,
+        branchy.parameters,
+        branchy.cyclomaticComplexity,
+        branchy.cognitiveComplexity,
+        byName.getValue("flat").lines,
+        byName.getValue("Owner.<anonymous>.run").lines,
+      ),
+    )
+    assertEquals(23, file.loc)
     assertEquals(1, file.cloc)
-  }
-
-  @Test
-  fun `counts anonymous, sam, and named implementations of abstractions`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/A.kt",
-      """
-      package a
-
-      interface Handler
-      fun interface Callback { fun call() }
-      external interface JsThing
-      sealed interface Shape
-      class Circle : Shape
-      sealed class Node
-      class Leaf : Node()
-
-      class NamedHandler : Handler
-      val anonymous = object : Handler {}
-      val callback = Callback { }
-      """,
-    )
-    write(
-      "lib/a/src/commonTest/kotlin/a/ATest.kt",
-      """
-      package a
-
-      class FakeHandler : Handler
-      val testCallback = Callback { }
-      """,
-    )
-
-    val (summary, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
-    val byName = sections.abstractions.associateBy { it.name }
-
-    assertEquals(setOf("Handler", "Callback", "Shape", "Node"), byName.keys)
-    assertTrue(byName.getValue("Node").isSealed)
-    assertEquals(1, byName.getValue("Node").mainImplementations)
-    assertEquals(1, byName.getValue("Handler").mainImplementations)
-    assertEquals(1, byName.getValue("Handler").mainAnonymousImplementations)
-    assertEquals(1, byName.getValue("Handler").testImplementations)
-    assertEquals(1, byName.getValue("Callback").mainSamImplementations)
-    assertEquals(1, byName.getValue("Callback").testSamImplementations)
-    assertEquals(2, summary.abstractions)
-    assertEquals(1, summary.abstractionsWithSingleImplementation)
   }
 
   @Test
@@ -225,7 +170,7 @@ class AnalysisTest {
       "package c.util\n\nimport a.A\n\nval ignored = A::class",
     )
 
-    val (summary, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
+    val (summary, sections) = aggregate(analyze(), churn = null, top = 5)
     val graph = sections.packageGraph
 
     assertEquals(
@@ -260,18 +205,23 @@ class AnalysisTest {
   }
 
   @Test
-  fun `counts api surface only under api roots`() {
+  fun `identifies functions by line so overloads stay distinct`() {
     write(
       "lib/a/src/commonMain/kotlin/a/A.kt",
-      "package a\n\npublic fun api() {}\n\ninternal fun x() {}\n\ninternal class Box {\n  fun f() {}\n}",
+      """
+      package a
+
+      fun f(x: Int) = x
+      fun f(x: String) = x
+      """,
     )
-    write("app/src/commonMain/kotlin/app/App.kt", "package app\n\nfun notApi() {}")
 
-    val (summary, _) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
+    val (_, sections) = aggregate(analyze(), churn = null, top = 5)
 
-    assertEquals(1, summary.publicDeclarations)
-    assertEquals(3, summary.internalDeclarations)
-    assertEquals(2, summary.files)
+    assertEquals(
+      listOf("lib/a/src/commonMain/kotlin/a/A.kt:3:f", "lib/a/src/commonMain/kotlin/a/A.kt:4:f"),
+      sections.largest.functionsByLines.map { it.name }.sorted(),
+    )
   }
 
   @Test
@@ -297,206 +247,5 @@ class AnalysisTest {
       )
 
     assertEquals(setOf(setOf("a", "b", "c"), setOf("d")), components.map { it.toSet() }.toSet())
-  }
-
-  @Test
-  fun `resolves supertypes through imports, aliases, enclosing types, and star imports`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/Abstractions.kt",
-      """
-      package a
-
-      interface Imported
-      interface Aliased
-      interface Starred
-      interface Local
-      class Outer {
-        interface Nested
-        class Inner : Nested
-      }
-      """,
-    )
-    write(
-      "lib/a/src/commonMain/kotlin/b/Starred.kt",
-      "package b\n\ninterface Starred\n\ninterface Outer",
-    )
-    write("lib/a/src/commonMain/kotlin/c/Alias.kt", "package c\n\ntypealias Renamed = a.Aliased")
-    write(
-      "lib/a/src/commonMain/kotlin/d/Impls.kt",
-      """
-      package d
-
-      import a.Imported
-      import a.Local as L
-      import a.Outer
-      import a.*
-      import b.*
-      import c.Renamed
-      import kotlin.io.Closeable
-
-      class One : Imported, L, Renamed, Outer.Nested, Closeable
-      class Two : Starred
-      class Three : a.Starred
-      class Four : c.Renamed
-      """,
-    )
-    write(
-      "lib/a/src/commonMain/kotlin/e/Impls.kt",
-      """
-      package e
-
-      import a.*
-      import b.*
-
-      class Four : Outer.Nested
-      """,
-    )
-
-    val (_, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
-    val byName = sections.abstractions.associateBy { "${it.packageName}.${it.name}" }
-
-    assertEquals(1, byName.getValue("a.Imported").mainImplementations)
-    assertEquals(1, byName.getValue("a.Local").mainImplementations)
-    assertEquals(2, byName.getValue("a.Aliased").mainImplementations)
-    assertEquals(3, byName.getValue("a.Outer.Nested").mainImplementations)
-    assertEquals(false, byName.getValue("a.Outer.Nested").ambiguous)
-    assertEquals(2, byName.getValue("a.Starred").mainImplementations)
-    assertEquals(1, byName.getValue("b.Starred").mainImplementations)
-    assertTrue(byName.getValue("a.Starred").ambiguous)
-    assertTrue(byName.getValue("b.Starred").ambiguous)
-  }
-
-  @Test
-  fun `resolves a qualified sam constructor call`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/A.kt",
-      """
-      package a
-
-      class Owner {
-        fun interface Callback { fun call() }
-      }
-      val direct = Owner.Callback { }
-      val viaRun = run { Owner.Callback { } }
-      """,
-    )
-    write(
-      "lib/a/src/commonMain/kotlin/b/B.kt",
-      "package b\n\nimport a.Owner\n\nval other = Owner.Callback { }",
-    )
-
-    val (_, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
-
-    assertEquals(3, sections.abstractions.single().mainSamImplementations)
-  }
-
-  @Test
-  fun `counts primary constructors as declarations`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/A.kt",
-      """
-      package a
-
-      /** Documented. */
-      public class Point(val x: Int)
-      public class Hidden internal constructor()
-      public sealed class Shape(val sides: Int)
-      public enum class Color(val rgb: Int) { RED(1) }
-      public class Bare
-      internal class Box(val v: Int, w: Int) {
-        fun f() {}
-      }
-      public abstract class Base {
-        protected abstract fun hook()
-        private fun helper() {}
-      }
-      """,
-    )
-
-    val file = analyze().single()
-    val byName = file.declarations.associateBy { it.name }
-
-    assertEquals("constructor", byName.getValue("Point.<init>").kind)
-    assertTrue(byName.getValue("Point.<init>").isEffectivelyPublic)
-    assertTrue(byName.getValue("Point.<init>").hasKDoc)
-    assertEquals("property", byName.getValue("Point.x").kind)
-    assertTrue(byName.getValue("Point.x").isEffectivelyPublic)
-    assertEquals(1, file.types.single { it.name == "Point" }.publicMembers)
-    assertEquals(Visibility.INTERNAL, byName.getValue("Box.v").effectiveVisibility)
-    assertEquals(Visibility.INTERNAL, byName.getValue("Box.f").effectiveVisibility)
-    assertEquals(Visibility.PUBLIC, byName.getValue("Box.f").visibility)
-    assertNull(byName["Box.w"])
-    assertEquals(0, file.types.single { it.name == "Box" }.publicMembers)
-    assertEquals(1, file.types.single { it.name == "Base" }.publicMembers)
-    assertEquals(Visibility.INTERNAL, byName.getValue("Hidden.<init>").visibility)
-    assertEquals(Visibility.PROTECTED, byName.getValue("Shape.<init>").visibility)
-    assertEquals(Visibility.PRIVATE, byName.getValue("Color.<init>").visibility)
-    assertNull(byName["Bare.<init>"])
-  }
-
-  @Test
-  fun `measures methods of object literals without declaring them`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/A.kt",
-      """
-      package a
-
-      interface Listener { fun onEvent(x: Int) }
-
-      class Owner {
-        val listener = object : Listener {
-          override fun onEvent(x: Int) {
-            if (x > 0) println(x)
-          }
-        }
-
-        fun make(): Listener {
-          fun local() = 1
-          return object : Listener {
-            override fun onEvent(x: Int) {
-              if (x > 1) {
-                println(local())
-              }
-            }
-          }
-        }
-      }
-      """,
-    )
-
-    val file = analyze().single()
-    val anonymous = file.functions.filter { it.name == "Owner.<anonymous>.onEvent" }
-
-    assertEquals(
-      setOf("Listener.onEvent", "Owner.make", "Owner.<anonymous>.onEvent"),
-      file.functions.map { it.name }.toSet(),
-    )
-    assertEquals(2, file.functions.single { it.name == "Owner.make" }.cyclomaticComplexity)
-    assertEquals(listOf(2, 2), anonymous.map { it.cyclomaticComplexity }.sorted())
-    assertEquals(listOf(3, 5), anonymous.map { it.lines }.sorted())
-    assertEquals(listOf(0, 1), anonymous.map { it.nestingDepth }.sorted())
-    assertEquals(0, file.functions.single { it.name == "Owner.make" }.nestingDepth)
-    assertTrue(anonymous.none { it.isEffectivelyPublic })
-    assertNull(file.declarations.firstOrNull { it.name.contains("<anonymous>") })
-  }
-
-  @Test
-  fun `identifies functions by line so overloads stay distinct`() {
-    write(
-      "lib/a/src/commonMain/kotlin/a/A.kt",
-      """
-      package a
-
-      fun f(x: Int) = x
-      fun f(x: String) = x
-      """,
-    )
-
-    val (_, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
-
-    assertEquals(
-      listOf("lib/a/src/commonMain/kotlin/a/A.kt:3:f", "lib/a/src/commonMain/kotlin/a/A.kt:4:f"),
-      sections.largest.functionsByLines.map { it.name }.sorted(),
-    )
   }
 }
