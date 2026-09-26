@@ -137,25 +137,43 @@ private fun sourceSetReports(files: List<FileFacts>): List<SourceSetReport> =
     }
     .sortedWith(compareBy({ it.module }, { it.name }))
 
-/** Resolves an import to the longest known package prefix, or null when it is external. */
-internal fun resolvePackage(import: Import, known: Set<String>): String? {
-  var candidate = if (import.allUnder) import.fqName else import.fqName.substringBeforeLast('.', "")
-  while (candidate.isNotEmpty()) {
-    if (candidate in known) return candidate
-    // A capitalized segment is a type, so keep stripping to reach its package. A lower-case one
-    // is a package that was not scanned, such as Java sources, even when a parent package was.
-    if (!candidate.substringAfterLast('.').first().isUpperCase()) return null
-    candidate = candidate.substringBeforeLast('.', "")
+/**
+ * Maps imports to the scanned packages they refer to. An import names a package member or a nested
+ * member of a declared type; anything else, such as a Java package under a scanned tree or a
+ * library type, is external.
+ */
+internal class PackageIndex(
+  private val packages: Set<String>,
+  private val typePackages: Map<String, String>,
+) {
+  constructor(
+    files: List<FileFacts>
+  ) : this(
+    packages = files.map { it.packageName }.toSet(),
+    typePackages =
+      files
+        .flatMap { file ->
+          (file.types.map { it.name } + file.typeAliases.map { it.name }).map {
+            file.qualify(it) to file.packageName
+          }
+        }
+        .toMap(),
+  )
+
+  /** The scanned package [import] refers to, or null when it is external. */
+  fun packageOf(import: Import): String? {
+    val qualifier =
+      if (import.allUnder) import.fqName else import.fqName.substringBeforeLast('.', "")
+    return if (qualifier in packages) qualifier else typePackages[qualifier]
   }
-  return null
 }
 
 internal fun packageGraph(main: List<FileFacts>): PackageGraph {
-  val known = main.map { it.packageName }.toSet()
+  val index = PackageIndex(main)
   val counts = mutableMapOf<Pair<String, String>, Int>()
   for (file in main) {
     for (import in file.imports) {
-      val target = resolvePackage(import, known) ?: continue
+      val target = index.packageOf(import) ?: continue
       if (target != file.packageName) counts.merge(file.packageName to target, 1, Int::plus)
     }
   }
@@ -171,7 +189,7 @@ internal fun packageGraph(main: List<FileFacts>): PackageGraph {
       .map { (a, b) -> listOf(a, b) }
       .sortedBy { it.first() }
   val cycles =
-    stronglyConnectedComponents(known.sorted(), adjacency)
+    stronglyConnectedComponents(main.map { it.packageName }.distinct().sorted(), adjacency)
       .filter { it.size > 1 }
       .map { it.sorted() }
       .sortedBy { it.first() }
@@ -220,7 +238,7 @@ internal fun stronglyConnectedComponents(
 }
 
 private fun packageReports(main: List<FileFacts>, graph: PackageGraph): List<PackageReport> {
-  val known = main.map { it.packageName }.toSet()
+  val index = PackageIndex(main)
   val dependsOn = graph.edges.groupBy({ it.from }, { it.to })
   val dependedOnBy = graph.edges.groupBy({ it.to }, { it.from })
   return main
@@ -246,7 +264,7 @@ private fun packageReports(main: List<FileFacts>, graph: PackageGraph): List<Pac
         externalImports =
           group
             .flatMap { it.imports }
-            .filter { resolvePackage(it, known) == null }
+            .filter { index.packageOf(it) == null }
             .map { it.fqName }
             .distinct()
             .size,

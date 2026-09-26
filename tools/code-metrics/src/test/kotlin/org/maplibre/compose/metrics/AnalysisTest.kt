@@ -207,7 +207,7 @@ class AnalysisTest {
       """
       package b
 
-      import a.A.Companion.factory
+      import a.A
 
       class B
       """,
@@ -236,14 +236,20 @@ class AnalysisTest {
   }
 
   @Test
-  fun `resolves nested and wildcard imports to the enclosing package`() {
-    val known = setOf("a", "a.b")
+  fun `resolves imports through known packages and types only`() {
+    val index =
+      PackageIndex(
+        packages = setOf("a", "a.b"),
+        typePackages = mapOf("a.b.C" to "a.b", "a.b.C.D" to "a.b", "a.b.lower" to "a.b"),
+      )
 
-    assertEquals("a.b", resolvePackage(Import("a.b.C.D.e", allUnder = false), known))
-    assertEquals("a.b", resolvePackage(Import("a.b", allUnder = true), known))
-    assertEquals("a.b", resolvePackage(Import("a.b.C", allUnder = true), known))
-    assertNull(resolvePackage(Import("a.other.Thing", allUnder = false), known))
-    assertNull(resolvePackage(Import("kotlin.collections.List", allUnder = false), known))
+    assertEquals("a.b", index.packageOf(Import("a.b.C.D.e", allUnder = false)))
+    assertEquals("a.b", index.packageOf(Import("a.b", allUnder = true)))
+    assertEquals("a.b", index.packageOf(Import("a.b.C", allUnder = true)))
+    assertEquals("a.b", index.packageOf(Import("a.b.lower.Member", allUnder = false)))
+    assertNull(index.packageOf(Import("a.other.Thing", allUnder = false)))
+    assertNull(index.packageOf(Import("a.b.Unknown.Member", allUnder = false)))
+    assertNull(index.packageOf(Import("kotlin.collections.List", allUnder = false)))
   }
 
   @Test
