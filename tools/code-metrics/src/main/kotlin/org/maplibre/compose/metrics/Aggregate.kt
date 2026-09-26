@@ -89,7 +89,7 @@ fun aggregate(
         },
       publicDeclarations = publicApi.size,
       internalDeclarations =
-        apiDeclarations.count { it.visibility == Visibility.INTERNAL && !it.isActual },
+        apiDeclarations.count { it.effectiveVisibility == Visibility.INTERNAL && !it.isActual },
       publicDeclarationsWithKDoc = publicApi.count { it.hasKDoc },
       kdocCoverage = ratio(publicApi.count { it.hasKDoc }, publicApi.size),
       todoComments = files.sumOf { it.todoCount },
@@ -130,7 +130,7 @@ private fun sourceSetReports(files: List<FileFacts>): List<SourceSetReport> =
         publicDeclarations =
           declarations.count { it.isEffectivelyPublic && !it.isOverride && !it.isActual },
         internalDeclarations =
-          declarations.count { it.visibility == Visibility.INTERNAL && !it.isActual },
+          declarations.count { it.effectiveVisibility == Visibility.INTERNAL && !it.isActual },
         expectDeclarations = declarations.count { it.isExpect },
         actualDeclarations = declarations.count { it.isActual },
       )
@@ -142,6 +142,9 @@ internal fun resolvePackage(import: Import, known: Set<String>): String? {
   var candidate = if (import.allUnder) import.fqName else import.fqName.substringBeforeLast('.', "")
   while (candidate.isNotEmpty()) {
     if (candidate in known) return candidate
+    // A capitalized segment is a type, so keep stripping to reach its package. A lower-case one
+    // is a package that was not scanned, such as Java sources, even when a parent package was.
+    if (!candidate.substringAfterLast('.').first().isUpperCase()) return null
     candidate = candidate.substringBeforeLast('.', "")
   }
   return null
@@ -235,7 +238,7 @@ private fun packageReports(main: List<FileFacts>, graph: PackageGraph): List<Pac
         publicDeclarations =
           declarations.count { it.isEffectivelyPublic && !it.isOverride && !it.isActual },
         internalDeclarations =
-          declarations.count { it.visibility == Visibility.INTERNAL && !it.isActual },
+          declarations.count { it.effectiveVisibility == Visibility.INTERNAL && !it.isActual },
         sourceSets = group.map { "${it.source.module}:${it.source.sourceSet}" }.distinct().sorted(),
         dependsOn = ce,
         dependedOnBy = ca,

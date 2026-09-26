@@ -26,24 +26,27 @@ class TypeIndex(files: List<FileFacts>) {
     resolve(reference, file, depth = 0)
 
   private fun resolve(reference: TypeReference, file: FileFacts, depth: Int): Resolution {
-    val text = reference.text
-    if (text in types) return Resolution.Resolved(text)
-    val head = text.substringBefore('.')
-    val rest = text.substringAfter('.', "")
-    val resolved =
-      when (val resolution = resolveHead(head, reference.enclosingType, file)) {
-        is Resolution.Resolved ->
-          if (rest.isEmpty()) resolution else lookup("${resolution.fqName}.$rest")
-        is Resolution.Ambiguous ->
-          if (rest.isEmpty()) resolution
-          else ambiguous(resolution.candidates.map { "$it.$rest" }.filter { it in types })
-        Resolution.External -> resolution
-      }
+    val resolved = resolveText(reference.text, reference.enclosingType, file)
     val alias = (resolved as? Resolution.Resolved)?.let { aliases[it.fqName] } ?: return resolved
     if (depth >= MAX_ALIAS_DEPTH) return Resolution.External
     val (aliasFile, facts) = alias
     val enclosing = facts.name.substringBeforeLast('.', "").ifEmpty { null }
     return resolve(TypeReference(facts.target, enclosing), aliasFile, depth + 1)
+  }
+
+  /** Resolves [text] without following aliases. A fully qualified name resolves directly. */
+  private fun resolveText(text: String, enclosingType: String?, file: FileFacts): Resolution {
+    if (isDeclared(text)) return Resolution.Resolved(text)
+    val head = text.substringBefore('.')
+    val rest = text.substringAfter('.', "")
+    return when (val resolution = resolveHead(head, enclosingType, file)) {
+      is Resolution.Resolved ->
+        if (rest.isEmpty()) resolution else lookup("${resolution.fqName}.$rest")
+      is Resolution.Ambiguous ->
+        if (rest.isEmpty()) resolution
+        else ambiguous(resolution.candidates.map { "$it.$rest" }.filter { isDeclared(it) })
+      Resolution.External -> resolution
+    }
   }
 
   private fun resolveHead(head: String, enclosingType: String?, file: FileFacts): Resolution {

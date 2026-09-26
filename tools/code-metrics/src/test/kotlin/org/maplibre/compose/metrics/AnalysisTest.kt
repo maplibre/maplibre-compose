@@ -241,7 +241,8 @@ class AnalysisTest {
 
     assertEquals("a.b", resolvePackage(Import("a.b.C.D.e", allUnder = false), known))
     assertEquals("a.b", resolvePackage(Import("a.b", allUnder = true), known))
-    assertEquals("a", resolvePackage(Import("a.other.Thing", allUnder = false), known))
+    assertEquals("a.b", resolvePackage(Import("a.b.C", allUnder = true), known))
+    assertNull(resolvePackage(Import("a.other.Thing", allUnder = false), known))
     assertNull(resolvePackage(Import("kotlin.collections.List", allUnder = false), known))
   }
 
@@ -249,14 +250,14 @@ class AnalysisTest {
   fun `counts api surface only under api roots`() {
     write(
       "lib/a/src/commonMain/kotlin/a/A.kt",
-      "package a\n\npublic fun api() {}\n\ninternal fun x() {}",
+      "package a\n\npublic fun api() {}\n\ninternal fun x() {}\n\ninternal class Box {\n  fun f() {}\n}",
     )
     write("app/src/commonMain/kotlin/app/App.kt", "package app\n\nfun notApi() {}")
 
     val (summary, _) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
 
     assertEquals(1, summary.publicDeclarations)
-    assertEquals(1, summary.internalDeclarations)
+    assertEquals(3, summary.internalDeclarations)
     assertEquals(2, summary.files)
   }
 
@@ -323,6 +324,7 @@ class AnalysisTest {
       class One : Imported, L, Renamed, Outer.Nested, Closeable
       class Two : Starred
       class Three : a.Starred
+      class Four : c.Renamed
       """,
     )
     write(
@@ -342,7 +344,7 @@ class AnalysisTest {
 
     assertEquals(1, byName.getValue("a.Imported").mainImplementations)
     assertEquals(1, byName.getValue("a.Local").mainImplementations)
-    assertEquals(1, byName.getValue("a.Aliased").mainImplementations)
+    assertEquals(2, byName.getValue("a.Aliased").mainImplementations)
     assertEquals(3, byName.getValue("a.Outer.Nested").mainImplementations)
     assertEquals(false, byName.getValue("a.Outer.Nested").ambiguous)
     assertEquals(2, byName.getValue("a.Starred").mainImplementations)
@@ -373,5 +375,84 @@ class AnalysisTest {
     val (_, sections) = aggregate(analyze(), listOf("lib"), churn = null, top = 5)
 
     assertEquals(3, sections.abstractions.single().mainSamImplementations)
+  }
+
+  @Test
+  fun `counts primary constructors as declarations`() {
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      """
+      package a
+
+      /** Documented. */
+      public class Point(val x: Int)
+      public class Hidden internal constructor()
+      public sealed class Shape(val sides: Int)
+      public enum class Color(val rgb: Int) { RED(1) }
+      public class Bare
+      internal class Box(val v: Int, w: Int) {
+        fun f() {}
+      }
+      """,
+    )
+
+    val file = analyze().single()
+    val byName = file.declarations.associateBy { it.name }
+
+    assertEquals("constructor", byName.getValue("Point.<init>").kind)
+    assertTrue(byName.getValue("Point.<init>").isEffectivelyPublic)
+    assertTrue(byName.getValue("Point.<init>").hasKDoc)
+    assertEquals("property", byName.getValue("Point.x").kind)
+    assertTrue(byName.getValue("Point.x").isEffectivelyPublic)
+    assertEquals(1, file.types.single { it.name == "Point" }.publicMembers)
+    assertEquals(Visibility.INTERNAL, byName.getValue("Box.v").effectiveVisibility)
+    assertEquals(Visibility.INTERNAL, byName.getValue("Box.f").effectiveVisibility)
+    assertEquals(Visibility.PUBLIC, byName.getValue("Box.f").visibility)
+    assertNull(byName["Box.w"])
+    assertEquals(0, file.types.single { it.name == "Box" }.publicMembers)
+    assertEquals(Visibility.INTERNAL, byName.getValue("Hidden.<init>").visibility)
+    assertEquals(Visibility.PROTECTED, byName.getValue("Shape.<init>").visibility)
+    assertEquals(Visibility.PRIVATE, byName.getValue("Color.<init>").visibility)
+    assertNull(byName["Bare.<init>"])
+  }
+
+  @Test
+  fun `measures methods of object literals without declaring them`() {
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      """
+      package a
+
+      interface Listener { fun onEvent(x: Int) }
+
+      class Owner {
+        val listener = object : Listener {
+          override fun onEvent(x: Int) {
+            if (x > 0) println(x)
+          }
+        }
+
+        fun make(): Listener {
+          fun local() = 1
+          return object : Listener {
+            override fun onEvent(x: Int) = println(local())
+          }
+        }
+      }
+      """,
+    )
+
+    val file = analyze().single()
+    val anonymous = file.functions.filter { it.name == "Owner.<anonymous>.onEvent" }
+
+    assertEquals(
+      setOf("Listener.onEvent", "Owner.make", "Owner.<anonymous>.onEvent"),
+      file.functions.map { it.name }.toSet(),
+    )
+    assertEquals(2, file.functions.single { it.name == "Owner.make" }.cyclomaticComplexity)
+    assertEquals(listOf(1, 2), anonymous.map { it.cyclomaticComplexity }.sorted())
+    assertEquals(listOf(1, 3), anonymous.map { it.lines }.sorted())
+    assertTrue(anonymous.none { it.isEffectivelyPublic })
+    assertNull(file.declarations.firstOrNull { it.name.contains("<anonymous>") })
   }
 }

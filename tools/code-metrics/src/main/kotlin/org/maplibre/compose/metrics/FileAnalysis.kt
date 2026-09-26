@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtTypeAlias
@@ -55,8 +56,11 @@ enum class TypeKind {
 data class Declaration(
   val name: String,
   val kind: String,
+  /** As written, with public the default. */
   val visibility: Visibility,
-  /** Public and enclosed only by public types. */
+  /** The narrowest of the declared visibility and those of the enclosing types. */
+  val effectiveVisibility: Visibility,
+  /** Public or protected, and enclosed only by public types. */
   val isEffectivelyPublic: Boolean,
   val isOverride: Boolean,
   val isExpect: Boolean,
@@ -140,19 +144,20 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
   val types = mutableListOf<TypeFacts>()
   val typeAliases = mutableListOf<TypeAliasFacts>()
 
-  fun visit(container: List<KtDeclaration>, enclosingPublic: Boolean, prefix: String) {
+  fun visit(container: List<KtDeclaration>, enclosing: Visibility, prefix: String) {
     for (declaration in container) {
       // An `init` block has no name and cannot be documented or referenced.
       if (declaration is KtAnonymousInitializer) continue
       val visibility = declaration.visibility()
-      val effectivelyPublic =
-        enclosingPublic && (visibility == Visibility.PUBLIC || visibility == Visibility.PROTECTED)
+      val effective = narrowest(visibility, enclosing)
+      val effectivelyPublic = effective.isPublicApi
       val name = prefix + (declaration.name ?: "<anonymous>")
       declarations +=
         Declaration(
           name = name,
           kind = declaration.kindName(),
           visibility = visibility,
+          effectiveVisibility = effective,
           isEffectivelyPublic = effectivelyPublic,
           isOverride = declaration.hasModifier(KtTokens.OVERRIDE_KEYWORD),
           isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
@@ -160,21 +165,13 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
           hasKDoc = declaration.docComment != null,
         )
       when (declaration) {
-        is KtNamedFunction ->
-          functions +=
-            FunctionFacts(
-              name = name,
-              lines = lines.spanOf(declaration),
-              cyclomaticComplexity = CyclomaticComplexity.calculate(declaration),
-              cognitiveComplexity = CognitiveComplexity.calculate(declaration),
-              parameters = declaration.valueParameters.size,
-              nestingDepth = nestingDepth(declaration),
-              isEffectivelyPublic = effectivelyPublic,
-            )
         // An entry is a KtClassOrObject in the PSI but a value of its enum, not a type.
-        is KtEnumEntry -> visit(declaration.declarations, effectivelyPublic, "$name.")
+        is KtEnumEntry -> visit(declaration.declarations, effective, "$name.")
         is KtClassOrObject -> {
           val members = declaration.declarations
+          val constructor = declaration.primaryConstructor
+          val constructorProperties =
+            constructor?.valueParameters?.filter { it.hasValOrVar() }.orEmpty()
           types +=
             TypeFacts(
               name = name,
@@ -190,16 +187,51 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
               isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
               lines = lines.spanOf(declaration),
               publicMembers =
-                members.count {
-                  effectivelyPublic &&
+                if (!effectivelyPublic) 0
+                else
+                  (members + constructorProperties).count {
                     it !is KtAnonymousInitializer &&
-                    it.visibility() == Visibility.PUBLIC &&
-                    !it.hasModifier(KtTokens.OVERRIDE_KEYWORD)
-                },
+                      it.visibility() == Visibility.PUBLIC &&
+                      !it.hasModifier(KtTokens.OVERRIDE_KEYWORD)
+                  },
               supertypes = declaration.supertypeNames(),
               isEffectivelyPublic = effectivelyPublic,
             )
-          visit(members, effectivelyPublic, "$name.")
+          if (constructor != null) {
+            // The class KDoc documents its primary constructor and the properties it declares.
+            val classDocumented = declaration.docComment != null
+            val constructorVisibility = declaration.primaryConstructorVisibility(constructor)
+            val constructorEffective = narrowest(constructorVisibility, effective)
+            declarations +=
+              Declaration(
+                name = "$name.<init>",
+                kind = "constructor",
+                visibility = constructorVisibility,
+                effectiveVisibility = constructorEffective,
+                isEffectivelyPublic = constructorEffective.isPublicApi,
+                isOverride = false,
+                isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+                isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
+                hasKDoc = constructor.docComment != null || classDocumented,
+              )
+            for (property in constructorProperties) {
+              val propertyVisibility = property.visibility()
+              val propertyEffective = narrowest(propertyVisibility, effective)
+              declarations +=
+                Declaration(
+                  name = "$name.${property.name}",
+                  kind = "property",
+                  visibility = propertyVisibility,
+                  effectiveVisibility = propertyEffective,
+                  isEffectivelyPublic = propertyEffective.isPublicApi,
+                  isOverride = property.hasModifier(KtTokens.OVERRIDE_KEYWORD),
+                  isExpect = declaration.hasModifier(KtTokens.EXPECT_KEYWORD),
+                  isActual = declaration.hasModifier(KtTokens.ACTUAL_KEYWORD),
+                  hasKDoc = property.docComment != null || classDocumented,
+                )
+            }
+          }
+          visit(members, effective, "$name.")
         }
         is KtTypeAlias ->
           declaration.getTypeReference()?.text?.let {
@@ -209,7 +241,33 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
       }
     }
   }
-  visit(file.declarations, enclosingPublic = true, prefix = "")
+  visit(file.declarations, enclosing = Visibility.PUBLIC, prefix = "")
+
+  // Every function body, including those of `object : X { }` literals, which the declaration
+  // walk above cannot name. A local function is part of the function that declares it.
+  // Complexity is one plus the body's: detekt's visitor would skip a function inside an object
+  // literal, and for every other function this equals what it reports.
+  for (function in file.collectDescendantsOfType<KtNamedFunction>()) {
+    val scope =
+      function.parents.firstOrNull { it is KtNamedFunction || it is KtObjectLiteralExpression }
+    if (scope is KtNamedFunction) continue
+    val owners = function.parents.filterIsInstance<KtClassOrObject>().toList().asReversed()
+    val effective =
+      owners.fold(function.visibility()) { visibility, owner ->
+        narrowest(visibility, if (owner.name == null) Visibility.PRIVATE else owner.visibility())
+      }
+    functions +=
+      FunctionFacts(
+        name = (owners.map { it.name ?: "<anonymous>" } + function.name).joinToString("."),
+        lines = lines.spanOf(function),
+        cyclomaticComplexity =
+          1 + (function.bodyExpression?.let { CyclomaticComplexity.calculate(it) } ?: 0),
+        cognitiveComplexity = CognitiveComplexity.calculate(function),
+        parameters = function.valueParameters.size,
+        nestingDepth = nestingDepth(function),
+        isEffectivelyPublic = effective.isPublicApi,
+      )
+  }
 
   val comments = file.collectDescendantsOfType<PsiComment>()
   return FileFacts(
@@ -257,11 +315,34 @@ private fun <T : Any> KtFile.metric(visitor: KtVisitorVoid, key: Key<T>): T {
   return checkNotNull(getUserData(key)) { "$visitor left no $key on $name" }
 }
 
+/** The narrower of two visibilities, in the enum's order from public to private. */
+private fun narrowest(a: Visibility, b: Visibility): Visibility =
+  if (a.ordinal >= b.ordinal) a else b
+
+/** Visible outside the module: public, or protected for subclasses. */
+private val Visibility.isPublicApi: Boolean
+  get() = this == Visibility.PUBLIC || this == Visibility.PROTECTED
+
 private fun KtDeclaration.visibility(): Visibility =
   when {
     hasModifier(KtTokens.PRIVATE_KEYWORD) -> Visibility.PRIVATE
     hasModifier(KtTokens.INTERNAL_KEYWORD) -> Visibility.INTERNAL
     hasModifier(KtTokens.PROTECTED_KEYWORD) -> Visibility.PROTECTED
+    else -> Visibility.PUBLIC
+  }
+
+/** An enum's constructor is private and a sealed class's protected unless written otherwise. */
+private fun KtClassOrObject.primaryConstructorVisibility(
+  constructor: KtPrimaryConstructor
+): Visibility =
+  when {
+    constructor.modifierList?.let { list ->
+      list.hasModifier(KtTokens.PRIVATE_KEYWORD) ||
+        list.hasModifier(KtTokens.INTERNAL_KEYWORD) ||
+        list.hasModifier(KtTokens.PROTECTED_KEYWORD)
+    } == true -> constructor.visibility()
+    this is KtClass && isEnum() -> Visibility.PRIVATE
+    hasModifier(KtTokens.SEALED_KEYWORD) -> Visibility.PROTECTED
     else -> Visibility.PUBLIC
   }
 
