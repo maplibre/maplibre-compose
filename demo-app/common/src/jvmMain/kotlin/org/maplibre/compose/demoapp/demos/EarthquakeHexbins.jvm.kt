@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import co.touchlab.kermit.Logger
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -55,7 +56,12 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
   @Composable
   override fun MapContent(feedUri: String) {
     LaunchedEffect(feedUri) {
-      if (quakes == null) quakes = runCatching { fetchQuakes(feedUri) }.getOrNull()
+      if (quakes == null) {
+        quakes =
+          runCatching { fetchQuakes(feedUri) }
+            .onFailure { Logger.w(it) { "Earthquake feed request failed" } }
+            .getOrNull()
+      }
     }
     val loaded = quakes ?: return
     val mapState = LocalMapState.current ?: return
