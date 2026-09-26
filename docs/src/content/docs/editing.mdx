@@ -1,0 +1,40 @@
+---
+title: Draw and measure a shape
+description: Explore feature editing and Spatial K in the demo app.
+---
+
+The **Feature editing** demo lets you draw a line or polygon, drag its vertices,
+and measure its length or area with [Spatial K](https://maplibre.org/spatial-k/).
+The presets include Golden Gate Park, JFK Drive, and a circle generated around
+the Conservatory of Flowers.
+
+Choose **Polygon** or **Line**, tap the map to place vertices, and choose **Done**.
+Drag a vertex to reshape it, or tap one to insert or remove a point. **Simplify**
+previews a reduced vertex count against the original outline; **Apply** accepts
+it and **Cancel** discards it. **Rotate 15°** uses Spatial K's distance, bearing,
+and offset functions. Undo and redo operate on completed edits.
+
+The demo edits one line or single-ring polygon at a time. Its editing state,
+vertex input, and geometry operations live together in the demo app so you can
+follow how map interactions become edits to a GeoJSON shape.
+
+## Read the example
+
+The source is in
+[`demos/featureediting`](https://github.com/maplibre/maplibre-compose/tree/main/demo-app/common/src/commonMain/kotlin/org/maplibre/compose/demoapp/demos/featureediting):
+
+- `FeatureEditingDemo.kt` draws GeoJSON layers and receives map taps.
+- `VertexInput.kt` compares a press with projected vertices and handles their
+  drags in screen coordinates. Other gestures remain map gestures.
+- `FeatureEditingState.kt` separates the committed shape from drawing and edit
+  previews. Accepting a preview adds one undo step; cancellation leaves the
+  committed shape unchanged.
+- `Shape.kt` converts the open vertex list to GeoJSON, calls Spatial K, and checks
+  polygon outlines in the Mercator plane. Invalid previews cannot be committed;
+  an invalid drag returns to its starting shape.
+- `FeatureEditingPanel.kt` presents measurements and editing controls.
+- `Presets.kt` supplies the example shapes.
+
+Applications can adapt these pieces to their own document and save workflow.
+See [Handle gestures and clicks](/maplibre-compose/interaction/) for map input
+and [Overlay Compose UI](/maplibre-compose/controls/) for overlay placement.

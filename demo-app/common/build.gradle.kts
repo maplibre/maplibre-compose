@@ -83,6 +83,7 @@ kotlin {
       implementation(libs.ktor.client.core)
       implementation(libs.mobilityData.gtfsSchedule)
       implementation(libs.spatialk.geojson)
+      implementation(libs.spatialk.turf)
 
       api(project(":lib:maplibre-compose"))
       implementation(project(":lib:maplibre-compose-material3"))
@@ -104,6 +105,8 @@ kotlin {
       implementation(libs.kotlinx.coroutines.swing)
       implementation(libs.ktor.client.okhttp)
     }
+
+    jvmTest.dependencies { implementation(kotlin("test")) }
 
     appleMain.dependencies { implementation(libs.ktor.client.darwin) }
 
