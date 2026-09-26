@@ -99,16 +99,12 @@ run = "playwright install chromium --no-shell"
 run = "mise deps install chromium"
 
 # MapLibre Native's n-gon layer plugin for the desktop demo's hexagonal bins.
-[deps.ngon-plugin]
-auto = false
-sources = ["gradle/libs.versions.toml", ".mise/bin/build-ngon-plugin"]
-# Per host, so a checkout shared across machines rebuilds for each one.
-outputs = ["demo-app/common/build/ngon-plugin/built-{{os()}}-{{arch()}}"]
-run = ".mise/bin/build-ngon-plugin {{os()}}-{{arch()}}"
 
 [tasks."deps:ngon-plugin"]
 description = "Build the n-gon layer plugin that draws the desktop demo's earthquake hexbins."
-run = "mise deps install ngon-plugin"
+# Not a `deps` provider: those key freshness on output paths alone, which cannot
+# tell hosts apart in a checkout shared across machines. The script is idempotent.
+run = ".mise/bin/build-ngon-plugin"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."

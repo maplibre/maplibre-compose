@@ -38,19 +38,23 @@ mkdir -p "$work"
 
 # The FFI release tag records its MapLibre Native revision as a submodule
 # pointer; a treeless, blobless clone of that one tag is enough to read it.
-rm -rf "$ffi_dir"
-git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
-  https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
-mln_commit="$(git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}')"
+commit_file="$work/ffi-$ffi_version.commit"
+if [[ ! -f "$commit_file" ]]; then
+  rm -rf "$ffi_dir"
+  git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
+    https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
+  git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}' >"$commit_file"
+fi
+mln_commit="$(cat "$commit_file")"
 if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
+  rm -f "$commit_file"
   echo "${0##*/}: $ffi_tag has no third_party/maplibre-native submodule" >&2
   exit 1
 fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
 
-# The host id doubles as the mise output marker, so a checkout shared across
-# machines rebuilds for each host.
-host="${1:-$(uname -s)-$(uname -m)}"
+# A checkout shared across machines rebuilds for each host.
+host="$(uname -s)-$(uname -m)"
 if [[ -f "$library" && -f "$work/built-$host" ]] &&
   grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
   echo "$library is up to date"
