@@ -4,141 +4,135 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
-import kotlin.math.floor
-import kotlin.math.log10
-import kotlin.math.pow
-import kotlin.math.roundToLong
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
-import org.maplibre.compose.demoapp.DemoBoundsPadding
-import org.maplibre.compose.demoapp.DemoControlSize
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
-import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoStyle
-import org.maplibre.compose.demoapp.center
-import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.editing.EditorColors
-import org.maplibre.compose.editing.EditorDraftLayers
-import org.maplibre.compose.editing.EditorFeatureLayers
-import org.maplibre.compose.editing.EditorHandleLayers
-import org.maplibre.compose.editing.featureEditor
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.LineString
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.turf.measurement.computeBbox
 
-/** Draws shapes and measures and reshapes them live with spatial-k turf. */
+/** A small editable shape makes Spatial K measurements and transformations visible. */
 object FeatureEditingDemo : Demo {
   override val name = "Feature editing"
-  override val description = "Draw shapes, then measure and reshape them live with spatial-k turf."
+  override val description = "Draw a shape, measure it, and explore Spatial K transformations."
   override val destination =
-    DemoDestination.FitBounds(Presets.goldenGatePark.geometry.computeBbox(), EditingFitPadding)
-  override val pointerPin =
-    DemoPointerPin(Presets.goldenGatePark.geometry.computeBbox().center, destination)
+    DemoDestination.FitBounds(Presets.goldenGatePark.geometry.computeBbox())
+  private val editor = FeatureEditingState()
 
-  private val state = FeatureEditingState()
+  override fun interactions(mapState: MapState, settings: MapInteractions) =
+    MapInteractions(settings) {
+      callbacks {
+        click {
+          onUnhandled { event ->
+            if (editor.draft != null && event.position != null) {
+              editor.place(checkNotNull(event.position))
+              ClickResult.Consume
+            } else ClickResult.Pass
+          }
+        }
+      }
+    }
 
   @Composable
   override fun MapContent(style: DemoStyle) {
+    val shown = editor.displayed
     val scheme = MaterialTheme.colorScheme
-    val editor = state.editor
-    val problem = state.problem != null
-    val colors =
-      remember(scheme, problem) {
-        if (problem) {
-          EditorColors(
-            accent = scheme.primary,
-            selectedFill = scheme.error.copy(alpha = 0.15f),
-            selectedStroke = scheme.error,
-            draft = scheme.error,
-            activeHandleFill = scheme.error,
-          )
-        } else EditorColors(accent = scheme.primary)
-      }
+    val problem = shown.problem()
+    val color =
+      if (problem != null && shown.vertices.size >= shown.kind.minimum) scheme.error
+      else scheme.primary
+    val geometry = shown.geometry ?: shown.vertices.takeIf { it.size >= 2 }?.let(::LineString)
+    val source =
+      rememberGeoJsonSource(
+        GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) }))),
+        GeoJsonOptions(synchronousUpdate = true),
+      )
     Anchor.Below({ it.type == "symbol" }) {
-      EditorFeatureLayers(editor, colors, idPrefix = LAYER_PREFIX)
-      FrameLayers(state)
-      StationLayers(state)
-      SimplifyGhostLayers(state)
-      CirclePreviewLayers(state)
-      EditorDraftLayers(editor, colors, idPrefix = LAYER_PREFIX)
+      if (editor.preview != null || editor.draft != null) {
+        val original =
+          rememberGeoJsonSource(
+            GeoJsonData.Features(
+              FeatureCollection(listOf(Feature(checkNotNull(editor.shape.geometry), null)))
+            )
+          )
+        LineLayer(
+          id = "editing-original",
+          source = original,
+          color = const(scheme.onSurfaceVariant.copy(alpha = 0.4f)),
+          width = const(2.dp),
+        )
+      }
+      if (geometry is Polygon) {
+        FillLayer(id = "editing-fill", source = source, color = const(color.copy(alpha = 0.15f)))
+      }
+      LineLayer(id = "editing-line", source = source, color = const(color), width = const(3.dp))
     }
     Anchor.Top {
-      SnapLayers(state)
-      EditorHandleLayers(editor, colors, idPrefix = LAYER_PREFIX, handleRadius = 6.dp)
-      FrameHandleLayers(state)
+      val vertices =
+        rememberGeoJsonSource(
+          GeoJsonData.Features(
+            FeatureCollection(
+              shown.vertices.mapIndexed { index, position ->
+                Feature(Point(position), null, id = JsonPrimitive(index))
+              }
+            )
+          ),
+          GeoJsonOptions(synchronousUpdate = true),
+        )
+      CircleLayer(
+        id = "editing-vertices",
+        source = vertices,
+        radius = const(5.dp),
+        color = const(scheme.surface),
+        strokeColor = const(color),
+        strokeWidth = const(2.dp),
+      )
+      val selected = shown.vertices.getOrNull(editor.selectedVertex ?: -1)
+      val active =
+        rememberGeoJsonSource(
+          GeoJsonData.Features(
+            FeatureCollection(listOfNotNull(selected?.let { Feature(Point(it), null) }))
+          )
+        )
+      CircleLayer(
+        id = "editing-active",
+        source = active,
+        radius = const(8.dp),
+        color = const(color.copy(alpha = 0.2f)),
+        strokeColor = const(color),
+        strokeWidth = const(2.dp),
+      )
     }
   }
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
-    val demo = this@FeatureEditingDemo.state
-    Box(
-      Modifier.fillMaxSize()
-        .focusRequester(demo.mapFocus)
-        .featureEditor(demo.editor, state.mapState)
-    )
+    Box(Modifier.fillMaxSize().vertexInput(editor, state.mapState))
     DefaultMapControls(controls)
-    LaunchedEffect(demo) {
-      snapshotFlow { demo.editor.selection }.collect { demo.stationFraction = 0.5 }
-    }
-    LaunchedEffect(demo, state.mapState) {
-      snapshotFlow { state.mapState.viewport?.metersPerDpAtTarget }
-        .distinctUntilChanged()
-        .collect { scale ->
-          if (scale != null && scale > 0) demo.metersPerDp = roundToSignificant(scale, 3)
-        }
-    }
-    EditorHintBar(demo)
-    val labels = rememberShapeLabelEntries(demo)
-    EdgeLabels(demo, labels)
-    ShapeLabels(demo, labels)
-    DraftLabel(demo)
-    TransformReadout(demo)
-    ValidationTooltip(demo)
   }
 
-  @Composable
-  override fun PeekPanel(state: DemoAppState) {
-    ToolRow(this.state)
-  }
+  @Composable override fun PeekPanel(state: DemoAppState) = EditingActions(editor)
 
-  @Composable
-  override fun Panel(state: DemoAppState) {
-    val demo = this.state
-    SectionHeader("Measurements")
-    MeasurementCard(demo)
-    SectionHeader("Shape")
-    ShapeSection(demo, state)
-    SectionHeader("Shapes")
-    ShapesList(demo, state)
-    SectionHeader("Presets")
-    PresetsSection(demo, state)
-  }
-}
-
-private const val LAYER_PREFIX = "shape"
-
-/**
- * The fit padding for every camera flight in this demo. The right inset clears the shell's button
- * column, the frame around the fitted shape and half a handle disc, so the Rotate and Scale handles
- * on the frame's right corners stay reachable on phones.
- */
-internal val EditingFitPadding =
-  DemoBoundsPadding.copy(right = MapOverlay.Spacing + DemoControlSize + FramePadding + 16.dp)
-
-private fun roundToSignificant(value: Double, digits: Int): Double {
-  if (value == 0.0) return 0.0
-  val magnitude = 10.0.pow(digits - 1 - floor(log10(abs(value))))
-  return (value * magnitude).roundToLong() / magnitude
+  @Composable override fun Panel(state: DemoAppState) = EditingPanel(editor, state)
 }

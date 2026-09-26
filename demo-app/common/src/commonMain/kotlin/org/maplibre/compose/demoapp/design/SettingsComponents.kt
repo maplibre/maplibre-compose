@@ -62,22 +62,13 @@ fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Uni
 }
 
 @Composable
-fun ButtonRow(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+fun ButtonRow(label: String, onClick: () -> Unit) {
   ListItem(
-    headlineContent = {
-      Text(
-        label,
-        color =
-          if (enabled) MaterialTheme.colorScheme.primary
-          else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DisabledAlpha),
-      )
-    },
+    headlineContent = { Text(label, color = MaterialTheme.colorScheme.primary) },
     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    modifier = Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+    modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
   )
 }
-
-private const val DisabledAlpha = 0.38f
 
 /** A settings list item that opens a single-choice menu. */
 @Composable
@@ -191,8 +182,6 @@ fun SliderRow(
   value: Float,
   range: ClosedFloatingPointRange<Float>,
   valueLabel: (Float) -> String = { it.roundToInt().toString() },
-  enabled: Boolean = true,
-  onChangeFinished: (() -> Unit)? = null,
   onChange: (Float) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -201,18 +190,9 @@ fun SliderRow(
       Text(
         valueLabel(value),
         style = MaterialTheme.typography.bodyMedium,
-        color =
-          MaterialTheme.colorScheme.onSurfaceVariant.copy(
-            alpha = if (enabled) 1f else DisabledAlpha
-          ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
-    Slider(
-      value = value,
-      onValueChange = onChange,
-      valueRange = range,
-      enabled = enabled,
-      onValueChangeFinished = onChangeFinished,
-    )
+    Slider(value = value, onValueChange = onChange, valueRange = range)
   }
 }

@@ -18,7 +18,6 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.overlay.MapOverlayScope
-import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -93,9 +92,8 @@ interface Demo {
 
 /** The camera movement that occurs when a demo is selected or its pointer pin is pressed. */
 sealed interface DemoDestination {
-  /** Fits a geographic region inside the camera viewport, inset by [padding]. */
-  data class FitBounds(val bounds: BoundingBox, val padding: DpPadding = DemoBoundsPadding) :
-    DemoDestination
+  /** Fits a geographic region inside the camera viewport. */
+  data class FitBounds(val bounds: BoundingBox) : DemoDestination
 
   /** Moves to a complete camera position without deriving a zoom level from geographic bounds. */
   data class ExactCamera(val position: CameraPosition) : DemoDestination

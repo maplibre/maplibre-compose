@@ -1,10 +1,11 @@
 package org.maplibre.compose.demoapp.demos.featureediting
 
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.editing.EditorFeature
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -14,7 +15,7 @@ import org.maplibre.spatialk.units.extensions.meters
 /** Shapes in Golden Gate Park, San Francisco, traced from OpenStreetMap. */
 internal object Presets {
   /** The park outline with the Panhandle attached along Stanyan Street. */
-  val goldenGatePark: EditorFeature =
+  val goldenGatePark: Feature<Geometry, JsonObject> =
     Feature(
       geometry =
         Polygon(
@@ -43,7 +44,7 @@ internal object Presets {
     )
 
   /** John F. Kennedy Drive from the Great Highway east to the Stanyan Street entrance. */
-  val jfkDrive: EditorFeature =
+  val jfkDrive: Feature<Geometry, JsonObject> =
     Feature(
       geometry =
         LineString(
@@ -94,16 +95,13 @@ internal object Presets {
     )
 
   /** A 400 m point buffer around the Conservatory of Flowers. */
-  val conservatoryCircle: EditorFeature =
+  val conservatoryCircle: Feature<Geometry, JsonObject> =
     Feature(
       geometry = circle(Position(-122.4602, 37.7726), 400.meters, steps = 64),
       properties =
         buildJsonObject {
           put("name", "400 m around the Conservatory")
-          put(SHAPE_PROPERTY, SHAPE_CIRCLE)
         },
       id = JsonPrimitive("conservatory-400m"),
     )
-
-  val all: List<EditorFeature> = listOf(goldenGatePark, jfkDrive, conservatoryCircle)
 }

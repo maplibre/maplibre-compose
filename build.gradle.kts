@@ -8,7 +8,6 @@ dokka { moduleName = "MapLibre Compose API Reference" }
 dependencies {
   dokka(project(":lib:maplibre-compose"))
   dokka(project(":lib:maplibre-compose-material3"))
-  dokka(project(":lib:maplibre-compose-editing"))
   dokka(project(":lib:location"))
   dokka(project(":lib:location-runtime-gms"))
   dokka(project(":lib:location-runtime-hms"))
