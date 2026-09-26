@@ -191,7 +191,7 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
                 else
                   (members + constructorProperties).count {
                     it !is KtAnonymousInitializer &&
-                      it.visibility() == Visibility.PUBLIC &&
+                      it.visibility().isPublicApi &&
                       !it.hasModifier(KtTokens.OVERRIDE_KEYWORD)
                   },
               supertypes = declaration.supertypeNames(),
@@ -397,12 +397,18 @@ private fun KtCallExpression.calleeName(): String? {
   }
 }
 
-/** Blocks nested inside the function body, so a body with no nested blocks scores zero. */
+/**
+ * Blocks nested inside the function body, so a body with no nested blocks scores zero. Methods of
+ * an object literal inside the body are measured as their own functions, so their blocks are
+ * excluded.
+ */
 private fun nestingDepth(function: KtNamedFunction): Int {
   val body = function.bodyBlockExpression ?: return 0
-  return body.collectDescendantsOfType<KtBlockExpression>().maxOfOrNull { block ->
-    block.parents.takeWhile { it !== function }.count { it is KtBlockExpression }
-  } ?: 0
+  return body
+    .collectDescendantsOfType<KtBlockExpression>()
+    .map { block -> block.parents.takeWhile { it !== function }.toList() }
+    .filter { ancestors -> ancestors.none { it is KtObjectLiteralExpression } }
+    .maxOfOrNull { ancestors -> ancestors.count { it is KtBlockExpression } } ?: 0
 }
 
 /** Maps text offsets to 1-based line numbers. */

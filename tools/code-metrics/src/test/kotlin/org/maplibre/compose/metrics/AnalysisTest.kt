@@ -399,6 +399,10 @@ class AnalysisTest {
       internal class Box(val v: Int, w: Int) {
         fun f() {}
       }
+      public abstract class Base {
+        protected abstract fun hook()
+        private fun helper() {}
+      }
       """,
     )
 
@@ -416,6 +420,7 @@ class AnalysisTest {
     assertEquals(Visibility.PUBLIC, byName.getValue("Box.f").visibility)
     assertNull(byName["Box.w"])
     assertEquals(0, file.types.single { it.name == "Box" }.publicMembers)
+    assertEquals(1, file.types.single { it.name == "Base" }.publicMembers)
     assertEquals(Visibility.INTERNAL, byName.getValue("Hidden.<init>").visibility)
     assertEquals(Visibility.PROTECTED, byName.getValue("Shape.<init>").visibility)
     assertEquals(Visibility.PRIVATE, byName.getValue("Color.<init>").visibility)
@@ -441,7 +446,11 @@ class AnalysisTest {
         fun make(): Listener {
           fun local() = 1
           return object : Listener {
-            override fun onEvent(x: Int) = println(local())
+            override fun onEvent(x: Int) {
+              if (x > 1) {
+                println(local())
+              }
+            }
           }
         }
       }
@@ -456,8 +465,10 @@ class AnalysisTest {
       file.functions.map { it.name }.toSet(),
     )
     assertEquals(2, file.functions.single { it.name == "Owner.make" }.cyclomaticComplexity)
-    assertEquals(listOf(1, 2), anonymous.map { it.cyclomaticComplexity }.sorted())
-    assertEquals(listOf(1, 3), anonymous.map { it.lines }.sorted())
+    assertEquals(listOf(2, 2), anonymous.map { it.cyclomaticComplexity }.sorted())
+    assertEquals(listOf(3, 5), anonymous.map { it.lines }.sorted())
+    assertEquals(listOf(1, 2), anonymous.map { it.nestingDepth }.sorted())
+    assertEquals(0, file.functions.single { it.name == "Owner.make" }.nestingDepth)
     assertTrue(anonymous.none { it.isEffectivelyPublic })
     assertNull(file.declarations.firstOrNull { it.name.contains("<anonymous>") })
   }

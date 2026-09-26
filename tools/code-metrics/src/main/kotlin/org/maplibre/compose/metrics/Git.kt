@@ -32,8 +32,13 @@ class GitRepository(val root: Path) {
   fun isDirty(paths: List<String>): Boolean =
     git("status", "--porcelain", "--", *paths.toTypedArray()).isNotBlank()
 
-  /** Extracts the tracked files under [paths] at [ref] into [into]. */
+  /**
+   * Extracts the tracked files under [paths] at [ref] into [into]. A path absent at [ref] is
+   * skipped.
+   */
   fun export(ref: String, paths: List<String>, into: Path) {
+    val present = paths.filter { git("ls-tree", "--name-only", ref, "--", it).isNotBlank() }
+    if (present.isEmpty()) return
     val archive = Files.createTempFile("code-metrics", ".tar")
     try {
       git(
@@ -43,7 +48,7 @@ class GitRepository(val root: Path) {
         archive.absolutePathString(),
         ref,
         "--",
-        *paths.toTypedArray(),
+        *present.toTypedArray(),
       )
       run("tar", "-xf", archive.absolutePathString(), "-C", into.absolutePathString())
     } finally {
