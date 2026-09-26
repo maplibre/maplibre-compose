@@ -520,3 +520,35 @@ run = "python benchmarks/run.py"
 run = "python benchmarks/compare.py"
 [tasks."benchmark:test"]
 run = "python -m unittest discover -s benchmarks"
+
+[tasks."metrics:build"]
+description = "Install the code metrics tool into tools/code-metrics/build/install."
+run = "./gradlew -q :tools:code-metrics:installDist"
+
+[tasks.metrics]
+description = "Measure code size, complexity, and structure into build/metrics/<name>.json."
+depends = ["metrics:build"]
+usage = '''
+flag "--ref <ref>" help="Measure the tracked files at this commit or tag instead of the working tree."
+flag "--out <file>" help="Snapshot path. Defaults to build/metrics/<ref>.json, or head.json for the working tree."
+'''
+run = '''
+args=(--repo "$MISE_PROJECT_ROOT")
+[ -n "$usage_ref" ] && args+=(--ref "$usage_ref")
+args+=(--out "${usage_out:-$MISE_PROJECT_ROOT/build/metrics/${usage_ref:-head}.json}")
+tools/code-metrics/build/install/code-metrics/bin/code-metrics "${args[@]}"
+'''
+
+[tasks."metrics:history"]
+description = "Measure every vMAJOR.MINOR.PATCH tag and the working tree into build/metrics/."
+depends = ["metrics:build"]
+run = '''
+bin=tools/code-metrics/build/install/code-metrics/bin/code-metrics
+for tag in $(git tag --list 'v*.*.*' --sort=v:refname); do
+  "$bin" --repo "$MISE_PROJECT_ROOT" --ref "$tag" --out "$MISE_PROJECT_ROOT/build/metrics/$tag.json"
+done
+"$bin" --repo "$MISE_PROJECT_ROOT" --out "$MISE_PROJECT_ROOT/build/metrics/head.json"
+'''
+
+[tasks."metrics:test"]
+run = "./gradlew :tools:code-metrics:test"

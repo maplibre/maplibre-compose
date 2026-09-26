@@ -85,6 +85,9 @@ androidx-wear-compose = "1.6.2"
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
 gradle-kotlin = "2.4.20"
+# Complexity metrics for tools/code-metrics. Its kotlin-compiler dependency must
+# parse the same syntax the build compiles, so it is built against gradle-kotlin.
+detekt = "2.0.0-alpha.6"
 gradle-android = "9.3.1"
 
 [libraries]
@@ -101,6 +104,7 @@ androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navi
 androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "androidx-wear-compose" }
 androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "androidx-wear-compose" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
+detekt-metrics = { module = "dev.detekt:detekt-metrics", version.ref = "detekt" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }
 dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
@@ -109,6 +113,7 @@ nucleus-application = { module = "dev.nucleusframework:nucleus.nucleus-applicati
 nucleus-decoratedWindowMaterial3 = { module = "dev.nucleusframework:nucleus.decorated-window-material3", version.ref = "nucleus" }
 nucleus-decoratedWindowTao = { module = "dev.nucleusframework:nucleus.decorated-window-tao", version.ref = "nucleus" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
+kotlin-compiler = { module = "org.jetbrains.kotlin:kotlin-compiler", version.ref = "gradle-kotlin" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
