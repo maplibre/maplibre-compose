@@ -48,7 +48,9 @@ if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
 
-if [[ -f "$library" ]] && grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
+host="$(uname -s)-$(uname -m)"
+if [[ -f "$library" ]] && grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null &&
+  grep -qx "host=$host" "$out/ngon-layer.properties"; then
   echo "$library is up to date"
   exit 0
 fi
@@ -100,6 +102,7 @@ esac
 cat >"$out/ngon-layer.properties" <<PROPS
 maplibre-native.commit=$mln_commit
 maplibre-native-ffi.version=$ffi_version
+host=$host
 PROPS
 
 echo "built $library"
