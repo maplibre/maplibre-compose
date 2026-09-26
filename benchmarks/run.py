@@ -18,13 +18,70 @@ from performance import analyze
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
+CLASSIC_PACKAGE = "org.maplibre.compose.benchmark.classic"
+
+
+def app_package(config):
+    return (
+        CLASSIC_PACKAGE
+        if json.loads(config)["implementation"].startswith("classic-")
+        else PACKAGE
+    )
+
+
+def validate_platform(platform, config):
+    implementation = json.loads(config)["implementation"]
+    for target in ("android", "ios"):
+        if implementation == f"classic-{target}" and platform != target:
+            raise ValueError(f"classic-{target} requires the {target} runner")
+
+
+def android_apk(config):
+    folder = "benchmarks" if app_package(config) == CLASSIC_PACKAGE else "demo-app"
+    return f"{folder}/android/build/outputs/apk/release/android-release.apk"
+
+
+def ios_app(config, simulator):
+    classic = app_package(config) == CLASSIC_PACKAGE
+    folder = "benchmarks/ios" if classic else "demo-app/ios"
+    name = "ClassicBenchmark" if classic else "maplibre-compose-demo"
+    sdk = "iphonesimulator" if simulator else "iphoneos"
+    return f"{folder}/build/DerivedData/Build/Products/Release-{sdk}/{name}.app"
+
+
+def ios_launch_args(device, config, simulator):
+    package = app_package(config)
+    if simulator:
+        return [
+            "xcrun",
+            "simctl",
+            "launch",
+            "--terminate-running-process",
+            "--console",
+            device,
+            package,
+        ]
+    return [
+        "xcrun",
+        "devicectl",
+        "device",
+        "process",
+        "launch",
+        "--device",
+        device,
+        "--terminate-existing",
+        "--console",
+        "--environment-variables",
+        json.dumps({"MAP_BENCHMARK": config}),
+        package,
+    ]
 
 
 def call(*command):
     return subprocess.check_output(command, text=True).strip()
 
 
-def wait_for(path):
+def wait_for(path, process=None):
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         logs = path.read_text(errors="replace")
@@ -32,6 +89,10 @@ def wait_for(path):
             raise RuntimeError(f"Benchmark failed; inspect {path}")
         if "MAP_BENCHMARK DONE" in logs:
             return
+        if process is not None and process.poll() is not None:
+            raise RuntimeError(
+                f"App exited before completing the benchmark; inspect {path}"
+            )
         time.sleep(0.1)
     raise TimeoutError(f"Benchmark did not finish; inspect {path}")
 
@@ -56,7 +117,7 @@ def android_launch_args(adb, config):
         "-W",
         "--activity-clear-task",
         "-n",
-        PACKAGE + "/.MainActivity",
+        app_package(config) + "/.MainActivity",
         "--es",
         "benchmark",
         shlex.quote(config),
@@ -65,11 +126,12 @@ def android_launch_args(adb, config):
 
 def android(args, output):
     adb = args.adb
-    call(*adb, "shell", "am", "force-stop", PACKAGE)
+    package = app_package(args.config)
+    call(*adb, "shell", "am", "force-stop", package)
     logger = None
     try:
         call(*android_launch_args(adb, args.config))
-        pid = call(*adb, "shell", "pidof", PACKAGE)
+        pid = call(*adb, "shell", "pidof", package)
         with (output / "app.log").open("w") as log:
             logger = subprocess.Popen(
                 [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
@@ -78,29 +140,33 @@ def android(args, output):
     finally:
         if logger:
             stop(logger)
-        call(*adb, "shell", "am", "force-stop", PACKAGE)
+        call(*adb, "shell", "am", "force-stop", package)
 
 
 def ios(args, output):
-    command = ["xcrun", "simctl"]
-    subprocess.run(
-        [*command, "terminate", args.device, PACKAGE], capture_output=True, check=False
-    )
     with (output / "app.log").open("w") as log:
         app = subprocess.Popen(
-            [*command, "launch", "--console", args.device, PACKAGE],
+            ios_launch_args(args.device, args.config, args.simulator),
             env=dict(os.environ, SIMCTL_CHILD_MAP_BENCHMARK=args.config),
             stdout=log,
             stderr=log,
         )
         try:
-            wait_for(output / "app.log")
+            wait_for(output / "app.log", app)
         finally:
-            subprocess.run(
-                [*command, "terminate", args.device, PACKAGE],
-                capture_output=True,
-                check=False,
-            )
+            if args.simulator:
+                subprocess.run(
+                    [
+                        "xcrun",
+                        "simctl",
+                        "terminate",
+                        args.device,
+                        app_package(args.config),
+                    ],
+                    capture_output=True,
+                    check=False,
+                )
+            # devicectl --console forwards termination to the launched process.
             stop(app)
 
 
@@ -164,11 +230,19 @@ def main():
     parser.add_argument("--config", default="{}", help="JSON configuration overrides")
     parser.add_argument(
         "--implementation",
-        choices=("compose-imperative", "compose-declarative", "classic-android"),
+        choices=(
+            "compose-imperative",
+            "compose-declarative",
+            "classic-android",
+            "classic-ios",
+        ),
     )
-    parser.add_argument("--device", help="Android serial or iOS simulator UDID")
     parser.add_argument(
-        "--app", help="Packaged desktop executable (required for desktop)"
+        "--device",
+        help="Android serial, iOS simulator UDID, or physical iPhone identifier",
+    )
+    parser.add_argument(
+        "--app", help="Packaged desktop executable or override iOS .app path"
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repeat", type=int, default=1)
@@ -192,11 +266,7 @@ def main():
         if args.implementation:
             config["implementation"] = args.implementation
         args.config = canonical_config(config)
-        if (
-            config.get("implementation") == "classic-android"
-            and args.platform != "android"
-        ):
-            parser.error("classic-android requires the android runner")
+        validate_platform(args.platform, args.config)
     except (ValueError, TypeError) as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)
@@ -210,8 +280,31 @@ def main():
             *args.adb,
             "install",
             "-r",
-            "demo-app/android/build/outputs/apk/release/android-release.apk",
+            android_apk(args.config),
         )
+    elif args.platform == "ios":
+        devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
+            "devices"
+        ]
+        args.simulator = args.device == "booted" or any(
+            device["udid"] == args.device
+            for runtime in devices.values()
+            for device in runtime
+        )
+        app = args.app or ios_app(args.config, args.simulator)
+        if args.simulator:
+            call("xcrun", "simctl", "install", args.device, app)
+        else:
+            call(
+                "xcrun",
+                "devicectl",
+                "device",
+                "install",
+                "app",
+                "--device",
+                args.device,
+                app,
+            )
     for index in range(args.repeat):
         output = args.output if args.repeat == 1 else args.output / f"{index + 1:03d}"
         output.mkdir(exist_ok=True)

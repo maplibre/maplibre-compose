@@ -11,10 +11,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.UiComposable
 import kotlinx.coroutines.flow.first
+import org.maplibre.compose.benchmark.BenchmarkScenario
+import org.maplibre.compose.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
-import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntime

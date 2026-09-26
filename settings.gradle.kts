@@ -36,6 +36,9 @@ dependencyResolutionManagement {
 
 include(
   ":",
+  ":benchmarks:core",
+  ":benchmarks:android",
+  ":benchmarks:ios",
   ":demo-app",
   ":demo-app:common",
   ":demo-app:android",

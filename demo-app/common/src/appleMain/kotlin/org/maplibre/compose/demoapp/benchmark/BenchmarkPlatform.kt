@@ -5,6 +5,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.MapUiOptions
 import platform.Foundation.NSProcessInfo
 import platform.posix.RUSAGE_SELF
@@ -38,12 +39,4 @@ internal actual fun benchmarkCpu(active: Boolean) {
 @OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
 internal actual fun benchmarkCollectGarbage() {
   kotlin.native.runtime.GC.collect()
-}
-
-@Composable
-internal actual fun ClassicAndroidBenchmark(
-  fixture: BenchmarkFixture,
-  onStatus: (String, Boolean) -> Unit,
-) {
-  UnsupportedClassicBenchmark(onStatus)
 }

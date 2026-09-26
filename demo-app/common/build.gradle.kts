@@ -66,6 +66,7 @@ kotlin {
     jsMain { dependsOn(nonAndroidMain) }
 
     commonMain.dependencies {
+      api(project(":benchmarks:core"))
       // The platform modules compose against these, so they are api rather than implementation.
       api(libs.jetbrains.compose.foundation)
       api(libs.jetbrains.compose.runtime)
@@ -89,11 +90,6 @@ kotlin {
 
     androidMain {
       dependencies {
-        implementation(
-          if (providers.gradleProperty("maplibre.android.backend").getOrElse("opengl") == "vulkan")
-            libs.maplibre.androidVulkan
-          else libs.maplibre.androidOpenGl
-        )
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
@@ -126,7 +122,7 @@ kotlin {
 val benchmarkResources =
   tasks.register<Sync>("benchmarkResources") {
     from("src/commonMain/composeResources")
-    from(layout.buildDirectory.dir("generated/benchmarkResources"))
+    from(rootProject.layout.projectDirectory.dir("benchmarks/build/fixtures")) { into("files") }
     into(layout.buildDirectory.dir("generated/combinedComposeResources"))
   }
 

@@ -4,21 +4,26 @@ import json
 import math
 from pathlib import Path
 
-IMPLEMENTATIONS = {"compose-imperative", "compose-declarative", "classic-android"}
+IMPLEMENTATIONS = {
+    "compose-imperative",
+    "compose-declarative",
+    "classic-android",
+    "classic-ios",
+}
 WORKLOADS = {
     "idle": IMPLEMENTATIONS,
-    "camera": {"compose-imperative", "classic-android"},
-    "animation": {"compose-imperative", "classic-android"},
+    "camera": {"compose-imperative", "classic-android", "classic-ios"},
+    "animation": {"compose-imperative", "classic-android", "classic-ios"},
     "paint": IMPLEMENTATIONS,
     "layout": IMPLEMENTATIONS,
-    "layers": {"compose-declarative", "classic-android"},
+    "layers": {"compose-declarative", "classic-android", "classic-ios"},
     "source": IMPLEMENTATIONS,
     "source-latency": IMPLEMENTATIONS,
     "style": IMPLEMENTATIONS,
-    "resize": {"compose-declarative", "classic-android"},
-    "padding": {"compose-declarative", "classic-android"},
+    "resize": {"compose-declarative", "classic-android", "classic-ios"},
+    "padding": {"compose-declarative", "classic-android", "classic-ios"},
     "recompose": {"compose-declarative"},
-    "images": {"compose-imperative", "classic-android"},
+    "images": {"compose-imperative", "classic-android", "classic-ios"},
 }
 SCENES = {
     "minimal",

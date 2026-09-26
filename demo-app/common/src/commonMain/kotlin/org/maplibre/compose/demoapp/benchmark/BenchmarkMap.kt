@@ -25,15 +25,15 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.encodeToString
+import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
-import org.maplibre.compose.demoapp.benchmark.scenarios.BenchmarkWorkload
-import org.maplibre.compose.demoapp.benchmark.scenarios.WorkloadReport
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
@@ -74,6 +74,12 @@ internal fun BenchmarkRun(
   var fixture by remember(config) { mutableStateOf<BenchmarkFixture?>(null) }
   LaunchedEffect(config) {
     try {
+      require(
+        config.implementation in
+          setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.Declarative)
+      ) {
+        "Classic benchmarks run in their own app; use benchmark:run"
+      }
       fixture = loadBenchmarkFixture(config)
     } catch (e: CancellationException) {
       throw e
@@ -83,9 +89,7 @@ internal fun BenchmarkRun(
     }
   }
   fixture?.let {
-    if (config.implementation == BenchmarkImplementation.ClassicAndroid)
-      ClassicAndroidBenchmark(it, onStatus)
-    else BenchmarkPresentation(it, onStatus)
+    BenchmarkPresentation(it, onStatus)
   }
 }
 
@@ -153,7 +157,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       val size = checkNotNull(state.viewport).size
       println("MAP_BENCHMARK VIEWPORT [${size.width.value},${size.height.value},$density]")
       onStatus("Warming up", true)
-      driver.run(state, BenchmarkWorkload(config.durationMs))
+      driver.run(state, BenchmarkWorkload(config.durationMs, nextFrame = { withFrameNanos { it } }))
       driver.reset(state)
       // Same order as the classic driver: the status frame and collection precede the counter.
       // Frame callbacks run before recomposition, so cross two frames for the status to render.
@@ -162,10 +166,21 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       benchmarkCollectGarbage()
       benchmarkCpu(true)
       countingCpu = true
-      recorder.start(this, state.events)
+      recorder.start(
+        this,
+        state.events.filterIsInstance<org.maplibre.compose.map.MapEvent.FrameRendered>().map { event
+          ->
+          FrameSample(
+            encodingMs = event.stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
+            renderingMs = event.stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
+            drawCalls = event.stats?.drawCallCount,
+            mode = event.stats?.mode?.name?.lowercase(),
+          )
+        },
+      )
       recorded = true
       println("MAP_BENCHMARK MEASURE")
-      val workload = BenchmarkWorkload(config.durationMs)
+      val workload = BenchmarkWorkload(config.durationMs, nextFrame = { withFrameNanos { it } })
       driver.run(state, workload)
       workloadReport = workload.report()
       complete = true
@@ -205,24 +220,4 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       )
     }
   }
-}
-
-internal fun WorkloadReport.printResult() {
-  submissionMs.chunked(32).forEach { batch ->
-    println("MAP_BENCHMARK SUBMISSIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
-  }
-  completionMs.chunked(32).forEach { batch ->
-    println("MAP_BENCHMARK COMPLETIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
-  }
-  println(
-    "MAP_BENCHMARK WORKLOAD " +
-      BenchmarkJsonWithDefaults.encodeToString(
-        copy(
-          submissionMs = emptyList(),
-          completionMs = emptyList(),
-          submissionCount = submissionMs.size,
-          completionCount = completionMs.size,
-        )
-      )
-  )
 }

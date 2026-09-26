@@ -1,0 +1,163 @@
+// !$*UTF8*$!
+{
+  "archiveVersion" = 1;
+  "classes" = {
+  };
+  "objectVersion" = 56;
+  "objects" = {
+    "000000000000000000000001" = {
+      "isa" = "PBXFileReference";
+      "lastKnownFileType" = "sourcecode.swift";
+      "path" = "app/App.swift";
+      "sourceTree" = "<group>";
+    };
+    "000000000000000000000002" = {
+      "isa" = "PBXFileReference";
+      "lastKnownFileType" = "text.plist.xml";
+      "path" = "app/Info.plist";
+      "sourceTree" = "<group>";
+    };
+    "000000000000000000000003" = {
+      "isa" = "PBXFileReference";
+      "explicitFileType" = "wrapper.application";
+      "path" = "ClassicBenchmark.app";
+      "sourceTree" = "BUILT_PRODUCTS_DIR";
+    };
+    "000000000000000000000004" = {
+      "isa" = "PBXBuildFile";
+      "fileRef" = "000000000000000000000001";
+    };
+    "000000000000000000000005" = {
+      "isa" = "PBXSourcesBuildPhase";
+      "buildActionMask" = 2147483647;
+      "files" = ("000000000000000000000004");
+      "runOnlyForDeploymentPostprocessing" = 0;
+    };
+    "000000000000000000000006" = {
+      "isa" = "PBXShellScriptBuildPhase";
+      "buildActionMask" = 2147483647;
+      "files" = ();
+      "name" = "Build benchmark framework and resources";
+      "shellPath" = "/bin/sh";
+      "shellScript" = "\"$SRCROOT/build-framework.sh\"\n";
+      "runOnlyForDeploymentPostprocessing" = 0;
+      "alwaysOutOfDate" = 1;
+    };
+    "000000000000000000000007" = {
+      "isa" = "PBXGroup";
+      "name" = "Products";
+      "children" = ("000000000000000000000003");
+      "sourceTree" = "<group>";
+    };
+    "000000000000000000000008" = {
+      "isa" = "PBXGroup";
+      "children" = ("000000000000000000000001", "000000000000000000000002", "000000000000000000000007");
+      "sourceTree" = "<group>";
+    };
+    "000000000000000000000009" = {
+      "isa" = "XCBuildConfiguration";
+      "name" = "Debug";
+      "buildSettings" = {
+        "CLANG_ENABLE_MODULES" = "YES";
+        "CLANG_ENABLE_OBJC_ARC" = "YES";
+        "SWIFT_VERSION" = "5.0";
+        "IPHONEOS_DEPLOYMENT_TARGET" = "15.5";
+        "SDKROOT" = "iphoneos";
+        "TARGETED_DEVICE_FAMILY" = "1,2";
+        "ENABLE_USER_SCRIPT_SANDBOXING" = "NO";
+        "PRODUCT_BUNDLE_IDENTIFIER" = "org.maplibre.compose.benchmark.classic";
+        "PRODUCT_NAME" = "ClassicBenchmark";
+        "PRODUCT_MODULE_NAME" = "ClassicBenchmarkApp";
+        "INFOPLIST_FILE" = "app/Info.plist";
+        "CODE_SIGN_STYLE" = "Automatic";
+        "DEVELOPMENT_TEAM" = "LQ33A6CSK4";
+        "CLASSIC_SDK_SLICE" = "ios-arm64";
+        "CLASSIC_SDK_SLICE[sdk=iphonesimulator*]" = "ios-arm64_x86_64-simulator";
+        "FRAMEWORK_SEARCH_PATHS" = ("$(inherited)", "$(SRCROOT)/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)", "$(SRCROOT)/build/sdk/MapLibre.xcframework/$(CLASSIC_SDK_SLICE)");
+        "OTHER_LDFLAGS" = ("$(inherited)", "-ObjC", "-framework", "ClassicBenchmark", "-framework", "MapLibre");
+        "LD_RUNPATH_SEARCH_PATHS" = ("$(inherited)", "@executable_path/Frameworks");
+        "ARCHS" = "arm64";
+        "SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+        "DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+      };
+    };
+    "00000000000000000000000A" = {
+      "isa" = "XCBuildConfiguration";
+      "name" = "Release";
+      "buildSettings" = {
+        "CLANG_ENABLE_MODULES" = "YES";
+        "CLANG_ENABLE_OBJC_ARC" = "YES";
+        "SWIFT_VERSION" = "5.0";
+        "IPHONEOS_DEPLOYMENT_TARGET" = "15.5";
+        "SDKROOT" = "iphoneos";
+        "TARGETED_DEVICE_FAMILY" = "1,2";
+        "ENABLE_USER_SCRIPT_SANDBOXING" = "NO";
+        "PRODUCT_BUNDLE_IDENTIFIER" = "org.maplibre.compose.benchmark.classic";
+        "PRODUCT_NAME" = "ClassicBenchmark";
+        "PRODUCT_MODULE_NAME" = "ClassicBenchmarkApp";
+        "INFOPLIST_FILE" = "app/Info.plist";
+        "CODE_SIGN_STYLE" = "Automatic";
+        "DEVELOPMENT_TEAM" = "LQ33A6CSK4";
+        "CLASSIC_SDK_SLICE" = "ios-arm64";
+        "CLASSIC_SDK_SLICE[sdk=iphonesimulator*]" = "ios-arm64_x86_64-simulator";
+        "FRAMEWORK_SEARCH_PATHS" = ("$(inherited)", "$(SRCROOT)/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)", "$(SRCROOT)/build/sdk/MapLibre.xcframework/$(CLASSIC_SDK_SLICE)");
+        "OTHER_LDFLAGS" = ("$(inherited)", "-ObjC", "-framework", "ClassicBenchmark", "-framework", "MapLibre");
+        "LD_RUNPATH_SEARCH_PATHS" = ("$(inherited)", "@executable_path/Frameworks");
+        "ARCHS" = "arm64";
+        "SWIFT_OPTIMIZATION_LEVEL" = "-O";
+        "DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+      };
+    };
+    "00000000000000000000000B" = {
+      "isa" = "XCConfigurationList";
+      "buildConfigurations" = ("000000000000000000000009", "00000000000000000000000A");
+      "defaultConfigurationIsVisible" = 0;
+      "defaultConfigurationName" = "Release";
+    };
+    "00000000000000000000000C" = {
+      "isa" = "PBXNativeTarget";
+      "name" = "ClassicBenchmark";
+      "productName" = "ClassicBenchmark";
+      "productType" = "com.apple.product-type.application";
+      "productReference" = "000000000000000000000003";
+      "buildConfigurationList" = "00000000000000000000000B";
+      "buildPhases" = ("000000000000000000000006", "000000000000000000000005");
+      "buildRules" = ();
+      "dependencies" = ();
+    };
+    "00000000000000000000000D" = {
+      "isa" = "XCBuildConfiguration";
+      "name" = "Debug";
+      "buildSettings" = {
+      };
+    };
+    "00000000000000000000000E" = {
+      "isa" = "XCBuildConfiguration";
+      "name" = "Release";
+      "buildSettings" = {
+      };
+    };
+    "00000000000000000000000F" = {
+      "isa" = "XCConfigurationList";
+      "buildConfigurations" = ("00000000000000000000000D", "00000000000000000000000E");
+      "defaultConfigurationIsVisible" = 0;
+      "defaultConfigurationName" = "Release";
+    };
+    "000000000000000000000010" = {
+      "isa" = "PBXProject";
+      "buildConfigurationList" = "00000000000000000000000F";
+      "compatibilityVersion" = "Xcode 14.0";
+      "developmentRegion" = "en";
+      "knownRegions" = ("en", "Base");
+      "mainGroup" = "000000000000000000000008";
+      "productRefGroup" = "000000000000000000000007";
+      "projectDirPath" = "";
+      "projectRoot" = "";
+      "targets" = ("00000000000000000000000C");
+      "attributes" = {
+        "BuildIndependentTargetsInParallel" = "YES";
+      };
+    };
+  };
+  "rootObject" = "000000000000000000000010";
+}
