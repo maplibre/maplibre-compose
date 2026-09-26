@@ -71,8 +71,9 @@ if [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]
   rm -rf "$mln_dir"
   git init --quiet "$mln_dir"
   git -C "$mln_dir" remote add origin https://github.com/maplibre/maplibre-native.git
+  # No leading slashes: Git Bash on Windows would rewrite them as Windows paths.
   git -C "$mln_dir" sparse-checkout set --no-cone \
-    /include/mln/plugin /plugins/ngon-layer/shared /plugins/ngon-layer/scripts
+    include/mln/plugin plugins/ngon-layer/shared plugins/ngon-layer/scripts
   git -C "$mln_dir" fetch --quiet --depth 1 --filter=blob:none origin "$mln_commit"
   git -C "$mln_dir" checkout --quiet FETCH_HEAD
   echo "$mln_commit" >"$mln_dir/.commit"
