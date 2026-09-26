@@ -19,10 +19,39 @@ data class Snapshot(
   val summary: Summary,
   val sourceSets: List<SourceSetReport>,
   val packages: List<PackageReport>,
+  val modules: List<ModuleReport>,
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
+  val thresholds: Thresholds = detektDefaults,
+  /** Every production file, for browsing by module, package, and file. */
+  val files: List<FileReport>,
   val scopes: List<ScopeReport> = emptyList(),
+)
+
+/** The values Detekt's complexity rules allow; each rule reports functions above its value. */
+@Serializable
+data class Thresholds(
+  val cognitiveComplexMethod: Int,
+  val cyclomaticComplexMethod: Int,
+  val longMethod: Int,
+)
+
+/**
+ * Detekt's defaults for its `CognitiveComplexMethod`, `CyclomaticComplexMethod`, and `LongMethod`.
+ */
+val detektDefaults =
+  Thresholds(cognitiveComplexMethod = 15, cyclomaticComplexMethod = 14, longMethod = 60)
+
+@Serializable
+data class FileReport(
+  val path: String,
+  val module: String,
+  val sourceSet: String,
+  val packageName: String,
+  val loc: Int,
+  val functions: Int,
+  val cognitiveComplexity: Int,
 )
 
 /** A filtered report, recomputed from the files in this scope, including its percentiles. */
@@ -33,6 +62,7 @@ data class ScopeReport(
   val summary: Summary,
   val sourceSets: List<SourceSetReport>,
   val packages: List<PackageReport>,
+  val modules: List<ModuleReport>,
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
@@ -68,6 +98,10 @@ data class Summary(
   val fileLocMax: Int,
   val typeLinesP90: Int,
   val typeLinesMax: Int,
+  // Functions over each of [Snapshot.thresholds].
+  val cognitiveComplexMethods: Int,
+  val cyclomaticComplexMethods: Int,
+  val longMethods: Int,
   // Structure.
   val packageEdges: Int,
   val packageCycles: Int,
@@ -119,6 +153,16 @@ data class PackageReport(
   val externalImports: Int,
 )
 
+/** A module's imports of other modules, by the modules that declare what it imports. */
+@Serializable
+data class ModuleReport(
+  val name: String,
+  val dependsOn: List<String>,
+  val dependedOnBy: List<String>,
+  /** dependsOn / (dependsOn + dependedOnBy). */
+  val instability: Double,
+)
+
 @Serializable data class PackageEdge(val from: String, val to: String, val imports: Int)
 
 @Serializable
@@ -138,8 +182,6 @@ data class Distribution(
   val p99: Int,
   val max: Int,
   val maxName: String?,
-  /** Exact value frequencies; their sum is [count]. */
-  val histogram: Map<Int, Int> = emptyMap(),
 )
 
 @Serializable data class Ranked(val name: String, val value: Int)

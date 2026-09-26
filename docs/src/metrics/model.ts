@@ -2,8 +2,12 @@
 export interface Index {
   totalCommits: number;
   step: number;
-  /** Detekt's reporting threshold per distribution, as used for the `.over` counts. */
-  thresholds: Record<string, number>;
+  /** The values Detekt's complexity rules allow; the `*Methods` counts are functions above them. */
+  thresholds: {
+    cognitiveComplexMethod: number;
+    cyclomaticComplexMethod: number;
+    longMethod: number;
+  };
   /** Oldest first. */
   commits: Commit[];
   scopes: Scope[];
@@ -30,20 +34,26 @@ export interface Ranked {
   value: number;
 }
 
-export interface SourceSet {
+/** A production file at one commit; see FileReport in tools/code-metrics. */
+export interface FileReport {
+  path: string;
   module: string;
-  name: string;
-  isTest: boolean;
+  sourceSet: string;
+  packageName: string;
   loc: number;
-  types: number;
   functions: number;
   cognitiveComplexity: number;
 }
 
 export interface Package {
   name: string;
-  loc: number;
-  types: number;
+  dependsOn: string[];
+  dependedOnBy: string[];
+  instability: number;
+}
+
+export interface ModuleReport {
+  name: string;
   dependsOn: string[];
   dependedOnBy: string[];
   instability: number;
@@ -51,8 +61,8 @@ export interface Package {
 
 export interface Snapshot {
   commit: string;
-  sourceSets: SourceSet[];
   packages: Package[];
+  modules: ModuleReport[];
   packageGraph: { cycles: string[][] };
   largest: {
     functionsByCognitiveComplexity: Ranked[];
@@ -62,6 +72,9 @@ export interface Snapshot {
 }
 
 export const repository = "https://github.com/maplibre/maplibre-compose";
+
+/** Anchor properties for links that leave the page, such as to GitHub. */
+export const newTab = { target: "_blank", rel: "noopener noreferrer" };
 
 export function isRelease(tag: string) {
   return /^v\d+\.\d+\.\d+$/.test(tag);

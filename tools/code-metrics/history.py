@@ -23,7 +23,7 @@ def scope_id(scope):
     return scope["module"].replace("/", "_") if scope["module"] else scope["group"]
 
 
-def build_history(since, output, step):
+def build_history(start, output, step):
     install = Path("tools/code-metrics/build/install/code-metrics")
     # Cache the installed analyzer and dependency versions, including local changes.
     digest = hashlib.sha256()
@@ -38,12 +38,11 @@ def build_history(since, output, step):
         "log",
         "--first-parent",
         "--reverse",
-        f"--since-as-filter={since}",
         "--format=%H",
-        "HEAD",
+        f"{start}~..HEAD",
     ).splitlines()
     if not commits:
-        raise ValueError(f"No commits since {since}")
+        raise ValueError(f"No commits from {start}")
     selected = commits[::step]
     if selected[-1] != commits[-1]:
         selected.append(commits[-1])
@@ -70,13 +69,12 @@ def build_history(since, output, step):
     ).splitlines():
         parts = line.split()
         tags.setdefault(parts[-1], []).append(parts[0])
-    # Detekt's defaults for its CognitiveComplexMethod, CyclomaticComplexMethod and LongMethod rules.
-    thresholds = {
-        "functionCognitiveComplexity": 15,
-        "functionCyclomaticComplexity": 14,
-        "functionLines": 60,
-    }
     summary_keys = ["loc", "testLoc", "functions", "packages", "packagesInCycles"]
+    summary_keys += [
+        "cognitiveComplexMethods",
+        "cyclomaticComplexMethods",
+        "longMethods",
+    ]
     # Replace earlier exports rather than leave files no index refers to.
     shutil.rmtree(output, ignore_errors=True)
     entries, scopes, series = [], {}, {}
@@ -93,12 +91,6 @@ def build_history(since, output, step):
             for name, distribution in scope["distributions"].items():
                 for statistic in ["p90", "p99"]:
                     values[f"{name}.{statistic}"] = distribution[statistic]
-                if name in thresholds:
-                    values[f"{name}.over"] = sum(
-                        count
-                        for value, count in distribution["histogram"].items()
-                        if int(value) > thresholds[name]
-                    )
             columns = series.setdefault(key, {})
             for name, value in values.items():
                 columns.setdefault(name, [None] * len(selected))[index] = value
@@ -106,6 +98,7 @@ def build_history(since, output, step):
                 output / "snapshots" / commit / f"{key}.json",
                 {"commit": commit, **scope},
             )
+        write_json(output / "snapshots" / commit / "files.json", snapshot["files"])
         entries.append(
             {
                 "commit": commit,
@@ -123,7 +116,7 @@ def build_history(since, output, step):
             "schemaVersion": 3,
             "step": step,
             "totalCommits": len(commits),
-            "thresholds": thresholds,
+            "thresholds": snapshot["thresholds"],
             "commits": entries,
             "scopes": list(scopes.values()),
         },
@@ -133,13 +126,16 @@ def build_history(since, output, step):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--since", default="2 months ago")
+    # The first release without the C++ JNI code; earlier commits measure a different architecture.
+    parser.add_argument(
+        "--from", dest="start", default="v0.14.0", help="First commit to measure"
+    )
     parser.add_argument("--output", type=Path, default=Path("docs/public/metrics-data"))
     parser.add_argument("--step", type=int, default=1, help="Sample every Nth commit")
     args = parser.parse_args()
     if args.step < 1:
         parser.error("--step must be positive")
-    build_history(args.since, args.output, args.step)
+    build_history(args.start, args.output, args.step)
 
 
 if __name__ == "__main__":

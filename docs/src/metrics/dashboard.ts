@@ -1,14 +1,18 @@
 import { TrendChart, type ChartSpec, type Timeline } from "./chart";
+import { icon, type icons } from "./icons";
+import { define, definitions, installTooltips, term } from "./terms";
+import { Tree } from "./tree";
 import {
   declaration,
   format,
   formatDate,
   formatDelta,
   isRelease,
+  newTab,
   repository,
   sourceUrl,
+  type FileReport,
   type Index,
-  type Package,
   type Ranked,
   type Scope,
   type Series,
@@ -16,29 +20,40 @@ import {
 } from "./model";
 
 type Group = Scope["group"];
+type Definitions = ReturnType<typeof definitions>;
 
-const tiles: { key: string; label: string; note?: (index: Index, at: Series, i: number) => string }[] = [
+interface Tile {
+  key: string;
+  label: string;
+  definition?: keyof Definitions;
+  note?: (index: Index, series: Series, i: number) => string;
+}
+
+const tiles: Tile[] = [
   { key: "loc", label: "Production code", note: () => "lines" },
   { key: "testLoc", label: "Test code", note: () => "lines" },
   { key: "functions", label: "Functions" },
   {
-    key: "functionCognitiveComplexity.over",
+    key: "cognitiveComplexMethods",
     label: "Complex functions",
-    note: (index) => `cognitive score over ${index.thresholds.functionCognitiveComplexity}`,
+    definition: "complexFunctions",
+    note: (index) => `cognitive > ${index.thresholds.cognitiveComplexMethod}`,
   },
   {
-    key: "functionLines.over",
+    key: "longMethods",
     label: "Long functions",
-    note: (index) => `over ${index.thresholds.functionLines} lines`,
+    definition: "longFunctions",
+    note: (index) => `over ${index.thresholds.longMethod} lines`,
   },
   {
     key: "packagesInCycles",
     label: "Packages in cycles",
+    definition: "cycle",
     note: (_, series, i) => `of ${format(series.packages?.[i])} packages`,
   },
 ];
 
-function charts(index: Index): ChartSpec[] {
+function charts(index: Index, d: Definitions): ChartSpec[] {
   const t = index.thresholds;
   return [
     {
@@ -53,13 +68,14 @@ function charts(index: Index): ChartSpec[] {
       title: "Functions over Detekt thresholds",
       unit: "functions",
       series: [
-        { key: "functionCognitiveComplexity.over", label: `Cognitive > ${t.functionCognitiveComplexity}` },
-        { key: "functionCyclomaticComplexity.over", label: `Cyclomatic > ${t.functionCyclomaticComplexity}` },
-        { key: "functionLines.over", label: `Length > ${t.functionLines}` },
+        { key: "cognitiveComplexMethods", label: `Cognitive > ${t.cognitiveComplexMethod}`, definition: d.cognitive },
+        { key: "cyclomaticComplexMethods", label: `Cyclomatic > ${t.cyclomaticComplexMethod}`, definition: d.cyclomatic },
+        { key: "longMethods", label: `Length > ${t.longMethod}`, definition: d.longFunctions },
       ],
     },
     {
       title: "Function cognitive complexity",
+      definition: d.cognitive,
       unit: "score",
       series: [
         { key: "functionCognitiveComplexity.p90", label: "p90" },
@@ -84,6 +100,7 @@ function charts(index: Index): ChartSpec[] {
     },
     {
       title: "Packages in dependency cycles",
+      definition: d.cycle,
       unit: "packages",
       series: [{ key: "packagesInCycles", label: "Packages" }],
     },
@@ -100,6 +117,14 @@ function el<K extends keyof HTMLElementTagNameMap>(
   const element = Object.assign(document.createElement(tag), props);
   element.append(...children);
   return element;
+}
+
+function commitLink(commit: string) {
+  return el("a", { ...newTab, className: "metrics-sha", href: `${repository}/commit/${commit}`, textContent: commit.slice(0, 7) });
+}
+
+function releaseLink(tag: string) {
+  return el("a", { ...newTab, href: `${repository}/releases/tag/${tag}`, textContent: tag });
 }
 
 function moduleName(module: string) {
@@ -126,9 +151,8 @@ export async function start() {
   }
   const { commits } = index;
   const last = commits.length - 1;
-  $("metrics-coverage").textContent =
-    `${format(commits.length)} ${index.step > 1 ? `of ${format(index.totalCommits)} ` : ""}commits, ` +
-    `${formatDate(commits[0].date)} to ${formatDate(commits[last].date)}.`;
+  const defs = definitions(index.thresholds);
+  installTooltips(root);
 
   let group: Group = (["library", "demo", "all"] as const).find((g) => g === params.get("code")) ?? "library";
   let module: string | null = params.get("module");
@@ -154,10 +178,11 @@ export async function start() {
       void loadDetail();
     },
   };
-  const specs = charts(index);
+  const specs = charts(index, defs);
   const trendCharts = specs.map((spec) => new TrendChart(spec, timeline));
   $("metrics-charts").append(...trendCharts.map((chart) => chart.element));
 
+  const tree = new Tree($("metrics-tree"), defs);
   const scope = () =>
     index.scopes.find((s) => (module ? s.module === module : s.module === null && s.group === group))!;
 
@@ -196,7 +221,50 @@ export async function start() {
     module = moduleSelect.value || null;
     void loadScope();
   });
-  $("metrics-latest").addEventListener("click", () => timeline.select(last));
+
+  const releaseIndices = commits.flatMap((c, i) => (c.tags.some(isRelease) ? [i] : []));
+  const releaseOf = (i: number) => commits[i].tags.find(isRelease);
+  const navigation: {
+    id: string;
+    icon: keyof typeof icons;
+    target(): number | null;
+    label(target: number | null): string;
+  }[] = [
+    {
+      id: "metrics-previous-release",
+      icon: "skipPrevious",
+      target: () => releaseIndices.findLast((i) => i < selected) ?? null,
+      label: (i) => (i == null ? "No earlier release" : `Previous release: ${releaseOf(i)}`),
+    },
+    {
+      id: "metrics-previous",
+      icon: "chevronLeft",
+      target: () => (selected > 0 ? selected - 1 : null),
+      label: (i) => (i == null ? "No earlier commit" : "Previous commit"),
+    },
+    {
+      id: "metrics-next",
+      icon: "chevronRight",
+      target: () => (selected < last ? selected + 1 : null),
+      label: (i) => (i == null ? "No later commit" : "Next commit"),
+    },
+    {
+      id: "metrics-next-release",
+      icon: "skipNext",
+      // Past the last release, this goes to the latest commit.
+      target: () => releaseIndices.find((i) => i > selected) ?? (selected < last ? last : null),
+      label: (i) =>
+        i == null ? "No later commit" : releaseOf(i) ? `Next release: ${releaseOf(i)}` : "Latest commit",
+    },
+  ];
+  for (const nav of navigation) {
+    const button = $<HTMLButtonElement>(nav.id);
+    button.append(icon(nav.icon));
+    button.addEventListener("click", () => {
+      const target = nav.target();
+      if (target != null) timeline.select(target);
+    });
+  }
 
   /** The release before [i] that the tiles compare against, or the first commit. */
   function baseline(i: number) {
@@ -210,16 +278,19 @@ export async function start() {
   function showSelection() {
     const commit = commits[selected];
     const release = commit.tags.find(isRelease);
-    $("metrics-selection-label").textContent =
-      (selected === last ? "Latest commit" : release ? `Release ${release}` : "Selected commit") +
-      `, ${formatDate(commit.date)}`;
-    const link = $<HTMLAnchorElement>("metrics-selection-commit");
-    link.href = `${repository}/commit/${commit.commit}`;
-    link.textContent = commit.commit.slice(0, 7);
+    $("metrics-selection-label").replaceChildren(
+      ...(release ? ["Release ", releaseLink(release)] : [selected === last ? "Latest commit" : "Selected commit"]),
+      `, ${formatDate(commit.date)}`,
+    );
+    $("metrics-selection-commit").replaceChildren(commitLink(commit.commit));
     $("metrics-selection-title").textContent = commit.title;
-    $("metrics-latest").hidden = selected === last;
-    $("metrics-detail-commit").textContent =
-      `At ${commit.commit.slice(0, 7)}${release ? ` (${release})` : ""}, ${formatDate(commit.date)}.`;
+    for (const nav of navigation) {
+      const button = $<HTMLButtonElement>(nav.id);
+      const target = nav.target();
+      button.disabled = target == null;
+      button.ariaLabel = nav.label(target);
+      define(button, button.ariaLabel);
+    }
 
     const { index: before, label } = baseline(selected);
     $("metrics-tiles").replaceChildren(
@@ -230,7 +301,11 @@ export async function start() {
         return el(
           "div",
           { className: "metrics-tile" },
-          el("div", { className: "metrics-tile-label", textContent: tile.label }),
+          el(
+            "div",
+            { className: "metrics-tile-label" },
+            tile.definition ? term(tile.label, defs[tile.definition]) : tile.label,
+          ),
           el("div", { className: "metrics-tile-value", textContent: format(value) }),
           el("div", { className: "metrics-muted", textContent: tile.note?.(index, series, selected) ?? " " }),
           el("div", {
@@ -274,8 +349,12 @@ export async function start() {
     const status = $("metrics-detail-status");
     $("metrics-detail").classList.add("metrics-stale");
     let snapshot: Snapshot;
+    let files: FileReport[];
     try {
-      snapshot = await fetchJson<Snapshot>(new URL(`snapshots/${commit}/${scope().id}.json`, base));
+      [snapshot, files] = await Promise.all([
+        fetchJson<Snapshot>(new URL(`snapshots/${commit}/${scope().id}.json`, base)),
+        fetchJson<FileReport[]>(new URL(`snapshots/${commit}/files.json`, base)),
+      ]);
     } catch {
       if (load !== detailLoad) return;
       status.textContent = `Not present at ${commits[selected].commit.slice(0, 7)}.`;
@@ -287,12 +366,11 @@ export async function start() {
     $("metrics-detail").hidden = false;
     $("metrics-detail").classList.remove("metrics-stale");
     showHotspots(snapshot);
-    showBreakdown(snapshot);
-    showPackages(snapshot);
+    showTree(snapshot, files);
   }
 
   function showHotspots(snapshot: Snapshot) {
-    const list = (title: string, measure: string, ranked: Ranked[], functions: boolean) => {
+    const list = (title: string, measure: string | Node, ranked: Ranked[], functions: boolean) => {
       const items = ranked.slice(0, 10).map((entry) => {
         const d = declaration(entry.name);
         const context = [module ? null : moduleName(d.module), d.sourceSet, functions ? d.file : null];
@@ -303,7 +381,7 @@ export async function start() {
           el(
             "span",
             {},
-            el("a", { href: sourceUrl(snapshot.commit, d.path, d.line), textContent: d.name }),
+            el("a", { ...newTab, href: sourceUrl(snapshot.commit, d.path, d.line), textContent: d.name }),
             el("span", { className: "metrics-muted", textContent: context.filter(Boolean).join(" · ") }),
           ),
         );
@@ -312,151 +390,32 @@ export async function start() {
         "section",
         { className: "metrics-hotspot" },
         el("h3", { textContent: title }),
-        el("p", { className: "metrics-muted", textContent: measure }),
+        el("p", { className: "metrics-muted" }, measure),
         el("ol", {}, ...items),
       );
     };
     const { largest } = snapshot;
     $("metrics-hotspots").replaceChildren(
-      list("Most complex functions", "cognitive complexity", largest.functionsByCognitiveComplexity, true),
+      list(
+        "Most complex functions",
+        term("cognitive complexity", defs.cognitive),
+        largest.functionsByCognitiveComplexity,
+        true,
+      ),
       list("Longest functions", "lines of code", largest.functionsByLines, true),
       list("Largest files", "lines", largest.filesByLoc, false),
     );
   }
 
-  function table(
-    host: HTMLTableElement,
-    columns: { label: string; numeric?: boolean }[],
-    rows: (Node | string)[][],
-  ) {
-    host.replaceChildren(
-      el("thead", {}, el("tr", {}, ...columns.map((c) => el("th", { className: c.numeric ? "metrics-num" : "", textContent: c.label })))),
-      el(
-        "tbody",
-        {},
-        ...rows.map((row) =>
-          el("tr", {}, ...row.map((cell, i) => el("td", { className: columns[i].numeric ? "metrics-num" : "" }, cell))),
-        ),
-      ),
+  function showTree(snapshot: Snapshot, files: FileReport[]) {
+    const modules = new Set(
+      index.scopes.filter((s) => s.module && (group === "all" || s.group === group)).map((s) => s.module),
     );
-  }
-
-  function showBreakdown(snapshot: Snapshot) {
-    const columns = [
-      { label: module ? "Source set" : "Module" },
-      { label: "Lines", numeric: true },
-      { label: "Test lines", numeric: true },
-      { label: "Functions", numeric: true },
-      { label: "Cognitive complexity (sum)", numeric: true },
-    ];
-    const groups = new Map<string, { loc: number; testLoc: number; functions: number; cognitive: number }>();
-    for (const set of snapshot.sourceSets) {
-      const key = module ? set.name : set.module;
-      const row = groups.get(key) ?? { loc: 0, testLoc: 0, functions: 0, cognitive: 0 };
-      if (set.isTest) row.testLoc += set.loc;
-      else {
-        row.loc += set.loc;
-        row.functions += set.functions;
-        row.cognitive += set.cognitiveComplexity;
-      }
-      groups.set(key, row);
-    }
-    const rows = [...groups].sort(([, a], [, b]) => b.loc - a.loc || b.testLoc - a.testLoc);
-    const total = rows.reduce((sum, [, row]) => sum + row.loc, 0) || 1;
-    $("breakdown").textContent = module ? `Source sets in ${moduleName(module)}` : "Modules";
-    table(
-      $("metrics-breakdown"),
-      columns,
-      rows.map(([name, row]) => {
-        const label = module
-          ? el("span", { textContent: name })
-          : el("button", {
-              className: "metrics-link-button",
-              textContent: moduleName(name),
-              title: name,
-              onclick: () => {
-                module = name;
-                void loadScope();
-              },
-            });
-        const share = el("span", { className: "metrics-share" });
-        share.style.width = `${(row.loc / total) * 100}%`;
-        return [
-          el("span", { className: "metrics-name-cell" }, label, share),
-          format(row.loc),
-          row.testLoc ? format(row.testLoc) : "–",
-          row.loc ? format(row.functions) : "–",
-          row.loc ? format(row.cognitive) : "–",
-        ];
-      }),
-    );
-  }
-
-  let showAllPackages = false;
-  function showPackages(snapshot: Snapshot) {
-    const names = snapshot.packages.map((p) => p.name);
-    const prefix = commonPrefix(names);
-    const short = (name: string) => (prefix && name.startsWith(prefix) ? name.slice(prefix.length) || name : name);
-    const inCycle = new Set(snapshot.packageGraph.cycles.flat());
-
-    const cycles = snapshot.packageGraph.cycles;
-    $("metrics-cycles").replaceChildren(
-      el(
-        "p",
-        {},
-        cycles.length
-          ? `${inCycle.size} of ${names.length} packages are in ${cycles.length === 1 ? "a dependency cycle" : `${cycles.length} dependency cycles`}.`
-          : `No dependency cycles among ${names.length} packages.`,
-        prefix ? ` Names are relative to ${prefix.replace(/\.$/, "")}.` : "",
-      ),
-      ...cycles.map((cycle) =>
-        el("ul", { className: "metrics-chips" }, ...cycle.map((name) => el("li", { textContent: short(name) }))),
-      ),
-    );
-
-    const sorted = [...snapshot.packages].sort((a, b) => b.loc - a.loc);
-    const visible = showAllPackages ? sorted : sorted.slice(0, 10);
-    table(
-      $("metrics-packages"),
-      [
-        { label: "Package" },
-        { label: "Lines", numeric: true },
-        { label: "Types", numeric: true },
-        { label: "Imports", numeric: true },
-        { label: "Imported by", numeric: true },
-        { label: "Instability", numeric: true },
-      ],
-      visible.map((p: Package) => [
-        el(
-          "span",
-          { className: "metrics-name-cell" },
-          el("code", { textContent: short(p.name), title: p.name }),
-          inCycle.has(p.name) ? el("span", { className: "metrics-tag", textContent: "cycle" }) : "",
-        ),
-        format(p.loc),
-        format(p.types),
-        format(p.dependsOn.length),
-        format(p.dependedOnBy.length),
-        p.instability.toFixed(2),
-      ]),
-    );
-    const more = $<HTMLButtonElement>("metrics-packages-more");
-    more.hidden = sorted.length <= 10;
-    more.textContent = showAllPackages ? "Show fewer packages" : `Show all ${sorted.length} packages`;
-    more.onclick = () => {
-      showAllPackages = !showAllPackages;
-      showPackages(snapshot);
-    };
+    const inScope = files.filter((f) => (module ? f.module === module : modules.has(f.module)));
+    const { packages, modules: moduleReports, packageGraph } = snapshot;
+    tree.show(inScope, packages, moduleReports, packageGraph.cycles, snapshot.commit, !module);
+    $("structure").textContent = module ? `Packages in ${moduleName(module)}` : "Modules";
   }
 
   await loadScope();
-}
-
-/** The longest dotted prefix, ending in a dot, shared by every name. */
-function commonPrefix(names: string[]) {
-  if (names.length < 2) return "";
-  const parts = names.map((n) => n.split("."));
-  const shared: string[] = [];
-  for (let i = 0; parts.every((p) => i < p.length - 1 && p[i] === parts[0][i]); i++) shared.push(parts[0][i]);
-  return shared.length ? `${shared.join(".")}.` : "";
 }

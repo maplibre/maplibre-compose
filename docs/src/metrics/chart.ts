@@ -1,9 +1,11 @@
 import { format, formatCompact, formatDate, type Commit } from "./model";
+import { define, term } from "./terms";
 
 export interface ChartSpec {
   title: string;
   unit: string;
-  series: { key: string; label: string }[];
+  definition?: string;
+  series: { key: string; label: string; definition?: string }[];
 }
 
 export interface Timeline {
@@ -101,6 +103,7 @@ export class TrendChart {
     const title = document.createElement("span");
     title.className = "metrics-chart-title";
     title.textContent = spec.title;
+    if (spec.definition) define(title, spec.definition);
     const unit = document.createElement("span");
     unit.className = "metrics-muted";
     unit.textContent = spec.unit;
@@ -114,7 +117,7 @@ export class TrendChart {
       swatch.className = `metrics-swatch metrics-series-${i + 1}`;
       const value = document.createElement("strong");
       this.values.push(value);
-      item.append(swatch, `${series.label} `, value);
+      item.append(swatch, series.definition ? term(series.label, series.definition) : series.label, " ", value);
       legend.append(item);
     });
 

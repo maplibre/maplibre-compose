@@ -245,17 +245,68 @@ class AnalysisTest {
     val distribution = distribution(values)
 
     assertEquals(50, distribution.p50)
-    assertEquals(100, distribution.histogram.values.sum())
-    assertEquals((1..100).associateWith { 1 }, distribution.histogram)
-    assertEquals(
-      mapOf(0 to 2, 80 to 1),
-      distribution(listOf(Ranked("a", 0), Ranked("b", 0), Ranked("outlier", 80))).histogram,
-    )
     assertEquals(90, distribution.p90)
     assertEquals(99, distribution.p99)
     assertEquals(100, distribution.max)
     assertEquals("v100", distribution.maxName)
     assertEquals(Distribution(0, 0.0, 0, 0, 0, 0, null), distribution(emptyList()))
+  }
+
+  @Test
+  fun `counts functions over Detekt's thresholds per summary and file`() {
+    val nested = (1..6).joinToString("") { "if (a > $it) { " } + "println()" + " }".repeat(6)
+    val flat = (1..14).joinToString("\n") { "if (a == $it) println()" }
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      """
+      package a
+      fun nested(a: Int) { $nested }
+      fun flat(a: Int) {
+      $flat
+      }
+      fun long() {
+      ${"println()\n".repeat(61)}
+      }
+      """
+        .trimIndent(),
+    )
+    write("lib/a/src/commonTest/kotlin/a/ATest.kt", "package a\nfun nestedTest(a: Int) { $nested }")
+
+    val files = analyze()
+    val (summary, _) = aggregate(files, top = 5)
+
+    assertEquals(1, summary.cognitiveComplexMethods)
+    assertEquals(1, summary.cyclomaticComplexMethods)
+    assertEquals(1, summary.longMethods)
+    val file = fileReports(files).single()
+    assertEquals("lib/a/src/commonMain/kotlin/a/A.kt", file.path)
+    assertEquals("a", file.packageName)
+    assertEquals(3, file.functions)
+    assertEquals(21 + 14, file.cognitiveComplexity)
+  }
+
+  @Test
+  fun `resolves module dependencies through types and split packages`() {
+    write("lib/core/src/commonMain/kotlin/core/Core.kt", "package core\nclass Core")
+    write("lib/core/src/commonMain/kotlin/shared/A.kt", "package shared\nfun fromCore() = 1")
+    write("lib/ext/src/commonMain/kotlin/shared/B.kt", "package shared\nfun fromExt() = 1")
+    write(
+      "lib/ext/src/commonMain/kotlin/ext/Ext.kt",
+      "package ext\nimport core.Core\nimport shared.fromExt\nfun ext(c: Core) = fromExt()",
+    )
+    write(
+      "lib/app/src/commonMain/kotlin/app/App.kt",
+      "package app\nimport shared.fromCore\nfun app() = fromCore()",
+    )
+
+    val modules = moduleReports(analyze()).associateBy { it.name }
+
+    // The split package resolves to the importer's own copy, or to every copy when it has none.
+    assertEquals(listOf("lib/core", "lib/ext"), modules.getValue("lib/app").dependsOn)
+    assertEquals(listOf("lib/core"), modules.getValue("lib/ext").dependsOn)
+    assertEquals(listOf("lib/app", "lib/ext"), modules.getValue("lib/core").dependedOnBy)
+    assertEquals(0.0, modules.getValue("lib/core").instability)
+    assertEquals(1.0, modules.getValue("lib/app").instability)
   }
 
   @Test

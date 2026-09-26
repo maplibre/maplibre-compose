@@ -27,13 +27,13 @@ The docs site's [Code metrics](../../docs/src/pages/metrics.astro) page charts
 these measurements across the history of `main`. To preview it with local data:
 
 ```sh
-mise run metrics:site-data -- --since 2026-07-25
+mise run metrics:site-data
 mise run metrics:dev
 ```
 
-Then open `http://127.0.0.1:4321/maplibre-compose/metrics/`. `--step 16`
-measures every sixteenth commit for a quicker preview. Without `--since`, the
-export covers the last two months.
+Then open `http://127.0.0.1:4321/maplibre-compose/metrics/`. The export starts
+at v0.14.0, the first release without the C++ JNI code; `--from <ref>` starts
+elsewhere. `--step 16` measures every sixteenth commit for a quicker preview.
 
 `history.py` runs the reporter with `--scopes` over the first-parent commits it
 hasn't measured yet, caching each result under `build/metrics/history/` by the
@@ -41,11 +41,12 @@ reporter's jar and dependency versions. It writes this to
 `docs/public/metrics-data/`, which Git ignores:
 
 - `index.json`: every commit with its date, subject, and tags; the available
-  scopes; and the Detekt thresholds used for the `.over` counts.
+  scopes; and the Detekt thresholds behind the complex and long function counts.
 - `series/<scope>.json`: one column per charted metric, aligned with the commits
   in the index.
-- `snapshots/<commit>/<scope>.json`: the full report behind the hotspots and
+- `snapshots/<commit>/<scope>.json`: the report behind the hotspots and package
   tables, fetched when a commit is selected.
+- `snapshots/<commit>/files.json`: every production file, for the module tree.
 
 A scope is all code, the library, the demo app, or one module. Each is
 recomputed from its own files, so its percentiles and package graph ignore code

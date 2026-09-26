@@ -15,13 +15,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }}
 >
   <div class="metrics" data-source={`${base}/metrics-data/`}>
-    <p>
-      Size and complexity of the Kotlin under <code>lib/</code> and <code
-      >demo-app/</code>, per commit on <code>main</code>. <span
-        id="metrics-coverage"
-      ></span>
-    </p>
-
     <div class="metrics-toolbar">
       <div class="metrics-segmented" role="radiogroup" aria-label="Code">
         <button role="radio" data-group="library">Library</button>
@@ -38,96 +31,40 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
     <div id="metrics-body" hidden>
       <div class="metrics-selection">
-        <div>
-          <span id="metrics-selection-label"></span>
-          <a id="metrics-selection-commit" class="metrics-sha"></a>
-          <span id="metrics-selection-title" class="metrics-muted"></span>
+        <div class="metrics-nav" role="group" aria-label="Commits">
+          <button id="metrics-previous-release"></button>
+          <button id="metrics-previous"></button>
+          <button id="metrics-next"></button>
+          <button id="metrics-next-release"></button>
         </div>
-        <button id="metrics-latest" class="metrics-link-button" hidden>
-          Back to latest
-        </button>
+        <span id="metrics-selection-label"></span>
+        <span id="metrics-selection-commit"></span>
+        <span id="metrics-selection-title" class="metrics-muted"></span>
       </div>
 
       <div id="metrics-tiles" class="metrics-tiles"></div>
 
       <h2 id="trends">Over time</h2>
-      <p class="metrics-muted metrics-hint">
-        Click a chart or use the arrow keys to select a commit.
-      </p>
       <div id="metrics-charts" class="metrics-charts"></div>
 
       <h2 id="hotspots">Hotspots</h2>
-      <p id="metrics-detail-commit" class="metrics-muted"></p>
       <div id="metrics-detail-status" class="metrics-status" role="status">
       </div>
       <div id="metrics-detail">
         <div id="metrics-hotspots" class="metrics-hotspots"></div>
 
-        <h2 id="breakdown">Modules</h2>
+        <h2 id="structure">Modules</h2>
         <div class="metrics-table-scroll">
-          <table id="metrics-breakdown" class="metrics-table"></table>
+          <div
+            id="metrics-tree"
+            class="metrics-tree"
+            role="treegrid"
+            aria-labelledby="structure"
+          >
+          </div>
         </div>
-
-        <h2 id="dependencies">Package dependencies</h2>
-        <div id="metrics-cycles"></div>
-        <div class="metrics-table-scroll">
-          <table id="metrics-packages" class="metrics-table"></table>
-        </div>
-        <button id="metrics-packages-more" class="metrics-link-button" hidden>
-        </button>
       </div>
     </div>
-
-    <h2 id="definitions">Definitions</h2>
-    <p>
-      <a
-        href="https://github.com/maplibre/maplibre-compose/tree/main/tools/code-metrics"
-      >tools/code-metrics</a> parses each file with the Kotlin compiler and
-      scores it with <a href="https://detekt.dev/docs/rules/complexity/"
-      >Detekt</a>'s metrics. Parsing is syntax-only, so package dependencies
-      come from import statements. Test source sets count toward test lines and
-      nothing else.
-    </p>
-    <dl class="metrics-definitions">
-      <dt>Scope</dt>
-      <dd>
-        Every number is recomputed from the selected files. For a module,
-        imports of other modules are external and don't form cycles.
-      </dd>
-      <dt>Lines</dt>
-      <dd>
-        File lengths count every line. Function and type lengths count only
-        lines with code.
-      </dd>
-      <dt>Cognitive complexity</dt>
-      <dd>
-        Breaks in linear control flow, weighted by nesting. Detekt's <code
-        >CognitiveComplexMethod</code> reports functions over 15.
-      </dd>
-      <dt>Cyclomatic complexity</dt>
-      <dd>
-        One plus each branch, loop, <code>catch</code>, <code>break</code> or
-        <code>continue</code>, <code>&&</code>, <code>||</code>, <code
-        >?:</code>, and call to a scope function such as <code>let</code> or
-        <code>forEach</code>. Detekt's <code>CyclomaticComplexMethod</code>
-        reports functions over 14.
-      </dd>
-      <dt>Long functions</dt>
-      <dd>
-        Over 60 lines of code. Detekt's <code>LongMethod</code> reports these.
-      </dd>
-      <dt>p90, p99</dt>
-      <dd>
-        The value that 90% or 99% of functions or files are at or below.
-      </dd>
-      <dt>Dependency cycle</dt>
-      <dd>Packages that reach each other by following imports.</dd>
-      <dt>Instability</dt>
-      <dd>
-        Packages imported divided by packages imported plus packages importing
-        it. 0 is imported only; 1 imports only.
-      </dd>
-    </dl>
   </div>
 
   <script>

@@ -13,6 +13,7 @@ fun scopedReports(files: List<FileFacts>, top: Int): List<ScopeReport> = buildLi
         summary,
         sections.sourceSets,
         sections.packages,
+        sections.modules,
         sections.packageGraph,
         sections.distributions,
         sections.largest,

@@ -152,9 +152,11 @@ private fun measure(options: Options, parser: KotlinParser): Snapshot {
     summary = summary,
     sourceSets = sections.sourceSets,
     packages = sections.packages,
+    modules = sections.modules,
     packageGraph = sections.packageGraph,
     distributions = sections.distributions,
     largest = sections.largest,
+    files = fileReports(files),
     scopes = if (options.scopes) scopedReports(files, options.top) else emptyList(),
   )
 }
