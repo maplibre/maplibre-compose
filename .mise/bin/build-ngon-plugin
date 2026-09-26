@@ -58,8 +58,11 @@ fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
 
 host="$(uname -s)-$(uname -m)"
-if [[ -f "$library" && -f "$work/built-$host" ]] &&
-  grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
+zig_version="$(zig version)"
+properties="$out/ngon-layer.properties"
+if [[ -f "$library" && -f "$work/built-$host" && -f "$properties" ]] &&
+  grep -qx "maplibre-native.commit=$mln_commit" "$properties" &&
+  grep -qx "target=$target" "$properties" && grep -qx "zig=$zig_version" "$properties"; then
   echo "$library is up to date"
   exit 0
 fi
@@ -88,10 +91,12 @@ includes=(
 zig c++ -std=c++20 -O2 -fno-rtti -fvisibility=hidden -shared -w -target "$target" \
   -D"MLN_NGON_PLUGIN_VERSION=\"${mln_commit:0:9}\"" "${includes[@]}" "$source_file" -o "$library"
 
-cat >"$out/ngon-layer.properties" <<PROPS
+cat >"$properties" <<PROPS
 maplibre-native.commit=$mln_commit
 maplibre-native-ffi.version=$ffi_version
 host=$host
+target=$target
+zig=$zig_version
 PROPS
 
 rm -f "$work"/built-*
