@@ -209,6 +209,10 @@ private class IosDriver(
   override suspend fun prepare() {
     map.delegate = delegate
     map.automaticallyAdjustsContentInset = false
+    map.showsCompassView = false
+    map.showsScale = false
+    map.showsLogoView = false
+    map.showsAttributionButton = false
     map.autoresizingMask = UIViewAutoresizingFlexibleWidth or UIViewAutoresizingFlexibleHeight
     map.preferredFramesPerSecond =
       config.maximumFps?.toLong() ?: checkNotNull(container.window).screen.maximumFramesPerSecond

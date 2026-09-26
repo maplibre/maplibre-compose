@@ -86,7 +86,8 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
   suspend fun run(state: MapState, clock: BenchmarkWorkload) {
     when (config.scenario) {
       BenchmarkScenario.Idle -> clock.idle()
-      BenchmarkScenario.Camera ->
+      BenchmarkScenario.Camera,
+      BenchmarkScenario.Overlays ->
         clock.frames { progress -> state.setCameraPosition(tourCamera(progress)) }
       BenchmarkScenario.Animation -> {
         repeat(4) { index ->

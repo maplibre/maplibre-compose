@@ -13,6 +13,7 @@ IMPLEMENTATIONS = {
 WORKLOADS = {
     "idle": IMPLEMENTATIONS,
     "camera": {"compose-imperative", "classic-android", "classic-ios"},
+    "overlays": {"compose-imperative"},
     "animation": {"compose-imperative", "classic-android", "classic-ios"},
     "paint": IMPLEMENTATIONS,
     "layout": IMPLEMENTATIONS,

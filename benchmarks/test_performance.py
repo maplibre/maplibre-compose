@@ -40,6 +40,23 @@ def write_run(
 
 
 class PerformanceTest(unittest.TestCase):
+    def test_build_metadata_comes_from_the_app_log_and_old_logs_still_work(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root)
+            self.assertIsNone(read_run(root)["build"])
+            build = {
+                "commit": "captured-app-commit",
+                "dirty": True,
+                "dependency_versions": {"native_ffi": "test-version"},
+            }
+            log += "MAP_BENCHMARK BUILD " + json.dumps(build) + "\n"
+            (root / "app.log").write_text(log)
+            self.assertEqual(read_run(root)["build"], build)
+            (root / "app.log").write_text(log + "MAP_BENCHMARK BUILD {}\n")
+            with self.assertRaisesRegex(ValueError, "Expected one BUILD record"):
+                read_run(root)
+
     def test_idle_and_native_statistics(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"

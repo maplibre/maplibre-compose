@@ -63,6 +63,11 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
     map = suspendCancellableCoroutine { continuation ->
       view.getMapAsync { if (continuation.isActive) continuation.resume(it) }
     }
+    map.uiSettings.apply {
+      isCompassEnabled = false
+      isLogoEnabled = false
+      isAttributionEnabled = false
+    }
     config.maximumFps?.let(view::setMaximumFps)
     withTimeout(15000) {
       while (view.width == 0 || view.height == 0) nextFrame()

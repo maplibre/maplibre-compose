@@ -25,7 +25,8 @@ To compare SDKs instead, repeat with `--implementation classic-android` or
 `compose-imperative`; `compose-declarative` is also available. The runner
 selects the app to install.
 
-Each capture saves `app.log` and `performance.json`. `--output` is required and
+Each capture saves `app.log` and `performance.json`, including the app's build
+commit, dirty-checkout flag, and pinned SDK versions. `--output` is required and
 must name a new directory. Comparisons report medians, ranges, and percentage
 changes; single runs can also be compared.
 
@@ -51,7 +52,9 @@ Compose and classic SDK apps.
 List presets with `mise run benchmark:run -- list` and select one with `--case`.
 Presets cover camera movement, style and source updates, layer changes, and
 other map operations. Supported implementations vary by workload; `recompose` is
-Compose-only.
+Compose-only, as is `overlays-points`, which runs the camera tour with the
+default Compose map controls. Other workloads hide optional map controls on both
+SDKs.
 
 Override preset settings with JSON, for example
 `--config '{"durationMs":3000,"rateHz":2}'`. See [cases.json](cases.json) for

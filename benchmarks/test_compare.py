@@ -26,7 +26,14 @@ class ComparisonTest(unittest.TestCase):
             single = compare(root / "before/0", root / "after/0")
             self.assertAlmostEqual(single["metrics"]["cpu_ms"]["change_percent"], -10)
             path = root / "after/0/app.log"
-            path.write_text(path.read_text().replace("[400,800,2]", "[500,800,2]"))
+            path.write_text(
+                path.read_text().replace("[400,800,2]", "[500,800,2]")
+                + 'MAP_BENCHMARK BUILD {"commit":"candidate-build"}\n'
+            )
             analyze(path.parent)
             result = compare(root / "before", root / "after")
             self.assertEqual(result["candidate_settings"][0]["viewport"], [500, 800, 2])
+            self.assertEqual(
+                result["candidate_settings"][0]["build"], {"commit": "candidate-build"}
+            )
+            self.assertIsNone(result["baseline_settings"][0]["build"])

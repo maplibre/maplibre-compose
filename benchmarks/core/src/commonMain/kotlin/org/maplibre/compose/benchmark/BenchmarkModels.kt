@@ -41,6 +41,13 @@ enum class BenchmarkScenario(
       BenchmarkImplementation.ClassicIos,
     ),
   ),
+  @SerialName("overlays")
+  Overlays(
+    "overlays",
+    "Map overlays",
+    "The camera tour with the default Compose map controls.",
+    setOf(BenchmarkImplementation.Imperative),
+  ),
   @SerialName("animation")
   Animation(
     "animation",
