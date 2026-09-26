@@ -113,7 +113,9 @@ If installing manually, use the version named in the
 Desktop consumes the published
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
 Multiplatform bindings. Unlike a source build of MapLibre Native, it needs no
-C++ toolchain, CMake, or vendored checkout.
+CMake or vendored checkout. The demo and packaging tasks do compile MapLibre
+Native's n-gon layer plugin, four source files, with the host C++ compiler and
+Node from mise; `mise run deps:ngon-plugin` runs that step alone.
 
 The desktop tests drive a real GPU through a headless Vulkan device. On macOS
 the test runtime supplies MoltenVK through LWJGL, and CI installs a software
@@ -163,11 +165,6 @@ macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
 `vulkan` and `opengl`.
 
 CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
-
-The Data visualization demo's Hexagonal bins option needs MapLibre Native's
-n-gon layer plugin, which `mise run deps:ngon-plugin` builds from source with
-Node and the host C++ compiler. Without it the option is absent; only the
-desktop demo loads the plugin.
 
 ### Android Auto
 

@@ -54,7 +54,7 @@ kotlin {
     jvmMain {
       dependsOn(androidJvmMain)
       dependsOn(nonAndroidMain)
-      // The n-gon layer plugin from `mise run deps:ngon-plugin`, when built.
+      // The n-gon layer plugin that deps:ngon-plugin builds.
       resources.srcDir(layout.buildDirectory.dir("generated/ngonPlugin"))
     }
 

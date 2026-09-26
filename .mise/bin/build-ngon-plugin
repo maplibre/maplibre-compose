@@ -93,14 +93,14 @@ case "$library_file" in
       -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
     ;;
   *.dll)
-    if ! command -v cl >/dev/null; then
-      echo "${0##*/}: cl.exe is not on PATH; run from a Visual Studio developer shell" >&2
-      exit 2
+    # GitHub's Windows runners have LLVM on PATH; cl needs a developer shell.
+    if command -v clang++ >/dev/null; then
+      clang++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -shared \
+        "${includes[@]}" "$source_file" -o "$library"
+    else
+      cl /nologo /std:c++20 /EHsc /GR- /O2 /LD "${includes[@]}" "$source_file" \
+        /Fe:"$library" /Fo:"$generated/"
     fi
-    # The plugin's default version string stands in for the define here; cl's
-    # quoting of a string-valued define does not survive Git Bash.
-    cl /nologo /std:c++20 /EHsc /GR- /O2 /LD "${includes[@]}" "$source_file" \
-      /Fe:"$library" /Fo:"$generated/"
     ;;
 esac
 
