@@ -85,8 +85,9 @@ version_define="MLN_NGON_PLUGIN_VERSION=\"${mln_commit:0:9}\""
 
 case "$library_file" in
   *.dylib)
+    # The same minimum macOS as the maplibre-native-ffi runtime library.
     c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -dynamiclib \
-      -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
+      -mmacosx-version-min=14.3 -D"$version_define" "${includes[@]}" "$source_file" -o "$library"
     ;;
   *.so)
     c++ -std=c++20 -O2 -fexceptions -fno-rtti -fvisibility=hidden -fPIC -shared \

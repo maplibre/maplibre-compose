@@ -24,6 +24,8 @@ import kotlin.math.sinh
 import kotlin.math.sqrt
 import kotlin.math.tan
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -96,12 +98,16 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
   }
 }
 
-private suspend fun fetchQuakes(feedUri: String): List<Position> {
-  val json = HttpClient().use { client -> client.get(feedUri).bodyAsText() }
-  val collection =
-    FeatureCollection.fromJsonOrNull<Geometry?, JsonObject?>(json) ?: return emptyList()
-  return collection.mapNotNull { (it.geometry as? Point)?.coordinates }
-}
+private suspend fun fetchQuakes(feedUri: String): List<Position> =
+  withContext(Dispatchers.Default) {
+    val json = HttpClient {
+      expectSuccess = true
+    }
+      .use { client -> client.get(feedUri).bodyAsText() }
+    FeatureCollection.fromJson<Geometry?, JsonObject?>(json).mapNotNull {
+      (it.geometry as? Point)?.coordinates
+    }
+  }
 
 private class Hexbins(val cells: FeatureCollection<Point, JsonObject>, val radiusDp: Float)
 
