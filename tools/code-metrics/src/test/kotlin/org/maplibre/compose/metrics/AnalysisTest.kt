@@ -467,7 +467,7 @@ class AnalysisTest {
     assertEquals(2, file.functions.single { it.name == "Owner.make" }.cyclomaticComplexity)
     assertEquals(listOf(2, 2), anonymous.map { it.cyclomaticComplexity }.sorted())
     assertEquals(listOf(3, 5), anonymous.map { it.lines }.sorted())
-    assertEquals(listOf(1, 2), anonymous.map { it.nestingDepth }.sorted())
+    assertEquals(listOf(0, 1), anonymous.map { it.nestingDepth }.sorted())
     assertEquals(0, file.functions.single { it.name == "Owner.make" }.nestingDepth)
     assertTrue(anonymous.none { it.isEffectivelyPublic })
     assertNull(file.declarations.firstOrNull { it.name.contains("<anonymous>") })
