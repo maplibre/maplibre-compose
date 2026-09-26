@@ -16,12 +16,12 @@ import dev.detekt.metrics.processors.logicalLinesKey
 import dev.detekt.metrics.processors.sourceLinesKey
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
-import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtEnumEntry
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtModifierList
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtVisitorVoid
@@ -77,9 +77,9 @@ data class FileFacts(
   val cognitiveComplexity: Int,
   val functions: List<FunctionFacts>,
   val types: List<TypeFacts>,
-  /** Declarations that are `expect`, including members of an `expect` type. */
+  /** Declarations written with the `expect` keyword. */
   val expectDeclarations: Int,
-  /** Declarations written with `actual`. */
+  /** Declarations written with the `actual` keyword. */
   val actualDeclarations: Int,
   val todoCount: Int,
   val suppressCount: Int,
@@ -89,29 +89,24 @@ private val todoPattern = Regex("""\b(TODO|FIXME|HACK|XXX)\b""")
 
 fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
   val types = mutableListOf<TypeFacts>()
-  var expectDeclarations = 0
-  var actualDeclarations = 0
 
-  fun visit(container: List<KtDeclaration>, enclosingExpect: Boolean, prefix: String) {
+  fun visit(container: List<KtDeclaration>, prefix: String) {
     for (declaration in container) {
-      if (declaration is KtAnonymousInitializer) continue
-      // Members of an `expect` type are expected without repeating the keyword.
-      val isExpect = enclosingExpect || declaration.hasModifier(KtTokens.EXPECT_KEYWORD)
-      if (isExpect) expectDeclarations++
-      if (declaration.hasModifier(KtTokens.ACTUAL_KEYWORD)) actualDeclarations++
       val name = prefix + (declaration.name ?: "<anonymous>")
       when (declaration) {
         // An entry is a KtClassOrObject in the PSI but a value of its enum, not a type.
-        is KtEnumEntry -> visit(declaration.declarations, isExpect, "$name.")
+        is KtEnumEntry -> visit(declaration.declarations, "$name.")
         is KtClassOrObject -> {
           types += TypeFacts(name, declaration.typeKind(), declaration.linesOfCode())
-          visit(declaration.declarations, isExpect, "$name.")
+          visit(declaration.declarations, "$name.")
         }
         else -> {}
       }
     }
   }
-  visit(file.declarations, enclosingExpect = false, prefix = "")
+  visit(file.declarations, prefix = "")
+
+  val modifierLists = file.collectDescendantsOfType<KtModifierList>()
 
   val functions =
     file
@@ -146,8 +141,8 @@ fun analyzeFile(source: SourceFile, file: KtFile): FileFacts {
     cognitiveComplexity = CognitiveComplexity.calculate(file),
     functions = functions,
     types = types,
-    expectDeclarations = expectDeclarations,
-    actualDeclarations = actualDeclarations,
+    expectDeclarations = modifierLists.count { it.hasModifier(KtTokens.EXPECT_KEYWORD) },
+    actualDeclarations = modifierLists.count { it.hasModifier(KtTokens.ACTUAL_KEYWORD) },
     todoCount = comments.sumOf { todoPattern.findAll(it.text).count() },
     suppressCount =
       file.collectDescendantsOfType<KtAnnotationEntry>().count {

@@ -69,20 +69,20 @@ class AnalysisTest {
         val name: String
       }
 
-      actual typealias Handle = Int
+      actual class Handle actual constructor(val id: Int)
       """,
     )
 
     val file = analyze().single()
 
     assertEquals(
-      listOf("Outer", "Outer.Nested", "Outer.Companion", "Color", "Platform"),
+      listOf("Outer", "Outer.Nested", "Outer.Companion", "Color", "Platform", "Handle"),
       file.types.map { it.name },
     )
     assertEquals(TypeKind.COMPANION, file.types.single { it.name == "Outer.Companion" }.kind)
     assertEquals(5, file.types.single { it.name == "Outer" }.lines)
-    assertEquals(3, file.expectDeclarations)
-    assertEquals(1, file.actualDeclarations)
+    assertEquals(2, file.expectDeclarations)
+    assertEquals(2, file.actualDeclarations)
   }
 
   @Test
