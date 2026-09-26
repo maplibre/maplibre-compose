@@ -14,16 +14,16 @@ previews a reduced vertex count against the original outline; **Apply** accepts
 it and **Cancel** discards it. **Rotate 15°** uses Spatial K's distance, bearing,
 and offset functions. Undo and redo operate on completed edits.
 
-The implementation is an example in the demo app, with no additional library
-dependency or public editor API. It edits one line or single-ring polygon at a
-time. It does not implement multipart editing, holes, snapping, or persistence.
+The demo edits one line or single-ring polygon at a time. Its editing state,
+vertex input, and geometry operations live together in the demo app so you can
+follow how map interactions become edits to a GeoJSON shape.
 
 ## Read the example
 
 The source is in
 [`demos/featureediting`](https://github.com/maplibre/maplibre-compose/tree/main/demo-app/common/src/commonMain/kotlin/org/maplibre/compose/demoapp/demos/featureediting):
 
-- `FeatureEditingDemo.kt` draws ordinary GeoJSON layers and receives map taps.
+- `FeatureEditingDemo.kt` draws GeoJSON layers and receives map taps.
 - `VertexInput.kt` compares a press with projected vertices and handles their
   drags in screen coordinates. Other gestures remain map gestures.
 - `FeatureEditingState.kt` separates the committed shape from drawing and edit
