@@ -1,0 +1,76 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import "../styles/metrics.css";
+
+// Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
+const source =
+  process.env.METRICS_DATA_URL ??
+  `${import.meta.env.BASE_URL.replace(/\/$/, "")}/metrics-data/`;
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "Code metrics",
+    description:
+      "Size and complexity of the MapLibre Compose codebase at each commit on main.",
+    tableOfContents: false,
+    pagefind: false,
+  }}
+>
+  <div class="metrics" data-source={source}>
+    <div class="metrics-toolbar">
+      <div class="metrics-segmented" role="radiogroup" aria-label="Code">
+        <button role="radio" data-group="library">Library</button>
+        <button role="radio" data-group="demo">Demo app</button>
+        <button role="radio" data-group="all">Both</button>
+      </div>
+      <label>
+        <span class="sr-only">Module</span>
+        <select id="metrics-module"></select>
+      </label>
+    </div>
+
+    <p id="metrics-status" class="metrics-status" role="status">Loading…</p>
+
+    <div id="metrics-body" hidden>
+      <div class="metrics-selection">
+        <div class="metrics-nav" role="group" aria-label="Commits">
+          <button id="metrics-previous-release"></button>
+          <button id="metrics-previous"></button>
+          <button id="metrics-next"></button>
+          <button id="metrics-next-release"></button>
+        </div>
+        <span id="metrics-selection-label"></span>
+        <span id="metrics-selection-commit"></span>
+        <span id="metrics-selection-title" class="metrics-muted"></span>
+      </div>
+
+      <div id="metrics-tiles" class="metrics-tiles"></div>
+
+      <div id="metrics-charts" class="metrics-charts"></div>
+
+      <h2 id="hotspots">Hotspots</h2>
+      <div id="metrics-detail-status" class="metrics-status" role="status">
+      </div>
+      <div id="metrics-detail">
+        <div id="metrics-hotspots" class="metrics-hotspots"></div>
+
+        <h2 id="structure">Modules</h2>
+        <div class="metrics-table-scroll">
+          <div
+            id="metrics-tree"
+            class="metrics-tree"
+            role="treegrid"
+            aria-labelledby="structure"
+          >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  import { start } from "../metrics/dashboard";
+    start();
+  </script>
+</StarlightPage>

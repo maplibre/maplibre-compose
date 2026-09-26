@@ -49,6 +49,7 @@ export default defineConfig({
       sidebar: [
         { label: "Overview", link: "/" },
         { label: "Getting started", slug: "getting-started" },
+        { label: "Live demo", slug: "demo" },
         {
           label: "Guides",
           items: [
@@ -77,7 +78,10 @@ export default defineConfig({
           link: "/api/",
           attrs: { target: "_blank", rel: "noopener noreferrer" },
         },
-        { label: "Live demo", slug: "demo" },
+        {
+          label: "Development",
+          items: [{ label: "Code metrics", link: "/metrics/" }],
+        },
       ],
     }),
   ],

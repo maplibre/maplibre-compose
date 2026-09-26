@@ -14,6 +14,7 @@
     "**/dist",
     "**/.astro",
     "docs/public/api",
+    "docs/public/metrics-data",
     "docs/src/generated",
     "pnpm-lock.yaml",
     "kotlin-js-store",
