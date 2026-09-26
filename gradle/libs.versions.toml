@@ -160,6 +160,7 @@ materialKolor = { module = "com.materialkolor:material-kolor", version.ref = "ma
 mobilityData-gtfsSchedule = { module = "dev.sargunv.mobility-data:gtfs-schedule", version.ref = "mobilityData" }
 playServices-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServices-location" }
 spatialk-geojson = { group = "org.maplibre.spatialk", name = "geojson", version.ref = "spatialk" }
+spatialk-turf = { group = "org.maplibre.spatialk", name = "turf", version.ref = "spatialk" }
 spatialk-units = { group = "org.maplibre.spatialk", name = "units", version.ref = "spatialk" }
 
 [plugins]
