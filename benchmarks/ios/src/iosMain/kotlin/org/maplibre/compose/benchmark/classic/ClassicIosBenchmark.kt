@@ -15,6 +15,7 @@ import platform.CoreGraphics.*
 import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.Foundation.*
 import platform.QuartzCore.CADisplayLink
+import platform.QuartzCore.CAFrameRateRangeMake
 import platform.UIKit.*
 import platform.darwin.NSObject
 import platform.objc.sel_registerName
@@ -33,6 +34,7 @@ private class BenchmarkController : UIViewController(nibName = null, bundle = nu
     super.viewDidAppear(animated)
     if (launched) return
     launched = true
+    clock.preferFrameRate(checkNotNull(view.window).screen.maximumFramesPerSecond)
     UIApplication.sharedApplication.idleTimerDisabled = true
     scope.launch {
       try {
@@ -98,6 +100,12 @@ private class DisplayClock : NSObject() {
   init {
     link.addToRunLoop(NSRunLoop.mainRunLoop, NSRunLoopCommonModes)
     link.paused = true
+  }
+
+  fun preferFrameRate(framesPerSecond: Long) {
+    val fps = framesPerSecond.toFloat()
+    // ProMotion otherwise defaults to 60 Hz, halving frame-driven work versus Compose.
+    link.preferredFrameRateRange = CAFrameRateRangeMake(fps, fps, fps)
   }
 
   @ObjCAction
@@ -202,7 +210,8 @@ private class IosDriver(
     map.delegate = delegate
     map.automaticallyAdjustsContentInset = false
     map.autoresizingMask = UIViewAutoresizingFlexibleWidth or UIViewAutoresizingFlexibleHeight
-    config.maximumFps?.let { map.preferredFramesPerSecond = it.toLong() }
+    map.preferredFramesPerSecond =
+      config.maximumFps?.toLong() ?: checkNotNull(container.window).screen.maximumFramesPerSecond
     container.addSubview(map)
     // Inline JSON can finish loading during construction, before the delegate is attached.
     if (map.style != null) ready.complete(Unit)
