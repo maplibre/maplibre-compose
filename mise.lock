@@ -395,3 +395,27 @@ url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets
 checksum = "sha256:7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
 url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.zip"
 url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280411"
+
+[[tools.zig]]
+version = "0.16.0"
+backend = "core:zig"
+
+[tools.zig."platforms.linux-arm64"]
+checksum = "sha256:ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
+url = "https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz"
+
+[tools.zig."platforms.linux-x64"]
+checksum = "sha256:70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+url = "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz"
+
+[tools.zig."platforms.macos-arm64"]
+checksum = "sha256:b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489"
+url = "https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz"
+
+[tools.zig."platforms.windows-arm64"]
+checksum = "sha256:aee38316ee4111717900f45dd3130145c39289e105541d737eb8c5ed653c78ef"
+url = "https://ziglang.org/download/0.16.0/zig-aarch64-windows-0.16.0.zip"
+
+[tools.zig."platforms.windows-x64"]
+checksum = "sha256:68659eb5f1e4eb1437a722f1dd889c5a322c9954607f5edcf337bc3684a75a7e"
+url = "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip"

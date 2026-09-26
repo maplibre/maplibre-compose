@@ -46,6 +46,7 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
+zig_version = "0.16.0"
 appimagetool_version = "1.9.1"
 
 [tools]
@@ -57,6 +58,8 @@ appimagetool_version = "1.9.1"
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
 
 "core:java" = "{{vars.java_version}}"
+# Compiles the demo's n-gon layer plugin; see .mise/bin/build-ngon-plugin.
+"core:zig" = "{{vars.zig_version}}"
 "aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
 
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
