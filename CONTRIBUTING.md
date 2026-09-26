@@ -115,7 +115,10 @@ Desktop consumes the published
 Multiplatform bindings. Unlike a source build of MapLibre Native, it needs no
 C++ toolchain, CMake, or vendored checkout. The demo and packaging tasks compile
 MapLibre Native's n-gon layer plugin, four source files, with Zig and Node from
-mise; `mise run deps:ngon-plugin` runs that step alone.
+mise; `mise run deps:ngon-plugin` runs that step alone. Zig 0.16.0 segfaults
+when compiling that plugin on Windows ARM64, so that host packages the demo
+without hexbins. Git Bash on those runners often reports `x86_64`; the skip keys
+off `PROCESSOR_ARCHITECTURE` instead.
 
 The desktop tests drive a real GPU through a headless Vulkan device. On macOS
 the test runtime supplies MoltenVK through LWJGL, and CI installs a software
