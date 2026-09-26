@@ -62,10 +62,20 @@ def compare(baseline, candidate):
         "baseline": str(baseline),
         "candidate": str(candidate),
         "baseline_settings": [
-            {"config": run["config"], "viewport": run["viewport"]} for run in before
+            {
+                "config": run["config"],
+                "viewport": run["viewport"],
+                "build": run.get("build"),
+            }
+            for run in before
         ],
         "candidate_settings": [
-            {"config": run["config"], "viewport": run["viewport"]} for run in after
+            {
+                "config": run["config"],
+                "viewport": run["viewport"],
+                "build": run.get("build"),
+            }
+            for run in after
         ],
         "baseline_runs": len(before),
         "candidate_runs": len(after),

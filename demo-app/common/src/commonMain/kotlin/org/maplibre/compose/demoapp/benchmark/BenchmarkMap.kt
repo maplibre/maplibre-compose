@@ -39,6 +39,8 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.include
 
 /** [viewportInsets] keeps the placeholder text out from under the panel. */
 @Composable
@@ -154,6 +156,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       driver.prepare(state)
       awaitSettled(state)
       println("MAP_BENCHMARK START ${config.encode()}")
+      printBenchmarkBuildInfo()
       val size = checkNotNull(state.viewport).size
       println("MAP_BENCHMARK VIEWPORT [${size.width.value},${size.height.value},$density]")
       onStatus("Warming up", true)
@@ -217,6 +220,10 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
         viewportInsets = driver.viewportInsets,
         uiOptions = benchmarkMapOptions(config),
         renderOptions = RenderOptions { maximumFps = config.maximumFps },
+        overlay = {
+          if (config.scenario == BenchmarkScenario.Overlays) include(MapOverlay.Default)
+          else if (config.scene == BenchmarkScene.Basemap) include(MapOverlay.AttributionOnly)
+        },
       )
     }
   }

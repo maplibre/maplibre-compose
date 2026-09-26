@@ -82,6 +82,7 @@ def read_run(directory):
         distribution([cpu])
     return {
         "config": config,
+        "build": record(logs, "BUILD") if "MAP_BENCHMARK BUILD " in logs else None,
         "cpu_ms": cpu,
         "viewport": viewport,
         "workload": work,

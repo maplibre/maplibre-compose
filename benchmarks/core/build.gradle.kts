@@ -8,6 +8,20 @@ plugins {
   id(libs.plugins.kotlin.serialization.get().pluginId)
 }
 
+val benchmarkBuildInfo =
+  tasks.register<GenerateBenchmarkBuildInfo>("generateBenchmarkBuildInfo") {
+    repository.set(rootProject.layout.projectDirectory)
+    dependencyVersions.putAll(
+      mapOf(
+        "classic_android" to libs.versions.maplibre.android.get(),
+        "classic_ios" to libs.versions.maplibre.ios.get(),
+        "native_ffi" to libs.versions.maplibre.nativeFfi.get(),
+        "gl_js" to libs.versions.maplibre.js.get(),
+      )
+    )
+    outputDirectory.set(layout.buildDirectory.dir("generated/benchmarkBuildInfo"))
+  }
+
 kotlin {
   jvmToolchain(libs.versions.java.toolchain.get().toInt())
   android { namespace = "org.maplibre.compose.benchmark" }
@@ -27,6 +41,7 @@ kotlin {
     }
   }
   sourceSets {
+    commonMain { kotlin.srcDir(benchmarkBuildInfo.flatMap { it.outputDirectory }) }
     jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
     commonMain.dependencies {

@@ -76,7 +76,8 @@ abstract class ClassicBenchmarkDriver(
       }
       BenchmarkScenario.Resize -> clock.frames { height(0.75 + 0.25 * cos(it * 4 * PI)) }
       BenchmarkScenario.Padding -> clock.frames { padding((1 - cos(it * 4 * PI)) * 100) }
-      BenchmarkScenario.Recompose -> error("Recomposition is Compose-only")
+      BenchmarkScenario.Recompose,
+      BenchmarkScenario.Overlays -> error("${config.scenario.id} is Compose-only")
       else ->
         clock.scheduled(config.rateHz) { tick ->
           val started = TimeSource.Monotonic.markNow()
@@ -124,6 +125,7 @@ suspend fun runClassicBenchmark(
   try {
     driver.prepare()
     println("MAP_BENCHMARK START ${config.encode()}")
+    printBenchmarkBuildInfo()
     println("MAP_BENCHMARK VIEWPORT ${driver.viewport()}")
     driver.run(BenchmarkWorkload(config.durationMs, driver.nextFrame))
     driver.reset()
