@@ -46,6 +46,7 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
+zig_version = "0.16.0"
 appimagetool_version = "1.9.1"
 
 [tools]
@@ -57,6 +58,8 @@ appimagetool_version = "1.9.1"
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
 
 "core:java" = "{{vars.java_version}}"
+# Compiles the demo's n-gon layer plugin; see .mise/bin/build-ngon-plugin.
+"core:zig" = "{{vars.zig_version}}"
 "aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
 
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
@@ -97,6 +100,12 @@ run = "playwright install chromium --no-shell"
 
 [tasks."deps:chromium"]
 run = "mise deps install chromium"
+
+# MapLibre Native's n-gon layer plugin for the desktop demo's hexagonal bins.
+
+[tasks."deps:ngon-plugin"]
+description = "Build the n-gon layer plugin that draws the desktop demo's earthquake hexbins."
+run = ".mise/bin/build-ngon-plugin"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
@@ -338,6 +347,7 @@ run = '''
 
 [tasks."build:desktop-app"]
 description = "Package the demo app as an AppImage, DMG, or MSI for this host."
+depends = ["deps:ngon-plugin"]
 run = '''
 if [ "$(uname -s)" = Linux ]; then
   ./gradlew :demo-app:desktop:createDistributable
@@ -392,6 +402,7 @@ run = ".mise/bin/run-android-demo"
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
+depends = ["deps:ngon-plugin"]
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
@@ -435,6 +446,7 @@ run = '.mise/bin/run-ios-demo'
 
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
+depends = ["deps:ngon-plugin"]
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."

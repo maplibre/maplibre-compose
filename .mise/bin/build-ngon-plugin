@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build MapLibre Native's sample n-gon layer plugin for the desktop demo. The
+# plugin ABI must match the MapLibre Native revision behind the pinned
+# maplibre-native-ffi release, so that commit is read from the FFI release tag.
+# Only the plugin's sources are fetched; MapLibre Native itself is not built.
+# Zig compiles it, so no platform C++ toolchain is needed.
+# Output: demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/, a JVM
+# resource root that demo-app/common's jvmMain picks up.
+
+root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$root"
+
+ffi_version="$(sed -n 's/^maplibre-nativeFfi = "\([^"]*\)".*/\1/p' gradle/libs.versions.toml)"
+if [[ -z "$ffi_version" ]]; then
+  echo "${0##*/}: maplibre-nativeFfi is not set in gradle/libs.versions.toml" >&2
+  exit 1
+fi
+ffi_tag="bindings/kotlin/v${ffi_version}"
+
+# Targets match the maplibre-native-ffi runtime: macOS 14.3 and glibc 2.17.
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64) target=aarch64-macos.14.3 library_file=libmln-ngon-layer.dylib ;;
+  Linux-x86_64) target=x86_64-linux-gnu.2.17 library_file=libmln-ngon-layer.so ;;
+  Linux-aarch64) target=aarch64-linux-gnu.2.17 library_file=libmln-ngon-layer.so ;;
+  MINGW*-x86_64 | MSYS*-x86_64 | CYGWIN*-x86_64) target=x86_64-windows-gnu library_file=mln-ngon-layer.dll ;;
+  MINGW*-aarch64 | MSYS*-aarch64 | CYGWIN*-aarch64) target=aarch64-windows-gnu library_file=mln-ngon-layer.dll ;;
+  *)
+    echo "${0##*/}: unsupported host $(uname -s) $(uname -m)" >&2
+    exit 2
+    ;;
+esac
+
+work=demo-app/common/build/ngon-plugin
+ffi_dir="$work/maplibre-native-ffi"
+mln_dir="$work/maplibre-native"
+generated="$work/generated"
+out=demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer
+library="$out/$library_file"
+mkdir -p "$work"
+
+# The FFI release tag records its MapLibre Native revision as a submodule
+# pointer; a treeless, blobless clone of that one tag is enough to read it.
+commit_file="$work/ffi-$ffi_version.commit"
+if [[ ! -f "$commit_file" ]]; then
+  rm -rf "$ffi_dir"
+  git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
+    https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
+  git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}' >"$commit_file"
+fi
+mln_commit="$(cat "$commit_file")"
+if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
+  rm -f "$commit_file"
+  echo "${0##*/}: $ffi_tag has no third_party/maplibre-native submodule" >&2
+  exit 1
+fi
+echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
+
+host="$(uname -s)-$(uname -m)"
+zig_version="$(zig version)"
+properties="$out/ngon-layer.properties"
+if [[ -f "$library" && -f "$work/built-$host" && -f "$properties" ]] &&
+  grep -qx "maplibre-native.commit=$mln_commit" "$properties" &&
+  grep -qx "target=$target" "$properties" && grep -qx "zig=$zig_version" "$properties"; then
+  echo "$library is up to date"
+  exit 0
+fi
+
+if [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]; then
+  rm -rf "$mln_dir"
+  git init --quiet "$mln_dir"
+  git -C "$mln_dir" remote add origin https://github.com/maplibre/maplibre-native.git
+  # No leading slashes: Git Bash on Windows would rewrite them as Windows paths.
+  git -C "$mln_dir" sparse-checkout set --no-cone \
+    include/mln/plugin plugins/ngon-layer/shared plugins/ngon-layer/scripts
+  git -C "$mln_dir" fetch --quiet --depth 1 --filter=blob:none origin "$mln_commit"
+  git -C "$mln_dir" checkout --quiet FETCH_HEAD
+  echo "$mln_commit" >"$mln_dir/.commit"
+fi
+
+mkdir -p "$generated" "$out"
+node "$mln_dir/plugins/ngon-layer/scripts/generate-shaders.mjs" \
+  --output "$generated/ngon_shader_sources.hpp"
+
+source_file="$mln_dir/plugins/ngon-layer/shared/cpp/ngon_layer.cpp"
+includes=(
+  -I "$mln_dir/include"
+  -I "$mln_dir/plugins/ngon-layer/shared/include"
+  -I "$generated"
+)
+zig c++ -std=c++20 -O2 -fno-rtti -fvisibility=hidden -shared -w -target "$target" \
+  -D"MLN_NGON_PLUGIN_VERSION=\"${mln_commit:0:9}\"" "${includes[@]}" "$source_file" -o "$library"
+
+cat >"$properties" <<PROPS
+maplibre-native.commit=$mln_commit
+maplibre-native-ffi.version=$ffi_version
+host=$host
+target=$target
+zig=$zig_version
+PROPS
+
+rm -f "$work"/built-*
+touch "$work/built-$host"
+echo "built $library"
