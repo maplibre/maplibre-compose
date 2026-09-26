@@ -48,9 +48,11 @@ if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 echo "maplibre-native-ffi $ffi_version pins maplibre-native ${mln_commit:0:9}"
 
-host="$(uname -s)-$(uname -m)"
-if [[ -f "$library" ]] && grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null &&
-  grep -qx "host=$host" "$out/ngon-layer.properties"; then
+# The host id doubles as the mise output marker, so a checkout shared across
+# machines rebuilds for each host.
+host="${1:-$(uname -s)-$(uname -m)}"
+if [[ -f "$library" && -f "$work/built-$host" ]] &&
+  grep -qx "maplibre-native.commit=$mln_commit" "$out/ngon-layer.properties" 2>/dev/null; then
   echo "$library is up to date"
   exit 0
 fi
@@ -105,4 +107,6 @@ maplibre-native-ffi.version=$ffi_version
 host=$host
 PROPS
 
+rm -f "$work"/built-*
+touch "$work/built-$host"
 echo "built $library"
