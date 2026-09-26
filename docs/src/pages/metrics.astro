@@ -1,0 +1,206 @@
+---
+import "../styles/metrics.css";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Code metrics · MapLibre Compose</title>
+    <meta
+      name="description"
+      content="Code metrics for MapLibre Compose: size, complexity, and package dependencies by commit, module, and source set."
+    />
+  </head>
+  <body>
+    <a class="skip" href="#charts">Skip to charts</a>
+    <header>
+      <a href={`${base}/`}>MapLibre Compose</a><span class="divider"
+      >/</span><h1>Code metrics</h1><span id="updated"></span><a
+        href={`${base}/`}
+        class="docs-link"
+      >Docs</a>
+    </header>
+    <main id="dashboard" data-source={`${base}/metrics-data/`}>
+      <div id="status" role="status">Loading history…</div>
+      <button id="retry" hidden>Retry</button>
+      <div id="content" hidden>
+        <div class="filters">
+          <label>Scope<select id="scope">
+              <option value="library">Library</option>
+              <option value="demo">Demo</option>
+              <option value="all">Library + demo</option>
+            </select></label>
+          <label>Module<select id="module"></select></label>
+          <label>Source set<select id="source-set"></select></label>
+          <label class="period-label">Period<select id="period">
+              <option value="60">Last 60 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="7">Last 7 days</option>
+              <option value="0">All history</option>
+            </select></label>
+          <label class="check"><input
+              id="compare"
+              type="checkbox"
+            />Compare</label>
+        </div>
+        <div class="view-bar">
+          <nav aria-label="Metric views" id="views">
+            <button data-view="overview" aria-pressed="true">Overview</button>
+            <button data-view="complexity" aria-pressed="false">
+              Complexity
+            </button>
+            <button data-view="dependencies" aria-pressed="false">
+              Dependencies
+            </button>
+            <button data-view="size" aria-pressed="false">Size</button>
+          </nav><span id="sample-count"></span><label class="check"><input
+              id="releases"
+              type="checkbox"
+              checked
+            />Releases</label><button id="reset-zoom" class="small">
+            Reset zoom
+          </button>
+        </div>
+        <p id="scope-note" class="scope-note"></p>
+        <div id="charts" class="charts" aria-label="Historical metrics"></div>
+        <div class="chart-help">
+          <span>Click a point to inspect its snapshot.</span>
+          <details>
+            <summary>Chart controls</summary>
+            <p>
+              Hover to read values across charts. Click a series label to hide
+              or show it. Ctrl + scroll to zoom; Shift + drag to pan. Release
+              lines mark tagged commits. Dates are in UTC.
+            </p>
+          </details>
+        </div>
+        <section class="details-section" aria-label="Snapshot details">
+          <div class="snapshot-controls">
+            <label>Snapshot<select id="selected"></select></label><label
+              id="baseline-label"
+              hidden
+            >Baseline<select id="baseline"></select></label><a
+              id="download"
+              download
+            >JSON ↓</a>
+          </div>
+          <p id="commit-caption"></p>
+          <div id="detail-status" role="status"></div>
+          <button id="retry-detail" hidden>Retry snapshot</button>
+          <div id="detail-content" hidden>
+            <div
+              class="detail-tabs"
+              role="tablist"
+              aria-label="Snapshot breakdown"
+            >
+              <button
+                id="tab-packages"
+                role="tab"
+                aria-selected="true"
+                aria-controls="breakdown"
+                data-tab="packages"
+              >
+                Packages
+              </button>
+              <button
+                id="tab-distributions"
+                role="tab"
+                aria-selected="false"
+                aria-controls="breakdown"
+                tabindex="-1"
+                data-tab="distributions"
+              >
+                Distributions
+              </button>
+              <button
+                id="tab-hotspots"
+                role="tab"
+                aria-selected="false"
+                aria-controls="breakdown"
+                tabindex="-1"
+                data-tab="hotspots"
+              >
+                Functions / files
+              </button>
+              <button
+                id="tab-sourceSets"
+                role="tab"
+                aria-selected="false"
+                aria-controls="breakdown"
+                tabindex="-1"
+                data-tab="sourceSets"
+              >
+                Source sets
+              </button>
+              <button
+                id="tab-summary"
+                role="tab"
+                aria-selected="false"
+                aria-controls="breakdown"
+                tabindex="-1"
+                data-tab="summary"
+              >
+                All metrics
+              </button>
+            </div>
+            <div
+              id="breakdown"
+              role="tabpanel"
+              aria-labelledby="tab-packages"
+              tabindex="0"
+            >
+              <div id="distribution-detail" hidden></div>
+              <div class="table-tools">
+                <label class="search"><span class="sr-only"
+                  >Filter rows</span><input
+                    id="search"
+                    type="search"
+                    placeholder="Filter by name…"
+                  /></label><label id="kind-label"><span class="sr-only"
+                  >Category</span><select id="kind"></select></label><span
+                  id="row-count"
+                ></span>
+              </div>
+              <p id="table-note"></p>
+              <div class="table-scroll">
+                <table>
+                  <thead id="table-head"></thead>
+                  <tbody id="table-body"></tbody>
+                </table>
+              </div>
+              <div id="cycles"></div>
+            </div>
+          </div>
+        </section>
+        <footer>
+          <span id="measurement-info"></span><details>
+            <summary>Measurement definitions</summary>
+            <p>
+              Metric implementations: <a
+                href="https://github.com/detekt/detekt/tree/v2.0.0-alpha.6/detekt-metrics/src/main/kotlin/dev/detekt/metrics"
+              >Detekt 2.0.0-alpha.6</a>. Each chart's Definition explains what
+              is counted.
+            </p>
+            <p>
+              Syntax-based Kotlin analysis. Percentiles are calculated from the
+              functions or types inside the selected scope. Dependency graphs
+              include only packages inside that scope. Imports crossing its
+              boundary count as external.
+            </p>
+            <p>
+              Production code is used for complexity, size distributions,
+              packages, and rankings. Test size is shown separately. Source-set
+              filters select production sets only. Ranked lists contain the top
+              entries, not a complete function inventory.
+            </p>
+          </details>
+        </footer>
+      </div>
+    </main>
+    <script>
+    import { start } from "../metrics/dashboard"; start();
+    </script>
+  </body>
+</html>

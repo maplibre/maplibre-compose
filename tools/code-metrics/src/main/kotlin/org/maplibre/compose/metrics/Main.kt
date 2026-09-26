@@ -20,6 +20,8 @@ Usage: code-metrics [options]
   --roots <a,b>       Directories to scan, relative to the repository. Default: lib,demo-app
   --out <file>        Write the JSON snapshot here. Default: print it to stdout.
   --top <n>           Length of each ranked list. Default: 20
+  --scopes            Include library, demo, module, and production source-set reports.
+  --refs-file <file>   Measure one commit hash per line. --out is an output directory.
 """
 
 data class Options(
@@ -28,6 +30,8 @@ data class Options(
   val roots: List<String>,
   val out: Path?,
   val top: Int,
+  val scopes: Boolean = false,
+  val refsFile: Path? = null,
 )
 
 fun parseOptions(args: Array<String>): Options {
@@ -36,6 +40,8 @@ fun parseOptions(args: Array<String>): Options {
   var roots = listOf("lib", "demo-app")
   var out: Path? = null
   var top = 20
+  var scopes = false
+  var refsFile: Path? = null
   val iterator = args.iterator()
   fun next(flag: String) =
     if (iterator.hasNext()) iterator.next() else usageError("$flag needs a value")
@@ -46,6 +52,8 @@ fun parseOptions(args: Array<String>): Options {
       "--roots" -> roots = next(flag).split(',').map { it.trim() }.filter { it.isNotEmpty() }
       "--out" -> out = Path.of(next(flag))
       "--top" -> top = next(flag).toIntOrNull() ?: usageError("$flag needs a number")
+      "--scopes" -> scopes = true
+      "--refs-file" -> refsFile = Path.of(next(flag))
       "--help",
       "-h" -> {
         println(USAGE.trim())
@@ -54,7 +62,9 @@ fun parseOptions(args: Array<String>): Options {
       else -> usageError("unknown option $flag")
     }
   }
-  return Options(repo.absolute().normalize(), ref, roots, out, top)
+  if (refsFile != null && (out == null || ref != null))
+    usageError("--refs-file needs --out and cannot be combined with --ref")
+  return Options(repo.absolute().normalize(), ref, roots, out, top, scopes, refsFile)
 }
 
 private fun usageError(message: String): Nothing {
@@ -69,6 +79,25 @@ private val json = Json {
 
 fun main(args: Array<String>) {
   val options = parseOptions(args)
+  if (options.refsFile != null) {
+    val refs = options.refsFile.readText().lineSequence().filter { it.isNotBlank() }.toList()
+    require(refs.all { it.matches(Regex("[0-9a-f]{40}")) }) { "Expected full commit hashes" }
+    options.out!!.createDirectories()
+    KotlinParser().use { parser ->
+      refs.forEachIndexed { index, ref ->
+        val snapshot = measure(options.copy(ref = ref), parser)
+        val temporary = options.out.resolve("$ref.tmp")
+        temporary.writeText(json.encodeToString(snapshot) + "\n")
+        Files.move(
+          temporary,
+          options.out.resolve("$ref.json"),
+          java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        )
+        System.err.println("[${index + 1}/${refs.size}] ${ref.take(8)}")
+      }
+    }
+    return
+  }
   val snapshot = measure(options)
   val json = json.encodeToString(snapshot)
   val out = options.out
@@ -82,7 +111,9 @@ fun main(args: Array<String>) {
   }
 }
 
-fun measure(options: Options): Snapshot {
+fun measure(options: Options): Snapshot = KotlinParser().use { measure(options, it) }
+
+private fun measure(options: Options, parser: KotlinParser): Snapshot {
   // Roots are relative to the repository, wherever --repo pointed inside it.
   val root = runCatching {
     Path.of(GitRepository(options.repo).git("rev-parse", "--show-toplevel").trim())
@@ -98,12 +129,12 @@ fun measure(options: Options): Snapshot {
 
   val files =
     if (ref == null) {
-      analyzeTree(root, options.roots)
+      analyzeTree(root, options.roots, parser)
     } else {
       val export = Files.createTempDirectory("code-metrics")
       try {
         git.export(ref, options.roots, export)
-        analyzeTree(export, options.roots)
+        analyzeTree(export, options.roots, parser)
       } finally {
         export.toFile().deleteRecursively()
       }
@@ -124,14 +155,13 @@ fun measure(options: Options): Snapshot {
     packageGraph = sections.packageGraph,
     distributions = sections.distributions,
     largest = sections.largest,
+    scopes = if (options.scopes) scopedReports(files, options.top) else emptyList(),
   )
 }
 
-fun analyzeTree(root: Path, roots: List<String>): List<FileFacts> =
-  KotlinParser().use { parser ->
-    discoverSourceFiles(root, roots).map { source ->
-      analyzeFile(source, parser.parse(source.relativePath, source.path.readText()))
-    }
+fun analyzeTree(root: Path, roots: List<String>, parser: KotlinParser): List<FileFacts> =
+  discoverSourceFiles(root, roots).map { source ->
+    analyzeFile(source, parser.parse(source.relativePath, source.path.readText()))
   }
 
 fun printSummary(snapshot: Snapshot) {

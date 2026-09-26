@@ -22,6 +22,21 @@ data class Snapshot(
   val packageGraph: PackageGraph,
   val distributions: Map<String, Distribution>,
   val largest: Largest,
+  val scopes: List<ScopeReport> = emptyList(),
+)
+
+/** A filtered report, recomputed from the files in this scope, including its percentiles. */
+@Serializable
+data class ScopeReport(
+  val group: String,
+  val module: String?,
+  val sourceSet: String?,
+  val summary: Summary,
+  val sourceSets: List<SourceSetReport>,
+  val packages: List<PackageReport>,
+  val packageGraph: PackageGraph,
+  val distributions: Map<String, Distribution>,
+  val largest: Largest,
 )
 
 @Serializable
@@ -124,6 +139,9 @@ data class Distribution(
   val p99: Int,
   val max: Int,
   val maxName: String?,
+  val p75: Int = 0,
+  /** Exact value frequencies; their sum is [count]. */
+  val histogram: Map<Int, Int> = emptyMap(),
 )
 
 @Serializable data class Ranked(val name: String, val value: Int)

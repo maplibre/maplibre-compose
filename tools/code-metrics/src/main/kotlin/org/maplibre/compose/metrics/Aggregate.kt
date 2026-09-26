@@ -258,6 +258,8 @@ internal fun distribution(values: List<Ranked>): Distribution {
     p99 = percentile(0.99),
     max = max.value,
     maxName = max.name,
+    p75 = percentile(0.75),
+    histogram = sorted.groupingBy { it }.eachCount(),
   )
 }
 

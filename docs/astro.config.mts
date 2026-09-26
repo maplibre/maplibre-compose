@@ -78,6 +78,7 @@ export default defineConfig({
           attrs: { target: "_blank", rel: "noopener noreferrer" },
         },
         { label: "Live demo", slug: "demo" },
+        { label: "Code metrics", link: "/metrics/" },
       ],
     }),
   ],

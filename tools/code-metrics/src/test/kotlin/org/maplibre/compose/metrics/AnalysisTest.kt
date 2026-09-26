@@ -245,11 +245,60 @@ class AnalysisTest {
     val distribution = distribution(values)
 
     assertEquals(50, distribution.p50)
+    assertEquals(75, distribution.p75)
+    assertEquals(100, distribution.histogram.values.sum())
+    assertEquals((1..100).associateWith { 1 }, distribution.histogram)
+    assertEquals(
+      mapOf(0 to 2, 80 to 1),
+      distribution(listOf(Ranked("a", 0), Ranked("b", 0), Ranked("outlier", 80))).histogram,
+    )
     assertEquals(90, distribution.p90)
     assertEquals(99, distribution.p99)
     assertEquals(100, distribution.max)
     assertEquals("v100", distribution.maxName)
     assertEquals(Distribution(0, 0.0, 0, 0, 0, 0, null), distribution(emptyList()))
+  }
+
+  @Test
+  fun `scopes recompute percentiles from functions and keep tests separate`() {
+    write(
+      "lib/a/src/commonMain/kotlin/a/A.kt",
+      "package a\n" + (1..99).joinToString("\n") { "fun f$it() = 1" },
+    )
+    write(
+      "lib/b/src/commonMain/kotlin/b/B.kt",
+      "package b\nfun tall() {\n" + "println(1)\n".repeat(20) + "}",
+    )
+    write("lib/a/src/commonTest/kotlin/a/Test.kt", "package a\nfun test() = 1")
+    write(
+      "demo-app/app/src/commonMain/kotlin/demo/Demo.kt",
+      "package demo\nfun demo() { if (true) println(1) }",
+    )
+    val files =
+      discoverSourceFiles(root, listOf("lib", "demo-app")).map {
+        analyzeFile(it, parser.parse(it.relativePath, Files.readString(it.path)))
+      }
+    val scopes = scopedReports(files, 20)
+    val library = scopes.single {
+      it.group == "library" && it.module == null && it.sourceSet == null
+    }
+    assertEquals(100, library.summary.functions)
+    assertEquals(1, library.summary.functionLinesP90)
+    assertEquals(22, library.summary.functionLinesMax)
+    assertEquals(2, library.summary.testLoc)
+    val common = scopes.single {
+      it.group == "library" && it.module == null && it.sourceSet == "commonMain"
+    }
+    assertEquals(0, common.summary.testLoc)
+    assertEquals(1, common.summary.functionLinesP90)
+    assertEquals(setOf("a", "b"), common.packages.map { it.name }.toSet())
+    assertEquals(
+      1,
+      scopes
+        .single { it.group == "demo" && it.module == null && it.sourceSet == null }
+        .summary
+        .functions,
+    )
   }
 
   @Test
