@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
-import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.*
@@ -12,8 +11,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.camera.CameraAnimation
-import org.maplibre.compose.demoapp.benchmark.scenarios.BenchmarkWorkload
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
@@ -149,6 +148,7 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
               if (declared) baseStyle = fixture.baseStyles[styleIndex]
               else checkNotNull(state.style.asMutable).baseStyle = fixture.baseStyles[styleIndex]
             }
+            else -> error("Unexpected scheduled workload")
           }
           val submitted = started.elapsedNow().inWholeNanoseconds / 1e6
           if (config.scenario == BenchmarkScenario.Style) {
@@ -227,14 +227,6 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
     awaitSettled(state)
   }
 }
-
-internal fun tourCamera(progress: Double) =
-  benchmarkCamera(-kotlin.math.cos(progress * 2 * PI))
-    .copy(
-      zoom = 15.0 + 0.4 * sin(progress * 2 * PI),
-      bearing = 30 * sin(progress * 2 * PI),
-      tilt = 30 * (0.5 - 0.5 * kotlin.math.cos(progress * 2 * PI)),
-    )
 
 /** Readiness is based on engine events, with a bounded wait; style-ready alone is insufficient. */
 internal suspend fun awaitSettled(state: MapState) {

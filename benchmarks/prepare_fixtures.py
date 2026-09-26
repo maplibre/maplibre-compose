@@ -6,10 +6,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-ROOT = (
-    Path(__file__).resolve().parents[1]
-    / "demo-app/common/build/generated/benchmarkResources/files/benchmarks"
-)
+ROOT = Path(__file__).resolve().parents[1] / "benchmarks/build/fixtures/benchmarks"
 ORIGIN = [-122.4194, 37.7749]
 
 

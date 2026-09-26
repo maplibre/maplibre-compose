@@ -193,11 +193,16 @@ description = "Boot an iPhone simulator and print its UDID."
 run = ".mise/bin/boot-ios-simulator"
 
 [tasks."build:ios:device"]
-description = "Link the demo framework for the iOS device target."
-run = "./gradlew :demo-app:common:linkDebugFrameworkIosArm64"
+description = "Link the demo and classic benchmark frameworks for the iOS device target."
+depends = ["deps:classic-ios"]
+run = """
+./gradlew :demo-app:common:linkDebugFrameworkIosArm64
+./gradlew :benchmarks:ios:linkDebugFrameworkIosArm64
+"""
 
 [tasks."test:ios"]
 description = "Run the iOS simulator test suite."
+depends = ["deps:classic-ios"]
 run = '''
 udid="$(.mise/bin/boot-ios-simulator)"
 ./gradlew iosSimulatorArm64Test -- --device "$udid"
@@ -494,7 +499,7 @@ run = "npx -y actions-up"
 auto = false
 sources = ["benchmarks/prepare_fixtures.py", "benchmarks/fixtures/*"]
 outputs = [
-  "demo-app/common/build/generated/benchmarkResources/files/benchmarks/.prepared",
+  "benchmarks/build/fixtures/benchmarks/.prepared",
 ]
 run = "python benchmarks/prepare_fixtures.py"
 
@@ -503,10 +508,16 @@ run = "mise deps install benchmarks"
 
 [tasks."benchmark:build:android"]
 depends = ["deps:benchmarks"]
-run = "./gradlew :demo-app:android:assembleRelease"
+run = """
+./gradlew :demo-app:android:assembleRelease
+./gradlew :benchmarks:android:assembleRelease
+"""
+[tasks."deps:classic-ios"]
+run = "python benchmarks/prepare_ios_sdk.py"
+
 [tasks."benchmark:build:ios"]
 depends = ["deps:benchmarks"]
-run = "./gradlew :demo-app:common:linkDebugFrameworkIosSimulatorArm64"
+run = "python benchmarks/build_ios.py"
 [tasks."benchmark:build:js"]
 depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentWebpack"
@@ -518,6 +529,9 @@ depends = ["deps:benchmarks"]
 run = "python benchmarks/run.py"
 [tasks."benchmark:compare"]
 run = "python benchmarks/compare.py"
+[tasks."benchmark:test:core"]
+run = "./gradlew :benchmarks:core:jvmTest"
+
 [tasks."benchmark:test"]
 run = "python -m unittest discover -s benchmarks"
 
