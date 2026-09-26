@@ -33,9 +33,12 @@ fun discoverSourceFiles(root: Path, scanRoots: List<String>): List<SourceFile> {
   val files = mutableListOf<SourceFile>()
   val visitor =
     object : SimpleFileVisitor<Path>() {
-      override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult =
-        if (dir.name in skippedDirectories) FileVisitResult.SKIP_SUBTREE
-        else FileVisitResult.CONTINUE
+      override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+        // Output directories are pruned outside source trees only; a package may be named `build`.
+        val segments = dir.relativeTo(root).map { it.name }
+        val prune = dir.name in skippedDirectories && sourceTreeIndex(segments) == null
+        return if (prune) FileVisitResult.SKIP_SUBTREE else FileVisitResult.CONTINUE
+      }
 
       override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
         if (attrs.isRegularFile && file.name.endsWith(".kt"))
@@ -51,17 +54,22 @@ fun discoverSourceFiles(root: Path, scanRoots: List<String>): List<SourceFile> {
 }
 
 private fun sourceFile(root: Path, path: Path): SourceFile? {
-  val relative = path.relativeTo(root)
-  val segments = relative.map { it.name }
-  // The first `src/<sourceSet>/kotlin` triple, since a package directory may be named `src`.
-  val srcIndex =
-    (1 until segments.size - 2).firstOrNull {
-      segments[it] == "src" && segments[it + 2] == "kotlin"
-    } ?: return null
+  val segments = path.relativeTo(root).map { it.name }
+  val srcIndex = sourceTreeIndex(segments) ?: return null
   return SourceFile(
     path = path,
     relativePath = segments.joinToString("/"),
-    module = segments.subList(0, srcIndex).joinToString("/"),
+    // A module at the repository root has no directory of its own.
+    module = segments.subList(0, srcIndex).joinToString("/").ifEmpty { "." },
     sourceSet = segments[srcIndex + 1],
   )
 }
+
+/**
+ * The index of the first `src/<sourceSet>/kotlin` triple in [segments] that leaves something after
+ * it, or null. The first one, since a package directory may itself be named `src`.
+ */
+private fun sourceTreeIndex(segments: List<String>): Int? =
+  (0 until segments.size - 3).firstOrNull {
+    segments[it] == "src" && segments[it + 2] == "kotlin"
+  }

@@ -38,15 +38,26 @@ class AnalysisTest {
     write("lib/a/build/generated/kotlin/a/Gen.kt", "package a")
     write("lib/a/src/commonMain/resources/notes.kt", "package a")
     write("lib/a/src/commonMain/kotlin/a/src/InSrc.kt", "package a.src")
+    write("lib/a/src/commonMain/kotlin/a/build/InBuild.kt", "package a.build")
+    write("src/main/kotlin/Root.kt", "")
 
     val files = discoverSourceFiles(root, listOf("lib"))
 
     assertEquals(
-      listOf("commonMain" to false, "commonMain" to false, "jvmTest" to true, "test" to true),
-      files.map { it.sourceSet to it.isTest },
+      listOf(
+        "lib/a/src/commonMain/kotlin/a/A.kt",
+        "lib/a/src/commonMain/kotlin/a/build/InBuild.kt",
+        "lib/a/src/commonMain/kotlin/a/src/InSrc.kt",
+        "lib/a/src/jvmTest/kotlin/a/ATest.kt",
+        "lib/a/src/test/kotlin/a/BTest.kt",
+      ),
+      files.map { it.relativePath },
     )
+    assertEquals(listOf(false, false, false, true, true), files.map { it.isTest })
     assertEquals("lib/a", files.first().module)
     assertEquals(files, discoverSourceFiles(root, listOf("lib", "lib/a")))
+    val atRoot = discoverSourceFiles(root, listOf(".")).single { it.module == "." }
+    assertEquals("src/main/kotlin/Root.kt", atRoot.relativePath)
   }
 
   @Test
