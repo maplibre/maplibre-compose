@@ -21,7 +21,7 @@ class MlnFfiMapRuntimeStartupTest {
         cacheFile = Path("unused"),
         getLogger = { null },
         onMapCreated = { error("The owner must not run") },
-        onEvent = {},
+        onEvent = { _, _ -> },
         onEventsDrained = {},
         requestFrame = {},
       )
