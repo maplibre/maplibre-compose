@@ -114,8 +114,14 @@ interface View {
 
 function view(index: Index, series: Series): View {
   const measured = index.commits.flatMap((_, i) => (Object.values(series).some((column) => column[i] != null) ? [i] : []));
+  // A release on a commit this device skipped marks its next measurement.
+  const commits = measured.map((i, k) => {
+    const from = k === 0 ? i : measured[k - 1] + 1;
+    const tags = index.commits.slice(from, i + 1).flatMap((c) => c.tags);
+    return { ...index.commits[i], tags };
+  });
   return {
-    commits: measured.map((i) => index.commits[i]),
+    commits,
     series: Object.fromEntries(Object.entries(series).map(([key, column]) => [key, measured.map((i) => column[i] ?? null)])),
   };
 }
@@ -149,7 +155,6 @@ async function fetchJson<T>(url: URL): Promise<T> {
 export async function start() {
   const root = document.querySelector<HTMLElement>(".metrics")!;
   const base = new URL(root.dataset.source!, location.href);
-  const params = new URLSearchParams(location.search);
 
   let index: Index;
   try {
@@ -165,7 +170,7 @@ export async function start() {
   const version = index.generation ?? 0;
   installTooltips(root);
 
-  let scope: Scope = index.scopes.find((s) => s.id === params.get("device")) ?? index.scopes[0];
+  let scope: Scope = index.scopes.find((s) => s.id === new URLSearchParams(location.search).get("device")) ?? index.scopes[0];
   let current: View = { commits: [], series: {} };
   let selected = 0;
   let hovered: number | null = null;
@@ -352,11 +357,18 @@ export async function start() {
       const series = await fetchJson<Series>(new URL(`series/${scope.id}.json?v=${version}.${index.commits.length}`, base));
       if (load !== scopeLoad) return;
       current = view(index, series);
+      if (!current.commits.length) {
+        $("metrics-body").hidden = true;
+        $("metrics-status").hidden = false;
+        $("metrics-status").textContent = `${scope.label} has no measurements.`;
+        return;
+      }
+      hovered = null;
       timeline.commits = current.commits;
       timeline.times = current.commits.map((c) => Date.parse(c.date));
       timeline.releases = current.commits.flatMap((c, i) => c.tags.filter(isRelease).map((label) => ({ index: i, label })));
-      // A link to a commit this device did not measure opens its latest measurement.
-      const linked = current.commits.findIndex((c) => c.commit === params.get("commit"));
+      // The current URL names the selection; a commit this device did not measure opens its latest.
+      const linked = current.commits.findIndex((c) => c.commit === new URLSearchParams(location.search).get("commit"));
       selected = linked < 0 ? current.commits.length - 1 : linked;
       $("benchmarks-scope-note").textContent = `${current.commits.length} measured commit${current.commits.length === 1 ? "" : "s"}`;
       $("metrics-status").hidden = true;

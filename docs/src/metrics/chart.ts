@@ -235,18 +235,26 @@ export class TrendChart {
       plot.append(svg("text", { class: "metrics-axis", x, y: margin.top - 8, "text-anchor": "middle" }, release.label));
     }
 
+    // Bands follow the line's steps, one polygon per run of consecutive measurements.
     this.bands.forEach((band, i) => {
       const [low, high] = band ?? [];
       if (!low || !high) return;
-      const xs = high.flatMap((v, j) => (v != null && low[j] != null ? [j] : []));
-      if (!xs.length) return;
       const x = (j: number) => this.x(times[j]);
-      const last = xs.at(-1)!;
-      let d = `M${x(xs[0])} ${this.y(high[xs[0]]!)}`;
-      for (const j of xs.slice(1)) d += `H${x(j)}V${this.y(high[j]!)}`;
-      d += `H${right}V${this.y(low[last]!)}`;
-      for (let k = xs.length - 1; k > 0; k--) d += `H${x(xs[k])}V${this.y(low[xs[k - 1]]!)}`;
-      plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}H${x(xs[0])}Z` }));
+      const runs: number[][] = [];
+      high.forEach((v, j) => {
+        if (v == null || low[j] == null) return;
+        if (runs.length && runs.at(-1)!.at(-1) === j - 1) runs.at(-1)!.push(j);
+        else runs.push([j]);
+      });
+      for (const xs of runs) {
+        const last = xs.at(-1)!;
+        const end = last === times.length - 1 ? right : x(last + 1);
+        let d = `M${x(xs[0])} ${this.y(high[xs[0]]!)}`;
+        for (const j of xs.slice(1)) d += `H${x(j)}V${this.y(high[j]!)}`;
+        d += `H${end}V${this.y(low[last]!)}`;
+        for (let k = xs.length - 1; k > 0; k--) d += `H${x(xs[k])}V${this.y(low[xs[k - 1]]!)}`;
+        plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}H${x(xs[0])}Z` }));
+      }
     });
     this.columns.forEach((column, i) => {
       let d = "";
