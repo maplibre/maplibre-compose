@@ -180,8 +180,14 @@ class BenchmarkCoreTest {
   }
 
   @Test
-  fun metadataWorkloadsKeepBaseSourcesAndLayersForTheirOverlayConsumers() = runTest {
-    for (scenario in listOf(BenchmarkScenario.StyleOverlay, BenchmarkScenario.OverlayUpdate)) {
+  fun publicationAndMetadataConsumersUseTheSamePartitionedBaseStyle() = runTest {
+    var control: List<String>? = null
+    for (scenario in
+      listOf(
+        BenchmarkScenario.Style,
+        BenchmarkScenario.StyleOverlay,
+        BenchmarkScenario.OverlayUpdate,
+      )) {
       val fixture =
         loadBenchmarkFixture(
           BenchmarkConfig(
@@ -192,6 +198,8 @@ class BenchmarkCoreTest {
           read = { """{"type":"FeatureCollection","features":[]}""" },
           uri = { error("No external resources") },
         )
+      if (control == null) control = fixture.baseStyles
+      else assertEquals(control, fixture.baseStyles)
       val style = Json.parseToJsonElement(fixture.baseStyles.first()).jsonObject
       assertEquals(setOf("data"), style.getValue("sources").jsonObject.keys)
       val layers = style.getValue("layers").jsonArray
@@ -202,6 +210,21 @@ class BenchmarkCoreTest {
       )
       assertEquals("workload-599", layers.last().jsonObject.getValue("id").jsonPrimitive.content)
     }
+    val route =
+      loadBenchmarkFixture(
+        BenchmarkConfig(scenario = BenchmarkScenario.Style, scene = BenchmarkScene.Route),
+        read = { """{"type":"FeatureCollection","features":[]}""" },
+        uri = { error("No external resources") },
+      )
+    assertFalse(route.partitioned)
+    val routeLayer =
+      Json.parseToJsonElement(route.baseStyles.first())
+        .jsonObject
+        .getValue("layers")
+        .jsonArray[1]
+        .jsonObject
+    assertEquals("line", routeLayer.getValue("type").jsonPrimitive.content)
+    assertFalse("circle-radius" in routeLayer.getValue("paint").jsonObject)
   }
 
   @Test

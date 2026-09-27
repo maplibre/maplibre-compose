@@ -163,6 +163,17 @@
       "rateHz": 1
     }
   },
+  "style-publication": {
+    "title": "Style publication",
+    "description": "Replace the same partitioned 600-layer base style used by style-overlay, without declared metadata consumers, through style-ready.",
+    "config": {
+      "workload": "style",
+      "scene": "points-100",
+      "layers": 600,
+      "rateHz": 0.5,
+      "implementation": "compose-declarative"
+    }
+  },
   "style-overlay": {
     "title": "Style replacement with an overlay",
     "description": "Load 600 base layers, resolve a base source and predicate anchor, and wait until the overlay renders.",

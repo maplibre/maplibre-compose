@@ -342,7 +342,7 @@ internal suspend fun awaitSettled(state: MapState) {
         }
       }
     // A settled map may have emitted its last frame before this subscription. Request one
-    // after subscribing; this handshake happens outside the measured workload.
+    // after subscribing so completion cannot wait for an event that already happened.
     benchmarkRequestRepaint(state)
     settled.await()
   }

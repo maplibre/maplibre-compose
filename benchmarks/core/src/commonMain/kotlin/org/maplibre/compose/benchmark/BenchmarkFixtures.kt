@@ -42,15 +42,7 @@ class PreparedBenchmarkFixture(
    * Whether the data layers partition the points by feature id and size them by zoom, so a large
    * style is a realistic one: more declared layers do not multiply the visible overdraw.
    */
-  val partitioned
-    get() =
-      config.scenario in
-        setOf(
-          BenchmarkScenario.MapReturn,
-          BenchmarkScenario.SparsePaint,
-          BenchmarkScenario.StyleOverlay,
-          BenchmarkScenario.OverlayUpdate,
-        )
+  val partitioned = config.partitionsPoints
 
   /** Prepared reuse and fresh preparation use equal-sized images; batch icons stay small. */
   val imageSize: Int
@@ -70,6 +62,19 @@ class PreparedBenchmarkFixture(
           BenchmarkScenario.MapReturn,
         )
 }
+
+private val BenchmarkConfig.partitionsPoints: Boolean
+  get() =
+    scene in
+      setOf(BenchmarkScene.Points100, BenchmarkScene.Points1000, BenchmarkScene.Points10000) &&
+      when (scenario) {
+        BenchmarkScenario.MapReturn,
+        BenchmarkScenario.SparsePaint,
+        BenchmarkScenario.Style,
+        BenchmarkScenario.StyleOverlay,
+        BenchmarkScenario.OverlayUpdate -> true
+        else -> false
+      }
 
 suspend fun loadBenchmarkFixture(
   config: BenchmarkConfig,
@@ -95,14 +100,7 @@ suspend fun loadBenchmarkFixture(
   // A returning map installs its content after the style loads on every host, as declared
   // content does, so the classic SDKs pay the same installation cost.
   val dynamicContent = composeContent || config.scenario == BenchmarkScenario.MapReturn
-  val partitioned =
-    config.scenario in
-      setOf(
-        BenchmarkScenario.MapReturn,
-        BenchmarkScenario.SparsePaint,
-        BenchmarkScenario.StyleOverlay,
-        BenchmarkScenario.OverlayUpdate,
-      )
+  val partitioned = config.partitionsPoints
   val styles =
     List(2) { variant ->
       buildJsonObject {

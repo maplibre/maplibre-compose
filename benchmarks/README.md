@@ -53,8 +53,10 @@ consume a result.
 `getBaseSource` and a predicate anchor, then waits for that overlay to render.
 `overlay-update` toggles that overlay over an unchanged style and waits for a
 rendered-feature query to observe the change. These exercise metadata consumers;
-plain `style` measures style publication without them. The point layers
-partition their features to avoid multiplying visible overdraw.
+`style-publication` uses the same base style without metadata consumers, through
+style-ready. Its completion signal precedes rendering, so its latency cannot be
+subtracted from `style-overlay` to isolate consumer cost. All three cases
+partition the point layers to avoid multiplying visible overdraw.
 
 `source-completion` uses 1,000 points and waits for the submitted revision to
 appear in a rendered-feature query. It exercises the default asynchronous
