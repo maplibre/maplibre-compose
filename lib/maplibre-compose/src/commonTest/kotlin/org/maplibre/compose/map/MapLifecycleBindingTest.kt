@@ -25,7 +25,7 @@ class MapLifecycleBindingTest {
     mapRuntimeForTest(physicalScope = backgroundScope)
       .createMapState(BaseStyle.Demo)
       .lifecycle
-      .bind(adapter)
+      .createBinding(adapter)
 
   @Test
   fun a_map_attaches_with_an_engine_identity_and_render_lease() = runTest {

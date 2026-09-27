@@ -185,8 +185,8 @@ internal class MlnFfiMapSession(
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
-  private val lifecycle by lazy { lifecycleAuthority.bind(this) }
-  private val lifecycleCallbacks by lazy { MapLifecycleCallbacks(lifecycle) { this.callbacks } }
+  override val lifecycle = lifecycleAuthority.createBinding(this)
+  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   /** Presentation producer installed and sampled only on the native map's owner thread. */
@@ -408,13 +408,13 @@ internal class MlnFfiMapSession(
   // region host surface lifecycle
 
   override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
-    while (lifecycle.acceptsWork && !session.isClosed) {
+    while (!lifecycleAuthority.isClosed && lifecycle.acceptsWork && !session.isClosed) {
       val previous = stateLock.withLock { rendererAttachment }
       previous?.releaseBeforeHandoff()
       val published = stateLock.withLock {
         if (rendererAttachment !== previous) false
         else {
-          if (!lifecycle.acceptsWork || session.isClosed) return
+          if (lifecycleAuthority.isClosed || !lifecycle.acceptsWork || session.isClosed) return
           rendererAttachment = RendererAttachment(session)
           true
         }
@@ -599,6 +599,7 @@ internal class MlnFfiMapSession(
     lifecycleAuthority.selectAdapterForPresentation(this) && lifecycle.beginAttachIfOpen()
 
   override suspend fun attachPresentation() {
+    lifecycleAuthority.register(this)
     lifecycle.attachRetainedEngine()
   }
 
@@ -678,6 +679,7 @@ internal class MlnFfiMapSession(
   }
 
   fun start() {
+    lifecycleAuthority.register(this)
     lifecycle.beginAttachIfOpen()
   }
 

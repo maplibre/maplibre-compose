@@ -36,6 +36,49 @@ import org.maplibre.nativeffi.map.MapHandle
 @OptIn(DelicateMapApi::class)
 class PlatformMapAccessTest {
   @Test
+  fun a_renderer_can_offer_a_surface_before_the_session_starts() = runBlocking {
+    withNativeMapState { state, runtime ->
+      fun newSession() =
+        MlnFfiMapSession(
+          lifecycleAuthority = state.lifecycle,
+          callbacks = state.durableStyleCallbacks(),
+          logger = null,
+          renderBackend = MapRenderBackend.OPENGL,
+          layoutDirection = LayoutDirection.Ltr,
+          cacheFile = runtime.nativeRuntimeOptions.cacheFile,
+        )
+      val host =
+        object : MlnFfiMapHostSession {
+          override val isClosed = false
+          override val backends =
+            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+
+          override fun requestFrame() = Unit
+
+          override fun <T> withRendererAccess(action: () -> T): T = action()
+        }
+      val session = newSession()
+      try {
+        withContext(Dispatchers.Default) { session.onSurfaceAvailable(host) }
+        assertNull(session.lifecycle.engineIdentity)
+        state.close()
+        state.awaitClosed()
+        assertTrue(session.lifecycle.acceptsWork, "A surface offer must not adopt the session")
+      } finally {
+        session.onSurfaceLost(host)
+        session.close()
+        session.awaitClosed()
+      }
+      // A closed authority must neither run cleanup on a partially constructed session nor admit
+      // it.
+      val lateSession = newSession()
+      lateSession.start()
+      lateSession.awaitClosed()
+      assertNull(lateSession.lifecycle.engineIdentity)
+    }
+  }
+
+  @Test
   fun detached_native_access_creates_the_map_and_runs_on_its_owner_context() = runBlocking {
     withNativeMapState { state, _ ->
       val callerThread = withContext(Dispatchers.Default) { currentMlnFfiThreadName() }
