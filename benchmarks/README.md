@@ -36,6 +36,16 @@ Use one device, viewport, and data set per comparison, keep the device idle and
 cool, and prefer physical hardware. SDK comparisons measure the delivered
 stacks, including their MapLibre Native revisions.
 
+## Publish tracked results
+
+```sh
+mise run benchmark:publish -- android --device SERIAL --scope pixel-8 --label "Pixel 8"
+```
+
+Runs the tracked presets three times each, for Compose and the classic SDK, and
+uploads the medians under the device scope. Uploads need a clean checkout of a
+commit on `main`; otherwise the results stay under `build/benchmarks/publish`.
+
 ## Fixtures
 
 Geometry is generated. Basemap tiles and glyphs are a snapshot of

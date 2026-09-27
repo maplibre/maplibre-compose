@@ -544,6 +544,16 @@ run = "python benchmarks/run.py"
 [tasks."benchmark:compare"]
 run = "python benchmarks/compare.py"
 
+[tasks."benchmark:publish"]
+description = "Measure the tracked cases on one device and publish them to the benchmarks page."
+depends = ["deps:benchmarks"]
+tools = { "npm:wrangler" = "{{vars.wrangler_version}}" }
+run = 'python benchmarks/publish.py --bucket {{vars.metrics_bucket}} --url "$METRICS_DATA_URL"'
+
+[tasks."benchmark:publish:local"]
+description = "Measure the tracked cases into docs/public/metrics-data for `metrics:dev`."
+depends = ["deps:benchmarks"]
+run = "python benchmarks/publish.py --directory docs/public/metrics-data"
 [tasks."benchmark:test:core"]
 run = "./gradlew :benchmarks:core:jvmTest"
 
