@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
@@ -143,13 +145,9 @@ internal class MapStyleAuthority(
     val binding = style.currentLoadedStyle() ?: return
     if (binding.identity !== changes.identity) return
     val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-    // The engine already holds these changes. A newer revision cancelling the caller must not
-    // leave them unpublished: it would report no structural change and never repair the handles.
-    withContext(NonCancellable) {
-      changes.sources.forEach { refreshStyleSources(adapter, it) }
-      if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
-      changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
-    }
+    changes.sources.forEach { refreshStyleSources(adapter, it) }
+    if (!isCurrentStyleResourceRead(adapter, read)) return
+    changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
   }
 
   /**
@@ -216,9 +214,13 @@ internal class MapStyleAuthority(
     binding: StyleBinding,
     revision: DesiredStyleRevision,
   ) {
+    currentCoroutineContext().ensureActive()
     if (!beginStyleRevision(adapter, revision, binding)) return
     try {
-      updateStyleResources(adapter, adapter.reconcileStyleRevision(revision))
+      // Once accepted, commit and publish together: cancellation must not lose committed changes.
+      withContext(NonCancellable) {
+        updateStyleResources(adapter, adapter.reconcileStyleRevision(revision))
+      }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {

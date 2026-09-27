@@ -28,7 +28,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -91,6 +93,64 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapPresentationTest {
+
+  @Test
+  fun cancelling_an_accepted_style_revision_does_not_lose_committed_handles() = runTest {
+    val binding = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    lateinit var pending: () -> Unit
+    var hold = true
+    val adapter =
+      object : PresentationTestAdapter() {
+        override suspend fun reconcileStyleRevision(
+          revision: DesiredStyleRevision
+        ): StyleResourceChanges {
+          if (!hold) return reconciler.apply(binding, revision)
+          return suspendCancellableCoroutine { continuation ->
+            // Model owner work that passed its active check and committed before UI resumption.
+            val result = reconciler.apply(binding, revision)
+            pending = { continuation.resumeWith(Result.success(result)) }
+          }
+        }
+      }
+    val fixture = presentationFixture(adapter)
+    try {
+      fixture.state.durableStyleCallbacks().onStyleChanged(adapter, binding)
+      fixture.state.styleAuthority.markStyleReady(adapter)
+      val revision =
+        DesiredStyleRevision(
+          listOf(attributedVectorSource("committed-source", "attribution").definition()),
+          listOf(
+            DesiredStyleLayer(
+              TestLayer("committed", "background").definition(),
+              Anchor.Top,
+              null,
+              null,
+            )
+          ),
+          emptyList(),
+        )
+      val job =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          fixture.state.styleAuthority.applyStyleRevision(adapter, binding, revision)
+        }
+      assertEquals(listOf("committed"), binding.layerIds())
+      assertEquals(listOf("committed-source"), binding.sourceIds())
+      job.cancel()
+      pending()
+      job.join()
+      hold = false
+      // The reconciler has already committed these resources, so this emits no structural delta.
+      fixture.state.styleAuthority.applyStyleRevision(adapter, binding, revision)
+      assertNotNull(fixture.state.style.sources["committed-source"])
+      assertNotNull(
+        fixture.state.style.layers["committed"],
+        "committed native layer must have a published handle even after cancellation and an identical next revision",
+      )
+    } finally {
+      fixture.close()
+    }
+  }
 
   @Test
   fun a_committed_revision_cannot_claim_a_replacement_style() = runTest {
@@ -2408,11 +2468,12 @@ private data class PresentationFixture(
   }
 }
 
-private fun presentationFixture(): PresentationFixture {
+private fun presentationFixture(
+  adapter: PresentationTestAdapter = PresentationTestAdapter()
+): PresentationFixture {
   val runtime = mapRuntimeForTest()
   val state = runtime.createMapState(BaseStyle.Demo)
   val token = state.reservePresentation()
-  val adapter = PresentationTestAdapter()
   state.publishPresentation(token, adapter)
   return PresentationFixture(
     runtime,
