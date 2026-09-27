@@ -3,73 +3,82 @@
 MapLibre Compose wraps MapLibre for Kotlin Multiplatform. Native platforms use
 `maplibre-native-ffi`; the browser uses hand-written MapLibre GL JS bindings.
 
+## Priorities
+
+The published libraries are the product. What matters most there is correct
+behavior on every supported platform and a clear API. Until 1.0, a release may
+break source and binary compatibility to reach a better API; users upgrade by
+following the migration notes in PR descriptions.
+
+Everything else serves maintainers: the demo app, benchmarks, code metrics,
+docs-site tooling, CI scripts, and planning documents. Maintainers run these
+themselves and see failures right away, so they need to work for the ways we use
+them, without anticipating every misuse, environment, or concurrent run. The
+demo also shows users how to call the library, so its library usage should be
+idiomatic.
+
+MapLibre behavior is whatever the pinned MapLibre GL JS submodule and
+`maplibre-native-ffi` release do. Answer questions about engine behavior from
+those sources.
+
 ## Development
 
-Use mise tasks. `mise tasks --all` lists commands and `CONTRIBUTING.md` covers
-setup, demo launch, packaging, and documentation builds. `mise.toml` defines the
-tasks and tool versions; `mise.lock` locks the tools per platform.
-
-Avoid `./gradlew build`: it builds all targets, including iOS release
-frameworks, and can exhaust memory. For a task that mise does not provide, run
-one named Gradle task per invocation.
+Use mise tasks: `mise tasks --all` lists them, and `CONTRIBUTING.md` covers
+setup, demo launch, packaging, and documentation builds. For work that mise does
+not cover, run one named Gradle task per invocation. `./gradlew build` builds
+every target, including iOS release frameworks, and can exhaust memory.
 
 - Static checks: `mise run check`; automatic fixes: `mise run fix`.
 - Android Lint: `mise run lint:android`.
 - Tests: `mise run test:android`, `test:android:device`, `test:ios`, `test:js`,
-  `test:macos`, or `test:desktop`. Select the platforms affected by the change.
+  `test:macos`, or `test:desktop`.
 - Documentation: `mise run build:docs` or `mise run //docs:dev`. These tasks
   supply versions derived from Git tags; direct Gradle builds use placeholders.
 
-Choose verification by the changed behavior and its platform dependencies.
-Shared Kotlin logic can usually be validated on Linux; it does not need an
-additional macOS run unless the change depends on macOS behavior. Test affected
-OS APIs, GPU backends, loading, and packaging on their relevant platforms.
-“Native” in this repository means the MapLibre Native backend used by desktop,
-Android, and iOS. Shared Kotlin code and calls to existing FFI APIs are not by
-themselves platform- or architecture-specific changes.
+Checks, tests, and demo launches use local, disposable state. Run the ones a
+change needs without asking first.
 
-Extend existing tests for changed behavior; add coverage where it catches a
-regression. Report what ran, its result, and any untested platform or behavior
-that matters to the change.
+Keep tests that would catch a regression in the changed behavior, sized like the
+neighboring tests; scratch checks used while working need not be committed.
 
-### Test and environment constraints
+Choose platforms by what the change can break. Shared Kotlin and calls to
+existing FFI APIs can be validated on one platform, usually desktop; OS APIs,
+GPU backends, loading, and packaging need their own platforms. "Native" in this
+repository means the MapLibre Native backend used by desktop, Android, and iOS.
 
-`liveMapTest` needs a MapLibre runtime and Compose UI test host. Keep these
-tests out of `commonTest`, which Android host tests inherit. Android host and
-device tests live in `androidHostTest` and `androidDeviceTest` respectively.
+### Test environment
 
-Browser tests run real maps in Chromium, Firefox, and WebKit through Kotlin's
-Playwright test runner. `mise run test:js` installs the browsers selected by the
-Kotlin Gradle plugin and their Linux system dependencies, and reports their
-versions.
-
-Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
-`ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required packages.
-Without an existing SDK, use `mise -E android install` and run Android tasks in
-that environment, for example `mise -E android run test:android`.
+- Tests that need a MapLibre runtime and a Compose UI test host go in
+  `liveMapTest`. `commonTest` has neither, because Android host tests inherit
+  it. Android host and device tests live in `androidHostTest` and
+  `androidDeviceTest`.
+- Browser tests run real maps in Chromium, Firefox, and WebKit through Kotlin's
+  Playwright runner. `mise run test:js` installs the browsers and their Linux
+  system dependencies.
+- Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
+  `ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required
+  packages. Without an SDK, run `mise -E android install` and then run Android
+  tasks in that environment, for example `mise -E android run test:android`.
 
 ### Build conventions
 
-Dependency, plugin, Android SDK, and JVM versions belong in
-`gradle/libs.versions.toml`. `gradle.properties` holds build switches and
-placeholder release versions. `.mise/bin/version-args` derives published
-versions from `vMAJOR.MINOR.PATCH` tags; keep Git access outside Gradle
-configuration.
+- Dependency, plugin, Android SDK, and JVM versions belong in
+  `gradle/libs.versions.toml`. `gradle.properties` holds build switches and
+  placeholder release versions.
+- `.mise/bin/version-args` derives published versions from `vMAJOR.MINOR.PATCH`
+  tags and passes them to Gradle, so Gradle configuration does not depend on the
+  checkout's Git state. Keep Git access in mise tasks and scripts.
+- CI jobs call mise tasks, so a job's command lives in its task. Third-party
+  action SHAs are declared in `.github/workflows/action-pins.yml` and checked by
+  `mise run ci:check-action-pins`.
 
-CI jobs call mise tasks. Change a job's build or test command in the task.
-Third-party action SHAs are declared in `.github/workflows/action-pins.yml`;
-`mise run ci:check-action-pins` verifies their consumers. `hk.pkl` defines the
-static checks and `dprint.jsonc` configures formatting.
-
-## Architecture and task guidance
+## Demo app
 
 `demo-app/common` is the demo's only Kotlin Multiplatform module and contains
 the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, native
-macOS ARM64, and iOS modules launch it. Android Auto and CarPlay share a small
-map demo with native controls; `demo-app/wearos` presents a simple map with Wear
-Compose controls. The browser entry point is in `common/src/jsMain`.
-
-### Driving the demo app
+macOS ARM64, and iOS modules launch it; the browser entry point is in
+`common/src/jsMain`. Android Auto and CarPlay share a small map demo with native
+controls, and `demo-app/wearos` presents a map with Wear Compose controls.
 
 Launch the demo directly in a screen instead of tapping through the menu. Every
 launcher reads `route`, `camera`, and `extent`:
@@ -96,42 +105,75 @@ browser reads the query string (`/?route=settings/input`).
 On Android, record animations with `adb shell screenrecord` and split the frames
 with ffmpeg; single screencaps miss a 300ms transition.
 
-- For repository prose and KDoc, use
-  [docs-writing](.agents/skills/docs-writing/SKILL.md).
-- For a MapLibre GL JS upgrade, use
-  [bump-maplibre-gl-js](.agents/skills/bump-maplibre-gl-js/SKILL.md).
-- For style properties, layer or source types, and engine support changes, use
-  [style-spec-parity](.agents/skills/style-spec-parity/SKILL.md).
-- For Material Symbols, use the Android vector XML in Google's
-  [symbols/android](https://github.com/google/material-design-icons/tree/master/symbols/android).
+For Material Symbols, use the Android vector XML in Google's
+[symbols/android](https://github.com/google/material-design-icons/tree/master/symbols/android).
+
+## Documentation
+
+Documentation describes the library as it is, for a reader who does not know its
+history. Change it when a code change makes existing text wrong or changes what
+a reader would do, and fix that text in place. Notes about what changed ("now",
+"no longer", migration steps) belong in the PR description, where the reviewer
+who knows the old behavior reads them.
+
+Each layer carries a different level of detail:
+
+- Site pages in `docs/src/content/docs/` help a user integrate the library,
+  complete a task, or understand a concept. They cover the common path and the
+  decisions most users make. Edge cases, platform differences, and exact
+  contracts belong in the API reference.
+- KDoc is the API contract: behavior, parameter meaning, lifecycle, threading,
+  and platform limits that callers rely on.
+- `CONTRIBUTING.md` explains project-specific decisions to contributors.
+
+Library users know Compose but often not MapLibre, and many read English as a
+second language, so say what the API does in literal terms.
+
+Site pages import Kotlin examples from `// #region` blocks in
+`demo-app/common/src/*/kotlin/org/maplibre/compose/docsnippets/`, which compile
+with the demo app, so examples stay correct as the API changes. Add or update a
+region for each Kotlin example.
 
 ## Pull requests
 
-Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) and
-[AI_POLICY.md](AI_POLICY.md). Explain what reviewers need to understand the
-change, with detail proportional to its complexity.
+Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft
+status for unfinished work, unresolved decisions, or generated code pending
+human review.
 
-Use draft status for unfinished work, unresolved decisions, or pending human
-review of generated code.
+Write the description for a reviewer who has not seen your working session, and
+for someone reading the history later. Aim for the shortest description that
+lets them understand and trust the change; the diff carries the details.
 
-CI runs in tiers. `ci/jobs.json` lists every job variant with the tier that
-introduces it. Each tier has a caller workflow with its own required check, a
-tier workflow listing the jobs it owns, and each job a reusable workflow that
-holds its body once. `ci/plan.py` selects the variants per event. Draft PRs run
-the draft tier: Android API 36, JS, Linux x64 desktop, docs, hygiene, and iOS
-device compilation. Ready PRs add the ready tier: Android API 26, iOS simulator,
-macOS desktop, macOS Native ARM64, and Windows x64. Marking a PR ready runs only
-the ready tier. Dependabot PRs, main, and manual runs always include every
-variant.
+- Start from the problem as a user or maintainer experiences it.
+- Explain what behaves differently, in the project's and MapLibre's vocabulary.
+- If library users must change their code, or the PR knowingly leaves part of
+  the problem unsolved, say so.
 
-Use the default CI tiers for most PRs. Reserve `ci:full` for a concrete risk on
-the additional Linux/Windows ARM64 variants, such as changes to ABI or pointer
-layout, architecture-specific artifact selection, loading/linking, or toolchain
-and runner configuration that affects those variants. Explain which additional
-platform could fail and why. A change to shared Kotlin, an existing FFI call, or
-an unrelated CI task is not enough reason to request every platform.
+Validation covers what CI does not show. CI runs the checks and test suites on
+every PR, so passing them needs no mention. Describe how the tests changed and
+what they now catch, and anything checked outside CI: benchmark comparisons for
+performance work, code metrics for refactors, and manual checks in the demo for
+UI changes. Name any affected behavior that went unverified.
 
-Request the extra coverage with `gh pr edit <number> --add-label 'ci:full'`. The
-label also works on drafts and persists across pushes. Adding it runs only the
-tiers the PR has not yet run, and removing it restores the default tier without
-rerunning anything.
+### CI tiers
+
+`ci/plan.py` selects job variants from `ci/jobs.json` for each event. Each tier
+has a caller workflow with its own required check and a tier workflow listing
+its jobs; each job's body is a reusable workflow. Draft PRs run Android API 36,
+JS, Linux x64 desktop, docs, hygiene, and iOS device compilation. Ready PRs add
+Android API 26, iOS simulator, macOS desktop, macOS Native ARM64, and Windows
+x64. Dependabot PRs, main, and manual runs include every variant.
+
+The `ci:full` label adds the Linux and Windows ARM64 variants. They catch
+architecture-specific failures, so request the label for a change that could
+behave differently there: ABI or pointer layout, architecture-specific artifact
+selection, loading or linking, or toolchain and runner configuration. Shared
+Kotlin, existing FFI calls, and unrelated CI tasks are covered by the default
+tiers. When requesting it (`gh pr edit <number> --add-label 'ci:full'`), say in
+the PR which platform could fail and why. The label works on drafts, persists
+across pushes, and runs only the tiers the PR has not yet run.
+
+## Code review rules
+
+Weigh each finding against the priorities above: how likely the problem is in
+real use, and what it costs the people it affects.
