@@ -4,14 +4,15 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.setImage
 
 class LoadedStyleResourceMutationTest {
   @Test
@@ -25,16 +26,18 @@ class LoadedStyleResourceMutationTest {
           options = GeoJsonOptions(),
         )
 
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.addSource(source))
       handle.asMutable!!.setData(
         GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
       )
       assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["imperative"])
-      fixture.state.style.images.set("imperative", ImageBitmap(1, 1))
+      fixture.state.style.setImage("imperative", ImageBitmap(1, 1))
       fixture.settle()
 
-      assertTrue(fixture.state.style.images["imperative"]!!.asMutable!!.remove())
-      assertTrue(fixture.state.style.sources["imperative"]!!.asMutable!!.remove())
+      fixture.state.style.images["imperative"]!!.asMutable!!.remove()
+      fixture.state.style.awaitCommands()
+      fixture.state.style.sources["imperative"]!!.asMutable!!.remove()
+      fixture.state.style.awaitCommands()
       assertNull(fixture.state.style.sources["imperative"])
     }
   }

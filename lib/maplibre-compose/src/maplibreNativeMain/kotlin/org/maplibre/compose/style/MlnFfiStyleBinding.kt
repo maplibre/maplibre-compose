@@ -118,13 +118,22 @@ internal open class MlnFfiStyleBinding(
     get() = loggerProvider()
 
   override fun setImage(definition: StyleImageDefinition) {
+    val command = prepareImage(definition)
+    mutateMap { command(it) }
+  }
+
+  override suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> {
+    val commands = definitions.map { runCatching { prepareImage(it) } }
+    return awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }.orEmpty()
+  }
+
+  private fun prepareImage(definition: StyleImageDefinition): (MapHandle) -> Unit {
     val (id, snapshot, sdf, stretch) = definition
-    val image = snapshot.toImageBitmap()
     val scale = getScale()
-    val pixels = image.toPremultipliedRgba8()
-    val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    val pixels = snapshot.toPremultipliedRgba8()
+    val stretchPx = stretch?.resolve(snapshot.width, snapshot.height, scale)
     // The engine replaces an existing image in place, so no existence read is needed.
-    mutateMap { map ->
+    return { map ->
       try {
         map.setStyleImage(
           imageId = id,
@@ -295,7 +304,15 @@ internal open class MlnFfiStyleBinding(
   open fun <T> readMap(action: (MapHandle) -> T): T? {
     requireLoadedStyle()
     var result: Result<T>? = null
-    if (!accessMap { map -> result = runCatching { action(map) } }) return null
+    if (
+      !accessMap { map ->
+        result = runCatching {
+          requireLoadedStyle()
+          action(map)
+        }
+      }
+    )
+      return null
     return checkNotNull(result).getOrThrow()
   }
 
@@ -308,7 +325,10 @@ internal open class MlnFfiStyleBinding(
     var result: Result<T>? = null
     if (
       !accessMap { map ->
-        result = runCatching { action(map) }
+        result = runCatching {
+          requireLoadedStyle()
+          action(map)
+        }
       }
     ) {
       abandon()

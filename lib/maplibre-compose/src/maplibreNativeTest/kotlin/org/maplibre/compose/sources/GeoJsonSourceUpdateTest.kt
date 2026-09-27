@@ -27,6 +27,7 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -51,7 +52,7 @@ class GeoJsonSourceUpdateTest {
             GeoJsonData.Features(pointAt(ORIGIN)),
             GeoJsonOptions(),
           )
-        fixture.state.style.sources.add(source)
+        fixture.state.style.addSource(source)
         val layer = TestLayer(LAYER_ID, "circle", source)
         layer.paint(
           "circle-radius",
@@ -120,7 +121,7 @@ class GeoJsonSourceUpdateTest {
       fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
       val binding = fixture.style as MlnFfiStyleBinding
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.addSource(source))
       val layer = TestLayer(LAYER_ID, "circle", source)
       layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
@@ -151,30 +152,27 @@ class GeoJsonSourceUpdateTest {
   }
 
   @Test
-  fun rejected_synchronous_initial_data_throws_without_adding_a_source(): MapTestResult =
+  fun rejected_initial_data_leaves_the_source_absent_and_allows_a_later_add(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(STYLE)
         val binding = fixture.style as MlnFfiStyleBinding
+        val options = GeoJsonOptions(synchronousUpdate = true)
 
-        assertFailsWith<StyleHandleException> {
-          fixture.state.style.sources.add(
-            GeoJsonSource(
-              SOURCE_ID,
-              GeoJsonData.JsonString("{invalid GeoJSON}"),
-              GeoJsonOptions(synchronousUpdate = true),
-            )
-          )
-        }
+        fixture.state.style.sources.add(
+          GeoJsonSource(SOURCE_ID, GeoJsonData.JsonString("{invalid GeoJSON}"), options)
+        )
+        fixture.state.style.awaitCommands()
 
         assertNull(fixture.state.style.sources[SOURCE_ID])
         assertEquals(false, binding.sourceExists(SOURCE_ID))
-        binding.awaitGeoJsonUpdates()
-        fixture.settle()
-        assertEquals(
-          emptyList(),
-          fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>(),
+
+        fixture.state.style.addSource(
+          GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), options)
         )
+        assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+        assertEquals(true, binding.sourceExists(SOURCE_ID))
+        binding.awaitGeoJsonUpdates()
       }
     }
 
@@ -191,7 +189,7 @@ class GeoJsonSourceUpdateTest {
           GeoJsonData.Features(pointAt(ORIGIN)),
           GeoJsonOptions(synchronousUpdate = true),
         )
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.addSource(source))
       val layer = TestLayer(LAYER_ID, "circle", source)
       layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint("circle-color", (const(Color.Black)).asLayerProperty())

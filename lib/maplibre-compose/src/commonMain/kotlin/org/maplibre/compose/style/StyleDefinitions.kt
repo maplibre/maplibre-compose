@@ -85,6 +85,8 @@ private constructor(
 
   fun toImageBitmap(): ImageBitmap = pixels.copyOf().toImageBitmap(width, height)
 
+  fun forEachPixel(action: (index: Int, argb: Int) -> Unit) = pixels.forEachIndexed(action)
+
   override fun equals(other: Any?): Boolean =
     other is ImageSnapshot &&
       width == other.width &&

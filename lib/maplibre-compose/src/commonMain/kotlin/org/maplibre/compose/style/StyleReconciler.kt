@@ -343,7 +343,7 @@ private fun predicateLayerHandle(
 
         override fun isLayerWritable(id: String): Boolean = false
 
-        override fun removeSource(id: String, identity: Any): Boolean = refuseWrite(id)
+        override fun removeSource(id: String, identity: Any) = refuseWrite(id)
 
         override fun requireSourceWritable(id: String) = refuseWrite(id)
 

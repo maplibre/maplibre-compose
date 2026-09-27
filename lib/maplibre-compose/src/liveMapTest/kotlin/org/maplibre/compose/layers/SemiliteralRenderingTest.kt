@@ -23,6 +23,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -53,7 +54,7 @@ class SemiliteralRenderingTest {
             ),
             GeoJsonOptions(),
           )
-        fixture.state.style.sources.add(source)
+        fixture.state.style.addSource(source)
         // Render the first offset component as a radius so pixel readback observes its value.
         val offset =
           scaledTextOffset(

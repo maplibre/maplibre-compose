@@ -18,7 +18,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -89,7 +88,6 @@ import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -212,20 +210,7 @@ internal interface MapStyleStateOwner {
 
   fun requireLayerWritable(id: String)
 
-  fun addStyleSource(source: Source): SourceHandle
-
-  fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
-
-  /** Adds an image, or replaces the image under [id] in place. */
-  fun setStyleImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    stretch: ImageStretch?,
-    expectedStyle: StyleBinding? = null,
-  ): StyleImageHandle
-
-  fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
+  val resourceCommands: StyleResourceCommands
 
   fun readyLoadedStyle(): StyleBinding?
 
@@ -234,6 +219,11 @@ internal interface MapStyleStateOwner {
 
 /** Desired and applied style state for one logical map or snapshotter. */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
+  /** Waits for resource commands accepted before this call. Native rejections are logged. */
+  public suspend fun awaitCommands() {
+    requireOwner().resourceCommands.await()
+  }
+
   private var owner: MapStyleStateOwner? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
@@ -507,8 +497,8 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
       override fun isLayerWritable(id: String): Boolean = owner?.isLayerWritable(id) == true
 
-      override fun removeSource(id: String, identity: Any): Boolean =
-        requireOwner().removeStyleSource(id, style, identity)
+      override fun removeSource(id: String, identity: Any) =
+        requireOwner().resourceCommands.removeSource(id, style, identity)
 
       override fun requireSourceWritable(id: String) {
         owner?.requireSourceWritable(id)
@@ -525,18 +515,10 @@ internal data class LoadedStyleResources(
   val layers: Map<String, LayerHandle>,
 )
 
-internal class ImperativeSourceRecord(val definition: SourceDefinition)
-
-internal class ImperativeImageRecord(val fromResolver: Boolean = false)
-
 /**
  * One missing-image resolution, identified by [token] so a stale one cannot evict its successor.
  */
 internal class MissingImageResolution(val token: Any, val work: Deferred<Unit>)
-
-internal class StyleMutationReservation {
-  val completion = CompletableDeferred<Unit>()
-}
 
 /** Connects a [MapState] to one map surface for the lifetime of one render lease. */
 internal class MapAttachment

@@ -5,13 +5,22 @@ import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
 import org.maplibre.compose.gljs.StyleImageData
+import org.maplibre.compose.style.ImageSnapshot
 import web.dom.document
 import web.html.HTMLCanvasElement
 
 /** Alpha stays straight: GL JS uploads style images with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` on. */
-internal fun ImageBitmap.toGlJsImage(): StyleImageData {
+internal fun ImageBitmap.toGlJsImage(): StyleImageData = ImageSnapshot.capture(this).toGlJsImage()
+
+internal fun ImageSnapshot.toGlJsImage(): StyleImageData {
   val pixels = Uint8Array<ArrayBuffer>(width * height * 4)
-  writeStraightRgba(pixels.asDynamic())
+  forEachPixel { index, pixel ->
+    val offset = index * 4
+    pixels.asDynamic()[offset] = (pixel ushr 16) and 0xFF
+    pixels.asDynamic()[offset + 1] = (pixel ushr 8) and 0xFF
+    pixels.asDynamic()[offset + 2] = pixel and 0xFF
+    pixels.asDynamic()[offset + 3] = (pixel ushr 24) and 0xFF
+  }
   return unsafeJso {
     width = this@toGlJsImage.width.toDouble()
     height = this@toGlJsImage.height.toDouble()

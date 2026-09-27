@@ -43,7 +43,7 @@ class SourceHandleReconstructionTest {
 
     override fun isLayerWritable(id: String): Boolean = true
 
-    override fun removeSource(id: String, identity: Any): Boolean = error("Unused")
+    override fun removeSource(id: String, identity: Any) = error("Unused")
 
     override fun requireSourceWritable(id: String) {}
 

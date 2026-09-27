@@ -68,6 +68,12 @@ internal interface StyleBinding {
    */
   fun setImage(definition: StyleImageDefinition)
 
+  /** Installs a batch in one owner operation, retaining an independent result for each image. */
+  suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> =
+    definitions.map {
+      runCatching { setImage(it) }
+    }
+
   fun setImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     setImage(StyleImageDefinition(id, ImageSnapshot.capture(image), sdf, stretch))
   }

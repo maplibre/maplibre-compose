@@ -45,7 +45,7 @@ protected constructor(
       is RasterDemTileSourceHandleImpl -> MutableRasterDemTileSourceHandleImpl(this)
     }
 
-  internal fun remove(): Boolean = operation {
+  internal fun remove() = operation {
     operations.requireSourceWritable(id)
     operations.removeSource(id, resourceIdentity)
   }
@@ -389,7 +389,7 @@ private class MutableGeoJsonSourceHandleImpl(val source: GeoJsonSourceHandleImpl
   MutableGeoJsonSourceHandle, GeoJsonSourceHandle by source {
   override fun setData(data: GeoJsonData) = source.setData(data)
 
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableImageSourceHandleImpl(val source: ImageSourceHandleImpl) :
@@ -400,33 +400,33 @@ private class MutableImageSourceHandleImpl(val source: ImageSourceHandleImpl) :
 
   override fun setUri(uri: String) = source.setUri(uri)
 
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableVectorTileSourceHandleImpl(val source: VectorTileSourceHandleImpl) :
   MutableSourceHandle, VectorTileSourceHandle by source {
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableCustomVectorTileSourceHandleImpl(
   val source: CustomVectorTileSourceHandleImpl
 ) : MutableSourceHandle, CustomVectorTileSourceHandle by source {
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableCustomGeometrySourceHandleImpl(val source: CustomGeometrySourceHandleImpl) :
   MutableSourceHandle, CustomGeometrySourceHandle by source {
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableRasterTileSourceHandleImpl(val source: RasterTileSourceHandleImpl) :
   MutableSourceHandle, RasterTileSourceHandle by source {
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 private class MutableRasterDemTileSourceHandleImpl(val source: RasterDemTileSourceHandleImpl) :
   MutableSourceHandle, RasterDemTileSourceHandle by source {
-  override fun remove(): Boolean = source.remove()
+  override fun remove() = source.remove()
 }
 
 internal val SourceHandle.implementation: SourceHandleImpl

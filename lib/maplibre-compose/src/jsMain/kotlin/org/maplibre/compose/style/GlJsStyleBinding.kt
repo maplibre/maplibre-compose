@@ -202,10 +202,9 @@ internal class GlJsStyleBinding(
   override fun setImage(definition: StyleImageDefinition) {
     requireLoaded()
     val (id, snapshot, sdf, stretch) = definition
-    val image = snapshot.toImageBitmap()
     val scale = getScale()
-    val pixels = image.toGlJsImage()
-    val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    val pixels = snapshot.toGlJsImage()
+    val stretchPx = stretch?.resolve(snapshot.width, snapshot.height, scale)
     val metadata =
       unsafeJso<StyleImageMetadata> {
         pixelRatio = scale.toDouble()

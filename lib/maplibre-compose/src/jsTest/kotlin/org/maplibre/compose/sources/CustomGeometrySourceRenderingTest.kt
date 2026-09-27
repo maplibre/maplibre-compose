@@ -25,6 +25,7 @@ import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -51,7 +52,7 @@ class CustomGeometrySourceRenderingTest {
             requests += tile
             cover(tile.bounds)
           }
-        fixture.state.style.sources.add(source)
+        fixture.state.style.addSource(source)
         val layer = TestLayer("custom-geometry-fill", "fill", source)
         layer.paint(
           "fill-color",
@@ -75,7 +76,7 @@ class CustomGeometrySourceRenderingTest {
         CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
           cover(it.bounds)
         }
-      fixture.state.style.sources.add(source)
+      fixture.state.style.addSource(source)
       val layer = TestLayer("custom-geometry-fill", "fill", source)
       layer.sourceLayer = "ignored"
       layer.paint(
@@ -146,7 +147,7 @@ class CustomGeometrySourceRenderingTest {
         requests += tile
         cover(tile.bounds, featureName)
       }
-    val handle = assertIs<CustomGeometrySourceHandle>(state.style.sources.add(source))
+    val handle = assertIs<CustomGeometrySourceHandle>(state.style.addSource(source))
     val layer = TestLayer("custom-geometry-fill", "fill", source)
     layer.paint(
       "fill-color",

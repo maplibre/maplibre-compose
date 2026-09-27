@@ -144,8 +144,7 @@ internal suspend fun MapFixture.declare(
       LayoutDirection.Ltr,
       ownership,
     )
-  state.styleAuthority.beginStyleRevision(session, revision)
-  state.styleAuthority.updateStyleResources(session, session.reconcileStyleRevision(revision))
+  state.styleAuthority.applyStyleRevision(session, checkNotNull(style), revision)
 }
 
 internal enum class MapLibreFlavor {

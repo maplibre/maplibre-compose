@@ -29,6 +29,7 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
@@ -230,7 +231,7 @@ class NativeMapSnapshotterTest {
           )
         snapshotter.capture(request)
         val source = GeoJsonSource("points", POINT_DATA, GeoJsonOptions(synchronousUpdate = true))
-        val handle = assertIs<GeoJsonSourceHandle>(snapshotter.style.sources.add(source))
+        val handle = assertIs<GeoJsonSourceHandle>(snapshotter.style.addSource(source))
         val layer = TestLayer("imperative-circle", "circle", source)
         layer.paint("circle-color", (const(Color.Green)).asLayerProperty())
         layer.paint(

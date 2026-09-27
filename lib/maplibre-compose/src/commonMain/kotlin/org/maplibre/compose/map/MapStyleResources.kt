@@ -1,15 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Stable
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.DefaultAlpha
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.LayoutDirection
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.sources.CustomGeometrySource
@@ -20,9 +11,6 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.ImageSourceHandle
-import org.maplibre.compose.sources.MutableGeoJsonSourceHandle
-import org.maplibre.compose.sources.MutableImageSourceHandle
-import org.maplibre.compose.sources.MutableSourceHandle
 import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.RasterDemTileSourceHandle
 import org.maplibre.compose.sources.RasterTileSource
@@ -35,7 +23,6 @@ import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.util.ImageStretch
 
 /** Provides lookup, iteration, and structural commands for the current loaded sources. */
 @Stable
@@ -79,17 +66,13 @@ public class StyleSources internal constructor(private val style: MapStyleState)
   public operator fun get(source: CustomVectorTileSource): CustomVectorTileSourceHandle? =
     get(source.id) as? CustomVectorTileSourceHandle
 
-  /** Adds [source] to the current loaded-style generation and returns its handle. */
-  public fun add(source: Source): MutableSourceHandle =
-    checkNotNull(style.requireOwner().addStyleSource(source).asMutable)
-
-  /** Adds a GeoJSON source and returns definition writes and removal for its generation. */
-  public fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle =
-    checkNotNull((style.requireOwner().addStyleSource(source) as GeoJsonSourceHandle).asMutable)
-
-  /** Adds an image source and returns definition writes and removal for its generation. */
-  public fun add(source: ImageSource): MutableImageSourceHandle =
-    checkNotNull((style.requireOwner().addStyleSource(source) as ImageSourceHandle).asMutable)
+  /**
+   * Enqueues [source] for the loaded style. Rejected native commands are logged. Use
+   * [MapStyleState.awaitCommands] before looking up its installed handle.
+   */
+  public fun add(source: Source) {
+    style.requireOwner().resourceCommands.add(source)
+  }
 
   /** Iterates over the current loaded sources in engine style order. */
   override fun iterator(): Iterator<SourceHandle> = style.sourceHandles().values.iterator()
@@ -110,70 +93,27 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {
   /**
-   * Adds a style image, or replaces the image with [id] in place.
-   *
-   * A replacement keeps the map drawing the previous image until the new one is in place. Removing
-   * and re-adding an image instead can draw a frame without it, and on MapLibre Native that frame
-   * re-lays out every symbol tile. Handles for the previous image expire. The command fails when
-   * [id] belongs to an image that the style content declares.
+   * Enqueues [image], replacing [id] in place. Preparation owns the pixels before submission. A
+   * successful replacement expires old handles; a rejected write keeps the previous image. Native
+   * rejections are logged. Images declared by style content cannot be overwritten.
    */
-  public fun set(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean = false,
-    stretch: ImageStretch? = null,
-  ): MutableStyleImageHandle {
-    return checkNotNull(style.requireOwner().setStyleImage(id, image, sdf, stretch).asMutable)
+  public fun set(id: String, image: ResolvedStyleImage) {
+    setAll(mapOf(id to image))
   }
 
-  /**
-   * Renders [painter] once and sets it as the image with [id]. Returns after registration.
-   *
-   * Pass the drawing environment's [density] and [layoutDirection] explicitly. See
-   * [ResolvedStyleImage.fromPainter] for sizing and drawing options. The image keeps [id] until
-   * removed or the style is replaced; later painter changes do not update it.
-   *
-   * The command fails if the style is replaced or becomes unavailable while rendering. Cancellation
-   * before registration leaves the style unchanged.
-   */
-  public suspend fun set(
-    id: String,
-    painter: Painter,
-    density: Density,
-    layoutDirection: LayoutDirection,
-    size: DpSize? = null,
-    drawAsSdf: Boolean = false,
-    stretch: ImageStretch? = null,
-    alpha: Float = DefaultAlpha,
-    colorFilter: ColorFilter? = null,
-  ): MutableStyleImageHandle {
-    val owner = style.requireOwner()
-    val binding = checkNotNull(style.readyLoadedStyle()) { "No ready loaded style" }
-    val resolved =
-      ResolvedStyleImage.fromPainter(
-        painter,
-        density,
-        layoutDirection,
-        size,
-        drawAsSdf,
-        stretch,
-        alpha,
-        colorFilter,
-      )
-    currentCoroutineContext().ensureActive()
-    return checkNotNull(
-      owner.setStyleImage(id, resolved.image, resolved.sdf, resolved.stretch, binding).asMutable
-    )
+  /** Enqueues one ordered batch. Each image succeeds or fails independently. */
+  public fun setAll(images: Map<String, ResolvedStyleImage>) {
+    style.requireOwner().resourceCommands.set(images)
   }
 
-  /** Returns the image in the current loaded style, or null when absent or unavailable. */
-  public operator fun get(id: String): StyleImageHandle? {
-    val binding = style.readyLoadedStyle() ?: return null
-    return style.operationGuard(binding).run {
-      if (binding.imageExists(id) != true) return@run null
-      StyleImageHandleImpl(id, style, binding)
-    }
+  /** Enqueues removal of [id] in the current loaded style, if it exists. */
+  public fun remove(id: String) {
+    style.requireOwner().resourceCommands.removeImage(id)
   }
+
+  /** Queries the engine after earlier resource commands; null means absent or unavailable. */
+  public suspend operator fun get(id: String): StyleImageHandle? =
+    style.requireOwner().resourceCommands.image(id)
 }
 
 /**

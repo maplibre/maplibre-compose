@@ -1,6 +1,7 @@
 package org.maplibre.compose.util
 
 import androidx.compose.ui.graphics.ImageBitmap
+import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.nativeffi.render.PremultipliedRgba8Image
 
 /**
@@ -10,10 +11,12 @@ import org.maplibre.nativeffi.render.PremultipliedRgba8Image
  * alpha here; skipping that leaves translucent images with bright fringes.
  */
 internal fun ImageBitmap.toPremultipliedRgba8(): PremultipliedRgba8Image {
-  val argb = IntArray(width * height)
-  readPixels(argb)
-  val rgba = ByteArray(argb.size * 4)
-  argb.forEachIndexed { index, pixel ->
+  return ImageSnapshot.capture(this).toPremultipliedRgba8()
+}
+
+internal fun ImageSnapshot.toPremultipliedRgba8(): PremultipliedRgba8Image {
+  val rgba = ByteArray(width * height * 4)
+  forEachPixel { index, pixel ->
     val alpha = (pixel ushr 24) and 0xFF
     val offset = index * 4
     rgba[offset] = (((pixel ushr 16) and 0xFF) * alpha / 255).toByte()
