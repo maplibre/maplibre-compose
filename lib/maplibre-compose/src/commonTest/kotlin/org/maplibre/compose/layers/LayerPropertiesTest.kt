@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.map.FakeImageBitmap
@@ -102,6 +103,21 @@ class LayerPropertiesTest {
     assertEquals(1, image.images.size)
     assertFalse(image.definition.value.containsKey("layout"))
     assertTrue(cache.snapshot {}.images.isEmpty())
+  }
+
+  @Test
+  fun equivalent_function_calls_reuse_compilation() {
+    val cache = testLayerPropertyCache()
+    fun compile(literalIndex: Int) =
+      cache.compile(
+        "paint",
+        "color",
+        FunctionCall.of("get", listOf(const("color"))) { it == literalIndex },
+        DefaultLayerExpressionContext,
+      )
+    val first = compile(-1)
+    assertSame(first, compile(-1))
+    assertTrue(first !== compile(0))
   }
 
   @Test

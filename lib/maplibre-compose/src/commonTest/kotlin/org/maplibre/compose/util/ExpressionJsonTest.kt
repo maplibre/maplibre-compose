@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.BooleanLiteral
@@ -107,6 +108,28 @@ class ExpressionJsonTest {
     val visited = mutableListOf<Expression<*>>()
     expression.visit { visited.add(it) }
     assertEquals<List<Expression<*>>>(listOf(expression, const("park")), visited)
+  }
+
+  @Test
+  fun function_equality_uses_literal_positions_and_snapshots_the_predicate() {
+    val args = listOf(OffsetLiteral.of(Offset(1.5f, 2.5f)))
+    var literal = true
+    val first = FunctionCall.of("literal", args) { literal }
+    val second = FunctionCall.of("literal", args) { it == 0 }
+    val ordinary = FunctionCall.of("literal", args) { false }
+    literal = false
+
+    assertEquals(first, second)
+    assertEquals(first.hashCode(), second.hashCode())
+    assertNotEquals(first, ordinary)
+    assertEquals(compiled(first), compiled(second))
+    assertEquals("""["literal",[1.5,2.5]]""", json(compiled(first)))
+
+    val compiledArgs = args.map { compiled(it) }.toMutableList()
+    val compiledCall = CompiledFunctionCall.of("literal", compiledArgs) { it == 0 }
+    compiledArgs.clear()
+    assertEquals(compiled(first), compiledCall)
+    assertNotEquals(compiledCall, CompiledFunctionCall.of("literal", args.map { compiled(it) }))
   }
 
   @Test
