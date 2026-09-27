@@ -6,6 +6,7 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -89,6 +90,14 @@ class MlnFfiSurfaceLossTest {
         it.errors.isEmpty(),
         "losing and restoring the surface reported errors: ${it.errors}",
       )
+      // A presentation lease can end while its host remains available.
+      runBlocking {
+        it.session.detachPresentation()
+        it.session.attachPresentation()
+      }
+      it.pumpUntil("the retained host to render a new attachment") {
+        it.attachCount == attachesBefore + 2
+      }
     }
   }
 

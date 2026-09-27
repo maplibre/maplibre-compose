@@ -16,8 +16,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlinx.cinterop.objcPtr
-import kotlinx.cinterop.toLong
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -273,10 +271,10 @@ internal constructor(
       if (binding != null) {
         val extent = binding.extent
         DisposableEffect(controller, binding) {
-          controller.surfaceLayoutChanged(binding.layer.objcPtr().toLong(), extent)
+          controller.surfaceLayoutChanged(binding.layer, extent)
           onDispose { controller.surfaceDestroyed() }
         }
-        SideEffect { controller.surfaceLayoutChanged(binding.layer.objcPtr().toLong(), extent) }
+        SideEffect { controller.surfaceLayoutChanged(binding.layer, extent) }
       }
       content(session, clicks)
     }
@@ -308,7 +306,7 @@ internal constructor(
 
   /**
    * The presentation's use of one layer. Closed or replaced bindings ignore updates. The binding
-   * retains the layer until detachment has stopped rendering; the host still owns its contents.
+   * retains the layer while bound; the renderer retains it until queued detachment completes.
    */
   public class LayerBinding
   internal constructor(
@@ -325,7 +323,7 @@ internal constructor(
       extent = layerExtent(width, height, density)
     }
 
-    /** Waits for rendering to stop using the layer. Does not release the host's layer. */
+    /** Queues detachment. The renderer retains the layer until it has stopped using it. */
     override fun close(): Unit = presentation.detach(this)
   }
 }

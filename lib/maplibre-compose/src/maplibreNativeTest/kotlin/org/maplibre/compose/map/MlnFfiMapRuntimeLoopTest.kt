@@ -10,9 +10,13 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
@@ -23,11 +27,13 @@ import org.maplibre.nativeffi.runtime.RuntimeEventType
 class MlnFfiMapRuntimeLoopTest {
 
   @Test
-  fun a_failed_loop_finalizes_the_published_map_on_its_owner_thread() {
+  fun a_failed_loop_finalizes_the_published_map_on_its_owner_thread() = runBlocking {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
     val failed = TestLatch(1)
     val finalized = TestLatch(1)
+    val releaseFinalizer = TestLatch(1)
+    val finalizerReleased = CompletableDeferred<Boolean>()
     val finalizerWasOnOwner = AtomicBoolean(false)
     val finalizerSawPublishedMap = AtomicBoolean(false)
     val expectedFailure = IllegalStateException("stop after publication")
@@ -43,6 +49,7 @@ class MlnFfiMapRuntimeLoopTest {
           finalizerWasOnOwner.store(loop.isOwnerThread())
           finalizerSawPublishedMap.store(loop.map === map)
           finalized.countDown()
+          finalizerReleased.complete(releaseFinalizer.await(TIMEOUT_MILLIS))
         },
         onEvent = { _, _ -> },
         onEventsDrained = {},
@@ -56,11 +63,22 @@ class MlnFfiMapRuntimeLoopTest {
       loop.close()
 
       assertTrue(finalized.await(TIMEOUT_MILLIS), "the loop did not run its finalizer")
+      val closed = async(start = CoroutineStart.UNDISPATCHED) { loop.awaitClosed() }
+      assertFalse(closed.isCompleted, "Owner cleanup has not completed")
+      assertFalse(loop.post({}))
+      releaseFinalizer.countDown()
+      assertTrue(
+        finalizerReleased.await(),
+        "close blocked the caller until the finalizer timed out",
+      )
+      withTimeout(TIMEOUT_MILLIS) { closed.await() }
       assertTrue(finalizerWasOnOwner.load(), "the finalizer ran outside the map owner thread")
       assertTrue(finalizerSawPublishedMap.load(), "the finalizer ran after the map was unpublished")
       assertSame(expectedFailure, loop.failure)
     } finally {
-      runCatching { loop.close() }
+      releaseFinalizer.countDown()
+      loop.close()
+      withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
@@ -128,6 +146,7 @@ class MlnFfiMapRuntimeLoopTest {
         assertTrue(readSawRenderUpdate.load(), "the queued read overtook the awaited call's events")
       } finally {
         loop.close()
+        withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
         FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
@@ -182,6 +201,7 @@ class MlnFfiMapRuntimeLoopTest {
       } finally {
         release.countDown()
         loop.close()
+        withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
         FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }

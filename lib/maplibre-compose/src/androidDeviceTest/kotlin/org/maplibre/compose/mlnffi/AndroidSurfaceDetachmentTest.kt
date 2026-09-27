@@ -47,11 +47,13 @@ class AndroidSurfaceDetachmentTest {
     val closeExecutor = Executors.newSingleThreadExecutor()
     val renderer =
       object : MlnFfiMapRenderer by nativeSession {
+        private lateinit var wrappedHost: MlnFfiMapHostSession
+
         override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
           val renderThread = Thread.currentThread()
-          nativeSession.onSurfaceAvailable(
+          wrappedHost =
             object : MlnFfiMapHostSession by session {
-              override fun <T> withRendererAccess(action: () -> T): T {
+              override fun enqueueRenderer(action: () -> Unit): Boolean {
                 if (
                   Thread.currentThread() !== renderThread &&
                     interceptClose.compareAndSet(true, false)
@@ -61,14 +63,22 @@ class AndroidSurfaceDetachmentTest {
                     "The earlier Surface destruction did not finish"
                   }
                 }
-                return session.withRendererAccess(action)
+                return session.enqueueRenderer(action)
               }
             }
-          )
+          nativeSession.onSurfaceAvailable(wrappedHost)
         }
 
-        override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult =
-          nativeSession.render(frame).also {
+        override fun onSurfaceLost(session: MlnFfiMapHostSession) {
+          nativeSession.onSurfaceLost(wrappedHost)
+        }
+
+        override fun render(
+          host: MlnFfiMapHostSession,
+          frame: MlnFfiMapFrame,
+          captureProjection: Boolean,
+        ): MlnFfiFrameResult =
+          nativeSession.render(wrappedHost, frame).also {
             if (it is MlnFfiFrameResult.Rendered) rendered.countDown()
           }
       }

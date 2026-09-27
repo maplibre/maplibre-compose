@@ -282,6 +282,7 @@ class LinuxOpenGlInteropTest {
 
     private val hostSession =
       object : MlnFfiMapHostSession {
+        override val isClosed = false
         override val backends = host.backends
 
         override fun requestFrame() {}
@@ -345,7 +346,7 @@ class LinuxOpenGlInteropTest {
         assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
           .frame
       try {
-        val result = host.withProducerAccess(frame) { renderer.render(frame) }
+        val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
         if (result is MlnFfiFrameResult.Rendered) {
           host.completeProducerAccess(frame)
           return PumpedFrame(result, frame.target)

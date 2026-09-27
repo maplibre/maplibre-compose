@@ -21,6 +21,39 @@ import org.maplibre.compose.map.MapExtent
 class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
+  fun surface_attachment_runs_on_the_host_renderer() {
+    val renderer = RecordingRenderer()
+    val host = FakeMlnFfiMapHost()
+    val queued = ArrayDeque<() -> Unit>()
+    val queuedHost =
+      object : MlnFfiMapHost by host {
+        override fun enqueueRenderer(action: () -> Unit): Boolean {
+          queued.addLast(action)
+          return true
+        }
+      }
+    val controller =
+      MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(queuedHost), null)
+    controller.attach {}
+    assertTrue(renderer.lifecycle.isEmpty())
+    queued.removeFirst()()
+    assertEquals(listOf("onSurfaceAvailable"), renderer.lifecycle)
+    controller.close()
+    assertTrue(host.closed)
+  }
+
+  @Test
+  fun failed_renderer_release_retains_the_host_target() {
+    val renderer = RecordingRenderer(failingSurfaceLosses = 1)
+    val host = FakeMlnFfiMapHost()
+    val controller = MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(host), null)
+    controller.attach {}
+    controller.close()
+    assertEquals(1, renderer.surfaceLostCount)
+    assertFalse(host.closed)
+  }
+
+  @Test
   fun hiding_a_surface_clears_its_projection_without_waiting_for_a_capped_frame() =
     runFfiComposeUiTest {
       val renderer = RecordingRenderer()
@@ -30,10 +63,11 @@ class MlnFfiMapSurfaceRecoveryTest {
           override val maximumFps = 1
 
           override fun render(
+            host: MlnFfiMapHostSession,
             frame: MlnFfiMapFrame,
             captureProjection: Boolean,
           ): MlnFfiFrameResult {
-            renderer.render(frame, captureProjection)
+            renderer.render(host, frame, captureProjection)
             return MlnFfiFrameResult.Rendered(RecordingProjection(frame.extent, 1) {})
           }
 
@@ -180,10 +214,11 @@ class MlnFfiMapSurfaceRecoveryTest {
       val projectingRenderer =
         object : MlnFfiMapRenderer by renderer {
           override fun render(
+            host: MlnFfiMapHostSession,
             frame: MlnFfiMapFrame,
             captureProjection: Boolean,
           ): MlnFfiFrameResult {
-            val result = renderer.render(frame, captureProjection)
+            val result = renderer.render(host, frame, captureProjection)
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++created
             return MlnFfiFrameResult.Rendered(
@@ -232,10 +267,11 @@ class MlnFfiMapSurfaceRecoveryTest {
       val projectingRenderer =
         object : MlnFfiMapRenderer by renderer {
           override fun render(
+            host: MlnFfiMapHostSession,
             frame: MlnFfiMapFrame,
             captureProjection: Boolean,
           ): MlnFfiFrameResult {
-            val result = renderer.render(frame, captureProjection)
+            val result = renderer.render(host, frame, captureProjection)
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++nextProjection
             return MlnFfiFrameResult.Rendered(
@@ -682,7 +718,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       hostSession = session
     }
 
-    override fun onSurfaceLost() {
+    override fun onSurfaceLost(session: MlnFfiMapHostSession) {
       surfaceLostCount++
       lifecycle += "onSurfaceLost"
       if (failingSurfaceLosses > 0) {
@@ -691,7 +727,11 @@ class MlnFfiMapSurfaceRecoveryTest {
       }
     }
 
-    override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult {
+    override fun render(
+      host: MlnFfiMapHostSession,
+      frame: MlnFfiMapFrame,
+      captureProjection: Boolean,
+    ): MlnFfiFrameResult {
       if (failingRenders > 0) {
         failingRenders--
         val error = "renderer lost its device on frame ${frame.frameId}"

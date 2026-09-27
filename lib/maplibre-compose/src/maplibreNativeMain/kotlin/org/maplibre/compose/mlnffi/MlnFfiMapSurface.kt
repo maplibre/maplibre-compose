@@ -8,6 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.ComposeMapSurface
@@ -35,6 +37,7 @@ internal fun MlnFfiMapSurface(
   Box(modifier.mapSurface(controller, presentFrames))
 }
 
+@OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val hostResult: MlnFfiMapHostResult,
@@ -44,9 +47,8 @@ internal class MlnFfiSurfaceController(
   private var session: MlnFfiMapHostSession? = null
   @Volatile private var requestFrame: () -> Unit = {}
   private var enabled = true
-  private var failed = false
-  private var rendererClosed = false
-  private var closed = false
+  private val failed = AtomicBoolean(false)
+  @Volatile private var closed = false
   private var nextFrameId = 1L
   private var failures = 0
   private var configuredExtent = MapExtent.Empty
@@ -75,15 +77,31 @@ internal class MlnFfiSurfaceController(
         fail(hostResult.cause ?: IllegalStateException(hostResult.diagnostic))
       }
       is MlnFfiMapHostResult.Created -> {
-        val session = MlnFfiMapHostSessionImpl(hostResult.host) { this.requestFrame() }
+        val session = MlnFfiMapHostSessionImpl(hostResult.host, { closed }) { this.requestFrame() }
         this.session = session
-        try {
-          renderer.onSurfaceAvailable(session)
-          requestFrame()
-        } catch (error: Throwable) {
-          fail(error)
-        }
+        offerSurface(session)
       }
+    }
+  }
+
+  private fun offerSurface(session: MlnFfiMapHostSession) {
+    try {
+      check(
+        session.enqueueRenderer {
+          if (!closed) {
+            try {
+              renderer.onSurfaceAvailable(session)
+              this.requestFrame()
+            } catch (error: Throwable) {
+              fail(error)
+            }
+          }
+        }
+      ) {
+        "The map host closed before accepting its surface"
+      }
+    } catch (error: Throwable) {
+      fail(error)
     }
   }
 
@@ -93,7 +111,7 @@ internal class MlnFfiSurfaceController(
 
   override fun prepare(extent: MapExtent): Boolean {
     val host = host ?: return false
-    if (closed || failed || !enabled || extent.isEmpty) return false
+    if (closed || failed.load() || !enabled || extent.isEmpty) return false
     val frameId = nextFrameId++
     try {
       if (configuredExtent != extent) {
@@ -111,7 +129,9 @@ internal class MlnFfiSurfaceController(
       var candidate: CompletedPresentation? = null
       try {
         host.withProducerAccess(frame) {
-          when (val result = renderer.render(frame, captureProjection = true)) {
+          when (
+            val result = renderer.render(checkNotNull(session), frame, captureProjection = true)
+          ) {
             is MlnFfiFrameResult.Rendered -> {
               // Own the handle before reading any properties or leaving producer access.
               candidate = CompletedPresentation(frame.target, result.projection)
@@ -146,7 +166,7 @@ internal class MlnFfiSurfaceController(
 
   override fun present(extent: MapExtent) {
     val completed = presentation
-    if (closed || failed || !enabled || extent.isEmpty || completed == null) {
+    if (closed || failed.load() || !enabled || extent.isEmpty || completed == null) {
       destination = null
       renderer.presentFrame(null, MlnFfiMapDestination(0, 0, 0, 0), 1.0)
       return
@@ -172,7 +192,7 @@ internal class MlnFfiSurfaceController(
     val completed = presentation
     val destination = destination
     var drew = false
-    if (!closed && !failed && completed != null && destination != null) {
+    if (!closed && !failed.load() && completed != null && destination != null) {
       try {
         drew = host?.draw(scope, completed.target, destination) == true
         if (drew && !completed.presented) {
@@ -206,9 +226,8 @@ internal class MlnFfiSurfaceController(
       "Map frame $frameId failed; rebuilding the render session (attempt $failures of $MAX_RECOVERY_ATTEMPTS)"
     }
     try {
-      renderer.onSurfaceLost()
-      renderer.onSurfaceAvailable(checkNotNull(session))
-      requestFrame()
+      session?.let(renderer::onSurfaceLost)
+      offerSurface(checkNotNull(session))
     } catch (error: Throwable) {
       fail(error)
     }
@@ -216,10 +235,8 @@ internal class MlnFfiSurfaceController(
 
   private fun fail(error: Throwable) {
     rethrowIfFatal(error)
-    failed = true
     logger?.e(error) { "Map surface failed" }
-    if (rendererClosed) return
-    rendererClosed = true
+    if (!failed.compareAndSet(expectedValue = false, newValue = true)) return
     runCatching { renderer.close() }.onFailure { logger?.e(it) { "Map renderer failed to close" } }
   }
 
@@ -228,12 +245,13 @@ internal class MlnFfiSurfaceController(
     closed = true
     requestFrame = {}
     clearPresentation()
-    if (host != null) {
-      runCatching { renderer.onSurfaceLost() }
-        .onFailure { logger?.e(it) { "Map renderer failed to release the surface" } }
-      runCatching { host?.close() }.onFailure { logger?.e(it) { "Map host failed to close" } }
+    val host = host ?: return
+    runCatching {
+      session?.let(renderer::onSurfaceLost)
+      host.close()
+      session = null
     }
-    session = null
+      .onFailure { logger?.e(it) { "Map surface failed to close" } }
   }
 
   private class CompletedPresentation(
@@ -255,8 +273,12 @@ internal class MlnFfiSurfaceController(
 
 private class MlnFfiMapHostSessionImpl(
   private val host: MlnFfiMapHost,
+  private val closed: () -> Boolean,
   private val onRequestFrame: () -> Unit,
 ) : MlnFfiMapHostSession {
+  override val isClosed: Boolean
+    get() = closed()
+
   override val backends: RenderBackendPair
     get() = host.backends
 

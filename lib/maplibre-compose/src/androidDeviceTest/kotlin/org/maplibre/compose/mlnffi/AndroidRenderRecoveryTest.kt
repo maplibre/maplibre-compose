@@ -167,7 +167,11 @@ class AndroidRenderRecoveryTest {
       resizes++
     }
 
-    override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult {
+    override fun render(
+      host: MlnFfiMapHostSession,
+      frame: MlnFfiMapFrame,
+      captureProjection: Boolean,
+    ): MlnFfiFrameResult {
       frames++
       val error = nextError
       nextError = null

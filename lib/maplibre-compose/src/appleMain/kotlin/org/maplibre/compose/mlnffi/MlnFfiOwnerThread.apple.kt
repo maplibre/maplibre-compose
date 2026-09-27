@@ -1,23 +1,18 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
-import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.asStableRef
-import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
-import platform.Foundation.NSCondition
-import platform.Foundation.NSDate
-import platform.Foundation.dateWithTimeIntervalSinceNow
 import platform.posix.pthread_create
 import platform.posix.pthread_detach
 import platform.posix.pthread_equal
@@ -27,15 +22,8 @@ import platform.posix.pthread_setname_np
 import platform.posix.pthread_t
 import platform.posix.pthread_tVar
 
-/**
- * The state one owner thread shares with its joiners. The thread keeps it alive through a
- * `StableRef`; a joiner holds it through the [MlnFfiOwnerThread] instance, so a join that times out
- * leaves it allocated for the thread to keep writing to.
- */
-private class MlnFfiOwnerThreadContext(val name: String, val body: () -> Unit) {
-  val completion = NSCondition()
-  var finished = false
-}
+/** The started pthread owns this context's StableRef until its body returns. */
+private class MlnFfiOwnerThreadContext(val name: String, val body: () -> Unit)
 
 private val ownerThreadEntry =
   staticCFunction<COpaquePointer?, COpaquePointer?> { argument ->
@@ -51,13 +39,6 @@ private val ownerThreadEntry =
       // JVM runtime reports an uncaught thread failure.
       error.printStackTrace()
     } finally {
-      context.completion.lock()
-      try {
-        context.finished = true
-        context.completion.broadcast()
-      } finally {
-        context.completion.unlock()
-      }
       reference.dispose()
     }
     null
@@ -94,26 +75,6 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
   actual fun isCurrent(): Boolean {
     val current = thread ?: return false
     return pthread_equal(current, pthread_self()) != 0
-  }
-
-  @OptIn(BetaInteropApi::class)
-  actual fun join(timeoutMillis: Long): Boolean {
-    context.completion.lock()
-    try {
-      // A joiner can be a pool-less thread, where an autoreleased NSDate leaks, so the timed
-      // wait runs inside a pool of its own.
-      return autoreleasepool {
-        val deadline = NSDate.dateWithTimeIntervalSinceNow(timeoutMillis / 1000.0)
-        // A condition variable returns from a spurious wakeup as readily as from a signal.
-        var timedOut = false
-        while (!context.finished && !timedOut) {
-          timedOut = !context.completion.waitUntilDate(deadline)
-        }
-        context.finished
-      }
-    } finally {
-      context.completion.unlock()
-    }
   }
 }
 

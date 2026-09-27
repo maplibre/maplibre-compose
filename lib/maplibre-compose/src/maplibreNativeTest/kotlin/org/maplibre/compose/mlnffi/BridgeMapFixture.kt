@@ -95,6 +95,7 @@ private constructor(
 
   private val hostSession =
     object : MlnFfiMapHostSession {
+      override val isClosed = false
       override val backends: RenderBackendPair = driver.backends
 
       override fun requestFrame() {
@@ -122,7 +123,7 @@ private constructor(
    * target go; the map, its style, and its camera survive.
    */
   fun loseSurface() {
-    session.onSurfaceLost()
+    session.onSurfaceLost(hostSession)
     forgetPresentedFrame()
   }
 
@@ -162,7 +163,7 @@ private constructor(
       }
     return try {
       driver
-        .withProducerAccess(frame) { session.render(frame, captureProjection) }
+        .withProducerAccess(frame) { session.render(hostSession, frame, captureProjection) }
         .also {
           if (it is MlnFfiFrameResult.Rendered) {
             driver.completeProducerAccess(frame)
@@ -455,6 +456,7 @@ private constructor(
     private val queue = ArrayDeque<Access>()
     private var framesStarted = 0L
     private var stopped = false
+    private val finished = MlnFfiGate()
     @Volatile private var stopRequested = false
     @Volatile private var failure: Throwable? = null
     private val thread = MlnFfiOwnerThread("maplibre-compose-test-renderer", ::loop)
@@ -474,7 +476,7 @@ private constructor(
     /** Stops the thread and returns what failed on it, if anything. */
     fun stop(): Throwable? {
       stopRequested = true
-      check(thread.join(STOP_TIMEOUT_MILLIS)) { "The test renderer thread did not stop" }
+      check(finished.await(STOP_TIMEOUT_MILLIS)) { "The test renderer thread did not stop" }
       return failure
     }
 
@@ -505,6 +507,7 @@ private constructor(
           queue.toList().also { queue.clear() }
         }
         abandoned.forEach { it.done.open() }
+        finished.open()
       }
     }
 
