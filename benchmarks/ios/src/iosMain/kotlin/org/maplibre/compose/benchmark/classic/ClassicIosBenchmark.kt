@@ -74,8 +74,7 @@ private class BenchmarkController : UIViewController(nibName = null, bundle = nu
             config,
             clock::nextFrame,
             mount = { IosDriver(fixture, view, clock::nextFrame).also { driver = it } },
-            unmount = { active ->
-              active.close()
+            unmount = { _ ->
               driver = null
               repeat(2) { clock.nextFrame() }
             },
@@ -199,10 +198,16 @@ private class IosDriver(
   private val images =
     if (fixture.usesImages)
       colors.map { color ->
-        UIGraphicsBeginImageContextWithOptions(CGSizeMake(32.0, 32.0), false, 1.0)
+        UIGraphicsBeginImageContextWithOptions(
+          CGSizeMake(fixture.imageSize.toDouble(), fixture.imageSize.toDouble()),
+          false,
+          1.0,
+        )
         try {
           color.setFill()
-          UIRectFill(CGRectMake(0.0, 0.0, 32.0, 32.0))
+          UIRectFill(
+            CGRectMake(0.0, 0.0, fixture.imageSize.toDouble(), fixture.imageSize.toDouble())
+          )
           checkNotNull(UIGraphicsGetImageFromCurrentImageContext())
         } finally {
           UIGraphicsEndImageContext()

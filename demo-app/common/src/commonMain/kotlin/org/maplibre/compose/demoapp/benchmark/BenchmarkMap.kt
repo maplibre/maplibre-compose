@@ -62,6 +62,10 @@ internal fun BenchmarkRun(
   config: BenchmarkConfig,
   onStatus: (String, Boolean) -> Unit = { _, _ -> },
 ) {
+  if (config.scenario == BenchmarkScenario.RuntimeStartup) {
+    BenchmarkRuntime(config, onStatus)
+    return
+  }
   var fixture by remember(config) { mutableStateOf<BenchmarkFixture?>(null) }
   LaunchedEffect(config) {
     try {

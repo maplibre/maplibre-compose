@@ -21,3 +21,13 @@ internal actual fun benchmarkCollectGarbage() {}
 
 @Composable
 internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
+
+@Composable
+internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String, Boolean) -> Unit) {
+  androidx.compose.runtime.LaunchedEffect(config) {
+    println("MAP_BENCHMARK ERROR Runtime cache initialization requires MapLibre Native")
+    onStatus("Runtime cache initialization requires MapLibre Native", false)
+  }
+}
+
+internal actual val supportsRuntimeBenchmark: Boolean = false

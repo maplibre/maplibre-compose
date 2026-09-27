@@ -78,7 +78,8 @@ def read_run(directory):
     config = parse_config(record(logs, "START"))
     viewport = record(logs, "VIEWPORT")
     startup = record(logs, "STARTUP")
-    distribution([startup["style_ready_ms"], startup["first_frame_ms"]])
+    if startup is not None:
+        distribution([startup["style_ready_ms"], startup["first_frame_ms"]])
     work = record(logs, "WORKLOAD")
     operations = work["operations"]
     if type(operations) is not int or operations < (
@@ -90,6 +91,16 @@ def read_run(directory):
         if len(values) != work[key + "_count"] or len(values) > operations:
             raise ValueError("Incomplete operation timings")
         work[key + "_ms"] = distribution(values)
+    for label, key in (("CLOSES", "close"), ("CLOSE_COMPLETIONS", "close_completion")):
+        values = samples(logs, label)
+        if len(values) != work["close_count"] or len(values) > operations:
+            raise ValueError("Incomplete close timings")
+        work[key + "_ms"] = distribution(values)
+    if (
+        config["workload"] in {"map-return", "runtime-startup"}
+        and work["close_count"] != operations
+    ):
+        raise ValueError("Every lifecycle operation must close exactly once")
     intervals = samples(logs, "INTERVALS")
     if len(intervals) != work["frame_count"] or len(intervals) > operations:
         raise ValueError("Incomplete frame intervals")
@@ -97,7 +108,11 @@ def read_run(directory):
     work["late_frames"] = late_frames(intervals)
     summary = record(logs, "FRAMESTATS")
     frames = samples(logs, "FRAMETIMES")
-    if not frames and config["workload"] not in {"idle", "recompose"}:
+    if not frames and config["workload"] not in {
+        "idle",
+        "recompose",
+        "runtime-startup",
+    }:
         raise ValueError("Redraw workload emitted no render events")
     if len(frames) != summary["frames"]:
         raise ValueError("Incomplete render statistics")

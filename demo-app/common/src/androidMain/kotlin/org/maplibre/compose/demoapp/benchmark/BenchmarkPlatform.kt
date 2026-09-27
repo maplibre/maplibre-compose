@@ -34,3 +34,7 @@ internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames {
   val window = checkNotNull(LocalActivity.current).window
   return remember(window) { AndroidUiFrames(window) }
 }
+
+@Composable
+internal actual fun benchmarkCacheDirectory(): String =
+  checkNotNull(LocalActivity.current).cacheDir.absolutePath

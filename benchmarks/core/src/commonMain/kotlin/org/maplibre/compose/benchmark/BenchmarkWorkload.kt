@@ -13,6 +13,9 @@ data class WorkloadReport(
   @SerialName("submission_count") val submissionCount: Int = 0,
   @SerialName("completion_count") val completionCount: Int = 0,
   @SerialName("frame_count") val frameCount: Int = 0,
+  @SerialName("close_count") val closeCount: Int = 0,
+  @SerialName("close_ms") val closeMs: List<Double> = emptyList(),
+  @SerialName("close_completion_ms") val closeCompletionMs: List<Double> = emptyList(),
   @SerialName("duration_ms") val durationMs: Double,
   @SerialName("submission_ms") val submissionMs: List<Double>,
   @SerialName("completion_ms") val completionMs: List<Double>,
@@ -32,13 +35,32 @@ data class StartupReport(
 class BenchmarkWorkload(
   val durationMillis: Long,
   val nextFrame: suspend () -> Long,
-  timeSource: TimeSource = TimeSource.Monotonic,
+  private val timeSource: TimeSource = TimeSource.Monotonic,
 ) {
   private val start = timeSource.markNow()
   private var operations = 0
   private val submissions = mutableListOf<Double>()
   private val completions = mutableListOf<Double>()
   private val frameIntervals = mutableListOf<Double>()
+  private val closes = mutableListOf<Double>()
+  private val closeCompletions = mutableListOf<Double>()
+
+  fun markNow() = timeSource.markNow()
+
+  /** Record the first close request and the time until owned resources finish cleanup. */
+  suspend fun close(close: () -> Unit, awaitClosed: suspend () -> Unit) {
+    val started = markNow()
+    val caller =
+      try {
+        close()
+        started.elapsedNow().inWholeNanoseconds / 1e6
+      } finally {
+        awaitClosed()
+      }
+    closes += caller
+    closeCompletions += started.elapsedNow().inWholeNanoseconds / 1e6
+  }
+
   var completionSignal: String? = null
 
   fun submitted(submissionMs: Double? = null, completionMs: Double? = null) {
@@ -55,6 +77,8 @@ class BenchmarkWorkload(
       completionMs = completions,
       frameIntervalMs = frameIntervals,
       completionSignal = completionSignal,
+      closeMs = closes,
+      closeCompletionMs = closeCompletions,
     )
 
   suspend fun idle() {

@@ -12,13 +12,16 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.benchmark.BenchmarkConfig
 import org.maplibre.compose.benchmark.BenchmarkScenario
 import org.maplibre.compose.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.demoapp.benchmark.supportsRuntimeBenchmark
 
 @Composable
 internal fun BenchmarksScreen(onBack: () -> Unit, onOpenScenario: (BenchmarkScenario) -> Unit) {
   SettingsSubScreen("Benchmarks", onBack) {
-    allBenchmarkScenarios.forEach { scenario ->
-      SubmenuRow(scenario.title, scenario.description) { onOpenScenario(scenario) }
-    }
+    allBenchmarkScenarios
+      .filter { supportsRuntimeBenchmark || it != BenchmarkScenario.RuntimeStartup }
+      .forEach { scenario ->
+        SubmenuRow(scenario.title, scenario.description) { onOpenScenario(scenario) }
+      }
   }
 }
 

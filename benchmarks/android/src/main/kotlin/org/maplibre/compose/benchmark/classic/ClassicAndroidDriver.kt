@@ -31,7 +31,7 @@ class ClassicAndroidDriver(
   private val images =
     if (fixture.usesImages)
       BenchmarkColorStrings.map { color ->
-        Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply {
+        Bitmap.createBitmap(fixture.imageSize, fixture.imageSize, Bitmap.Config.ARGB_8888).apply {
           eraseColor(Color.parseColor(color))
         }
       }

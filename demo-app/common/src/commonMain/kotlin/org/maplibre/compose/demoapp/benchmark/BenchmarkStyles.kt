@@ -31,6 +31,7 @@ internal fun tourCamera(progress: Double) =
 internal class BenchmarkFixture(
   val prepared: PreparedBenchmarkFixture,
   val images: List<ResolvedStyleImage>,
+  val bitmaps: List<ImageBitmap>,
 ) {
   val config = prepared.config
   val data = prepared.data.map(GeoJsonData::JsonString)
@@ -46,15 +47,15 @@ internal suspend fun loadBenchmarkFixture(config: BenchmarkConfig): BenchmarkFix
       read = { Res.readBytes("files/benchmarks/$it").decodeToString() },
       uri = { Res.getUri("files/benchmarks/$it") },
     )
-  val images =
+  val bitmaps =
     if (prepared.usesImages)
       BenchmarkColors.map { color ->
-        val bitmap =
-          ImageBitmap(32, 32).also {
-            Canvas(it).drawRect(0f, 0f, 32f, 32f, Paint().apply { this.color = color })
-          }
-        ResolvedStyleImage.fromBitmap(bitmap)
+        val size = prepared.imageSize
+        ImageBitmap(size, size).also {
+          Canvas(it)
+            .drawRect(0f, 0f, size.toFloat(), size.toFloat(), Paint().apply { this.color = color })
+        }
       }
     else emptyList()
-  return BenchmarkFixture(prepared, images)
+  return BenchmarkFixture(prepared, bitmaps.map { ResolvedStyleImage.fromBitmap(it) }, bitmaps)
 }

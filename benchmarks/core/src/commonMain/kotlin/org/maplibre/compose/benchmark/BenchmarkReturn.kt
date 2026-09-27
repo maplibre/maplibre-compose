@@ -14,8 +14,9 @@ private class Returned(val driver: BenchmarkDriver, val helpers: CoroutineScope)
  * still builds a live map and style. The window frame timings, where the platform has them, show
  * whether creation stalled the UI thread during the transition.
  *
- * [mount] creates a map and its driver without preparing it; [unmount] disposes that map and waits
- * for it to close. [cover] positions the panel: 0 covers the map, 1 has slid away.
+ * [mount] creates a map and its driver without preparing it; [unmount] detaches its presentation
+ * without closing the map. The benchmark owns the map and measures its first close request and
+ * cleanup completion separately. [cover] positions the panel: 0 covers the map, 1 has slid away.
  */
 suspend fun runMapReturnBenchmark(
   config: BenchmarkConfig,
@@ -24,6 +25,7 @@ suspend fun runMapReturnBenchmark(
   unmount: suspend (BenchmarkDriver) -> Unit,
   cover: (Double) -> Unit,
   host: BenchmarkHost,
+  timeSource: TimeSource = TimeSource.Monotonic,
 ): String? {
   require(config.scenario == BenchmarkScenario.MapReturn)
   // Helpers belong to the run, not to the scope of the return that created them.
@@ -38,12 +40,28 @@ suspend fun runMapReturnBenchmark(
     return driver.prepare(helpers)
   }
 
-  suspend fun dispose() {
+  suspend fun dispose(clock: BenchmarkWorkload? = null) {
     val returned = current ?: return
     current = null
     returned.driver.recordFrames(null)
     returned.helpers.cancel()
-    unmount(returned.driver)
+    withContext(NonCancellable) {
+      suspend fun detachAndAwait() {
+        try {
+          unmount(returned.driver)
+        } finally {
+          returned.driver.awaitClosed()
+        }
+      }
+      if (clock != null) clock.close(returned.driver::close, ::detachAndAwait)
+      else {
+        try {
+          returned.driver.close()
+        } finally {
+          detachAndAwait()
+        }
+      }
+    }
   }
 
   return measured(
@@ -59,10 +77,10 @@ suspend fun runMapReturnBenchmark(
       host.status("Measuring returns")
       repeat(2) { nextFrame() }
       start()
-      val clock = BenchmarkWorkload(config.durationMs, nextFrame)
+      val clock = BenchmarkWorkload(config.durationMs, nextFrame, timeSource)
       clock.completionSignal = "map-settled"
       clock.scheduled(config.rateHz) {
-        val started = TimeSource.Monotonic.markNow()
+        val started = clock.markNow()
         coroutineScope {
           launch(start = CoroutineStart.UNDISPATCHED) {
             val first = nextFrame()
@@ -78,7 +96,7 @@ suspend fun runMapReturnBenchmark(
         delay(200)
         cover(0.0)
         repeat(2) { nextFrame() }
-        dispose()
+        dispose(clock)
         delay(500)
       }
       clock.report()

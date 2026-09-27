@@ -39,6 +39,7 @@ def write_run(
         "submission_count": operations if not intervals else 0,
         "completion_count": 0,
         "frame_count": len(intervals),
+        "close_count": 0,
         "completion_signal": None,
     }
     frames = 0 if workload in {"idle", "recompose"} else 1
@@ -111,6 +112,37 @@ class PerformanceTest(unittest.TestCase):
             )
             (root / "app.log").write_text(log)
             self.assertEqual(read_run(root)["frames"]["rendering_ms"]["p50"], 2)
+
+    def test_lifecycle_reports_require_one_close_and_completion_per_operation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="runtime-startup")
+            log = (
+                log.replace('"frames":1', '"frames":0')
+                .replace('MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]\n', "")
+                .replace('"close_count": 0', '"close_count": 2')
+            )
+            log = log.replace(
+                'MAP_BENCHMARK STARTUP {"style_ready_ms":120.5,"first_frame_ms":340}',
+                "MAP_BENCHMARK STARTUP null",
+            )
+            log += (
+                "MAP_BENCHMARK CLOSES [1,3]\nMAP_BENCHMARK CLOSE_COMPLETIONS [10,20]\n"
+            )
+            (root / "app.log").write_text(log)
+            result = read_run(root)
+            self.assertIsNone(result["startup"])
+            self.assertEqual(result["workload"]["close_ms"]["p50"], 2)
+            self.assertEqual(result["workload"]["close_completion_ms"]["p50"], 15)
+            for invalid in (
+                log.replace("[10,20]", "[10]"),
+                log.replace('"close_count": 2', '"close_count": 1')
+                .replace("[1,3]", "[1]")
+                .replace("[10,20]", "[10]"),
+            ):
+                (root / "app.log").write_text(invalid)
+                with self.assertRaises(ValueError):
+                    read_run(root)
 
     def test_frame_intervals_measure_pacing(self):
         self.assertIsNone(late_frames([]))

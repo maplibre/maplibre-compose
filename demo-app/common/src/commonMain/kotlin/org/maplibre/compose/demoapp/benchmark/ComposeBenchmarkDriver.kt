@@ -14,10 +14,13 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.expressions.dsl.*
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.*
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -49,11 +52,26 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   private var visible by mutableStateOf(true)
   private var layerCount by mutableStateOf(config.layers)
   private var recomposeTick by mutableStateOf(0)
+  private var overlayShown by mutableStateOf(true)
 
   @Composable
   @MaplibreComposable
   fun Content() {
     if (!declared || config.scenario == BenchmarkScenario.Style || resources.data.isEmpty()) return
+    if (config.scenario in setOf(BenchmarkScenario.StyleOverlay, BenchmarkScenario.OverlayUpdate)) {
+      if (config.scenario == BenchmarkScenario.StyleOverlay || overlayShown) {
+        val source = checkNotNull(getBaseSource<GeoJsonSource>("data"))
+        Anchor.Above(predicate = { it.id == "workload-0" }) {
+          CircleLayer(
+            "metadata-overlay",
+            source,
+            radius = const(8.dp),
+            color = const(BenchmarkColors[1]),
+          )
+        }
+      }
+      return
+    }
     // Reading an otherwise unused tick deliberately invalidates this scope, without changing
     // inputs.
     @Suppress("UNUSED_VARIABLE") val tick = recomposeTick
@@ -138,7 +156,8 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
       // A timeout is a workload failure, not caller cancellation; report it as an error.
       error("Timed out waiting for the style and viewport")
     }
-    if (config.scenario == BenchmarkScenario.Images) image(0)
+    if (config.scenario in setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation))
+      image(0)
     if (config.scenario == BenchmarkScenario.MapReturn) registerImages()
     settled {}
     return StartupReport(styleReady, withTimeout(15000) { firstFrame.await() })
@@ -164,6 +183,22 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
       }
         .first { it }
     }
+  }
+
+  override suspend fun prepareImage(index: Int) {
+    state.style.images.set(
+      "workload-image",
+      ResolvedStyleImage.fromBitmap(resources.bitmaps[index]),
+    )
+  }
+
+  override fun overlay(show: Boolean) {
+    overlayShown = show
+  }
+
+  override suspend fun overlayVisible(): Boolean {
+    val offset = checkNotNull(state.screenLocationFromPosition(BenchmarkOrigin))
+    return state.queryRenderedFeatures(offset, layerIds = setOf("metadata-overlay")).isNotEmpty()
   }
 
   override fun image(index: Int) {

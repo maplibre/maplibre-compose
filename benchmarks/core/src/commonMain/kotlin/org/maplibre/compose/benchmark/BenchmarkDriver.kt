@@ -37,6 +37,12 @@ abstract class BenchmarkDriver(
 
   abstract fun image(index: Int)
 
+  open suspend fun prepareImage(index: Int): Unit = error("${config.scenario.id} is Compose-only")
+
+  open fun overlay(show: Boolean): Unit = error("${config.scenario.id} is Compose-only")
+
+  open suspend fun overlayVisible(): Boolean = error("${config.scenario.id} is Compose-only")
+
   abstract fun layers(show: Boolean)
 
   abstract fun paint(index: Int)
@@ -44,7 +50,7 @@ abstract class BenchmarkDriver(
   /** Recolors only the first data layer; the rest of a large style stays untouched. */
   abstract fun sparsePaint(index: Int)
 
-  /** Registers `imageCount` distinct prepared bitmaps, skipping ids the style already has. */
+  /** Registers `imageCount` ids using reusable prepared images. */
   abstract fun registerImages()
 
   abstract fun removeImages()
@@ -79,8 +85,14 @@ abstract class BenchmarkDriver(
     padding(0.0)
     repeat(2) { nextFrame() }
     settled {
-      if (config.scenario == BenchmarkScenario.Style) withTimeout(10000) { style(0).await() }
-      if (config.scenario == BenchmarkScenario.Images) image(0)
+      if (config.scenario in setOf(BenchmarkScenario.Style, BenchmarkScenario.StyleOverlay))
+        withTimeout(10000) { style(0).await() }
+      if (config.scenario == BenchmarkScenario.OverlayUpdate) overlay(true)
+      else if (
+        config.scenario in setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation)
+      )
+        image(0)
+      else if (config.scenario == BenchmarkScenario.StyleOverlay) Unit
       else if (fixture.data.isNotEmpty()) {
         layers(true)
         source(0)
@@ -93,7 +105,8 @@ abstract class BenchmarkDriver(
 
   suspend fun run(clock: BenchmarkWorkload) {
     when (config.scenario) {
-      BenchmarkScenario.MapReturn -> error("${config.scenario.id} is driven by its host")
+      BenchmarkScenario.MapReturn,
+      BenchmarkScenario.RuntimeStartup -> error("${config.scenario.id} is driven by its host")
       BenchmarkScenario.Idle -> clock.idle()
       BenchmarkScenario.Camera,
       BenchmarkScenario.Overlays -> clock.frames { camera(tourCamera(it)) }
@@ -111,23 +124,28 @@ abstract class BenchmarkDriver(
       BenchmarkScenario.Recompose -> clock.frames { recompose() }
       else ->
         clock.scheduled(config.rateHz) { tick ->
-          // Removal is part of the burst's CPU cost but not of its submission timing.
-          if (config.scenario == BenchmarkScenario.ImageBurst) removeImages()
-          val started = TimeSource.Monotonic.markNow()
+          val started = clock.markNow()
           val revision = (tick + 1) % 2
           val show = tick % 2 != 0
           var ready: Deferred<Unit>? = null
           when (config.scenario) {
             BenchmarkScenario.Paint -> paint(revision)
             BenchmarkScenario.SparsePaint -> sparsePaint(revision)
-            BenchmarkScenario.ImageBurst -> registerImages()
+            BenchmarkScenario.ImageCycle -> {
+              removeImages()
+              registerImages()
+            }
+            BenchmarkScenario.ImagePreparation -> prepareImage(revision)
+            BenchmarkScenario.OverlayUpdate -> overlay(show)
             BenchmarkScenario.Layout -> visible(show)
             BenchmarkScenario.Layers -> layers(show)
             BenchmarkScenario.Source,
             BenchmarkScenario.SourceLatency -> source(revision)
             BenchmarkScenario.Images -> image(revision)
-            BenchmarkScenario.Style -> ready = style(revision)
+            BenchmarkScenario.Style,
+            BenchmarkScenario.StyleOverlay -> ready = style(revision)
             BenchmarkScenario.MapReturn,
+            BenchmarkScenario.RuntimeStartup,
             BenchmarkScenario.Idle,
             BenchmarkScenario.Camera,
             BenchmarkScenario.Overlays,
@@ -139,9 +157,27 @@ abstract class BenchmarkDriver(
           val submission = started.elapsedNow().inWholeNanoseconds / 1e6
           var completion: Double? = null
           when {
-            config.scenario == BenchmarkScenario.Style -> {
-              clock.completionSignal = "style-ready"
+            config.scenario in setOf(BenchmarkScenario.Style, BenchmarkScenario.StyleOverlay) -> {
               withTimeout(10000) { checkNotNull(ready).await() }
+              if (config.scenario == BenchmarkScenario.StyleOverlay) {
+                clock.completionSignal = "rendered-style-overlay"
+                awaitOverlay(true)
+              } else clock.completionSignal = "style-ready"
+              completion = started.elapsedNow().inWholeNanoseconds / 1e6
+            }
+            config.scenario in
+              setOf(
+                BenchmarkScenario.Images,
+                BenchmarkScenario.ImageCycle,
+                BenchmarkScenario.ImagePreparation,
+              ) -> {
+              clock.completionSignal = "map-settled"
+              settled {}
+              completion = started.elapsedNow().inWholeNanoseconds / 1e6
+            }
+            config.scenario == BenchmarkScenario.OverlayUpdate -> {
+              clock.completionSignal = "rendered-overlay"
+              awaitOverlay(show)
               completion = started.elapsedNow().inWholeNanoseconds / 1e6
             }
             config.scenario == BenchmarkScenario.SourceLatency -> {
@@ -158,6 +194,14 @@ abstract class BenchmarkDriver(
           }
           clock.submitted(submission, completion)
         }
+    }
+  }
+
+  private suspend fun awaitOverlay(show: Boolean) {
+    withTimeout(10000) {
+      do {
+        nextFrame()
+      } while (overlayVisible() != show)
     }
   }
 
@@ -187,7 +231,7 @@ internal fun helperScope(context: CoroutineContext) = CoroutineScope(context + J
 internal fun printRunHeader(
   config: BenchmarkConfig,
   viewport: List<Double>,
-  startup: StartupReport,
+  startup: StartupReport?,
 ) {
   println("MAP_BENCHMARK START ${config.encode()}")
   printBenchmarkBuildInfo()

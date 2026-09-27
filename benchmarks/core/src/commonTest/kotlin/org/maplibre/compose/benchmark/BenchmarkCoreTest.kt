@@ -3,6 +3,8 @@
 package org.maplibre.compose.benchmark
 
 import kotlin.test.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -73,6 +75,132 @@ class BenchmarkCoreTest {
         Json.parseToJsonElement(BenchmarkRadiusExpression),
         layer.jsonObject.getValue("paint").jsonObject["circle-radius"],
       )
+    }
+  }
+
+  @Test
+  fun imageCycleTimesRemovalAndWaitsForCompletion() = runTest {
+    val events = mutableListOf<String>()
+    val config =
+      BenchmarkConfig(scenario = BenchmarkScenario.ImageCycle, durationMs = 3000, rateHz = 1.0)
+    val driver =
+      TimingDriver(
+        config,
+        action = { event ->
+          events += event
+          testScheduler.advanceTimeBy(if (event == "remove") 20 else 30)
+        },
+        settle = {
+          events += "settled"
+          delay(50)
+        },
+      )
+    val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
+    driver.run(clock)
+    assertEquals(List(3) { listOf("remove", "register", "settled") }.flatten(), events)
+    assertEquals(List(3) { 50.0 }, clock.report().submissionMs)
+    assertEquals(List(3) { 100.0 }, clock.report().completionMs)
+    assertEquals("map-settled", clock.report().completionSignal)
+  }
+
+  @Test
+  fun returningMapsCloseOnceWhileAttachedThenAwaitCleanup() = runTest {
+    val config =
+      BenchmarkConfig(
+        scenario = BenchmarkScenario.MapReturn,
+        implementation = BenchmarkImplementation.Declarative,
+        durationMs = 3000,
+        rateHz = 1.0,
+      )
+    var mounted = false
+    var created = 0
+    var closed = 0
+    var completed = 0
+    val nextFrame: suspend () -> Long = {
+      delay(16)
+      testScheduler.currentTime * 1_000_000
+    }
+    val failure =
+      runMapReturnBenchmark(
+        config,
+        nextFrame,
+        mount = {
+          assertFalse(mounted)
+          mounted = true
+          created++
+          TimingDriver(
+            config,
+            nextFrame,
+            action = {
+              assertEquals("close", it)
+              assertTrue(mounted)
+              closed++
+            },
+            awaitClose = {
+              assertFalse(mounted)
+              assertEquals(created, closed)
+              completed++
+            },
+          )
+        },
+        unmount = {
+          assertEquals(created, closed)
+          mounted = false
+        },
+        cover = {},
+        host = BenchmarkHost(cpu = {}, collectGarbage = {}),
+        timeSource = testScheduler.timeSource,
+      )
+    assertNull(failure)
+    assertTrue(created > 1) // Priming is followed by measured maps.
+    assertEquals(created, closed)
+    assertEquals(created, completed)
+    assertFalse(mounted)
+  }
+
+  @Test
+  fun closeReturnAndCompletionAreRecordedSeparately() = runTest {
+    val clock = BenchmarkWorkload(3000, { error("No frame needed") }, testScheduler.timeSource)
+    val events = mutableListOf<String>()
+    clock.submitted()
+    clock.close(
+      close = {
+        events += "close"
+        testScheduler.advanceTimeBy(7)
+      },
+      awaitClosed = {
+        events += "await"
+        delay(31)
+      },
+    )
+    assertEquals(listOf("close", "await"), events)
+    assertEquals(listOf(7.0), clock.report().closeMs)
+    assertEquals(listOf(38.0), clock.report().closeCompletionMs)
+    assertEquals(1, clock.report().operations)
+  }
+
+  @Test
+  fun metadataWorkloadsKeepBaseSourcesAndLayersForTheirOverlayConsumers() = runTest {
+    for (scenario in listOf(BenchmarkScenario.StyleOverlay, BenchmarkScenario.OverlayUpdate)) {
+      val fixture =
+        loadBenchmarkFixture(
+          BenchmarkConfig(
+            scenario = scenario,
+            implementation = BenchmarkImplementation.Declarative,
+            layers = 600,
+          ),
+          read = { """{"type":"FeatureCollection","features":[]}""" },
+          uri = { error("No external resources") },
+        )
+      val style = Json.parseToJsonElement(fixture.baseStyles.first()).jsonObject
+      assertEquals(setOf("data"), style.getValue("sources").jsonObject.keys)
+      val layers = style.getValue("layers").jsonArray
+      assertEquals(601, layers.size)
+      assertEquals(
+        Json.parseToJsonElement(benchmarkLayerFilter(0, 600)),
+        layers[1].jsonObject["filter"],
+      )
+      assertEquals("workload-599", layers.last().jsonObject.getValue("id").jsonPrimitive.content)
     }
   }
 
@@ -150,4 +278,56 @@ class BenchmarkCoreTest {
         .content,
     )
   }
+}
+
+/** Only the SDK boundaries used by timing tests; the real workload controls order and clocks. */
+private class TimingDriver(
+  config: BenchmarkConfig,
+  nextFrame: suspend () -> Long = { error("No frame expected") },
+  private val action: (String) -> Unit = {},
+  private val settle: suspend () -> Unit = {},
+  private val awaitClose: suspend () -> Unit = {},
+) : BenchmarkDriver(PreparedBenchmarkFixture(config, emptyList(), emptyList()), nextFrame) {
+  override suspend fun prepare(scope: CoroutineScope) = StartupReport(0.0, 0.0)
+
+  override fun registerImages() = action("register")
+
+  override fun removeImages() = action("remove")
+
+  override suspend fun settled(block: suspend () -> Unit) {
+    block()
+    settle()
+  }
+
+  override fun close() = action("close")
+
+  override suspend fun awaitClosed() = awaitClose()
+
+  override fun viewport() = listOf(400.0, 800.0, 1.0)
+
+  override fun recordFrames(recorder: BenchmarkFrameRecorder?) {}
+
+  override fun camera(value: BenchmarkCamera): Unit = error("Unused")
+
+  override suspend fun animate(value: BenchmarkCamera, durationMs: Long): Unit = error("Unused")
+
+  override fun style(index: Int): Deferred<Unit> = error("Unused")
+
+  override fun image(index: Int): Unit = error("Unused")
+
+  override fun layers(show: Boolean): Unit = error("Unused")
+
+  override fun paint(index: Int): Unit = error("Unused")
+
+  override fun sparsePaint(index: Int): Unit = error("Unused")
+
+  override fun visible(show: Boolean): Unit = error("Unused")
+
+  override fun source(index: Int): Unit = error("Unused")
+
+  override fun height(fraction: Double): Unit = error("Unused")
+
+  override fun padding(bottom: Double): Unit = error("Unused")
+
+  override suspend fun renderedRevisions(): List<Int> = error("Unused")
 }

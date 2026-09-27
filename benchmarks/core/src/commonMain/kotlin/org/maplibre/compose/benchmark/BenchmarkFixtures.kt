@@ -43,13 +43,32 @@ class PreparedBenchmarkFixture(
    * style is a realistic one: more declared layers do not multiply the visible overdraw.
    */
   val partitioned
-    get() = config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+    get() =
+      config.scenario in
+        setOf(
+          BenchmarkScenario.MapReturn,
+          BenchmarkScenario.SparsePaint,
+          BenchmarkScenario.StyleOverlay,
+          BenchmarkScenario.OverlayUpdate,
+        )
+
+  /** Prepared reuse and fresh preparation use equal-sized images; batch icons stay small. */
+  val imageSize: Int
+    get() =
+      if (config.scenario in setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation))
+        256
+      else 32
 
   /** Whether the run registers prepared bitmaps with the style. */
   val usesImages
     get() =
       config.scenario in
-        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
+        setOf(
+          BenchmarkScenario.Images,
+          BenchmarkScenario.ImageCycle,
+          BenchmarkScenario.ImagePreparation,
+          BenchmarkScenario.MapReturn,
+        )
 }
 
 suspend fun loadBenchmarkFixture(
@@ -66,13 +85,24 @@ suspend fun loadBenchmarkFixture(
     else emptyList()
   val composeContent =
     config.implementation == BenchmarkImplementation.Declarative &&
-      config.scenario != BenchmarkScenario.Style &&
+      config.scenario !in
+        setOf(
+          BenchmarkScenario.Style,
+          BenchmarkScenario.StyleOverlay,
+          BenchmarkScenario.OverlayUpdate,
+        ) &&
       hasData
   // A returning map installs its content after the style loads on every host, as declared
   // content does, so the classic SDKs pay the same installation cost.
   val dynamicContent = composeContent || config.scenario == BenchmarkScenario.MapReturn
   val partitioned =
-    config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+    config.scenario in
+      setOf(
+        BenchmarkScenario.MapReturn,
+        BenchmarkScenario.SparsePaint,
+        BenchmarkScenario.StyleOverlay,
+        BenchmarkScenario.OverlayUpdate,
+      )
   val styles =
     List(2) { variant ->
       buildJsonObject {
@@ -131,7 +161,8 @@ suspend fun loadBenchmarkFixture(
                 dataLayer(
                   "workload-$index",
                   config.scene == BenchmarkScene.Route,
-                  config.scenario == BenchmarkScenario.Images,
+                  config.scenario in
+                    setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation),
                   if (partitioned) index to config.layers else null,
                 )
               )

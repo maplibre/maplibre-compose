@@ -140,15 +140,55 @@
   },
   "image-registration": {
     "title": "Image registration",
-    "config": { "workload": "images", "scene": "points-100", "rateHz": 2 }
+    "description": "Replace a prepared 256 by 256 image and wait for settlement; reuse control for image-preparation.",
+    "config": { "workload": "images", "scene": "points-100", "rateHz": 1 }
   },
-  "image-burst": {
-    "title": "Image registration burst",
+  "image-cycle": {
+    "title": "Prepared image cycle",
+    "description": "Remove and register 64 image IDs using prepared pixels, including both operations in submission and settlement timing.",
+    "classic": true,
     "config": {
-      "workload": "image-burst",
+      "workload": "image-cycle",
       "scene": "points-100",
       "imageCount": 64,
       "rateHz": 1
     }
+  },
+  "image-preparation": {
+    "title": "Image preparation and update",
+    "description": "Convert a 256\u00d7256 bitmap on every update, register it, and wait for settlement.",
+    "config": {
+      "workload": "image-preparation",
+      "scene": "points-100",
+      "rateHz": 1
+    }
+  },
+  "style-overlay": {
+    "title": "Style replacement with an overlay",
+    "description": "Load 600 base layers, resolve a base source and predicate anchor, and wait until the overlay renders.",
+    "config": {
+      "workload": "style-overlay",
+      "scene": "points-100",
+      "layers": 600,
+      "rateHz": 0.5,
+      "implementation": "compose-declarative"
+    }
+  },
+  "overlay-update": {
+    "title": "Base-style overlay update",
+    "description": "Toggle an overlay over 600 unchanged base layers, reusing base-source metadata and resolving a predicate anchor.",
+    "config": {
+      "workload": "overlay-update",
+      "scene": "points-100",
+      "layers": 600,
+      "rateHz": 1,
+      "implementation": "compose-declarative"
+    }
+  },
+  "runtime-startup": {
+    "title": "Runtime readiness",
+    "description": "After priming, reopen an empty local cache and record constructor return, readiness, close return, and cleanup completion.",
+    "platforms": ["android", "ios", "desktop"],
+    "config": { "workload": "runtime-startup", "scene": "minimal", "rateHz": 1 }
   }
 }
