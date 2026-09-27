@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from performance import analyze
 from publish import PREFIX, cases_meta, plan, publishable, summarize, sync, table
@@ -89,7 +89,8 @@ class PublishTest(unittest.TestCase):
             },
             "b" * 40: {
                 "commit": "b" * 40,
-                "date": "2026-09-02T00:00:00+00:00",
+                # Later than c by instant, earlier by text: ordering must use the instant.
+                "date": "2026-09-03T02:00:00+03:00",
                 "title": "second",
                 "tags": [],
             },
@@ -100,7 +101,16 @@ class PublishTest(unittest.TestCase):
                 "tags": [],
             },
         }
-        with patch("publish.tags_by_commit", return_value={"b" * 40: ["v9.9.9"]}):
+
+        # v9.9.9 is tagged on an unmeasured commit between b and c, so it marks c.
+        def ancestor(command, check):
+            order = {"a" * 40: 0, "b" * 40: 1, "t" * 40: 2, "c" * 40: 3}
+            return Mock(returncode=0 if order[command[3]] <= order[command[4]] else 1)
+
+        with (
+            patch("publish.release_tags", return_value={"v9.9.9": "t" * 40}),
+            patch("publish.subprocess.run", side_effect=ancestor),
+        ):
             for commit, scope, cpu in (
                 ("c" * 40, "pixel", 100),
                 ("a" * 40, "pixel", 50),
@@ -130,7 +140,7 @@ class PublishTest(unittest.TestCase):
                 )
         index = store.read(PREFIX + "index.json")
         self.assertEqual([c["commit"][0] for c in index["commits"]], ["a", "b", "c"])
-        self.assertEqual(index["commits"][1]["tags"], ["v9.9.9"])
+        self.assertEqual([c["tags"] for c in index["commits"]], [[], [], ["v9.9.9"]])
         self.assertEqual({s["id"] for s in index["scopes"]}, {"pixel", "iphone"})
         self.assertIn("idle-basemap", index["cases"])
         pixel = store.read(PREFIX + "series/pixel.json")
@@ -153,7 +163,7 @@ class PublishTest(unittest.TestCase):
         )
         self.assertIn("paint-points", table(snapshot("c" * 40, "pixel", 100)["cases"]))
         # Measuring the commit again replaces every earlier value of that device.
-        with patch("publish.tags_by_commit", return_value={}):
+        with patch("publish.release_tags", return_value={}):
             empty = dict(snapshot("c" * 40, "pixel", 1), cases={})
             sync(
                 store,

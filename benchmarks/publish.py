@@ -151,16 +151,37 @@ def series_values(entry):
     return values
 
 
-def tags_by_commit():
+def release_tags():
+    """Each release tag and the commit it points at."""
     tags = {}
     for line in git(
         "for-each-ref",
         "--format=%(refname:short) %(objectname) %(*objectname)",
-        "refs/tags",
+        "refs/tags/v*",
     ).splitlines():
         parts = line.split()
-        tags.setdefault(parts[-1], []).append(parts[0])
+        tags[parts[0]] = parts[-1]
     return tags
+
+
+def attach_tags(entries):
+    """Mark the first measured commit at or after each release's tagged commit.
+
+    Releases are tagged on commits nobody measured, so the page would otherwise
+    never see one.
+    """
+    pending = dict(release_tags())
+    for entry in entries:
+        entry["tags"] = []
+        for tag, tagged in list(pending.items()):
+            command = ["git", "merge-base", "--is-ancestor", tagged, entry["commit"]]
+            if subprocess.run(command, check=False).returncode == 0:
+                entry["tags"].append(tag)
+                del pending[tag]
+
+
+def instant(entry):
+    return datetime.datetime.fromisoformat(entry["date"])
 
 
 def sync(store, snapshot, scope, cases_meta, commit_info):
@@ -180,9 +201,6 @@ def sync(store, snapshot, scope, cases_meta, commit_info):
     scopes = {s["id"]: s for s in index["scopes"]}
     scopes[scope["id"]] = scope
     series = {key: store.read(f"{PREFIX}series/{key}.json") or {} for key in scopes}
-    for other in series.values():
-        for name, column in other.items():
-            other[name] = column[: len(entries)]
     # Commits are ordered by date; a commit measured for the first time takes its place
     # in every scope's series.
     position = next(
@@ -191,7 +209,7 @@ def sync(store, snapshot, scope, cases_meta, commit_info):
     )
     inserted = position is None
     if inserted:
-        position = sum(1 for entry in entries if entry["date"] <= commit_info["date"])
+        position = sum(1 for entry in entries if instant(entry) <= instant(commit_info))
         entries.insert(position, commit_info)
         for other in series.values():
             for column in other.values():
@@ -212,20 +230,19 @@ def sync(store, snapshot, scope, cases_meta, commit_info):
             column.extend([None] * (len(entries) - len(column)))
     index["cases"] = {**index["cases"], **cases_meta}
     index["scopes"] = list(scopes.values())
-    tags = tags_by_commit()
-    for entry in entries:
-        entry["tags"] = tags.get(entry["commit"], [])
+    attach_tags(entries)
     store.write(
         {f"{PREFIX}snapshots/{snapshot['commit']}/{scope['id']}.json": snapshot},
         immutable=False,
     )
+    # The index goes before the series. A series the page finds short reads as
+    # unmeasured; one longer than the index would misalign every later commit.
+    store.write({PREFIX + "index.json": index}, immutable=False)
     changed = series if inserted else {scope["id"]: columns}
     store.write(
         {f"{PREFIX}series/{key}.json": value for key, value in changed.items()},
         immutable=False,
     )
-    # The index goes last, once everything it refers to exists.
-    store.write({PREFIX + "index.json": index}, immutable=False)
 
 
 def cases_meta():
