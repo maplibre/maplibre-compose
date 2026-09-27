@@ -87,7 +87,7 @@ function dateTicks(start: number, end: number, limit: number) {
   return [];
 }
 
-/** A step line per series over commit time, with release markers and a shared cursor. */
+/** A line per series over commit time, with release markers and a shared cursor. */
 export class TrendChart {
   readonly element = document.createElement("figure");
   private readonly plot = svg("svg", { class: "metrics-plot" });
@@ -235,7 +235,7 @@ export class TrendChart {
       plot.append(svg("text", { class: "metrics-axis", x, y: margin.top - 8, "text-anchor": "middle" }, release.label));
     }
 
-    // Bands follow the line's steps, one polygon per run of consecutive measurements.
+    // Bands connect the range endpoints, one polygon per run of consecutive measurements.
     this.bands.forEach((band, i) => {
       const [low, high] = band ?? [];
       if (!low || !high) return;
@@ -248,12 +248,11 @@ export class TrendChart {
       });
       for (const xs of runs) {
         const last = xs.at(-1)!;
-        const end = last === times.length - 1 ? right : x(last + 1);
         let d = `M${x(xs[0])} ${this.y(high[xs[0]]!)}`;
-        for (const j of xs.slice(1)) d += `H${x(j)}V${this.y(high[j]!)}`;
-        d += `H${end}V${this.y(low[last]!)}`;
-        for (let k = xs.length - 1; k > 0; k--) d += `H${x(xs[k])}V${this.y(low[xs[k - 1]]!)}`;
-        plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}H${x(xs[0])}Z` }));
+        for (const j of xs.slice(1)) d += `L${x(j)} ${this.y(high[j]!)}`;
+        d += `L${x(last)} ${this.y(low[last]!)}`;
+        for (let k = xs.length - 2; k >= 0; k--) d += `L${x(xs[k])} ${this.y(low[xs[k]]!)}`;
+        plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}Z` }));
       }
     });
     this.columns.forEach((column, i) => {
@@ -265,10 +264,9 @@ export class TrendChart {
           return;
         }
         const [x, y] = [this.x(times[j]), this.y(value)];
-        d += open ? `H${x}V${y}` : `M${x} ${y}`;
+        d += open ? `L${x} ${y}` : `M${x} ${y}`;
         open = true;
       });
-      if (open) d += `H${right}`;
       plot.append(svg("path", { class: `metrics-line metrics-series-${i + 1}`, d }));
     });
     plot.append(this.cursor);
