@@ -87,6 +87,22 @@ class PerformanceTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     read_run(root)
 
+    def test_ui_delay_and_deadlines_are_separate_from_engine_timings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root)
+            log += 'MAP_BENCHMARK UISTATS {"frames":2,"dropped":3}\n'
+            log += 'MAP_BENCHMARK UIFRAMES [{"total_ms":130,"delay_ms":110,"deadline_ms":16},{"total_ms":2,"delay_ms":0,"deadline_ms":16}]\n'
+            (root / "app.log").write_text(log)
+            report = read_run(root)
+            self.assertEqual(report["ui_frames"]["missed_deadlines"], 1)
+            self.assertEqual(report["ui_frames"]["delay_ms"]["max"], 110)
+            self.assertEqual(report["ui_frames"]["dropped"], 3)
+            self.assertEqual(report["frames"]["rendering_ms"]["max"], 1)
+            (root / "app.log").write_text(log.replace('"frames":2', '"frames":3'))
+            with self.assertRaisesRegex(ValueError, "Incomplete UI"):
+                read_run(root)
+
     def test_completion_timings(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"

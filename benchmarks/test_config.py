@@ -28,6 +28,13 @@ class ConfigurationTest(unittest.TestCase):
             {"rateHz": float("nan")},
             {"durationMs": 0},
             {"layers": 0},
+            {"layers": 1025},
+            {"imageCount": 0},
+            {
+                "workload": "map-return",
+                "implementation": "compose-declarative",
+                "scene": "minimal",
+            },
             {"workload": "paint", "scene": "minimal"},
             {"workload": "source-latency", "scene": "route-2000"},
             {"unknown": 1},

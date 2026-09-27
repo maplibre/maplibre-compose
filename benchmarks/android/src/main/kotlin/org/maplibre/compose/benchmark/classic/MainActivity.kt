@@ -41,28 +41,56 @@ class MainActivity : ComponentActivity() {
             },
             uri = { "asset://benchmarks/$it" },
           )
-        val view =
-          MapView(
-            this@MainActivity,
-            MapLibreMapOptions.createFromAttributes(this@MainActivity)
-              .textureMode(config.surface == "texture"),
-          )
-        view.onCreate(savedInstanceState)
-        container.addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        val activeDriver = ClassicAndroidDriver(fixture, view)
-        driver = activeDriver
-        // The coroutine reaches this before onStart/onResume, or while already resumed.
-        if (started) view.onStart()
-        if (resumed) view.onResume()
+        fun createDriver(): ClassicAndroidDriver {
+          val view =
+            MapView(
+              this@MainActivity,
+              MapLibreMapOptions.createFromAttributes(this@MainActivity)
+                .textureMode(config.surface == "texture"),
+            )
+          view.onCreate(null)
+          container.addView(view, 0, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+          return ClassicAndroidDriver(fixture, view).also {
+            driver = it
+            if (started) view.onStart()
+            if (resumed) view.onResume()
+          }
+        }
         var startCpu = 0L
-        runClassicBenchmark(
-          activeDriver,
-          cpu = { active ->
-            if (active) startCpu = Process.getElapsedCpuTime()
-            else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpu}")
-          },
-          collectGarbage = System::gc,
-        )
+        val cpu: (Boolean) -> Unit = { active ->
+          if (active) startCpu = Process.getElapsedCpuTime()
+          else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpu}")
+        }
+        val uiFrames = AndroidUiFrames(window)
+        if (config.scenario == BenchmarkScenario.MapReturn) {
+          val cover =
+            android.view.View(this@MainActivity).apply { setBackgroundColor(0xff303030.toInt()) }
+          container.addView(cover, FrameLayout.LayoutParams(-1, -1))
+          runMapReturnBenchmark(
+            config,
+            ::nextAndroidFrame,
+            mount = { recorder ->
+              val active = createDriver()
+              active.recordFrames(recorder)
+              active.prepare()
+              active.viewport()
+            },
+            unmount = {
+              driver?.let {
+                it.close()
+                container.removeView(it.view)
+              }
+              driver = null
+              repeat(2) { nextAndroidFrame() }
+            },
+            cover = { cover.translationX = container.width * it.toFloat() },
+            cpu = cpu,
+            collectGarbage = System::gc,
+            uiFrames = uiFrames,
+          )
+        } else {
+          runClassicBenchmark(createDriver(), cpu, System::gc, uiFrames)
+        }
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {

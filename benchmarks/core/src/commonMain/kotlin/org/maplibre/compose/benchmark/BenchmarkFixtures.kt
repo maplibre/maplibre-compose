@@ -51,6 +51,7 @@ suspend fun loadBenchmarkFixture(
     config.implementation == BenchmarkImplementation.Declarative &&
       config.scenario != BenchmarkScenario.Style &&
       hasData
+  val dynamicContent = composeContent || config.scenario == BenchmarkScenario.MapReturn
   val styles =
     List(2) { variant ->
       buildJsonObject {
@@ -67,7 +68,7 @@ suspend fun loadBenchmarkFixture(
           )
         }
         putJsonObject("sources") {
-          if (hasData && !composeContent)
+          if (hasData && !dynamicContent)
             putJsonObject("data") {
               put("type", "geojson")
               put("data", BenchmarkJson.parseToJsonElement(data[0]))
@@ -103,13 +104,15 @@ suspend fun loadBenchmarkFixture(
             }
           )
           if (config.scene == BenchmarkScene.Basemap) basemapLayers().forEach { add(it) }
-          if (hasData && !composeContent)
+          if (hasData && !dynamicContent)
             repeat(config.layers) { index ->
               add(
                 dataLayer(
                   "workload-$index",
                   config.scene == BenchmarkScene.Route,
                   config.scenario == BenchmarkScenario.Images,
+                  if (config.scenario == BenchmarkScenario.SparsePaint) index to config.layers
+                  else null,
                 )
               )
             }
@@ -120,10 +123,18 @@ suspend fun loadBenchmarkFixture(
   return PreparedBenchmarkFixture(config, data, styles)
 }
 
-private fun dataLayer(id: String, line: Boolean, image: Boolean) = buildJsonObject {
+private fun dataLayer(
+  id: String,
+  line: Boolean,
+  image: Boolean,
+  partition: Pair<Int, Int>? = null,
+) = buildJsonObject {
   put("id", id)
   put("type", if (image) "symbol" else if (line) "line" else "circle")
   put("source", "data")
+  partition?.let { (index, count) ->
+    put("filter", BenchmarkJson.parseToJsonElement(benchmarkLayerFilter(index, count)))
+  }
   if (image)
     putJsonObject("layout") {
       put("icon-image", "workload-image")
@@ -132,7 +143,9 @@ private fun dataLayer(id: String, line: Boolean, image: Boolean) = buildJsonObje
   else
     putJsonObject("paint") {
       put(if (line) "line-color" else "circle-color", BenchmarkColorStrings[0])
-      put(if (line) "line-width" else "circle-radius", if (line) 3 else 5)
+      if (partition != null)
+        put("circle-radius", BenchmarkJson.parseToJsonElement(BenchmarkRadiusExpression))
+      else put(if (line) "line-width" else "circle-radius", if (line) 3 else 5)
     }
 }
 
@@ -209,3 +222,9 @@ private fun basemapLayers(): List<JsonObject> {
     ),
   )
 }
+
+// Partition points so increasing declaration count does not multiply visible overdraw.
+fun benchmarkLayerFilter(index: Int, count: Int): String =
+  """["==",["%",["number",["id"]],$count],$index]"""
+
+const val BenchmarkRadiusExpression = """["interpolate",["linear"],["zoom"],0,2,12,5,20,9]"""

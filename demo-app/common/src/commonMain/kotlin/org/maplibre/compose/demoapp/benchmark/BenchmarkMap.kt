@@ -91,7 +91,8 @@ internal fun BenchmarkRun(
     }
   }
   fixture?.let {
-    BenchmarkPresentation(it, onStatus)
+    if (config.scenario == BenchmarkScenario.MapReturn) BenchmarkReturn(it, onStatus)
+    else BenchmarkPresentation(it, onStatus)
   }
 }
 
@@ -115,6 +116,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
         )
       }
   val recorder = remember(config) { BenchmarkFrameRecorder() }
+  val uiFrames = rememberBenchmarkUiFrames()
   DisposableEffect(state) { onDispose { state.close() } }
   val density = LocalDensity.current.density
   LaunchedEffect(state, config) {
@@ -182,6 +184,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
         },
       )
       recorded = true
+      uiFrames.start()
       println("MAP_BENCHMARK MEASURE")
       val workload = BenchmarkWorkload(config.durationMs, nextFrame = { withFrameNanos { it } })
       driver.run(state, workload)
@@ -201,6 +204,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       // Closing is part of a completed run; cancellation must also release its map runtime.
       withContext(NonCancellable) {
         // Stopping suspends, so it must run even when cancellation reaches this block.
+        uiFrames.stop()
         if (recorded) recorder.stop()
         workloadReport?.printResult()
         state.close()

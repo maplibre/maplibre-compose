@@ -40,3 +40,6 @@ internal actual fun benchmarkCpu(active: Boolean) {
 internal actual fun benchmarkCollectGarbage() {
   kotlin.native.runtime.GC.collect()
 }
+
+@Composable
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None

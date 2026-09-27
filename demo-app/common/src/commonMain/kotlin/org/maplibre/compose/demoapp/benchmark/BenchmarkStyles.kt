@@ -33,7 +33,10 @@ internal class BenchmarkFixture(prepared: PreparedBenchmarkFixture) {
   val baseStyles = prepared.baseStyles.map(BaseStyle::Json)
   val line = prepared.line
   val images =
-    if (config.scenario == BenchmarkScenario.Images)
+    if (
+      config.scenario in
+        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
+    )
       BenchmarkColors.map { color ->
         ImageBitmap(32, 32).also {
           Canvas(it).drawRect(0f, 0f, 32f, 32f, Paint().apply { this.color = color })

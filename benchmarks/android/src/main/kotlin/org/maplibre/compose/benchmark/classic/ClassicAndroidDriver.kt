@@ -12,6 +12,7 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory.*
@@ -24,7 +25,10 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
   private val density = view.resources.displayMetrics.density
   private val styles = fixture.baseStyles
   private val images =
-    if (config.scenario == BenchmarkScenario.Images)
+    if (
+      config.scenario in
+        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
+    )
       BenchmarkColorStrings.map { color ->
         Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply {
           eraseColor(Color.parseColor(color))
@@ -75,7 +79,12 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
     camera(benchmarkCamera(-1.0))
     settled {
       style(0).await()
-      if (images.isNotEmpty()) image(0)
+      if (config.scenario == BenchmarkScenario.Images) image(0)
+      if (config.scenario == BenchmarkScenario.MapReturn) {
+        checkNotNull(map.style).addSource(GeoJsonSource("data", fixture.data[0]))
+        layers(true)
+        imageBurst()
+      }
     }
   }
 
@@ -130,6 +139,24 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
     checkNotNull(map.style).addImage("workload-image", images[index])
   }
 
+  override fun clearImages() {
+    val style = checkNotNull(map.style)
+    repeat(config.imageCount) { style.removeImage("burst-$it") }
+  }
+
+  override fun imageBurst() {
+    val style = checkNotNull(map.style)
+    repeat(config.imageCount) { index ->
+      val id = "burst-$index"
+      if (style.getImage(id) == null) style.addImage(id, images[index % 2])
+    }
+  }
+
+  override fun sparsePaint(index: Int) {
+    checkNotNull(map.style?.getLayer("workload-0"))
+      .setProperties(circleColor(BenchmarkColorStrings[index]))
+  }
+
   override fun layers(show: Boolean) {
     val style = checkNotNull(map.style)
     repeat(config.layers) { index ->
@@ -149,8 +176,17 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
             CircleLayer(id, "data")
               .withProperties(
                 circleColor(BenchmarkColorStrings[0]),
-                circleRadius(5f),
+                if (
+                  config.scenario in
+                    setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+                )
+                  circleRadius(Expression.raw(BenchmarkRadiusExpression))
+                else circleRadius(5f),
               )
+          )
+        if (config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint))
+          (style.getLayer(id) as CircleLayer).setFilter(
+            Expression.raw(benchmarkLayerFilter(index, config.layers))
           )
       }
     }

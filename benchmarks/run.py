@@ -30,7 +30,10 @@ def app_package(config):
 
 
 def validate_platform(platform, config):
-    implementation = json.loads(config)["implementation"]
+    parsed = json.loads(config)
+    implementation = parsed["implementation"]
+    if parsed["workload"] == "map-return" and platform != "android":
+        raise ValueError("Map return currently requires the Android runner")
     for target in ("android", "ios"):
         if implementation == f"classic-{target}" and platform != target:
             raise ValueError(f"classic-{target} requires the {target} runner")
@@ -242,7 +245,8 @@ def main():
         help="Android serial, iOS simulator UDID, or physical iPhone identifier",
     )
     parser.add_argument(
-        "--app", help="Packaged desktop executable or override iOS .app path"
+        "--app",
+        help="Packaged desktop executable, or override Android APK / iOS .app path",
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repeat", type=int, default=1)
@@ -280,7 +284,7 @@ def main():
             *args.adb,
             "install",
             "-r",
-            android_apk(args.config),
+            args.app or android_apk(args.config),
         )
     elif args.platform == "ios":
         devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[

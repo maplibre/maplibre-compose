@@ -27,3 +27,9 @@ internal actual fun benchmarkCpu(active: Boolean) {
 internal actual fun benchmarkCollectGarbage() {
   System.gc()
 }
+
+@Composable
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames {
+  val window = checkNotNull(LocalActivity.current).window
+  return androidx.compose.runtime.remember(window) { AndroidUiFrames(window) }
+}

@@ -13,7 +13,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.camera.CameraAnimation
-import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.*
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.*
@@ -42,11 +42,19 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
   private var styleIndex = 0
 
   fun prepare(state: MapState) {
-    if (fixture.images.isNotEmpty()) replaceImage(state, 0)
+    if (config.scenario == BenchmarkScenario.Images) replaceImage(state, 0)
+    if (config.scenario == BenchmarkScenario.MapReturn) imageBurst(state)
   }
 
   private fun replaceImage(state: MapState, index: Int) {
     state.style.images.set("workload-image", fixture.images[index])
+  }
+
+  private fun imageBurst(state: MapState) {
+    repeat(config.imageCount) { index ->
+      val id = "burst-$index"
+      if (state.style.images[id] == null) state.style.images.set(id, fixture.images[index % 2])
+    }
   }
 
   @Composable
@@ -64,11 +72,15 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
       else CircleLayer("source-anchor", source, visible = false)
     }
     repeat(layerCount) { index ->
+      val complex =
+        config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+      val color =
+        if (config.scenario == BenchmarkScenario.SparsePaint && index != 0) 0 else colorIndex
       if (fixture.line)
         LineLayer(
           "workload-$index",
           source,
-          color = const(BenchmarkColors[colorIndex]),
+          color = const(BenchmarkColors[color]),
           width = const(3.dp),
           visible = visible,
         )
@@ -76,8 +88,13 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
         CircleLayer(
           "workload-$index",
           source,
-          color = const(BenchmarkColors[colorIndex]),
-          radius = const(5.dp),
+          color = const(BenchmarkColors[color]),
+          radius =
+            if (complex)
+              interpolate(linear(), zoom(), 0 to const(2.dp), 12 to const(5.dp), 20 to const(9.dp))
+            else const(5.dp),
+          filter =
+            if (complex) (feature.id().asNumber() % const(config.layers)) eq const(index) else null,
           visible = visible,
         )
     }
@@ -85,6 +102,7 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
 
   suspend fun run(state: MapState, clock: BenchmarkWorkload) {
     when (config.scenario) {
+      BenchmarkScenario.MapReturn -> error("Map return is driven by its host")
       BenchmarkScenario.Idle -> clock.idle()
       BenchmarkScenario.Camera,
       BenchmarkScenario.Overlays ->
@@ -114,6 +132,14 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
           val started = TimeSource.Monotonic.markNow()
           var completion: Double? = null
           when (config.scenario) {
+            BenchmarkScenario.ImageBurst -> {
+              repeat(config.imageCount) { state.style.images["burst-$it"]?.asMutable?.remove() }
+              val registration = TimeSource.Monotonic.markNow()
+              imageBurst(state)
+              clock.submitted(registration.elapsedNow().inWholeNanoseconds / 1e6)
+              return@scheduled
+            }
+            BenchmarkScenario.SparsePaint -> colorIndex = (tick + 1) % 2
             BenchmarkScenario.Images -> replaceImage(state, (tick + 1) % 2)
             BenchmarkScenario.Paint -> {
               val color = (tick + 1) % 2
@@ -205,7 +231,11 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
       }
     }
     if (config.scenario == BenchmarkScenario.Images) replaceImage(state, 0)
-    if (!declared && fixture.data.isNotEmpty() && config.scenario != BenchmarkScenario.Images) {
+    if (
+      !declared &&
+        fixture.data.isNotEmpty() &&
+        config.scenario !in setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst)
+    ) {
       checkNotNull((state.style.sources["data"] as? GeoJsonSourceHandle)?.asMutable)
         .setData(fixture.data[0])
       repeat(config.layers) { index ->

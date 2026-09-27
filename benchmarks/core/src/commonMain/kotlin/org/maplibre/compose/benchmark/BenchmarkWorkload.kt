@@ -63,10 +63,12 @@ class BenchmarkWorkload(
   suspend fun scheduled(rateHz: Double, block: suspend (Int) -> Unit) {
     val period = 1000.0 / rateHz
     var tick = 0
+    var slot = 0
     while (start.elapsedNow().inWholeMilliseconds < durationMillis) {
       block(tick++)
-      val elapsed = start.elapsedNow().inWholeMilliseconds
-      val next = (floor(elapsed / period) + 1) * period
+      val elapsed = start.elapsedNow().inWholeNanoseconds / 1e6
+      slot = maxOf(slot + 1, floor(elapsed / period).toInt() + 1)
+      val next = slot * period
       delay(ceil(minOf(next, durationMillis.toDouble()) - elapsed).toLong().coerceAtLeast(0))
     }
     idle()

@@ -24,6 +24,16 @@ abstract class ClassicBenchmarkDriver(
 
   abstract fun layers(show: Boolean)
 
+  open fun sparsePaint(index: Int) {
+    error("Sparse paint is not supported by this host")
+  }
+
+  open fun clearImages() {}
+
+  open fun imageBurst() {
+    error("Image bursts are not supported by this host")
+  }
+
   abstract fun paint(index: Int)
 
   abstract fun visible(show: Boolean)
@@ -63,6 +73,7 @@ abstract class ClassicBenchmarkDriver(
 
   suspend fun run(clock: BenchmarkWorkload) {
     when (config.scenario) {
+      BenchmarkScenario.MapReturn -> error("Map return is driven by its host")
       BenchmarkScenario.Idle -> clock.idle()
       BenchmarkScenario.Camera -> clock.frames { camera(tourCamera(it)) }
       BenchmarkScenario.Animation -> {
@@ -80,10 +91,13 @@ abstract class ClassicBenchmarkDriver(
       BenchmarkScenario.Overlays -> error("${config.scenario.id} is Compose-only")
       else ->
         clock.scheduled(config.rateHz) { tick ->
+          if (config.scenario == BenchmarkScenario.ImageBurst) clearImages()
           val started = TimeSource.Monotonic.markNow()
           val revision = (tick + 1) % 2
           var ready: Deferred<Unit>? = null
           when (config.scenario) {
+            BenchmarkScenario.SparsePaint -> sparsePaint(revision)
+            BenchmarkScenario.ImageBurst -> imageBurst()
             BenchmarkScenario.Paint -> paint(revision)
             BenchmarkScenario.Layout -> visible(tick % 2 != 0)
             BenchmarkScenario.Layers -> layers(tick % 2 != 0)
@@ -118,6 +132,7 @@ suspend fun runClassicBenchmark(
   driver: ClassicBenchmarkDriver,
   cpu: (Boolean) -> Unit,
   collectGarbage: () -> Unit,
+  uiFrames: BenchmarkUiFrames = BenchmarkUiFrames.None,
 ) {
   val config = driver.config
   val recorder = BenchmarkFrameRecorder()
@@ -135,6 +150,7 @@ suspend fun runClassicBenchmark(
     measuring = true
     recorder.start()
     driver.recordFrames(recorder)
+    uiFrames.start()
     println("MAP_BENCHMARK MEASURE")
     val workload = BenchmarkWorkload(config.durationMs, driver.nextFrame)
     driver.run(workload)
@@ -142,6 +158,7 @@ suspend fun runClassicBenchmark(
     cpu(false)
     measuring = false
     driver.recordFrames(null)
+    uiFrames.stop()
     recorder.stop()
     report.printResult()
     driver.close()
@@ -152,7 +169,10 @@ suspend fun runClassicBenchmark(
   } finally {
     if (measuring) cpu(false)
     driver.recordFrames(null)
-    withContext(NonCancellable) { recorder.stop() }
+    withContext(NonCancellable) {
+      uiFrames.stop()
+      recorder.stop()
+    }
     driver.close()
   }
 }

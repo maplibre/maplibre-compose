@@ -49,5 +49,26 @@
     "workload": "images",
     "scene": "points-100",
     "rateHz": 2
+  },
+  "map-return": {
+    "workload": "map-return",
+    "scene": "points-1000",
+    "layers": 256,
+    "imageCount": 64,
+    "rateHz": 0.5,
+    "implementation": "compose-declarative"
+  },
+  "sparse-paint": {
+    "workload": "sparse-paint",
+    "scene": "points-1000",
+    "layers": 256,
+    "rateHz": 30,
+    "implementation": "compose-declarative"
+  },
+  "image-burst": {
+    "workload": "image-burst",
+    "scene": "points-100",
+    "imageCount": 64,
+    "rateHz": 1
   }
 }

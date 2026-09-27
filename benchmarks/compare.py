@@ -6,6 +6,10 @@ import statistics
 from pathlib import Path
 
 METRICS = {
+    "ui_frame_p95_ms": ("ui_frames", "total_ms", "p95"),
+    "ui_frame_max_ms": ("ui_frames", "total_ms", "max"),
+    "ui_delay_max_ms": ("ui_frames", "delay_ms", "max"),
+    "ui_missed_deadlines": ("ui_frames", "missed_deadlines"),
     "cpu_ms": ("cpu_ms",),
     "operations": ("workload", "operations"),
     "duration_ms": ("workload", "duration_ms"),

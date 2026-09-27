@@ -23,7 +23,8 @@ mise run benchmark:compare -- build/benchmarks/before build/benchmarks/after
 To compare SDKs instead, repeat with `--implementation classic-android` or
 `classic-ios` on the corresponding platform. Compose defaults to
 `compose-imperative`; `compose-declarative` is also available. The runner
-selects the app to install.
+selects the app to install. On Android, `--app PATH.apk` selects an archived
+build for comparisons without rebuilding between captures.
 
 Each capture saves `app.log` and `performance.json`, including the app's build
 commit, dirty-checkout flag, and pinned SDK versions. `--output` is required and
@@ -78,3 +79,40 @@ Build and run tasks prepare and cache benchmark data on first use; measured runs
 use packaged resources offline. To refresh the cache, run
 `mise deps install benchmarks --force` and rebuild. See [fixtures](fixtures/)
 for attribution and font licensing.
+
+## Map return and UI stalls
+
+`map-return` recreates a map behind a panel that slides away over 300 ms. Both
+Android hosts create a fresh map, install 256 circle layers and 64 prepared
+images, wait for rendered content to settle, then dispose the map behind the
+panel before the next return. One unmeasured map primes code and resource
+caches; each measured return still rebuilds the live map and style. This
+isolates the library workload without depending on an application's navigation
+framework. It does not test retaining a map, application sensors, or background
+lifecycle.
+
+`sparse-paint` changes only the first of 256 layers at 30 Hz. Each layer has a
+feature filter and zoom-dependent radius. Points are partitioned across layers,
+so increasing declaration count does not multiply visible overdraw.
+`image-burst` checks and registers 64 distinct image IDs using prepared bitmaps
+at 1 Hz; it removes the previous batch before timing registration. CPU and UI
+frame measurements include removal, but submission timings exclude it. Images
+are registered without symbol layout to isolate registration overhead.
+
+The cases support comparison with `--implementation classic-android`. Map return
+and sparse paint use Compose declarations; image bursts use public imperative
+image access, matching applications that manage their own image registry.
+Override `layers`, `imageCount`, and `rateHz` to examine scaling. Map return is
+currently enabled only by the Android runner.
+
+Android captures also record window
+[`FrameMetrics`](https://developer.android.com/reference/android/view/FrameMetrics),
+separately from engine render events. A measurement-only UI invalidation on
+every vsync keeps both hosts drawing window frames even when their map uses a
+separate SurfaceView. Reports include total frame duration, delay before UI
+processing, missed frame deadlines (API 31+), and dropped metric reports. These
+are window responsiveness measurements, not map-surface presentation times.
+Inspect the maximum delay as well as percentiles: a few long stalls can
+disappear below p95 in a long run. CPU and UI measurements for map return
+include teardown and the covered interval; completion measures remount through
+content settlement and excludes teardown.

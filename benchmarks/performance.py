@@ -80,7 +80,21 @@ def read_run(directory):
     cpu = float(cpu[0]) if cpu else None
     if cpu is not None:
         distribution([cpu])
+    ui = None
+    if "MAP_BENCHMARK UISTATS " in logs:
+        ui = record(logs, "UISTATS")
+        values = samples(logs, "UIFRAMES")
+        if len(values) != ui["frames"]:
+            raise ValueError("Incomplete UI frame statistics")
+        ui["total_ms"] = distribution([v["total_ms"] for v in values])
+        ui["delay_ms"] = distribution([v["delay_ms"] for v in values])
+        deadlines = [v for v in values if v.get("deadline_ms") is not None]
+        ui["deadline_frames"] = len(deadlines)
+        ui["missed_deadlines"] = sum(
+            v["total_ms"] >= v["deadline_ms"] for v in deadlines
+        )
     return {
+        "ui_frames": ui,
         "config": config,
         "build": record(logs, "BUILD") if "MAP_BENCHMARK BUILD " in logs else None,
         "cpu_ms": cpu,

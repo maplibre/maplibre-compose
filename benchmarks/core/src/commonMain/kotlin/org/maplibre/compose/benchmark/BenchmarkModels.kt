@@ -29,6 +29,27 @@ enum class BenchmarkScenario(
   val description: String,
   val implementations: Set<BenchmarkImplementation> = BenchmarkImplementation.entries.toSet(),
 ) {
+  @SerialName("map-return")
+  MapReturn(
+    "map-return",
+    "Map return",
+    "Recreate a populated map during a 300 ms UI transition.",
+    setOf(BenchmarkImplementation.Declarative, BenchmarkImplementation.ClassicAndroid),
+  ),
+  @SerialName("sparse-paint")
+  SparsePaint(
+    "sparse-paint",
+    "Sparse paint update",
+    "Update one layer in a large declared style.",
+    setOf(BenchmarkImplementation.Declarative, BenchmarkImplementation.ClassicAndroid),
+  ),
+  @SerialName("image-burst")
+  ImageBurst(
+    "image-burst",
+    "Image registration burst",
+    "Check and register distinct prepared images.",
+    setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.ClassicAndroid),
+  ),
   @SerialName("idle") Idle("idle", "Idle map", "Measure a settled map without updates."),
   @SerialName("camera")
   Camera(
@@ -139,13 +160,15 @@ data class BenchmarkConfig(
   val surface: String = "surface",
   val maximumFps: Int? = null,
   val layers: Int = 1,
+  val imageCount: Int = 64,
   val rateHz: Double = 4.0,
   val durationMs: Long = 12000,
 ) {
   init {
     require(surface in setOf("surface", "texture"))
     require(maximumFps == null || maximumFps in 1..240)
-    require(layers in 1..32)
+    require(layers in 1..1024)
+    require(imageCount in 1..1024)
     require(rateHz in 0.1..120.0)
     require(durationMs in 3000..30000)
     require(implementation in scenario.implementations) {
@@ -174,6 +197,18 @@ data class BenchmarkConfig(
         "${scenario.id} requires a points or route scene"
       }
     }
+    if (
+      scenario in
+        setOf(
+          BenchmarkScenario.MapReturn,
+          BenchmarkScenario.SparsePaint,
+          BenchmarkScenario.ImageBurst,
+        )
+    )
+      require(
+        scene in
+          setOf(BenchmarkScene.Points100, BenchmarkScene.Points1000, BenchmarkScene.Points10000)
+      )
     if (scenario == BenchmarkScenario.Images)
       require(
         scene in

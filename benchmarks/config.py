@@ -11,6 +11,9 @@ IMPLEMENTATIONS = {
     "classic-ios",
 }
 WORKLOADS = {
+    "map-return": {"compose-declarative", "classic-android"},
+    "sparse-paint": {"compose-declarative", "classic-android"},
+    "image-burst": {"compose-imperative", "classic-android"},
     "idle": IMPLEMENTATIONS,
     "camera": {"compose-imperative", "classic-android", "classic-ios"},
     "overlays": {"compose-imperative"},
@@ -41,6 +44,7 @@ DEFAULTS = {
     "surface": "surface",
     "maximumFps": None,
     "layers": 1,
+    "imageCount": 64,
     "rateHz": 4.0,
     "durationMs": 12000,
 }
@@ -59,7 +63,8 @@ def parse_config(value):
     if config["surface"] not in {"surface", "texture"}:
         raise ValueError("Unknown surface")
     for key, low, high in (
-        ("layers", 1, 32),
+        ("layers", 1, 1024),
+        ("imageCount", 1, 1024),
         ("durationMs", 3000, 30000),
     ):
         if type(config[key]) is not int or not low <= config[key] <= high:
@@ -87,6 +92,12 @@ def parse_config(value):
         raise ValueError("Source completion requires point probes")
     if config["workload"] == "images" and not config["scene"].startswith("points-"):
         raise ValueError("Image registration requires point symbols")
+    if config["workload"] in {
+        "map-return",
+        "sparse-paint",
+        "image-burst",
+    } and not config["scene"].startswith("points-"):
+        raise ValueError("This workload requires point data")
     return config
 
 
