@@ -23,12 +23,16 @@ import platform.posix.pthread_t
 import platform.posix.pthread_tVar
 
 /** The started pthread owns this context's StableRef until its body returns. */
-private class MlnFfiOwnerThreadContext(val name: String, val body: () -> Unit)
+private class MlnFfiOwnerThreadContext(val name: String, val body: () -> Unit) {
+  @Volatile var thread: pthread_t? = null
+}
 
 private val ownerThreadEntry =
   staticCFunction<COpaquePointer?, COpaquePointer?> { argument ->
     val reference = argument!!.asStableRef<MlnFfiOwnerThreadContext>()
     val context = reference.get()
+    // The child can run before pthread_create returns to the parent.
+    context.thread = pthread_self()
     // Darwin's pthread_setname_np names only the calling thread, so the thread names itself
     // first; a crash report from before this line shows an unnamed thread.
     pthread_setname_np(context.name.take(MAX_THREAD_NAME_LENGTH))
@@ -39,6 +43,7 @@ private val ownerThreadEntry =
       // JVM runtime reports an uncaught thread failure.
       error.printStackTrace()
     } finally {
+      context.thread = null
       reference.dispose()
     }
     null
@@ -49,8 +54,6 @@ private const val MAX_THREAD_NAME_LENGTH = 63
 internal actual class MlnFfiOwnerThread actual constructor(name: String, body: () -> Unit) {
   private val context = MlnFfiOwnerThreadContext(name, body)
   private var contextReference: StableRef<MlnFfiOwnerThreadContext>? = StableRef.create(context)
-
-  @Volatile private var thread: pthread_t? = null
 
   actual fun start() {
     val reference = checkNotNull(contextReference) { "The owner thread was already started" }
@@ -63,7 +66,6 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
       }
       // The StableRef now belongs to the thread body, which disposes it when the body returns.
       contextReference = null
-      thread = threadVariable.value
       // A host that exits while the body still runs leaves the thread behind, so the thread
       // reclaims its own resources rather than a joiner's. Detach after create stands in for
       // pthread_attr_setdetachstate: Kotlin/Native's Darwin platform libraries do not resolve
@@ -73,7 +75,7 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
   }
 
   actual fun isCurrent(): Boolean {
-    val current = thread ?: return false
+    val current = context.thread ?: return false
     return pthread_equal(current, pthread_self()) != 0
   }
 }
