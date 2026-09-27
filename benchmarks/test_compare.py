@@ -23,6 +23,13 @@ class ComparisonTest(unittest.TestCase):
             result = compare(root / "before", root / "after")
             self.assertEqual(result["metrics"]["cpu_ms"]["baseline"]["median"], 200)
             self.assertAlmostEqual(result["metrics"]["cpu_ms"]["change_percent"], -10)
+            self.assertEqual(
+                result["metrics"]["cpu_ms_per_operation"]["baseline"]["median"], 100
+            )
+            self.assertEqual(
+                result["metrics"]["startup_first_frame_ms"]["candidate"]["median"], 340
+            )
+            self.assertNotIn("completion_p50_ms", result["metrics"])
             single = compare(root / "before/0", root / "after/0")
             self.assertAlmostEqual(single["metrics"]["cpu_ms"]["change_percent"], -10)
             path = root / "after/0/app.log"

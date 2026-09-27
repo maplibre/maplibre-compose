@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp.benchmark
 import android.os.Process
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.MapUiOptions
@@ -26,4 +27,10 @@ internal actual fun benchmarkCpu(active: Boolean) {
 
 internal actual fun benchmarkCollectGarbage() {
   System.gc()
+}
+
+@Composable
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames {
+  val window = checkNotNull(LocalActivity.current).window
+  return remember(window) { AndroidUiFrames(window) }
 }

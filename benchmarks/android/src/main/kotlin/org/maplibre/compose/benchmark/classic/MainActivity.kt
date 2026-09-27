@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.Process
 import android.view.Choreographer
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
@@ -41,28 +42,49 @@ class MainActivity : ComponentActivity() {
             },
             uri = { "asset://benchmarks/$it" },
           )
-        val view =
-          MapView(
-            this@MainActivity,
-            MapLibreMapOptions.createFromAttributes(this@MainActivity)
-              .textureMode(config.surface == "texture"),
-          )
-        view.onCreate(savedInstanceState)
-        container.addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        val activeDriver = ClassicAndroidDriver(fixture, view)
-        driver = activeDriver
-        // The coroutine reaches this before onStart/onResume, or while already resumed.
-        if (started) view.onStart()
-        if (resumed) view.onResume()
+        fun createDriver(): ClassicAndroidDriver {
+          val view =
+            MapView(
+              this@MainActivity,
+              MapLibreMapOptions.createFromAttributes(this@MainActivity)
+                .textureMode(config.surface == "texture"),
+            )
+          view.onCreate(null)
+          container.addView(view, 0, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+          return ClassicAndroidDriver(fixture, view).also {
+            driver = it
+            // The coroutine reaches this before onStart/onResume, or while already resumed.
+            if (started) view.onStart()
+            if (resumed) view.onResume()
+          }
+        }
         var startCpu = 0L
-        runClassicBenchmark(
-          activeDriver,
-          cpu = { active ->
-            if (active) startCpu = Process.getElapsedCpuTime()
-            else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpu}")
-          },
-          collectGarbage = System::gc,
-        )
+        val host =
+          BenchmarkHost(
+            cpu = { active ->
+              if (active) startCpu = Process.getElapsedCpuTime()
+              else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpu}")
+            },
+            collectGarbage = System::gc,
+            uiFrames = AndroidUiFrames(window),
+          )
+        if (config.scenario == BenchmarkScenario.MapReturn) {
+          val cover = View(this@MainActivity).apply { setBackgroundColor(0xff303030.toInt()) }
+          container.addView(cover, FrameLayout.LayoutParams(-1, -1))
+          runMapReturnBenchmark(
+            config,
+            ::nextAndroidFrame,
+            mount = ::createDriver,
+            unmount = { active ->
+              active.close()
+              container.removeView((active as ClassicAndroidDriver).view)
+              driver = null
+              repeat(2) { nextAndroidFrame() }
+            },
+            cover = { cover.translationX = container.width * it.toFloat() },
+            host = host,
+          )
+        } else runBenchmark(createDriver(), host)
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {

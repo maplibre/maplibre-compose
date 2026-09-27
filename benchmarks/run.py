@@ -221,6 +221,56 @@ def web(args, output):
             worker.join()
 
 
+def setup(platform, config, device=None, app=None):
+    """Install the app that runs [config] and return the launch context for [capture]."""
+    context = {"device": device, "app": app}
+    if platform == "android":
+        adb = [
+            str(Path(call(".mise/bin/android-sdk-root")) / "platform-tools/adb"),
+            "-s",
+            device,
+        ]
+        call(*adb, "install", "-r", android_apk(config))
+        context["adb"] = adb
+    elif platform == "ios":
+        devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
+            "devices"
+        ]
+        simulator = device == "booted" or any(
+            entry["udid"] == device for runtime in devices.values() for entry in runtime
+        )
+        app = app or ios_app(config, simulator)
+        if simulator:
+            call("xcrun", "simctl", "install", device, app)
+        else:
+            call(
+                "xcrun",
+                "devicectl",
+                "device",
+                "install",
+                "app",
+                "--device",
+                device,
+                app,
+            )
+        context["simulator"] = simulator
+    return context
+
+
+def capture(platform, context, config, output, repeat=1):
+    """Run [config] [repeat] times into [output] and return the analyzed reports."""
+    args = argparse.Namespace(config=config, **context)
+    reports = []
+    for index in range(repeat):
+        directory = output if repeat == 1 else output / f"{index + 1:03d}"
+        directory.mkdir(parents=True, exist_ok=True)
+        {"android": android, "ios": ios, "desktop": desktop, "web": web}[platform](
+            args, directory
+        )
+        reports.append(analyze(directory))
+    return reports
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -265,53 +315,14 @@ def main():
         config = CASES.get(args.case, {}) | json.loads(args.config)
         if args.implementation:
             config["implementation"] = args.implementation
-        args.config = canonical_config(config)
-        validate_platform(args.platform, args.config)
+        config = canonical_config(config)
+        validate_platform(args.platform, config)
     except (ValueError, TypeError) as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)
-    if args.platform == "android":
-        args.adb = [
-            str(Path(call(".mise/bin/android-sdk-root")) / "platform-tools/adb"),
-            "-s",
-            args.device,
-        ]
-        call(
-            *args.adb,
-            "install",
-            "-r",
-            android_apk(args.config),
-        )
-    elif args.platform == "ios":
-        devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
-            "devices"
-        ]
-        args.simulator = args.device == "booted" or any(
-            device["udid"] == args.device
-            for runtime in devices.values()
-            for device in runtime
-        )
-        app = args.app or ios_app(args.config, args.simulator)
-        if args.simulator:
-            call("xcrun", "simctl", "install", args.device, app)
-        else:
-            call(
-                "xcrun",
-                "devicectl",
-                "device",
-                "install",
-                "app",
-                "--device",
-                args.device,
-                app,
-            )
-    for index in range(args.repeat):
-        output = args.output if args.repeat == 1 else args.output / f"{index + 1:03d}"
-        output.mkdir(exist_ok=True)
-        {"android": android, "ios": ios, "desktop": desktop, "web": web}[args.platform](
-            args, output
-        )
-        print(json.dumps(analyze(output), indent=2))
+    context = setup(args.platform, config, args.device, args.app)
+    for report in capture(args.platform, context, config, args.output, args.repeat):
+        print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

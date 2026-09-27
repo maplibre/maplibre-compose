@@ -1,7 +1,10 @@
-"""Run configuration and named cases shared by the runner and comparison."""
+"""Run configuration and named cases shared by the runner, comparison, and publisher.
+
+The app validates workloads, scenes, and ranges; a rejected configuration fails the run
+with a `MAP_BENCHMARK ERROR` line. The runner only needs to know which app to launch.
+"""
 
 import json
-import math
 from pathlib import Path
 
 IMPLEMENTATIONS = {
@@ -10,83 +13,20 @@ IMPLEMENTATIONS = {
     "classic-android",
     "classic-ios",
 }
-WORKLOADS = {
-    "idle": IMPLEMENTATIONS,
-    "camera": {"compose-imperative", "classic-android", "classic-ios"},
-    "overlays": {"compose-imperative"},
-    "animation": {"compose-imperative", "classic-android", "classic-ios"},
-    "paint": IMPLEMENTATIONS,
-    "layout": IMPLEMENTATIONS,
-    "layers": {"compose-declarative", "classic-android", "classic-ios"},
-    "source": IMPLEMENTATIONS,
-    "source-latency": IMPLEMENTATIONS,
-    "style": IMPLEMENTATIONS,
-    "resize": {"compose-declarative", "classic-android", "classic-ios"},
-    "padding": {"compose-declarative", "classic-android", "classic-ios"},
-    "recompose": {"compose-declarative"},
-    "images": {"compose-imperative", "classic-android", "classic-ios"},
-}
-SCENES = {
-    "minimal",
-    "points-100",
-    "points-1000",
-    "points-10000",
-    "route-2000",
-    "basemap-sf",
-}
-DEFAULTS = {
-    "workload": "camera",
-    "scene": "points-1000",
-    "implementation": "compose-imperative",
-    "surface": "surface",
-    "maximumFps": None,
-    "layers": 1,
-    "rateHz": 4.0,
-    "durationMs": 12000,
-}
-CASES = json.loads((Path(__file__).with_name("cases.json")).read_text())
+DEFAULT_IMPLEMENTATION = "compose-imperative"
+PRESETS = json.loads((Path(__file__).with_name("cases.json")).read_text())
+CASES = {name: preset["config"] for name, preset in PRESETS.items()}
+# The cases the dashboard tracks over time, in the order the page shows them.
+TRACKED = {name: preset for name, preset in PRESETS.items() if preset.get("tracked")}
 
 
 def parse_config(value):
     value = json.loads(value) if isinstance(value, str) else value
-    if not isinstance(value, dict) or set(value) - set(DEFAULTS):
-        raise ValueError("Expected a benchmark configuration object with known fields")
-    config = DEFAULTS | value
-    if config["workload"] not in WORKLOADS or config["scene"] not in SCENES:
-        raise ValueError("Unknown workload or scene")
-    if config["implementation"] not in WORKLOADS[config["workload"]]:
-        raise ValueError("This workload does not support that implementation")
-    if config["surface"] not in {"surface", "texture"}:
-        raise ValueError("Unknown surface")
-    for key, low, high in (
-        ("layers", 1, 32),
-        ("durationMs", 3000, 30000),
-    ):
-        if type(config[key]) is not int or not low <= config[key] <= high:
-            raise ValueError(f"{key} must be an integer in {low}..{high}")
-    fps = config["maximumFps"]
-    if fps is not None and (type(fps) is not int or not 1 <= fps <= 240):
-        raise ValueError("maximumFps must be null or 1..240")
-    rate = config["rateHz"]
-    if (
-        type(rate) not in (float, int)
-        or not math.isfinite(rate)
-        or not 0.1 <= rate <= 120
-    ):
-        raise ValueError("rateHz must be in 0.1..120")
-    if config["workload"] in {
-        "paint",
-        "layout",
-        "layers",
-        "source",
-        "source-latency",
-        "recompose",
-    } and config["scene"] in {"minimal", "basemap-sf"}:
-        raise ValueError("This workload requires a points or route scene")
-    if config["workload"] == "source-latency" and config["scene"] == "route-2000":
-        raise ValueError("Source completion requires point probes")
-    if config["workload"] == "images" and not config["scene"].startswith("points-"):
-        raise ValueError("Image registration requires point symbols")
+    if not isinstance(value, dict):
+        raise TypeError("Expected a benchmark configuration object")
+    config = {"implementation": DEFAULT_IMPLEMENTATION} | value
+    if config["implementation"] not in IMPLEMENTATIONS:
+        raise ValueError("Unknown implementation")
     return config
 
 

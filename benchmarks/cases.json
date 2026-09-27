@@ -1,53 +1,154 @@
 {
-  "idle-minimal": { "workload": "idle", "scene": "minimal" },
-  "idle-basemap": { "workload": "idle", "scene": "basemap-sf" },
-  "camera-basemap": { "workload": "camera", "scene": "basemap-sf" },
-  "camera-points": { "workload": "camera", "scene": "points-1000" },
-  "overlays-points": { "workload": "overlays", "scene": "points-1000" },
-  "animation-basemap": { "workload": "animation", "scene": "basemap-sf" },
-  "paint-points": { "workload": "paint", "scene": "points-1000", "layers": 8 },
-  "visibility-points": {
-    "workload": "layout",
-    "scene": "points-1000",
-    "layers": 8
+  "idle-basemap": {
+    "title": "Idle map",
+    "description": "CPU a settled basemap uses while nothing changes.",
+    "tracked": true,
+    "classic": true,
+    "config": { "workload": "idle", "scene": "basemap-sf" }
+  },
+  "camera-basemap": {
+    "title": "Camera tour",
+    "description": "Cost of pushing a new camera position every frame over the basemap.",
+    "tracked": true,
+    "classic": true,
+    "config": { "workload": "camera", "scene": "basemap-sf" }
+  },
+  "map-return": {
+    "title": "Map return",
+    "description": "Time to create a map with 256 declared layers and 64 images behind a 300 ms transition, and the worst UI frame while it opens.",
+    "tracked": true,
+    "classic": true,
+    "platforms": ["android", "ios"],
+    "config": {
+      "workload": "map-return",
+      "scene": "points-1000",
+      "layers": 256,
+      "imageCount": 64,
+      "rateHz": 0.5,
+      "implementation": "compose-declarative"
+    }
+  },
+  "overlays-points": {
+    "title": "Map overlays",
+    "description": "Cost of the default Compose overlays recomposing during a camera tour.",
+    "tracked": true,
+    "config": { "workload": "overlays", "scene": "points-1000" }
+  },
+  "update-route": {
+    "title": "Route replacement",
+    "description": "Cost of replacing a 2,000-point line once per second.",
+    "tracked": true,
+    "classic": true,
+    "config": { "workload": "source", "scene": "route-2000", "rateHz": 1 }
+  },
+  "source-completion": {
+    "title": "Update latency",
+    "description": "Time from replacing point data until the new data renders.",
+    "tracked": true,
+    "classic": true,
+    "config": {
+      "workload": "source-latency",
+      "scene": "points-1000",
+      "rateHz": 1
+    }
   },
   "layers-points": {
-    "workload": "layers",
-    "scene": "points-1000",
-    "layers": 8,
-    "implementation": "compose-declarative"
+    "title": "Layer structure",
+    "description": "Time to add and remove eight declared layers over one source until they render.",
+    "tracked": true,
+    "classic": true,
+    "config": {
+      "workload": "layers",
+      "scene": "points-1000",
+      "layers": 8,
+      "implementation": "compose-declarative"
+    }
   },
-  "update-points": { "workload": "source", "scene": "points-1000" },
-  "update-route": { "workload": "source", "scene": "route-2000", "rateHz": 1 },
-  "source-completion": {
-    "workload": "source-latency",
-    "scene": "points-1000",
-    "rateHz": 1
-  },
-  "style-basemap": {
-    "workload": "style",
-    "scene": "basemap-sf",
-    "rateHz": 0.5
-  },
-  "resize-basemap": {
-    "workload": "resize",
-    "scene": "basemap-sf",
-    "implementation": "compose-declarative"
-  },
-  "padding-basemap": {
-    "workload": "padding",
-    "scene": "basemap-sf",
-    "implementation": "compose-declarative"
+  "sparse-paint": {
+    "title": "Sparse paint update",
+    "description": "Cost of recoloring one of 256 declared layers thirty times per second.",
+    "tracked": true,
+    "classic": true,
+    "config": {
+      "workload": "sparse-paint",
+      "scene": "points-1000",
+      "layers": 256,
+      "rateHz": 30,
+      "implementation": "compose-declarative"
+    }
   },
   "recompose-points": {
-    "workload": "recompose",
-    "scene": "points-1000",
-    "layers": 8,
-    "implementation": "compose-declarative"
+    "title": "Unchanged recomposition",
+    "description": "Overhead of recomposing declared layers whose inputs did not change.",
+    "tracked": true,
+    "config": {
+      "workload": "recompose",
+      "scene": "points-1000",
+      "layers": 8,
+      "implementation": "compose-declarative"
+    }
+  },
+  "style-basemap": {
+    "title": "Style replacement",
+    "description": "Time from replacing the style until the new style is ready.",
+    "tracked": true,
+    "classic": true,
+    "config": { "workload": "style", "scene": "basemap-sf", "rateHz": 0.5 }
+  },
+  "padding-basemap": {
+    "title": "Viewport padding",
+    "description": "Cost of animating bottom padding every frame, as a bottom sheet does.",
+    "tracked": true,
+    "classic": true,
+    "config": {
+      "workload": "padding",
+      "scene": "basemap-sf",
+      "implementation": "compose-declarative"
+    }
+  },
+  "idle-minimal": {
+    "title": "Idle empty map",
+    "config": { "workload": "idle", "scene": "minimal" }
+  },
+  "camera-points": {
+    "title": "Camera tour over points",
+    "config": { "workload": "camera", "scene": "points-1000" }
+  },
+  "animation-basemap": {
+    "title": "Camera animation",
+    "config": { "workload": "animation", "scene": "basemap-sf" }
+  },
+  "paint-points": {
+    "title": "Paint mutation",
+    "config": { "workload": "paint", "scene": "points-1000", "layers": 8 }
+  },
+  "visibility-points": {
+    "title": "Visibility mutation",
+    "config": { "workload": "layout", "scene": "points-1000", "layers": 8 }
+  },
+  "update-points": {
+    "title": "Point replacement",
+    "config": { "workload": "source", "scene": "points-1000" }
+  },
+  "resize-basemap": {
+    "title": "Map resize",
+    "config": {
+      "workload": "resize",
+      "scene": "basemap-sf",
+      "implementation": "compose-declarative"
+    }
   },
   "image-registration": {
-    "workload": "images",
-    "scene": "points-100",
-    "rateHz": 2
+    "title": "Image registration",
+    "config": { "workload": "images", "scene": "points-100", "rateHz": 2 }
+  },
+  "image-burst": {
+    "title": "Image registration burst",
+    "config": {
+      "workload": "image-burst",
+      "scene": "points-100",
+      "imageCount": 64,
+      "rateHz": 1
+    }
   }
 }

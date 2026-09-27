@@ -19,6 +19,10 @@ val benchmarkBuildInfo =
         "gl_js" to libs.versions.maplibre.js.get(),
       )
     )
+    fixtureSources.from(
+      rootProject.layout.projectDirectory.file("benchmarks/fixtures/manifest.json"),
+      rootProject.layout.projectDirectory.file("benchmarks/prepare_fixtures.py"),
+    )
     outputDirectory.set(layout.buildDirectory.dir("generated/benchmarkBuildInfo"))
   }
 

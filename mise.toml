@@ -510,6 +510,16 @@ run = "python benchmarks/prepare_fixtures.py"
 [tasks."deps:benchmarks"]
 run = "mise deps install benchmarks"
 
+[tasks."benchmark:fixtures:publish"]
+description = "Upload the prepared basemap snapshot to the bucket under the manifest's version."
+tools = { "npm:wrangler" = "{{vars.wrangler_version}}" }
+run = "python benchmarks/prepare_fixtures.py --publish {{vars.metrics_bucket}}"
+
+[tasks."benchmark:fixtures:refresh"]
+description = "Snapshot the current VersaTiles data into the bucket under a new version and pin it."
+tools = { "npm:wrangler" = "{{vars.wrangler_version}}" }
+run = "python benchmarks/prepare_fixtures.py --refresh --publish {{vars.metrics_bucket}}"
+
 [tasks."benchmark:build:android"]
 depends = ["deps:benchmarks"]
 run = """
@@ -533,6 +543,7 @@ depends = ["deps:benchmarks"]
 run = "python benchmarks/run.py"
 [tasks."benchmark:compare"]
 run = "python benchmarks/compare.py"
+
 [tasks."benchmark:test:core"]
 run = "./gradlew :benchmarks:core:jvmTest"
 

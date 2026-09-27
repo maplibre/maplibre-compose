@@ -1,14 +1,7 @@
 package org.maplibre.compose.benchmark
 
 import kotlin.time.TimeSource
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -30,23 +23,13 @@ data class FrameStats(
 )
 
 /**
- * Collects engine statistics from render events between [start] and [stop]. The public event stream
- * may drop events. These samples describe engine work, not display jank. Engine timing fields are
- * unavailable on the browser.
+ * Collects engine statistics from the render events a driver [record]s between [start] and [stop].
+ * The public event stream may drop events. These samples describe engine work, not display jank.
+ * Engine timing fields are unavailable on the browser.
  */
 class BenchmarkFrameRecorder {
-  private var job: Job? = null
   private var samples: Channel<FrameSample>? = null
   private var start = TimeSource.Monotonic.markNow()
-
-  /** Starts collecting from [events]. Must be paired with exactly one [stop]. */
-  fun start(scope: CoroutineScope, events: Flow<FrameSample>) {
-    start()
-    job =
-      scope.launch(Dispatchers.Unconfined) {
-        events.collect(::record)
-      }
-  }
 
   fun start() {
     check(samples == null) { "Frame recorder is already running" }
@@ -59,11 +42,9 @@ class BenchmarkFrameRecorder {
   }
 
   /** Stops collection and prints the frame statistics. Does nothing when never started. */
-  suspend fun stop() {
+  fun stop() {
     val samples = samples ?: return
     this.samples = null
-    job?.cancelAndJoin()
-    job = null
     val frames = buildList {
       while (true) add(samples.tryReceive().getOrNull() ?: break)
     }
