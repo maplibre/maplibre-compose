@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.widget.FrameLayout
 import kotlin.coroutines.resume
 import kotlin.math.ceil
+import kotlin.time.TimeMark
 import kotlinx.coroutines.*
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -19,8 +20,11 @@ import org.maplibre.android.style.layers.PropertyFactory.*
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.compose.benchmark.*
 
-class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView) :
-  BenchmarkDriver(fixture, ::nextAndroidFrame) {
+class ClassicAndroidDriver(
+  fixture: PreparedBenchmarkFixture,
+  val view: MapView,
+  created: TimeMark,
+) : BenchmarkDriver(fixture, ::nextAndroidFrame, created) {
   private lateinit var map: MapLibreMap
   private val density = view.resources.displayMetrics.density
   private val styles = fixture.baseStyles

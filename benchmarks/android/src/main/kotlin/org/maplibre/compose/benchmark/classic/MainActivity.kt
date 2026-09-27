@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import kotlin.coroutines.resume
+import kotlin.time.TimeSource
 import kotlinx.coroutines.*
 import org.maplibre.android.MapLibre
 import org.maplibre.android.maps.MapLibreMapOptions
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
             uri = { "asset://benchmarks/$it" },
           )
         fun createDriver(): ClassicAndroidDriver {
+          val created = TimeSource.Monotonic.markNow()
           val view =
             MapView(
               this@MainActivity,
@@ -51,7 +53,7 @@ class MainActivity : ComponentActivity() {
             )
           view.onCreate(null)
           container.addView(view, 0, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-          return ClassicAndroidDriver(fixture, view).also {
+          return ClassicAndroidDriver(fixture, view, created).also {
             driver = it
             // The coroutine reaches this before onStart/onResume, or while already resumed.
             if (started) view.onStart()

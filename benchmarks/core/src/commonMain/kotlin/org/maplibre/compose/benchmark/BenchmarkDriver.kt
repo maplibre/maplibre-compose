@@ -4,6 +4,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
@@ -15,13 +16,10 @@ import kotlinx.serialization.encodeToString
 abstract class BenchmarkDriver(
   val fixture: PreparedBenchmarkFixture,
   val nextFrame: suspend () -> Long,
+  /** When the host started creating the map, for [StartupReport]; defaults to construction. */
+  private val created: TimeMark = TimeSource.Monotonic.markNow(),
 ) {
   val config = fixture.config
-
-  /**
-   * Drivers are constructed alongside their map, so this marks map creation for [StartupReport].
-   */
-  private val created = TimeSource.Monotonic.markNow()
 
   protected fun sinceCreation(): Double = created.elapsedNow().inWholeNanoseconds / 1e6
 

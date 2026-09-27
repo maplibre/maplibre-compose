@@ -16,6 +16,7 @@ METRICS = {
     "ui_frame_max_ms": ("ui_frames", "total_ms", "max"),
     "ui_delay_max_ms": ("ui_frames", "delay_ms", "max"),
     "ui_missed_deadlines": ("ui_frames", "missed_deadlines"),
+    "ui_dropped_frames": ("ui_frames", "dropped"),
     "late_frames": ("workload", "late_frames"),
     "frame_interval_p95_ms": ("workload", "frame_interval_ms", "p95"),
     "startup_style_ready_ms": ("startup", "style_ready_ms"),

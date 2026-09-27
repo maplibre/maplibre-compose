@@ -57,6 +57,7 @@ suspend fun runMapReturnBenchmark(
       delay(500)
       printRunHeader(config, viewport, startup)
       host.status("Measuring returns")
+      repeat(2) { nextFrame() }
       start()
       val clock = BenchmarkWorkload(config.durationMs, nextFrame)
       clock.completionSignal = "map-settled"

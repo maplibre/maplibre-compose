@@ -203,7 +203,12 @@ data class BenchmarkConfig(
     }
     if (
       scenario in
-        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
+        setOf(
+          BenchmarkScenario.Images,
+          BenchmarkScenario.ImageBurst,
+          BenchmarkScenario.MapReturn,
+          BenchmarkScenario.SparsePaint,
+        )
     )
       require(
         scene in

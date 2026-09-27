@@ -125,18 +125,19 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
         }
         sinceCreation()
       }
+    var styleReady = 0.0
     try {
       withTimeout(15000) {
         snapshotFlow { state.style.loadState }
           .first { it is StyleLoadState.Ready || it is StyleLoadState.Failed }
         check(state.style.loadState is StyleLoadState.Ready) { "Benchmark style failed to load" }
+        styleReady = sinceCreation()
         snapshotFlow { state.viewport }.first { it != null }
       }
     } catch (e: TimeoutCancellationException) {
       // A timeout is a workload failure, not caller cancellation; report it as an error.
       error("Timed out waiting for the style and viewport")
     }
-    val styleReady = sinceCreation()
     if (config.scenario == BenchmarkScenario.Images) image(0)
     if (config.scenario == BenchmarkScenario.MapReturn) registerImages()
     settled {}
