@@ -29,7 +29,7 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 - Process CPU time, per operation and per second.
 - Time to style ready and to the first frame.
 - Submission and completion latency, for workloads with a completion signal.
-- First close-call return and physical cleanup completion for lifecycle
+- First close-call return and adapter cleanup completion for lifecycle
   workloads.
 - Frame intervals, and window frame timings on Android.
 - Engine encoding and rendering time per frame.
@@ -69,9 +69,10 @@ and use a longer `durationMs` when investigating them.
 `map-return` owns each map explicitly. The runner measures the first `close()`
 while the map is still presented, then detaches the presentation and waits for
 cleanup. `close_ms` measures caller return; `close_completion_ms` includes
-presentation detach and `awaitClosed()`. UI-frame measurements cover both
-phases. One unmeasured map primes caches. There is no second composition-owned
-close.
+presentation detach and `awaitClosed()`. Compose awaits native cleanup; the
+classic iOS adapter removes the view but has no native destruction completion
+signal. UI-frame measurements cover both phases. One unmeasured map primes
+caches. There is no second composition-owned close.
 
 `runtime-startup` creates no map. It uses a dedicated empty local database,
 primes one runtime, then measures warm-process reopenings: submission is
