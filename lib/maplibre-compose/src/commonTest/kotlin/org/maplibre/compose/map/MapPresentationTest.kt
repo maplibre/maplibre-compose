@@ -1349,6 +1349,56 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_newer_image_command_supersedes_a_pending_one_for_the_same_id() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    fun prepared(width: Int) = ResolvedStyleImage.fromBitmap(FakeImageBitmap(width, 1))
+    // Holds the queue so that every command in [block] is still pending when the next is submitted.
+    suspend fun pending(block: () -> Unit) {
+      val release = CompletableDeferred<Unit>()
+      val commit =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          style.requireOwner().resourceCommands.withCommit { release.await() }
+        }
+      block()
+      release.complete(Unit)
+      commit.join()
+      style.awaitCommands()
+    }
+
+    pending {
+      style.images.setAll(mapOf("a" to prepared(1), "b" to prepared(1)))
+      style.images.set("a", prepared(2))
+      style.images.set("a", prepared(3))
+      style.images.remove("b")
+    }
+    assertEquals(listOf("set a 3", "remove b"), binding.imageWrites)
+
+    // A handle's removal yields to a later set, which replaces the image in place.
+    val handle = assertNotNull(style.images["a"]?.asMutable)
+    binding.imageWrites.clear()
+    pending {
+      handle.remove()
+      style.images.set("a", prepared(4))
+    }
+    assertEquals(listOf("set a 4"), binding.imageWrites)
+
+    // A handle's removal does not supersede a pending replacement, which expires the handle.
+    val expiring = assertNotNull(style.images["a"]?.asMutable)
+    binding.imageWrites.clear()
+    pending {
+      style.images.set("a", prepared(5))
+      expiring.remove()
+    }
+    assertEquals(listOf("set a 5"), binding.imageWrites)
+    assertEquals(setOf("a"), binding.imageIds)
+    fixture.close()
+  }
+
+  @Test
   fun a_batch_failure_keeps_the_previous_image_handle_and_installs_other_images() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))

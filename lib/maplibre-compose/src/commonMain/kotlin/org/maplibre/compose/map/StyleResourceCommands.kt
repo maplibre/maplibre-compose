@@ -31,6 +31,10 @@ internal class StyleResourceCommands(
   private val sources = mutableMapOf<String, SourceDefinition>()
   // False means explicit ownership; true means a missing-image resolver supplied the image.
   private val images = mutableMapOf<String, Boolean>()
+  // Submission sequence of the newest unconditional set or remove per image ID. An older pending
+  // command for that ID skips its write, like a superseded GeoJSON update.
+  private var imageSequence = 0L
+  private val latestImageCommands = mutableMapOf<String, Long>()
 
   suspend fun <T> withCommit(block: suspend () -> T): T = mutex.withLock { block() }
 
@@ -39,6 +43,7 @@ internal class StyleResourceCommands(
   fun clear() = lock.withLock {
     sources.clear()
     images.clear()
+    latestImageCommands.clear()
   }
 
   fun sourceDefinition(id: String): SourceDefinition? = lock.withLock { sources[id] }
@@ -99,11 +104,14 @@ internal class StyleResourceCommands(
     val definitions = images.map { (id, image) ->
       StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
     }
+    val sequence = supersedeImages(images.keys)
     submit(binding, "set style images") {
-      definitions.forEach { requireImageWritable(it.id) }
-      val results = withContext(readDispatcher) { binding.setImages(definitions) }
+      val current = definitions.filter { isLatestImageCommand(it.id, sequence) }
+      if (current.isEmpty()) return@submit
+      current.forEach { requireImageWritable(it.id) }
+      val results = withContext(readDispatcher) { binding.setImages(current) }
       if (style.isCurrentLoadedStyle(binding))
-        definitions.zip(results).forEach { (definition, result) ->
+        current.zip(results).forEach { (definition, result) ->
           result.fold(
             onSuccess = {
               lock.withLock { this@StyleResourceCommands.images[definition.id] = false }
@@ -120,7 +128,12 @@ internal class StyleResourceCommands(
 
   fun removeImage(id: String, binding: StyleBinding = requireBinding(), identity: Any? = null) {
     if (identity != null) validateImage(id, binding, identity) else requireImageWritable(id)
+    // A handle's removal is conditional on its identity, so it yields to later commands but does
+    // not supersede earlier ones: a pending replacement would expire the handle first.
+    val sequence =
+      if (identity != null) lock.withLock { ++imageSequence } else supersedeImages(setOf(id))
     submit(binding, "remove image '$id'") {
+      if (!isLatestImageCommand(id, sequence)) return@submit
       if (identity != null) validateImage(id, binding, identity) else requireImageWritable(id)
       withContext(readDispatcher) { binding.removeImage(id) }
       if (style.isCurrentLoadedStyle(binding)) {
@@ -162,6 +175,21 @@ internal class StyleResourceCommands(
         binding.identity.images.remove(id)
       }
     }
+  }
+
+  private fun supersedeImages(ids: Set<String>): Long = lock.withLock {
+    val sequence = ++imageSequence
+    ids.forEach { latestImageCommands[it] = sequence }
+    sequence
+  }
+
+  /**
+   * Commands run in submission order, so an entry no newer than [sequence] has already run or been
+   * dropped; releasing it keeps the map to pending IDs.
+   */
+  private fun isLatestImageCommand(id: String, sequence: Long): Boolean = lock.withLock {
+    val latest = latestImageCommands[id] ?: return@withLock true
+    (latest <= sequence).also { if (it) latestImageCommands.remove(id) }
   }
 
   private fun submit(binding: StyleBinding, target: String, block: suspend () -> Unit) {

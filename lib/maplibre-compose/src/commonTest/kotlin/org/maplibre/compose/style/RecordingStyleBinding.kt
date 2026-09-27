@@ -77,6 +77,9 @@ internal class RecordingStyleBinding(
   /** Every [setImage] ID, for in-place replacement assertions. */
   val replacedImages: MutableList<String> = mutableListOf()
 
+  /** Every [setImage] and [removeImage] that reached this engine, in order. */
+  val imageWrites: MutableList<String> = mutableListOf()
+
   var customVectorProvider: VectorTileProvider? = null
     private set
 
@@ -105,9 +108,13 @@ internal class RecordingStyleBinding(
       replacedImages += definition.id
     }
     images[definition.id] = definition.image
+    imageWrites += "set ${definition.id} ${definition.image.width}"
   }
 
-  override fun removeImage(id: String): Boolean = images.remove(id) != null
+  override fun removeImage(id: String): Boolean {
+    imageWrites += "remove $id"
+    return images.remove(id) != null
+  }
 
   override fun imageExists(id: String): Boolean = id in images
 

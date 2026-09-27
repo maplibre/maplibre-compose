@@ -95,7 +95,8 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
   /**
    * Enqueues [image], replacing [id] in place. Preparation owns the pixels before submission. A
    * successful replacement expires old handles; a rejected write keeps the previous image. Native
-   * rejections are logged. Images declared by style content cannot be overwritten.
+   * rejections are logged. Images declared by style content cannot be overwritten. A newer command
+   * for [id] supersedes this one if it is still pending.
    */
   public fun set(id: String, image: ResolvedStyleImage) {
     setAll(mapOf(id to image))
