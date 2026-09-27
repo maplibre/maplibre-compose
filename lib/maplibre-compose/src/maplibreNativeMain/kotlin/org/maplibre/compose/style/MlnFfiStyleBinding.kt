@@ -81,7 +81,8 @@ import org.maplibre.spatialk.geojson.toJson
 /**
  * [StyleBinding] for one loaded style in a MapLibre Native map. The supplied access functions
  * marshal every engine call to the map's owner thread, or to the renderer thread for a query that
- * belongs to the render session.
+ * belongs to the render session. Construction runs on the owner thread while [map] is alive;
+ * initial metadata is captured before publication, independently of logical session closure.
  *
  * [accessMap] runs an action and waits for it. [postMap] dispatches inline on the owner or queues
  * work from other callers; its second argument runs when the queued action is dropped.
@@ -89,6 +90,7 @@ import org.maplibre.spatialk.geojson.toJson
  * session or null without one.
  */
 internal open class MlnFfiStyleBinding(
+  map: MapHandle,
   override val identity: StyleIdentity = StyleIdentity.create(),
   private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
@@ -120,16 +122,12 @@ internal open class MlnFfiStyleBinding(
 
   private var declaredSources: JsonObject? = null
 
-  override val baseLayers: List<LayerSummary> = readMap { map ->
+  override val baseLayers: List<LayerSummary> =
     map.styleLayers().map { layer ->
       LayerSummary(layer.id, layer.type, layer.sourceId, layer.sourceLayer)
     }
-  }
-    .orEmpty()
-  override val baseSources: Map<String, Source?> = readMap { map ->
+  override val baseSources: Map<String, Source?> =
     map.styleSourceIds().associateWith { reconstructSource(map, it) }
-  }
-    .orEmpty()
 
   override fun setImage(definition: StyleImageDefinition) {
     val command = prepareImage(definition)

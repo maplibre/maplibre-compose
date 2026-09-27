@@ -315,8 +315,9 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private fun createStyleBinding(engine: EngineMapIdentity): MlnFfiStyleBinding =
+  private fun createStyleBinding(engine: EngineMapIdentity, map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
+      map = map,
       loggerProvider = { logger },
       sessionOpen = { lifecycle.acceptsWork },
       accessMap = { action ->
@@ -618,7 +619,7 @@ internal class MlnFfiMapSession(
           resourceProviderFactory = resourceProviderFactory,
           resourceConfig = resourceConfig,
           onMapCreated = ::onMapCreated,
-          onEvent = { handleEvent(identity, it) },
+          onEvent = { map, event -> handleEvent(identity, map, event) },
           onEventsDrained = { onEventsDrained(identity, it) },
           requestFrame = ::requestRender,
           mapEventMask = HANDLED_MAP_EVENTS,
@@ -880,7 +881,7 @@ internal class MlnFfiMapSession(
   // region events, on the map's owner thread
 
   /** Runs on the map's owner thread, as do the callbacks it makes. */
-  private fun handleEvent(engine: EngineMapIdentity, event: RuntimeEvent) {
+  private fun handleEvent(engine: EngineMapIdentity, map: MapHandle, event: RuntimeEvent) {
     val lease = ownerThreadRenderLease
     val mapEvent = event.toMapEvent()
     when (event.type) {
@@ -888,7 +889,7 @@ internal class MlnFfiMapSession(
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
         val producer = styleEventProducer?.takeIf { it.engine == engine } ?: return
-        val binding = createStyleBinding(engine)
+        val binding = createStyleBinding(engine, map)
         val trackerRequest = appliedStyleRequest ?: return binding.invalidate()
         if (!styleLoadTracker.loaded(trackerRequest, binding.identity)) {
           binding.invalidate()

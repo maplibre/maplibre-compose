@@ -187,7 +187,7 @@ private class NativeSnapshotterAdapter(
         onMapCreated = resources::attach,
         onMapPublished = { created.completion.complete(Result.success(Unit)) },
         onMapClosing = { resources.close() },
-        onEvent = { event -> handleEvent(candidate, event) },
+        onEvent = { map, event -> handleEvent(candidate, map, event) },
         onEventsDrained = {},
         requestFrame = {},
         mapEventMask = SNAPSHOT_EVENTS,
@@ -312,13 +312,13 @@ private class NativeSnapshotterAdapter(
       }
     }
 
-  private fun handleEvent(source: NativeSnapshotEngine, event: RuntimeEvent) {
+  private fun handleEvent(source: NativeSnapshotEngine, map: MapHandle, event: RuntimeEvent) {
     if (engine !== source) return
     val operation = terminalOperation
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
         if (operation?.kind != NativeSnapshotOperation.Kind.STYLE) return
-        val binding = createStyleBinding(source)
+        val binding = createStyleBinding(source, map)
         styleBinding?.invalidate()
         styleBinding = binding
         operation.completion.complete(Result.success(Unit))
@@ -347,8 +347,9 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private fun createStyleBinding(source: NativeSnapshotEngine): MlnFfiStyleBinding =
+  private fun createStyleBinding(source: NativeSnapshotEngine, map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
+      map = map,
       loggerProvider = { options.logger },
       sessionOpen = { open },
       accessMap = { action -> source.loop.call(action = action) != null },

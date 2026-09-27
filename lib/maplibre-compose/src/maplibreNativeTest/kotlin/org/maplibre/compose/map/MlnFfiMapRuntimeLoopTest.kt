@@ -44,7 +44,7 @@ class MlnFfiMapRuntimeLoopTest {
           finalizerSawPublishedMap.store(loop.map === map)
           finalized.countDown()
         },
-        onEvent = {},
+        onEvent = { _, _ -> },
         onEventsDrained = {},
         requestFrame = {},
         onFailure = { failed.countDown() },
@@ -81,8 +81,8 @@ class MlnFfiMapRuntimeLoopTest {
           getLogger = { MapLog },
           onMapCreated = {},
           onMapPublished = { published.countDown() },
-          onEvent = {
-            if (it.type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE)
+          onEvent = { _, event ->
+            if (event.type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE)
               renderUpdateSeen.store(true)
           },
           onEventsDrained = {},
@@ -148,7 +148,7 @@ class MlnFfiMapRuntimeLoopTest {
           getLogger = { MapLog },
           onMapCreated = {},
           onMapPublished = { published.countDown() },
-          onEvent = {},
+          onEvent = { _, _ -> },
           onEventsDrained = {},
           requestFrame = {},
         )

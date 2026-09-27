@@ -61,7 +61,7 @@ internal class MlnFfiMapRuntimeLoop(
   /** Runs on the owner thread before the map is unpublished and destroyed. */
   private val onMapClosing: (MapHandle) -> Unit = {},
   /** Runs on the owner thread for every event this loop's runtime raises. */
-  private val onEvent: (RuntimeEvent) -> Unit,
+  private val onEvent: (MapHandle, RuntimeEvent) -> Unit,
   /** Runs on the owner thread once the event queue is momentarily empty. */
   private val onEventsDrained: (MapHandle) -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
@@ -323,7 +323,7 @@ internal class MlnFfiMapRuntimeLoop(
     val events = runtime.drainEvents().events
     for (event in events) {
       if (event.mapSource != null && event.mapSource !== map) continue
-      runCatching { onEvent(event) }
+      runCatching { onEvent(map, event) }
         .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
     }
     runCatching { onEventsDrained(map) }
