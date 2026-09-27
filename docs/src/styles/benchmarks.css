@@ -1,0 +1,9 @@
+/* The benchmarks page shares the code metrics layout; sections group charts by metric. */
+
+.metrics .benchmarks-section {
+  margin-top: 2.5rem;
+}
+
+.benchmarks-section > h2 {
+  margin-top: 0 !important;
+}

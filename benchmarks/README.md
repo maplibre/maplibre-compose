@@ -1,7 +1,7 @@
 # Map benchmarks
 
-Measure map performance across code changes and against the classic Android and
-iOS SDKs.
+Measure map performance across code changes, against the classic Android and iOS
+SDKs, and over time on the documentation site's [benchmarks page][page].
 
 ## Compare two builds
 
@@ -36,7 +36,7 @@ Use one device, viewport, and data set per comparison, keep the device idle and
 cool, and prefer physical hardware. SDK comparisons measure the delivered
 stacks, including their MapLibre Native revisions.
 
-## Publish tracked results
+## Publish to the benchmarks page
 
 ```sh
 mise run benchmark:publish -- android --device SERIAL --scope pixel-8 --label "Pixel 8"
@@ -54,4 +54,5 @@ Geometry is generated. Basemap tiles and glyphs are a snapshot of
 bucket. `benchmark:fixtures:refresh` pins the current data; measurements before
 and after a refresh are not comparable. See [fixtures](fixtures/) for licensing.
 
+[page]: https://maplibre.org/maplibre-compose/benchmarks/
 [versatiles]: https://versatiles.org/

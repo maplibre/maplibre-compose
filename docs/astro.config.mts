@@ -80,7 +80,10 @@ export default defineConfig({
         },
         {
           label: "Development",
-          items: [{ label: "Code metrics", link: "/metrics/" }],
+          items: [
+            { label: "Benchmarks", link: "/benchmarks/" },
+            { label: "Code metrics", link: "/metrics/" },
+          ],
         },
       ],
     }),

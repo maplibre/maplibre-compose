@@ -1,0 +1,55 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import "../styles/metrics.css";
+import "../styles/benchmarks.css";
+
+// Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
+const source =
+  process.env.METRICS_DATA_URL ??
+  `${import.meta.env.BASE_URL.replace(/\/$/, "")}/metrics-data/`;
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "Benchmarks",
+    description:
+      "Map performance of MapLibre Compose on real devices, measured per commit on main and compared with the classic SDKs.",
+    tableOfContents: false,
+    pagefind: false,
+  }}
+>
+  <div class="metrics benchmarks" data-source={`${source}benchmarks/`}>
+    <div class="metrics-toolbar">
+      <label>
+        <span class="sr-only">Device</span>
+        <select id="benchmarks-scope"></select>
+      </label>
+      <span id="benchmarks-scope-note" class="metrics-muted"></span>
+    </div>
+
+    <p id="metrics-status" class="metrics-status" role="status">Loading…</p>
+
+    <div id="metrics-body" hidden>
+      <div class="metrics-selection">
+        <div class="metrics-nav" role="group" aria-label="Commits">
+          <button id="metrics-previous-release"></button>
+          <button id="metrics-previous"></button>
+          <button id="metrics-next"></button>
+          <button id="metrics-next-release"></button>
+        </div>
+        <span id="metrics-selection-label"></span>
+        <span id="metrics-selection-commit"></span>
+        <span id="metrics-selection-title" class="metrics-muted"></span>
+      </div>
+
+      <div id="metrics-tiles" class="metrics-tiles"></div>
+
+      <div id="metrics-charts"></div>
+    </div>
+  </div>
+
+  <script>
+  import { start } from "../benchmarks/dashboard";
+    start();
+  </script>
+</StarlightPage>
