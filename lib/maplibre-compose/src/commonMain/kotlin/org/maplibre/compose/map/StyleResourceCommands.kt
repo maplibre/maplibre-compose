@@ -56,6 +56,8 @@ internal class StyleResourceCommands(
 
   fun isExplicitImage(id: String): Boolean = lock.withLock { images[id] == false }
 
+  fun pendingImageWriteIds(): Set<String> = lock.withLock { pendingImageWrites.keys.toSet() }
+
   fun requireNoConflicts(snapshot: StyleSnapshot) = lock.withLock {
     snapshot.sources
       .firstOrNull { it.id in sources }
@@ -91,7 +93,8 @@ internal class StyleResourceCommands(
     submit(binding, "remove source '$id'") {
       validateSource(id, binding, identity)
       withContext(readDispatcher) {
-        if (binding.sourceExists(id) == true) binding.removeSource(id)
+        // Null means the engine cannot tell; attempt removal rather than untrack a live source.
+        if (binding.sourceExists(id) != false) binding.removeSource(id)
       }
       if (style.isCurrentLoadedStyle(binding)) {
         lock.withLock { sources.remove(id) }
@@ -105,14 +108,16 @@ internal class StyleResourceCommands(
     val binding = requireBinding()
     images.keys.forEach(::requireImageWritable)
     // Snapshot the caller's collection; prepared images already own their immutable pixels.
-    val sequence =
-      enqueueImageWrites(
-        images.mapValues { (id, image) ->
-          StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
-        }
-      )
-    submit(binding, "set style images") {
-      applyImageWrites(binding, takeImageWrites(images.keys, sequence))
+    val definitions = images.mapValues { (id, image) ->
+      StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
+    }
+    val sequence = enqueueImageWrites(definitions)
+    submit(
+      binding,
+      "set style images",
+      discarded = { releaseImageWrites(definitions.keys, sequence) },
+    ) {
+      applyImageWrites(binding, takeImageWrites(definitions.keys, sequence))
     }
   }
 
@@ -120,7 +125,11 @@ internal class StyleResourceCommands(
     if (identity == null) {
       requireImageWritable(id)
       val sequence = enqueueImageWrites(mapOf(id to null))
-      submit(binding, "remove image '$id'") {
+      submit(
+        binding,
+        "remove image '$id'",
+        discarded = { releaseImageWrites(setOf(id), sequence) },
+      ) {
         applyImageWrites(binding, takeImageWrites(setOf(id), sequence))
       }
       return
@@ -194,6 +203,13 @@ internal class StyleResourceCommands(
     }
   }
 
+  /** A command dropped before it runs releases its writes, so an abandoned binding retains none. */
+  private fun releaseImageWrites(ids: Set<String>, sequence: Long) = lock.withLock {
+    ids.forEach { id ->
+      if (pendingImageWrites[id]?.sequence == sequence) pendingImageWrites.remove(id)
+    }
+  }
+
   /** Each write succeeds or fails independently; a failed write keeps the previous image. */
   private suspend fun applyImageWrites(
     binding: StyleBinding,
@@ -225,27 +241,39 @@ internal class StyleResourceCommands(
     }
   }
 
-  private fun submit(binding: StyleBinding, target: String, block: suspend () -> Unit) {
+  /** [discarded] runs instead of [block] when the command is dropped or its scope is cancelled. */
+  private fun submit(
+    binding: StyleBinding,
+    target: String,
+    discarded: () -> Unit = {},
+    block: suspend () -> Unit,
+  ) {
     // Enter the mutex before returning so separately submitted commands preserve admission order.
     scope.launch(start = CoroutineStart.UNDISPATCHED) {
-      withCommit {
-        if (!style.isCurrentLoadedStyle(binding)) return@withCommit
-        // Start work through the owner's dispatcher: UNDISPATCHED admission may still be on an
-        // arbitrary caller. In particular, a snapshot's scope names its read dispatcher even when
-        // admission is running on the UI thread. withContext alone would then run inline.
-        withContext(NonCancellable) {
-          async {
-            try {
-              check(style.readyLoadedStyle() === binding) {
-                "Style command belongs to an unready loaded-style identity"
+      var started = false
+      try {
+        withCommit {
+          if (!style.isCurrentLoadedStyle(binding)) return@withCommit
+          // Start work through the owner's dispatcher: UNDISPATCHED admission may still be on an
+          // arbitrary caller. In particular, a snapshot's scope names its read dispatcher even
+          // when admission is running on the UI thread. withContext alone would then run inline.
+          withContext(NonCancellable) {
+            async {
+              try {
+                check(style.readyLoadedStyle() === binding) {
+                  "Style command belongs to an unready loaded-style identity"
+                }
+                started = true
+                block()
+              } catch (error: Exception) {
+                if (style.isCurrentLoadedStyle(binding)) rejected(target, error)
               }
-              block()
-            } catch (error: Exception) {
-              if (style.isCurrentLoadedStyle(binding)) rejected(target, error)
             }
+              .await()
           }
-            .await()
         }
+      } finally {
+        if (!started) discarded()
       }
     }
   }

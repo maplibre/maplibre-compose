@@ -1227,6 +1227,28 @@ class MapPresentationTest {
   }
 
   @Test
+  fun removing_a_source_whose_existence_is_unknown_still_asks_the_engine() = runTest {
+    val fixture = presentationFixture()
+    val recorded = RecordingStyleBinding()
+    var existenceKnown = true
+    val binding =
+      object : StyleBinding by recorded {
+        override fun sourceExists(sourceId: String): Boolean? =
+          if (existenceKnown) recorded.sourceExists(sourceId) else null
+      }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    val handle = fixture.state.style.addSource(attributedVectorSource("added", "attribution"))
+    existenceKnown = false
+    handle.remove()
+    fixture.state.style.awaitCommands()
+    assertFalse("added" in recorded.sources)
+    assertNull(fixture.state.style.sources["added"])
+    fixture.close()
+  }
+
+  @Test
   fun adding_an_image_after_engine_eviction_retires_the_base_image_handle() = runTest {
     val fixture = presentationFixture()
     val image = FakeImageBitmap(1, 1)
@@ -1409,6 +1431,28 @@ class MapPresentationTest {
       style.images.set("a", prepared(7))
     }
     assertEquals(listOf("set a 7"), binding.imageWrites)
+
+    // A batch keeps its IDs when the caller changes the map after submission.
+    val commands = style.requireOwner().resourceCommands
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    binding.imageWrites.clear()
+    pending {
+      val batch = mutableMapOf("c" to prepared(8))
+      style.images.setAll(batch)
+      batch.clear()
+    }
+    assertEquals(listOf("set c 8"), binding.imageWrites)
+
+    // A dropped command releases its pending write, including the pixels it would install.
+    binding.imageWrites.clear()
+    pending {
+      launch(start = CoroutineStart.UNDISPATCHED) {
+        commands.withCommit { style.loadState = StyleLoadState.Loading }
+      }
+      style.images.set("d", prepared(9))
+    }
+    assertEquals(emptyList(), binding.imageWrites)
+    assertEquals(emptySet(), commands.pendingImageWriteIds())
     fixture.close()
   }
 
