@@ -231,8 +231,9 @@ internal suspend fun measured(
       if (measuring) host.cpu(false)
       // Closing is part of a completed run; cancellation must also release the map.
       withContext(NonCancellable) {
-        host.uiFrames.stop()
+        // Engine samples end with the window; frames drawn while UI metrics drain are not counted.
         recorder.stop()
+        host.uiFrames.stop()
         report?.printResult()
         cleanup()
       }
