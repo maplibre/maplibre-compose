@@ -125,8 +125,17 @@ internal class MlnFfiMapRuntimeLoop(
   val scaleFactor: Double
     get() = extent.scaleFactor
 
-  fun start() {
-    thread.start()
+  fun start(startThread: (MlnFfiOwnerThread) -> Unit = MlnFfiOwnerThread::start) {
+    try {
+      startThread(thread)
+    } catch (error: Throwable) {
+      // No owner body will run to abandon queued work or acknowledge destruction. There are no
+      // native resources to release; the caller receives the startup failure directly.
+      failure = error
+      rejectQueuedTasks()
+      completion.complete(Result.success(Unit))
+      throw error
+    }
   }
 
   /** Whether the calling thread is the one that owns this loop's runtime and map. */
