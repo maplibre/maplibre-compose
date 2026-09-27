@@ -13,7 +13,6 @@ import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
@@ -36,7 +35,7 @@ class CustomVectorTileSourceNativeTest {
         }
       val layer = TestLayer("empty-points", "circle", source)
       layer.sourceLayer = "points"
-      fixture.state.style.addSource(source)
+      fixture.state.style.sources.add(source)
       style.install(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }

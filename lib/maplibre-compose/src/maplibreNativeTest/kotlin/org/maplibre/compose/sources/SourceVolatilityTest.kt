@@ -19,7 +19,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
@@ -179,7 +178,7 @@ class SourceVolatilityTest {
             listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
             TileSetOptions(),
           )
-        fixture.state.style.addSource(source)
+        fixture.state.style.sources.add(source)
         val handle = assertNotNull(fixture.state.style.sources[source.id])
         assertEquals(false, handle.isVolatile())
         val mutable = assertNotNull(handle.asMutable)

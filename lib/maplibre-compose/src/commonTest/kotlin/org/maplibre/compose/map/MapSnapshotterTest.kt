@@ -33,7 +33,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.setImage
 
 class MapSnapshotterTest {
@@ -97,7 +96,7 @@ class MapSnapshotterTest {
 
     withContext(Dispatchers.Unconfined) {
       snapshotter.capture(MapSnapshotRequest(1, 1))
-      val sourceHandle = snapshotter.style.addSource(source)
+      val sourceHandle = snapshotter.style.sources.add(source)
       assertEquals("imperative", sourceHandle.id)
       assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
       val imageHandle = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
@@ -107,7 +106,7 @@ class MapSnapshotterTest {
       sourceHandle.remove()
       snapshotter.style.awaitCommands()
       assertTrue(snapshotter.style.sources.none())
-      snapshotter.style.addSource(source)
+      snapshotter.style.sources.add(source)
       snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       assertFailsWith<IllegalStateException> { sourceHandle.remove() }
       assertFailsWith<IllegalStateException> { imageHandle.remove() }

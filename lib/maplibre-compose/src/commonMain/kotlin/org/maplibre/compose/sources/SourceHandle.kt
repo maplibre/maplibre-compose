@@ -103,6 +103,8 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
 
 /** Access to a vector tile source in one loaded style generation. */
 public sealed interface VectorTileSourceHandle : SourceHandle {
+  override val asMutable: MutableVectorTileSourceHandle?
+
   /**
    * Returns loaded features from [sourceLayerIds] that match [predicate]. The result is empty
    * before the map has rendered.
@@ -132,11 +134,20 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
   public fun resetFeatureStates(sourceLayerId: String): Unit
 }
 
+/** Removal for a vector tile source in its loaded style generation. */
+public sealed interface MutableVectorTileSourceHandle : VectorTileSourceHandle, MutableSourceHandle
+
 /** Access to a custom vector tile source in one loaded style generation. */
 public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
+  override val asMutable: MutableCustomVectorTileSourceHandle?
+
   /** Requests new data for [tile]. */
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
+
+/** Removal for a custom vector tile source in its loaded style generation. */
+public sealed interface MutableCustomVectorTileSourceHandle :
+  CustomVectorTileSourceHandle, MutableVectorTileSourceHandle
 
 /**
  * Access to a custom geometry source in one loaded style generation.
@@ -146,12 +157,18 @@ public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
  * calls are still in flight is applied once those tiles settle, not synchronously.
  */
 public sealed interface CustomGeometrySourceHandle : SourceHandle {
+  override val asMutable: MutableCustomGeometrySourceHandle?
+
   /** Requests new features for tiles that intersect [bounds]. */
   public fun invalidateBounds(bounds: BoundingBox): Unit
 
   /** Requests new features for [tile]. */
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
+
+/** Removal for a custom geometry source in its loaded style generation. */
+public sealed interface MutableCustomGeometrySourceHandle :
+  CustomGeometrySourceHandle, MutableSourceHandle
 
 /** Access to an image source in one loaded style generation. */
 public sealed interface ImageSourceHandle : SourceHandle {
@@ -186,7 +203,18 @@ public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSou
 }
 
 /** Access to a raster tile source in one loaded style generation. */
-public sealed interface RasterTileSourceHandle : SourceHandle {}
+public sealed interface RasterTileSourceHandle : SourceHandle {
+  override val asMutable: MutableRasterTileSourceHandle?
+}
+
+/** Removal for a raster tile source in its loaded style generation. */
+public sealed interface MutableRasterTileSourceHandle : RasterTileSourceHandle, MutableSourceHandle
 
 /** Access to a raster DEM tile source in one loaded style generation. */
-public sealed interface RasterDemTileSourceHandle : SourceHandle {}
+public sealed interface RasterDemTileSourceHandle : SourceHandle {
+  override val asMutable: MutableRasterDemTileSourceHandle?
+}
+
+/** Removal for a raster DEM tile source in its loaded style generation. */
+public sealed interface MutableRasterDemTileSourceHandle :
+  RasterDemTileSourceHandle, MutableSourceHandle

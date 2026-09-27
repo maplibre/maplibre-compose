@@ -24,7 +24,6 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -173,7 +172,7 @@ class CustomGeometrySourceTest {
         requests += tile
         cover(tile.bounds, featureName)
       }
-    val handle = state.style.addSource(source)
+    val handle = state.style.sources.add(source)
     binding.install(TestLayer("custom-fill", "fill", source))
     state.styleAuthority.desiredStyleRevision =
       StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())

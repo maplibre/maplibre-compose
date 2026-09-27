@@ -219,8 +219,11 @@ internal interface MapStyleStateOwner {
 
 /** Desired and applied style state for one logical map or snapshotter. */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
-  /** Waits for resource commands accepted before this call. Native rejections are logged. */
-  public suspend fun awaitCommands() {
+  /**
+   * Waits for resource commands accepted before this call. Callers wait on the resource instead:
+   * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
+   */
+  internal suspend fun awaitCommands() {
     requireOwner().resourceCommands.await()
   }
 

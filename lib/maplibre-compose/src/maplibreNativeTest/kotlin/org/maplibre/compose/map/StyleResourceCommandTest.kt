@@ -67,15 +67,19 @@ class StyleResourceCommandTest {
           style.images.setAll(mapOf("replaced" to first, "removed" to first))
           style.images.set("replaced", replacement)
           style.images.remove("removed")
-          style.sources.add(
-            GeoJsonSource(
-              "points",
-              GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              GeoJsonOptions(),
-            )
-          )
+          val added =
+            async(start = CoroutineStart.UNDISPATCHED) {
+              style.sources.add(
+                GeoJsonSource(
+                  "points",
+                  GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+                  GeoJsonOptions(),
+                )
+              )
+            }
           val queried = async(start = CoroutineStart.UNDISPATCHED) { style.images["replaced"] }
           assertFalse(queried.isCompleted, "query must suspend behind the queued commands")
+          assertFalse(added.isCompleted, "the add must suspend behind the queued commands")
           assertFalse(
             ownerReleased.isCompleted,
             "commands must return while the owner stays parked",
@@ -84,7 +88,7 @@ class StyleResourceCommandTest {
           assertTrue(ownerReleased.await())
           assertNotNull(queried.await())
           assertEquals(null, style.images["removed"])
-          assertNotNull(style.sources["points"])
+          assertNotNull(added.await())
           val binding = assertNotNull(fixture.style) as MlnFfiStyleBinding
           assertEquals(2, binding.readMap { it.styleImageInfo("replaced")?.width })
           assertEquals(1, reads, "reusing prepared pixels must not read the caller bitmap again")

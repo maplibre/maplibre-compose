@@ -76,7 +76,6 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.setImage
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
@@ -1044,7 +1043,8 @@ class MapPresentationTest {
 
     fixture.state.style.sources["shared"]!!.asMutable!!.remove()
     fixture.state.style.awaitCommands()
-    val replacement = fixture.state.style.addSource(attributedVectorSource("shared", "replacement"))
+    val replacement =
+      fixture.state.style.sources.add(attributedVectorSource("shared", "replacement"))
 
     assertEquals("replacement", replacement.attributionHtml)
     assertEquals("original", stale.attributionHtml)
@@ -1210,7 +1210,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun loaded_style_resource_objects_preserve_engine_order_and_empty_on_invalidation() {
+  fun loaded_style_resource_objects_preserve_engine_order_and_empty_on_invalidation() = runTest {
     val fixture = presentationFixture()
     val sources =
       listOf(
@@ -1255,17 +1255,17 @@ class MapPresentationTest {
     val added = attributedVectorSource("added", "added attribution")
     val blocked = attributedVectorSource("blocked", "blocked attribution")
 
-    val firstHandle = fixture.state.style.addSource(added)
+    val firstHandle = fixture.state.style.sources.add(added)
     assertEquals("added", firstHandle.id)
     assertEquals("added", fixture.state.style.sources["added"]?.id)
-    fixture.state.style.addSource(blocked)
-    fixture.state.style.addSource(added)
+    fixture.state.style.sources.add(blocked)
+    assertFailsWith<StyleHandleException> { fixture.state.style.sources.add(added) }
     assertEquals("added", firstHandle.id)
     assertNull(fixture.state.style.sources["missing"])
     firstHandle.remove()
     fixture.state.style.awaitCommands()
     assertNull(fixture.state.style.sources["added"])
-    val replacementHandle = fixture.state.style.addSource(added)
+    val replacementHandle = fixture.state.style.sources.add(added)
     assertFailsWith<IllegalStateException> { firstHandle.remove() }
     assertTrue(binding.sourceExists("added") == true)
     assertFailsWith<IllegalStateException> {
@@ -1283,6 +1283,104 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_source_add_is_one_owner_task_and_returns_once_it_has_run() = runTest {
+    val fixture = presentationFixture()
+    val recorded = RecordingStyleBinding()
+    val binding = QueuedOwnerStyleBinding(recorded)
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    binding.ownerBusy = true
+
+    val added =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        style.sources.add(attributedVectorSource("added", "attribution"))
+      }
+    assertFalse(added.isCompleted, "the add returns its handle once the command has run")
+    assertFalse("added" in recorded.sources, "the engine is reached only from the owner task")
+    assertEquals(1, binding.ownerTasks, "existence check, insertion, and refresh share one task")
+    binding.runOwnerTasks()
+    assertEquals("attribution", added.await().attributionHtml)
+    assertEquals(0, binding.ownerTasks)
+
+    added.await().remove()
+    assertEquals(1, binding.ownerTasks, "removal and refresh share one task")
+    binding.runOwnerTasks()
+    style.awaitCommands()
+    assertNull(style.sources["added"])
+    assertFalse("added" in recorded.sources)
+    fixture.close()
+  }
+
+  @Test
+  fun a_source_add_in_flight_across_a_style_change_fails_and_does_not_claim_the_id() = runTest {
+    val fixture = presentationFixture()
+    val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    binding.ownerBusy = true
+    val added =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        runCatching { style.sources.add(attributedVectorSource("shared", "imperative")) }
+      }
+    assertEquals(1, binding.ownerTasks)
+
+    // The base style changes before the owner runs the addition.
+    val replacement = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    binding.runOwnerTasks()
+    assertIs<StyleHandleException>(added.await().exceptionOrNull())
+
+    // The next style may declare the same ID, and no stale record answers for it.
+    val declared =
+      StyleSnapshot(
+        listOf(attributedVectorSource("shared", "declared").definition()),
+        emptyList(),
+        emptyList(),
+      )
+    assertTrue(fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, declared))
+    assertNull(style.requireOwner().resourceCommands.sourceDefinition("shared"))
+    assertTrue(style.requireOwner().resourceCommands.sourceIds().isEmpty())
+    assertFalse("shared" in replacement.sources)
+    fixture.close()
+  }
+
+  @Test
+  fun a_revision_refreshes_every_changed_source_in_one_owner_task() = runTest {
+    val fixture = presentationFixture()
+    val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
+    val reconciler = StyleReconciler()
+    fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
+    fixture.state.styleAuthority.markStyleReady(fixture.adapter)
+    val revision =
+      StyleSnapshot(
+        listOf(
+          attributedVectorSource("first", "first attribution").definition(),
+          attributedVectorSource("second", "second attribution").definition(),
+        ),
+        emptyList(),
+        emptyList(),
+      )
+    assertTrue(fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, revision))
+    val changes = reconciler.apply(binding, revision)
+    assertEquals(setOf("first", "second"), changes.sources)
+
+    binding.ownerBusy = true
+    val update =
+      launch(start = CoroutineStart.UNDISPATCHED) {
+        fixture.state.styleAuthority.updateStyleResources(fixture.adapter, changes)
+      }
+    assertEquals(1, binding.ownerTasks, "both changed sources are read in one task")
+    binding.runOwnerTasks()
+    update.join()
+    assertEquals("first attribution", fixture.state.style.sources["first"]?.attributionHtml)
+    assertEquals("second attribution", fixture.state.style.sources["second"]?.attributionHtml)
+    fixture.close()
+  }
+
+  @Test
   fun removing_a_source_whose_existence_is_unknown_still_asks_the_engine() = runTest {
     val fixture = presentationFixture()
     val recorded = RecordingStyleBinding()
@@ -1295,7 +1393,7 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    val handle = fixture.state.style.addSource(attributedVectorSource("added", "attribution"))
+    val handle = fixture.state.style.sources.add(attributedVectorSource("added", "attribution"))
     existenceKnown = false
     handle.remove()
     fixture.state.style.awaitCommands()
@@ -1963,7 +2061,7 @@ class MapPresentationTest {
     val image = FakeImageBitmap(1, 1)
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-    fixture.state.style.addSource(source)
+    fixture.state.style.sources.add(source)
 
     assertFailsWith<StyleHandleException> {
       fixture.state.styleAuthority.beginStyleRevision(
@@ -2020,7 +2118,7 @@ class MapPresentationTest {
     fixture.state.styleAuthority.desiredStyleRevision = declaredRevision
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    fixture.state.style.addSource(attributedVectorSource("imperative", "imperative attribution"))
+    fixture.state.style.sources.add(attributedVectorSource("imperative", "imperative attribution"))
 
     assertEquals(
       listOf("base attribution", "declarative attribution", "imperative attribution"),
@@ -2054,7 +2152,7 @@ class MapPresentationTest {
     state.publishPresentation(token, adapter)
     state.durableStyleCallbacks().onStyleChanged(adapter, binding)
     state.durableStyleCallbacks().onStyleReady(adapter)
-    state.style.addSource(attributedVectorSource("retained", "retained attribution"))
+    state.style.sources.add(attributedVectorSource("retained", "retained attribution"))
 
     state.releasePresentation(token, adapter)
     testScheduler.advanceUntilIdle()

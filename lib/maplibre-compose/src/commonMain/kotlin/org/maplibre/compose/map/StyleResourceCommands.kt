@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
@@ -10,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.sources.MutableSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
@@ -32,7 +34,13 @@ internal class StyleResourceCommands(
 ) {
   private val mutex = Mutex()
   private val lock = reentrantLock()
-  private val sources = mutableMapOf<String, SourceDefinition>()
+
+  // Each record names the loaded style it belongs to. clear() runs on a style change, but a
+  // command's bookkeeping can land around it, and a stale record must not claim the ID in the
+  // next style.
+  private class OwnedSource(val binding: StyleBinding, val definition: SourceDefinition)
+
+  private val sources = mutableMapOf<String, OwnedSource>()
   // False means explicit ownership; true means a missing-image resolver supplied the image.
   private val images = mutableMapOf<String, Boolean>()
 
@@ -54,9 +62,21 @@ internal class StyleResourceCommands(
     pendingImageWrites.clear()
   }
 
-  fun sourceDefinition(id: String): SourceDefinition? = lock.withLock { sources[id] }
+  fun sourceDefinition(id: String): SourceDefinition? = lock.withLock {
+    currentSource(id)?.definition
+  }
 
-  fun sourceIds(): Set<String> = lock.withLock { sources.keys.toSet() }
+  fun sourceIds(): Set<String> = lock.withLock {
+    sources.filterValues { style.isCurrentLoadedStyle(it.binding) }.keys.toSet()
+  }
+
+  /** Call under [lock]. */
+  private fun currentSource(id: String): OwnedSource? =
+    sources[id]?.takeIf { style.isCurrentLoadedStyle(it.binding) }
+
+  private fun forgetSource(id: String, binding: StyleBinding) = lock.withLock {
+    if (sources[id]?.binding === binding) sources.remove(id)
+  }
 
   fun isExplicitImage(id: String): Boolean = lock.withLock { images[id] == false }
 
@@ -64,7 +84,7 @@ internal class StyleResourceCommands(
 
   fun requireNoConflicts(snapshot: StyleSnapshot) = lock.withLock {
     snapshot.sources
-      .firstOrNull { it.id in sources }
+      .firstOrNull { currentSource(it.id) != null }
       ?.let {
         throw StyleHandleException("Source ID '${it.id}' is owned by an imperative addition")
       }
@@ -75,18 +95,42 @@ internal class StyleResourceCommands(
       }
   }
 
-  fun add(source: Source) {
+  /**
+   * Admits the addition in call order, then suspends until it has run. A rejection reaches the
+   * caller instead of the log.
+   */
+  suspend fun add(source: Source): MutableSourceHandle {
     val binding = requireBinding()
     requireSourceWritable(source.id)
     val definition = source.definition()
-    submit(binding, "add source '${source.id}'") {
+    val completion = CompletableDeferred<Unit>()
+    submit(binding, "add source '${source.id}'", completion = completion) {
       requireSourceWritable(source.id)
-      commitSources(binding) {
-        check(binding.sourceExists(source.id) != true) { "Source ID '${source.id}' already exists" }
-        check(binding.addSource(definition)) { "The loaded style changed during source insertion" }
-        if (style.isCurrentLoadedStyle(binding)) lock.withLock { sources[source.id] = definition }
+      // Recorded on this thread, before the owner task, so the source read inside the task builds
+      // the handle from this definition. A failed addition takes the record back.
+      lock.withLock {
+        check(currentSource(source.id) == null) { "Source ID '${source.id}' already exists" }
+        sources[source.id] = OwnedSource(binding, definition)
+      }
+      try {
+        commitSources(binding) {
+          check(binding.sourceExists(source.id) != true) {
+            "Source ID '${source.id}' already exists"
+          }
+          check(binding.addSource(definition)) {
+            "The loaded style changed during source insertion"
+          }
+        }
+      } catch (error: Exception) {
+        forgetSource(source.id, binding)
+        throw error
       }
     }
+    completion.await()
+    return style.sourceHandle(source.id)?.takeIf { style.isCurrentLoadedStyle(binding) }?.asMutable
+      ?: throw StyleHandleException(
+        "Could not add source '${source.id}': the loaded style changed after it was added"
+      )
   }
 
   fun removeSource(id: String, binding: StyleBinding, identity: Any) {
@@ -97,7 +141,7 @@ internal class StyleResourceCommands(
         // Null means the engine cannot tell; attempt removal rather than untrack a live source.
         if (binding.sourceExists(id) != false) binding.removeSource(id)
         if (style.isCurrentLoadedStyle(binding)) {
-          lock.withLock { sources.remove(id) }
+          forgetSource(id, binding)
           binding.identity.sources.remove(id)
         }
       }
@@ -241,11 +285,16 @@ internal class StyleResourceCommands(
     }
   }
 
-  /** [discarded] runs instead of [block] when the command is dropped or its scope is cancelled. */
+  /**
+   * [discarded] runs instead of [block] when the command is dropped or its scope is cancelled. A
+   * [completion] receives the outcome for a caller that waits: a failure then goes to it rather
+   * than to [rejected].
+   */
   private fun submit(
     binding: StyleBinding,
     target: String,
     discarded: () -> Unit = {},
+    completion: CompletableDeferred<Unit>? = null,
     block: suspend () -> Unit,
   ) {
     // Enter the mutex before returning so separately submitted commands preserve admission order.
@@ -264,15 +313,27 @@ internal class StyleResourceCommands(
                 }
                 started = true
                 block()
+                completion?.complete(Unit)
               } catch (error: Exception) {
-                if (style.isCurrentLoadedStyle(binding)) rejected(target, error)
+                if (completion != null) {
+                  completion.completeExceptionally(
+                    StyleHandleException("Could not $target: ${error.message}", error)
+                  )
+                } else if (style.isCurrentLoadedStyle(binding)) {
+                  rejected(target, error)
+                }
               }
             }
               .await()
           }
         }
       } finally {
-        if (!started) discarded()
+        if (!started) {
+          discarded()
+          completion?.completeExceptionally(
+            StyleHandleException("Could not $target: the loaded style changed first")
+          )
+        }
       }
     }
   }
