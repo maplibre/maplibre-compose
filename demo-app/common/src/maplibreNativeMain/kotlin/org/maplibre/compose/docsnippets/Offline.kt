@@ -26,7 +26,9 @@ fun Offline() {
   val pixelRatio = LocalDensity.current.density
 
   // #region create
+  val offlineState by offlineManager.state.collectAsState()
   Button(
+    enabled = offlineState is OfflineManagerState.Ready,
     onClick = {
       scope.launch {
         val pack =
@@ -43,14 +45,13 @@ fun Offline() {
           )
         offlineManager.resume(pack)
       }
-    }
+    },
   ) {
     Text("Download Seattle")
   }
   // #endregion create
 
   // #region progress
-  val offlineState by offlineManager.state.collectAsState()
   val packs = (offlineState as? OfflineManagerState.Ready)?.packs.orEmpty()
   when (val state = offlineState) {
     OfflineManagerState.Loading -> Text("Loading offline packs…")
