@@ -46,6 +46,14 @@ Runs the tracked presets three times each, for Compose and the classic SDK, and
 uploads the medians under the device scope. Uploads need a clean checkout of a
 commit on `main`; otherwise the results stay under `build/benchmarks/publish`.
 
+## Archived builds
+
+Prepared Android benchmark APKs are preserved in the
+[artifact archive][artifacts] for measuring older releases on additional
+devices. Each manifest records the APK hashes, library and harness versions,
+instrumentation patch, and scenario configurations. Reuse an artifact set for
+comparisons; changing its harness requires a new set.
+
 ## Fixtures
 
 Geometry is generated. Basemap tiles and glyphs are a snapshot of
@@ -56,3 +64,4 @@ and after a refresh are not comparable. See [fixtures](fixtures/) for licensing.
 
 [page]: https://maplibre.org/maplibre-compose/benchmarks/
 [versatiles]: https://versatiles.org/
+[artifacts]: https://mlc-data.sargunv.dev/benchmarks/artifacts/index.json
