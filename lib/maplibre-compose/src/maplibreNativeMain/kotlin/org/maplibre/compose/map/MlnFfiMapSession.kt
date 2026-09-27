@@ -323,7 +323,7 @@ internal class MlnFfiMapSession(
         if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
       },
       postMap = { action, abandon ->
-        if (!lifecycle.acceptsWork) false else loop?.post(action, abandon) ?: false
+        if (!lifecycle.acceptsWork) false else loop?.dispatch(action, abandon) ?: false
       },
       enqueueRenderSession = { action ->
         val host = hostSession

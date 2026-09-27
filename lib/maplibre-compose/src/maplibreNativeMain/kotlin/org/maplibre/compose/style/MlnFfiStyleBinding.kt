@@ -82,9 +82,10 @@ import org.maplibre.spatialk.geojson.toJson
  * marshal every engine call to the map's owner thread, or to the renderer thread for a query that
  * belongs to the render session.
  *
- * [accessMap] runs an action and waits for it. [postMap] queues an action and returns; its second
- * argument runs when the queued action is dropped. [enqueueRenderSession] queues an action for the
- * renderer thread, which receives the ready render session or null without one.
+ * [accessMap] runs an action and waits for it. [postMap] dispatches inline on the owner or queues
+ * work from other callers; its second argument runs when the queued action is dropped.
+ * [enqueueRenderSession] queues an action for the renderer thread, which receives the ready render
+ * session or null without one.
  */
 internal open class MlnFfiStyleBinding(
   override val identity: StyleIdentity = StyleIdentity.create(),
@@ -904,9 +905,9 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * The batch runs as one posted owner-thread task rather than one round trip per write. A rejected
-   * write is non-fatal — the engine keeps the previous value and the reconciler's bookkeeping
-   * already accounts for that — so the caller does not wait for the result.
+   * The batch runs as one owner operation, inline within a commit or posted by other callers. A
+   * rejected write is non-fatal — the engine keeps the previous value and the reconciler's
+   * bookkeeping already accounts for that — so the caller does not wait for the result.
    */
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     if (writes.isEmpty()) return

@@ -197,6 +197,14 @@ internal class MlnFfiMapRuntimeLoop(
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
 
+  /** Keeps nested writes inside an owner commit; other callers enqueue their work. */
+  fun dispatch(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean {
+    if (!thread.isCurrent()) return post(action, abandon)
+    val current = map ?: return false
+    action(current)
+    return true
+  }
+
   /** Drains this action's events before executing later queued work. */
   fun postAndDrainEvents(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon, drainAfter = true)

@@ -352,7 +352,7 @@ private class NativeSnapshotterAdapter(
       loggerProvider = { options.logger },
       sessionOpen = { open },
       accessMap = { action -> source.loop.call(action = action) != null },
-      postMap = { action, abandon -> source.loop.post(action = action, abandon = abandon) },
+      postMap = { action, abandon -> source.loop.dispatch(action = action, abandon = abandon) },
       // A snapshot renders on the owner thread, so the render session is reached from there.
       enqueueRenderSession = { action ->
         source.loop.post(
