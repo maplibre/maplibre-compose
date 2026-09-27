@@ -20,10 +20,8 @@ fi
 ffi_tag="bindings/kotlin/v${ffi_version}"
 
 # Targets match the maplibre-native-ffi runtime: macOS 14.3 and glibc 2.17.
-# Git Bash on Windows ARM64 often reports x86_64 because the x64 Git runs
-# under emulation. PROCESSOR_ARCHITECTURE is ARM64 for a native process;
-# PROCESSOR_ARCHITEW6432 is ARM64 when an x64 process is emulated.
-if [[ "${PROCESSOR_ARCHITECTURE:-}" == ARM64 || "${PROCESSOR_ARCHITEW6432:-}" == ARM64 ]]; then
+# Use the runner's architecture because Git Bash can report x86_64 on Windows ARM64.
+if [[ "${RUNNER_OS:-}" == Windows && "${RUNNER_ARCH:-}" == ARM64 ]]; then
   # Zig 0.16.0's native aarch64-windows toolchain segfaults in `zig c++`.
   # The desktop demo already omits hexbins when the plugin library is absent.
   echo "${0##*/}: skipping the n-gon plugin on Windows ARM64; Zig 0.16.0 segfaults in zig c++"
