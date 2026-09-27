@@ -1265,6 +1265,47 @@ class MapPresentationTest {
   }
 
   @Test
+  fun image_lookup_requires_a_ready_style_after_waiting_and_reading() = runTest {
+    val fixture = presentationFixture()
+    val style = fixture.state.style
+    val recorded = RecordingStyleBinding(images = listOf("marker" to FakeImageBitmap(1, 1)))
+    var reads = 0
+    var becomesLoadingDuringRead = false
+    val binding =
+      object : StyleBinding by recorded {
+        override fun imageExists(id: String): Boolean {
+          reads++
+          if (becomesLoadingDuringRead) style.loadState = StyleLoadState.Loading
+          return recorded.imageExists(id)
+        }
+      }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val release = CompletableDeferred<Unit>()
+    try {
+      val commit =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          style.requireOwner().resourceCommands.withCommit { release.await() }
+        }
+      val lookup = async(start = CoroutineStart.UNDISPATCHED) { style.images["marker"] }
+      assertFalse(lookup.isCompleted)
+      style.loadState = StyleLoadState.Loading
+      release.complete(Unit)
+      commit.join()
+      assertNull(lookup.await())
+      assertEquals(0, reads)
+
+      fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+      becomesLoadingDuringRead = true
+      assertNull(style.images["marker"])
+      assertEquals(1, reads)
+    } finally {
+      release.complete(Unit)
+      fixture.close()
+    }
+  }
+
+  @Test
   fun imperative_image_commands_set_and_remove() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()

@@ -133,9 +133,9 @@ internal class StyleResourceCommands(
   suspend fun image(id: String): StyleImageHandle? {
     val binding = style.readyLoadedStyle() ?: return null
     return withCommit {
-      if (!style.isCurrentLoadedStyle(binding)) return@withCommit null
+      if (style.readyLoadedStyle() !== binding) return@withCommit null
       val exists = withContext(readDispatcher) { binding.imageExists(id) == true }
-      if (exists && style.isCurrentLoadedStyle(binding)) StyleImageHandleImpl(id, style, binding)
+      if (exists && style.readyLoadedStyle() === binding) StyleImageHandleImpl(id, style, binding)
       else null
     }
   }
