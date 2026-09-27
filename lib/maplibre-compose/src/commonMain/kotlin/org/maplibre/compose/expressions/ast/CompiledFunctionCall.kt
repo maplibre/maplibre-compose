@@ -7,7 +7,8 @@ public data class CompiledFunctionCall
 private constructor(
   val name: String,
   val args: List<CompiledExpression<*>>,
-  val isLiteralArg: (Int) -> Boolean,
+  /** Argument indices encoded in literal context. */
+  val literalArgs: Set<Int>,
 ) : CompiledExpression<ExpressionValue> {
   override fun visit(block: (Expression<*>) -> Unit) {
     block(this)
@@ -18,7 +19,7 @@ private constructor(
     public fun of(
       name: String,
       args: List<CompiledExpression<*>>,
-      isLiteralArg: (Int) -> Boolean = { false },
-    ): CompiledFunctionCall = CompiledFunctionCall(name, args, isLiteralArg)
+      literalArgs: Set<Int> = emptySet(),
+    ): CompiledFunctionCall = CompiledFunctionCall(name, args.toList(), literalArgs.toSet())
   }
 }

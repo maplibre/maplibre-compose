@@ -187,14 +187,11 @@ private fun <O : ExpressionValue?> match(
           }
           add(fallback)
         }
-      val caseCount = cases.size
       FunctionCall.of(
           "match",
           args,
-          isLiteralArg = { i ->
-            // label positions are odd, starting from 1 and not including the fallback
-            i in 1..(caseCount * 2) && i % 2 == 1
-          },
+          // Label positions are odd, starting from 1 and excluding the fallback.
+          literalArgs = (1 until args.lastIndex step 2).toSet(),
         )
         .cast()
     }
