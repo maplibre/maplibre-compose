@@ -1,0 +1,51 @@
+diff --git a/src/geo/projection/vertical_perspective_camera_helper.ts b/src/geo/projection/vertical_perspective_camera_helper.ts
+index 7dee1ed..e34c65d 100644
+--- a/src/geo/projection/vertical_perspective_camera_helper.ts
++++ b/src/geo/projection/vertical_perspective_camera_helper.ts
+@@ -170,10 +170,13 @@ export class VerticalPerspectiveCameraHelper implements ICameraHelper {
+     }
+ 
+     cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
+-        // The globe fit below does not support pitch, so the mercator fit it starts from ignores pitch too.
++        // The globe solver assumes zero pitch; returning a tilted flat fit can clip the bounds.
++        if (pitch !== 0) {
++            warnOnce('Globe bounds fitting does not support pitch.');
++            return undefined;
++        }
+         const result = cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, 0, tr);
+         if (!result) return undefined;
+-        result.pitch = pitch;
+         // If globe is enabled, we use the parameters computed for mercator, and just update the zoom to fit the bounds.
+ 
+         // Get clip space bounds including padding
+diff --git a/src/ui/camera.test.ts b/src/ui/camera.test.ts
+index 1701e72..aa6c3d6 100644
+--- a/src/ui/camera.test.ts
++++ b/src/ui/camera.test.ts
+@@ -2496,14 +2496,20 @@ describe('cameraForBounds pitch', () => {
+         expectInside(slack({center: camera.getCenter(), zoom: camera.getZoom(), bearing: 0, pitch: 45}));
+     });
+ 
+-    test('globe fits at pitch 0 but returns the given pitch', () => {
++    test('globe rejects pitched bounds without changing the camera', () => {
+         const {camera} = createCamera({}, true);
+-        const flat = camera.cameraForBounds(bb);
+-        const pitched = camera.cameraForBounds(bb, {pitch: 60});
++        const center = camera.getCenter();
++        const zoom = camera.getZoom();
++        expect(camera.cameraForBounds(bb, {pitch: 0})).toBeDefined();
++        expect(camera.cameraForBounds(bb, {pitch: 60})).toBeUndefined();
++        camera.fitBounds(bb, {pitch: 60, duration: 0});
++        expect(camera.getCenter()).toEqual(center);
++        expect(camera.getZoom()).toBe(zoom);
++        expect(camera.getPitch()).toBe(0);
+ 
+-        expect(pitched.pitch).toBe(60);
+-        expect(pitched.zoom).toBe(flat.zoom);
+-        expect(pitched.center).toEqual(flat.center);
++        camera.setPitch(60);
++        expect(camera.cameraForBounds(bb)).toBeUndefined();
++        expect(camera.cameraForBounds(bb, {pitch: 0})).toBeDefined();
+     });
+ });
+ 

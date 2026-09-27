@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+
 plugins {
   id("module-conventions")
   id("android-library-conventions")
@@ -118,6 +120,11 @@ kotlin {
       implementation(npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get()))
     }
   }
+}
+
+// KGP does not track changes to JavaScript staged inside a project npm dependency.
+tasks.withType<KotlinWebpack>().configureEach {
+  inputs.dir(project(":lib:maplibre-compose").layout.buildDirectory.dir("maplibre-gl-js"))
 }
 
 val benchmarkResources =

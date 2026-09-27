@@ -45,10 +45,14 @@ fi
 
 git -c submodule.recurse=false submodule sync "$source_path"
 git -c submodule.recurse=false submodule update --init --checkout --force --depth 1 "$source_path"
+stamp="$(git -C "$source_path" rev-parse --absolute-git-dir)/maplibre-compose-sync.stamp"
+rm -f "$stamp"
 # Stage the carried changes so git diff shows only subsequent contributor edits.
 for patch in "$repo_root"/patches/maplibre-gl-js/*.patch; do
   [[ -f "$patch" ]] || continue
-  git -C "$source_path" apply --index "$patch"
+  if ! git -C "$source_path" apply --index "$patch"; then
+    git -C "$source_path" reset --hard "$pin"
+    exit 1
+  fi
 done
-stamp="$(git -C "$source_path" rev-parse --absolute-git-dir)/maplibre-compose-sync.stamp"
 printf '%s %s\n' "$(source_state)" "$patch_hash" > "$stamp"

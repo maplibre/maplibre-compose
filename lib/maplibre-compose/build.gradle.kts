@@ -2,6 +2,7 @@ import kotlin.time.Duration.Companion.minutes
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.DefaultIncrementalSyncTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
   id("library-conventions")
@@ -269,6 +270,7 @@ val browserTestResources =
 
 tasks.named("prepareWebpackBundleForKotlinJsTests") {
   inputs.dir(browserTestResources)
+  inputs.dir(layout.buildDirectory.dir("maplibre-gl-js"))
   val bundleDirectory = layout.buildDirectory.dir("kotlinJsTest/dist")
   doLast {
     val bundle = bundleDirectory.get().asFile
@@ -297,6 +299,9 @@ val buildMaplibreGlJs by
     // the expensive build itself. Always validate that state, including contributor source edits.
   }
 val glJsRuntime = layout.buildDirectory.dir("maplibre-gl-js")
+
+tasks.withType<KotlinWebpack>().configureEach { inputs.dir(glJsRuntime) }
+
 val stageMaplibreGlJs by
   tasks.registering(Sync::class) {
     dependsOn(buildMaplibreGlJs)
