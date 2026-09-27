@@ -221,6 +221,16 @@ def web(args, output):
             worker.join()
 
 
+def is_simulator(device):
+    """Whether an iOS device identifier names a simulator rather than a physical iPhone."""
+    devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
+        "devices"
+    ]
+    return device == "booted" or any(
+        entry["udid"] == device for runtime in devices.values() for entry in runtime
+    )
+
+
 def setup(platform, config, device=None, app=None):
     """Install the app that runs [config] and return the launch context for [capture]."""
     context = {"device": device, "app": app}

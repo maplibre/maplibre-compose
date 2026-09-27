@@ -152,3 +152,17 @@ class PublishTest(unittest.TestCase):
             800,
         )
         self.assertIn("paint-points", table(snapshot("c" * 40, "pixel", 100)["cases"]))
+        # Measuring the commit again replaces every earlier value of that device.
+        with patch("publish.tags_by_commit", return_value={}):
+            empty = dict(snapshot("c" * 40, "pixel", 1), cases={})
+            sync(
+                store,
+                empty,
+                {"id": "pixel", "label": "pixel", "platform": "android"},
+                cases_meta(),
+                commits["c" * 40],
+            )
+        pixel = store.read(PREFIX + "series/pixel.json")
+        self.assertEqual(
+            pixel["paint-points.compose.cpu_ms_per_operation"], [50, None, None]
+        )

@@ -9,6 +9,7 @@ stay in the output directory.
 import argparse
 import datetime
 import json
+import re
 import statistics
 import subprocess
 import sys
@@ -76,7 +77,13 @@ def summarize(reports):
 def measure(platform, device, app, output, repeat, build=True):
     """Run the plan into [output] and return the snapshot of this device's results."""
     if build:
-        subprocess.run(["mise", "run", f"benchmark:build:{platform}"], check=True)
+        task = {"web": "benchmark:build:js"}.get(
+            platform, f"benchmark:build:{platform}"
+        )
+        command = ["mise", "run", task]
+        if platform == "ios" and not runner.is_simulator(device):
+            command += ["--", "--device"]
+        subprocess.run(command, check=True)
     contexts = {}
     cases = {}
     for name, kind, config in plan(platform):
@@ -103,7 +110,9 @@ def checkout():
     head = git("rev-parse", "HEAD")
     dirty = bool(git("status", "--porcelain", "--untracked-files=normal"))
     try:
-        subprocess.run(["git", "fetch", "--quiet", "origin", "main"], check=True)
+        subprocess.run(
+            ["git", "fetch", "--quiet", "--tags", "origin", "main"], check=True
+        )
     except subprocess.CalledProcessError:
         return head, dirty, None
     command = ["git", "merge-base", "--is-ancestor", head, "origin/main"]
@@ -188,6 +197,10 @@ def sync(store, snapshot, scope, cases_meta, commit_info):
             for column in other.values():
                 column.insert(position, None)
     columns = series[scope["id"]]
+    # A measurement replaces the device's earlier one of the commit entirely.
+    for column in columns.values():
+        column.extend([None] * (len(entries) - len(column)))
+        column[position] = None
     for name, case in snapshot["cases"].items():
         for kind, entry in case.items():
             for metric_name, value in series_values(entry).items():
@@ -256,7 +269,11 @@ def table(cases):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("platform", choices=("android", "ios", "desktop", "web"))
-    parser.add_argument("--scope", required=True, help="Device id, such as pixel-8")
+    parser.add_argument(
+        "--scope",
+        required=True,
+        help="Device id, such as pixel-8: lowercase letters, digits, dashes",
+    )
     parser.add_argument(
         "--label", help="Device name shown on the page; defaults to the scope"
     )
@@ -264,7 +281,7 @@ def main():
         "--device",
         help="Android serial, iOS simulator UDID, or physical iPhone identifier",
     )
-    parser.add_argument("--app", help="Packaged desktop executable or iOS .app path")
+    parser.add_argument("--app", help="Packaged desktop executable")
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--output", type=Path, help="Where the runs go; must not exist")
     parser.add_argument(
@@ -283,6 +300,8 @@ def main():
         "--dry-run", action="store_true", help="List uploads without making them"
     )
     args = parser.parse_args()
+    if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", args.scope):
+        parser.error("--scope must be lowercase letters, digits, and dashes")
     if args.platform in ("android", "ios") and not args.device:
         parser.error("--device is required")
     if args.platform == "desktop" and not args.app:
@@ -293,6 +312,8 @@ def main():
         parser.error("--repeat must be positive")
 
     head, dirty, on_main = checkout()
+    # Only the bucket needs a clean commit on main; a directory holds local page data.
+    gated = bool(args.bucket)
     stamp = datetime.datetime.now(datetime.timezone.utc)
     output = args.output or (
         ROOT
@@ -300,7 +321,7 @@ def main():
         / f"{args.scope}-{head[:7]}-{stamp:%Y%m%dT%H%M%SZ}"
     )
     output.mkdir(parents=True, exist_ok=False)
-    reason = publishable(head, dirty, on_main, {})
+    reason = publishable(head, dirty, on_main, {}) if gated else None
     if reason:
         print(f"Results will stay local: {reason}.", flush=True)
 
@@ -324,7 +345,7 @@ def main():
     print(table(cases))
     print(f"Runs and snapshot.json are in {output}")
 
-    reason = publishable(head, dirty, on_main, cases)
+    reason = publishable(head, dirty, on_main, cases) if gated else None
     if args.local or not (args.directory or args.bucket):
         return
     if reason:
