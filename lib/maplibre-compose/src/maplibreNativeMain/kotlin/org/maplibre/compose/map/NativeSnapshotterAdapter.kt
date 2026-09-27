@@ -42,13 +42,14 @@ internal fun createNativeSnapshotterAdapter(
   options: MlnFfiRuntimeOptions,
   resourceConfig: MapResourceConfig,
   backends: Set<MapRenderBackend> = loadRuntimeBackends(options.logger),
+  awaitRuntimeReady: suspend () -> Unit = {},
 ): SnapshotterAdapter {
   val targetPlan =
     NativeSnapshotRenderTarget.select(backends)
       ?: throw UnsupportedOperationException(
         "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
       )
-  return NativeSnapshotterAdapter(options, resourceConfig, targetPlan)
+  return NativeSnapshotterAdapter(options, resourceConfig, targetPlan, awaitRuntimeReady)
 }
 
 /** One private map, offscreen render session, and retained reconciler for a native snapshotter. */
@@ -56,6 +57,7 @@ private class NativeSnapshotterAdapter(
   private val options: MlnFfiRuntimeOptions,
   private val resourceConfig: MapResourceConfig,
   private val targetPlan: NativeSnapshotRenderTargetPlan,
+  private val awaitRuntimeReady: suspend () -> Unit,
 ) : SnapshotterAdapter {
   @Volatile private var open = true
   @Volatile private var engine: NativeSnapshotEngine? = null
@@ -72,6 +74,7 @@ private class NativeSnapshotterAdapter(
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
   ): SnapshotPreparation = runNativeRequest {
+    awaitRuntimeReady()
     ensureEngine(request)
     currentDensity = request.density
     configureRequest(request)

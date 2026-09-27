@@ -39,16 +39,17 @@ GeoJSON geometry instead of a bounding box.
 
 ## Track download progress
 
-<Api of="OfflineManager.packs" /> and <Api of="OfflinePack.downloadProgress" />
+<Api of="OfflineManager.state" /> and <Api of="OfflinePack.downloadProgress" />
 are `StateFlow`s. A composition collects them with `collectAsState` and
 recomposes as the download proceeds:
 
 <Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
 
 A background worker can collect `downloadProgress` until the pack reports
-`DownloadStatus.Complete`. The runtime lists stored packs before it becomes
-available, so the first value of `packs` includes every pack from earlier
-sessions.
+`DownloadStatus.Complete`. The manager starts in `OfflineManagerState.Loading`
+while it lists stored packs. `OfflineManagerState.Ready` includes the packs from
+earlier sessions; `OfflineManagerState.Failed` reports initialization errors.
+Operations suspend until initialization completes.
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
 states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles

@@ -1,6 +1,5 @@
 package org.maplibre.compose.offline
 
-import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
@@ -12,7 +11,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.compose.resource.MapResourceConfig
@@ -36,8 +34,10 @@ internal class MlnFfiOfflineManager(
 
   private val logger = options.logger
 
-  /** Updated on the owner thread only, which preserves the order of status updates. */
-  private val packsState = MutableStateFlow(emptySet<OfflinePack>())
+  /**
+   * Pack updates are serialized on the owner; closing can reject initialization from any thread.
+   */
+  private val managerState = MutableStateFlow<OfflineManagerState>(OfflineManagerState.Loading)
 
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
@@ -50,26 +50,41 @@ internal class MlnFfiOfflineManager(
 
   @OptIn(ExperimentalAtomicApi::class) private val runtimeGuard = AtomicReference<() -> Unit> {}
 
-  override val packs: StateFlow<Set<OfflinePack>> = packsState.asStateFlow()
+  override val state: StateFlow<OfflineManagerState> = managerState.asStateFlow()
 
   init {
     runtime.start()
-    awaitStartup("configure MapLibre's offline runtime", ::configureCacheBudget)
-    // Callers may read [packs] as soon as the constructor returns, so the listing completes here.
-    awaitStartup("list MapLibre's offline packs") { complete ->
-      submit(
-        description = "list the offline packs",
-        start = { it.startOfflineRegions() },
-        finish = { nativeRuntime, handle ->
-          nativeRuntime.takeOfflineRegionsResult(handle).forEach { info ->
-            // One unrepresentable region must not cost the user the rest of their packs.
-            runCatching { registerRegion(info) }
-              .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
-          }
+    val accepted = configureCacheBudget { configured ->
+      configured.fold(
+        onSuccess = {
+          val accepted =
+            submit(
+              description = "list the offline packs",
+              start = { it.startOfflineRegions() },
+              finish = { nativeRuntime, handle ->
+                nativeRuntime.takeOfflineRegionsResult(handle).forEach { info ->
+                  runCatching { registerRegion(info) }
+                    .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
+                }
+              },
+              onResult = { listed ->
+                listed.fold(
+                  onSuccess = {
+                    managerState.compareAndSet(
+                      OfflineManagerState.Loading,
+                      OfflineManagerState.Ready(packsById.values.toSet()),
+                    )
+                  },
+                  onFailure = ::failStartup,
+                )
+              },
+            )
+          if (!accepted) failStartup(OfflineManagerException("The offline manager is closed"))
         },
-        onResult = complete,
+        onFailure = ::failStartup,
       )
     }
+    if (!accepted) failStartup(OfflineManagerException("The offline runtime could not start"))
   }
 
   @OptIn(ExperimentalAtomicApi::class)
@@ -99,41 +114,9 @@ internal class MlnFfiOfflineManager(
     )
   }
 
-  /**
-   * Blocks the constructing thread until a startup task reports a result, and fails construction
-   * when it fails. [run] returns false when the runtime rejected the task.
-   */
-  @OptIn(ExperimentalAtomicApi::class)
-  private fun awaitStartup(description: String, run: ((Result<Unit>) -> Unit) -> Boolean) {
-    val settled = MlnFfiGate()
-    val completed = AtomicBoolean(false)
-    var outcome: Result<Unit>? = null
-    fun complete(result: Result<Unit>) {
-      if (completed.compareAndSet(false, true)) {
-        outcome = result
-        settled.open()
-      }
-    }
-
-    if (!run(::complete)) {
-      complete(Result.failure(OfflineManagerException("The offline runtime rejected the task")))
-    }
-
-    settled.awaitUntilOpen()
-    val settledOutcome =
-      outcome
-        ?: failStartup(
-          "Could not $description",
-          OfflineManagerException("The offline runtime never reported a result"),
-        )
-    val failure = settledOutcome.exceptionOrNull()
-    if (failure != null) failStartup("Could not $description", failure)
-  }
-
-  private fun failStartup(message: String, cause: Throwable): Nothing {
+  private fun failStartup(error: Throwable) {
+    managerState.compareAndSet(OfflineManagerState.Loading, OfflineManagerState.Failed(error))
     runtime.shutdown()
-    runCatching { runtime.awaitStopped(30_000) }
-    throw IllegalStateException(message, cause)
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
@@ -219,11 +202,16 @@ internal class MlnFfiOfflineManager(
     }
   }
 
-  /** Stops this manager's owner thread. */
-  internal fun close(timeoutMillis: Long = 30_000): Boolean {
+  /** Rejects further work immediately and asks the owner to release its resources. */
+  override fun close() {
     runtime.shutdown()
-    return runtime.awaitStopped(timeoutMillis)
+    managerState.compareAndSet(
+      OfflineManagerState.Loading,
+      OfflineManagerState.Failed(OfflineManagerException("The offline manager is closed")),
+    )
   }
+
+  internal suspend fun awaitClosed() = runtime.awaitClosed()
 
   private fun requireOwned(pack: OfflinePack) {
     require(pack.owner === this) { "The offline pack belongs to a different manager" }
@@ -358,7 +346,9 @@ internal class MlnFfiOfflineManager(
 
   private fun publishPacks() {
     // Snapshotted so Compose never sees the mutable map behind it.
-    packsState.value = packsById.values.toSet()
+    if (managerState.value is OfflineManagerState.Ready) {
+      managerState.value = OfflineManagerState.Ready(packsById.values.toSet())
+    }
   }
 
   // endregion
@@ -413,25 +403,29 @@ internal class MlnFfiOfflineManager(
     description: String,
     start: (RuntimeHandle) -> OfflineOperationHandle<T>,
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
-  ): R = suspendCancellableCoroutine { continuation ->
-    val accepted =
-      submit(
-        description = description,
-        start = start,
-        finish = finish,
-        isCancelled = { !continuation.isActive },
-        onStarted = { handle ->
-          // Cancelling must leave nothing registered; discard drops and closes on the owner thread.
-          continuation.invokeOnCancellation { runtime.discard(handle) }
-        },
-        // Resuming an already-cancelled continuation would report the failure to the caller's
-        // exception handler instead of dropping it.
-        onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
-      )
-    if (!accepted) {
-      continuation.resumeWithException(
-        OfflineManagerException("Cannot $description: the offline manager has been disposed")
-      )
+  ): R {
+    awaitReady()
+    return suspendCancellableCoroutine { continuation ->
+      val accepted =
+        submit(
+          description = description,
+          start = start,
+          finish = finish,
+          isCancelled = { !continuation.isActive },
+          onStarted = { handle ->
+            // Cancelling must leave nothing registered; discard drops and closes on the owner
+            // thread.
+            continuation.invokeOnCancellation { runtime.discard(handle) }
+          },
+          // Resuming an already-cancelled continuation would report the failure to the caller's
+          // exception handler instead of dropping it.
+          onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
+        )
+      if (!accepted) {
+        continuation.resumeWithException(
+          OfflineManagerException("Cannot $description: the offline manager has been disposed")
+        )
+      }
     }
   }
 

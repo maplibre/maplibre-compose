@@ -2,18 +2,14 @@ package org.maplibre.compose.offline
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public interface OfflineManager {
 
-  /**
-   * All offline packs registered with this manager.
-   *
-   * The runtime lists the packs stored in its database before it becomes available, so the first
-   * value is complete.
-   */
-  public val packs: StateFlow<Set<OfflinePack>>
+  /** Initialization and the current packs. Constructing a runtime never waits for its database. */
+  public val state: StateFlow<OfflineManagerState>
 
   /**
    * Creates a paused offline pack for [definition]. Call [resume] to start its download.
@@ -97,8 +93,28 @@ public interface OfflineManager {
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 }
 
+/** The initialization result and current contents of an offline manager. */
+public sealed interface OfflineManagerState {
+  public data object Loading : OfflineManagerState
+
+  public data class Ready(public val packs: Set<OfflinePack>) : OfflineManagerState
+
+  public data class Failed(public val cause: Throwable) : OfflineManagerState
+}
+
+internal suspend fun OfflineManager.awaitReady() {
+  when (val current = state.first { it !is OfflineManagerState.Loading }) {
+    is OfflineManagerState.Ready -> Unit
+    is OfflineManagerState.Failed -> throw current.cause
+    OfflineManagerState.Loading -> error("Initialization has not completed")
+  }
+}
+
 /** The runtime-independent part of an [OfflineManager] implementation. */
-internal interface OfflineManagerBackend : OfflineManager {
+internal interface OfflineManagerBackend : OfflineManager, AutoCloseable {
+  /** Rejects startup and new work immediately; native resource release completes separately. */
+  override fun close()
+
   /**
    * Installs the check that every pack operation runs before touching the backend. The runtime
    * calls this once, before it hands the manager to callers.
@@ -114,8 +130,8 @@ internal class RuntimeBoundOfflineManager(
     delegate.bindToRuntime(requireRuntimeOpen)
   }
 
-  override val packs: StateFlow<Set<OfflinePack>>
-    get() = delegate.packs
+  override val state: StateFlow<OfflineManagerState>
+    get() = delegate.state
 
   override suspend fun create(
     definition: OfflinePackDefinition,
@@ -167,7 +183,10 @@ internal class RuntimeBoundOfflineManager(
 }
 
 internal object UnsupportedOfflineManager : OfflineManagerBackend {
-  override val packs: StateFlow<Set<OfflinePack>> = MutableStateFlow(emptySet())
+  override fun close() = Unit
+
+  override val state: StateFlow<OfflineManagerState> =
+    MutableStateFlow(OfflineManagerState.Ready(emptySet()))
 
   override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {}
 

@@ -2,6 +2,7 @@ package org.maplibre.compose.offline
 
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
@@ -10,6 +11,7 @@ import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
+import org.maplibre.compose.util.throwCleanupFailures
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
@@ -61,7 +63,11 @@ internal class MlnFfiOfflineRuntime(
    * The owner thread. A parked pump ignores interruption, and it must never keep a shutting-down
    * application alive, so [shutdown] is the only way to stop it.
    */
-  private val thread = MlnFfiOwnerThread(OWNER_THREAD_NAME, ::runLoop)
+  private val completion = CompletableDeferred<Result<Unit>>()
+  private val thread =
+    MlnFfiOwnerThread(OWNER_THREAD_NAME) {
+      completion.complete(runCatching { runLoop() })
+    }
 
   /**
    * Guards [tasks], [accepting], and [wake] together: no task may be queued after the final drain,
@@ -81,6 +87,7 @@ internal class MlnFfiOfflineRuntime(
 
   /** Owner-thread state. Never read or written from anywhere else. */
   private val pending = mutableMapOf<Long, PendingOperation>()
+  private val cleanupFailures = mutableListOf<Throwable>()
 
   /** The runtime and everything retired before it. Owner-thread state; see [MlnFfiRuntimeOwner]. */
   private var runtimeOwner: MlnFfiRuntimeOwner? = null
@@ -89,14 +96,17 @@ internal class MlnFfiOfflineRuntime(
     thread.start()
   }
 
-  /** Waits for the owner thread to finish, reporting whether it did. For tests and diagnostics. */
-  fun awaitStopped(timeoutMillis: Long): Boolean = thread.join(timeoutMillis)
+  /** Completes only after the owner has released every native resource. */
+  suspend fun awaitClosed() = completion.await().getOrThrow()
 
   /** Asks the owner thread to tear down. Returns immediately; nothing is awaited. */
   fun shutdown() {
     stopRequested = true
     // A signal, not a queued task: it still works after the accept gate closes; post would not.
-    acceptLock.withLock { wake?.signal() }
+    acceptLock.withLock {
+      accepting = false
+      wake?.signal()
+    }
   }
 
   /**
@@ -295,8 +305,9 @@ internal class MlnFfiOfflineRuntime(
     }
 
     // Last, and only after its children: the provider retires before the runtime.
-    runtimeOwner?.close()
+    runCatching { runtimeOwner?.close() }.exceptionOrNull()?.let(cleanupFailures::add)
     runtimeOwner = null
+    cleanupFailures.throwCleanupFailures()
   }
 
   private fun rejectQueuedTasks(reason: Throwable) {
@@ -312,13 +323,16 @@ internal class MlnFfiOfflineRuntime(
     abandoned.forEach { runCatching { it.reject(reason) } }
     // A wake source is its own native handle: closing the runtime does not release it.
     source?.let { closing ->
-      runCatching { closing.close() }
-        .onFailure { logger?.w(it) { "Failed to close the offline runtime's wake source" } }
+      runCatching { closing.close() }.onFailure { cleanupFailures.add(it) }
     }
   }
 
   private fun closeQuietly(handle: OfflineOperationHandle<*>, what: String) {
-    runCatching { handle.close() }.onFailure { logger?.w(it) { "Failed to close $what" } }
+    runCatching { handle.close() }
+      .onFailure {
+        cleanupFailures.add(it)
+        logger?.w(it) { "Failed to close $what" }
+      }
   }
 
   private fun assertOwnerThread(operation: String) {

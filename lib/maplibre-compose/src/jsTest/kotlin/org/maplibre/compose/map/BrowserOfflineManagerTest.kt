@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -16,7 +17,7 @@ class BrowserOfflineManagerTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val manager = runtime.offlineManager
 
-    assertTrue(manager.packs.value.isEmpty())
+    assertTrue((manager.state.value as OfflineManagerState.Ready).packs.isEmpty())
     assertFailsWith<UnsupportedOperationException> {
       manager.create(
         OfflinePackDefinition.TilePyramid(

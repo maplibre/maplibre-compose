@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.material3.OfflinePackListItem
+import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -30,7 +31,8 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
-  val packs by offlineManager.packs.collectAsState()
+  val offlineState by offlineManager.state.collectAsState()
+  val packs = (offlineState as? OfflineManagerState.Ready)?.packs.orEmpty()
   val metadataByPack = packs.associateWith { key(it) { it.metadata.collectAsState().value } }
   val pack = metadataByPack.entries.firstOrNull { it.value?.contentEquals(metadata) == true }?.key
   var creating by remember { mutableStateOf(false) }
@@ -44,7 +46,14 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
       headlineContent = { Text("Download this region") },
       supportingContent = {
         Text(
-          text = errorMessage ?: "For use without a network",
+          text =
+            errorMessage
+              ?: when (val state = offlineState) {
+                OfflineManagerState.Loading -> "Loading offline regions…"
+                is OfflineManagerState.Failed ->
+                  state.cause.message ?: "Could not load offline regions"
+                is OfflineManagerState.Ready -> "For use without a network"
+              },
           color =
             if (errorMessage != null) MaterialTheme.colorScheme.error
             else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -52,7 +61,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
       },
       colors = ListItemDefaults.colors(containerColor = Color.Transparent),
       modifier =
-        Modifier.clickable(enabled = !creating) {
+        Modifier.clickable(enabled = !creating && offlineState is OfflineManagerState.Ready) {
           creating = true
           errorMessage = null
           scope.launch {
