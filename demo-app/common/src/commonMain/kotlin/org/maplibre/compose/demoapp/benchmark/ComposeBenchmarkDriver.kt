@@ -54,6 +54,13 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   private var recomposeTick by mutableStateOf(0)
   private var overlayShown by mutableStateOf(true)
 
+  // A query must not accept the previous style's rendered overlay after the new style is ready.
+  private val metadataOverlayId: String
+    get() =
+      if (config.scenario == BenchmarkScenario.StyleOverlay)
+        "metadata-overlay-${resources.baseStyles.indexOf(baseStyle)}"
+      else "metadata-overlay"
+
   @Composable
   @MaplibreComposable
   fun Content() {
@@ -63,7 +70,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
         val source = checkNotNull(getBaseSource<GeoJsonSource>("data"))
         Anchor.Above(predicate = { it.id == "workload-0" }) {
           CircleLayer(
-            "metadata-overlay",
+            metadataOverlayId,
             source,
             radius = const(8.dp),
             color = const(BenchmarkColors[1]),
@@ -198,7 +205,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
 
   override suspend fun overlayVisible(): Boolean {
     val offset = checkNotNull(state.screenLocationFromPosition(BenchmarkOrigin))
-    return state.queryRenderedFeatures(offset, layerIds = setOf("metadata-overlay")).isNotEmpty()
+    return state.queryRenderedFeatures(offset, layerIds = setOf(metadataOverlayId)).isNotEmpty()
   }
 
   override fun image(index: Int) {
