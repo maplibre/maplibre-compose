@@ -104,11 +104,15 @@ class PublishTest(unittest.TestCase):
 
         # v9.9.9 is tagged on an unmeasured commit between b and c, so it marks c.
         def ancestor(command, check):
-            order = {"a" * 40: 0, "b" * 40: 1, "t" * 40: 2, "c" * 40: 3}
+            order = {"0" * 40: -1, "a" * 40: 0, "b" * 40: 1, "t" * 40: 2, "c" * 40: 3}
             return Mock(returncode=0 if order[command[3]] <= order[command[4]] else 1)
 
         with (
-            patch("publish.release_tags", return_value={"v9.9.9": "t" * 40}),
+            patch(
+                "publish.release_tags",
+                # v0.0.1 predates the timeline and stays off it.
+                return_value={"v9.9.9": "t" * 40, "v0.0.1": "0" * 40},
+            ),
             patch("publish.subprocess.run", side_effect=ancestor),
         ):
             for commit, scope, cpu in (

@@ -171,9 +171,12 @@ def attach_tags(entries):
     never see one.
     """
     pending = dict(release_tags())
-    for entry in entries:
+    for i, entry in enumerate(entries):
         entry["tags"] = []
         for tag, tagged in list(pending.items()):
+            # Releases older than the first measurement are not on the timeline.
+            if i == 0 and tagged != entry["commit"]:
+                continue
             command = ["git", "merge-base", "--is-ancestor", tagged, entry["commit"]]
             if subprocess.run(command, check=False).returncode == 0:
                 entry["tags"].append(tag)
