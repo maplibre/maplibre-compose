@@ -5,7 +5,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from performance import analyze
-from publish import PREFIX, cases_meta, plan, publishable, summarize, sync, table
+from publish import (
+    PREFIX,
+    cases_meta,
+    plan,
+    publishable,
+    series_values,
+    summarize,
+    sync,
+    table,
+)
 from test_performance import write_run
 
 BUILD = {
@@ -69,6 +78,59 @@ class PublishTest(unittest.TestCase):
             [name for name in cases_meta() if name != "map-return"],
         )
         self.assertIn("map-return", [name for name, _, _ in android])
+        tracked = {
+            "image-registration",
+            "image-preparation",
+            "image-cycle",
+            "style-publication",
+            "style-overlay",
+            "overlay-update",
+            "runtime-startup",
+        }
+        self.assertTrue(tracked <= {name for name, _, _ in android})
+        self.assertIn(
+            ("image-cycle", "classic"), [(name, kind) for name, kind, _ in android]
+        )
+        for platform in ("android", "ios", "desktop", "web"):
+            runtimes = [
+                (kind, config)
+                for name, kind, config in plan(platform)
+                if name == "runtime-startup"
+            ]
+            self.assertEqual(
+                [kind for kind, _ in runtimes], [] if platform == "web" else ["compose"]
+            )
+
+    def test_lifecycle_series_keep_submission_and_cleanup_spreads(self):
+        reports = [
+            {
+                "workload": {
+                    "submission_ms": {"p50": value},
+                    "close_ms": {"p50": value * 2},
+                    "close_completion_ms": {"p50": value * 10},
+                }
+            }
+            for value in (1, 3, 5)
+        ]
+        entry = {"metrics": summarize(reports)}
+        self.assertEqual(
+            series_values(entry),
+            {
+                "submission_p50_ms": 3,
+                "submission_p50_ms.min": 1,
+                "submission_p50_ms.max": 5,
+                "close_p50_ms": 6,
+                "close_p50_ms.min": 2,
+                "close_p50_ms.max": 10,
+                "close_completion_p50_ms": 30,
+                "close_completion_p50_ms.min": 10,
+                "close_completion_p50_ms.max": 50,
+            },
+        )
+        output = table({"runtime-startup": {"compose": entry}})
+        self.assertIn("submit p50 ms", output)
+        self.assertIn("close p50 ms", output)
+        self.assertIn("cleanup p50 ms", output)
 
     def test_results_stay_local_unless_the_checkout_is_clean_and_on_main(self):
         cases = snapshot("c" * 40, "pixel", 100)["cases"]

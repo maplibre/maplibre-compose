@@ -139,11 +139,13 @@
     }
   },
   "image-registration": {
+    "tracked": true,
     "title": "Image registration",
     "description": "Replace a prepared 256 by 256 image and wait for settlement; reuse control for image-preparation.",
     "config": { "workload": "images", "scene": "points-100", "rateHz": 1 }
   },
   "image-cycle": {
+    "tracked": true,
     "title": "Prepared image cycle",
     "description": "Remove and register 64 image IDs using prepared pixels, including both operations in submission and settlement timing.",
     "classic": true,
@@ -155,6 +157,7 @@
     }
   },
   "image-preparation": {
+    "tracked": true,
     "title": "Image preparation and update",
     "description": "Convert a 256\u00d7256 bitmap on every update, register it, and wait for settlement.",
     "config": {
@@ -164,6 +167,7 @@
     }
   },
   "style-publication": {
+    "tracked": true,
     "title": "Style publication",
     "description": "Replace the same partitioned 600-layer base style used by style-overlay, without declared metadata consumers, through style-ready.",
     "config": {
@@ -175,6 +179,7 @@
     }
   },
   "style-overlay": {
+    "tracked": true,
     "title": "Style replacement with an overlay",
     "description": "Load 600 base layers, resolve a base source and predicate anchor, and wait until the overlay renders.",
     "config": {
@@ -186,6 +191,7 @@
     }
   },
   "overlay-update": {
+    "tracked": true,
     "title": "Base-style overlay update",
     "description": "Toggle an overlay over 600 unchanged base layers, reusing base-source metadata and resolving a predicate anchor.",
     "config": {
@@ -197,6 +203,7 @@
     }
   },
   "runtime-startup": {
+    "tracked": true,
     "title": "Runtime readiness",
     "description": "After priming, reopen an empty local cache and record constructor return, readiness, close return, and cleanup completion.",
     "platforms": ["android", "ios", "desktop"],

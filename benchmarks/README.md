@@ -91,9 +91,22 @@ presentation.
 mise run benchmark:publish -- android --device SERIAL --scope pixel-8 --label "Pixel 8"
 ```
 
-Runs the tracked presets three times each, for Compose and the classic SDK, and
-uploads the medians under the device scope. Uploads need a clean checkout of a
-commit on `main`; otherwise the results stay under `build/benchmarks/publish`.
+Runs the tracked presets three times each and uploads medians and repetition
+ranges under the device scope. [cases.json](cases.json) selects the tracked
+cases, their platforms, and which also run the classic SDK. Images and metadata
+consumers are tracked alongside the existing map workloads. Runtime readiness
+runs on Android, iOS and desktop; map return runs on Android and iOS. Classic
+comparisons run only where the preset requests one and the platform has that
+SDK.
+
+Submission, completion, close return and cleanup completion remain separate
+metrics on the page. Uploads need a clean checkout of a commit on `main`;
+otherwise the results stay under `build/benchmarks/publish`.
+
+Backfill history with fresh captures using the same workload definitions and
+fixtures. Each device's measurement replaces its earlier results for that
+commit. Do not mix old logs or archived builds with different operation
+boundaries into the same comparison.
 
 ## Archived builds
 
