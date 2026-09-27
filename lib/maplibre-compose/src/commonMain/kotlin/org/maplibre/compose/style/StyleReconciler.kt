@@ -9,6 +9,11 @@ import org.maplibre.compose.layers.LayerHandleImpl
 internal class StyleReconciler {
   private var fontScale: Float? = null
 
+  // Preparation is serialized by the style composition; only it accesses these predicate handles.
+  private var preparationBinding: StyleBinding? = null
+  private var baseLayers: List<LayerHandle> = emptyList()
+
+  // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
@@ -29,9 +34,10 @@ internal class StyleReconciler {
   /** Resolve application anchor predicates on the composition's caller, before owner work. */
   fun prepare(style: StyleBinding, revision: DesiredStyleRevision): PreparedRevision {
     style.requireCurrent()
-    val base = style.baseLayerSummaries()
-    val baseLayers by lazy {
-      base.map { (id, summary) -> predicateLayerHandle(style, id, summary) }
+    if (preparationBinding !== style) {
+      baseLayers =
+        style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
+      preparationBinding = style
     }
     val placements = hashMapOf<Anchor, Placement>()
     val layers =
@@ -39,11 +45,7 @@ internal class StyleReconciler {
         PlacedLayer(
           desired,
           placements.getOrPut(desired.anchor) {
-            when (val anchor = desired.anchor) {
-              is Anchor.Top -> Placement.Top
-              is Anchor.Bottom -> Placement.Bottom
-              else -> placement(anchor, baseLayers)
-            }
+            placement(desired.anchor, baseLayers)
           },
         )
       }
