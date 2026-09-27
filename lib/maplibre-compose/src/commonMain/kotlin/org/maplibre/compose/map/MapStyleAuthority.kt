@@ -17,6 +17,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
@@ -44,6 +46,9 @@ internal class MapStyleAuthority(
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
   private val readDispatcher: CoroutineDispatcher
     get() = runtime.readDispatcher
+
+  /** Serializes acceptance through publication, including across presentation replacement. */
+  private val styleRevisionMutex = Mutex()
 
   private var baseStyleCommandRevision = 0L
   private var styleHandleEpoch = 0L
@@ -213,9 +218,9 @@ internal class MapStyleAuthority(
     adapter: MapAdapter,
     binding: StyleBinding,
     revision: DesiredStyleRevision,
-  ) {
+  ) = styleRevisionMutex.withLock {
     currentCoroutineContext().ensureActive()
-    if (!beginStyleRevision(adapter, revision, binding)) return
+    if (!beginStyleRevision(adapter, revision, binding)) return@withLock
     try {
       // Once accepted, commit and publish together: cancellation must not lose committed changes.
       withContext(NonCancellable) {

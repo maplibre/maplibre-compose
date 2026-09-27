@@ -31,6 +31,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -95,6 +96,73 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 class MapPresentationTest {
 
   @Test
+  fun replacement_presentation_keeps_handles_from_suspended_publication() = runTest {
+    val reads = StandardTestDispatcher(testScheduler)
+    val binding = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val adapter =
+      object : PresentationTestAdapter() {
+        override val retainsEngineBetweenPresentations = true
+
+        override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) =
+          reconciler.apply(binding, revision)
+
+        override suspend fun detachPresentation() = Unit
+      }
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope = backgroundScope,
+        mainDispatcher = testMainDispatcher(),
+        readDispatcher = reads,
+      )
+    val state = runtime.createMapState(BaseStyle.Empty)
+    try {
+      val token = state.reservePresentation()
+      state.publishPresentation(token, adapter)
+      state.styleAuthority.updateLoadedStyle(adapter, binding)
+      state.styleAuthority.markStyleReady(adapter)
+      val revision =
+        DesiredStyleRevision(
+          listOf(attributedVectorSource("committed-source", "attribution").definition()),
+          listOf(
+            DesiredStyleLayer(
+              TestLayer("committed", "background").definition(),
+              Anchor.Top,
+              null,
+              null,
+            )
+          ),
+          emptyList(),
+        )
+      val old =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          state.styleAuthority.applyStyleRevision(adapter, binding, revision)
+        }
+      assertEquals(listOf("committed"), binding.layerIds())
+      assertNull(state.style.layers["committed"])
+      // Disposal cancels the old composition, but its accepted publication must finish.
+      old.cancel()
+      state.releasePresentation(token, adapter)
+      val replacement = state.reservePresentation()
+      state.publishPresentation(replacement, adapter)
+      state.styleAuthority.updateLoadedStyle(adapter, binding)
+      state.styleAuthority.markStyleReady(adapter)
+      // The replacement retains the engine and emits no layer delta for the same revision.
+      val next =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          state.styleAuthority.applyStyleRevision(adapter, binding, revision)
+        }
+      old.join()
+      next.join()
+      assertNotNull(state.style.sources["committed-source"])
+      assertNotNull(state.style.layers["committed"], "the native layer must retain a public handle")
+    } finally {
+      state.close()
+      runtime.close()
+    }
+  }
+
+  @Test
   fun cancelling_an_accepted_style_revision_does_not_lose_committed_handles() = runTest {
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
@@ -153,25 +221,55 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_committed_revision_cannot_claim_a_replacement_style() = runTest {
-    val fixture = presentationFixture()
+  fun waiting_revisions_can_cancel_and_cannot_claim_a_replacement_style() = runTest {
+    val finishCommit = CompletableDeferred<Unit>()
+    var commits = 0
+    val adapter =
+      object : PresentationTestAdapter() {
+        override suspend fun reconcileStyleRevision(
+          revision: DesiredStyleRevision
+        ): StyleResourceChanges {
+          commits++
+          finishCommit.await()
+          return StyleResourceChanges()
+        }
+      }
+    val fixture = presentationFixture(adapter)
     try {
       val old = RecordingStyleBinding()
       val replacement = RecordingStyleBinding()
-      val callbacks = fixture.state.durableStyleCallbacks()
-      callbacks.onStyleChanged(fixture.adapter, old)
+      val authority = fixture.state.styleAuthority
+      authority.updateLoadedStyle(adapter, old)
       val revision =
         DesiredStyleRevision(
           sources = listOf(attributedVectorSource("stale", "old").definition()),
           layers = emptyList(),
           images = emptyList(),
         )
-      assertTrue(fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, revision, old))
-      callbacks.onStyleChanged(fixture.adapter, replacement)
-      assertFalse(fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, revision, old))
-      assertEquals(DesiredStyleRevision.Empty, fixture.state.styleAuthority.desiredStyleRevision)
+      val accepted =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          authority.applyStyleRevision(adapter, old, revision)
+        }
+      val cancelled =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          authority.applyStyleRevision(adapter, old, revision)
+        }
+      assertEquals(1, commits, "the waiting revision must not reach the engine")
+      cancelled.cancel()
+      cancelled.join()
+      val stale =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          authority.applyStyleRevision(adapter, old, revision)
+        }
+      authority.updateLoadedStyle(adapter, replacement)
+      finishCommit.complete(Unit)
+      accepted.join()
+      stale.join()
+      assertEquals(1, commits, "cancelled or stale waiting revisions must not reach the engine")
+      assertEquals(DesiredStyleRevision.Empty, authority.desiredStyleRevision)
       assertTrue(replacement.sourceIds().isEmpty())
     } finally {
+      finishCommit.complete(Unit)
       fixture.close()
     }
   }
