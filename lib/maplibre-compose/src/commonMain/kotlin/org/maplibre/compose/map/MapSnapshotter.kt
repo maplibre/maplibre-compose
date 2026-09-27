@@ -21,7 +21,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
@@ -33,16 +32,14 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleCompositionOwner
 import org.maplibre.compose.style.StyleContent
-import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
@@ -95,7 +92,7 @@ internal interface SnapshotterAdapter {
 
   suspend fun capture(
     request: MapSnapshotRequest,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): ImageBitmap
 
   /** Requests cancellation and returns after the active platform operation has ended. */
@@ -133,7 +130,7 @@ internal fun interface StyleCompositionEvaluator {
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
-  ): DesiredStyleRevision
+  ): StyleSnapshot
 }
 
 internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
@@ -144,29 +141,24 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
-  ): DesiredStyleRevision {
+  ): StyleSnapshot {
     val frameClock = BroadcastFrameClock()
     return withImageGraphicsContext { graphicsContext ->
       withContext(frameClock) {
         coroutineScope {
-          val revision = CompletableDeferred<DesiredStyleRevision>()
+          val revision = CompletableDeferred<StyleSnapshot>()
           val recomposer = Recomposer(currentCoroutineContext())
           val recomposerJob =
             launch(start = CoroutineStart.UNDISPATCHED) {
               recomposer.runRecomposeAndApplyChanges()
             }
-          val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
-          val ownerJob = launch {
-            StyleCompositionOwner().run(declarations) {
-              if (!it.imagesPending) revision.complete(it)
-            }
-          }
           val root =
             StyleNode(
               style,
+              imageScope = this,
               replaceableSourceIds = ownership.sourceIds,
               replaceableLayerIds = ownership.layerIds,
-              publish = { declarations.trySend(it).getOrThrow() },
+              publish = { if (!it.imagesPending) revision.complete(it) },
             )
           val evaluator = Composition(MapNodeApplier(root), recomposer)
           try {
@@ -191,8 +183,6 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             revision.await()
           } finally {
             root.close()
-            ownerJob.cancel()
-            declarations.cancel()
             evaluator.dispose()
             recomposer.close()
             recomposerJob.join()
@@ -258,7 +248,7 @@ internal class MapSnapshotterImplementation(
   private val imperativeImages = mutableMapOf<String, ImperativeImageRecord>()
   private var activeStyleMutation: StyleMutationReservation? = null
   private var activeStyleClaim: StyleClaim? = null
-  private var desiredRevision = DesiredStyleRevision.Empty
+  private var desiredRevision = StyleSnapshot.Empty
 
   override val style: MapStyleState =
     MapStyleState(baseStyle).also {
@@ -710,7 +700,7 @@ internal class MapSnapshotterImplementation(
 
   private fun requireNoImperativeResourceConflicts(
     binding: StyleBinding,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ) {
     lock.withLock {
       if (style.currentLoadedStyle() !== binding) return
@@ -775,7 +765,7 @@ internal class MapSnapshotterImplementation(
     ownership.copy(sourceIds = ownership.sourceIds + imperativeSources.keys)
   }
 
-  private fun recordStyleOwnership(claim: StyleClaim, revision: DesiredStyleRevision) {
+  private fun recordStyleOwnership(claim: StyleClaim, revision: StyleSnapshot) {
     lock.withLock {
       if (closed || claim.revision != baseStyleRevision) return
       if (ownedBaseStyleRevision != claim.revision) {
@@ -792,7 +782,7 @@ internal class MapSnapshotterImplementation(
     capture: Capture,
     claim: StyleClaim,
     binding: StyleBinding,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): Boolean = lock.withLock {
     if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
     val reusesLoadedStyle = style.currentLoadedStyle() === binding

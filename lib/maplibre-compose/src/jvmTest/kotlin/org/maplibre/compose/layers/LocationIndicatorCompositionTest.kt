@@ -24,9 +24,9 @@ import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.map.LocalViewport
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.spatialk.geojson.Position
@@ -195,7 +195,7 @@ class LocationIndicatorCompositionTest {
       }
     var enabled by mutableStateOf(true)
     val calls = mutableListOf<String>()
-    var latest: DesiredStyleRevision? = null
+    var latest: StyleSnapshot? = null
     setContent {
       val revision by
         rememberStyleComposition(

@@ -43,3 +43,30 @@ live Compose state and graphics resources.
 
 No Android/device tests or full backend matrix. Preserve public behavior and the
 existing synchronous-close Apple assertion.
+
+## Results
+
+The declaration model and resolver are removed. `StyleSnapshot` is the tree's
+output; each layer definition derives identity and construction properties from
+its JSON. Installation objects own their current definition. Generation-bound
+handles, caller-side anchor preparation, and the acceptance-through-publication
+lock retain their distinct responsibilities.
+
+The focused tests and full JVM OpenGL suite passed, as did `mise run check`.
+Mutating synchronous disposal and inline image registration ordering caused the
+corresponding regression tests to fail. Independent reviews found no correctness
+blocker. The existing Apple synchronous-close assertion is unchanged; iOS was
+not run locally.
+
+An interleaved JVM probe of repeated identical 40-property layer updates
+measured 2,608 allocated bytes per update before the cleanup and zero afterward.
+Median time was 796 ns versus 2 ns, but the latter permits JIT elimination of
+repeated no-op work; this is not a rendering or full-reconciliation benchmark.
+The temporary probe was removed. Source snapshot reuse and cached construction
+properties additionally avoid work outside that probe.
+
+Production Kotlin shrank by 19 lines; test Kotlin grew by 40. The reduction in
+ownership states is more substantial than the line-count reduction. Obsolete
+late-result simulation and fixture-only disposal coverage were replaced with
+checks of preparation cancellation, complete snapshot readiness, and the real
+composition lifetime.

@@ -67,13 +67,13 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -1194,9 +1194,7 @@ internal class MlnFfiMapSession(
     onMap {}
   }
 
-  override suspend fun reconcileStyleRevision(
-    revision: DesiredStyleRevision
-  ): StyleResourceChanges {
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
     val engine = checkNotNull(lifecycleEngineIdentity)
     val style = checkNotNull(lifecycleStyleIdentity)

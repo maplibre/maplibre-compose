@@ -24,7 +24,7 @@ class StyleReconcilerTest {
 
     val error =
       assertFailsWith<IllegalArgumentException> {
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = listOf(source, source),
           layers = emptyList(),
           images = emptyList(),
@@ -265,9 +265,9 @@ class StyleReconcilerTest {
     RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 
   private fun revision(source: RasterTileSource, layer: TestLayer) =
-    DesiredStyleRevision(
+    StyleSnapshot(
       sources = listOf(source.definition()),
-      layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
       images = emptyList(),
     )
 
@@ -278,9 +278,9 @@ class StyleReconcilerTest {
     override fun addSource(definition: SourceDefinition): Boolean =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean =
-      delegate.addLayer(definition, beforeLayerId).also {
-        additions += "layer:${definition.id}"
+    override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+      delegate.addLayer(layer, beforeLayerId).also {
+        additions += "layer:${(layer["id"] as JsonPrimitive).content}"
       }
   }
 }

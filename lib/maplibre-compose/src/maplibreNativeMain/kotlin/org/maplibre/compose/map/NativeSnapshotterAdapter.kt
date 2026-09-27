@@ -14,9 +14,9 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
@@ -98,7 +98,7 @@ private class NativeSnapshotterAdapter(
 
   override suspend fun capture(
     request: MapSnapshotRequest,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): ImageBitmap = runNativeRequest {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     val prepared = reconciler.prepare(binding, revision)

@@ -46,9 +46,9 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.FONT_SCALE_GLOBAL_STATE
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.runGraphicsTest
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
@@ -416,7 +416,7 @@ class SymbolLayerCompositionTest {
       var initialId: String? = null
       var replacementId: String? = null
 
-      fun DesiredStyleRevision.iconId(): String? {
+      fun StyleSnapshot.iconId(): String? {
         val layout = layers.singleOrNull()?.definition?.value?.get("layout") as? JsonObject
         return (layout?.get("icon-image") as? JsonArray)?.get(1)?.jsonPrimitive?.contentOrNull
       }

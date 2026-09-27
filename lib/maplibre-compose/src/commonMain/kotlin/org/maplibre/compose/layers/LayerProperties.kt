@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.ResolvedLayerDefinition
+import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.StyleProperty
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.toTransitionJson
@@ -147,10 +147,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
     root["type"] = JsonPrimitive(type)
     if (sourceId != null) root["source"] = JsonPrimitive(sourceId)
     return LayerPropertySnapshot(
-      ResolvedLayerDefinition(
-        id,
-        type,
-        sourceId,
+      LayerDefinition(
         JsonObject(root),
         unsupported.orEmpty(),
         filterUnsupportedProperties,
@@ -178,7 +175,7 @@ public data class LayerExpressionContext(
 internal val DefaultLayerExpressionContext = LayerExpressionContext()
 
 internal class LayerPropertySnapshot(
-  val definition: ResolvedLayerDefinition,
+  val definition: LayerDefinition,
   val images: Map<StyleProperty, LayerProperty<*>>,
 )
 

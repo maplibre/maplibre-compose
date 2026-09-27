@@ -65,8 +65,6 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleLayer
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
@@ -78,6 +76,7 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
@@ -104,7 +103,7 @@ class MapPresentationTest {
       object : PresentationTestAdapter() {
         override val retainsEngineBetweenPresentations = true
 
-        override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) =
+        override suspend fun reconcileStyleRevision(revision: StyleSnapshot) =
           reconciler.apply(binding, revision)
 
         override suspend fun detachPresentation() = Unit
@@ -122,10 +121,10 @@ class MapPresentationTest {
       state.styleAuthority.updateLoadedStyle(adapter, binding)
       state.styleAuthority.markStyleReady(adapter)
       val revision =
-        DesiredStyleRevision(
+        StyleSnapshot(
           listOf(attributedVectorSource("committed-source", "attribution").definition()),
           listOf(
-            DesiredStyleLayer(
+            StyleSnapshot.Layer(
               TestLayer("committed", "background").definition(),
               Anchor.Top,
               null,
@@ -170,9 +169,7 @@ class MapPresentationTest {
     var hold = true
     val adapter =
       object : PresentationTestAdapter() {
-        override suspend fun reconcileStyleRevision(
-          revision: DesiredStyleRevision
-        ): StyleResourceChanges {
+        override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
           if (!hold) return reconciler.apply(binding, revision)
           return suspendCancellableCoroutine { continuation ->
             // Model owner work that passed its active check and committed before UI resumption.
@@ -186,10 +183,10 @@ class MapPresentationTest {
       fixture.state.durableStyleCallbacks().onStyleChanged(adapter, binding)
       fixture.state.styleAuthority.markStyleReady(adapter)
       val revision =
-        DesiredStyleRevision(
+        StyleSnapshot(
           listOf(attributedVectorSource("committed-source", "attribution").definition()),
           listOf(
-            DesiredStyleLayer(
+            StyleSnapshot.Layer(
               TestLayer("committed", "background").definition(),
               Anchor.Top,
               null,
@@ -226,9 +223,7 @@ class MapPresentationTest {
     var commits = 0
     val adapter =
       object : PresentationTestAdapter() {
-        override suspend fun reconcileStyleRevision(
-          revision: DesiredStyleRevision
-        ): StyleResourceChanges {
+        override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
           commits++
           finishCommit.await()
           return StyleResourceChanges()
@@ -241,7 +236,7 @@ class MapPresentationTest {
       val authority = fixture.state.styleAuthority
       authority.updateLoadedStyle(adapter, old)
       val revision =
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = listOf(attributedVectorSource("stale", "old").definition()),
           layers = emptyList(),
           images = emptyList(),
@@ -266,7 +261,7 @@ class MapPresentationTest {
       accepted.join()
       stale.join()
       assertEquals(1, commits, "cancelled or stale waiting revisions must not reach the engine")
-      assertEquals(DesiredStyleRevision.Empty, authority.desiredStyleRevision)
+      assertEquals(StyleSnapshot.Empty, authority.desiredStyleRevision)
       assertTrue(replacement.sourceIds().isEmpty())
     } finally {
       finishCommit.complete(Unit)
@@ -286,9 +281,9 @@ class MapPresentationTest {
         )
       val layer = TestLayer("animated", "background")
       val original =
-        DesiredStyleRevision(
+        StyleSnapshot(
           listOf(source.definition()),
-          listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+          listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
           emptyList(),
         )
       val backing =
@@ -343,9 +338,9 @@ class MapPresentationTest {
             )
           }
         val revision =
-          DesiredStyleRevision(
+          StyleSnapshot(
             listOf(updatedSource.definition()),
-            listOf(DesiredStyleLayer(definition, Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(definition, Anchor.Top, null, null)),
             emptyList(),
           )
         fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, revision)
@@ -402,9 +397,9 @@ class MapPresentationTest {
           )
         val layer = TestLayer("background", "background")
         val original =
-          DesiredStyleRevision(
+          StyleSnapshot(
             listOf(source.definition()),
-            listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
             emptyList(),
           )
         val reconciler = StyleReconciler()
@@ -421,7 +416,7 @@ class MapPresentationTest {
           (const(0.5f).compile(ExpressionContext.None)).asLayerProperty(),
         )
         val next =
-          DesiredStyleRevision(
+          StyleSnapshot(
             if (replaceSource)
               listOf(
                 GeoJsonSource(
@@ -432,7 +427,7 @@ class MapPresentationTest {
                   .definition()
               )
             else original.sources,
-            listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
             emptyList(),
           )
         fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, next)
@@ -510,11 +505,11 @@ class MapPresentationTest {
       assertEquals(1, layerReads)
       suspend fun apply(ids: List<String>) {
         val revision =
-          DesiredStyleRevision(
+          StyleSnapshot(
             if (ids.isEmpty()) emptyList()
             else listOf(attributedVectorSource("added", "attribution").definition()),
             ids.map { id ->
-              DesiredStyleLayer(TestLayer(id, "background").definition(), Anchor.Top, null, null)
+              StyleSnapshot.Layer(TestLayer(id, "background").definition(), Anchor.Top, null, null)
             },
             emptyList(),
           )
@@ -1001,7 +996,7 @@ class MapPresentationTest {
         options = GeoJsonOptions(),
       )
     val declaredRevision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(geoJson.definition()),
         layers = emptyList(),
         images = emptyList(),
@@ -1017,7 +1012,7 @@ class MapPresentationTest {
 
     fixture.state.styleAuthority.beginStyleRevision(
       fixture.adapter,
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(vector.definition()),
         layers = emptyList(),
         images = emptyList(),
@@ -1060,8 +1055,7 @@ class MapPresentationTest {
   fun a_declarative_source_handle_does_not_revive_after_same_type_replacement() = runTest {
     val fixture = presentationFixture()
     val original = attributedVectorSource("shared", "original")
-    val declaredRevision =
-      DesiredStyleRevision(listOf(original.definition()), emptyList(), emptyList())
+    val declaredRevision = StyleSnapshot(listOf(original.definition()), emptyList(), emptyList())
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     reconciler.apply(binding, declaredRevision)
@@ -1073,7 +1067,7 @@ class MapPresentationTest {
 
     fixture.state.styleAuthority.beginStyleRevision(
       fixture.adapter,
-      DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList()),
+      StyleSnapshot(listOf(replacement.definition()), emptyList(), emptyList()),
     )
     fixture.state.styleAuthority.updateStyleResources(
       fixture.adapter,
@@ -1172,8 +1166,8 @@ class MapPresentationTest {
   fun a_layer_handle_does_not_revive_after_structural_replacement() = runTest {
     val fixture = presentationFixture()
     val layer = TestLayer("background", "background")
-    val original = DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)
-    val declaredRevision = DesiredStyleRevision(emptyList(), listOf(original), emptyList())
+    val original = StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)
+    val declaredRevision = StyleSnapshot(emptyList(), listOf(original), emptyList())
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     reconciler.apply(binding, declaredRevision)
@@ -1184,7 +1178,7 @@ class MapPresentationTest {
 
     fixture.state.styleAuthority.beginStyleRevision(
       fixture.adapter,
-      DesiredStyleRevision(emptyList(), listOf(original.copy(anchor = Anchor.Bottom)), emptyList()),
+      StyleSnapshot(emptyList(), listOf(original.copy(anchor = Anchor.Bottom)), emptyList()),
     )
     fixture.state.styleAuthority.updateStyleResources(
       fixture.adapter,
@@ -1578,7 +1572,7 @@ class MapPresentationTest {
     started.await()
     // The revision owns the ID before its image reaches the engine, including when replay fails.
     fixture.state.styleAuthority.desiredStyleRevision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = emptyList(),
         layers = emptyList(),
         images = listOf(StyleImageDefinition("icon", ImageSnapshot.capture(image), false, null)),
@@ -1590,7 +1584,7 @@ class MapPresentationTest {
     }
     assertEquals(1, calls)
     assertFalse(binding.imageExists("icon"))
-    fixture.state.styleAuthority.desiredStyleRevision = DesiredStyleRevision.Empty
+    fixture.state.styleAuthority.desiredStyleRevision = StyleSnapshot.Empty
     assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "icon")).await()
     assertEquals(2, calls)
     assertTrue(binding.imageExists("icon"))
@@ -1769,9 +1763,9 @@ class MapPresentationTest {
     val mutableImage = assertNotNull(imageHandle.asMutable)
 
     fixture.state.styleAuthority.desiredStyleRevision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(source.definition()),
-        layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+        layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
         images = listOf(StyleImageDefinition("owned", ImageSnapshot.capture(image), false, null)),
       )
 
@@ -1795,7 +1789,7 @@ class MapPresentationTest {
     val source = attributedVectorSource("owned", "owned attribution")
     val image = FakeImageBitmap(1, 1)
     val declaredRevision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(source.definition()),
         layers = emptyList(),
         images =
@@ -1833,7 +1827,7 @@ class MapPresentationTest {
     assertFailsWith<StyleHandleException> {
       fixture.state.styleAuthority.beginStyleRevision(
         fixture.adapter,
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = listOf(source.definition()),
           layers = emptyList(),
           images = emptyList(),
@@ -1848,7 +1842,7 @@ class MapPresentationTest {
     assertFailsWith<StyleHandleException> {
       fixture.state.styleAuthority.beginStyleRevision(
         fixture.adapter,
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = emptyList(),
           layers = emptyList(),
           images =
@@ -1897,7 +1891,7 @@ class MapPresentationTest {
     val base = attributedVectorSource("base", "base attribution")
     val declarative = attributedVectorSource("declarative", "declarative attribution")
     val declaredRevision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(declarative.definition()),
         layers = emptyList(),
         images = emptyList(),
@@ -2750,8 +2744,7 @@ internal open class PresentationTestAdapter(
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
   }
 
-  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) =
-    StyleResourceChanges()
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot) = StyleResourceChanges()
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 

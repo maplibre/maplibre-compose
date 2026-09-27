@@ -15,7 +15,7 @@ internal class StyleReconciler {
 
   // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
-  private val sources = linkedMapOf<String, AppliedSource>()
+  private val sources = linkedMapOf<String, SourceInstallation>()
   private val layers = linkedMapOf<String, AppliedLayer>()
 
   /**
@@ -32,7 +32,7 @@ internal class StyleReconciler {
   private var knownLayerIds: MutableList<String>? = null
 
   /** Resolve application anchor predicates on the composition's caller, before owner work. */
-  fun prepare(style: StyleBinding, revision: DesiredStyleRevision): PreparedRevision {
+  fun prepare(style: StyleBinding, revision: StyleSnapshot): PreparedRevision {
     style.requireCurrent()
     if (preparationBinding !== style) {
       baseLayers =
@@ -52,7 +52,7 @@ internal class StyleReconciler {
     return PreparedRevision(style.identity, revision, layers)
   }
 
-  fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges =
+  fun apply(style: StyleBinding, revision: StyleSnapshot): StyleResourceChanges =
     apply(style, prepare(style, revision))
 
   /** Serialized on one executor; native callers use the map owner thread. */
@@ -107,10 +107,7 @@ internal class StyleReconciler {
       val desired = desiredSources[applied.definition.id]
       when {
         desired == null -> removeSource(applied, changes)
-        applied.definition.canUpdateTo(desired) -> {
-          applied.installation.update(desired)
-          applied.definition = desired
-        }
+        applied.definition.canUpdateTo(desired) -> applied.update(desired)
         else -> {
           removeSource(applied, changes)
           addSource(style, desired, changes)
@@ -135,7 +132,6 @@ internal class StyleReconciler {
             val before = beforeLayerId(layerIds(style), placement, previousId)
             applied =
               AppliedLayer(
-                definition = desired.definition,
                 placement = placement,
                 installation =
                   LayerInstallation(
@@ -150,7 +146,6 @@ internal class StyleReconciler {
             layerIds(style).insertBelow(id, before)
           } else {
             applied.installation.update(desired.definition, revision.animatorDurationScale)
-            applied.definition = desired.definition
             if (shouldMoveLayer(layerIds(style), placement, previousId, id, nextDesiredId)) {
               val before = beforeLayerId(layerIds(style), placement, previousId)
               if (before != id) {
@@ -218,13 +213,13 @@ internal class StyleReconciler {
     changes: StyleResourceChanges,
   ) {
     changes.sources.add(definition.id)
-    sources[definition.id] = AppliedSource(definition, SourceInstallation(style, definition))
+    sources[definition.id] = SourceInstallation(style, definition)
   }
 
-  private fun removeSource(applied: AppliedSource, changes: StyleResourceChanges) {
-    changes.sources.add(applied.definition.id)
-    applied.installation.remove()
-    sources.remove(applied.definition.id)
+  private fun removeSource(applied: SourceInstallation, changes: StyleResourceChanges) {
+    changes.sources.add(applied.id)
+    applied.remove()
+    sources.remove(applied.id)
   }
 
   private fun removeLayer(applied: AppliedLayer, changes: StyleResourceChanges) {
@@ -289,25 +284,22 @@ internal class StyleReconciler {
     return getOrNull(index + 1).orEmpty()
   }
 
-  private class AppliedSource(
-    var definition: SourceDefinition,
-    val installation: SourceInstallation,
-  )
-
   private class AppliedLayer(
-    var definition: ResolvedLayerDefinition,
     val placement: Placement,
     val installation: LayerInstallation,
-  )
+  ) {
+    val definition: LayerDefinition
+      get() = installation.definition
+  }
 
   internal class PreparedRevision(
     val identity: StyleIdentity,
-    val revision: DesiredStyleRevision,
+    val revision: StyleSnapshot,
     val layers: List<PlacedLayer>,
   )
 
-  internal class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
-    val definition: ResolvedLayerDefinition = desired.definition
+  internal class PlacedLayer(desired: StyleSnapshot.Layer, val placement: Placement) {
+    val definition: LayerDefinition = desired.definition
   }
 
   /**

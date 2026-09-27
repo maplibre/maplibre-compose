@@ -16,21 +16,22 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleContent
-import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleSnapshot
 
 class LayerCompositionCommitTest {
   @Test
-  fun recomposition_does_not_publish_or_mutate_a_snapshot_until_apply() {
+  fun recomposition_does_not_publish_or_mutate_a_snapshot_until_apply() = runTest {
     val tick = mutableIntStateOf(0)
-    val published = mutableListOf<StyleDeclaration>()
-    val root = StyleNode(RecordingStyleBinding(), publish = { published += it })
+    val published = mutableListOf<StyleSnapshot>()
+    val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { published += it })
     val recomposer = Recomposer(EmptyCoroutineContext)
     val composition = ControlledComposition(MapNodeApplier(root), recomposer)
     val graphics =
@@ -69,11 +70,12 @@ class LayerCompositionCommitTest {
       composition.applyLateChanges()
       composition.changesApplied()
       assertEquals(2, published.size)
-      fun value(declaration: StyleDeclaration) =
-        declaration.layers.single().layer.definition.value["paint"]!!.jsonObject["value"]
+      fun value(declaration: StyleSnapshot) =
+        declaration.layers.single().definition.value["paint"]!!.jsonObject["value"]
       assertEquals(JsonPrimitive(0f), value(first))
       assertEquals(JsonPrimitive(1f), value(published.last()))
     } finally {
+      root.close()
       composition.dispose()
       recomposer.close()
     }

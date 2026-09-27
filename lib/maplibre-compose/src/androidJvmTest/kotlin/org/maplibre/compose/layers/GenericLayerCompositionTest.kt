@@ -22,7 +22,6 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.ResolvedLayerDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.rememberStyleComposition
@@ -57,11 +56,11 @@ class GenericLayerCompositionTest {
     val binding =
       object : StyleBinding by recording {
         override fun addLayer(
-          definition: ResolvedLayerDefinition,
+          layer: JsonObject,
           beforeLayerId: String,
         ): Boolean {
           additions++
-          return recording.addLayer(definition, beforeLayerId)
+          return recording.addLayer(layer, beforeLayerId)
         }
 
         override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =

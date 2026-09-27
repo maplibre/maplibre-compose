@@ -22,9 +22,9 @@ import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
@@ -147,7 +147,7 @@ internal class GlJsSnapshotterAdapter(
 
   override suspend fun capture(
     request: MapSnapshotRequest,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): ImageBitmap {
     check(open) { "The Web snapshotter is closed" }
     val currentMap = checkNotNull(map) { "The Web snapshotter engine has not been created" }

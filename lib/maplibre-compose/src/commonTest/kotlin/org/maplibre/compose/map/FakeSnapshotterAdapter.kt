@@ -5,18 +5,17 @@ import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.colorspace.ColorSpace
 import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 internal class FakeSnapshotterAdapter(
   private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->
     RecordingStyleBinding()
   },
-  private val capture: suspend (MapSnapshotRequest, DesiredStyleRevision) -> ImageBitmap =
-    { request, _ ->
-      FakeImageBitmap(request.width, request.height)
-    },
+  private val capture: suspend (MapSnapshotRequest, StyleSnapshot) -> ImageBitmap = { request, _ ->
+    FakeImageBitmap(request.width, request.height)
+  },
   private val cancel: suspend () -> SnapshotterEngineDisposition = {
     SnapshotterEngineDisposition.RETAINED
   },
@@ -31,7 +30,7 @@ internal class FakeSnapshotterAdapter(
 
   override suspend fun capture(
     request: MapSnapshotRequest,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): ImageBitmap = capture.invoke(request, revision)
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition = cancel.invoke()

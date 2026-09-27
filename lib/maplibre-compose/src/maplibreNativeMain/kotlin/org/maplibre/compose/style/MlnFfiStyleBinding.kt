@@ -179,7 +179,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun sourceIds(): List<String> = readMap { it.styleSourceIds() }.orEmpty()
 
-  override fun getLayer(id: String): ResolvedLayerDefinition? = readMap { map ->
+  override fun getLayer(id: String): LayerDefinition? = readMap { map ->
     if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
   }
 
@@ -247,11 +247,11 @@ internal open class MlnFfiStyleBinding(
 
   private var declaredSources: JsonObject? = null
 
-  private fun reconstructLayer(map: MapHandle, id: String): ResolvedLayerDefinition {
+  private fun reconstructLayer(map: MapHandle, id: String): LayerDefinition {
     val definition =
       (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
         ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
-    return resolvedLayerDefinition(id, definition)
+    return layerDefinitionFromJson(id, definition)
   }
 
   override fun invalidate() {

@@ -84,7 +84,7 @@ internal interface StyleBinding {
 
   fun sourceIds(): List<String> = getSources().map { it.id }
 
-  fun getLayer(id: String): ResolvedLayerDefinition?
+  fun getLayer(id: String): LayerDefinition?
 
   fun layerIds(): List<String>
 
@@ -104,7 +104,7 @@ internal interface StyleBinding {
    */
   fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
 
-  fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean {
+  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
     requireCurrent()
     return addLayer(definition.value, beforeLayerId)
   }
@@ -513,7 +513,7 @@ internal fun StyleBinding.baseLayerSummaries(): Map<String, LayerSummary> = iden
   layerSummaries()
 }
 
-internal fun ResolvedLayerDefinition.summary(): LayerSummary =
+internal fun LayerDefinition.summary(): LayerSummary =
   LayerSummary(
     type = type,
     source = sourceId ?: value.rootString("source"),

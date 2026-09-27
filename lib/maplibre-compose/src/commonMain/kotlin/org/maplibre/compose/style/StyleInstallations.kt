@@ -25,6 +25,8 @@ internal class SourceInstallation(
   }
 
   val id: String = definition.id
+  val definition: SourceDefinition
+    get() = current.load()
 
   init {
     check(style.sourceExists(id) != true) { "Source ID '$id' already exists in style" }
@@ -101,19 +103,21 @@ internal class SourceInstallation(
  */
 internal class LayerInstallation(
   private val style: StyleBinding,
-  definition: ResolvedLayerDefinition,
+  definition: LayerDefinition,
   beforeLayerId: String,
   animatorDurationScale: Float = 1f,
 ) {
   val id: String = definition.id
-  private var declared = definition
+  var definition: LayerDefinition = definition
+    private set
+
   private var durationScale = animatorDurationScale
   private var current = definition.resolveFor(style, animatorDurationScale)
   private val reportedUnsupported = mutableSetOf<String>()
 
   init {
     check(style.layerExists(id) != true) { "Layer ID '$id' already exists in style" }
-    add(current, beforeLayerId)
+    add(beforeLayerId)
     reportUnsupported(definition)
   }
 
@@ -122,37 +126,36 @@ internal class LayerInstallation(
    * [definition], as one batch. A rejected write is the engine keeping the previous value, so
    * [current] advances regardless.
    */
-  fun update(definition: ResolvedLayerDefinition, animatorDurationScale: Float = 1f) {
+  fun update(definition: LayerDefinition, animatorDurationScale: Float = 1f) {
     style.requireCurrent()
     require(definition.id == id) { "A layer handle cannot change resource identity" }
-    if (definition == declared && animatorDurationScale == durationScale) return
+    if (definition == this.definition && animatorDurationScale == durationScale) return
     val next = definition.resolveFor(style, animatorDurationScale)
     if (next == current) {
-      declared = definition
+      this.definition = definition
       durationScale = animatorDurationScale
+      reportUnsupported(definition)
       return
     }
-    val previousValue = current.value
-    val nextValue = next.value
     val writes = buildList {
       collectProperties(
-        previousValue["layout"] as? JsonObject,
-        nextValue["layout"] as? JsonObject,
+        current["layout"] as? JsonObject,
+        next["layout"] as? JsonObject,
         LayerPropertyKind.LAYOUT,
       )
       collectProperties(
-        previousValue["paint"] as? JsonObject,
-        nextValue["paint"] as? JsonObject,
+        current["paint"] as? JsonObject,
+        next["paint"] as? JsonObject,
         LayerPropertyKind.PAINT,
       )
       ROOT_PROPERTY_NAMES.forEach { name ->
-        val previous = previousValue[name]
-        val value = nextValue[name]
+        val previous = current[name]
+        val value = next[name]
         if (previous == value) return@forEach
         add(
           LayerPropertyWrite(
             id,
-            current.type,
+            this@LayerInstallation.definition.type,
             name,
             value ?: clearingValue(LayerPropertyKind.ROOT, name),
             LayerPropertyKind.ROOT,
@@ -162,7 +165,7 @@ internal class LayerInstallation(
     }
     style.setLayerProperties(writes)
     current = next
-    declared = definition
+    this.definition = definition
     durationScale = animatorDurationScale
     reportUnsupported(definition)
   }
@@ -178,15 +181,16 @@ internal class LayerInstallation(
     style.moveLayer(id, beforeLayerId)
   }
 
-  private fun add(definition: ResolvedLayerDefinition, beforeLayerId: String) {
+  private fun add(beforeLayerId: String) {
+    style.requireCurrent()
     val added =
       try {
-        style.addLayer(definition, beforeLayerId)
+        style.addLayer(current, beforeLayerId)
       } catch (error: StyleMutationException) {
         throw IllegalStateException(
           "Could not add layer '$id' of type '${definition.type}'" +
             (definition.sourceId?.let { " over source '$it'" } ?: "") +
-            ": ${error.message}. Layer JSON: ${definition.value}",
+            ": ${error.message}. Layer JSON: $current",
           error,
         )
       }
@@ -207,11 +211,19 @@ internal class LayerInstallation(
         val oldValue = previous?.get(name)
         val newValue = next?.get(name)
         if (oldValue == newValue) return@forEach
-        add(LayerPropertyWrite(id, current.type, name, newValue ?: clearingValue(kind, name), kind))
+        add(
+          LayerPropertyWrite(
+            id,
+            this@LayerInstallation.definition.type,
+            name,
+            newValue ?: clearingValue(kind, name),
+            kind,
+          )
+        )
       }
   }
 
-  private fun reportUnsupported(definition: ResolvedLayerDefinition) {
+  private fun reportUnsupported(definition: LayerDefinition) {
     definition.unsupportedProperties.forEach { (name, reason) ->
       if (reportedUnsupported.add(name)) {
         style.logger?.w { "Layer '$id' of type '${definition.type}' cannot set '$name': $reason" }
@@ -248,10 +260,10 @@ private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
   }
 
 /** Applies compatibility filtering and the system animation-duration scale. */
-private fun ResolvedLayerDefinition.resolveFor(
+private fun LayerDefinition.resolveFor(
   style: StyleBinding,
   animatorDurationScale: Float,
-): ResolvedLayerDefinition {
+): JsonObject {
   fun JsonObject.withoutUnsupported(): JsonObject =
     if (filterUnsupportedProperties)
       JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
@@ -269,5 +281,5 @@ private fun ResolvedLayerDefinition.resolveFor(
       if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("paint")
       else resolved["paint"] = it
     }
-  return copy(value = JsonObject(resolved))
+  return JsonObject(resolved)
 }

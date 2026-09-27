@@ -25,10 +25,10 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberVectorTileSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Position
@@ -166,7 +166,7 @@ class BrowserStyleConformanceTest {
   @Test
   fun indicator_registers_one_interaction_target() = runBrowserMapTest {
     val style = RecordingStyleBinding()
-    var latest: DesiredStyleRevision? = null
+    var latest: StyleSnapshot? = null
     setBrowserMapContent {
       val revision by
         rememberStyleComposition(

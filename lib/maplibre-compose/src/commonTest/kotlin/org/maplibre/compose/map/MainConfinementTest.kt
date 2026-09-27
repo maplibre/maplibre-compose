@@ -15,9 +15,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 /** Runs map state through a main dispatcher that queues, as production does off the main thread. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -136,7 +136,7 @@ class MainConfinementTest {
       async(start = CoroutineStart.UNDISPATCHED) { state.styleAuthority.markStyleReady(adapter) }
     assertEquals(0, binding.sourceReads)
     // A desired revision moves the handle epoch while the first read is still queued.
-    state.styleAuthority.beginStyleRevision(adapter, DesiredStyleRevision.Empty)
+    state.styleAuthority.beginStyleRevision(adapter, StyleSnapshot.Empty)
     testScheduler.runCurrent()
 
     assertTrue(ready.await())

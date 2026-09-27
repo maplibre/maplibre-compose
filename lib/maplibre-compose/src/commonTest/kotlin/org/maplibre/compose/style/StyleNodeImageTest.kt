@@ -8,9 +8,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,9 +15,10 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
@@ -40,7 +38,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class StyleCompositionOwnerTest {
+class StyleNodeImageTest {
   @Test
   fun shared_images_and_pending_replacements_follow_committed_properties() = runTest {
     val first = painter(Color.Red)
@@ -49,14 +47,18 @@ class StyleCompositionOwnerTest {
     val initialGate = CompletableDeferred<Unit>()
     val gate = CompletableDeferred<Unit>()
     val starts = mutableListOf<StyleImageRequest>()
-    val owner = StyleCompositionOwner { request ->
-      starts += request
-      if (request == replacement) gate.await() else initialGate.await()
-      content(if (request == replacement) 2 else 1)
-    }
-    val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
-    val revisions = mutableListOf<DesiredStyleRevision>()
-    backgroundScope.launch { owner.run(declarations) { revisions += it } }
+    val revisions = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        preparePainter = { request ->
+          starts += request
+          if (request == replacement) gate.await() else initialGate.await()
+          content(if (request == replacement) 2 else 1)
+        },
+        publish = { revisions += it },
+      )
     runCurrent()
     assertTrue(starts.isEmpty())
     val sprite =
@@ -66,12 +68,13 @@ class StyleCompositionOwnerTest {
           image("sprite").compile(ExpressionContext.None).asLayerProperty(),
         )
       }
-    val spriteLayer = DesiredStyleLayer(sprite.definition(), Anchor.Top, null, null)
-    declarations.send(StyleDeclaration(emptyList(), listOf(DeclaredStyleLayer(spriteLayer))))
+    val spriteLayer = LayerNode(sprite.definition(), Anchor.Top)
+    root.children += spriteLayer
+    root.commit()
     runCurrent()
-    assertSame(spriteLayer, revisions.last().layers.single())
+    assertSame(spriteLayer.definition, revisions.last().layers.single().definition)
     val spriteValue = paint(revisions.last())["background-pattern"]
-    declarations.send(declaration(listOf(first, first, equalPixels)))
+    update(root, listOf(first, first, equalPixels))
     runCurrent()
     assertEquals(
       spriteValue,
@@ -85,7 +88,7 @@ class StyleCompositionOwnerTest {
     val originalSource = revisions.last().sources.single()
     val original = revisions.last().images.single()
 
-    declarations.send(declaration(listOf(replacement), opacity = 0.5f))
+    update(root, listOf(replacement), opacity = 0.5f)
     runCurrent()
     val pending = revisions.last()
     assertTrue(pending.imagesPending)
@@ -105,75 +108,100 @@ class StyleCompositionOwnerTest {
     assertFalse(ready.imagesPending)
     assertEquals(2, ready.images.single().image.width)
     assertEquals(JsonPrimitive(ready.images.single().id), paint(ready)["background-pattern"])
-    declarations.send(declaration(emptyList()))
+    update(root, emptyList())
     runCurrent()
     assertTrue(revisions.last().images.isEmpty())
   }
 
   @Test
-  fun late_results_cannot_restore_removed_requests_or_publish_after_close() = runTest {
-    val request = painter(Color.Red)
-    val continuations = mutableListOf<Continuation<StyleImageContent>>()
-    val owner = StyleCompositionOwner {
-      // Model a native operation which has already started and cannot be cancelled.
-      suspendCoroutine { continuations += it }
+  fun inline_painter_completion_cannot_publish_a_partially_ready_snapshot() = runTest {
+    val revisions = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
+        preparePainter = { content(1) },
+        publish = { revisions += it },
+      )
+    try {
+      update(root, listOf(painter(Color.Red), painter(Color.Blue)))
+      val ready = revisions.filterNot { it.imagesPending }.single()
+      val imageIds = ready.images.map { JsonPrimitive(it.id) }
+      assertEquals(2, ready.layers.size)
+      assertTrue(
+        ready.layers.all {
+          (it.definition.value["paint"] as JsonObject)["background-pattern"] in imageIds
+        }
+      )
+    } finally {
+      root.close()
     }
-    val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
-    val revisions = mutableListOf<DesiredStyleRevision>()
-    val job = backgroundScope.launch { owner.run(declarations) { revisions += it } }
-    declarations.send(declaration(listOf(request)))
-    runCurrent()
-    declarations.send(declaration(emptyList()))
-    runCurrent()
-    declarations.send(declaration(listOf(request)))
-    runCurrent()
-    assertEquals(2, continuations.size)
-    continuations[0].resume(content(1))
-    runCurrent()
-    assertTrue(revisions.last().imagesPending)
-    assertTrue(revisions.last().images.isEmpty())
-    continuations[1].resume(content(2))
-    runCurrent()
-    assertEquals(2, revisions.last().images.single().image.width)
-
-    declarations.send(declaration(listOf(painter(Color.Blue))))
-    runCurrent()
-    job.cancel()
-    runCurrent()
-    val count = revisions.size
-    continuations[2].resume(content(3))
-    runCurrent()
-    assertEquals(count, revisions.size)
   }
 
-  private fun declaration(requests: List<StyleImageRequest>, opacity: Float = 1f) =
-    StyleDeclaration(
-      listOf(
-        GeoJsonSource(
-            "points",
-            GeoJsonData.JsonString(
-              """{"type":"FeatureCollection","features":[],"value":$opacity}"""
-            ),
-            GeoJsonOptions(),
-          )
-          .definition()
-      ),
-      requests.mapIndexed { index, request ->
-        val layer =
-          TestLayer("layer-$index", "background").apply {
+  @Test
+  fun removed_images_and_closed_compositions_cancel_their_preparation() = runTest {
+    var started = 0
+    var cancelled = 0
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        preparePainter = {
+          started++
+          try {
+            awaitCancellation()
+          } finally {
+            cancelled++
+          }
+        },
+      )
+    val request = painter(Color.Red)
+    update(root, listOf(request))
+    runCurrent()
+    assertEquals(1, started)
+    update(root, emptyList())
+    runCurrent()
+    assertEquals(1, cancelled)
+    update(root, listOf(request))
+    runCurrent()
+    assertEquals(2, started)
+    root.close()
+    runCurrent()
+    assertEquals(2, cancelled)
+  }
+
+  private fun update(root: StyleNode, requests: List<StyleImageRequest>, opacity: Float = 1f) {
+    val source =
+      GeoJsonSource(
+        "points",
+        GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[],"value":$opacity}"""),
+        GeoJsonOptions(),
+      )
+    val previous = root.children.filterIsInstance<LayerNode>().associateBy { it.definition.id }
+    val layers = requests.mapIndexed { index, request ->
+      val id = "layer-$index"
+      val definition =
+        TestLayer(id, "background")
+          .apply {
             paint("background-opacity", const(opacity).asLayerProperty())
           }
-        DeclaredStyleLayer(
-          DesiredStyleLayer(layer.definition(), Anchor.Top, null, null),
+          .definition()
+      (previous[id] ?: LayerNode(definition, Anchor.Top)).apply {
+        this.definition = definition
+        this.source = source
+        imageProperties =
           mapOf(
             StyleProperty("paint", "background-pattern") to
               LayerProperty<ImageValue>(setOf(request)) { JsonPrimitive(it.getValue(request)) }
-          ),
-        )
-      },
-    )
+          )
+      }
+    }
+    root.children.clear()
+    root.children.addAll(layers)
+    root.commit()
+  }
 
-  private fun paint(revision: DesiredStyleRevision) =
+  private fun paint(revision: StyleSnapshot) =
     revision.layers.first().definition.value["paint"] as JsonObject
 
   private fun content(width: Int) =

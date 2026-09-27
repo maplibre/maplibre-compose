@@ -118,7 +118,7 @@ internal class RecordingStyleBinding(
 
   override fun sourceIds(): List<String> = sources.keys.toList()
 
-  override fun getLayer(id: String): ResolvedLayerDefinition? =
+  override fun getLayer(id: String): LayerDefinition? =
     layers[id]?.let { TestLayer(id, it).definition() }
 
   override fun layerIds() = orderedLayerIds.toList()

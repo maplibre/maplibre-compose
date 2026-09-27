@@ -128,7 +128,7 @@ class UnsupportedLayerPropertyTest {
   }
 
   @Test
-  fun an_overlap_property_nobody_asked_for_is_not_reported() {
+  fun an_overlap_property_is_reported_once_only_when_set() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -146,9 +146,18 @@ class UnsupportedLayerPropertyTest {
         "text-overlap",
         (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      style.install(layer)
+      val installation = style.install(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
+      for (value in listOf("cooperative", "never")) {
+        layer.layout("icon-overlap", const(value).compile(ExpressionContext.None).asLayerProperty())
+        installation.update(layer.definition())
+      }
+      assertEquals(
+        1,
+        warnings().count { "icon-overlap" in it },
+        "a newly set unsupported property is reported once even when effective JSON is unchanged",
+      )
     }
   }
 

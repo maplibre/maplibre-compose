@@ -27,10 +27,9 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleLayer
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.Feature
@@ -50,7 +49,7 @@ class MapClickDispatcherTest {
             listOf("back", "front").map { id ->
               val handler: FeaturesClickHandler = {
                 delivered += id
-                fixture.revision.value = DesiredStyleRevision.Empty
+                fixture.revision.value = StyleSnapshot.Empty
                 ClickResult.Pass
               }
               fixture
@@ -60,7 +59,7 @@ class MapClickDispatcherTest {
                   onLongClick = handler,
                 )
             }
-          fixture.revision.value = DesiredStyleRevision(emptyList(), nodes, emptyList())
+          fixture.revision.value = StyleSnapshot(emptyList(), nodes, emptyList())
           val path = checkNotNull(fixture.dispatcher.capture(family))
           checkNotNull(fixture.style.value).moveLayer("back", "")
           path.deliver(ClickEvent(fixture.sample))
@@ -88,7 +87,7 @@ class MapClickDispatcherTest {
             ClickResult.Pass
           }
           .copy(hitPadding = 5.dp)
-      fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(front, back), emptyList())
+      fixture.revision.value = StyleSnapshot(emptyList(), listOf(front, back), emptyList())
       fixture.configure(
         MapInteractions {
           callbacks {
@@ -123,13 +122,13 @@ class MapClickDispatcherTest {
           order += "old front"
           ClickResult.Pass
         }
-      fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(back, front), emptyList())
+      fixture.revision.value = StyleSnapshot(emptyList(), listOf(back, front), emptyList())
       fixture.adapter.gate = CompletableDeferred()
       val path = fixture.dispatcher.capture(TapFamily.Tap)!!
       val delivery = async { path.deliver(fixture.event) }
       fixture.adapter.entered.await()
       fixture.revision.value =
-        DesiredStyleRevision(
+        StyleSnapshot(
           emptyList(),
           listOf(
             fixture.node("back") {
@@ -156,7 +155,7 @@ class MapClickDispatcherTest {
     Fixture().use { fixture ->
       var calls = 0
       fixture.revision.value =
-        DesiredStyleRevision(
+        StyleSnapshot(
           emptyList(),
           listOf(
             fixture.node("front") {
@@ -210,12 +209,12 @@ class MapClickDispatcherTest {
         }
       )
       fixture.revision.value =
-        DesiredStyleRevision(
+        StyleSnapshot(
           emptyList(),
           listOf(
             fixture.node("front") {
               calls += "layer"
-              fixture.revision.value = DesiredStyleRevision(emptyList(), emptyList(), emptyList())
+              fixture.revision.value = StyleSnapshot(emptyList(), emptyList(), emptyList())
               fixture.configure(
                 MapInteractions {
                   callbacks {
@@ -260,7 +259,7 @@ class MapClickDispatcherTest {
                 clickGroup = group,
               )
           }
-        fixture.revision.value = DesiredStyleRevision(emptyList(), nodes, emptyList())
+        fixture.revision.value = StyleSnapshot(emptyList(), nodes, emptyList())
         fixture.configure(
           MapInteractions {
             callbacks {
@@ -304,7 +303,7 @@ class MapClickDispatcherTest {
       gestures.value = options
     }
 
-    val revision = mutableStateOf<DesiredStyleRevision?>(null)
+    val revision = mutableStateOf<StyleSnapshot?>(null)
     val style =
       mutableStateOf<StyleBinding?>(
         RecordingStyleBinding(layers = listOf(layer("back"), layer("front")))
@@ -326,14 +325,14 @@ class MapClickDispatcherTest {
       dispatcher =
         FeatureClickDispatcher(
           state,
-          mutableStateOf<State<DesiredStyleRevision?>>(revision),
+          mutableStateOf<State<StyleSnapshot?>>(revision),
           style,
           gestures,
         )
     }
 
     fun node(id: String, handler: FeaturesClickHandler) =
-      DesiredStyleLayer(layer(id).definition(), Anchor.Top, handler, null, registration = Any())
+      StyleSnapshot.Layer(layer(id).definition(), Anchor.Top, handler, null, registration = Any())
 
     override fun close() {
       state.close()

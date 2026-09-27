@@ -1,13 +1,16 @@
 package org.maplibre.compose.style
 
+import kotlinx.coroutines.CoroutineScope
 import org.maplibre.compose.sources.Source
 
 /** The committed declarations of one style composition. Engine objects live in the reconciler. */
 internal class StyleNode(
   val style: StyleBinding,
+  imageScope: CoroutineScope,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-  private val publish: (StyleDeclaration) -> Unit = {},
+  preparePainter: suspend (StyleImageRequest.Painter) -> StyleImageContent = { it.prepare() },
+  private val publish: (StyleSnapshot) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
   private val baseLayerIds = style.baseLayerSummaries().keys - replaceableLayerIds
@@ -15,7 +18,13 @@ internal class StyleNode(
   /** Base sources read for [getBaseSource], by ID; null for one the engine cannot reconstruct. */
   private val baseSources = mutableMapOf<String, Source?>()
   private val sourceIds = IncrementingId("source")
-  private var previous: StyleDeclaration? = null
+  private val sourceDefinitions = mutableMapOf<Source, SourceDefinition>()
+  private var previous: StyleSnapshot? = null
+  private var committedLayers = emptyList<LayerNode>()
+  private var committedSources = emptyList<SourceDefinition>()
+  private var animatorDurationScale = 1f
+  private var fontScale: Float? = null
+  private val images = StyleImageRegistry(imageScope, preparePainter, ::publishSnapshot)
   private var closed = false
 
   fun nextSourceId(): String = sourceIds.next()
@@ -26,20 +35,14 @@ internal class StyleNode(
     return baseSources[id]
   }
 
-  fun commit() {
-    if (closed || !style.isLoaded) return
-    val declaration = snapshotDeclaration()
-    if (declaration != previous) {
-      previous = declaration
-      publish(declaration)
-    }
-  }
-
   fun close() {
     closed = true
+    images.close()
+    sourceDefinitions.clear()
   }
 
-  private fun snapshotDeclaration(): StyleDeclaration {
+  fun commit() {
+    if (closed || !style.isLoaded) return
     val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
     val layerNodes = children.filterIsInstance<LayerNode>()
     val sources =
@@ -58,27 +61,36 @@ internal class StyleNode(
         "Layer ID '${it.definition.id}' already exists in base style"
       }
     }
-    return StyleDeclaration(
-      animatorDurationScale = environment?.animatorDurationScale ?: 1f,
-      fontScale = environment?.fontScale,
-      sources = sources.map { it.definition() },
-      layers =
-        layerNodes.map { node ->
-          DeclaredStyleLayer(
-            DesiredStyleLayer(
-              definition = node.definition,
-              anchor = node.anchor,
-              onClick = node.onClick,
-              onLongClick = node.onLongClick,
-              onDoubleClick = node.onDoubleClick,
-              hitPadding = node.hitPadding,
-              registration = node.registration,
-              clickGroup = node.clickGroup,
-            ),
-            node.imageProperties,
-          )
-        },
+    sourceDefinitions.keys.retainAll(sources.toSet())
+    committedSources = sources.map { sourceDefinitions.getOrPut(it) { it.definition() } }
+    committedLayers = layerNodes
+    animatorDurationScale = environment?.animatorDurationScale ?: 1f
+    fontScale = environment?.fontScale
+    images.update(
+      layerNodes.flatMap { it.imageProperties.values }.flatMap { it.images }.toSet(),
+      previous?.images.orEmpty(),
     )
+    publishSnapshot()
+  }
+
+  private fun publishSnapshot() {
+    if (closed || !style.isLoaded) return
+    val resolved = images.resolved
+    val resolvedIds = resolved.mapValues { it.value.id }
+    val revision =
+      StyleSnapshot(
+        sources = committedSources,
+        layers = committedLayers.map { it.snapshot(resolved, resolvedIds) },
+        images = committedLayers.flatMap { it.images }.distinctBy { it.id },
+        animatorDurationScale = animatorDurationScale,
+        fontScale = fontScale,
+        imagesPending = images.pending,
+      )
+    images.retain(revision.images)
+    if (revision != previous) {
+      previous = revision
+      publish(revision)
+    }
   }
 }
 

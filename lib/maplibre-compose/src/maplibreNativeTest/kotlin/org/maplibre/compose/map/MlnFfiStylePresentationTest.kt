@@ -15,8 +15,7 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleLayer
-import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.RgbaPixel
 
 class MlnFfiStylePresentationTest {
@@ -40,10 +39,10 @@ class MlnFfiStylePresentationTest {
       fixture.pumpUntil("the style readiness to publish") { readyCount == 1 }
       assertEquals(1, readyCount)
       val updated =
-        DesiredStyleRevision(
+        StyleSnapshot(
           emptyList(),
           listOf(
-            DesiredStyleLayer(
+            StyleSnapshot.Layer(
               TestLayer("application", "background")
                 .apply {
                   paint(
@@ -138,11 +137,11 @@ class MlnFfiStylePresentationTest {
     val APPLICATION_COLOR = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
 
     val APPLICATION_REVISION =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = emptyList(),
         layers =
           listOf(
-            DesiredStyleLayer(
+            StyleSnapshot.Layer(
               definition =
                 TestLayer("application", "background")
                   .apply {
