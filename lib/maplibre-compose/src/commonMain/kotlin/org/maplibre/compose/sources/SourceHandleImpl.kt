@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -85,7 +86,11 @@ protected constructor(
 
   internal fun definitionOperation(action: () -> Unit): Unit = operation {
     operations.requireSourceWritable(id)
-    action()
+    try {
+      style.postSourceUpdate(id, action)
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not update source '$id': ${error.message}", error)
+    }
   }
 
   internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
@@ -118,9 +123,7 @@ internal constructor(
     get() = super.asMutable as? MutableGeoJsonSourceHandle
 
   internal fun setData(data: GeoJsonData) {
-    definitionOperation {
-      mutate("set data") { style.submitGeoJsonData(id, data, options) }
-    }
+    definitionOperation { style.submitGeoJsonData(id, data, options) }
   }
 
   override fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
@@ -158,17 +161,6 @@ internal constructor(
 
   override fun resetFeatureStates() {
     clearFeatureStates(sourceLayerId = null)
-  }
-
-  private inline fun mutate(operation: String, action: () -> Unit) {
-    try {
-      action()
-    } catch (error: StyleMutationException) {
-      throw StyleHandleException(
-        "Could not $operation on GeoJSON source '$id': ${error.message}",
-        error,
-      )
-    }
   }
 }
 
@@ -276,7 +268,10 @@ internal constructor(
   }
 
   internal fun setImage(image: ImageBitmap) {
-    definitionOperation { style.setImageSourceImage(id, image) }
+    operation {
+      val update = style.prepareImageSourceUpdate(id, ImageSnapshot.capture(image))
+      definitionOperation(update)
+    }
   }
 
   internal fun setUri(uri: String) {

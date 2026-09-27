@@ -40,7 +40,9 @@ private inline fun glJsImage(
 }
 
 /** Encodes a Compose bitmap as a PNG `data:` URL. */
-internal fun ImageBitmap.toDataUrl(): String {
+internal fun ImageBitmap.toDataUrl(): String = ImageSnapshot.capture(this).toDataUrl()
+
+internal fun ImageSnapshot.toDataUrl(): String {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
   canvas.width = width
   canvas.height = height
@@ -54,11 +56,9 @@ internal fun ImageBitmap.toDataUrl(): String {
   return canvas.asDynamic().toDataURL().unsafeCast<String>()
 }
 
-/** [ImageBitmap.readPixels] hands back straight-alpha ARGB. */
-private fun ImageBitmap.writeStraightRgba(target: dynamic) {
-  val argb = IntArray(width * height)
-  readPixels(argb)
-  argb.forEachIndexed { index, pixel ->
+/** Stored pixels have straight-alpha ARGB channels. */
+private fun ImageSnapshot.writeStraightRgba(target: dynamic) {
+  forEachPixel { index, pixel ->
     val offset = index * 4
     target[offset] = (pixel ushr 16) and 0xFF
     target[offset + 1] = (pixel ushr 8) and 0xFF

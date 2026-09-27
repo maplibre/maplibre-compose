@@ -406,6 +406,26 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
+  override fun postSourceUpdate(sourceId: String, action: () -> Unit) {
+    postSourceMutation(sourceId) {
+      try {
+        action()
+      } catch (error: StyleMutationException) {
+        reportRejectedWrite("source '$sourceId'", null, error)
+      }
+    }
+  }
+
+  private fun updateSource(action: (MapHandle) -> Unit) {
+    mutateMap { map ->
+      try {
+        action(map)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+    }
+  }
+
   fun setSourceVolatile(sourceId: String, value: Boolean) {
     postSourceWrite(sourceId) { it.setStyleSourceVolatile(sourceId, value) }
   }
@@ -622,18 +642,18 @@ internal open class MlnFfiStyleBinding(
     return addSourceWith(sourceId) { map -> map.addImageSourceImage(sourceId, corners, pixels) }
   }
 
-  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
+  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit {
     val pixels = image.toPremultipliedRgba8()
-    postSourceWrite(sourceId) { map -> map.setImageSourceImage(sourceId, pixels) }
+    return { updateSource { map -> map.setImageSourceImage(sourceId, pixels) } }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    postSourceWrite(sourceId) { map -> map.setImageSourceUrl(sourceId, url) }
+    updateSource { map -> map.setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     val corners = coordinates.map { it.toLatLng() }
-    postSourceWrite(sourceId) { map -> map.setImageSourceCoordinates(sourceId, corners) }
+    updateSource { map -> map.setImageSourceCoordinates(sourceId, corners) }
   }
 
   override fun addGeoJsonSource(
@@ -663,7 +683,7 @@ internal open class MlnFfiStyleBinding(
     data: GeoJsonData,
     fallbackOptions: GeoJsonOptions,
   ) {
-    postSourceMutation(sourceId) { map ->
+    mutateMap { map ->
       val coordinator =
         geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
           ?: geoJsonCoordinator(
@@ -674,8 +694,8 @@ internal open class MlnFfiStyleBinding(
         coordinator.submit(data) { url -> map.setGeoJsonSourceUrl(sourceId, url) }
       } catch (error: MaplibreException) {
         val failure = StyleMutationException(error.message, error)
-        logger?.w(failure) { "Could not update GeoJSON source '$sourceId'" }
         sourceDataFailed(identity, sourceId, failure)
+        throw failure
       }
     }
   }

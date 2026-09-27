@@ -35,9 +35,10 @@ import org.maplibre.spatialk.geojson.Position
  *
  * A property write does not block waiting for the owner: MapLibre Native posts it to the map's
  * owner thread, or applies it inline when already there. MapLibre GL JS applies it during the call.
- * The engine's rejection of such a write is logged through [reportRejectedWrite]. A structural
- * command, such as adding a source, layer, or image, waits for the engine and throws
- * [StyleMutationException] on refusal.
+ * The engine's rejection of such a write is logged through [reportRejectedWrite]. Source definition
+ * updates run synchronously and throw on refusal; imperative handles queue them with
+ * [postSourceUpdate]. A structural command, such as adding a source, layer, or image, waits for the
+ * engine and throws [StyleMutationException] on refusal.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -347,8 +348,11 @@ internal interface StyleBinding {
     image: ImageBitmap,
   ): Boolean
 
-  /** Replaces an image source's content with a bitmap. */
-  fun setImageSourceImage(sourceId: String, image: ImageBitmap)
+  /** Queues an imperative definition write for the current source installation. */
+  fun postSourceUpdate(sourceId: String, action: () -> Unit) = action()
+
+  /** Prepares owned pixels on the caller; the returned command applies them synchronously. */
+  fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit
 
   /** Replaces an image source's content with a URL. */
   fun setImageSourceUrl(sourceId: String, url: String)

@@ -460,8 +460,9 @@ internal class GlJsStyleBinding(
       },
     )
 
-  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
-    setImageSourceUrl(sourceId, image.toDataUrl())
+  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit {
+    val url = image.toDataUrl()
+    return { setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {

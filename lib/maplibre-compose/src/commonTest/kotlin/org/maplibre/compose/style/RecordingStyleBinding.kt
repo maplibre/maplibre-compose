@@ -162,7 +162,7 @@ internal class RecordingStyleBinding(
     return true
   }
 
-  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) = Unit
+  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit = {}
 
   override fun setImageSourceUrl(sourceId: String, url: String) = Unit
 

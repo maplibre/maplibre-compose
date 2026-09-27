@@ -55,11 +55,22 @@ internal class SourceInstallation(
         val previous = previousDefinition
         if (previous.coordinates != definition.coordinates) {
           style.setImageSourceCoordinates(id, definition.coordinates)
+          // Content can fail after these corners were accepted. Keep their committed value so a
+          // later revision can restore them, including a return to the original definition.
+          current.store(
+            previous.copy(
+              coordinates = definition.coordinates,
+              value =
+                JsonObject(
+                  previous.value + ("coordinates" to definition.value.getValue("coordinates"))
+                ),
+            )
+          )
         }
         if (
           previous.image != definition.image || previous.value["url"] != definition.value["url"]
         ) {
-          definition.image?.let { style.setImageSourceImage(id, it.toImageBitmap()) }
+          definition.image?.let { style.prepareImageSourceUpdate(id, it).invoke() }
             ?: style.setImageSourceUrl(
               id,
               (definition.value["url"] as? JsonPrimitive)?.content.orEmpty(),
