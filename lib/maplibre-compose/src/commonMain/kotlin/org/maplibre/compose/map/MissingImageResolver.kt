@@ -8,8 +8,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.renderPainter
 import org.maplibre.compose.util.ImageStretch
@@ -53,15 +51,12 @@ internal constructor(
     31 * (31 * pixels.hashCode() + sdf.hashCode()) + (stretch?.hashCode() ?: 0)
 
   public companion object {
-    /** Copies [image] into owned pixels. Keep it unchanged until this call returns. */
-    public suspend fun fromBitmap(
+    /** Copies [image] into owned pixels on the caller; later changes to [image] have no effect. */
+    public fun fromBitmap(
       image: ImageBitmap,
       sdf: Boolean = false,
       stretch: ImageStretch? = null,
-    ): ResolvedStyleImage =
-      withContext(Dispatchers.Default) {
-        ResolvedStyleImage(ImageSnapshot.capture(image), sdf, stretch)
-      }
+    ): ResolvedStyleImage = ResolvedStyleImage(ImageSnapshot.capture(image), sdf, stretch)
 
     /**
      * Renders [painter] once for a missing-image resolver or another imperative image operation.
