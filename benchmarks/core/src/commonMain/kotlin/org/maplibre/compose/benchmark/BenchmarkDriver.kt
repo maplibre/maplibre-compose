@@ -1,0 +1,277 @@
+package org.maplibre.compose.benchmark
+
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
+import kotlinx.coroutines.*
+import kotlinx.serialization.encodeToString
+
+/**
+ * Map SDK operations for one host. The base class owns the workload order, the reset between the
+ * warm-up and measured passes, and the completion semantics, so every host measures the same thing.
+ */
+abstract class BenchmarkDriver(
+  val fixture: PreparedBenchmarkFixture,
+  val nextFrame: suspend () -> Long,
+  /** When the host started creating the map, for [StartupReport]; defaults to construction. */
+  private val created: TimeMark = TimeSource.Monotonic.markNow(),
+) {
+  val config = fixture.config
+
+  protected fun sinceCreation(): Double = created.elapsedNow().inWholeNanoseconds / 1e6
+
+  /**
+   * Loads the style, waits for the map to settle, and reports when the style loaded and when the
+   * first complete frame rendered. Helpers that outlive this call belong in [scope].
+   */
+  abstract suspend fun prepare(scope: CoroutineScope): StartupReport
+
+  abstract fun camera(value: BenchmarkCamera)
+
+  abstract suspend fun animate(value: BenchmarkCamera, durationMs: Long)
+
+  abstract fun style(index: Int): Deferred<Unit>
+
+  abstract fun image(index: Int)
+
+  abstract fun layers(show: Boolean)
+
+  abstract fun paint(index: Int)
+
+  /** Recolors only the first data layer; the rest of a large style stays untouched. */
+  abstract fun sparsePaint(index: Int)
+
+  /** Registers `imageCount` distinct prepared bitmaps, skipping ids the style already has. */
+  abstract fun registerImages()
+
+  abstract fun removeImages()
+
+  abstract fun visible(show: Boolean)
+
+  abstract fun source(index: Int)
+
+  abstract fun height(fraction: Double)
+
+  abstract fun padding(bottom: Double)
+
+  open fun recompose(): Unit = error("${config.scenario.id} is Compose-only")
+
+  /** The `revision` of every feature rendered at the fixture origin, in any layer. */
+  abstract suspend fun renderedRevisions(): List<Int>
+
+  abstract suspend fun settled(block: suspend () -> Unit)
+
+  abstract fun viewport(): List<Double>
+
+  abstract fun recordFrames(recorder: BenchmarkFrameRecorder?)
+
+  abstract fun close()
+
+  /** Waits for a [close] that releases resources asynchronously. */
+  open suspend fun awaitClosed() {}
+
+  /** Restore the same visible state after warming, without discarding renderer/resource caches. */
+  suspend fun reset() {
+    height(1.0)
+    padding(0.0)
+    repeat(2) { nextFrame() }
+    settled {
+      if (config.scenario == BenchmarkScenario.Style) withTimeout(10000) { style(0).await() }
+      if (config.scenario == BenchmarkScenario.Images) image(0)
+      else if (fixture.data.isNotEmpty()) {
+        layers(true)
+        source(0)
+        paint(0)
+        visible(true)
+      }
+      camera(benchmarkCamera(-1.0))
+    }
+  }
+
+  suspend fun run(clock: BenchmarkWorkload) {
+    when (config.scenario) {
+      BenchmarkScenario.MapReturn -> error("${config.scenario.id} is driven by its host")
+      BenchmarkScenario.Idle -> clock.idle()
+      BenchmarkScenario.Camera,
+      BenchmarkScenario.Overlays -> clock.frames { camera(tourCamera(it)) }
+      BenchmarkScenario.Animation -> {
+        repeat(4) { index ->
+          withTimeout(clock.durationMillis + 10000) {
+            animate(benchmarkCamera(if (index % 2 == 0) 1.0 else -1.0), clock.durationMillis / 4)
+          }
+          clock.submitted()
+        }
+        clock.idle()
+      }
+      BenchmarkScenario.Resize -> clock.frames { height(0.75 + 0.25 * cos(it * 4 * PI)) }
+      BenchmarkScenario.Padding -> clock.frames { padding((1 - cos(it * 4 * PI)) * 100) }
+      BenchmarkScenario.Recompose -> clock.frames { recompose() }
+      else ->
+        clock.scheduled(config.rateHz) { tick ->
+          // Removal is part of the burst's CPU cost but not of its submission timing.
+          if (config.scenario == BenchmarkScenario.ImageBurst) removeImages()
+          val started = TimeSource.Monotonic.markNow()
+          val revision = (tick + 1) % 2
+          val show = tick % 2 != 0
+          var ready: Deferred<Unit>? = null
+          when (config.scenario) {
+            BenchmarkScenario.Paint -> paint(revision)
+            BenchmarkScenario.SparsePaint -> sparsePaint(revision)
+            BenchmarkScenario.ImageBurst -> registerImages()
+            BenchmarkScenario.Layout -> visible(show)
+            BenchmarkScenario.Layers -> layers(show)
+            BenchmarkScenario.Source,
+            BenchmarkScenario.SourceLatency -> source(revision)
+            BenchmarkScenario.Images -> image(revision)
+            BenchmarkScenario.Style -> ready = style(revision)
+            BenchmarkScenario.MapReturn,
+            BenchmarkScenario.Idle,
+            BenchmarkScenario.Camera,
+            BenchmarkScenario.Overlays,
+            BenchmarkScenario.Animation,
+            BenchmarkScenario.Resize,
+            BenchmarkScenario.Padding,
+            BenchmarkScenario.Recompose -> error("${config.scenario.id} is not scheduled")
+          }
+          val submission = started.elapsedNow().inWholeNanoseconds / 1e6
+          var completion: Double? = null
+          when {
+            config.scenario == BenchmarkScenario.Style -> {
+              clock.completionSignal = "style-ready"
+              withTimeout(10000) { checkNotNull(ready).await() }
+              completion = started.elapsedNow().inWholeNanoseconds / 1e6
+            }
+            config.scenario == BenchmarkScenario.SourceLatency -> {
+              clock.completionSignal = "rendered-feature-revision"
+              awaitRendered { revision in it }
+              completion = started.elapsedNow().inWholeNanoseconds / 1e6
+            }
+            config.scenario in setOf(BenchmarkScenario.Layout, BenchmarkScenario.Layers) &&
+              fixture.probe -> {
+              clock.completionSignal = "rendered-features"
+              awaitRendered { it.isNotEmpty() == show }
+              completion = started.elapsedNow().inWholeNanoseconds / 1e6
+            }
+          }
+          clock.submitted(submission, completion)
+        }
+    }
+  }
+
+  /** Polls the rendered features at the origin once per frame until [predicate] holds. */
+  private suspend fun awaitRendered(predicate: (List<Int>) -> Boolean) {
+    withTimeout(10000) {
+      do {
+        nextFrame()
+      } while (!predicate(renderedRevisions()))
+    }
+  }
+}
+
+/** The platform hooks a run needs beyond its driver. */
+class BenchmarkHost(
+  val cpu: (Boolean) -> Unit,
+  val collectGarbage: () -> Unit,
+  val uiFrames: BenchmarkUiFrames = BenchmarkUiFrames.None,
+  val status: (String) -> Unit = {},
+)
+
+/**
+ * A child scope of [context] for helpers such as event collectors; a failure in one fails the run.
+ */
+internal fun helperScope(context: CoroutineContext) = CoroutineScope(context + Job(context[Job]))
+
+internal fun printRunHeader(
+  config: BenchmarkConfig,
+  viewport: List<Double>,
+  startup: StartupReport,
+) {
+  println("MAP_BENCHMARK START ${config.encode()}")
+  printBenchmarkBuildInfo()
+  println("MAP_BENCHMARK VIEWPORT $viewport")
+  println("MAP_BENCHMARK STARTUP ${BenchmarkJson.encodeToString(startup)}")
+}
+
+/**
+ * Runs one measured sequence, printing the `MAP_BENCHMARK` records the runner reads. Returns the
+ * failure message, or null when the run completed. [measure] runs between the CPU counter and frame
+ * collection starting and stopping, and returns the workload report; [cleanup] always runs.
+ */
+internal suspend fun measured(
+  host: BenchmarkHost,
+  measure: suspend (BenchmarkFrameRecorder, start: () -> Unit) -> WorkloadReport,
+  cleanup: suspend () -> Unit,
+): String? {
+  val recorder = BenchmarkFrameRecorder()
+  var measuring = false
+  var report: WorkloadReport? = null
+  val failure =
+    try {
+      report =
+        measure(recorder) {
+          host.collectGarbage()
+          host.cpu(true)
+          measuring = true
+          recorder.start()
+          host.uiFrames.start()
+          println("MAP_BENCHMARK MEASURE")
+        }
+      host.cpu(false)
+      measuring = false
+      null
+    } catch (e: Exception) {
+      if (e is CancellationException && e !is TimeoutCancellationException) throw e
+      val message = e.message ?: "Workload failed"
+      println("MAP_BENCHMARK ERROR $message")
+      message
+    } finally {
+      if (measuring) host.cpu(false)
+      // Closing is part of a completed run; cancellation must also release the map.
+      withContext(NonCancellable) {
+        // Engine samples end with the window; frames drawn while UI metrics drain are not counted.
+        recorder.stop()
+        host.uiFrames.stop()
+        report?.printResult()
+        cleanup()
+      }
+    }
+  if (failure == null) println("MAP_BENCHMARK DONE")
+  return failure
+}
+
+/**
+ * Prepares, warms up, resets, measures, and closes one map. Every host uses this sequence for every
+ * workload except map return, which creates maps itself.
+ */
+suspend fun runBenchmark(driver: BenchmarkDriver, host: BenchmarkHost): String? {
+  val config = driver.config
+  val helpers = helperScope(coroutineContext)
+  return measured(
+    host,
+    measure = { recorder, start ->
+      host.status("Loading")
+      val startup = driver.prepare(helpers)
+      printRunHeader(config, driver.viewport(), startup)
+      host.status("Warming up")
+      driver.run(BenchmarkWorkload(config.durationMs, driver.nextFrame))
+      driver.reset()
+      // Frame callbacks precede recomposition, so cross two frames before counting.
+      host.status("Measuring")
+      repeat(2) { driver.nextFrame() }
+      start()
+      driver.recordFrames(recorder)
+      val workload = BenchmarkWorkload(config.durationMs, driver.nextFrame)
+      driver.run(workload)
+      workload.report()
+    },
+    cleanup = {
+      driver.recordFrames(null)
+      helpers.cancel()
+      driver.close()
+      driver.awaitClosed()
+    },
+  )
+}

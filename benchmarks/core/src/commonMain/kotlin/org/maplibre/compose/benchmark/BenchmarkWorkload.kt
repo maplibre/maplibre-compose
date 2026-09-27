@@ -12,10 +12,20 @@ data class WorkloadReport(
   val operations: Int,
   @SerialName("submission_count") val submissionCount: Int = 0,
   @SerialName("completion_count") val completionCount: Int = 0,
+  @SerialName("frame_count") val frameCount: Int = 0,
   @SerialName("duration_ms") val durationMs: Double,
   @SerialName("submission_ms") val submissionMs: List<Double>,
   @SerialName("completion_ms") val completionMs: List<Double>,
+  /** Milliseconds between consecutive frame callbacks of a frame-driven workload. */
+  @SerialName("frame_interval_ms") val frameIntervalMs: List<Double>,
   @SerialName("completion_signal") val completionSignal: String?,
+)
+
+/** Time from map creation until the style loaded and until the first complete frame. */
+@Serializable
+data class StartupReport(
+  @SerialName("style_ready_ms") val styleReadyMs: Double,
+  @SerialName("first_frame_ms") val firstFrameMs: Double,
 )
 
 /** The same workload clock is used for full warm-up passes and measured repetitions. */
@@ -28,6 +38,7 @@ class BenchmarkWorkload(
   private var operations = 0
   private val submissions = mutableListOf<Double>()
   private val completions = mutableListOf<Double>()
+  private val frameIntervals = mutableListOf<Double>()
   var completionSignal: String? = null
 
   fun submitted(submissionMs: Double? = null, completionMs: Double? = null) {
@@ -42,6 +53,7 @@ class BenchmarkWorkload(
       durationMs = start.elapsedNow().inWholeNanoseconds / 1e6,
       submissionMs = submissions,
       completionMs = completions,
+      frameIntervalMs = frameIntervals,
       completionSignal = completionSignal,
     )
 
@@ -49,11 +61,18 @@ class BenchmarkWorkload(
     delay((durationMillis - start.elapsedNow().inWholeMilliseconds).coerceAtLeast(0))
   }
 
+  /**
+   * Runs [block] once per frame with the workload's progress. The interval between frames is the UI
+   * thread's frame pacing: a starved frame callback shows up as a long interval.
+   */
   suspend fun frames(block: (Double) -> Unit) {
     val first = nextFrame()
+    var previous = first
     while (start.elapsedNow().inWholeMilliseconds < durationMillis) {
       val now = nextFrame()
       if (start.elapsedNow().inWholeMilliseconds >= durationMillis) break
+      frameIntervals += (now - previous) / 1e6
+      previous = now
       block(((now - first) / 1e6 / durationMillis).coerceIn(0.0, 1.0))
       submitted()
     }
@@ -63,10 +82,13 @@ class BenchmarkWorkload(
   suspend fun scheduled(rateHz: Double, block: suspend (Int) -> Unit) {
     val period = 1000.0 / rateHz
     var tick = 0
+    var slot = 0
     while (start.elapsedNow().inWholeMilliseconds < durationMillis) {
       block(tick++)
-      val elapsed = start.elapsedNow().inWholeMilliseconds
-      val next = (floor(elapsed / period) + 1) * period
+      val elapsed = start.elapsedNow().inWholeNanoseconds / 1e6
+      // Whole-millisecond delays can land a hair before a fractional slot; never reuse it.
+      slot = maxOf(slot + 1, floor(elapsed / period).toInt() + 1)
+      val next = slot * period
       delay(ceil(minOf(next, durationMillis.toDouble()) - elapsed).toLong().coerceAtLeast(0))
     }
     idle()

@@ -27,13 +27,14 @@ internal fun benchmarkCamera(x: Double) =
 internal fun tourCamera(progress: Double) =
   org.maplibre.compose.benchmark.tourCamera(progress).toCompose()
 
-internal class BenchmarkFixture(prepared: PreparedBenchmarkFixture) {
+internal class BenchmarkFixture(val prepared: PreparedBenchmarkFixture) {
   val config = prepared.config
   val data = prepared.data.map(GeoJsonData::JsonString)
   val baseStyles = prepared.baseStyles.map(BaseStyle::Json)
   val line = prepared.line
+  val partitioned = prepared.partitioned
   val images =
-    if (config.scenario == BenchmarkScenario.Images)
+    if (prepared.usesImages)
       BenchmarkColors.map { color ->
         ImageBitmap(32, 32).also {
           Canvas(it).drawRect(0f, 0f, 32f, 32f, Paint().apply { this.color = color })

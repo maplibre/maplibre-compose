@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.widget.FrameLayout
 import kotlin.coroutines.resume
 import kotlin.math.ceil
+import kotlin.time.TimeMark
 import kotlinx.coroutines.*
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -12,19 +13,23 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory.*
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.compose.benchmark.*
 
-class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView) :
-  ClassicBenchmarkDriver(fixture, ::nextAndroidFrame) {
+class ClassicAndroidDriver(
+  fixture: PreparedBenchmarkFixture,
+  val view: MapView,
+  created: TimeMark,
+) : BenchmarkDriver(fixture, ::nextAndroidFrame, created) {
   private lateinit var map: MapLibreMap
   private val density = view.resources.displayMetrics.density
   private val styles = fixture.baseStyles
   private val images =
-    if (config.scenario == BenchmarkScenario.Images)
+    if (fixture.usesImages)
       BenchmarkColorStrings.map { color ->
         Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply {
           eraseColor(Color.parseColor(color))
@@ -32,8 +37,11 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
       }
     else emptyList()
   private var recorder: BenchmarkFrameRecorder? = null
+  private var styleReadyMs: Double? = null
+  private val firstFrame = CompletableDeferred<Double>()
   private val frameListener =
     MapView.OnDidFinishRenderingFrameListener { full, encoding, rendering ->
+      if (full && styleReadyMs != null) firstFrame.complete(sinceCreation())
       recorder?.record(
         FrameSample(
           encodingMs = encoding * 1e3,
@@ -42,6 +50,9 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
         )
       )
     }
+  private val idleListener = MapView.OnDidBecomeIdleListener {
+    if (styleReadyMs != null) firstFrame.complete(sinceCreation())
+  }
   private val failure = MapView.OnDidFailLoadingMapListener { reason ->
     println("MAP_BENCHMARK ERROR $reason")
   }
@@ -57,8 +68,9 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
       density.toDouble(),
     )
 
-  override suspend fun prepare() {
+  override suspend fun prepare(scope: CoroutineScope): StartupReport {
     view.addOnDidFinishRenderingFrameListener(frameListener)
+    view.addOnDidBecomeIdleListener(idleListener)
     view.addOnDidFailLoadingMapListener(failure)
     map = suspendCancellableCoroutine { continuation ->
       view.getMapAsync { if (continuation.isActive) continuation.resume(it) }
@@ -73,15 +85,24 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
       while (view.width == 0 || view.height == 0) nextFrame()
     }
     camera(benchmarkCamera(-1.0))
+    withTimeout(15000) { style(0).await() }
+    val styleReady = sinceCreation()
+    styleReadyMs = styleReady
     settled {
-      style(0).await()
-      if (images.isNotEmpty()) image(0)
+      if (config.scenario == BenchmarkScenario.Images) image(0)
+      if (config.scenario == BenchmarkScenario.MapReturn) {
+        checkNotNull(map.style).addSource(GeoJsonSource("data", fixture.data[0]))
+        layers(true)
+        registerImages()
+      }
     }
+    return StartupReport(styleReady, withTimeout(15000) { firstFrame.await() })
   }
 
   override fun close() {
     if (!view.isDestroyed) {
       view.removeOnDidFinishRenderingFrameListener(frameListener)
+      view.removeOnDidBecomeIdleListener(idleListener)
       view.removeOnDidFailLoadingMapListener(failure)
       view.onPause()
       view.onStop()
@@ -144,6 +165,15 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
                 lineWidth(3f),
               )
           )
+        else if (fixture.partitioned)
+          style.addLayer(
+            CircleLayer(id, "data")
+              .withFilter(Expression.raw(benchmarkLayerFilter(index, config.layers)))
+              .withProperties(
+                circleColor(BenchmarkColorStrings[0]),
+                circleRadius(Expression.raw(BenchmarkRadiusExpression)),
+              )
+          )
         else
           style.addLayer(
             CircleLayer(id, "data")
@@ -154,6 +184,24 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
           )
       }
     }
+  }
+
+  override fun sparsePaint(index: Int) {
+    checkNotNull(map.style?.getLayer("workload-0"))
+      .setProperties(circleColor(BenchmarkColorStrings[index]))
+  }
+
+  override fun registerImages() {
+    val style = checkNotNull(map.style)
+    repeat(config.imageCount) { index ->
+      val id = "burst-$index"
+      if (style.getImage(id) == null) style.addImage(id, images[index % images.size])
+    }
+  }
+
+  override fun removeImages() {
+    val style = checkNotNull(map.style)
+    repeat(config.imageCount) { style.removeImage("burst-$it") }
   }
 
   override fun paint(index: Int) {
@@ -205,10 +253,8 @@ class ClassicAndroidDriver(fixture: PreparedBenchmarkFixture, val view: MapView)
     map.moveCamera(CameraUpdateFactory.paddingTo(0.0, 0.0, 0.0, bottom * density))
   }
 
-  override fun hasRevision(revision: Int): Boolean {
+  override suspend fun renderedRevisions(): List<Int> {
     val point = map.projection.toScreenLocation(LatLng(BenchmarkLatitude, BenchmarkLongitude))
-    return map.queryRenderedFeatures(point, "workload-0").any {
-      it.getNumberProperty("revision")?.toInt() == revision
-    }
+    return map.queryRenderedFeatures(point).mapNotNull { it.getNumberProperty("revision")?.toInt() }
   }
 }

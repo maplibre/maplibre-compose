@@ -1,38 +1,25 @@
 import shlex
 import unittest
 
-from config import CASES, WORKLOADS, canonical_config, parse_config
+from config import CASES, TRACKED, canonical_config, parse_config
 from run import android_launch_args
 
 
 class ConfigurationTest(unittest.TestCase):
-    def test_presets_and_supported_implementations(self):
+    def test_presets_round_trip_and_tracked_presets_describe_themselves(self):
         for case in CASES.values():
             self.assertEqual(parse_config(case), parse_config(canonical_config(case)))
-        for workload, implementations in WORKLOADS.items():
-            for implementation in (
-                "compose-imperative",
-                "compose-declarative",
-                "classic-android",
-                "classic-ios",
-            ):
-                config = {"workload": workload, "implementation": implementation}
-                if implementation in implementations:
-                    parse_config(config)
-                else:
-                    with self.assertRaises(ValueError):
-                        parse_config(config)
+        self.assertTrue(TRACKED)
+        for name, preset in TRACKED.items():
+            self.assertTrue(preset["title"], name)
+            self.assertTrue(preset["description"], name)
+            self.assertIn("workload", preset["config"], name)
 
-    def test_invalid_workloads_fail_before_launch(self):
-        for config in (
-            {"rateHz": float("nan")},
-            {"durationMs": 0},
-            {"layers": 0},
-            {"workload": "paint", "scene": "minimal"},
-            {"workload": "source-latency", "scene": "route-2000"},
-            {"unknown": 1},
-        ):
-            with self.assertRaises(ValueError):
+    def test_only_the_launched_app_is_validated_before_launch(self):
+        # Workload and range validation belong to the app, which reports MAP_BENCHMARK ERROR.
+        parse_config({"workload": "paint", "scene": "minimal"})
+        for config in ({"implementation": "flutter"}, [], "3"):
+            with self.assertRaises((ValueError, TypeError)):
                 parse_config(config)
 
     def test_android_json_survives_the_remote_shell(self):

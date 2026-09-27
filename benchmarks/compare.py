@@ -5,18 +5,28 @@ import json
 import statistics
 from pathlib import Path
 
+# Headline metrics first: what the library adds per operation, what the user waits for, and
+# how the UI thread paces. Engine timings and counts follow for diagnosis.
 METRICS = {
-    "cpu_ms": ("cpu_ms",),
-    "operations": ("workload", "operations"),
-    "duration_ms": ("workload", "duration_ms"),
-    "submission_p50_ms": ("workload", "submission_ms", "p50"),
+    "cpu_ms_per_operation": ("cpu_ms_per_operation",),
+    "cpu_ms_per_second": ("cpu_ms_per_second",),
     "completion_p50_ms": ("workload", "completion_ms", "p50"),
     "completion_p95_ms": ("workload", "completion_ms", "p95"),
-    "render_events": ("frames", "frames"),
+    "ui_frame_p95_ms": ("ui_frames", "total_ms", "p95"),
+    "ui_frame_max_ms": ("ui_frames", "total_ms", "max"),
+    "ui_delay_max_ms": ("ui_frames", "delay_ms", "max"),
+    "ui_missed_deadlines": ("ui_frames", "missed_deadlines"),
+    "ui_dropped_frames": ("ui_frames", "dropped"),
+    "late_frames": ("workload", "late_frames"),
+    "frame_interval_p95_ms": ("workload", "frame_interval_ms", "p95"),
+    "startup_style_ready_ms": ("startup", "style_ready_ms"),
+    "startup_first_frame_ms": ("startup", "first_frame_ms"),
+    "submission_p50_ms": ("workload", "submission_ms", "p50"),
     "encoding_p50_ms": ("frames", "encoding_ms", "p50"),
-    "encoding_p95_ms": ("frames", "encoding_ms", "p95"),
     "rendering_p50_ms": ("frames", "rendering_ms", "p50"),
-    "rendering_p95_ms": ("frames", "rendering_ms", "p95"),
+    "cpu_ms": ("cpu_ms",),
+    "operations": ("workload", "operations"),
+    "render_events": ("frames", "frames"),
 }
 
 

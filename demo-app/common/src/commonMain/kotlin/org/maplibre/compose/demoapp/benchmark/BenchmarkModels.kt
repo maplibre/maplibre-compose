@@ -43,3 +43,6 @@ internal expect fun benchmarkCpu(active: Boolean)
  * collection otherwise land inside some windows and not others.
  */
 internal expect fun benchmarkCollectGarbage()
+
+/** Window frame timings for the platform, or [BenchmarkUiFrames.None]. */
+@Composable internal expect fun rememberBenchmarkUiFrames(): BenchmarkUiFrames

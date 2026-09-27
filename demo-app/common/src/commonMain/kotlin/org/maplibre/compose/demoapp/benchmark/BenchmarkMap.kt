@@ -15,29 +15,18 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
-import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
@@ -91,7 +80,8 @@ internal fun BenchmarkRun(
     }
   }
   fixture?.let {
-    BenchmarkPresentation(it, onStatus)
+    if (config.scenario == BenchmarkScenario.MapReturn) BenchmarkReturn(it, onStatus)
+    else BenchmarkPresentation(it, onStatus)
   }
 }
 
@@ -114,104 +104,16 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
           cameraPosition = benchmarkCamera(-1.0),
         )
       }
-  val recorder = remember(config) { BenchmarkFrameRecorder() }
+  driver.state = state
+  driver.density = LocalDensity.current.density
+  val uiFrames = rememberBenchmarkUiFrames()
   DisposableEffect(state) { onDispose { state.close() } }
-  val density = LocalDensity.current.density
   LaunchedEffect(state, config) {
-    var countingCpu = false
-    var recorded = false
-    var complete = false
-    var workloadReport: WorkloadReport? = null
-    val failures =
-      launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
-        state.events.collect { event ->
-          val failure =
-            when (event) {
-              is org.maplibre.compose.map.MapEvent.StyleLoadFailed -> event.reason
-              is org.maplibre.compose.map.MapEvent.SourceDataFailed ->
-                event.cause.message ?: "Source load failed"
-              else -> null
-            }
-          if (failure != null) {
-            println("MAP_BENCHMARK ERROR $failure")
-            error(failure)
-          }
-        }
-      }
-    try {
-      onStatus("Loading", true)
-      try {
-        withTimeout(15000) {
-          snapshotFlow { state.style.loadState }
-            .first { it is StyleLoadState.Ready || it is StyleLoadState.Failed }
-          check(state.style.loadState is StyleLoadState.Ready) {
-            "Benchmark style failed to load"
-          }
-          snapshotFlow { state.viewport }.first { it != null }
-        }
-      } catch (e: TimeoutCancellationException) {
-        // A timeout is a workload failure, not caller cancellation; report it as an error.
-        error("Timed out waiting for the style and viewport")
-      }
-      driver.prepare(state)
-      awaitSettled(state)
-      println("MAP_BENCHMARK START ${config.encode()}")
-      printBenchmarkBuildInfo()
-      val size = checkNotNull(state.viewport).size
-      println("MAP_BENCHMARK VIEWPORT [${size.width.value},${size.height.value},$density]")
-      onStatus("Warming up", true)
-      driver.run(state, BenchmarkWorkload(config.durationMs, nextFrame = { withFrameNanos { it } }))
-      driver.reset(state)
-      // Same order as the classic driver: the status frame and collection precede the counter.
-      // Frame callbacks run before recomposition, so cross two frames for the status to render.
-      onStatus("Measuring", true)
-      repeat(2) { withFrameNanos {} }
-      benchmarkCollectGarbage()
-      benchmarkCpu(true)
-      countingCpu = true
-      recorder.start(
-        this,
-        state.events.filterIsInstance<org.maplibre.compose.map.MapEvent.FrameRendered>().map { event
-          ->
-          FrameSample(
-            encodingMs = event.stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
-            renderingMs = event.stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
-            drawCalls = event.stats?.drawCallCount,
-            mode = event.stats?.mode?.name?.lowercase(),
-          )
-        },
-      )
-      recorded = true
-      println("MAP_BENCHMARK MEASURE")
-      val workload = BenchmarkWorkload(config.durationMs, nextFrame = { withFrameNanos { it } })
-      driver.run(state, workload)
-      workloadReport = workload.report()
-      complete = true
-    } catch (e: TimeoutCancellationException) {
-      println("MAP_BENCHMARK ERROR Timed out waiting for workload completion")
-      onStatus("Workload timed out", false)
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      println("MAP_BENCHMARK ERROR ${e.message}")
-      onStatus(e.message ?: "Failed", false)
-    } finally {
-      failures.cancel()
-      if (countingCpu) benchmarkCpu(false)
-      // Closing is part of a completed run; cancellation must also release its map runtime.
-      withContext(NonCancellable) {
-        // Stopping suspends, so it must run even when cancellation reaches this block.
-        if (recorded) recorder.stop()
-        workloadReport?.printResult()
-        state.close()
-        withTimeout(10000) { state.awaitClosed() }
-      }
-      println("MAP_BENCHMARK CLOSED")
-      if (complete) {
-        println("MAP_BENCHMARK DONE")
-        onStatus("Done. Results are in the benchmark log.", false)
-      }
-    }
+    onStatus("Starting", true)
+    val host =
+      BenchmarkHost(::benchmarkCpu, ::benchmarkCollectGarbage, uiFrames) { onStatus(it, true) }
+    val failure = runBenchmark(driver, host)
+    onStatus(failure ?: "Done. Results are in the benchmark log.", false)
   }
   Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
     Box(Modifier.fillMaxWidth().fillMaxHeight(driver.heightFraction).align(Alignment.Center)) {

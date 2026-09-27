@@ -23,3 +23,6 @@ internal actual fun benchmarkCpu(active: Boolean) {
 internal actual fun benchmarkCollectGarbage() {
   System.gc()
 }
+
+@Composable
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None

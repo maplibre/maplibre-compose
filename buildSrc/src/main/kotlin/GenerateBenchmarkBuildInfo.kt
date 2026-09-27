@@ -1,12 +1,17 @@
 import groovy.json.JsonOutput
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import javax.inject.Inject
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
 import org.gradle.work.DisableCachingByDefault
@@ -16,6 +21,13 @@ import org.gradle.work.DisableCachingByDefault
 abstract class GenerateBenchmarkBuildInfo : DefaultTask() {
   @get:Internal abstract val repository: DirectoryProperty
   @get:Input abstract val dependencyVersions: MapProperty<String, String>
+
+  /**
+   * The files that determine the packaged scenes: the asset manifest and the geometry generator.
+   */
+  @get:InputFiles
+  @get:PathSensitive(PathSensitivity.NONE)
+  abstract val fixtureSources: ConfigurableFileCollection
   @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
   @get:Inject abstract val processes: ExecOperations
 
@@ -33,6 +45,13 @@ abstract class GenerateBenchmarkBuildInfo : DefaultTask() {
     return output.toString(Charsets.UTF_8).trim()
   }
 
+  /** Changes whenever the scenes a measurement renders would change. */
+  private fun fixturesId(): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    fixtureSources.files.sortedBy { it.name }.forEach { digest.update(it.readBytes()) }
+    return digest.digest().joinToString("") { "%02x".format(it) }.take(12)
+  }
+
   @TaskAction
   fun generate() {
     val metadata =
@@ -40,6 +59,7 @@ abstract class GenerateBenchmarkBuildInfo : DefaultTask() {
         mapOf(
           "commit" to git("rev-parse", "HEAD"),
           "dirty" to git("status", "--porcelain", "--untracked-files=normal").isNotEmpty(),
+          "fixtures" to fixturesId(),
           "dependency_versions" to dependencyVersions.get().toSortedMap(),
         )
       )

@@ -33,6 +33,23 @@ class PreparedBenchmarkFixture(
 ) {
   val line
     get() = config.scene == BenchmarkScene.Route
+
+  /** Whether a feature sits at the fixture origin, where completion probes query rendering. */
+  val probe
+    get() = data.isNotEmpty() && !line
+
+  /**
+   * Whether the data layers partition the points by feature id and size them by zoom, so a large
+   * style is a realistic one: more declared layers do not multiply the visible overdraw.
+   */
+  val partitioned
+    get() = config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+
+  /** Whether the run registers prepared bitmaps with the style. */
+  val usesImages
+    get() =
+      config.scenario in
+        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
 }
 
 suspend fun loadBenchmarkFixture(
@@ -51,6 +68,11 @@ suspend fun loadBenchmarkFixture(
     config.implementation == BenchmarkImplementation.Declarative &&
       config.scenario != BenchmarkScenario.Style &&
       hasData
+  // A returning map installs its content after the style loads on every host, as declared
+  // content does, so the classic SDKs pay the same installation cost.
+  val dynamicContent = composeContent || config.scenario == BenchmarkScenario.MapReturn
+  val partitioned =
+    config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
   val styles =
     List(2) { variant ->
       buildJsonObject {
@@ -67,7 +89,7 @@ suspend fun loadBenchmarkFixture(
           )
         }
         putJsonObject("sources") {
-          if (hasData && !composeContent)
+          if (hasData && !dynamicContent)
             putJsonObject("data") {
               put("type", "geojson")
               put("data", BenchmarkJson.parseToJsonElement(data[0]))
@@ -103,13 +125,14 @@ suspend fun loadBenchmarkFixture(
             }
           )
           if (config.scene == BenchmarkScene.Basemap) basemapLayers().forEach { add(it) }
-          if (hasData && !composeContent)
+          if (hasData && !dynamicContent)
             repeat(config.layers) { index ->
               add(
                 dataLayer(
                   "workload-$index",
                   config.scene == BenchmarkScene.Route,
                   config.scenario == BenchmarkScenario.Images,
+                  if (partitioned) index to config.layers else null,
                 )
               )
             }
@@ -120,10 +143,19 @@ suspend fun loadBenchmarkFixture(
   return PreparedBenchmarkFixture(config, data, styles)
 }
 
-private fun dataLayer(id: String, line: Boolean, image: Boolean) = buildJsonObject {
+/** The style JSON of one data layer; [partition] is this layer's index and the layer count. */
+fun dataLayer(
+  id: String,
+  line: Boolean,
+  image: Boolean,
+  partition: Pair<Int, Int>? = null,
+) = buildJsonObject {
   put("id", id)
   put("type", if (image) "symbol" else if (line) "line" else "circle")
   put("source", "data")
+  partition?.let { (index, count) ->
+    put("filter", BenchmarkJson.parseToJsonElement(benchmarkLayerFilter(index, count)))
+  }
   if (image)
     putJsonObject("layout") {
       put("icon-image", "workload-image")
@@ -132,9 +164,17 @@ private fun dataLayer(id: String, line: Boolean, image: Boolean) = buildJsonObje
   else
     putJsonObject("paint") {
       put(if (line) "line-color" else "circle-color", BenchmarkColorStrings[0])
-      put(if (line) "line-width" else "circle-radius", if (line) 3 else 5)
+      if (partition != null)
+        put("circle-radius", BenchmarkJson.parseToJsonElement(BenchmarkRadiusExpression))
+      else put(if (line) "line-width" else "circle-radius", if (line) 3 else 5)
     }
 }
+
+/** Selects the points whose id falls in layer [index] of [count]. */
+fun benchmarkLayerFilter(index: Int, count: Int): String =
+  """["==",["%",["number",["id"]],$count],$index]"""
+
+const val BenchmarkRadiusExpression = """["interpolate",["linear"],["zoom"],0,2,12,5,20,9]"""
 
 /** A compact streets style over real Shortbread vector tiles. Text uses bundled glyphs. */
 private fun basemapLayers(): List<JsonObject> {

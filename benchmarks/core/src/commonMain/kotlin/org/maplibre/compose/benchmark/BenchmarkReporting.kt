@@ -9,14 +9,19 @@ fun WorkloadReport.printResult() {
   completionMs.chunked(32).forEach { batch ->
     println("MAP_BENCHMARK COMPLETIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
   }
+  frameIntervalMs.chunked(32).forEach { batch ->
+    println("MAP_BENCHMARK INTERVALS " + BenchmarkJsonWithDefaults.encodeToString(batch))
+  }
   println(
     "MAP_BENCHMARK WORKLOAD " +
       BenchmarkJsonWithDefaults.encodeToString(
         copy(
           submissionMs = emptyList(),
           completionMs = emptyList(),
+          frameIntervalMs = emptyList(),
           submissionCount = submissionMs.size,
           completionCount = completionMs.size,
+          frameCount = frameIntervalMs.size,
         )
       )
   )
