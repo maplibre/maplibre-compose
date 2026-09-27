@@ -58,7 +58,8 @@ internal fun ImageSnapshot.toDataUrl(): String {
 
 /** Stored pixels have straight-alpha ARGB channels. */
 private fun ImageSnapshot.writeStraightRgba(target: dynamic) {
-  forEachPixel { index, pixel ->
+  for (index in 0 until width * height) {
+    val pixel = pixelAt(index)
     val offset = index * 4
     target[offset] = (pixel ushr 16) and 0xFF
     target[offset + 1] = (pixel ushr 8) and 0xFF
