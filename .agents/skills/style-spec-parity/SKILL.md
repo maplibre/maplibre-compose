@@ -1,6 +1,6 @@
 ---
 name: style-spec-parity
-description: Align the MapLibre Compose style API with the published style spec. Use when adding layer or source properties, when a platform implements a property the other does not, after bumping MapLibre GL JS or maplibre-native-ffi, or when working on style-spec parity.
+description: Keep the style API in line with the MapLibre style spec on both engines. Use when adding layer or source properties or types, or when an engine bump changes what each engine supports.
 ---
 
 # Style spec parity
@@ -129,5 +129,4 @@ mise run check
 
 Run `mise run ci:test-scripts` when changing the catalog checker. For catalog or
 documentation-only changes, select the relevant checks without running map
-suites whose behavior is unchanged. Browser setup and test constraints are in
-`AGENTS.md`.
+suites whose behavior is unchanged.

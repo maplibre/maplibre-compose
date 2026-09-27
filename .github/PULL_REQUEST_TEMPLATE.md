@@ -1,16 +1,16 @@
 <!--
 Thanks for the PR! Please fill out the template below.
-Keep the description proportional to the change and useful to a reviewer.
+Keep the description short and useful to a reviewer.
 The contributor reviews and takes responsibility for AI-assisted text.
 -->
 
 ## Description
 
-<!-- Explain what changed and why. -->
+<!-- What problem does this solve, and what behaves differently? Note any API changes or parts left unsolved. -->
 
 ## Validation
 
-<!-- Describe how you checked the change. -->
+<!-- What CI does not show: how tests changed, and anything measured or checked by hand. -->
 
 ## AI assistance
 

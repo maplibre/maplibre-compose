@@ -1,6 +1,6 @@
 ---
 name: bump-maplibre-gl-js
-description: Update the hand-written MapLibre GL JS bindings after bumping the pinned maplibre-gl version. Use when changing `maplibre-js` in gradle/libs.versions.toml, or when the browser platform breaks against a new MapLibre GL JS release.
+description: Upgrade the pinned MapLibre GL JS release and its hand-written bindings. Use when bumping `maplibre-js` or when the browser breaks against a new release.
 ---
 
 # Upgrade MapLibre GL JS
@@ -57,20 +57,15 @@ When either tile library changes, compare `geoJSONToTile` and `fromGeojsonVt`
 with `GlJsVectorTiles.kt` and `GlJsVectorTilePbf.kt`. Check their option fields
 and the tile shape passed between them by `GlJsCustomGeometryAttachment`.
 
-Kotlin compilation does not validate `external` declarations against upstream
-TypeScript. Compare the declared members with the new `.d.ts`; runtime tests
-cover only the members they exercise.
-
-- **Is every declared member still there, spelled the same?** For each member in
-  the two files, find it in the new `.d.ts`. A rename upstream compiles fine
-  here and fails at runtime with `undefined is not a function`.
-- **Did a type widen or narrow?** A field that became optional, a return that
-  gained `| undefined`, an argument that stopped accepting the shape passed. The
-  declarations deliberately state narrower types than MapLibre's `*Like` unions.
-  For example, they use `LngLat` for `LngLatLike` and `Point` for `PointLike`.
-  Check that these narrower types remain valid.
-- **Is anything declared that upstream never had?** Left over from an earlier
-  version, or mistyped. Search the `.d.ts` for it.
+Kotlin compilation does not check `external` declarations against upstream
+TypeScript, and runtime tests cover only the members they exercise, so an
+upstream rename compiles here and fails at runtime with
+`undefined is not a function`. Check every declared member against the new
+`.d.ts`: it still exists under the same name, and its type has not widened or
+narrowed (a field became optional, a return gained `| undefined`). The
+declarations deliberately use narrower types than MapLibre's `*Like` unions,
+such as `LngLat` for `LngLatLike` and `Point` for `PointLike`; confirm those
+still hold.
 
 ## 4. Look for new capability worth binding
 
@@ -130,7 +125,7 @@ mise run test:js
 mise run check
 ```
 
-Follow `AGENTS.md` for Chrome setup and browser test constraints. Browser test
-reports are in `lib/maplibre-compose/build/reports/tests/jsBrowserTest/`. Verify
-adopted style capabilities through `style-spec-parity`, and run tests on other
-platforms when shared behavior changes.
+Browser test reports are in
+`lib/maplibre-compose/build/reports/tests/jsBrowserTest/`. Verify adopted style
+capabilities through `style-spec-parity`, and run tests on other platforms when
+shared behavior changes.
