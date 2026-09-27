@@ -244,7 +244,6 @@ class MapCameraTransitionTest {
         }
         val corners = listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest)
         it.assertPositionsInside(corners, FIT_PADDING.asPaddingValues())
-        it.assertPositionsTouchAnEdge(corners, FIT_PADDING.asPaddingValues())
       }
     }
 
@@ -1150,27 +1149,6 @@ class MapCameraTransitionTest {
           "$position is below view",
         )
       }
-    }
-
-    /**
-     * At least one position sits near the padded viewport's edge, so the fit is not merely loose.
-     * MapLibre Native fits a tilted camera in one screen-space pass from the current camera, which
-     * leaves a gap of a few dp under perspective; the browser iterates to the edge.
-     */
-    fun MapFixture.assertPositionsTouchAnEdge(positions: List<Position>, padding: PaddingValues) {
-      val viewport = requireNotNull(session.getViewport())
-      val right = viewport.size.width.value - padding.right().value
-      val bottom = viewport.size.height.value - padding.calculateBottomPadding().value
-      val gap = positions.minOf { position ->
-        val point = requireNotNull(session.screenLocationFromPosition(position))
-        minOf(
-          abs(point.x.value - padding.left().value),
-          abs(right - point.x.value),
-          abs(point.y.value - padding.calculateTopPadding().value),
-          abs(bottom - point.y.value),
-        )
-      }
-      assertTrue(gap < 5.0, "no position reaches the padded edge; the nearest is $gap dp away")
     }
 
     fun assertNear(expected: Double, actual: Double, message: String) {

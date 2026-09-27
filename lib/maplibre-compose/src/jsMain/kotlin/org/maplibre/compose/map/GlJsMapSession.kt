@@ -991,34 +991,9 @@ internal class GlJsMapSession(
           maxZoom = getMaxZoom()
         },
       ) ?: return null
-    // The upstream pitch fit is a single pass. Retain our convergence step so pitched bounds
-    // still fill the padded viewport, rather than leaving slack after the engine's approximation.
-    val east =
-      if (boundingBox.east < boundingBox.west) boundingBox.east + 360.0 else boundingBox.east
-    val fit =
-      refineFitForTilt(
-        transform = _camera.transform,
-        fit =
-          GeometryFit(camera.center.toPosition(), camera.zoom.coerceIn(getMinZoom(), getMaxZoom())),
-        positions =
-          sequenceOf(
-            Position(boundingBox.west, boundingBox.south),
-            Position(boundingBox.west, boundingBox.north),
-            Position(east, boundingBox.south),
-            Position(east, boundingBox.north),
-          ),
-        bearing = camera.bearing,
-        tilt = camera.pitch,
-        width = appliedExtent.width.toDouble(),
-        height = appliedExtent.height.toDouble(),
-        edgePadding = destination.effectivePadding(),
-        fitPadding = fitPadding.toPaddingOptions(),
-        minZoom = getMinZoom(),
-        maxZoom = getMaxZoom(),
-      )
     return destination.copy(
-      target = fit.target,
-      zoom = fit.zoom,
+      target = camera.center.toPosition(),
+      zoom = camera.zoom.coerceIn(getMinZoom(), getMaxZoom()),
       bearing = camera.bearing,
       tilt = camera.pitch,
     )
