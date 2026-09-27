@@ -9,6 +9,7 @@ import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.toLong
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapFramePacer
@@ -51,7 +52,7 @@ internal class AppleMlnFfiSurfaceController(
   private val completion = CompletableDeferred<Result<Unit>>()
   private val renderThread =
     MlnFfiOwnerThread("maplibre-compose-render") {
-      completion.complete(runCatching { runQueue() })
+      completion.complete(runCatching { runQueue() }.onFailure(::rethrowIfFatal))
     }
 
   // Render-thread state.
@@ -131,11 +132,18 @@ internal class AppleMlnFfiSurfaceController(
     }
   }
 
-  /**
-   * Queues release; the render thread retains the layer until the renderer has stopped using it.
-   */
-  fun surfaceDestroyed() {
-    post { surfaceDestroyedOnRenderThread() }
+  /** Acknowledges release of [layer]; a stale loss never detaches its replacement. */
+  fun surfaceDestroyed(layer: CAMetalLayer): Deferred<Result<Unit>> {
+    val detached = CompletableDeferred<Result<Unit>>()
+    val accepted = post {
+      val result = runCatching {
+        if (this.layer === layer) surfaceDestroyedOnRenderThread()
+      }
+        .onFailure(::rethrowIfFatal)
+      detached.complete(result)
+      result.getOrThrow()
+    }
+    return if (accepted) detached else completion
   }
 
   private fun surfaceDestroyedOnRenderThread() {
@@ -234,10 +242,14 @@ internal class AppleMlnFfiSurfaceController(
           "(attempt $consecutiveFailures of $MAX_RECOVERY_ATTEMPTS)"
       }
 
-      runCatching { renderer.onSurfaceLost(this) }
-      runCatching { renderer.onSurfaceAvailable(this) }
-        .onSuccess { requestFrameOnRenderThread() }
-        .onFailure { fail("Failed to recover the Apple map render session", it) }
+      try {
+        renderer.onSurfaceLost(this)
+        renderer.onSurfaceAvailable(this)
+        requestFrameOnRenderThread()
+      } catch (error: Throwable) {
+        rethrowIfFatal(error)
+        fail("Failed to recover the Apple map render session", error)
+      }
     }
   }
 
@@ -358,9 +370,10 @@ internal class AppleMlnFfiSurfaceController(
     try {
       autoreleasepool { action() }
     } catch (error: Throwable) {
+      rethrowIfFatal(error)
       cleanupFailures.add(error)
       close()
-      runCatching { onFailure(error) }
+      runCatching { onFailure(error) }.onFailure(::rethrowIfFatal)
     }
   }
 
@@ -368,7 +381,11 @@ internal class AppleMlnFfiSurfaceController(
     terminalFailure = true
     cancelFrame()
     logger?.e(error) { message }
-    runCatching { surfaceDestroyedOnRenderThread() }.onFailure { cleanupFailures.add(it) }
+    runCatching { surfaceDestroyedOnRenderThread() }
+      .onFailure {
+        rethrowIfFatal(it)
+        cleanupFailures.add(it)
+      }
     // The presentation owns the map and decides whether to retain it after detachment.
     onFailure(error)
   }

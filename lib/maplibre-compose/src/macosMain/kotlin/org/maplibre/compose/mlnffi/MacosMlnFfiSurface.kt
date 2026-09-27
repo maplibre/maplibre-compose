@@ -83,10 +83,10 @@ internal fun MacosMlnFfiSurface(
               MapExtent.fromPhysical(bounds.width.toInt(), bounds.height.toInt(), scale.toDouble()),
             )
           } else {
-            controller.surfaceDestroyed()
+            controller.surfaceDestroyed(layer)
           }
         },
-        detach = { controller.surfaceDestroyed() },
+        detach = { controller.surfaceDestroyed(layer) },
       )
     }
   DisposableEffect(host, entry) {

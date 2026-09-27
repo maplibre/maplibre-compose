@@ -23,6 +23,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,7 +31,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.mlnffi.AppleMlnFfiSurfaceController
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiFrameResult
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
+import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
 import platform.CoreGraphics.CGRectMake
@@ -119,6 +127,96 @@ class AppleMapPresentationTest {
     second.close()
     awaitApple { f.composedDensity.density == 1f }
     second.update(0, 0, Float.NaN)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    var released = false
+    scope.launch {
+      first.awaitClosed()
+      second.awaitClosed()
+      released = true
+    }
+    try {
+      awaitApple { released }
+    } finally {
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun layer_reuse_waits_for_previous_controllers_and_reports_release_failure() = withFixture { f ->
+    fun controller(onLost: () -> Unit) =
+      AppleMlnFfiSurfaceController(
+        renderer =
+          object : MlnFfiMapRenderer {
+            override val backend = MapRenderBackend.METAL
+
+            override fun onSurfaceLost(session: MlnFfiMapHostSession) = onLost()
+
+            override fun render(
+              host: MlnFfiMapHostSession,
+              frame: MlnFfiMapFrame,
+              captureProjection: Boolean,
+            ) = MlnFfiFrameResult.AwaitUpdate
+
+            override fun close() = Unit
+          },
+        logger = null,
+        onFailure = {},
+      )
+    val presentation = AppleMapPresentation(f.state, MapPresentationOwnerToken(), MapViewOptions())
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    val releasing = TestLatch(1)
+    val release = TestLatch(1)
+    var releasedInTime = false
+    val previous = controller {
+      releasing.countDown()
+      releasedInTime = release.await(5_000)
+    }
+    var currentReleases = 0
+    var failRelease = false
+    val expected = IllegalStateException("layer release failed")
+    val current = controller {
+      currentReleases++
+      if (failRelease) throw expected
+    }
+    try {
+      val layer = CAMetalLayer()
+      val first = presentation.attachLayer(layer, 32, 32, 1f)
+      first.attach(previous)
+      previous.withRendererAccess {}
+      first.detach(previous)
+      assertTrue(releasing.await(5_000))
+      first.attach(current)
+      current.withRendererAccess {}
+      first.close()
+      var firstResult: Result<Unit>? = null
+      scope.launch { firstResult = runCatching { first.awaitClosed() } }
+      assertNull(firstResult, "The previous controller is still releasing this binding")
+      release.countDown()
+      awaitApple { firstResult != null }
+      firstResult!!.getOrThrow()
+      assertTrue(releasedInTime, "close waited for renderer release")
+      assertEquals(1, currentReleases)
+
+      val second = presentation.attachLayer(layer, 32, 32, 1f)
+      second.attach(current)
+      current.withRendererAccess {}
+      // The old composition effect can dispose after public close and reuse of the same layer.
+      first.detach(current)
+      current.withRendererAccess {}
+      assertEquals(1, currentReleases)
+      failRelease = true
+      second.close()
+      var secondResult: Result<Unit>? = null
+      scope.launch { secondResult = runCatching { second.awaitClosed() } }
+      awaitApple { secondResult != null }
+      assertSame(expected, secondResult!!.exceptionOrNull())
+    } finally {
+      release.countDown()
+      presentation.close()
+      previous.close()
+      current.close()
+      scope.cancel()
+    }
   }
 
   @Test

@@ -20,10 +20,14 @@ class AppleMlnFfiSurfaceControllerTest {
     val renderer = RecordingRenderer()
     AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = { throw it }).use { controller
       ->
-      controller.surfaceDestroyed()
-      controller.surfaceLayoutChanged(CAMetalLayer(), MapExtent.fromLogical(32, 32, 1.0))
+      val oldLayer = CAMetalLayer()
+      val layer = CAMetalLayer()
+      controller.surfaceDestroyed(oldLayer).await().getOrThrow()
+      controller.surfaceLayoutChanged(layer, MapExtent.fromLogical(32, 32, 1.0))
       controller.withRendererAccess {}
-      controller.surfaceDestroyed()
+      controller.surfaceDestroyed(oldLayer).await().getOrThrow()
+      assertEquals(listOf("available", "resized"), renderer.events)
+      controller.surfaceDestroyed(layer).await().getOrThrow()
 
       controller.close()
       controller.awaitClosed()
@@ -92,16 +96,21 @@ class AppleMlnFfiSurfaceControllerTest {
         override fun close() = Unit
       }
     val controller = AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = { throw it })
-    attachLayer(controller)
+    val layer = attachLayer(controller)
     try {
-      controller.close()
+      val detached = controller.surfaceDestroyed(layer)
       assertTrue(releasing.await(5_000L))
+      assertFalse(detached.isCompleted)
+      controller.close()
       val closed = async(start = CoroutineStart.UNDISPATCHED) { controller.awaitClosed() }
       assertFalse(closed.isCompleted)
       release.countDown()
       assertTrue(releasedBeforeTimeout.await(), "close blocked until the renderer timed out")
-      withTimeout(5_000L) { closed.await() }
-      controller.surfaceDestroyed()
+      withTimeout(5_000L) {
+        detached.await().getOrThrow()
+        closed.await()
+      }
+      controller.surfaceDestroyed(layer).await().getOrThrow()
       controller.close()
       assertEquals(1, releases)
     } finally {
@@ -131,14 +140,18 @@ class AppleMlnFfiSurfaceControllerTest {
         override fun close() = Unit
       }
     val controller = AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = {})
-    attachLayer(controller)
+    val layer = attachLayer(controller)
+    val detached = controller.surfaceDestroyed(layer)
+    assertSame(expected, detached.await().exceptionOrNull())
     controller.close()
     assertSame(expected, assertFailsWith<IllegalStateException> { controller.awaitClosed() })
   }
 
-  private fun attachLayer(controller: AppleMlnFfiSurfaceController) {
-    controller.surfaceLayoutChanged(CAMetalLayer(), MapExtent.fromLogical(32, 32, 1.0))
+  private fun attachLayer(controller: AppleMlnFfiSurfaceController): CAMetalLayer {
+    val layer = CAMetalLayer()
+    controller.surfaceLayoutChanged(layer, MapExtent.fromLogical(32, 32, 1.0))
     controller.withRendererAccess {}
+    return layer
   }
 
   private class RecordingRenderer : MlnFfiMapRenderer {
