@@ -102,6 +102,11 @@ export function declaration(name: string) {
   };
 }
 
+/** The last segment of a Gradle project path, such as `lib` for `:lib`. */
+export function moduleName(module: string) {
+  return module.split("/").at(-1)!;
+}
+
 export function sourceUrl(commit: string, path: string, line?: number) {
   return `${repository}/blob/${commit}/${path}${line ? `#L${line}` : ""}`;
 }

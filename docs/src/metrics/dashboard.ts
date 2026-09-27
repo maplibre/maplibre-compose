@@ -1,15 +1,14 @@
-import { TrendChart, type ChartSpec, type Timeline } from "./chart";
-import { icon, type icons } from "./icons";
-import { define, definitions, installTooltips, term } from "./terms";
+import { TrendChart, type ChartSpec } from "./chart";
+import { $, el, fetchJson, setSearchParams, showBody } from "./page";
+import { CommitSelection } from "./selection";
+import { definitions, installTooltips, term } from "./terms";
 import { Tree } from "./tree";
 import {
   declaration,
   format,
-  formatDate,
   formatDelta,
-  isRelease,
+  moduleName,
   newTab,
-  repository,
   sourceUrl,
   type FileReport,
   type Index,
@@ -108,36 +107,6 @@ function charts(index: Index, d: Definitions): ChartSpec[] {
   ];
 }
 
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Partial<HTMLElementTagNameMap[K]> = {},
-  ...children: (Node | string)[]
-) {
-  const element = Object.assign(document.createElement(tag), props);
-  element.append(...children);
-  return element;
-}
-
-function commitLink(commit: string) {
-  return el("a", { ...newTab, className: "metrics-sha", href: `${repository}/commit/${commit}`, textContent: commit.slice(0, 7) });
-}
-
-function releaseLink(tag: string) {
-  return el("a", { ...newTab, href: `${repository}/releases/tag/${tag}`, textContent: tag });
-}
-
-function moduleName(module: string) {
-  return module.split("/").at(-1)!;
-}
-
-async function fetchJson<T>(url: URL): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`${response.status} ${url}`);
-  return response.json();
-}
-
 export async function start() {
   const root = document.querySelector<HTMLElement>(".metrics")!;
   const base = new URL(root.dataset.source!, location.href);
@@ -147,11 +116,10 @@ export async function start() {
   try {
     index = await fetchJson<Index>(new URL("index.json", base));
   } catch {
-    $("metrics-status").textContent = "This build has no metrics data.";
+    showBody("This build has no metrics data.");
     return;
   }
   const { commits } = index;
-  const last = commits.length - 1;
   // Cached series and snapshots stay valid until a new generation, or a new commit for series.
   const version = index.generation ?? 0;
   const defs = definitions(index.thresholds);
@@ -160,45 +128,21 @@ export async function start() {
   let group: Group = (["library", "demo", "all"] as const).find((g) => g === params.get("code")) ?? "library";
   let module: string | null = params.get("module");
   let series: Series = {};
-  // A link to a commit the index no longer has opens the latest one.
-  const linked = commits.findIndex((c) => c.commit === params.get("commit"));
-  let selected = linked < 0 ? last : linked;
-  let hovered: number | null = null;
   let scopeLoad = 0;
   let detailLoad = 0;
 
-  const timeline: Timeline = {
-    commits,
-    times: commits.map((c) => Date.parse(c.date)),
-    releases: commits.flatMap((c, i) => c.tags.filter(isRelease).map((label) => ({ index: i, label }))),
-    hover(i) {
-      hovered = i;
-      trendCharts.forEach((chart) => chart.setCursor(hovered, selected));
-    },
-    select(i) {
-      if (i === selected) return;
-      selected = i;
-      showSelection();
-      void loadDetail();
-    },
-  };
+  const selection = new CommitSelection("commit", () => {
+    showTiles();
+    void loadDetail();
+  });
+  selection.setCommits(commits);
   const specs = charts(index, defs);
-  const trendCharts = specs.map((spec) => new TrendChart(spec, timeline));
-  $("metrics-charts").append(...trendCharts.map((chart) => chart.element));
+  selection.charts = specs.map((spec) => new TrendChart(spec, selection.timeline));
+  $("metrics-charts").append(...selection.charts.map((chart) => chart.element));
 
   const tree = new Tree($("metrics-tree"), defs);
   const scope = () =>
     index.scopes.find((s) => (module ? s.module === module : s.module === null && s.group === group))!;
-
-  function saveUrl() {
-    const url = new URL(location.href);
-    const values = { code: group === "library" ? null : group, module, commit: selected === last ? null : commits[selected].commit };
-    for (const [key, value] of Object.entries(values)) {
-      if (value) url.searchParams.set(key, value);
-      else url.searchParams.delete(key);
-    }
-    history.replaceState(null, "", url);
-  }
 
   // Scope controls.
   const segments = [...document.querySelectorAll<HTMLButtonElement>(".metrics-segmented button")];
@@ -226,77 +170,9 @@ export async function start() {
     void loadScope();
   });
 
-  const releaseIndices = commits.flatMap((c, i) => (c.tags.some(isRelease) ? [i] : []));
-  const releaseOf = (i: number) => commits[i].tags.find(isRelease);
-  const navigation: {
-    id: string;
-    icon: keyof typeof icons;
-    target(): number | null;
-    label(target: number | null): string;
-  }[] = [
-    {
-      id: "metrics-previous-release",
-      icon: "skipPrevious",
-      target: () => releaseIndices.findLast((i) => i < selected) ?? null,
-      label: (i) => (i == null ? "No earlier release" : `Previous release: ${releaseOf(i)}`),
-    },
-    {
-      id: "metrics-previous",
-      icon: "chevronLeft",
-      target: () => (selected > 0 ? selected - 1 : null),
-      label: (i) => (i == null ? "No earlier commit" : "Previous commit"),
-    },
-    {
-      id: "metrics-next",
-      icon: "chevronRight",
-      target: () => (selected < last ? selected + 1 : null),
-      label: (i) => (i == null ? "No later commit" : "Next commit"),
-    },
-    {
-      id: "metrics-next-release",
-      icon: "skipNext",
-      // Past the last release, this goes to the latest commit.
-      target: () => releaseIndices.find((i) => i > selected) ?? (selected < last ? last : null),
-      label: (i) =>
-        i == null ? "No later commit" : releaseOf(i) ? `Next release: ${releaseOf(i)}` : "Latest commit",
-    },
-  ];
-  for (const nav of navigation) {
-    const button = $<HTMLButtonElement>(nav.id);
-    button.append(icon(nav.icon));
-    button.addEventListener("click", () => {
-      const target = nav.target();
-      if (target != null) timeline.select(target);
-    });
-  }
-
-  /** The release before [i] that the tiles compare against, or the first commit. */
-  function baseline(i: number) {
-    for (let j = i - 1; j >= 0; j--) {
-      const release = commits[j].tags.find(isRelease);
-      if (release) return { index: j, label: `since ${release}` };
-    }
-    return { index: 0, label: `since ${formatDate(commits[0].date)}` };
-  }
-
-  function showSelection() {
-    const commit = commits[selected];
-    const release = commit.tags.find(isRelease);
-    $("metrics-selection-label").replaceChildren(
-      ...(release ? ["Release ", releaseLink(release)] : [selected === last ? "Latest commit" : "Selected commit"]),
-      `, ${formatDate(commit.date)}`,
-    );
-    $("metrics-selection-commit").replaceChildren(commitLink(commit.commit));
-    $("metrics-selection-title").textContent = commit.title;
-    for (const nav of navigation) {
-      const button = $<HTMLButtonElement>(nav.id);
-      const target = nav.target();
-      button.disabled = target == null;
-      button.ariaLabel = nav.label(target);
-      define(button, button.ariaLabel);
-    }
-
-    const { index: before, label } = baseline(selected);
+  function showTiles() {
+    const { selected } = selection;
+    const { index: before, label } = selection.baseline();
     $("metrics-tiles").replaceChildren(
       ...tiles.map((tile) => {
         const column = series[tile.key] ?? [];
@@ -319,30 +195,25 @@ export async function start() {
         );
       }),
     );
-    trendCharts.forEach((chart) => chart.setCursor(hovered, selected));
-    saveUrl();
   }
 
   async function loadScope() {
     showControls();
+    setSearchParams({ code: group === "library" ? null : group, module });
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
     try {
       const next = await fetchJson<Series>(new URL(`series/${scope().id}.json?v=${version}.${commits.length}`, base));
       if (load !== scopeLoad) return;
       series = next;
-      $("metrics-status").hidden = true;
-      $("metrics-body").hidden = false;
-      trendCharts.forEach((chart, i) =>
-        chart.setData(specs[i].series.map((s) => series[s.key] ?? [])),
-      );
-      showSelection();
+      showBody(null);
+      selection.charts.forEach((chart, i) => chart.setData(specs[i].series.map((s) => series[s.key] ?? [])));
+      selection.show();
+      showTiles();
       await loadDetail();
     } catch {
       if (load !== scopeLoad) return;
-      $("metrics-body").hidden = true;
-      $("metrics-status").hidden = false;
-      $("metrics-status").textContent = "Couldn't load metrics data.";
+      showBody("Couldn't load metrics data.");
     } finally {
       if (load === scopeLoad) root.classList.remove("metrics-loading");
     }
@@ -351,7 +222,7 @@ export async function start() {
   let report: CommitReport | undefined;
   async function loadDetail() {
     const load = ++detailLoad;
-    const commit = commits[selected].commit;
+    const commit = commits[selection.selected].commit;
     const status = $("metrics-detail-status");
     $("metrics-detail").classList.add("metrics-stale");
     try {
