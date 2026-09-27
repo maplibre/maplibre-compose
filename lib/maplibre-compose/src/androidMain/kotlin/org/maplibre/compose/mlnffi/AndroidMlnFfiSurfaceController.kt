@@ -79,8 +79,8 @@ internal class AndroidMlnFfiSurfaceController(
   ) {
     checkRenderThread()
     if (closed || terminalFailure) return
-    surfaceDestroyedOnRenderThread()
     try {
+      surfaceDestroyedOnRenderThread()
       graphics = AndroidMapGraphicsContext.create(backend, surface)
       extent = MapExtent.fromPhysical(width, height, scaleFactor)
       generation++
@@ -114,7 +114,15 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   fun surfaceDestroyed() {
-    onRenderThread { surfaceDestroyedOnRenderThread() }
+    if (closed) return
+    onRenderThread {
+      try {
+        surfaceDestroyedOnRenderThread()
+      } catch (error: Throwable) {
+        fail("Failed to destroy the Android map surface", error)
+        throw error
+      }
+    }
   }
 
   private fun surfaceDestroyedOnRenderThread() {
@@ -122,10 +130,8 @@ internal class AndroidMlnFfiSurfaceController(
     cancelFrame()
     if (graphics == null) return
     // The render session names this surface, so it must be closed before the context frees it.
-    runCatching { renderer.onSurfaceLost(this) }
-      .onFailure { logger?.e(it) { "Failed to release the Android map render session" } }
-    runCatching { graphics?.close() }
-      .onFailure { logger?.e(it) { "Failed to release the Android map graphics context" } }
+    renderer.onSurfaceLost(this)
+    graphics?.close()
     graphics = null
     extent = MapExtent.Empty
   }
@@ -194,8 +200,10 @@ internal class AndroidMlnFfiSurfaceController(
       }
 
       // A lost context invalidates the session but not the Android surface or the map runtime.
-      runCatching { renderer.onSurfaceLost(this) }
-      runCatching { renderer.onSurfaceAvailable(this) }
+      runCatching {
+        renderer.onSurfaceLost(this)
+        renderer.onSurfaceAvailable(this)
+      }
         .onSuccess { requestFrame() }
         .onFailure { fail("Failed to recover the Android map render session", it) }
     }
@@ -218,10 +226,15 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed) return
     onRenderThread {
       if (closed) return@onRenderThread
-      surfaceDestroyedOnRenderThread()
-      closed = true
+      try {
+        surfaceDestroyedOnRenderThread()
+        closed = true
+      } catch (error: Throwable) {
+        fail("Failed to close the Android map surface", error)
+        throw error
+      }
     }
-    renderThread.quitSafely()
+    if (closed) renderThread.quitSafely()
   }
 
   private fun cancelFrame() {
@@ -244,14 +257,15 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   private fun fail(message: String, error: Throwable) {
+    if (error is VirtualMachineError) throw error
     terminalFailure = true
     cancelFrame()
     logger?.e(error) { message }
-    runCatching { renderer.onSurfaceLost(this) }
-    runCatching { graphics?.close() }
-      .onFailure { logger?.e(it) { "Failed to release the Android map graphics context" } }
-    graphics = null
-    extent = MapExtent.Empty
+    runCatching { surfaceDestroyedOnRenderThread() }
+      .onFailure {
+        if (it is VirtualMachineError) throw it
+        logger?.e(it) { "Failed to release the Android map surface" }
+      }
     runCatching { renderer.close() }
       .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
     onFailure(IllegalStateException(message, error))
