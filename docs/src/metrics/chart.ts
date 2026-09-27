@@ -235,7 +235,7 @@ export class TrendChart {
       plot.append(svg("text", { class: "metrics-axis", x, y: margin.top - 8, "text-anchor": "middle" }, release.label));
     }
 
-    // Bands connect the range endpoints, one polygon per run of consecutive measurements.
+    // Bands connect consecutive ranges; isolated ranges keep a visible width.
     this.bands.forEach((band, i) => {
       const [low, high] = band ?? [];
       if (!low || !high) return;
@@ -248,6 +248,16 @@ export class TrendChart {
       });
       for (const xs of runs) {
         const last = xs.at(-1)!;
+        if (xs.length === 1) {
+          plot.append(svg("rect", {
+            class: `metrics-band metrics-series-${i + 1}`,
+            x: x(last) - 4,
+            y: this.y(high[last]!),
+            width: 8,
+            height: this.y(low[last]!) - this.y(high[last]!),
+          }));
+          continue;
+        }
         let d = `M${x(xs[0])} ${this.y(high[xs[0]]!)}`;
         for (const j of xs.slice(1)) d += `L${x(j)} ${this.y(high[j]!)}`;
         d += `L${x(last)} ${this.y(low[last]!)}`;
@@ -264,6 +274,8 @@ export class TrendChart {
           return;
         }
         const [x, y] = [this.x(times[j]), this.y(value)];
+        if (column[j - 1] == null && column[j + 1] == null)
+          plot.append(svg("circle", { class: `metrics-dot metrics-series-${i + 1}`, cx: x, cy: y, r: 4 }));
         d += open ? `L${x} ${y}` : `M${x} ${y}`;
         open = true;
       });
