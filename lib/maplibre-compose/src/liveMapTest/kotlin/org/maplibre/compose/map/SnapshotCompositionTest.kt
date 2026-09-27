@@ -1,8 +1,16 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,29 +65,70 @@ class SnapshotCompositionTest {
   }
 
   @Test
-  fun snapshot_content_reads_the_viewport_of_its_own_request() = runTest {
-    val sizes = mutableListOf<DpSize?>()
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
-    val snapshotter =
-      runtime.createSnapshotter(BaseStyle.Empty) { sizes += LocalViewport.current?.size }
+  fun each_capture_composes_current_state_in_its_own_environment() = runTest {
+    data class Evaluation(
+      val value: String,
+      val viewport: DpSize?,
+      val density: Density,
+      val direction: LayoutDirection,
+      val mapState: MapState? = null,
+    )
 
-    snapshotter.capture(MapSnapshotRequest(width = 30, height = 20))
+    var value by mutableStateOf("first")
+    var observed: Evaluation? = null
+    var adapterCreations = 0
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = {
+          adapterCreations++
+          FakeSnapshotterAdapter()
+        }
+      )
+    try {
+      val snapshotter =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          val evaluation =
+            Evaluation(
+              value,
+              LocalViewport.current?.size,
+              LocalDensity.current,
+              LocalLayoutDirection.current,
+              LocalMapState.current,
+            )
+          SideEffect { observed = evaluation }
+        }
+      snapshotter.capture(
+        MapSnapshotRequest(
+          30,
+          20,
+          density = 2f,
+          fontScale = 1.5f,
+          layoutDirection = LayoutDirection.Rtl,
+        )
+      )
+      assertEquals(
+        Evaluation("first", DpSize(30.dp, 20.dp), Density(2f, 1.5f), LayoutDirection.Rtl),
+        observed,
+      )
 
-    assertEquals(setOf(DpSize(30.dp, 20.dp)), sizes.toSet())
-    runtime.close()
-    runtime.awaitClosed()
-  }
-
-  @Test
-  fun snapshot_content_has_no_map_state() = runTest {
-    val states = mutableListOf<MapState?>()
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) { states += LocalMapState.current }
-
-    snapshotter.capture(MapSnapshotRequest(1, 1))
-
-    assertEquals(listOf<MapState?>(null), states)
-    runtime.close()
-    runtime.awaitClosed()
+      value = "second"
+      snapshotter.capture(
+        MapSnapshotRequest(
+          10,
+          40,
+          density = 3f,
+          fontScale = 2f,
+          layoutDirection = LayoutDirection.Ltr,
+        )
+      )
+      assertEquals(
+        Evaluation("second", DpSize(10.dp, 40.dp), Density(3f, 2f), LayoutDirection.Ltr),
+        observed,
+      )
+      assertEquals(1, adapterCreations)
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
   }
 }

@@ -14,9 +14,9 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
@@ -98,10 +98,13 @@ private class NativeSnapshotterAdapter(
 
   override suspend fun capture(
     request: MapSnapshotRequest,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
   ): ImageBitmap = runNativeRequest {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
-    reconciler.apply(binding, revision)
+    val prepared = reconciler.prepare(binding, revision)
+    checkNotNull(engine?.loop?.await { reconciler.apply(binding, prepared) }) {
+      "The snapshotter engine map stopped during style reconciliation"
+    }
     binding.awaitGeoJsonUpdates()
     configureRequest(request)
     val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STILL_IMAGE)
@@ -218,7 +221,7 @@ private class NativeSnapshotterAdapter(
     terminalOperation = resized
     try {
       checkNotNull(
-        currentLoop.call(
+        currentLoop.await(
           action = { map ->
             currentEngine.resources.withSession { session ->
               check(currentEngine.scaleFactor == extent.scaleFactor) {
@@ -264,7 +267,7 @@ private class NativeSnapshotterAdapter(
     // A snapshot is read once and never republished, so its extents are read with its camera.
     val read =
       checkNotNull(
-        currentEngine.loop.call(
+        currentEngine.loop.await(
           action = { map ->
             val geometry = map.readViewportGeometry(EdgeInsets.ZERO)
             map.createProjection().use { projection ->
@@ -349,7 +352,7 @@ private class NativeSnapshotterAdapter(
       loggerProvider = { options.logger },
       sessionOpen = { open },
       accessMap = { action -> source.loop.call(action = action) != null },
-      postMap = { action, abandon -> source.loop.post(action = action, abandon = abandon) },
+      postMap = { action, abandon -> source.loop.dispatch(action = action, abandon = abandon) },
       // A snapshot renders on the owner thread, so the render session is reached from there.
       enqueueRenderSession = { action ->
         source.loop.post(
@@ -360,11 +363,11 @@ private class NativeSnapshotterAdapter(
       getScale = { currentDensity },
     )
 
-  private fun readImage(request: MapSnapshotRequest): ImageBitmap {
+  private suspend fun readImage(request: MapSnapshotRequest): ImageBitmap {
     val expected = request.extent()
     val currentEngine = checkNotNull(engine)
     val rgba =
-      currentEngine.loop.call(
+      currentEngine.loop.await(
         action = { _ ->
           currentEngine.resources.withSession { session ->
             val info = session.textureImageInfo()
@@ -443,7 +446,7 @@ private class NativeSnapshotterAdapter(
     while (!operation.isCompleted || !renderedFrame) {
       if (operation.isCompleted) operation.await().getOrThrow()
       val update =
-        currentEngine.loop.call(
+        currentEngine.loop.await(
           action = { _ -> currentEngine.resources.withSession { it.renderUpdate() } }
         )
           ?: throw snapshotterClosedCancellation().also { error ->

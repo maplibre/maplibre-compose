@@ -10,9 +10,9 @@ import kotlin.test.assertNull
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 
 @OptIn(ExperimentalTestApi::class)
 class StyleBeforePresentationTest {
@@ -23,7 +23,7 @@ class StyleBeforePresentationTest {
       val reconciler = StyleReconciler()
       val adapter =
         object : PresentationTestAdapter() {
-          override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) =
+          override suspend fun reconcileStyleRevision(revision: StyleSnapshot) =
             reconciler.apply(style, revision)
         }
       lateinit var state: MapState

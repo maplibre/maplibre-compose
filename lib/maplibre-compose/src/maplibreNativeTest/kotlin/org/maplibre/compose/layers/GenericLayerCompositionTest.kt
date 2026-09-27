@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -22,7 +23,6 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.ResolvedLayerDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.rememberStyleComposition
@@ -57,11 +57,11 @@ class GenericLayerCompositionTest {
     val binding =
       object : StyleBinding by recording {
         override fun addLayer(
-          definition: ResolvedLayerDefinition,
+          layer: JsonObject,
           beforeLayerId: String,
         ): Boolean {
           additions++
-          return recording.addLayer(definition, beforeLayerId)
+          return recording.addLayer(layer, beforeLayerId)
         }
 
         override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
@@ -109,7 +109,7 @@ class GenericLayerCompositionTest {
     runOnIdle { json = JsonObject(original - "paint" - "minzoom") }
     waitForIdle()
     assertEquals(1, additions)
-    assertTrue(recording.layerPropertyWrites.contains("mesh" to "mesh-opacity"))
+    assertEquals(JsonNull, recording.layers.getValue("mesh")["paint"]!!.jsonObject["mesh-opacity"])
     assertEquals(JsonPrimitive(0), recording.layers.getValue("mesh")["minzoom"])
     runOnIdle { json = JsonObject(json + ("metadata" to JsonObject(emptyMap()))) }
     waitForIdle()
@@ -151,7 +151,10 @@ class GenericLayerCompositionTest {
       )
       runOnIdle { opacity = null }
       waitForIdle()
-      assertTrue(recording.layerPropertyWrites.contains("plugin" to "plugin-opacity"))
+      assertEquals(
+        JsonNull,
+        recording.layers.getValue("plugin")["paint"]!!.jsonObject["plugin-opacity"],
+      )
       runOnIdle { shown = false }
       waitForIdle()
       assertTrue(recording.sources.isEmpty())

@@ -13,9 +13,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.style.ResolvedLayerDefinition
 import org.maplibre.compose.style.StyleProperty
 import org.maplibre.compose.style.styleFontScale
 import org.maplibre.compose.util.MaplibreComposable
@@ -100,7 +100,7 @@ internal fun Layer(
 @Composable
 @MaplibreComposable
 private fun LayerNode(
-  definition: ResolvedLayerDefinition,
+  definition: LayerDefinition,
   images: Map<StyleProperty, LayerProperty<*>>,
   source: Source?,
   onClick: FeaturesClickHandler?,

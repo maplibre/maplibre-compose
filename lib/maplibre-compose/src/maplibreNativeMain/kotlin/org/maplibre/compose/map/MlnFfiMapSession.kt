@@ -67,13 +67,13 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -323,7 +323,7 @@ internal class MlnFfiMapSession(
         if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
       },
       postMap = { action, abandon ->
-        if (!lifecycle.acceptsWork) false else loop?.post(action, abandon) ?: false
+        if (!lifecycle.acceptsWork) false else loop?.dispatch(action, abandon) ?: false
       },
       enqueueRenderSession = { action ->
         val host = hostSession
@@ -1194,22 +1194,23 @@ internal class MlnFfiMapSession(
     onMap {}
   }
 
-  override suspend fun reconcileStyleRevision(
-    revision: DesiredStyleRevision
-  ): StyleResourceChanges {
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
     val engine = checkNotNull(lifecycleEngineIdentity)
     val style = checkNotNull(lifecycleStyleIdentity)
     try {
-      val changes = styleReconciler.apply(binding, revision)
-      if (!styleLoadTracker.contentReady) {
-        runOnMap {
-          if (styleLoadTracker.reconciled(binding.identity)) {
+      val prepared = styleReconciler.prepare(binding, revision)
+      return checkNotNull(
+        loop?.await {
+          val changes = styleReconciler.apply(binding, prepared)
+          if (!styleLoadTracker.contentReady && styleLoadTracker.reconciled(binding.identity)) {
             lifecycleCallbacks.onStyleReady(engine, style, this)
           }
+          changes
         }
+      ) {
+        "The map became unavailable during style reconciliation"
       }
-      return changes
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -1420,7 +1421,7 @@ internal class MlnFfiMapSession(
     pendingCameraPadding = null
   }
 
-  override fun cameraForBounds(
+  override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1428,7 +1429,7 @@ internal class MlnFfiMapSession(
     fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
-      runOnMap { map ->
+      loop?.await { map ->
         cameraForBounds(map, boundingBox, bearing, tilt, cameraPadding, fitPadding)
           .toCameraPosition(appliedViewportInsets)
       }
@@ -1436,7 +1437,7 @@ internal class MlnFfiMapSession(
       "The map became unavailable during the bounds query"
     }
 
-  override fun cameraForGeometry(
+  override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -1445,7 +1446,7 @@ internal class MlnFfiMapSession(
   ): CameraPosition {
     val geoJson = geometry.toJson().encodeToByteArray()
     return checkNotNull(
-      runOnMap { map ->
+      loop?.await { map ->
         fitCamera(map, bearing, tilt, cameraPadding, fitPadding) {
             map.cameraForGeometry(geoJson, it)
           }
@@ -1456,7 +1457,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun fitCameraToBounds(
+  override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1474,7 +1475,7 @@ internal class MlnFfiMapSession(
     check(hasViewport && lifecycle.acceptsWork && loop != null) {
       "A bounds fit requires the current presentation viewport"
     }
-    check(runOnMap(fit) != null) { "The map became unavailable during the bounds fit" }
+    check(loop?.await(fit) != null) { "The map became unavailable during the bounds fit" }
   }
 
   private fun cameraForBounds(

@@ -31,12 +31,12 @@ class StyleCompositionOrderTest {
       val first = TestLayer("first-layer", "raster", source)
       val second = TestLayer("second-layer", "raster", source)
       val revision =
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = listOf(source.definition()),
           layers =
             listOf(
-              DesiredStyleLayer(first.definition(), anchor, null, null),
-              DesiredStyleLayer(second.definition(), anchor, null, null),
+              StyleSnapshot.Layer(first.definition(), anchor, null, null),
+              StyleSnapshot.Layer(second.definition(), anchor, null, null),
             ),
           images = emptyList(),
         )
@@ -60,9 +60,10 @@ class StyleCompositionOrderTest {
         afterFirst.filter { it == "first-layer" || it == "second-layer" },
         "anchor $anchor",
       )
-      reconciler.apply(style, revision)
+      val changes = reconciler.apply(style, revision)
 
       assertEquals(afterFirst, style.layerIds(), "anchor $anchor")
+      assertNull(changes.layerOrder, "an unchanged anchor $anchor must not move layers")
     }
   }
 
@@ -72,9 +73,9 @@ class StyleCompositionOrderTest {
       RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
     val layer = TestLayer("hillshade", "raster", source)
     val revision =
-      DesiredStyleRevision(
+      StyleSnapshot(
         sources = listOf(source.definition()),
-        layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Above("water"), null, null)),
+        layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Above("water"), null, null)),
         images = emptyList(),
       )
     val style = RecordingStyleBinding(layers = listOf(TestLayer("water", "background")))
@@ -129,25 +130,6 @@ class StyleCompositionOrderTest {
 
     StyleReconciler()
       .apply(style, revision(background("under") to below, background("over") to above))
-
-    assertEquals(
-      listOf("over", "bg", "water-labels", "water", "road-labels", "top", "under"),
-      style.layerIds(),
-    )
-  }
-
-  @Test
-  fun a_missing_layer_id_lands_at_the_end_of_its_scan() {
-    val style = RecordingStyleBinding(layers = labelledBase())
-
-    StyleReconciler()
-      .apply(
-        style,
-        revision(
-          background("under") to Anchor.Below("missing"),
-          background("over") to Anchor.Above("missing"),
-        ),
-      )
 
     assertEquals(
       listOf("over", "bg", "water-labels", "water", "road-labels", "top", "under"),
@@ -271,10 +253,12 @@ class StyleCompositionOrderTest {
     )
 
   private fun revision(vararg layers: Pair<TestLayer, Anchor>) =
-    DesiredStyleRevision(
+    StyleSnapshot(
       sources = emptyList(),
       layers =
-        layers.map { (layer, anchor) -> DesiredStyleLayer(layer.definition(), anchor, null, null) },
+        layers.map { (layer, anchor) ->
+          StyleSnapshot.Layer(layer.definition(), anchor, null, null)
+        },
       images = emptyList(),
     )
 

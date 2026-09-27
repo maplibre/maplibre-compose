@@ -9,8 +9,13 @@ import org.maplibre.compose.layers.LayerHandleImpl
 internal class StyleReconciler {
   private var fontScale: Float? = null
 
+  // Preparation is serialized by the style composition; only it accesses these predicate handles.
+  private var preparationBinding: StyleBinding? = null
+  private var baseLayers: List<LayerHandle> = emptyList()
+
+  // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
-  private val sources = linkedMapOf<String, AppliedSource>()
+  private val sources = linkedMapOf<String, SourceInstallation>()
   private val layers = linkedMapOf<String, AppliedLayer>()
 
   /**
@@ -26,16 +31,36 @@ internal class StyleReconciler {
    */
   private var knownLayerIds: MutableList<String>? = null
 
-  /**
-   * The base-style layers of the bound generation, bottom to top, as anchor predicates see them.
-   */
-  private var baseLayers: List<LayerHandle> = emptyList()
-
-  fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
+  /** Resolve application anchor predicates on the composition's caller, before owner work. */
+  fun prepare(style: StyleBinding, revision: StyleSnapshot): PreparedRevision {
     style.requireCurrent()
+    if (preparationBinding !== style) {
+      baseLayers =
+        style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
+      preparationBinding = style
+    }
+    val placements = hashMapOf<Anchor, Placement>()
+    val layers =
+      revision.layers.map { desired ->
+        PlacedLayer(
+          desired,
+          placements.getOrPut(desired.anchor) {
+            placement(desired.anchor, baseLayers)
+          },
+        )
+      }
+    return PreparedRevision(style.identity, revision, layers)
+  }
+
+  fun apply(style: StyleBinding, revision: StyleSnapshot): StyleResourceChanges =
+    apply(style, prepare(style, revision))
+
+  /** Serialized on one executor; native callers use the map owner thread. */
+  fun apply(style: StyleBinding, prepared: PreparedRevision): StyleResourceChanges {
+    style.requireCurrent(prepared.identity)
     if (binding !== style) reset(style)
     try {
-      return applyRevision(style, revision)
+      return applyRevision(style, prepared)
     } catch (error: Throwable) {
       // A mutation may have succeeded before the failure; the tracked order is no longer trusted.
       knownLayerIds = null
@@ -45,8 +70,9 @@ internal class StyleReconciler {
 
   private fun applyRevision(
     style: StyleBinding,
-    revision: DesiredStyleRevision,
+    prepared: PreparedRevision,
   ): StyleResourceChanges {
+    val revision = prepared.revision
     revision.fontScale?.let { next ->
       if (fontScale != next) {
         style.setGlobalStateProperty(FONT_SCALE_GLOBAL_STATE, JsonPrimitive(next))
@@ -60,14 +86,7 @@ internal class StyleReconciler {
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
         desiredSources[id]?.takeIf { !applied.definition.canUpdateTo(it) }?.let { id }
       }
-    val placements = hashMapOf<Anchor, Placement>()
-    val placedLayers =
-      revision.layers.map { desired ->
-        PlacedLayer(
-          desired,
-          placements.getOrPut(desired.anchor) { placement(desired.anchor) },
-        )
-      }
+    val placedLayers = prepared.layers
     val desiredLayers = placedLayers.associateBy { it.definition.id }
 
     layers.values.toList().forEach { applied ->
@@ -88,10 +107,7 @@ internal class StyleReconciler {
       val desired = desiredSources[applied.definition.id]
       when {
         desired == null -> removeSource(applied, changes)
-        applied.definition.canUpdateTo(desired) -> {
-          applied.installation.update(desired)
-          applied.definition = desired
-        }
+        applied.definition.canUpdateTo(desired) -> applied.update(desired)
         else -> {
           removeSource(applied, changes)
           addSource(style, desired, changes)
@@ -116,7 +132,6 @@ internal class StyleReconciler {
             val before = beforeLayerId(layerIds(style), placement, previousId)
             applied =
               AppliedLayer(
-                definition = desired.definition,
                 placement = placement,
                 installation =
                   LayerInstallation(
@@ -131,7 +146,6 @@ internal class StyleReconciler {
             layerIds(style).insertBelow(id, before)
           } else {
             applied.installation.update(desired.definition, revision.animatorDurationScale)
-            applied.definition = desired.definition
             if (shouldMoveLayer(layerIds(style), placement, previousId, id, nextDesiredId)) {
               val before = beforeLayerId(layerIds(style), placement, previousId)
               if (before != id) {
@@ -159,15 +173,13 @@ internal class StyleReconciler {
     layers.clear()
     images.clear()
     knownLayerIds = null
-    baseLayers =
-      style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
   }
 
   private fun layerIds(style: StyleBinding): MutableList<String> =
     knownLayerIds ?: style.layerIds().toMutableList().also { knownLayerIds = it }
 
   /** Resolves [anchor] against the base-style layers of the bound generation. */
-  private fun placement(anchor: Anchor): Placement =
+  private fun placement(anchor: Anchor, baseLayers: List<LayerHandle>): Placement =
     when (anchor) {
       is Anchor.Top -> Placement.Top
       is Anchor.Bottom -> Placement.Bottom
@@ -201,13 +213,13 @@ internal class StyleReconciler {
     changes: StyleResourceChanges,
   ) {
     changes.sources.add(definition.id)
-    sources[definition.id] = AppliedSource(definition, SourceInstallation(style, definition))
+    sources[definition.id] = SourceInstallation(style, definition)
   }
 
-  private fun removeSource(applied: AppliedSource, changes: StyleResourceChanges) {
-    changes.sources.add(applied.definition.id)
-    applied.installation.remove()
-    sources.remove(applied.definition.id)
+  private fun removeSource(applied: SourceInstallation, changes: StyleResourceChanges) {
+    changes.sources.add(applied.id)
+    applied.remove()
+    sources.remove(applied.id)
   }
 
   private fun removeLayer(applied: AppliedLayer, changes: StyleResourceChanges) {
@@ -272,19 +284,22 @@ internal class StyleReconciler {
     return getOrNull(index + 1).orEmpty()
   }
 
-  private class AppliedSource(
-    var definition: SourceDefinition,
-    val installation: SourceInstallation,
-  )
-
   private class AppliedLayer(
-    var definition: ResolvedLayerDefinition,
     val placement: Placement,
     val installation: LayerInstallation,
+  ) {
+    val definition: LayerDefinition
+      get() = installation.definition
+  }
+
+  internal class PreparedRevision(
+    val identity: StyleIdentity,
+    val revision: StyleSnapshot,
+    val layers: List<PlacedLayer>,
   )
 
-  private class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
-    val definition: ResolvedLayerDefinition = desired.definition
+  internal class PlacedLayer(desired: StyleSnapshot.Layer, val placement: Placement) {
+    val definition: LayerDefinition = desired.definition
   }
 
   /**
@@ -292,7 +307,7 @@ internal class StyleReconciler {
    * group in style-content order, so two anchors that resolve to the same position never move each
    * other's layers.
    */
-  private sealed interface Placement {
+  internal sealed interface Placement {
     data object Top : Placement
 
     data object Bottom : Placement

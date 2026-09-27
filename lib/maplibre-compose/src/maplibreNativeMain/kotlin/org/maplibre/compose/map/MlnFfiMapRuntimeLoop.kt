@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
 import kotlin.concurrent.Volatile
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiGate
@@ -178,9 +180,30 @@ internal class MlnFfiMapRuntimeLoop(
     return result?.getOrThrow()
   }
 
+  /** Suspends instead of blocking the caller; cancellation drops work that has not started. */
+  suspend fun <T> await(action: (MapHandle) -> T): T? =
+    suspendCancellableCoroutine { continuation ->
+      val accepted =
+        postAndDrainEvents(
+          action = { map ->
+            if (continuation.isActive) continuation.resumeWith(runCatching { action(map) })
+          },
+          abandon = { continuation.resume(null) },
+        )
+      if (!accepted) continuation.resume(null)
+    }
+
   /** Queues [action] for the owner thread, reporting whether it was accepted. */
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
+
+  /** Keeps nested writes inside an owner commit; other callers enqueue their work. */
+  fun dispatch(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean {
+    if (!thread.isCurrent()) return post(action, abandon)
+    val current = map ?: return false
+    action(current)
+    return true
+  }
 
   /** Drains this action's events before executing later queued work. */
   fun postAndDrainEvents(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =

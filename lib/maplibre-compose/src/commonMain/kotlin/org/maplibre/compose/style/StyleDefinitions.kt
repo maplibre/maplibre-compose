@@ -56,14 +56,15 @@ internal sealed interface SourceDefinition {
 }
 
 /** Defines an immutable layer. The desired style revision specifies its placement. */
-internal data class ResolvedLayerDefinition(
-  val id: String,
-  val type: String,
-  val sourceId: String?,
+internal data class LayerDefinition(
   val value: JsonObject,
   val unsupportedProperties: Map<String, String> = emptyMap(),
   val filterUnsupportedProperties: Boolean = false,
-)
+) {
+  val id: String = (value.getValue("id") as JsonPrimitive).content
+  val type: String = (value["type"] as? JsonPrimitive)?.content.orEmpty()
+  val sourceId: String? = (value["source"] as? JsonPrimitive)?.content
+}
 
 /** Defines a resolved image without a painter, composition, or loaded-style reference. */
 internal data class StyleImageDefinition(
@@ -107,18 +108,11 @@ internal data class RasterDemCapabilities(
 )
 
 /** Preserve every engine-reported field when describing an existing layer. */
-internal fun resolvedLayerDefinition(id: String, value: JsonObject): ResolvedLayerDefinition =
-  ResolvedLayerDefinition(
-    id,
-    (value["type"] as? JsonPrimitive)?.content.orEmpty(),
-    (value["source"] as? JsonPrimitive)?.content,
-    JsonObject(value + ("id" to JsonPrimitive(id))),
-  )
+internal fun layerDefinitionFromJson(id: String, value: JsonObject): LayerDefinition =
+  LayerDefinition(JsonObject(value + ("id" to JsonPrimitive(id))))
 
 /** Compares construction inputs without allocating filtered property maps. */
-internal fun ResolvedLayerDefinition.hasSameConstructionProperties(
-  other: ResolvedLayerDefinition
-): Boolean {
+internal fun LayerDefinition.hasSameConstructionProperties(other: LayerDefinition): Boolean {
   if (value === other.value) return true
   return value.all { (name, value) ->
     name in MUTABLE_LAYER_PROPERTIES || other.value[name] == value

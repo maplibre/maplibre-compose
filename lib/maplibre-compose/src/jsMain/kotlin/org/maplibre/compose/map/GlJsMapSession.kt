@@ -67,13 +67,13 @@ import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
@@ -666,9 +666,7 @@ internal class GlJsMapSession(
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
   }
 
-  override suspend fun reconcileStyleRevision(
-    revision: DesiredStyleRevision
-  ): StyleResourceChanges {
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
     val engine = checkNotNull(lifecycleEngineIdentity)
     val style = checkNotNull(lifecycleStyleIdentity)
@@ -839,7 +837,7 @@ internal class GlJsMapSession(
     }
   }
 
-  override fun cameraForBounds(
+  override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -852,7 +850,7 @@ internal class GlJsMapSession(
       "The map could not calculate a camera for the bounds"
     }
 
-  override fun cameraForGeometry(
+  override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -863,7 +861,7 @@ internal class GlJsMapSession(
       map.cameraPositionForPositions(geometry.positions(), bearing, tilt, cameraPadding, fitPadding)
     } ?: throw IllegalStateException("The map could not calculate a camera for the geometry")
 
-  override fun fitCameraToBounds(
+  override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

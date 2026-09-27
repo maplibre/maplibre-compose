@@ -272,10 +272,10 @@ internal class GlJsStyleBinding(
     return map.getStyle().sources.keys().toList()
   }
 
-  override fun getLayer(id: String): ResolvedLayerDefinition? {
+  override fun getLayer(id: String): LayerDefinition? {
     requireLoaded()
     indicators[id]?.let {
-      return resolvedLayerDefinition(id, it.definition)
+      return layerDefinitionFromJson(id, it.definition)
     }
     return map.getLayer(id)?.let(::reconstructLayer)
   }
@@ -333,14 +333,14 @@ internal class GlJsStyleBinding(
     )
   }
 
-  private fun reconstructLayer(layer: StyleLayer): ResolvedLayerDefinition {
+  private fun reconstructLayer(layer: StyleLayer): LayerDefinition {
     val definition =
       layer.serialize().toJsonElement() as? JsonObject
         ?: buildJsonObject {
           put("id", layer.id)
           put("type", layer.type)
         }
-    return resolvedLayerDefinition(layer.id, definition)
+    return layerDefinitionFromJson(layer.id, definition)
   }
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean {

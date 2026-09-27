@@ -24,8 +24,8 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
 internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
@@ -95,7 +95,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         events.count { it == MapFixture.STYLE_LOADED } > styleLoadsBefore
       }
     }
-    glJsSession.reconcileStyleRevision(DesiredStyleRevision.Empty)
+    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty)
     state.styleAuthority.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
     state.styleAuthority.markStyleReady(glJsSession)
   }

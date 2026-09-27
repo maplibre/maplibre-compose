@@ -13,8 +13,8 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent: MapExtent) :
@@ -55,7 +55,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.styleAuthority.updateLoadedStyle(bridge.session, null)
     bridge.awaitStyle(style, timeout, extent)
-    bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+    bridge.session.reconcileStyleRevision(StyleSnapshot.Empty)
     state.styleAuthority.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
     check(state.styleAuthority.markStyleReady(bridge.session))
   }

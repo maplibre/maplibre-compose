@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.style.ResolvedLayerDefinition
+import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.util.toStyleJson
@@ -77,11 +77,8 @@ internal class TestLayer(val id: String, private val type: String, source: Sourc
 
   fun toJson(): JsonObject = JsonObject(values.filterValues { it != JsonNull })
 
-  fun definition(): ResolvedLayerDefinition =
-    ResolvedLayerDefinition(
-      id,
-      type,
-      (values["source"] as? JsonPrimitive)?.content,
+  fun definition(): LayerDefinition =
+    LayerDefinition(
       toJson(),
       filterUnsupportedProperties = filterUnsupportedProperties,
     )

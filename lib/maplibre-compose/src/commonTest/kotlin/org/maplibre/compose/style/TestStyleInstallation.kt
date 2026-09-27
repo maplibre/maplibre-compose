@@ -13,7 +13,7 @@ internal fun StyleBinding.install(layer: TestLayer, beforeLayerId: String = ""):
   LayerInstallation(this, layer.definition(), beforeLayerId)
 
 internal fun StyleBinding.install(
-  definition: ResolvedLayerDefinition,
+  definition: LayerDefinition,
   beforeLayerId: String = "",
 ): LayerInstallation = LayerInstallation(this, definition, beforeLayerId)
 

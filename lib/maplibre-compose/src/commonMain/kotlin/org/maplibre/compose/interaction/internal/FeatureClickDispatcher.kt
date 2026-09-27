@@ -7,13 +7,12 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.style.DesiredStyleLayer
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 internal class FeatureClickDispatcher(
   private val state: MapState,
-  private val desiredRevision: State<State<DesiredStyleRevision?>>,
+  private val desiredRevision: State<State<StyleSnapshot?>>,
   private val loadedStyle: State<StyleBinding?>,
   private val interactions: State<MapInteractions>,
 ) {
@@ -39,7 +38,7 @@ internal class FeatureClickDispatcher(
         loadedStyle.value === style &&
         (style == null || style.isLoaded)
 
-    fun current(node: DesiredStyleLayer): DesiredStyleLayer? =
+    fun current(node: StyleSnapshot.Layer): StyleSnapshot.Layer? =
       desiredRevision.value.value?.layers?.firstOrNull {
         it.definition.id == node.definition.id && it.registration === node.registration
       }
@@ -86,7 +85,7 @@ internal class FeatureClickDispatcher(
   }
 }
 
-private fun DesiredStyleLayer.handler(family: TapFamily): FeaturesClickHandler? =
+private fun StyleSnapshot.Layer.handler(family: TapFamily): FeaturesClickHandler? =
   when (family) {
     TapFamily.Tap -> onClick
     TapFamily.DoubleTap -> onDoubleClick

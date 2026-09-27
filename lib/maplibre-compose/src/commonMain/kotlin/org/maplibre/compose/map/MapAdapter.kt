@@ -17,9 +17,9 @@ import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -81,7 +81,7 @@ internal interface MapAdapter {
    * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
    * subsequent updates preserve readiness and return only the resources they changed.
    */
-  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges
+  suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges
 
   fun getCameraPosition(): CameraPosition
 
@@ -91,7 +91,7 @@ internal interface MapAdapter {
 
   fun setViewportInsets(insets: PaddingValues)
 
-  fun cameraForBounds(
+  suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -100,7 +100,7 @@ internal interface MapAdapter {
   ): CameraPosition
 
   /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
-  fun cameraForGeometry(
+  suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -108,7 +108,7 @@ internal interface MapAdapter {
     fitPadding: DpPadding,
   ): CameraPosition
 
-  fun fitCameraToBounds(
+  suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

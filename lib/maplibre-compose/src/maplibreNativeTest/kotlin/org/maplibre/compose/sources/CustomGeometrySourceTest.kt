@@ -19,8 +19,8 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
@@ -174,7 +174,7 @@ class CustomGeometrySourceTest {
     val handle = state.style.sources.add(source)
     binding.install(TestLayer("custom-fill", "fill", source))
     state.styleAuthority.desiredStyleRevision =
-      DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
+      StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())
     return assertIs<CustomGeometrySourceHandle>(handle)
   }
 

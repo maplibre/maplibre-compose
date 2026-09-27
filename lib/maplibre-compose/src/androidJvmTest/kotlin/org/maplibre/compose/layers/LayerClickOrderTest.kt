@@ -2,6 +2,8 @@ package org.maplibre.compose.layers
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -16,7 +18,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.ClickResult
@@ -131,8 +134,10 @@ class LayerClickOrderTest {
     body: ComposeUiTest.(center: Offset) -> Unit,
   ) = runFfiComposeUiTest {
     lateinit var mapState: MapState
+    lateinit var scope: CoroutineScope
 
     setFfiTestMapContent(runtimeOptions) {
+      scope = rememberCoroutineScope()
       mapState =
         rememberMapState(
           initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
@@ -190,12 +195,19 @@ class LayerClickOrderTest {
 
     // A layer is only dispatched to if a rendered query hits it, and only a rendered frame of the
     // parsed source populates that. Both layers must be hittable, or the assertions prove nothing.
-    waitUntil(timeoutMillis = TIMEOUT) {
-      listOf(FRONT, BACK).all { id ->
-        runBlocking { mapState.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
-          .isNotEmpty()
+    // Queries can await the first viewport. Keep the test clock running so style installation
+    // and presentation can publish it while the query is suspended.
+    val layersHittable = scope.async {
+      while (
+        !listOf(FRONT, BACK).all { id ->
+          mapState.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)).isNotEmpty()
+        }
+      ) {
+        withFrameNanos {}
       }
     }
+    waitUntil(timeoutMillis = TIMEOUT) { layersHittable.isCompleted }
+    layersHittable.await()
 
     body(Offset(size.width / 2f, size.height / 2f))
   }

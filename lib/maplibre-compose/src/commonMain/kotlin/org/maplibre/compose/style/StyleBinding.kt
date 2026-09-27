@@ -32,10 +32,11 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * A property write does not wait for the engine: MapLibre Native runs it on the map's owner thread
- * after the call returns, and MapLibre GL JS runs it during the call. The engine's rejection of
- * such a write is logged through [reportRejectedWrite]. A structural command, such as adding a
- * source, layer, or image, waits for the engine and throws [StyleMutationException] on refusal.
+ * A property write does not block waiting for the owner: MapLibre Native posts it to the map's
+ * owner thread, or applies it inline when already there. MapLibre GL JS applies it during the call.
+ * The engine's rejection of such a write is logged through [reportRejectedWrite]. A structural
+ * command, such as adding a source, layer, or image, waits for the engine and throws
+ * [StyleMutationException] on refusal.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -83,7 +84,7 @@ internal interface StyleBinding {
 
   fun sourceIds(): List<String> = getSources().map { it.id }
 
-  fun getLayer(id: String): ResolvedLayerDefinition?
+  fun getLayer(id: String): LayerDefinition?
 
   fun layerIds(): List<String>
 
@@ -103,7 +104,7 @@ internal interface StyleBinding {
    */
   fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
 
-  fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean {
+  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
     requireCurrent()
     return addLayer(definition.value, beforeLayerId)
   }
@@ -512,7 +513,7 @@ internal fun StyleBinding.baseLayerSummaries(): Map<String, LayerSummary> = iden
   layerSummaries()
 }
 
-internal fun ResolvedLayerDefinition.summary(): LayerSummary =
+internal fun LayerDefinition.summary(): LayerSummary =
   LayerSummary(
     type = type,
     source = sourceId ?: value.rootString("source"),

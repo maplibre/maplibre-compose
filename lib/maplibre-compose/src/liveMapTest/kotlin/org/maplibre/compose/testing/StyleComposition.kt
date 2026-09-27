@@ -13,19 +13,15 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleCompositionOwner
 import org.maplibre.compose.style.StyleContent
-import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
@@ -38,27 +34,21 @@ internal suspend fun composeStyle(
   thenChange: (() -> Unit)? = null,
   graphicsContext: GraphicsContext? = null,
   density: () -> Density = { Density(1f) },
-  onRevision: (DesiredStyleRevision) -> Unit = {},
-  awaitRevision: (DesiredStyleRevision) -> Boolean = { true },
+  onRevision: (StyleSnapshot) -> Unit = {},
+  awaitRevision: (StyleSnapshot) -> Boolean = { true },
   content: @Composable @MaplibreComposable () -> Unit,
 ): RecordingStyleBinding {
   val frameClock = BroadcastFrameClock()
   withContext(frameClock) {
     withRunningRecomposer { recomposer ->
-      var revision: DesiredStyleRevision? = null
-      val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
-      val owner = launch {
-        StyleCompositionOwner().run(declarations) {
-          revision = it
-          onRevision(it)
-        }
-      }
+      var revision: StyleSnapshot? = null
       val rootNode =
         StyleNode(
           style,
+          imageScope = this,
           publish = {
-            revision = null
-            declarations.trySend(it).getOrThrow()
+            revision = it
+            onRevision(it)
           },
         )
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
@@ -99,8 +89,6 @@ internal suspend fun composeStyle(
           reconciler.apply(style, requireNotNull(revision))
         }
       } finally {
-        owner.cancel()
-        declarations.cancel()
         rootNode.close()
         composition.dispose()
       }

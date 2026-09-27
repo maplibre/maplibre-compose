@@ -19,8 +19,8 @@ import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.map.overdrawInspector
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleSnapshot
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
@@ -105,7 +105,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadedBinding = style
       styleLoaded = false
       if (style != null) {
-        scope.launch { session.reconcileStyleRevision(DesiredStyleRevision.Empty) }
+        scope.launch { session.reconcileStyleRevision(StyleSnapshot.Empty) }
       }
     }
 

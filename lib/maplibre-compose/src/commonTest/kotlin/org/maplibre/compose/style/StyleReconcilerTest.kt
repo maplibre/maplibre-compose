@@ -24,7 +24,7 @@ class StyleReconcilerTest {
 
     val error =
       assertFailsWith<IllegalArgumentException> {
-        DesiredStyleRevision(
+        StyleSnapshot(
           sources = listOf(source, source),
           layers = emptyList(),
           images = emptyList(),
@@ -129,13 +129,13 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_later_complete_revision_supersedes_a_failed_revision() {
+  fun a_later_complete_revision_removes_resources_left_by_a_partial_failure() {
     var fail = true
     val delegate = RecordingStyleBinding()
     val style =
       object : StyleBinding by delegate {
         override fun addSource(definition: SourceDefinition): Boolean {
-          if (fail) error("engine refused")
+          if (fail && definition.id == "refused") error("engine refused")
           return delegate.addSource(definition)
         }
       }
@@ -143,8 +143,14 @@ class StyleReconcilerTest {
     val first = source("first")
 
     assertFailsWith<IllegalStateException> {
-      reconciler.apply(style, revision(first, TestLayer("first-layer", "raster", first)))
+      reconciler.apply(
+        style,
+        revision(first, TestLayer("first-layer", "raster", first))
+          .copy(sources = listOf(first.definition(), source("refused").definition())),
+      )
     }
+    assertEquals(setOf("first"), delegate.installedSourceIds)
+    assertTrue(delegate.installedLayerIds.isEmpty())
 
     fail = false
     val second = source("second")
@@ -158,10 +164,8 @@ class StyleReconcilerTest {
   fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
-    val source = source("tiles")
-    val layer = TestLayer("raster", "raster", source)
     fun revisionWith(vararg images: StyleImageDefinition) =
-      revision(source, layer).copy(images = images.toList())
+      StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
       StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
 
@@ -182,10 +186,8 @@ class StyleReconcilerTest {
     val refused = mutableSetOf("icon")
     val style = RecordingStyleBinding(refusedImageReplacements = refused)
     val reconciler = StyleReconciler()
-    val source = source("tiles")
-    val layer = TestLayer("raster", "raster", source)
     fun revisionWith(vararg images: StyleImageDefinition) =
-      revision(source, layer).copy(images = images.toList())
+      StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
       StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
 
@@ -205,10 +207,8 @@ class StyleReconcilerTest {
   fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() {
     val style = RecordingStyleBinding(refusedImageReplacements = setOf("icon"))
     val reconciler = StyleReconciler()
-    val source = source("tiles")
-    val layer = TestLayer("raster", "raster", source)
     fun revisionWith(vararg images: StyleImageDefinition) =
-      revision(source, layer).copy(images = images.toList())
+      StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
       StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
 
@@ -222,13 +222,52 @@ class StyleReconcilerTest {
     assertTrue(style.imageIds.isEmpty())
   }
 
+  @Test
+  fun preparing_resolves_anchors_without_installing_or_replaying_application_callbacks() {
+    val base = TestLayer("base", "background")
+    val style = RecordingStyleBinding(layers = listOf(base))
+    val reconciler = StyleReconciler()
+    val source = source("tiles")
+    val layer = TestLayer("raster", "raster", source)
+    var predicates = 0
+    val desired =
+      revision(source, layer).let {
+        it.copy(
+          layers =
+            listOf(
+              it.layers
+                .single()
+                .copy(
+                  anchor =
+                    Anchor.Below {
+                      predicates++
+                      it.id == "base"
+                    }
+                )
+            )
+        )
+      }
+    val prepared = reconciler.prepare(style, desired)
+    assertEquals(1, predicates)
+    assertTrue(style.installedLayerIds.isEmpty())
+    reconciler.apply(style, prepared)
+    assertEquals(1, predicates)
+    assertEquals(listOf("raster", "base"), style.layerIds())
+
+    val replacement = RecordingStyleBinding(layers = listOf(base))
+    assertFailsWith<IllegalStateException> { reconciler.apply(replacement, prepared) }
+    style.invalidate()
+    assertFailsWith<IllegalStateException> { reconciler.apply(style, prepared) }
+    assertTrue(replacement.installedLayerIds.isEmpty())
+  }
+
   private fun source(id: String) =
     RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 
   private fun revision(source: RasterTileSource, layer: TestLayer) =
-    DesiredStyleRevision(
+    StyleSnapshot(
       sources = listOf(source.definition()),
-      layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
       images = emptyList(),
     )
 
@@ -239,9 +278,9 @@ class StyleReconcilerTest {
     override fun addSource(definition: SourceDefinition): Boolean =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean =
-      delegate.addLayer(definition, beforeLayerId).also {
-        additions += "layer:${definition.id}"
+    override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+      delegate.addLayer(layer, beforeLayerId).also {
+        additions += "layer:${(layer["id"] as JsonPrimitive).content}"
       }
   }
 }

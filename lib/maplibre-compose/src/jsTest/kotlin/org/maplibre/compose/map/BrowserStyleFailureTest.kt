@@ -8,7 +8,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.GlJsMapFixture
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
@@ -49,7 +49,7 @@ class BrowserStyleFailureTest {
             failure,
             assertFailsWith<IllegalStateException> {
               if (engineReadyLast) map.asDynamic().fire("styledata")
-              else session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+              else session.reconcileStyleRevision(StyleSnapshot.Empty)
             },
           )
           assertFalse(session.canPresentFrames)
@@ -57,7 +57,7 @@ class BrowserStyleFailureTest {
           map.asDynamic().isStyleLoaded = originalIsStyleLoaded
           session.callbacks = callbacks
         }
-        session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+        session.reconcileStyleRevision(StyleSnapshot.Empty)
         assertTrue(session.canPresentFrames)
       }
     }
@@ -77,7 +77,7 @@ class BrowserStyleFailureTest {
             callbacks.onStyleReady(map)
           }
         }
-      repeat(3) { session.reconcileStyleRevision(DesiredStyleRevision.Empty) }
+      repeat(3) { session.reconcileStyleRevision(StyleSnapshot.Empty) }
       assertEquals(0, readyCount)
       assertTrue(session.canPresentFrames)
     }

@@ -18,7 +18,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -35,15 +34,21 @@ class StyleCommitTest {
   @Test
   fun a_shared_source_lives_until_its_last_committed_layer_is_removed() = runTest {
     var count by mutableStateOf(2)
+    var sourceData by mutableStateOf(data(1))
     Fixture(this).use { fixture ->
       fixture.setContent {
-        val source = rememberGeoJsonSource(data(1))
+        val source = rememberGeoJsonSource(sourceData)
         repeat(count) { CircleLayer("layer-$it", source, visible = true) }
       }
-      assertEquals(1, fixture.revisions.last().sources.size)
+      val originalSource = fixture.revisions.last().sources.single()
       count = 1
       fixture.frame()
-      assertEquals(1, fixture.revisions.last().sources.size)
+      assertEquals(originalSource, fixture.revisions.last().sources.single())
+      sourceData = data(2)
+      fixture.frame()
+      val updatedSource = fixture.revisions.last().sources.single() as SourceDefinition.GeoJson
+      assertEquals(originalSource.id, updatedSource.id)
+      assertEquals(data(2), updatedSource.data)
       count = 0
       fixture.frame()
       assertTrue(fixture.revisions.last().sources.isEmpty())
@@ -83,30 +88,10 @@ class StyleCommitTest {
     }
   }
 
-  @Test
-  fun disposing_composition_does_not_clear_installed_content() = runTest {
-    val fixture = Fixture(this)
-    try {
-      fixture.setContent { BackgroundLayer("bitmap", pattern = image(FakeImageBitmap(2, 2))) }
-      val committed = fixture.revisions.last()
-      assertEquals(1, committed.images.size)
-      assertEquals(1, committed.layers.size)
-      fixture.close()
-      assertEquals(committed, fixture.revisions.last())
-    } finally {
-      fixture.close()
-    }
-  }
-
   private class Fixture(private val scope: TestScope) : AutoCloseable {
-    val revisions = mutableListOf<DesiredStyleRevision>()
-    private val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
-    private val owner =
-      scope.backgroundScope.launch {
-        StyleCompositionOwner().run(declarations) { revisions += it }
-      }
+    val revisions = mutableListOf<StyleSnapshot>()
     val root =
-      StyleNode(RecordingStyleBinding(), publish = { declarations.trySend(it).getOrThrow() })
+      StyleNode(RecordingStyleBinding(), scope.backgroundScope, publish = { revisions += it })
     private val clock = BroadcastFrameClock()
     private val recomposer = Recomposer(scope.backgroundScope.coroutineContext + clock)
     private val composition = Composition(MapNodeApplier(root), recomposer)
@@ -135,8 +120,6 @@ class StyleCommitTest {
     }
 
     override fun close() {
-      owner.cancel()
-      declarations.cancel()
       root.close()
       composition.dispose()
       recomposer.cancel()

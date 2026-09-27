@@ -5,10 +5,10 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
 
-/** One complete immutable evaluation of a map's style content. */
-internal data class DesiredStyleRevision(
+/** An immutable, engine-ready snapshot of committed style content. */
+internal data class StyleSnapshot(
   val sources: List<SourceDefinition>,
-  val layers: List<DesiredStyleLayer>,
+  val layers: List<Layer>,
   val images: List<StyleImageDefinition>,
   /** The animator duration scale the composition read; layer transitions are scaled by it. */
   val animatorDurationScale: Float = 1f,
@@ -28,18 +28,18 @@ internal data class DesiredStyleRevision(
   }
 
   companion object {
-    val Empty = DesiredStyleRevision(emptyList(), emptyList(), emptyList())
+    val Empty = StyleSnapshot(emptyList(), emptyList(), emptyList())
   }
-}
 
-/** One layer definition at its explicit position in a desired revision. */
-internal data class DesiredStyleLayer(
-  val definition: ResolvedLayerDefinition,
-  val anchor: Anchor,
-  val onClick: FeaturesClickHandler?,
-  val onLongClick: FeaturesClickHandler?,
-  val onDoubleClick: FeaturesClickHandler? = null,
-  val hitPadding: Dp = 0.dp,
-  val registration: Any? = null,
-  val clickGroup: Any? = null,
-)
+  /** One layer definition at its explicit position in a style snapshot. */
+  data class Layer(
+    val definition: LayerDefinition,
+    val anchor: Anchor,
+    val onClick: FeaturesClickHandler?,
+    val onLongClick: FeaturesClickHandler?,
+    val onDoubleClick: FeaturesClickHandler? = null,
+    val hitPadding: Dp = 0.dp,
+    val registration: Any? = null,
+    val clickGroup: Any? = null,
+  )
+}

@@ -15,17 +15,21 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.ImageStretch
 
@@ -42,6 +46,9 @@ internal class MapStyleAuthority(
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
   private val readDispatcher: CoroutineDispatcher
     get() = runtime.readDispatcher
+
+  /** Serializes acceptance through publication, including across presentation replacement. */
+  private val styleRevisionMutex = Mutex()
 
   private var baseStyleCommandRevision = 0L
   private var styleHandleEpoch = 0L
@@ -60,10 +67,10 @@ internal class MapStyleAuthority(
    */
   private var backgroundStyleMutation: StyleMutationReservation? = null
 
-  private val desiredStyleRevisionState = AtomicReference(DesiredStyleRevision.Empty)
+  private val desiredStyleRevisionState = AtomicReference(StyleSnapshot.Empty)
 
   /** Read from the style read dispatcher too. Written on the main thread only. */
-  internal var desiredStyleRevision: DesiredStyleRevision
+  internal var desiredStyleRevision: StyleSnapshot
     get() = desiredStyleRevisionState.load()
     set(value) = desiredStyleRevisionState.store(value)
 
@@ -143,13 +150,9 @@ internal class MapStyleAuthority(
     val binding = style.currentLoadedStyle() ?: return
     if (binding.identity !== changes.identity) return
     val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-    // The engine already holds these changes. A newer revision cancelling the caller must not
-    // leave them unpublished: it would report no structural change and never repair the handles.
-    withContext(NonCancellable) {
-      changes.sources.forEach { refreshStyleSources(adapter, it) }
-      if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
-      changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
-    }
+    changes.sources.forEach { refreshStyleSources(adapter, it) }
+    if (!isCurrentStyleResourceRead(adapter, read)) return
+    changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
   }
 
   /**
@@ -188,7 +191,7 @@ internal class MapStyleAuthority(
     if (style.currentLoadedStyle() === loadedStyle) return true
     // Declarations belong to the evaluated generation. A new style is evaluated afresh, and
     // may legitimately contain a base resource with an ID used by the previous composition.
-    desiredStyleRevision = DesiredStyleRevision.Empty
+    desiredStyleRevision = StyleSnapshot.Empty
     styleHandleEpoch++
     imperativeSources.store(emptyMap())
     imperativeImages.clear()
@@ -214,11 +217,15 @@ internal class MapStyleAuthority(
   internal suspend fun applyStyleRevision(
     adapter: MapAdapter,
     binding: StyleBinding,
-    revision: DesiredStyleRevision,
-  ) {
-    if (!beginStyleRevision(adapter, revision, binding)) return
+    revision: StyleSnapshot,
+  ) = styleRevisionMutex.withLock {
+    currentCoroutineContext().ensureActive()
+    if (!beginStyleRevision(adapter, revision, binding)) return@withLock
     try {
-      updateStyleResources(adapter, adapter.reconcileStyleRevision(revision))
+      // Once accepted, commit and publish together: cancellation must not lose committed changes.
+      withContext(NonCancellable) {
+        updateStyleResources(adapter, adapter.reconcileStyleRevision(revision))
+      }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -231,7 +238,7 @@ internal class MapStyleAuthority(
 
   internal suspend fun beginStyleRevision(
     adapter: MapAdapter,
-    revision: DesiredStyleRevision,
+    revision: StyleSnapshot,
     binding: StyleBinding? = style.currentLoadedStyle(),
   ): Boolean {
     lifecycle.requireMain()
@@ -609,7 +616,7 @@ internal class MapStyleAuthority(
     }
   }
 
-  private fun requireNoImperativeResourceConflicts(revision: DesiredStyleRevision) {
+  private fun requireNoImperativeResourceConflicts(revision: StyleSnapshot) {
     revision.sources
       .firstOrNull { it.id in imperativeSources.load() }
       ?.let {

@@ -66,21 +66,32 @@ class StylePropertyBatchTest {
   }
 
   @Test
-  fun a_rejected_write_keeps_its_value_without_failing_the_batch() = runTest {
-    val style = RecordingStyleBinding(refusedLayerProperties = setOf("a:background-color"))
+  fun a_rejected_transition_does_not_stop_later_value_writes_in_the_same_batch() = runTest {
+    val style =
+      RecordingStyleBinding(refusedLayerProperties = setOf("a:background-color-transition"))
     val reconciler = StyleReconciler()
+    val originalTiming = """{"duration":100.0,"delay":0.0}"""
+    reconciler.apply(style, revision(background("a", "red", transition = originalTiming)))
+    val changed =
+      revision(background("a", "green", transition = """{"duration":300.0,"delay":50.0}"""))
+    reconciler.apply(style, changed)
 
-    reconciler.apply(style, revision(background("a", "red"), background("b", "blue")))
-    reconciler.apply(style, revision(background("a", "green"), background("b", "yellow")))
+    // Transitions precede their values, so the accepted color is after the rejected write.
+    assertEquals(
+      Json.parseToJsonElement(originalTiming),
+      style.layerProperty("a", "background-color-transition"),
+    )
+    assertEquals(JsonPrimitive("green"), style.layerProperty("a", "background-color"))
+    assertEquals(1, style.layerPropertyBatches.size)
 
-    assertEquals(JsonPrimitive("red"), style.layerProperty("a", "background-color"))
-    assertEquals(JsonPrimitive("yellow"), style.layerProperty("b", "background-color"))
+    reconciler.apply(style, changed)
+    assertEquals(1, style.layerPropertyBatches.size, "an unchanged rejected value is not retried")
   }
 
-  private fun revision(vararg layers: ResolvedLayerDefinition): DesiredStyleRevision =
-    DesiredStyleRevision(
+  private fun revision(vararg layers: LayerDefinition): StyleSnapshot =
+    StyleSnapshot(
       sources = emptyList(),
-      layers = layers.map { DesiredStyleLayer(it, Anchor.Top, null, null) },
+      layers = layers.map { StyleSnapshot.Layer(it, Anchor.Top, null, null) },
       images = emptyList(),
     )
 
@@ -89,11 +100,8 @@ class StylePropertyBatchTest {
     color: String,
     transition: String? = null,
     opacity: Double = 1.0,
-  ): ResolvedLayerDefinition =
-    ResolvedLayerDefinition(
-      id = id,
-      type = "background",
-      sourceId = null,
+  ): LayerDefinition =
+    LayerDefinition(
       value =
         buildJsonObject {
           put("id", JsonPrimitive(id))
@@ -108,6 +116,6 @@ class StylePropertyBatchTest {
               }
             },
           )
-        },
+        }
     )
 }
