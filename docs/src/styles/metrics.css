@@ -331,6 +331,20 @@
   stroke: var(--metrics-series-3);
 }
 
+.metrics-band {
+  opacity: 0.16;
+}
+
+.metrics-band.metrics-series-1 {
+  fill: var(--metrics-series-1);
+}
+.metrics-band.metrics-series-2 {
+  fill: var(--metrics-series-2);
+}
+.metrics-band.metrics-series-3 {
+  fill: var(--metrics-series-3);
+}
+
 .metrics-dot {
   stroke: var(--sl-color-bg);
   stroke-width: 2;

@@ -6,7 +6,14 @@ export interface ChartSpec {
   unit: string;
   definition?: string;
   series: { key: string; label: string; definition?: string }[];
+  /** Whether values are whole numbers; a fractional axis needs decimals. Defaults to true. */
+  integer?: boolean;
+  /** Formats a value for the legend and tooltip. Defaults to whole numbers. */
+  format?: (value: number | null | undefined) => string;
 }
+
+/** The low and high column drawn as a band behind one series. */
+export type Band = [(number | null)[], (number | null)[]];
 
 export interface Timeline {
   commits: Commit[];
@@ -32,12 +39,12 @@ function svg<K extends keyof SVGElementTagNameMap>(
 }
 
 /** A round step size that splits [0, max] into about three bands. */
-function niceStep(max: number) {
+function niceStep(max: number, integer: boolean) {
   if (max <= 0) return 1;
   const rough = max / 3;
   const magnitude = 10 ** Math.floor(Math.log10(rough));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough)!;
-  return Math.max(step, 1);
+  return integer ? Math.max(step, 1) : step;
 }
 
 /** Week, month, or year boundaries, whichever gives at most [limit] ticks. */
@@ -88,6 +95,8 @@ export class TrendChart {
   private readonly tooltip = document.createElement("div");
   private readonly values: HTMLElement[] = [];
   private columns: (number | null)[][] = [];
+  private bands: (Band | undefined)[] = [];
+  private readonly format: (value: number | null | undefined) => string;
   private width = 0;
   private x = (_: number) => 0;
   private y = (_: number) => 0;
@@ -99,6 +108,7 @@ export class TrendChart {
     private readonly timeline: Timeline,
   ) {
     this.element.className = "metrics-chart";
+    this.format = spec.format ?? format;
     const caption = document.createElement("figcaption");
     const title = document.createElement("span");
     title.className = "metrics-chart-title";
@@ -161,8 +171,9 @@ export class TrendChart {
     }).observe(body);
   }
 
-  setData(columns: (number | null)[][]) {
+  setData(columns: (number | null)[][], bands: (Band | undefined)[] = []) {
     this.columns = columns;
+    this.bands = bands;
     this.draw();
   }
 
@@ -188,9 +199,14 @@ export class TrendChart {
     const bottom = height - margin.bottom;
     const [start, end] = [times[0], times.at(-1)!];
     this.x = (t) => margin.left + ((t - start) / (end - start || 1)) * (right - margin.left);
-    const max = Math.max(0, ...this.columns.flat().filter((v): v is number => v != null));
-    const step = niceStep(max);
-    const top = Math.max(step, Math.ceil(max / step) * step);
+    const integer = this.spec.integer ?? true;
+    const highs = this.bands.flatMap((band) => (band ? [band[1]] : []));
+    const max = Math.max(0, ...[...this.columns, ...highs].flat().filter((v): v is number => v != null));
+    const step = niceStep(max, integer);
+    const top = Math.max(step, Math.ceil(max / step - 1e-9) * step);
+    // As many decimals as the step has, so 0.25 labels as 0.25 rather than 0.3.
+    const decimals = integer ? 0 : (step.toString().split(".")[1] ?? "").length;
+    const axisLabel = (v: number) => (integer ? formatCompact(v) : v.toLocaleString("en", { maximumFractionDigits: decimals }));
     this.y = (v) => bottom - (v / top) * (bottom - margin.top);
 
     const plot = this.plot;
@@ -198,10 +214,11 @@ export class TrendChart {
     plot.setAttribute("viewBox", `0 0 ${this.width} ${height}`);
     plot.setAttribute("height", String(height));
 
-    for (let v = 0; v <= top; v += step) {
+    for (let i = 0; i * step <= top + 1e-9; i++) {
+      const v = i * step;
       plot.append(svg("line", { class: "metrics-grid", x1: margin.left, x2: right, y1: this.y(v), y2: this.y(v) }));
       plot.append(
-        svg("text", { class: "metrics-axis", x: margin.left - 6, y: this.y(v), "text-anchor": "end", "dominant-baseline": "middle" }, formatCompact(v)),
+        svg("text", { class: "metrics-axis", x: margin.left - 6, y: this.y(v), "text-anchor": "end", "dominant-baseline": "middle" }, axisLabel(v)),
       );
     }
 
@@ -218,6 +235,27 @@ export class TrendChart {
       plot.append(svg("text", { class: "metrics-axis", x, y: margin.top - 8, "text-anchor": "middle" }, release.label));
     }
 
+    // Bands follow the line's steps, one polygon per run of consecutive measurements.
+    this.bands.forEach((band, i) => {
+      const [low, high] = band ?? [];
+      if (!low || !high) return;
+      const x = (j: number) => this.x(times[j]);
+      const runs: number[][] = [];
+      high.forEach((v, j) => {
+        if (v == null || low[j] == null) return;
+        if (runs.length && runs.at(-1)!.at(-1) === j - 1) runs.at(-1)!.push(j);
+        else runs.push([j]);
+      });
+      for (const xs of runs) {
+        const last = xs.at(-1)!;
+        const end = last === times.length - 1 ? right : x(last + 1);
+        let d = `M${x(xs[0])} ${this.y(high[xs[0]]!)}`;
+        for (const j of xs.slice(1)) d += `H${x(j)}V${this.y(high[j]!)}`;
+        d += `H${end}V${this.y(low[last]!)}`;
+        for (let k = xs.length - 1; k > 0; k--) d += `H${x(xs[k])}V${this.y(low[xs[k - 1]]!)}`;
+        plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}H${x(xs[0])}Z` }));
+      }
+    });
     this.columns.forEach((column, i) => {
       let d = "";
       let open = false;
@@ -239,7 +277,7 @@ export class TrendChart {
 
   private drawCursor() {
     const index = this.hovered ?? this.selected;
-    this.columns.forEach((column, i) => (this.values[i].textContent = format(column[index])));
+    this.columns.forEach((column, i) => (this.values[i].textContent = this.format(column[index])));
     if (!this.width) return;
     const { times, commits } = this.timeline;
     const x = this.x(times[index]);
