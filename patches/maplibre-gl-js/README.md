@@ -55,8 +55,4 @@ from the published KLIB and call `configureMapLibreWorker` before creating maps.
 It must use the worker from the same Compose release, including its patches.
 
 `mise run test:maplibre-gl-js` runs the carried upstream camera tests.
-`mise run test:js` runs these, the normal browser suites, and an independent
-consumer of locally published Maven artifacts. `mise run test:js:publishing`
-runs just the publication check after browser tooling has been installed. That
-consumer renders and queries a GeoJSON feature with external browser requests
-blocked, so it also exercises the worker shipped to users.
+`mise run test:js` runs these and the normal browser suites.

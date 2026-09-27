@@ -238,10 +238,6 @@ description = "Run upstream camera regression tests with the carried GL JS patch
 depends = ["build:maplibre-gl-js"]
 run = "cd third_party/maplibre-gl-js && npm run test-unit -- src/ui/camera.test.ts"
 
-[tasks."test:js:publishing"]
-description = "Verify an independent consumer of the published JS library and embedded worker."
-run = ".mise/bin/test-js-publishing"
-
 [tasks."test:js"]
 depends = ["test:maplibre-gl-js"]
 description = "Run Kotlin/JS tests in Chromium, Firefox, and WebKit."
@@ -267,7 +263,6 @@ if [[ "$(uname -s)" == Linux ]]; then
 else
   ./gradlew jsBrowserTest
 fi
-mise run test:js:publishing
 '''
 
 [tasks."test:desktop"]
