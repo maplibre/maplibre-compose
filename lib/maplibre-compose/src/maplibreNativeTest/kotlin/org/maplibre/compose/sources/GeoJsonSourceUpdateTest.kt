@@ -7,9 +7,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
@@ -24,12 +26,16 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.MapEvent
+import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.fileUrlOf
+import org.maplibre.compose.resource.MapResourceConfig
+import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RgbaPixel
@@ -55,7 +61,17 @@ class GeoJsonSourceUpdateTest {
     assertQueuedUpdate(latestIsUri = true)
 
   private fun assertQueuedUpdate(latestIsUri: Boolean): MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
+    val map =
+      if (latestIsUri) createMapFixture()
+      else
+        MlnFfiMapFixture(
+          BridgeMapFixture.create(
+            resourceConfig =
+              MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() })
+          ),
+          MapFixture.DEFAULT_EXTENT,
+        )
+    map.use { fixture ->
       fixture.loadStyle(STYLE)
       fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
       val style = checkNotNull(fixture.style) { "Errors: ${fixture.errors}" }
@@ -82,12 +98,16 @@ class GeoJsonSourceUpdateTest {
         fixture.readPixel(centerX, centerY).isNear(CIRCLE)
       }
 
-      val file = FfiTestPlatform.createCacheFile()
+      val file = if (latestIsUri) FfiTestPlatform.createCacheFile() else null
       try {
-        SystemFileSystem.sink(file).buffered().use {
-          it.writeString(pointAt(if (latestIsUri) FAR_AWAY else ORIGIN).toJson())
-        }
-        val uri = GeoJsonData.Uri(fileUrlOf(file))
+        val uri =
+          if (file == null) GeoJsonData.Uri("held://superseded.geojson")
+          else {
+            SystemFileSystem.sink(file).buffered().use {
+              it.writeString(pointAt(FAR_AWAY).toJson())
+            }
+            GeoJsonData.Uri(fileUrlOf(file))
+          }
         val inline = GeoJsonData.Features(pointAt(if (latestIsUri) ORIGIN else FAR_AWAY))
         (fixture as MlnFfiMapFixture).withOwnerParked {
           sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
@@ -101,17 +121,13 @@ class GeoJsonSourceUpdateTest {
             fixture.readPixel(centerX, centerY).isNear(BACKGROUND)
           }
         } else {
-          // Real hosts draw only requested frames. An unconditional pump could mask a missing
-          // repaint.
-          fixture.settle()
-          assertTrue(
-            fixture.readPixel(centerX, centerY).isNear(BACKGROUND),
-            "the update did not render without pumping: ${fixture.errors}",
-          )
+          // Withhold the superseded URL response so its native parser cannot race the inline
+          // update. Real hosts draw only requested frames; pumping could mask a missing repaint.
+          fixture.awaitRequestedPixel(BACKGROUND)
         }
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       } finally {
-        FfiTestPlatform.deleteCacheFile(file)
+        file?.let(FfiTestPlatform::deleteCacheFile)
       }
     }
   }
@@ -135,22 +151,15 @@ class GeoJsonSourceUpdateTest {
         assertFalse(completion.isCompleted, "completion missed a queued source's first update")
       }
       completion.await()
-      fixture.settle()
-      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
-      fixture.pumpUntil("the source to stay hidden below its minimum zoom") {
-        fixture.readPixel(256, 256).isNear(BACKGROUND)
-      }
+      fixture.awaitRequestedPixel(BACKGROUND)
 
       handle.asMutable!!.setData(GeoJsonData.Features(pointAt(ORIGIN)))
-
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-      fixture.settle()
-      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      fixture.awaitRequestedPixel(CIRCLE)
+      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
+      fixture.awaitRequestedPixel(BACKGROUND)
       fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 8.0))
-      fixture.pumpUntil("the updated point to render above its minimum zoom") {
-        fixture.readPixel(256, 256).isNear(CIRCLE)
-      }
+      fixture.awaitRequestedPixel(CIRCLE)
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -193,8 +202,16 @@ class GeoJsonSourceUpdateTest {
 
       handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
       binding.awaitGeoJsonUpdates()
-      fixture.settle()
-      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      fixture.awaitRequestedPixel(BACKGROUND)
+    }
+  }
+
+  private suspend fun MapFixture.awaitRequestedPixel(expected: RgbaPixel) {
+    val native = this as MlnFfiMapFixture
+    withTimeout(5_000L) {
+      while (!readPixel(256, 256).isNear(expected)) {
+        native.bridge.awaitRenderOnDemand(10.milliseconds)
+      }
     }
   }
 
