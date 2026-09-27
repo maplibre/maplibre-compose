@@ -77,8 +77,7 @@ internal class StyleReconciler {
           desired.placement != applied.placement ||
           desired.definition.type != applied.definition.type ||
           desired.definition.sourceId != applied.definition.sourceId ||
-          desired.definition.constructionProperties() !=
-            applied.definition.constructionProperties() ||
+          !desired.definition.hasSameConstructionProperties(applied.definition) ||
           desired.definition.sourceId in replacedSourceIds
       ) {
         removeLayer(applied, changes)

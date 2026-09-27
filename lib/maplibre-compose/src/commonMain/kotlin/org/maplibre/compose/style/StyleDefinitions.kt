@@ -115,8 +115,14 @@ internal fun resolvedLayerDefinition(id: String, value: JsonObject): ResolvedLay
     JsonObject(value + ("id" to JsonPrimitive(id))),
   )
 
-/** Root fields without a portable live setter are construction inputs. */
-internal fun ResolvedLayerDefinition.constructionProperties():
-  Map<String, kotlinx.serialization.json.JsonElement> = value.filterKeys {
-  it !in setOf("layout", "paint", "filter", "minzoom", "maxzoom")
+/** Compares construction inputs without allocating filtered property maps. */
+internal fun ResolvedLayerDefinition.hasSameConstructionProperties(
+  other: ResolvedLayerDefinition
+): Boolean {
+  if (value === other.value) return true
+  return value.all { (name, value) ->
+    name in MUTABLE_LAYER_PROPERTIES || other.value[name] == value
+  } && other.value.keys.all { it in MUTABLE_LAYER_PROPERTIES || it in value }
 }
+
+private val MUTABLE_LAYER_PROPERTIES = setOf("layout", "paint", "filter", "minzoom", "maxzoom")

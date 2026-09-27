@@ -106,6 +106,8 @@ internal class LayerInstallation(
   animatorDurationScale: Float = 1f,
 ) {
   val id: String = definition.id
+  private var declared = definition
+  private var durationScale = animatorDurationScale
   private var current = definition.resolveFor(style, animatorDurationScale)
   private val reportedUnsupported = mutableSetOf<String>()
 
@@ -123,8 +125,13 @@ internal class LayerInstallation(
   fun update(definition: ResolvedLayerDefinition, animatorDurationScale: Float = 1f) {
     style.requireCurrent()
     require(definition.id == id) { "A layer handle cannot change resource identity" }
+    if (definition == declared && animatorDurationScale == durationScale) return
     val next = definition.resolveFor(style, animatorDurationScale)
-    if (next == current) return
+    if (next == current) {
+      declared = definition
+      durationScale = animatorDurationScale
+      return
+    }
     val previousValue = current.value
     val nextValue = next.value
     val writes = buildList {
@@ -155,6 +162,8 @@ internal class LayerInstallation(
     }
     style.setLayerProperties(writes)
     current = next
+    declared = definition
+    durationScale = animatorDurationScale
     reportUnsupported(definition)
   }
 
