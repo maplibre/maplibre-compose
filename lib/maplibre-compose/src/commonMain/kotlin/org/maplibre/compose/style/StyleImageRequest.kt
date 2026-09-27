@@ -5,7 +5,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
-import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.map.ResolvedStyleImage
 
 internal sealed interface StyleImageRequest {
   data class Bitmap(val literal: BitmapLiteral) : StyleImageRequest
@@ -18,16 +18,10 @@ internal sealed interface StyleImageRequest {
   ) : StyleImageRequest
 }
 
-internal data class StyleImageContent(
-  val image: ImageSnapshot,
-  val sdf: Boolean,
-  val stretch: ImageStretch?,
-)
-
 internal fun StyleImageRequest.Bitmap.prepare() =
-  StyleImageContent(ImageSnapshot.capture(literal.value), literal.sdf, literal.stretch)
+  ResolvedStyleImage(ImageSnapshot.capture(literal.value), literal.sdf, literal.stretch)
 
-internal suspend fun StyleImageRequest.Painter.prepare(): StyleImageContent {
+internal suspend fun StyleImageRequest.Painter.prepare(): ResolvedStyleImage {
   val bitmap =
     renderPainter(
       literal.value,
@@ -39,5 +33,5 @@ internal suspend fun StyleImageRequest.Painter.prepare(): StyleImageContent {
       literal.alpha,
       literal.colorFilter,
     )
-  return StyleImageContent(ImageSnapshot.capture(bitmap), literal.sdf, literal.stretch)
+  return ResolvedStyleImage(ImageSnapshot.capture(bitmap), literal.sdf, literal.stretch)
 }

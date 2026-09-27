@@ -1,8 +1,10 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
@@ -14,7 +16,14 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,6 +36,39 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SnapshotCompositionTest {
+  @Test
+  fun snapshot_disposes_style_effects_without_holding_resource_commands() = runTest {
+    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
+    val cleanup = CompletableDeferred<Result<Unit>>()
+    try {
+      lateinit var snapshotter: MapSnapshotter
+      snapshotter =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          val scope = rememberCoroutineScope()
+          DisposableEffect(Unit) {
+            val job =
+              scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                try {
+                  awaitCancellation()
+                } finally {
+                  withContext(NonCancellable) {
+                    cleanup.complete(
+                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } }
+                    )
+                  }
+                }
+              }
+            onDispose { job.cancel() }
+          }
+        }
+      snapshotter.capture(MapSnapshotRequest(4, 4))
+      cleanup.await().getOrThrow()
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
   @Test
   fun snapshot_waits_for_painter_pixels_and_the_compiled_image_property() = runTest {
     val adapter =

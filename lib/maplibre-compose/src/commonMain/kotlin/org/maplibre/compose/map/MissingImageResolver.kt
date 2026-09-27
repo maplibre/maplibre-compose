@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.renderPainter
 import org.maplibre.compose.util.ImageStretch
 
@@ -19,19 +20,44 @@ import org.maplibre.compose.util.ImageStretch
 public typealias MissingImageResolver = suspend (id: String) -> ResolvedStyleImage?
 
 /**
- * The image that a [MissingImageResolver] supplies, with the options that [StyleImages.set] takes
- * for it.
+ * Prepared, owned pixels shared by style image commands and missing-image resolution. Preparation
+ * is independent of any map; each command targets the style loaded when submitted.
  */
 @Immutable
-public data class ResolvedStyleImage(
-  /** The pixels that the engine draws. */
-  public val image: ImageBitmap,
-  /** Whether [image] is a signed distance field, which a layer recolors. */
+public class ResolvedStyleImage
+internal constructor(
+  internal val pixels: ImageSnapshot,
+  /** Whether the pixels form a signed distance field, which a layer recolors. */
   public val sdf: Boolean = false,
   /** Stretch and content box for an icon that a symbol layer sizes to wrap its text. */
   public val stretch: ImageStretch? = null,
 ) {
+  public val width: Int
+    get() = pixels.width
+
+  public val height: Int
+    get() = pixels.height
+
+  /** Returns a separate bitmap; changing it does not change this prepared image. */
+  public fun toImageBitmap(): ImageBitmap = pixels.toImageBitmap()
+
+  override fun equals(other: Any?): Boolean =
+    other is ResolvedStyleImage &&
+      pixels == other.pixels &&
+      sdf == other.sdf &&
+      stretch == other.stretch
+
+  override fun hashCode(): Int =
+    31 * (31 * pixels.hashCode() + sdf.hashCode()) + (stretch?.hashCode() ?: 0)
+
   public companion object {
+    /** Copies [image] into owned pixels on the caller; later changes to [image] have no effect. */
+    public fun fromBitmap(
+      image: ImageBitmap,
+      sdf: Boolean = false,
+      stretch: ImageStretch? = null,
+    ): ResolvedStyleImage = ResolvedStyleImage(ImageSnapshot.capture(image), sdf, stretch)
+
     /**
      * Renders [painter] once for a missing-image resolver or another imperative image operation.
      *
@@ -57,16 +83,18 @@ public data class ResolvedStyleImage(
       colorFilter: ColorFilter? = null,
     ): ResolvedStyleImage = withImageGraphicsContext { graphicsContext ->
       ResolvedStyleImage(
-        image =
-          renderPainter(
-            painter,
-            graphicsContext,
-            density,
-            layoutDirection,
-            size,
-            drawAsSdf,
-            alpha,
-            colorFilter,
+        pixels =
+          ImageSnapshot.capture(
+            renderPainter(
+              painter,
+              graphicsContext,
+              density,
+              layoutDirection,
+              size,
+              drawAsSdf,
+              alpha,
+              colorFilter,
+            )
           ),
         sdf = drawAsSdf,
         stretch = stretch,

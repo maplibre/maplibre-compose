@@ -9,9 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MISSING_ICON_ID
@@ -29,25 +27,21 @@ class MissingImageResolverTest {
   fun a_resolved_image_reaches_the_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val requests = RecordingList<String>()
-      val firstRequest = CompletableDeferred<String>()
       fixture.state.missingImageResolver = { id ->
         requests += id
-        firstRequest.complete(id)
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
-      fixture.pumpUntil("the missing icon to be requested", timeout = 20.seconds) {
-        firstRequest.isCompleted
+      val style = assertNotNull(fixture.style)
+      fixture.pumpUntil("the resolved image to reach the style", timeout = 20.seconds) {
+        style.imageExists(MISSING_ICON_ID) == true
       }
-      assertEquals(MISSING_ICON_ID, firstRequest.await())
       fixture.settle()
 
       assertEquals(listOf(MISSING_ICON_ID), requests.toList(), "the resolver ran more than once")
-      assertTrue(
-        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
-        "the resolved image did not reach the style",
-      )
+      fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove()
+      fixture.state.style.awaitCommands()
     }
   }
 
@@ -57,7 +51,7 @@ class MissingImageResolverTest {
       val requests = RecordingList<String>()
       fixture.state.missingImageResolver = { id ->
         requests += id
-        ResolvedStyleImage(ImageBitmap(1, 1))
+        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
       }
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
       val style = assertNotNull(fixture.style)
@@ -83,27 +77,27 @@ class MissingImageResolverTest {
       val requests = RecordingList<String>()
       fixture.state.missingImageResolver = { id ->
         requests += id
-        ResolvedStyleImage(ImageBitmap(1, 1))
+        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
-      fixture.pumpUntil("the missing icon to be requested", timeout = 20.seconds) {
-        requests.size == 1
+      val firstStyle = assertNotNull(fixture.style)
+      fixture.pumpUntil("the first resolution to reach the style", timeout = 20.seconds) {
+        firstStyle.imageExists(MISSING_ICON_ID) == true
       }
       fixture.settle()
 
       // The name differs because the native fixture times out reloading identical style JSON.
       fixture.loadStyle(BaseStyle.Json(missingIconStyle(name = "missing icon again")))
-      fixture.pumpUntil("the reloaded style to ask for the missing icon", timeout = 20.seconds) {
-        requests.size == 2
+      val reloadedStyle = assertNotNull(fixture.style)
+      fixture.pumpUntil("the resolved image to reach the reloaded style", timeout = 20.seconds) {
+        reloadedStyle.imageExists(MISSING_ICON_ID) == true
       }
       fixture.settle()
 
       assertEquals(listOf(MISSING_ICON_ID, MISSING_ICON_ID), requests.toList())
-      assertTrue(
-        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
-        "the resolved image did not reach the reloaded style",
-      )
+      fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove()
+      fixture.state.style.awaitCommands()
     }
   }
 
@@ -129,22 +123,24 @@ class MissingImageResolverTest {
 
       fixture.state.missingImageResolver = { id ->
         supplied += id
-        ResolvedStyleImage(ImageBitmap(1, 1))
+        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
       }
       // Each engine asks once per tile parse, so a new zoom is what puts the request in front of
       // the replacement resolver.
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
-      fixture.pumpUntil("the replacement resolver to be asked", timeout = 20.seconds) {
-        supplied.size == 1
+      val style = assertNotNull(fixture.style)
+      fixture.pumpUntil(
+        "the replacement resolver's image to reach the style",
+        timeout = 20.seconds,
+      ) {
+        style.imageExists(MISSING_ICON_ID) == true
       }
       fixture.settle()
 
       assertEquals(listOf(MISSING_ICON_ID), supplied.toList())
       assertEquals(listOf(MISSING_ICON_ID), declined.toList(), "the replaced resolver ran again")
-      assertTrue(
-        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
-        "the resolved image did not reach the style",
-      )
+      fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove()
+      fixture.state.style.awaitCommands()
     }
   }
 }

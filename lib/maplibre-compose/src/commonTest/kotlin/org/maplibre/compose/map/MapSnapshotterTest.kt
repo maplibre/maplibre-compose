@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -32,9 +31,10 @@ import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.testing.addSource
+import org.maplibre.compose.testing.setImage
 
 class MapSnapshotterTest {
 
@@ -97,96 +97,24 @@ class MapSnapshotterTest {
 
     withContext(Dispatchers.Unconfined) {
       snapshotter.capture(MapSnapshotRequest(1, 1))
-      val sourceHandle = snapshotter.style.sources.add(source)
+      val sourceHandle = snapshotter.style.addSource(source)
       assertEquals("imperative", sourceHandle.id)
       assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
-      val imageHandle = snapshotter.style.images.set("imperative", FakeImageBitmap(1, 1))
+      val imageHandle = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       assertEquals(setOf("imperative"), binding.imageIds)
-      assertTrue(imageHandle.remove())
-      assertTrue(sourceHandle.remove())
+      imageHandle.remove()
+      snapshotter.style.awaitCommands()
+      sourceHandle.remove()
+      snapshotter.style.awaitCommands()
       assertTrue(snapshotter.style.sources.none())
-      snapshotter.style.sources.add(source)
-      snapshotter.style.images.set("imperative", FakeImageBitmap(1, 1))
+      snapshotter.style.addSource(source)
+      snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       assertFailsWith<IllegalStateException> { sourceHandle.remove() }
       assertFailsWith<IllegalStateException> { imageHandle.remove() }
       assertTrue(binding.sourceExists("imperative") == true)
       assertEquals(setOf("imperative"), binding.imageIds)
     }
 
-    close(snapshotter, runtime)
-  }
-
-  @Test
-  fun an_image_prepared_for_a_previous_snapshot_style_is_rejected() = runTest {
-    var binding = RecordingStyleBinding()
-    val runtime =
-      mapRuntimeForTest(
-        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
-      )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-    try {
-      withContext(Dispatchers.Unconfined) {
-        snapshotter.capture(MapSnapshotRequest(1, 1))
-        val old = binding
-        binding = RecordingStyleBinding()
-        snapshotter.style.asMutable!!.baseStyle =
-          BaseStyle.Json("""{"version":8,"name":"replacement","sources":{},"layers":[]}""")
-        snapshotter.capture(MapSnapshotRequest(1, 1))
-        assertFailsWith<IllegalStateException> {
-          snapshotter.style
-            .requireOwner()
-            .setStyleImage("stale", FakeImageBitmap(1, 1), false, null, old)
-        }
-        assertTrue(binding.imageIds.isEmpty())
-        assertTrue(snapshotter.style.images.set("stale", FakeImageBitmap(1, 1)).remove())
-      }
-    } finally {
-      close(snapshotter, runtime)
-    }
-  }
-
-  @Test
-  fun adding_an_image_after_engine_eviction_retires_the_snapshot_image_handle() = runTest {
-    val image = FakeImageBitmap(1, 1)
-    val binding = RecordingStyleBinding(images = listOf("marker" to image))
-    val runtime =
-      mapRuntimeForTest(
-        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
-      )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-    withContext(Dispatchers.Unconfined) {
-      snapshotter.capture(MapSnapshotRequest(1, 1))
-      val old = assertNotNull(snapshotter.style.images["marker"]?.asMutable)
-      binding.removeImage("marker")
-      val replacement = snapshotter.style.images.set("marker", image)
-
-      assertFailsWith<IllegalStateException> { old.remove() }
-      assertTrue(binding.imageExists("marker"))
-      assertTrue(replacement.remove())
-    }
-    close(snapshotter, runtime)
-  }
-
-  @Test
-  fun a_failed_snapshot_image_replacement_keeps_the_previous_handle() = runTest {
-    val image = FakeImageBitmap(1, 1)
-    val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))
-    val runtime =
-      mapRuntimeForTest(
-        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
-      )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-    withContext(Dispatchers.Unconfined) {
-      snapshotter.capture(MapSnapshotRequest(1, 1))
-      val added = snapshotter.style.images.set("marker", image)
-      assertFailsWith<StyleHandleException> { snapshotter.style.images.set("marker", image) }
-      assertTrue(binding.imageExists("marker"))
-      assertTrue(added.remove())
-      assertFalse(binding.imageExists("marker"))
-    }
     close(snapshotter, runtime)
   }
 
@@ -282,8 +210,8 @@ class MapSnapshotterTest {
     val capture = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
     captureStarted.await()
 
-    assertFailsWith<StyleHandleException> {
-      snapshotter.style.images.set("crossing", FakeImageBitmap(1, 1))
+    assertFailsWith<IllegalStateException> {
+      snapshotter.style.setImage("crossing", FakeImageBitmap(1, 1))
     }
 
     finishCapture.complete(Unit)

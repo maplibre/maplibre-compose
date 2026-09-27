@@ -1,6 +1,7 @@
 package org.maplibre.compose.util
 
 import androidx.compose.ui.graphics.ImageBitmap
+import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.nativeffi.render.PremultipliedRgba8Image
 
 /**
@@ -12,8 +13,20 @@ import org.maplibre.nativeffi.render.PremultipliedRgba8Image
 internal fun ImageBitmap.toPremultipliedRgba8(): PremultipliedRgba8Image {
   val argb = IntArray(width * height)
   readPixels(argb)
-  val rgba = ByteArray(argb.size * 4)
-  argb.forEachIndexed { index, pixel ->
+  return premultipliedRgba8(width, height) { argb[it] }
+}
+
+internal fun ImageSnapshot.toPremultipliedRgba8(): PremultipliedRgba8Image =
+  premultipliedRgba8(width, height, ::pixelAt)
+
+private inline fun premultipliedRgba8(
+  width: Int,
+  height: Int,
+  pixelAt: (Int) -> Int,
+): PremultipliedRgba8Image {
+  val rgba = ByteArray(width * height * 4)
+  for (index in 0 until width * height) {
+    val pixel = pixelAt(index)
     val alpha = (pixel ushr 24) and 0xFF
     val offset = index * 4
     rgba[offset] = (((pixel ushr 16) and 0xFF) * alpha / 255).toByte()

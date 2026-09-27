@@ -34,8 +34,11 @@ public sealed interface SourceHandle {
 
 /** Permission to remove a source in its loaded style generation. */
 public sealed interface MutableSourceHandle : SourceHandle {
-  /** Removes this source. Fails if the handle expired or a layer still references the source. */
-  public fun remove(): Boolean
+  /**
+   * Enqueues removal of this source. An expired handle fails immediately; an engine rejection,
+   * including a layer still referencing the source, is logged and leaves the source available.
+   */
+  public fun remove()
 }
 
 /** Access to a GeoJSON source in one loaded style generation. */

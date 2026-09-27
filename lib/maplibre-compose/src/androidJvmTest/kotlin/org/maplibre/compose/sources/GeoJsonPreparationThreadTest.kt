@@ -15,6 +15,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature
@@ -40,7 +41,7 @@ class GeoJsonPreparationThreadTest {
     assertOwnerSerialization(initial = false)
 
   @Test
-  fun synchronous_serialization_errors_are_reported_as_handle_failures(): MapTestResult =
+  fun synchronous_update_serialization_errors_are_reported_as_handle_failures(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(BaseStyle.Empty)
@@ -54,15 +55,9 @@ class GeoJsonPreparationThreadTest {
         val data = GeoJsonData.Features(FeatureCollection(features))
         val options = GeoJsonOptions(synchronousUpdate = true)
 
-        val addFailure =
-          assertFailsWith<StyleHandleException> {
-            fixture.state.style.sources.add(GeoJsonSource("points", data, options))
-          }
-        assertSame(failure, addFailure.cause?.cause)
-
         val handle =
           assertIs<GeoJsonSourceHandle>(
-            fixture.state.style.sources.add(
+            fixture.state.style.addSource(
               GeoJsonSource("points", GeoJsonData.JsonString(EMPTY), options)
             )
           )
@@ -98,7 +93,7 @@ class GeoJsonPreparationThreadTest {
       val data = GeoJsonData.Features(FeatureCollection(features))
       val handle =
         assertIs<GeoJsonSourceHandle>(
-          fixture.state.style.sources.add(
+          fixture.state.style.addSource(
             GeoJsonSource(
               "points",
               if (initial) data else GeoJsonData.JsonString(EMPTY),
@@ -138,7 +133,7 @@ class GeoJsonPreparationThreadTest {
       try {
         val handle =
           assertIs<GeoJsonSourceHandle>(
-            fixture.state.style.sources.add(
+            fixture.state.style.addSource(
               GeoJsonSource(
                 "points",
                 if (initial) data else GeoJsonData.JsonString(EMPTY),

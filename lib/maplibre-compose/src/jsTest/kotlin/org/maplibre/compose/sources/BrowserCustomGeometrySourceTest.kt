@@ -19,6 +19,7 @@ import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature
@@ -73,7 +74,7 @@ class BrowserCustomGeometrySourceTest {
             noFeatures()
           }
         val layer = TestLayer("failing-fill", "fill", source)
-        val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
+        val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.addSource(source))
         style.install(layer)
         fixture.pumpUntil("the provider to start") { requests == 1 }
         handle.invalidateTile(TileCoordinate(0, 0, 0))
@@ -118,7 +119,7 @@ class BrowserCustomGeometrySourceTest {
             )
           )
         }
-      val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
+      val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.addSource(source))
       style.install(TestLayer("in-flight-fill", "fill", source))
       fun names(): List<String> =
         style

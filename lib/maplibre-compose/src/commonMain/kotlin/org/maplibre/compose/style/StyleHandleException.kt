@@ -1,10 +1,8 @@
 package org.maplibre.compose.style
 
 /**
- * A style handle command that the library refused, for a resource that style content owns or a
- * handle whose style is not ready, or that MapLibre refused, for a structural command such as
- * adding a source or image. A property write that MapLibre rejects is logged, and the previous
- * value stays in place.
+ * A style handle command that the library refused, such as changing a resource owned by style
+ * content. Engine rejections of queued commands are logged and retain the previous value.
  */
 public class StyleHandleException(message: String, cause: Throwable? = null) :
   RuntimeException(message, cause)
@@ -16,7 +14,7 @@ internal interface StyleHandleOperationGuard {
 
   fun isLayerWritable(id: String): Boolean
 
-  fun removeSource(id: String, identity: Any): Boolean
+  fun removeSource(id: String, identity: Any)
 
   fun requireSourceWritable(id: String)
 

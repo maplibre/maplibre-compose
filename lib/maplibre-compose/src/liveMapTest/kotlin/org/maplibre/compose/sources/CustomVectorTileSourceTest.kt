@@ -23,6 +23,7 @@ import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -43,7 +44,7 @@ class CustomVectorTileSourceTest {
           requests += tile
           POINT_TILE
         }
-      fixture.state.style.sources.add(source)
+      fixture.state.style.addSource(source)
       val layer = TestLayer("custom-vector-points", "circle", source)
       layer.sourceLayer = SOURCE_LAYER
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())

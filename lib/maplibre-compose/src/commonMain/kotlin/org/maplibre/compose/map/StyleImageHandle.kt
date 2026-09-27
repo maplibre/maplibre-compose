@@ -12,8 +12,8 @@ public sealed interface StyleImageHandle {
 
 /** Permission to remove a style image. */
 public sealed interface MutableStyleImageHandle : StyleImageHandle {
-  /** Removes this image. Fails if this handle has expired. */
-  public fun remove(): Boolean
+  /** Enqueues removal. Expired handles fail locally; native refusals are logged. */
+  public fun remove()
 }
 
 internal class StyleImageHandleImpl(
@@ -28,11 +28,11 @@ internal class StyleImageHandleImpl(
       if (style.requireOwner().isImageWritable(id)) MutableStyleImageHandleImpl(this) else null
     }
 
-  fun remove(): Boolean = operation {
+  fun remove() = operation {
     if (!style.requireOwner().isImageWritable(id)) {
       throw StyleHandleException("Image ID '$id' is declared by the style content")
     }
-    style.requireOwner().removeStyleImage(id, binding, identity)
+    style.requireOwner().resourceCommands.removeImage(id, binding, identity)
   }
 
   private fun <T> operation(action: () -> T): T =
@@ -47,5 +47,5 @@ internal class StyleImageHandleImpl(
 
 private class MutableStyleImageHandleImpl(private val image: StyleImageHandleImpl) :
   MutableStyleImageHandle, StyleImageHandle by image {
-  override fun remove(): Boolean = image.remove()
+  override fun remove() = image.remove()
 }

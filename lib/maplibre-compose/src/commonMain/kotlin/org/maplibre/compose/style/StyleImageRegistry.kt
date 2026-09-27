@@ -6,15 +6,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import org.maplibre.compose.map.ResolvedStyleImage
 
 /** Shared image preparation, confined to the composition apply dispatcher. */
 internal class StyleImageRegistry(
   private val scope: CoroutineScope,
-  private val preparePainter: suspend (StyleImageRequest.Painter) -> StyleImageContent,
+  private val preparePainter: suspend (StyleImageRequest.Painter) -> ResolvedStyleImage,
   private val changed: () -> Unit,
 ) {
   private val entries = mutableMapOf<StyleImageRequest, Entry>()
-  private val definitions = mutableMapOf<StyleImageContent, StyleImageDefinition>()
+  private val definitions = mutableMapOf<ResolvedStyleImage, StyleImageDefinition>()
   private val ids = IncrementingId("image")
 
   val pending: Boolean
@@ -54,7 +55,7 @@ internal class StyleImageRegistry(
   fun retain(retained: List<StyleImageDefinition>) {
     definitions.clear()
     (retained + entries.values.mapNotNull { it.definition }).forEach {
-      definitions[StyleImageContent(it.image, it.sdf, it.stretch)] = it
+      definitions[ResolvedStyleImage(it.image, it.sdf, it.stretch)] = it
     }
   }
 
@@ -64,9 +65,9 @@ internal class StyleImageRegistry(
     definitions.clear()
   }
 
-  private fun definition(content: StyleImageContent): StyleImageDefinition =
+  private fun definition(content: ResolvedStyleImage): StyleImageDefinition =
     definitions.getOrPut(content) {
-      StyleImageDefinition(ids.next(), content.image, content.sdf, content.stretch)
+      StyleImageDefinition(ids.next(), content.pixels, content.sdf, content.stretch)
     }
 
   private class Entry {

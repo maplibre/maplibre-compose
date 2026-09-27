@@ -42,3 +42,16 @@ resolver with the icon's ID and adds the <Api of="ResolvedStyleImage" /> that
 it returns:
 
 <Code code={region(images, "missing-image")} lang="kotlin" title="App.kt" />
+
+## Prepared images
+
+For imperative image updates, prepare an image with
+`ResolvedStyleImage.fromBitmap` or `.fromPainter`, then submit it with
+`state.style.images.set(id, image)`. Preparation owns a pixel copy,
+so the result can be reused across image IDs and loaded styles.
+
+`set`, `setAll`, and `remove` enqueue commands without waiting for the map owner.
+A replacement keeps the previous image until it succeeds; an engine rejection is
+logged. Image lookup suspends until earlier resource commands finish. Use
+`state.style.awaitCommands()` when code needs the commands to finish without
+looking up an image. Completion does not mean the map has rendered a frame.

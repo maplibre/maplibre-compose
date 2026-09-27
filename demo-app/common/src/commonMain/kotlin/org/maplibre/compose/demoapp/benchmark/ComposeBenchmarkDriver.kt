@@ -195,15 +195,15 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   }
 
   override fun registerImages() {
-    repeat(config.imageCount) { index ->
-      val id = "burst-$index"
-      if (state.style.images[id] == null)
-        state.style.images.set(id, resources.images[index % resources.images.size])
-    }
+    state.style.images.setAll(
+      (0 until config.imageCount).associate { index ->
+        "burst-$index" to resources.images[index % resources.images.size]
+      }
+    )
   }
 
   override fun removeImages() {
-    repeat(config.imageCount) { state.style.images["burst-$it"]?.asMutable?.remove() }
+    repeat(config.imageCount) { state.style.images.remove("burst-$it") }
   }
 
   override fun visible(show: Boolean) {
@@ -246,6 +246,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
     // Frame callbacks run before recomposition. Cross a second frame boundary so declarations and
     // layout have been applied before requesting camera/render settlement.
     if (declared) repeat(2) { withFrameNanos {} }
+    state.style.awaitCommands()
     awaitSettled(state)
   }
 

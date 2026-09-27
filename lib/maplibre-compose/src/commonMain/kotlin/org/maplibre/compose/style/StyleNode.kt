@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import kotlinx.coroutines.CoroutineScope
+import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.sources.Source
 
 /** The committed declarations of one style composition. Engine objects live in the reconciler. */
@@ -9,7 +10,7 @@ internal class StyleNode(
   imageScope: CoroutineScope,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-  preparePainter: suspend (StyleImageRequest.Painter) -> StyleImageContent = { it.prepare() },
+  preparePainter: suspend (StyleImageRequest.Painter) -> ResolvedStyleImage = { it.prepare() },
   private val publish: (StyleSnapshot) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
