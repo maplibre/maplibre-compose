@@ -1,4 +1,5 @@
-import { format, newTab, sourceUrl, type FileReport, type ModuleReport, type Package } from "./model";
+import { format, moduleName, newTab, sourceUrl, type FileReport, type ModuleReport, type Package } from "./model";
+import { el } from "./page";
 import { icon } from "./icons";
 import { define, type definitions } from "./terms";
 
@@ -106,7 +107,6 @@ function build(
   commit: string,
   byModule: boolean,
 ) {
-  const moduleName = (module: string) => module.split("/").at(-1)!;
   const moduleReports = new Map(modules.map((m) => [m.name, m]));
   const inCycle = new Set(cycles.flat());
   const reports = new Map(packages.map((p) => [p.name, p]));
@@ -153,16 +153,6 @@ function build(
     return node;
   });
 }
-
-const el = <K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Partial<HTMLElementTagNameMap[K]> = {},
-  ...children: (Node | string)[]
-) => {
-  const element = Object.assign(document.createElement(tag), props);
-  element.append(...children);
-  return element;
-};
 
 /** Modules, packages, and files that expand in place, shaded by their share of their parent's lines. */
 export class Tree {

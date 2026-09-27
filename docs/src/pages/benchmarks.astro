@@ -1,5 +1,6 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import CommitSelection from "../components/CommitSelection.astro";
 import "../styles/metrics.css";
 import "../styles/benchmarks.css";
 
@@ -19,29 +20,22 @@ const source =
   }}
 >
   <div class="metrics benchmarks" data-source={`${source}benchmarks/`}>
-    <div class="metrics-toolbar">
+    <!-- The device and the commit stay in reach while scrolling the charts. -->
+    <CommitSelection>
       <label>
         <span class="sr-only">Device</span>
         <select id="benchmarks-scope"></select>
       </label>
-      <span id="benchmarks-scope-note" class="metrics-muted"></span>
-    </div>
+      <span
+        slot="trailing"
+        id="benchmarks-scope-note"
+        class="metrics-muted"
+      ></span>
+    </CommitSelection>
 
     <p id="metrics-status" class="metrics-status" role="status">Loading…</p>
 
     <div id="metrics-body" hidden>
-      <div class="metrics-selection">
-        <div class="metrics-nav" role="group" aria-label="Commits">
-          <button id="metrics-previous-release"></button>
-          <button id="metrics-previous"></button>
-          <button id="metrics-next"></button>
-          <button id="metrics-next-release"></button>
-        </div>
-        <span id="metrics-selection-label"></span>
-        <span id="metrics-selection-commit"></span>
-        <span id="metrics-selection-title" class="metrics-muted"></span>
-      </div>
-
       <div id="metrics-tiles" class="metrics-tiles"></div>
 
       <div id="metrics-charts"></div>
