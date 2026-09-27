@@ -153,13 +153,24 @@ class MapLifecycleBindingTest {
         destroyFailure = TestFailure("engine")
         resourcesFailure = TestFailure("resources")
       }
-    val lifecycle = bindLifecycle(adapter)
+    val dispatcher = TestMainDispatcher()
+    val lifecycle =
+      MapLifecycleBinding(
+        adapter,
+        physicalScope = backgroundScope,
+        mainDispatcher = dispatcher,
+        mainThread = MainThreadGuard(dispatcher),
+        onClosing = { throw TestFailure("notification") },
+      )
     lifecycle.attach()
 
     lifecycle.close()
     val failure = assertFailsWith<MapCleanupException> { lifecycle.awaitClosed() }
 
-    assertEquals(listOf("detach", "engine", "resources"), failure.failures.map { it.message })
+    assertEquals(
+      listOf("notification", "detach", "engine", "resources"),
+      failure.failures.map { it.message },
+    )
   }
 
   @Test

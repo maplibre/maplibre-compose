@@ -854,8 +854,10 @@ internal class MapLifecycleBinding(
         break
       }
     }
-    onClosing(this)
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performClose(closing) }
+    val notificationFailure = runCatching { onClosing(this) }.exceptionOrNull()
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      performClose(closing, notificationFailure)
+    }
   }
 
   /** Waits for every cleanup attempt and reports their combined outcome. */
@@ -1045,9 +1047,13 @@ internal class MapLifecycleBinding(
     detaching.result.complete(outcome)
   }
 
-  private suspend fun performClose(closing: InternalState.Closing) {
+  private suspend fun performClose(
+    closing: InternalState.Closing,
+    notificationFailure: Throwable?,
+  ) {
     val previous = closing.previous
     val failures = mutableListOf<Throwable>()
+    notificationFailure?.let(failures::add)
 
     when (previous) {
       is InternalState.CreatingEngine -> previous.result.await()
