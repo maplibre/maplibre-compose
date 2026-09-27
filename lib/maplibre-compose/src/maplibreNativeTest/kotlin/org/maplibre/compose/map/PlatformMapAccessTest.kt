@@ -56,6 +56,11 @@ class PlatformMapAccessTest {
           override fun requestFrame() = Unit
 
           override fun <T> withRendererAccess(action: () -> T): T = action()
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            action()
+            return true
+          }
         }
       val session = newSession()
       try {
@@ -305,6 +310,11 @@ class PlatformMapAccessTest {
             oldReleased.complete(Unit)
             oldLossReleasedInTime.complete(finishOldLoss.await(5_000L))
             return result
+          }
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            action()
+            return true
           }
         }
       var newHostCommands = 0

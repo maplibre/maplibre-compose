@@ -83,10 +83,7 @@ internal interface MlnFfiMapHostSession {
    * destroying its targets or stopping the renderer thread. Re-entrant calls from that thread run
    * directly.
    */
-  fun enqueueRenderer(action: () -> Unit): Boolean {
-    action()
-    return true
-  }
+  fun enqueueRenderer(action: () -> Unit): Boolean
 }
 
 /**

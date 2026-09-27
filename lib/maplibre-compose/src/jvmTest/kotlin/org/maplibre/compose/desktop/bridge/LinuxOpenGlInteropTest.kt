@@ -15,6 +15,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -288,6 +290,8 @@ class LinuxOpenGlInteropTest {
         override fun requestFrame() {}
 
         override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
+
+        override fun enqueueRenderer(action: () -> Unit): Boolean = host.enqueueRenderer(action)
       }
 
     init {
@@ -358,8 +362,9 @@ class LinuxOpenGlInteropTest {
     }
 
     override fun close() {
-      state.close()
+      renderer.onSurfaceLost(hostSession)
       runtime.close()
+      runBlocking { withTimeout(TEST_TIMEOUT.inWholeMilliseconds) { runtime.awaitClosed() } }
       cacheDirectory.toFile().deleteRecursively()
     }
 
