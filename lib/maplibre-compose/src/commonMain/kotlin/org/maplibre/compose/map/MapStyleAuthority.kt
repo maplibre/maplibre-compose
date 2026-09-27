@@ -332,7 +332,9 @@ internal class MapStyleAuthority(
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      runtime.logger?.w(error) { "Could not add the resolved image '$imageId'" }
+      // A style switch invalidates the binding mid-write; that failure is expected, not a warning.
+      if (style.isCurrentLoadedStyle(binding))
+        runtime.logger?.w(error) { "Could not add the resolved image '$imageId'" }
     } finally {
       // Keep negative results to avoid a request loop, but let a later engine miss restore an
       // evicted image. An older resolver must not clear a replacement resolver's pending work.

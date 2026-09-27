@@ -31,10 +31,14 @@ internal class StyleResourceCommands(
   private val sources = mutableMapOf<String, SourceDefinition>()
   // False means explicit ownership; true means a missing-image resolver supplied the image.
   private val images = mutableMapOf<String, Boolean>()
-  // Submission sequence of the newest unconditional set or remove per image ID. An older pending
-  // command for that ID skips its write, like a superseded GeoJSON update.
+
+  // The newest unconditional write per image ID that no command has applied yet; null removes. The
+  // first queued command for the ID applies it, so a state change queued behind that command cannot
+  // strand the write, and later commands for the ID find nothing left to do.
+  private class PendingImageWrite(val sequence: Long, val definition: StyleImageDefinition?)
+
   private var imageSequence = 0L
-  private val latestImageCommands = mutableMapOf<String, Long>()
+  private val pendingImageWrites = mutableMapOf<String, PendingImageWrite>()
 
   suspend fun <T> withCommit(block: suspend () -> T): T = mutex.withLock { block() }
 
@@ -43,7 +47,7 @@ internal class StyleResourceCommands(
   fun clear() = lock.withLock {
     sources.clear()
     images.clear()
-    latestImageCommands.clear()
+    pendingImageWrites.clear()
   }
 
   fun sourceDefinition(id: String): SourceDefinition? = lock.withLock { sources[id] }
@@ -101,45 +105,34 @@ internal class StyleResourceCommands(
     val binding = requireBinding()
     images.keys.forEach(::requireImageWritable)
     // Snapshot the caller's collection; prepared images already own their immutable pixels.
-    val definitions = images.map { (id, image) ->
-      StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
-    }
-    val sequence = supersedeImages(images.keys)
-    submit(binding, "set style images") {
-      val current = definitions.filter { isLatestImageCommand(it.id, sequence) }
-      if (current.isEmpty()) return@submit
-      current.forEach { requireImageWritable(it.id) }
-      val results = withContext(readDispatcher) { binding.setImages(current) }
-      if (style.isCurrentLoadedStyle(binding))
-        current.zip(results).forEach { (definition, result) ->
-          result.fold(
-            onSuccess = {
-              lock.withLock { this@StyleResourceCommands.images[definition.id] = false }
-              binding.identity.images.remove(definition.id)
-            },
-            onFailure = { error ->
-              if (error !is Exception) throw error
-              rejected("set image '${definition.id}'", error)
-            },
-          )
+    val sequence =
+      enqueueImageWrites(
+        images.mapValues { (id, image) ->
+          StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
         }
+      )
+    submit(binding, "set style images") {
+      applyImageWrites(binding, takeImageWrites(images.keys, sequence))
     }
   }
 
   fun removeImage(id: String, binding: StyleBinding = requireBinding(), identity: Any? = null) {
-    if (identity != null) validateImage(id, binding, identity) else requireImageWritable(id)
-    // A handle's removal is conditional on its identity, so it yields to later commands but does
-    // not supersede earlier ones: a pending replacement would expire the handle first.
-    val sequence =
-      if (identity != null) lock.withLock { ++imageSequence } else supersedeImages(setOf(id))
-    submit(binding, "remove image '$id'") {
-      if (!isLatestImageCommand(id, sequence)) return@submit
-      if (identity != null) validateImage(id, binding, identity) else requireImageWritable(id)
-      withContext(readDispatcher) { binding.removeImage(id) }
-      if (style.isCurrentLoadedStyle(binding)) {
-        lock.withLock { images.remove(id) }
-        binding.identity.images.remove(id)
+    if (identity == null) {
+      requireImageWritable(id)
+      val sequence = enqueueImageWrites(mapOf(id to null))
+      submit(binding, "remove image '$id'") {
+        applyImageWrites(binding, takeImageWrites(setOf(id), sequence))
       }
+      return
+    }
+    validateImage(id, binding, identity)
+    // A handle's removal is conditional on its identity, so it never discards an earlier write: a
+    // pending replacement expires the handle first. It applies a later write in its place.
+    val sequence = lock.withLock { ++imageSequence }
+    submit(binding, "remove image '$id'") {
+      val later = takeImageWrites(setOf(id), sequence)
+      if (later.isEmpty()) validateImage(id, binding, identity)
+      applyImageWrites(binding, later.ifEmpty { mapOf(id to null) })
     }
   }
 
@@ -177,19 +170,59 @@ internal class StyleResourceCommands(
     }
   }
 
-  private fun supersedeImages(ids: Set<String>): Long = lock.withLock {
+  private fun enqueueImageWrites(writes: Map<String, StyleImageDefinition?>): Long = lock.withLock {
     val sequence = ++imageSequence
-    ids.forEach { latestImageCommands[it] = sequence }
+    writes.forEach { (id, definition) ->
+      pendingImageWrites[id] = PendingImageWrite(sequence, definition)
+    }
     sequence
   }
 
   /**
-   * Commands run in submission order, so an entry no newer than [sequence] has already run or been
-   * dropped; releasing it keeps the map to pending IDs.
+   * Takes the pending writes at least as new as [sequence]. Commands run in submission order, so an
+   * older entry belongs to a command that was dropped; releasing it keeps the map to pending IDs.
    */
-  private fun isLatestImageCommand(id: String, sequence: Long): Boolean = lock.withLock {
-    val latest = latestImageCommands[id] ?: return@withLock true
-    (latest <= sequence).also { if (it) latestImageCommands.remove(id) }
+  private fun takeImageWrites(
+    ids: Set<String>,
+    sequence: Long,
+  ): Map<String, StyleImageDefinition?> = lock.withLock {
+    buildMap {
+      ids.forEach { id ->
+        val pending = pendingImageWrites.remove(id) ?: return@forEach
+        if (pending.sequence >= sequence) put(id, pending.definition)
+      }
+    }
+  }
+
+  /** Each write succeeds or fails independently; a failed write keeps the previous image. */
+  private suspend fun applyImageWrites(
+    binding: StyleBinding,
+    writes: Map<String, StyleImageDefinition?>,
+  ) {
+    if (writes.isEmpty()) return
+    writes.keys.forEach(::requireImageWritable)
+    val definitions = writes.values.filterNotNull()
+    val removals = writes.filterValues { it == null }.keys
+    val results =
+      withContext(readDispatcher) {
+        val set = if (definitions.isEmpty()) emptyList() else binding.setImages(definitions)
+        set + removals.map { runCatching<Unit> { binding.removeImage(it) } }
+      }
+    if (!style.isCurrentLoadedStyle(binding)) return
+    (definitions.map { it.id } + removals).zip(results).forEach { (id, result) ->
+      result.fold(
+        onSuccess = {
+          lock.withLock {
+            if (id in removals) images.remove(id) else images[id] = false
+          }
+          binding.identity.images.remove(id)
+        },
+        onFailure = { error ->
+          if (error !is Exception) throw error
+          rejected("${if (id in removals) "remove" else "set"} image '$id'", error)
+        },
+      )
+    }
   }
 
   private fun submit(binding: StyleBinding, target: String, block: suspend () -> Unit) {

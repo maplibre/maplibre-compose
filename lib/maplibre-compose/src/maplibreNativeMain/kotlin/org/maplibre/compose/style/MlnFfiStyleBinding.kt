@@ -124,7 +124,12 @@ internal open class MlnFfiStyleBinding(
 
   override suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> {
     val commands = definitions.map { runCatching { prepareImage(it) } }
-    return awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }.orEmpty()
+    // A refused or abandoned batch must not look like a batch that wrote nothing.
+    return checkNotNull(
+      awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }
+    ) {
+      "The map owner did not run the image batch"
+    }
   }
 
   private fun prepareImage(definition: StyleImageDefinition): (MapHandle) -> Unit {

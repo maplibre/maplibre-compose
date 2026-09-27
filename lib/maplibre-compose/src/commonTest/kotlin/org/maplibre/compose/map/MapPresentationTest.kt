@@ -1395,6 +1395,20 @@ class MapPresentationTest {
     }
     assertEquals(listOf("set a 5"), binding.imageWrites)
     assertEquals(setOf("a"), binding.imageIds)
+
+    // The first pending command applies the newest write, so a state change queued between the two
+    // commands cannot strand it.
+    binding.imageWrites.clear()
+    pending {
+      style.images.set("a", prepared(6))
+      launch(start = CoroutineStart.UNDISPATCHED) {
+        style.requireOwner().resourceCommands.withCommit {
+          style.loadState = StyleLoadState.Loading
+        }
+      }
+      style.images.set("a", prepared(7))
+    }
+    assertEquals(listOf("set a 7"), binding.imageWrites)
     fixture.close()
   }
 
