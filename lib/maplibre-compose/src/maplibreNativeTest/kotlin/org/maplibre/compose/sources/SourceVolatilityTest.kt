@@ -5,11 +5,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
@@ -28,32 +33,118 @@ class SourceVolatilityTest {
           TileSetOptions(),
         )
       binding.addSource(source.definition())
+      val handle = assertNotNull(binding.handle(source).asMutable)
       val parked = TestLatch(1)
       val release = TestLatch(1)
-      val finished = TestLatch(1)
+      val finished = CompletableDeferred<Boolean>()
+      val replacement = CompletableDeferred<Result<Unit>>()
       try {
         assertTrue(
           fixture.session.postOwnerTaskForTest {
             parked.countDown()
-            release.await(5_000L)
-            finished.countDown()
+            finished.complete(release.await(5_000L))
           }
         )
         assertTrue(parked.await(5_000L), "native owner did not reach the gate")
-        binding.setSourceVolatile(source.id, true)
+        handle.setVolatile(true)
         assertTrue(
           fixture.session.postOwnerTaskForTest {
-            assertEquals(true, binding.readMap { it.styleSourceInfo(source.id)?.volatileSource })
-            binding.removeSource(source.id)
-            binding.addSource(source.definition())
+            replacement.complete(
+              runCatching {
+                assertEquals(
+                  true,
+                  binding.readMap { it.styleSourceInfo(source.id)?.volatileSource },
+                )
+                binding.removeSource(source.id)
+                binding.addSource(source.definition())
+                Unit
+              }
+            )
           }
         )
         // This command belongs to the old installation until queued removal actually commits.
-        binding.setSourceVolatile(source.id, true)
-        assertEquals(1L, finished.count, "source write waited for the native owner")
+        handle.setVolatile(true)
+        assertEquals(false, finished.isCompleted, "source write waited for the native owner")
       } finally {
         release.countDown()
       }
+      assertTrue(finished.await(), "native owner gate timed out")
+      replacement.await().getOrThrow()
+      assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
+    }
+  }
+
+  @Test
+  fun replacement_after_validation_cannot_receive_the_old_handles_writes() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val binding = fixture.style as MlnFfiStyleBinding
+      val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
+      binding.addSource(source.definition())
+      var replaceAfterValidation: (() -> Unit)? = null
+      fun handle() =
+        binding.handle(source) {
+          replaceAfterValidation?.also { replaceAfterValidation = null }?.invoke()
+        }
+      val old = handle() as VectorTileSourceHandle
+      val mutable = assertNotNull(old.asMutable)
+      replaceAfterValidation = {
+        binding.removeSource(source.id)
+        binding.addSource(source.definition())
+      }
+      mutable.setVolatile(true)
+      assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
+
+      val oldFeatureHandle = handle() as VectorTileSourceHandle
+      replaceAfterValidation = {
+        binding.removeSource(source.id)
+        binding.addSource(source.definition())
+      }
+      oldFeatureHandle.setFeatureState("layer", "1", buildJsonObject { put("selected", true) })
+      assertEquals(buildJsonObject {}, binding.featureState(source.id, "layer", "1"))
+    }
+  }
+
+  @Test
+  fun a_queued_write_cannot_create_an_identity_for_an_absent_source() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val binding = fixture.style as MlnFfiStyleBinding
+      val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
+      binding.addSource(source.definition())
+      val oldIdentity = binding.identity.sources.get(source.id)
+      binding.removeSource(source.id)
+      val parked = TestLatch(1)
+      val release = TestLatch(1)
+      val released = CompletableDeferred<Boolean>()
+      val added = CompletableDeferred<Result<Unit>>()
+      try {
+        assertTrue(
+          fixture.session.postOwnerTaskForTest {
+            parked.countDown()
+            released.complete(release.await(5_000L))
+          }
+        )
+        assertTrue(parked.await(5_000L))
+        assertTrue(
+          fixture.session.postOwnerTaskForTest {
+            added.complete(
+              runCatching {
+                binding.addSource(source.definition())
+                Unit
+              }
+            )
+          }
+        )
+        // The source is absent when this write is submitted, but installed before it executes.
+        binding.postSourceUpdate(source.id, oldIdentity) {
+          binding.setSourceVolatile(source.id, true)
+        }
+      } finally {
+        release.countDown()
+      }
+      assertTrue(released.await(), "native owner gate timed out")
+      added.await().getOrThrow()
       assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
     }
   }
@@ -84,4 +175,28 @@ class SourceVolatilityTest {
         assertFailsWith<IllegalStateException> { mutable.setVolatile(true) }
       }
     }
+
+  private fun MlnFfiStyleBinding.handle(
+    source: VectorTileSource,
+    afterValidation: () -> Unit = {},
+  ): SourceHandle {
+    val resource = identity.sources.get(source.id)
+    return assertNotNull(
+      sourceHandle(
+        id = source.id,
+        definition = null,
+        currentDefinition = { null },
+        isCurrentResource = {
+          val current = identity.sources.isCurrent(source.id, resource)
+          if (current) afterValidation()
+          current
+        },
+        operations =
+          object :
+            StyleHandleOperationGuard by MapStyleState(BaseStyle.Empty).operationGuard(this) {
+            override fun isSourceWritable(id: String) = true
+          },
+      )
+    )
+  }
 }

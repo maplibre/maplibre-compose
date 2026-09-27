@@ -60,7 +60,7 @@ protected constructor(
   }
 
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
-    operation { style.setFeatureState(id, sourceLayerId, featureId, state) }
+    mutationOperation { style.setFeatureState(id, sourceLayerId, featureId, state) }
   }
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
@@ -72,11 +72,11 @@ protected constructor(
     featureId: String,
     stateKey: String?,
   ) {
-    operation { style.removeFeatureState(id, sourceLayerId, featureId, stateKey) }
+    mutationOperation { style.removeFeatureState(id, sourceLayerId, featureId, stateKey) }
   }
 
   protected fun clearFeatureStates(sourceLayerId: String?) {
-    operation { style.resetFeatureStates(id, sourceLayerId) }
+    mutationOperation { style.resetFeatureStates(id, sourceLayerId) }
   }
 
   internal fun <T> operation(action: () -> T): T = operations.run {
@@ -86,8 +86,14 @@ protected constructor(
 
   internal fun definitionOperation(action: () -> Unit): Unit = operation {
     operations.requireSourceWritable(id)
+    postMutation(action)
+  }
+
+  protected fun mutationOperation(action: () -> Unit): Unit = operation { postMutation(action) }
+
+  private fun postMutation(action: () -> Unit) {
     try {
-      style.postSourceUpdate(id, action)
+      style.postSourceUpdate(id, resourceIdentity, action)
     } catch (error: StyleMutationException) {
       throw StyleHandleException("Could not update source '$id': ${error.message}", error)
     }
@@ -222,7 +228,7 @@ internal constructor(
   ),
   CustomVectorTileSourceHandle {
   override fun invalidateTile(tile: TileCoordinate) {
-    operation { style.invalidateCustomVectorSourceTile(id, tile) }
+    mutationOperation { style.invalidateCustomVectorSourceTile(id, tile) }
   }
 }
 
@@ -237,11 +243,11 @@ internal constructor(
   SourceHandleImpl(id, attributionHtml, style, "custom-geometry", currentKind, operations),
   CustomGeometrySourceHandle {
   override fun invalidateBounds(bounds: BoundingBox) {
-    operation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
+    mutationOperation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
   }
 
   override fun invalidateTile(tile: TileCoordinate) {
-    operation { style.invalidateCustomGeometrySourceTile(id, tile) }
+    mutationOperation { style.invalidateCustomGeometrySourceTile(id, tile) }
   }
 }
 

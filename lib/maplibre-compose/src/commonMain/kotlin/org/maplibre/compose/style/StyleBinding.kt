@@ -348,8 +348,10 @@ internal interface StyleBinding {
     image: ImageBitmap,
   ): Boolean
 
-  /** Queues an imperative definition write for the current source installation. */
-  fun postSourceUpdate(sourceId: String, action: () -> Unit) = action()
+  /** Queues an imperative write for the installation captured by the source handle. */
+  fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
+    if (identity.sources.isCurrent(sourceId, resourceIdentity)) action()
+  }
 
   /** Prepares owned pixels on the caller; the returned command applies them synchronously. */
   fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit

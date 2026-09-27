@@ -384,30 +384,9 @@ internal open class MlnFfiStyleBinding(
     )
   }
 
-  /** Queues a write for this source installation, dropping it after removal or replacement. */
-  private fun postSourceMutation(sourceId: String, action: (MapHandle) -> Unit) {
-    val resource = identity.sources.get(sourceId)
-    postMutation { map ->
-      if (identity.sources.isCurrent(sourceId, resource)) action(map)
-    }
-  }
-
-  private fun postSourceWrite(sourceId: String, action: (MapHandle) -> Unit) {
-    postSourceMutation(sourceId) { map ->
-      try {
-        action(map)
-      } catch (error: MaplibreException) {
-        reportRejectedWrite(
-          "source '$sourceId'",
-          null,
-          StyleMutationException(error.message, error),
-        )
-      }
-    }
-  }
-
-  override fun postSourceUpdate(sourceId: String, action: () -> Unit) {
-    postSourceMutation(sourceId) {
+  override fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
+    postMutation {
+      if (!identity.sources.isCurrent(sourceId, resourceIdentity)) return@postMutation
       try {
         action()
       } catch (error: StyleMutationException) {
@@ -427,7 +406,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   fun setSourceVolatile(sourceId: String, value: Boolean) {
-    postSourceWrite(sourceId) { it.setStyleSourceVolatile(sourceId, value) }
+    postWrite("source '$sourceId'", null) { it.setStyleSourceVolatile(sourceId, value) }
   }
 
   /** Runs [action] on the owner thread, reporting an engine refusal as a rejected write. */
@@ -548,13 +527,13 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
-    postSourceWrite(sourceId) { map ->
+    postWrite("source '$sourceId'", null) { map ->
       map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds())
     }
   }
 
   override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
-    postSourceWrite(sourceId) { map ->
+    postWrite("source '$sourceId'", null) { map ->
       map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId())
     }
   }
@@ -599,7 +578,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    postSourceWrite(sourceId) { map ->
+    postWrite("source '$sourceId'", null) { map ->
       map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId())
     }
   }
