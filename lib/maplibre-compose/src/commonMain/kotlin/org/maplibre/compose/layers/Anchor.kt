@@ -33,17 +33,18 @@ public sealed interface Anchor {
   /**
    * Layers are placed directly over the highest base-style layer that [predicate] accepts, or at
    * the bottom of the stack when it accepts none. Layers declared in the style content are not
-   * candidates, and the [LayerHandle] passed to the predicate is read-only. The predicate runs
-   * outside composition, so snapshot state it reads is not observed; read state in composition and
-   * capture the values. See [Anchor.Companion.Above] to use this in the style content.
+   * candidates, and the [LayerSummary] passed to the predicate contains immutable metadata. The
+   * predicate runs outside composition, so snapshot state it reads is not observed; read state in
+   * composition and capture the values. See [Anchor.Companion.Above] to use this in the style
+   * content.
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
-    public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
+    public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
 
     /** Anchors over the base-style layer with the given [layerId]. */
     public constructor(layerId: String) : this(LayerSelector(layerId))
 
-    public val predicate: (LayerHandle) -> Boolean
+    public val predicate: (LayerSummary) -> Boolean
       get() = selector.predicate
 
     override fun equals(other: Any?): Boolean = other is Above && selector == other.selector
@@ -56,17 +57,18 @@ public sealed interface Anchor {
   /**
    * Layers are placed directly under the lowest base-style layer that [predicate] accepts, or at
    * the top of the stack when it accepts none. Layers declared in the style content are not
-   * candidates, and the [LayerHandle] passed to the predicate is read-only. The predicate runs
-   * outside composition, so snapshot state it reads is not observed; read state in composition and
-   * capture the values. See [Anchor.Companion.Below] to use this in the style content.
+   * candidates, and the [LayerSummary] passed to the predicate contains immutable metadata. The
+   * predicate runs outside composition, so snapshot state it reads is not observed; read state in
+   * composition and capture the values. See [Anchor.Companion.Below] to use this in the style
+   * content.
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
-    public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
+    public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
 
     /** Anchors under the base-style layer with the given [layerId]. */
     public constructor(layerId: String) : this(LayerSelector(layerId))
 
-    public val predicate: (LayerHandle) -> Boolean
+    public val predicate: (LayerSummary) -> Boolean
       get() = selector.predicate
 
     override fun equals(other: Any?): Boolean = other is Below && selector == other.selector
@@ -102,7 +104,7 @@ public sealed interface Anchor {
      */
     @Composable
     @MaplibreComposable
-    public fun Above(predicate: (LayerHandle) -> Boolean, block: @Composable () -> Unit): Unit =
+    public fun Above(predicate: (LayerSummary) -> Boolean, block: @Composable () -> Unit): Unit =
       At(Above(predicate), block)
 
     /**
@@ -120,7 +122,7 @@ public sealed interface Anchor {
      */
     @Composable
     @MaplibreComposable
-    public fun Below(predicate: (LayerHandle) -> Boolean, block: @Composable () -> Unit): Unit =
+    public fun Below(predicate: (LayerSummary) -> Boolean, block: @Composable () -> Unit): Unit =
       At(Below(predicate), block)
 
     /** The layers specified in [block] are placed at the given [Anchor]. */
@@ -133,7 +135,7 @@ public sealed interface Anchor {
 }
 
 /** The ID form compares by ID; the predicate form compares by reference. */
-private class LayerSelector(val predicate: (LayerHandle) -> Boolean, val layerId: String? = null) {
+private class LayerSelector(val predicate: (LayerSummary) -> Boolean, val layerId: String? = null) {
   constructor(layerId: String) : this({ it.id == layerId }, layerId)
 
   override fun equals(other: Any?): Boolean =

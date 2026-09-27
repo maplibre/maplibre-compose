@@ -14,10 +14,8 @@ internal class StyleNode(
   private val publish: (StyleSnapshot) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
-  private val baseLayerIds = style.baseLayerSummaries().keys - replaceableLayerIds
-  private val baseSourceIds = style.sourceIds().toSet() - replaceableSourceIds
-  /** Base sources read for [getBaseSource], by ID; null for one the engine cannot reconstruct. */
-  private val baseSources = mutableMapOf<String, Source?>()
+  private val baseLayerIds = style.baseLayers.mapTo(mutableSetOf()) { it.id } - replaceableLayerIds
+  private val baseSourceIds = style.baseSources.keys - replaceableSourceIds
   private val sourceIds = IncrementingId("source")
   private val sourceDefinitions = mutableMapOf<Source, SourceDefinition>()
   private var previous: StyleSnapshot? = null
@@ -30,11 +28,7 @@ internal class StyleNode(
 
   fun nextSourceId(): String = sourceIds.next()
 
-  fun getBaseSource(id: String): Source? {
-    if (id !in baseSourceIds) return null
-    if (id !in baseSources) baseSources[id] = style.getSource(id)
-    return baseSources[id]
-  }
+  fun getBaseSource(id: String): Source? = if (id in baseSourceIds) style.baseSources[id] else null
 
   fun close() {
     closed = true
@@ -52,7 +46,7 @@ internal class StyleNode(
         .distinct()
         .filter { source ->
           val base = source.id in baseSourceIds
-          require(!base || baseSources[source.id] === source) {
+          require(!base || style.baseSources[source.id] === source) {
             "Source ID '${source.id}' conflicts with a base source"
           }
           !base

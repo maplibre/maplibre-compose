@@ -8,6 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -21,6 +22,7 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.RgbaPixel
 
@@ -31,7 +33,6 @@ class MlnFfiStylePresentationTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(INITIAL_STYLE)
       val session = fixture.session
-      session.reconcileStyleRevision(APPLICATION_REVISION)
       val updated =
         APPLICATION_REVISION.copy(
           layers =
@@ -40,7 +41,7 @@ class MlnFfiStylePresentationTest {
                 TestLayer("application", "background")
                   .apply { paint("background-opacity", JsonPrimitive(0.25)) }
                   .definition(),
-                Anchor.Top,
+                Anchor.Above { it.id == "initial" },
                 null,
                 null,
               )
@@ -48,14 +49,21 @@ class MlnFfiStylePresentationTest {
         )
       val parked = TestLatch(1)
       val release = TestLatch(1)
+      val ownerReleased = CompletableDeferred<Boolean>()
       try {
         assertTrue(
           session.postOwnerTaskForTest {
             parked.countDown()
-            check(release.await(5_000L)) { "style reconciliation blocked its caller" }
+            ownerReleased.complete(release.await(5_000L))
           }
         )
         assertTrue(parked.await(5_000L), "native owner did not reach the gate")
+        val node = StyleNode(assertNotNull(fixture.style), this)
+        try {
+          assertEquals("points", assertNotNull(node.getBaseSource("points")).id)
+        } finally {
+          node.close()
+        }
         val commit =
           try {
             async(start = CoroutineStart.UNDISPATCHED) {
@@ -71,6 +79,7 @@ class MlnFfiStylePresentationTest {
             release.countDown()
           }
         commit.await()
+        assertTrue(ownerReleased.await(), "composition or reconciliation blocked its caller")
         assertEquals(
           JsonPrimitive(0.25),
           assertNotNull(fixture.style).layerProperty("application", "background-opacity"),
@@ -223,7 +232,7 @@ class MlnFfiStylePresentationTest {
 
     val INITIAL_STYLE =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}"""
+        """{"version":8,"sources":{"points":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}"""
       )
 
     val REPLACEMENT_STYLE =

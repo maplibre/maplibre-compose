@@ -22,6 +22,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
@@ -117,6 +118,19 @@ internal open class MlnFfiStyleBinding(
   override val logger: MapLog?
     get() = loggerProvider()
 
+  private var declaredSources: JsonObject? = null
+
+  override val baseLayers: List<LayerSummary> = readMap { map ->
+    map.styleLayers().map { layer ->
+      LayerSummary(layer.id, layer.type, layer.sourceId, layer.sourceLayer)
+    }
+  }
+    .orEmpty()
+  override val baseSources: Map<String, Source?> = readMap { map ->
+    map.styleSourceIds().associateWith { reconstructSource(map, it) }
+  }
+    .orEmpty()
+
   override fun setImage(definition: StyleImageDefinition) {
     val command = prepareImage(definition)
     mutateMap { command(it) }
@@ -200,13 +214,6 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  override fun layerSummaries(): Map<String, LayerSummary> = readMap { map ->
-    map.styleLayers().associate { layer ->
-      layer.id to LayerSummary(layer.type, layer.sourceId, layer.sourceLayer)
-    }
-  }
-    .orEmpty()
-
   private fun reconstructSource(map: MapHandle, id: String): Source? =
     reconstructedSource(id, sourceDefinition(map, id))
 
@@ -258,8 +265,6 @@ internal open class MlnFfiStyleBinding(
         }
     return ((sources[id] as? JsonObject)?.get("attribution") as? JsonPrimitive)?.contentOrNull
   }
-
-  private var declaredSources: JsonObject? = null
 
   private fun reconstructLayer(map: MapHandle, id: String): LayerDefinition {
     val definition =

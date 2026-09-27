@@ -3,29 +3,31 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
 class StyleLayerSummariesTest {
   @Test
-  fun layer_summaries_report_every_layer_in_style_order(): MapTestResult = runMapTest {
+  fun published_metadata_reports_base_resources_in_style_order(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(LAYERED_STYLE)
       val style = assertNotNull(fixture.style)
 
-      val summaries = style.layerSummaries()
+      val summaries = style.baseLayers
 
       assertEquals(
-        mapOf(
-          "backdrop" to LayerSummary("background", source = null, sourceLayer = null),
-          "lakes" to LayerSummary("fill", source = "water", sourceLayer = "lake"),
-          "rivers" to LayerSummary("line", source = "water", sourceLayer = "river"),
-          "pins" to LayerSummary("circle", source = "points", sourceLayer = null),
+        listOf(
+          LayerSummary("backdrop", "background", source = null, sourceLayer = null),
+          LayerSummary("lakes", "fill", source = "water", sourceLayer = "lake"),
+          LayerSummary("rivers", "line", source = "water", sourceLayer = "river"),
+          LayerSummary("pins", "circle", source = "points", sourceLayer = null),
         ),
         summaries,
       )
-      assertEquals(listOf("backdrop", "lakes", "rivers", "pins"), summaries.keys.toList())
+      assertEquals(setOf("points", "water"), style.baseSources.keys)
+      assertEquals("water", assertNotNull(style.baseSources["water"]).id)
     }
   }
 

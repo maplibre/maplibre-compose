@@ -18,9 +18,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.rememberStyleComposition
 
@@ -61,37 +59,6 @@ class StyleCompositionLifecycleTest {
       finish.complete(Unit)
     }
   }
-
-  @Test
-  fun invalidation_during_initial_resource_reads_allows_the_next_style_to_compose() =
-    runPlainComposeUiTest {
-      val previous = RecordingStyleBinding()
-      val replacement = RecordingStyleBinding()
-      val reconciler = StyleReconciler()
-      var current by
-        mutableStateOf<StyleBinding>(
-          object : StyleBinding by previous {
-            override fun layerSummaries(): Map<String, LayerSummary> {
-              previous.invalidate()
-              previous.requireCurrent()
-              error("the invalidated read must fail")
-            }
-          }
-        )
-      setContent {
-        rememberStyleComposition(
-          maybeStyle = current,
-          content = { BackgroundLayer("content", visible = true) },
-          applyRevision = { binding, revision -> reconciler.apply(binding, revision) },
-        )
-      }
-      waitForIdle()
-      assertTrue(!previous.isLoaded)
-      assertTrue(previous.layerIds().isEmpty())
-      runOnIdle { current = replacement }
-      waitForIdle()
-      assertEquals(listOf("content"), replacement.layerIds())
-    }
 
   @Test
   fun source_submission_needs_no_frame_after_the_committing_frame() = runPlainComposeUiTest {

@@ -44,6 +44,7 @@ import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.GlJsLocationIndicator
 import org.maplibre.compose.layers.IndicatorImage
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -198,6 +199,12 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
+  override val baseLayers: List<LayerSummary> =
+    map.getLayersOrder().mapNotNull { id ->
+      map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
+    }
+  override val baseSources: Map<String, Source?> = sourceIds().associateWith(::getSource)
+
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
     requireLoaded()
@@ -302,23 +309,6 @@ internal class GlJsStyleBinding(
   override fun layerIds(): List<String> {
     requireLoaded()
     return if (restoringContext) layerOrder else map.getLayersOrder().toList()
-  }
-
-  override fun layerSummaries(): Map<String, LayerSummary> {
-    requireLoaded()
-    return map
-      .getLayersOrder()
-      .mapNotNull { id ->
-        map.getLayer(id)?.let {
-          id to
-            LayerSummary(
-              if (id in indicators) "location-indicator" else it.type,
-              it.source,
-              it.sourceLayer,
-            )
-        }
-      }
-      .toMap()
   }
 
   private fun reconstructSource(id: String): Source? {

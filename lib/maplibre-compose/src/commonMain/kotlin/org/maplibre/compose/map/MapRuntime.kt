@@ -64,6 +64,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
@@ -75,7 +76,6 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -83,7 +83,6 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.baseLayerSummaries
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
@@ -444,20 +443,20 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
    * itself, is omitted.
    */
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
-    val base = current.baseLayerSummaries()
+    val base = current.baseLayers.associateBy { it.id }
     val summaries =
       current
         .layerIds()
         .mapNotNull { id -> (base[id] ?: owner?.desiredLayerSummary(id))?.let { id to it } }
         .toMap()
     current.identity.layers.retain(summaries.keys)
-    return summaries.mapValues { (id, summary) -> layerHandle(current, id, summary) }
+    return summaries.mapValues { (_, summary) -> layerHandle(current, summary) }
   }
 
-  internal fun layerHandle(current: StyleBinding, id: String, summary: LayerSummary): LayerHandle {
+  internal fun layerHandle(current: StyleBinding, summary: LayerSummary): LayerHandle {
+    val id = summary.id
     val identity = current.identity.layers.get(id)
     return current.layerHandle(
-      id,
       summary,
       isCurrentResource = { current.identity.layers.isCurrent(id, identity) },
       operations = operationGuard(current),
@@ -472,7 +471,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   ) {
     val updated = layersState.toMutableMap()
     changes.forEach { (id, summary) ->
-      if (summary == null) updated.remove(id) else updated[id] = layerHandle(current, id, summary)
+      if (summary == null) updated.remove(id) else updated[id] = layerHandle(current, summary)
     }
     layersState = order.mapNotNull { id -> updated[id]?.let { id to it } }.toMap()
   }
