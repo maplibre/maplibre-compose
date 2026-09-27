@@ -29,7 +29,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
@@ -245,8 +244,7 @@ internal class MapSnapshotterImplementation(
     StyleResourceCommands(
       style,
       runtime.physicalScope,
-      runtime.readDispatcher,
-      refreshSources = { refreshSourcesAfterCommand(it) },
+      commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
       rejected = { target, error -> runtime.logger?.w(error) { "Could not $target" } },
     )
   }
@@ -526,13 +524,21 @@ internal class MapSnapshotterImplementation(
     desiredRevision.sources.firstOrNull { it.id == id } ?: resourceCommands.sourceDefinition(id)
   }
 
-  private suspend fun refreshSourcesAfterCommand(binding: StyleBinding): Map<String, SourceHandle> {
-    val sources = withContext(runtime.readDispatcher) { style.readSources(binding) }
+  /** Runs [mutate] on the map owner and reads the sources it leaves behind in the same task. */
+  private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
+    val sources =
+      checkNotNull(
+        binding.awaitOwner {
+          mutate()
+          style.readSources(binding)
+        }
+      ) {
+        "The loaded style changed before the command ran"
+      }
     lock.withLock {
       requireStyleHandleLocked(binding)
       style.updateSources(sources)
     }
-    return sources
   }
 
   private fun requireNoDesiredSource(id: String) {
@@ -603,22 +609,45 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  private fun publishStyle(
+  /**
+   * Publishes [binding] with the handles of the resources it holds after [revision]. The engine
+   * read runs as an owner task between two locked steps, so a UI-thread lookup never waits on the
+   * map owner while this snapshotter's lock is held. The style stays Loading until the handles are
+   * in place.
+   */
+  private suspend fun publishStyle(
     capture: Capture,
     claim: StyleClaim,
     binding: StyleBinding,
     revision: StyleSnapshot,
-  ): Boolean = lock.withLock {
-    if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
-    val reusesLoadedStyle = style.currentLoadedStyle() === binding
-    desiredRevision = revision
-    if (!reusesLoadedStyle) {
-      resourceCommands.clear()
-      style.updateLoadedStyle(binding)
+  ): Boolean {
+    // The read builds handles from the desired revision, so that is committed first.
+    val accepted = lock.withLock {
+      if (closed || capture.abandoned || claim.revision != baseStyleRevision) {
+        return@withLock false
+      }
+      desiredRevision = revision
+      if (style.currentLoadedStyle() !== binding) {
+        resourceCommands.clear()
+        style.updateLoadedStyle(binding)
+      }
+      true
     }
-    style.loadState = StyleLoadState.Ready
-    style.refreshResources()
-    true
+    if (!accepted) return false
+    val resources = binding.awaitOwner { style.readResources(binding) } ?: return false
+    return lock.withLock {
+      if (
+        closed ||
+          capture.abandoned ||
+          claim.revision != baseStyleRevision ||
+          style.currentLoadedStyle() !== binding
+      ) {
+        return@withLock false
+      }
+      style.updateResources(resources)
+      style.loadState = StyleLoadState.Ready
+      true
+    }
   }
 
   private fun publishStyleFailure(claim: StyleClaim, error: Throwable) {

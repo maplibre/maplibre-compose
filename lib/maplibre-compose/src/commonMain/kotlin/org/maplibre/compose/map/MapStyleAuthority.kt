@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
@@ -17,7 +16,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.layers.LayerSummary
-import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
@@ -28,8 +26,9 @@ import org.maplibre.compose.style.summary
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
- * [MapState]. Every mutation runs on the main thread, which [lifecycle] checks; engine reads run on
- * the runtime's read dispatcher and commit only while their generation is still current.
+ * [MapState]. Every mutation runs on the main thread, which [lifecycle] checks; engine reads run as
+ * suspending owner tasks ([StyleBinding.awaitOwner]) and commit only while their generation is
+ * still current.
  */
 internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
@@ -37,15 +36,12 @@ internal class MapStyleAuthority(
   baseStyle: BaseStyle,
 ) : MapStyleStateOwner {
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
-  private val readDispatcher: CoroutineDispatcher
-    get() = runtime.readDispatcher
 
   override val resourceCommands =
     StyleResourceCommands(
       style,
       runtime.mainScope,
-      readDispatcher,
-      refreshSources = { refreshSourcesAfterCommand(it) },
+      commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
       rejected = { target, error -> runtime.logger?.w(error) { "Could not $target" } },
     )
 
@@ -57,7 +53,7 @@ internal class MapStyleAuthority(
   private val missingImageResolutions = mutableMapOf<String, MissingImageResolution>()
   private val desiredStyleRevisionState = AtomicReference(StyleSnapshot.Empty)
 
-  /** Read from the style read dispatcher too. Written on the main thread only. */
+  /** Read from the map owner thread too. Written on the main thread only. */
   internal var desiredStyleRevision: StyleSnapshot
     get() = desiredStyleRevisionState.load()
     set(value) = desiredStyleRevisionState.store(value)
@@ -111,7 +107,14 @@ internal class MapStyleAuthority(
     }
   }
 
-  internal suspend fun refreshStyleSources(adapter: MapAdapter, sourceId: String? = null): Boolean {
+  /**
+   * Rereads the loaded style's sources and republishes their handles. [changedIds] limits the
+   * definition reads to those sources and keeps the other handles; null rereads every source.
+   */
+  internal suspend fun refreshStyleSources(
+    adapter: MapAdapter,
+    changedIds: Set<String>? = null,
+  ): Boolean {
     lifecycle.requireMain()
     if (!lifecycle.acceptsAdapter(adapter)) return false
     styleSourceChangeRevision++
@@ -121,7 +124,7 @@ internal class MapStyleAuthority(
       val binding = style.currentLoadedStyle() ?: return true
       val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       val sources =
-        readWhileCurrent(adapter, read) { style.readSources(read.binding, sourceId) }
+        readWhileCurrent(adapter, read) { style.readSources(read.binding, changedIds) }
           ?: return false
       if (!acceptsStyleResourceRead(adapter, read)) return false
       if (style.loadState != StyleLoadState.Ready) return false
@@ -138,14 +141,15 @@ internal class MapStyleAuthority(
     val binding = style.currentLoadedStyle() ?: return
     if (binding.identity !== changes.identity) return
     val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-    changes.sources.forEach { refreshStyleSources(adapter, it) }
+    if (changes.sources.isNotEmpty()) refreshStyleSources(adapter, changes.sources)
     if (!isCurrentStyleResourceRead(adapter, read)) return
     changes.layerOrder?.let { style.updateLayers(binding, changes.layers, it) }
   }
 
   /**
-   * Runs an engine read on [readDispatcher]. A failure is rethrown while [read] is still current
-   * and yields null once it is not, because nothing waits on a generation that is gone.
+   * Runs an engine read as one owner task. A failure is rethrown while [read] is still current and
+   * yields null once it is not, because nothing waits on a generation that is gone. A read the
+   * owner drops also yields null: the map is going away.
    */
   private suspend fun <T> readWhileCurrent(
     adapter: MapAdapter,
@@ -153,7 +157,7 @@ internal class MapStyleAuthority(
     block: () -> T,
   ): T? =
     try {
-      withContext(readDispatcher) { block() }
+      read.binding.awaitOwner(block)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -266,12 +270,12 @@ internal class MapStyleAuthority(
     applyBaseStyleCommand(command)
   }
 
-  /** Answers from any thread: source reads call it from the read dispatcher. */
+  /** Answers from any thread: source reads call it from the map owner thread. */
   override fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
     desiredStyleRevision.sources.firstOrNull { it.id == id }
       ?: resourceCommands.sourceDefinition(id)
 
-  /** Answers from any thread: layer reads call it from the read dispatcher. */
+  /** Answers from any thread: layer reads call it from the map owner thread. */
   override fun desiredLayerSummary(id: String): LayerSummary? =
     desiredStyleRevision.layers.firstOrNull { it.definition.id == id }?.definition?.summary()
 
@@ -314,7 +318,7 @@ internal class MapStyleAuthority(
     var rememberFailure = false
     try {
       // A queued miss may arrive after another request or style command supplied the image.
-      if (withContext(readDispatcher) { binding.imageExists(imageId) } == true) return
+      if (binding.awaitOwner { binding.imageExists(imageId) } == true) return
       val resolved =
         try {
           resolver(imageId)
@@ -353,20 +357,34 @@ internal class MapStyleAuthority(
     missingImageResolutions.clear()
   }
 
-  private suspend fun refreshSourcesAfterCommand(binding: StyleBinding): Map<String, SourceHandle> {
+  /**
+   * Runs [mutate] on the map owner and, in the same task, reads the sources it leaves behind. The
+   * read repeats alone while another source change lands during it.
+   */
+  private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
+    var pending: (() -> Unit)? = mutate
     while (true) {
       val read = run {
         requireStyleHandle(binding)
         StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
       }
-      val sources = withContext(readDispatcher) { style.readSources(binding) }
+      val sources =
+        checkNotNull(
+          binding.awaitOwner {
+            pending?.invoke()
+            pending = null
+            style.readSources(binding)
+          }
+        ) {
+          "The loaded style changed before the command ran"
+        }
       val committed = run {
         requireStyleHandle(binding)
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@run false
         style.updateSources(sources)
         true
       }
-      if (committed) return sources
+      if (committed) return
     }
   }
 

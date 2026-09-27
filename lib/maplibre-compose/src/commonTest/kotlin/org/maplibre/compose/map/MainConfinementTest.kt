@@ -15,6 +15,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.QueuedOwnerStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
@@ -120,23 +121,26 @@ class MainConfinementTest {
 
   @Test
   fun a_style_ready_read_repeats_when_a_revision_lands_during_the_read() = runTest {
-    val reads = StandardTestDispatcher(testScheduler)
-    val runtime =
-      mapRuntimeForTest(
-        physicalScope = backgroundScope,
-        readDispatcher = reads,
-      )
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = PresentationTestAdapter()
     state.publishPresentation(state.reservePresentation(), adapter)
     val binding = CountingStyleBinding(RecordingStyleBinding())
+    binding.ownerBusy = true
     assertTrue(state.styleAuthority.updateLoadedStyle(adapter, binding))
 
     val ready =
       async(start = CoroutineStart.UNDISPATCHED) { state.styleAuthority.markStyleReady(adapter) }
     assertEquals(0, binding.sourceReads)
+    assertEquals(1, binding.ownerTasks, "the ready read must be one queued owner task")
     // A desired revision moves the handle epoch while the first read is still queued.
     state.styleAuthority.beginStyleRevision(adapter, StyleSnapshot.Empty)
+    binding.runOwnerTasks()
+    testScheduler.runCurrent()
+    assertEquals(1, binding.sourceReads)
+    assertFalse(ready.isCompleted, "the stale read must not publish")
+    assertEquals(1, binding.ownerTasks, "the read repeats as one more owner task")
+    binding.runOwnerTasks()
     testScheduler.runCurrent()
 
     assertTrue(ready.await())
@@ -234,7 +238,8 @@ class MainConfinementTest {
     }
   }
 
-  private class CountingStyleBinding(private val inner: StyleBinding) : StyleBinding by inner {
+  private class CountingStyleBinding(private val inner: StyleBinding) :
+    QueuedOwnerStyleBinding(inner) {
     var sourceReads = 0
       private set
 

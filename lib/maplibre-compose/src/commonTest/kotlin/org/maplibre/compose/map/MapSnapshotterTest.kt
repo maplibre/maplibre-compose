@@ -321,10 +321,12 @@ class MapSnapshotterTest {
     val captureStarted = CompletableDeferred<Unit>()
     val image = FakeImageBitmap(1, 1)
     val initialBinding = RecordingStyleBinding()
-    val binding = initialBinding
     val adapter =
       FakeSnapshotterAdapter(
-        prepare = { _, _ -> binding },
+        // A capture after the cancellation loads a fresh style, as the engine does.
+        prepare = { _, _ ->
+          if (initialBinding.isLoaded) initialBinding else RecordingStyleBinding()
+        },
         capture = { request, _ ->
           if (request.width == 2) {
             captureStarted.complete(Unit)

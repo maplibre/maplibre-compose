@@ -30,7 +30,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -67,6 +66,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.QueuedOwnerStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleBinding
@@ -96,8 +96,7 @@ class MapPresentationTest {
 
   @Test
   fun replacement_presentation_keeps_handles_from_suspended_publication() = runTest {
-    val reads = StandardTestDispatcher(testScheduler)
-    val binding = RecordingStyleBinding()
+    val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
     val reconciler = StyleReconciler()
     val adapter =
       object : PresentationTestAdapter() {
@@ -109,11 +108,7 @@ class MapPresentationTest {
         override suspend fun detachPresentation() = Unit
       }
     val runtime =
-      mapRuntimeForTest(
-        physicalScope = backgroundScope,
-        mainDispatcher = testMainDispatcher(),
-        readDispatcher = reads,
-      )
+      mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = testMainDispatcher())
     val state = runtime.createMapState(BaseStyle.Empty)
     try {
       val token = state.reservePresentation()
@@ -133,6 +128,8 @@ class MapPresentationTest {
           ),
           emptyList(),
         )
+      // The owner is busy, so the publication's source read waits in its queue.
+      binding.ownerBusy = true
       val old =
         launch(start = CoroutineStart.UNDISPATCHED) {
           state.styleAuthority.applyStyleRevision(adapter, binding, revision)
@@ -141,6 +138,7 @@ class MapPresentationTest {
       assertNull(state.style.layers["committed"])
       // Disposal cancels the old composition, but its accepted publication must finish.
       old.cancel()
+      binding.ownerBusy = false
       state.releasePresentation(token, adapter)
       val replacement = state.reservePresentation()
       state.publishPresentation(replacement, adapter)
@@ -151,6 +149,7 @@ class MapPresentationTest {
         launch(start = CoroutineStart.UNDISPATCHED) {
           state.styleAuthority.applyStyleRevision(adapter, binding, revision)
         }
+      binding.runOwnerTasks()
       old.join()
       next.join()
       assertNotNull(state.style.sources["committed-source"])

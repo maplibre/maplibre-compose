@@ -29,8 +29,6 @@ internal fun TestScope.testMainDispatcher(): TestMainDispatcher =
 internal fun mapRuntimeForTest(
   physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   mainDispatcher: CoroutineDispatcher = TestMainDispatcher(),
-  // Inline: unit tests observe reads synchronously.
-  readDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
   createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   closeResources: suspend () -> Unit = {},
@@ -41,7 +39,6 @@ internal fun mapRuntimeForTest(
     logger = null,
     physicalScope = physicalScope,
     mainDispatcher = mainDispatcher,
-    readDispatcher = readDispatcher,
     createSnapshotterAdapter = createSnapshotterAdapter,
     styleEvaluator = styleEvaluator,
   )

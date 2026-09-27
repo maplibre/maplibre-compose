@@ -7,7 +7,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -133,8 +135,27 @@ internal open class MlnFfiStyleBinding(
     mutateMap { command(it) }
   }
 
+  /** Unlike [awaitMap], an unloaded style yields null rather than an error. */
+  override suspend fun <T> awaitOwner(action: () -> T): T? {
+    if (!isLoaded) return null
+    return suspendCancellableCoroutine { continuation ->
+      val accepted =
+        postMap(
+          { _ ->
+            if (!continuation.isActive) return@postMap
+            continuation.resumeWith(runCatching { if (isLoaded) action() else null })
+          },
+          { continuation.resume(null) },
+        )
+      if (!accepted) continuation.resume(null)
+    }
+  }
+
   override suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> {
-    val commands = definitions.map { runCatching { prepareImage(it) } }
+    // Pixel conversion is CPU work: it runs neither on the caller, which may be the main thread,
+    // nor on the owner, which only uploads.
+    val commands =
+      withContext(Dispatchers.Default) { definitions.map { runCatching { prepareImage(it) } } }
     // A refused or abandoned batch must not look like a batch that wrote nothing.
     return checkNotNull(
       awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }

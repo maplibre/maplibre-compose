@@ -239,7 +239,7 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    launchStyleRead(map) { owner.styleAuthority.refreshStyleSources(map, sourceId) }
+    launchStyleRead(map) { owner.styleAuthority.refreshStyleSources(map, sourceId?.let(::setOf)) }
   }
 
   /**

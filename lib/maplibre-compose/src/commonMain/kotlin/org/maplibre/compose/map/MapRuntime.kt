@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
@@ -400,27 +399,25 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
 
-  internal fun refreshResources() {
-    val current = loadedStyle.load()
-    if (loadState != StyleLoadState.Ready || current == null) {
-      sourcesState = emptyMap()
-      layersState = emptyMap()
-    } else {
-      updateResources(readResources(current))
-    }
-  }
-
+  /** Reads every source and layer from the engine; the caller runs it as one owner task. */
   internal fun readResources(current: StyleBinding): LoadedStyleResources =
     LoadedStyleResources(readSources(current), readLayers(current))
 
+  /**
+   * Reads the engine's sources in style order; the caller runs it as one owner task. With
+   * [changedIds], only those sources get a fresh handle and the other handles are kept, so the
+   * identities of unchanged sources survive.
+   */
   internal fun readSources(
     current: StyleBinding,
-    changedId: String? = null,
+    changedIds: Set<String>? = null,
   ): Map<String, SourceHandle> {
-    if (changedId != null) {
-      val handle = sourceHandle(current, changedId)
+    if (changedIds != null) {
       val handles = sourcesState.toMutableMap()
-      if (handle == null) handles.remove(changedId) else handles[changedId] = handle
+      changedIds.forEach { changedId ->
+        val handle = sourceHandle(current, changedId)
+        if (handle == null) handles.remove(changedId) else handles[changedId] = handle
+      }
       val ids = current.sourceIds()
       current.identity.sources.retain(ids.toSet())
       return ids.mapNotNull { id -> handles[id]?.let { id to it } }.toMap()
@@ -1356,10 +1353,6 @@ internal class RuntimeImplementation(
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
   /** Pins map state to the main dispatcher's thread. */
   internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
-  /** Runs engine reads that block until the map owner thread answers. */
-  internal val readDispatcher: CoroutineDispatcher =
-    physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
-      ?: Dispatchers.Default,
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),

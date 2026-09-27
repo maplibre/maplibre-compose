@@ -135,14 +135,15 @@ internal fun <T> MapPresentationContent(
         }
 
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-          launchStyleRead(map) { state.styleAuthority.refreshStyleSources(map, sourceId) }
+          launchStyleRead(map) {
+            state.styleAuthority.refreshStyleSources(map, sourceId?.let(::setOf))
+          }
         }
 
         /**
          * Starts undispatched so the read claims its revision inside the engine callback, then
-         * finishes on the runtime's main scope rather than the composition's. The engine read
-         * inside moves to the read dispatcher; from a physical scope it would run inline on the
-         * main thread and block it.
+         * finishes on the runtime's main scope rather than the composition's, which the engine
+         * read's owner task resumes on.
          */
         private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
           state.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
