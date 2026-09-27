@@ -370,11 +370,7 @@ internal class MapSnapshotterImplementation(
     if (lock.withLock { closed && active == null }) finishClose()
   }
 
-  private suspend fun runCapture(capture: Capture) = resourceCommands.withCommit {
-    runCaptureLocked(capture)
-  }
-
-  private suspend fun runCaptureLocked(capture: Capture) = coroutineScope {
+  private suspend fun runCapture(capture: Capture) = coroutineScope {
     val platform =
       try {
         adapter ?: runtime.createSnapshotterAdapter().also { adapter = it }
@@ -394,7 +390,9 @@ internal class MapSnapshotterImplementation(
         var binding: StyleBinding? = null
         val result =
           try {
-            val currentClaim = claimStyle()
+            // Drain accepted commands before entering Loading, which rejects further writes.
+            // User composition and platform callbacks must run outside the command mutex.
+            val currentClaim = resourceCommands.withCommit { claimStyle() }
             claim = currentClaim
             val prepared =
               platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
@@ -412,11 +410,15 @@ internal class MapSnapshotterImplementation(
                 request.layoutDirection,
                 evaluationOwnership,
               )
-            requireNoImperativeResourceConflicts(currentBinding, revision)
-            recordStyleOwnership(currentClaim, revision)
+            resourceCommands.withCommit {
+              requireNoImperativeResourceConflicts(currentBinding, revision)
+              recordStyleOwnership(currentClaim, revision)
+            }
             val image = platform.capture(request, revision)
-            if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
-              currentBinding.invalidate()
+            resourceCommands.withCommit {
+              if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
+                currentBinding.invalidate()
+              }
             }
             Result.success(image)
           } catch (error: Throwable) {

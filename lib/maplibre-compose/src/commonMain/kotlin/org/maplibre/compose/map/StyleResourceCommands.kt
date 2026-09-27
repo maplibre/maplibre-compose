@@ -175,6 +175,9 @@ internal class StyleResourceCommands(
         withContext(NonCancellable) {
           async {
             try {
+              check(style.readyLoadedStyle() === binding) {
+                "Style command belongs to an unready loaded-style identity"
+              }
               block()
             } catch (error: Exception) {
               if (style.isCurrentLoadedStyle(binding)) rejected(target, error)
