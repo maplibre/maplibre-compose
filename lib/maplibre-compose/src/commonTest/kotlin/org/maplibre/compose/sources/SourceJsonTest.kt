@@ -112,7 +112,7 @@ class SourceJsonTest {
     // The spec has no minzoom on a GeoJSON source: tiling always starts at zero. MapLibre GL JS
     // rejects the source over it, so only the MapLibre Native platforms write it.
     assertFalse("minzoom" in json, "minzoom is not a style-spec key on a GeoJSON source")
-    assertFalse("synchronousUpdate" in json, "synchronousUpdate is a MapLibre Native extension")
+    assertFalse("synchronousTiling" in json, "synchronousTiling is a MapLibre Native extension")
   }
 
   @Test

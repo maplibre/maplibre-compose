@@ -58,7 +58,7 @@ internal fun GeoJsonData.toInlineUtf8(): ByteArray? =
   }
 
 /**
- * `minzoom` and `synchronousUpdate` are deliberately absent: the spec has no place for them here
+ * `minzoom` and `synchronousTiling` are deliberately absent: the spec has no place for them here
  * and GL JS rejects the whole source over an unknown key, so each backend that honours one writes
  * it itself.
  */

@@ -168,8 +168,6 @@ internal class RecordingStyleBinding(
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
 
-  override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
-
   /** The GeoJSON data each install applied, in order, keyed by source. */
   val installedGeoJson: MutableMap<String, MutableList<GeoJsonData>> = mutableMapOf()
 

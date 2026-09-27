@@ -52,7 +52,6 @@ import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
-import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.geo.CanonicalTileId
@@ -385,6 +384,32 @@ internal open class MlnFfiStyleBinding(
     )
   }
 
+  /** Queues a write for this source installation, dropping it after removal or replacement. */
+  private fun postSourceMutation(sourceId: String, action: (MapHandle) -> Unit) {
+    val resource = identity.sources.get(sourceId)
+    postMutation { map ->
+      if (identity.sources.isCurrent(sourceId, resource)) action(map)
+    }
+  }
+
+  private fun postSourceWrite(sourceId: String, action: (MapHandle) -> Unit) {
+    postSourceMutation(sourceId) { map ->
+      try {
+        action(map)
+      } catch (error: MaplibreException) {
+        reportRejectedWrite(
+          "source '$sourceId'",
+          null,
+          StyleMutationException(error.message, error),
+        )
+      }
+    }
+  }
+
+  fun setSourceVolatile(sourceId: String, value: Boolean) {
+    postSourceWrite(sourceId) { it.setStyleSourceVolatile(sourceId, value) }
+  }
+
   /** Runs [action] on the owner thread, reporting an engine refusal as a rejected write. */
   private fun postWrite(target: String, value: JsonElement?, action: (MapHandle) -> Unit) {
     postMutation { map ->
@@ -453,6 +478,7 @@ internal open class MlnFfiStyleBinding(
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
+      identity.sources.remove(sourceId)
       geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
       reportSourceChanged(sourceId)
     }
@@ -502,11 +528,15 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
-    mutateMap { map -> map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds()) }
+    postSourceWrite(sourceId) { map ->
+      map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds())
+    }
   }
 
   override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
-    mutateMap { map -> map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId()) }
+    postSourceWrite(sourceId) { map ->
+      map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId())
+    }
   }
 
   override fun addCustomVectorSource(
@@ -549,7 +579,9 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    mutateMap { map -> map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
+    postSourceWrite(sourceId) { map ->
+      map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId())
+    }
   }
 
   /**
@@ -592,20 +624,16 @@ internal open class MlnFfiStyleBinding(
 
   override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
     val pixels = image.toPremultipliedRgba8()
-    mutateMap { map -> map.setImageSourceImage(sourceId, pixels) }
+    postSourceWrite(sourceId) { map -> map.setImageSourceImage(sourceId, pixels) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    mutateMap { map -> map.setImageSourceUrl(sourceId, url) }
+    postSourceWrite(sourceId) { map -> map.setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     val corners = coordinates.map { it.toLatLng() }
-    mutateMap { map -> map.setImageSourceCoordinates(sourceId, corners) }
-  }
-
-  override fun imageSourceCoordinates(sourceId: String): List<Position>? = readMap { map ->
-    map.imageSourceCoordinates(sourceId)?.map { it.toPosition() }
+    postSourceWrite(sourceId) { map -> map.setImageSourceCoordinates(sourceId, corners) }
   }
 
   override fun addGeoJsonSource(
@@ -617,10 +645,6 @@ internal open class MlnFfiStyleBinding(
     return addSourceWith(sourceId) { map ->
       if (data is GeoJsonData.Uri) {
         map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
-      } else if (options.synchronousUpdate) {
-        prepareGeoJson(data, ffiOptions).use { prepared ->
-          map.addGeoJsonSourceData(sourceId, prepared)
-        }
       } else {
         GeoJsonSourceDataHandle.create(EMPTY_FEATURE_COLLECTION, ffiOptions).use { empty ->
           map.addGeoJsonSourceData(sourceId, empty)
@@ -628,7 +652,7 @@ internal open class MlnFfiStyleBinding(
       }
       val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
       // Register initial data before notifying source observers, which can submit newer data.
-      if (data !is GeoJsonData.Uri && !options.synchronousUpdate) {
+      if (data !is GeoJsonData.Uri) {
         coordinator.submit(data) { error("Expected inline data") }
       }
     }
@@ -639,22 +663,7 @@ internal open class MlnFfiStyleBinding(
     data: GeoJsonData,
     fallbackOptions: GeoJsonOptions,
   ) {
-    // An established asynchronous installation accepts inline data from any thread; only its
-    // creation, URL updates, and synchronous updates need the owner thread. Per-frame updates
-    // must not block on a round trip.
-    if (data !is GeoJsonData.Uri && isLoaded) {
-      val coordinator = geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
-      if (coordinator != null && !coordinator.synchronousUpdate) {
-        try {
-          coordinator.submit(data) { error("Expected inline data") }
-          return
-        } catch (closed: IllegalStateException) {
-          // The installation closed concurrently; retry on the owner thread below.
-        }
-      }
-    }
-    mutateMap { map ->
-      requireLoadedStyle()
+    postSourceMutation(sourceId) { map ->
       val coordinator =
         geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
           ?: geoJsonCoordinator(
@@ -664,7 +673,9 @@ internal open class MlnFfiStyleBinding(
       try {
         coordinator.submit(data) { url -> map.setGeoJsonSourceUrl(sourceId, url) }
       } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
+        val failure = StyleMutationException(error.message, error)
+        logger?.w(failure) { "Could not update GeoJSON source '$sourceId'" }
+        sourceDataFailed(identity, sourceId, failure)
       }
     }
   }
@@ -688,7 +699,6 @@ internal open class MlnFfiStyleBinding(
   ): MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle> {
     val coordinator =
       MlnFfiGeoJsonCoordinator(
-        synchronousUpdate = options.synchronousTiling == true,
         prepare = { data -> prepareGeoJson(data, options) },
         install = { prepared, isCurrent ->
           accessMap { map ->
@@ -720,8 +730,9 @@ internal open class MlnFfiStyleBinding(
 
   /** Native still-image requests must include data submitted by the desired revision. */
   internal suspend fun awaitGeoJsonUpdates() {
-    val coordinators = geoJsonLock.withLock { geoJsonCoordinators.values.toList() }
-    coordinators.forEach { it.awaitLatest() }
+    // The owner barrier includes accepted URL updates and newly created coordinators.
+    val coordinators = awaitMap { geoJsonLock.withLock { geoJsonCoordinators.values.toList() } }
+    coordinators?.forEach { it.awaitLatest() }
     requireLoadedStyle()
   }
 
@@ -748,7 +759,7 @@ internal open class MlnFfiStyleBinding(
         (source["clusterMinPoints"] as? JsonPrimitive)?.intOrNull ?: defaults.clusterMinPoints
       options.lineMetrics =
         (source["lineMetrics"] as? JsonPrimitive)?.booleanOrNull ?: defaults.lineMetrics
-      options.synchronousTiling = defaults.synchronousUpdate
+      options.synchronousTiling = defaults.synchronousTiling
       options.clusterProperties = (source["clusterProperties"] as? JsonObject)?.toJsonBytes()
     }
   }
@@ -1131,7 +1142,7 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
     it.clusterMinPoints = clusterMinPoints
     it.lineMetrics = lineMetrics
     // Viewport tiles are sliced during the next render when true, or on a worker when false.
-    it.synchronousTiling = synchronousUpdate
+    it.synchronousTiling = synchronousTiling
     it.clusterProperties = clusterPropertiesBytes()
   }
 

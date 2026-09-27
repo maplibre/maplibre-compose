@@ -356,9 +356,6 @@ internal interface StyleBinding {
   /** Sets an image source's four corners in MapLibre order. */
   fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>)
 
-  /** @return null if the style has unloaded, or the source is not a live image source. */
-  fun imageSourceCoordinates(sourceId: String): List<Position>?
-
   /**
    * Adds a GeoJSON source from its data and options. The default implementation writes style-spec
    * JSON. An engine can override this function to use a typed API.
@@ -381,7 +378,8 @@ internal interface StyleBinding {
    *
    * The binding owns preparation and ordering. A newer submission supersedes older pending data.
    * Native preparation uses the source's applied options, or [fallbackOptions] if those options are
-   * unavailable, and runs synchronously when [GeoJsonOptions.synchronousUpdate] is enabled.
+   * unavailable. Preparation runs on a worker; native tiling policy does not change submission
+   * ordering or make callers wait.
    */
   fun submitGeoJsonData(sourceId: String, data: GeoJsonData, fallbackOptions: GeoJsonOptions)
 

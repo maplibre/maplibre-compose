@@ -476,13 +476,6 @@ internal class GlJsStyleBinding(
     map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
   }
 
-  override fun imageSourceCoordinates(sourceId: String): List<Position>? {
-    requireLoaded()
-    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
-      Position(longitude = it[0], latitude = it[1])
-    }
-  }
-
   override fun submitGeoJsonData(
     sourceId: String,
     data: GeoJsonData,

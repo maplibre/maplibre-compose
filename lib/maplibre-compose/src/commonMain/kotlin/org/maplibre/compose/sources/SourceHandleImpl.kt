@@ -88,7 +88,7 @@ protected constructor(
     action()
   }
 
-  protected suspend fun <T> suspendingOperation(action: suspend () -> T): T {
+  internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
     operation {}
     val result = action()
     operation {}
