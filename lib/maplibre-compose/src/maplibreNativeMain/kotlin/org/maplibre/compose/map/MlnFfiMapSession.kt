@@ -1201,15 +1201,18 @@ internal class MlnFfiMapSession(
     val engine = checkNotNull(lifecycleEngineIdentity)
     val style = checkNotNull(lifecycleStyleIdentity)
     try {
-      val changes = styleReconciler.apply(binding, revision)
-      if (!styleLoadTracker.contentReady) {
-        runOnMap {
-          if (styleLoadTracker.reconciled(binding.identity)) {
+      val prepared = styleReconciler.prepare(binding, revision)
+      return checkNotNull(
+        loop?.await {
+          val changes = styleReconciler.apply(binding, prepared)
+          if (!styleLoadTracker.contentReady && styleLoadTracker.reconciled(binding.identity)) {
             lifecycleCallbacks.onStyleReady(engine, style, this)
           }
+          changes
         }
+      ) {
+        "The map became unavailable during style reconciliation"
       }
-      return changes
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -1420,7 +1423,7 @@ internal class MlnFfiMapSession(
     pendingCameraPadding = null
   }
 
-  override fun cameraForBounds(
+  override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1428,7 +1431,7 @@ internal class MlnFfiMapSession(
     fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
-      runOnMap { map ->
+      loop?.await { map ->
         cameraForBounds(map, boundingBox, bearing, tilt, cameraPadding, fitPadding)
           .toCameraPosition(appliedViewportInsets)
       }
@@ -1436,7 +1439,7 @@ internal class MlnFfiMapSession(
       "The map became unavailable during the bounds query"
     }
 
-  override fun cameraForGeometry(
+  override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -1445,7 +1448,7 @@ internal class MlnFfiMapSession(
   ): CameraPosition {
     val geoJson = geometry.toJson().encodeToByteArray()
     return checkNotNull(
-      runOnMap { map ->
+      loop?.await { map ->
         fitCamera(map, bearing, tilt, cameraPadding, fitPadding) {
             map.cameraForGeometry(geoJson, it)
           }
@@ -1456,7 +1459,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun fitCameraToBounds(
+  override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1474,7 +1477,7 @@ internal class MlnFfiMapSession(
     check(hasViewport && lifecycle.acceptsWork && loop != null) {
       "A bounds fit requires the current presentation viewport"
     }
-    check(runOnMap(fit) != null) { "The map became unavailable during the bounds fit" }
+    check(loop?.await(fit) != null) { "The map became unavailable during the bounds fit" }
   }
 
   private fun cameraForBounds(

@@ -839,7 +839,7 @@ internal class GlJsMapSession(
     }
   }
 
-  override fun cameraForBounds(
+  override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -852,7 +852,7 @@ internal class GlJsMapSession(
       "The map could not calculate a camera for the bounds"
     }
 
-  override fun cameraForGeometry(
+  override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -863,7 +863,7 @@ internal class GlJsMapSession(
       map.cameraPositionForPositions(geometry.positions(), bearing, tilt, cameraPadding, fitPadding)
     } ?: throw IllegalStateException("The map could not calculate a camera for the geometry")
 
-  override fun fitCameraToBounds(
+  override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

@@ -91,7 +91,7 @@ internal interface MapAdapter {
 
   fun setViewportInsets(insets: PaddingValues)
 
-  fun cameraForBounds(
+  suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -100,7 +100,7 @@ internal interface MapAdapter {
   ): CameraPosition
 
   /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
-  fun cameraForGeometry(
+  suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -108,7 +108,7 @@ internal interface MapAdapter {
     fitPadding: DpPadding,
   ): CameraPosition
 
-  fun fitCameraToBounds(
+  suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

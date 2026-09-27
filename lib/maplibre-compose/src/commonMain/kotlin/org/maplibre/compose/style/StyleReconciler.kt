@@ -26,16 +26,39 @@ internal class StyleReconciler {
    */
   private var knownLayerIds: MutableList<String>? = null
 
-  /**
-   * The base-style layers of the bound generation, bottom to top, as anchor predicates see them.
-   */
-  private var baseLayers: List<LayerHandle> = emptyList()
-
-  fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
+  /** Resolve application anchor predicates on the composition's caller, before owner work. */
+  fun prepare(style: StyleBinding, revision: DesiredStyleRevision): PreparedRevision {
     style.requireCurrent()
+    val base = style.baseLayerSummaries()
+    val baseLayers by lazy {
+      base.map { (id, summary) -> predicateLayerHandle(style, id, summary) }
+    }
+    val placements = hashMapOf<Anchor, Placement>()
+    val layers =
+      revision.layers.map { desired ->
+        PlacedLayer(
+          desired,
+          placements.getOrPut(desired.anchor) {
+            when (val anchor = desired.anchor) {
+              is Anchor.Top -> Placement.Top
+              is Anchor.Bottom -> Placement.Bottom
+              else -> placement(anchor, baseLayers)
+            }
+          },
+        )
+      }
+    return PreparedRevision(style.identity, revision, layers)
+  }
+
+  fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges =
+    apply(style, prepare(style, revision))
+
+  /** Serialized on one executor; native callers use the map owner thread. */
+  fun apply(style: StyleBinding, prepared: PreparedRevision): StyleResourceChanges {
+    style.requireCurrent(prepared.identity)
     if (binding !== style) reset(style)
     try {
-      return applyRevision(style, revision)
+      return applyRevision(style, prepared)
     } catch (error: Throwable) {
       // A mutation may have succeeded before the failure; the tracked order is no longer trusted.
       knownLayerIds = null
@@ -45,8 +68,9 @@ internal class StyleReconciler {
 
   private fun applyRevision(
     style: StyleBinding,
-    revision: DesiredStyleRevision,
+    prepared: PreparedRevision,
   ): StyleResourceChanges {
+    val revision = prepared.revision
     revision.fontScale?.let { next ->
       if (fontScale != next) {
         style.setGlobalStateProperty(FONT_SCALE_GLOBAL_STATE, JsonPrimitive(next))
@@ -60,14 +84,7 @@ internal class StyleReconciler {
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
         desiredSources[id]?.takeIf { !applied.definition.canUpdateTo(it) }?.let { id }
       }
-    val placements = hashMapOf<Anchor, Placement>()
-    val placedLayers =
-      revision.layers.map { desired ->
-        PlacedLayer(
-          desired,
-          placements.getOrPut(desired.anchor) { placement(desired.anchor) },
-        )
-      }
+    val placedLayers = prepared.layers
     val desiredLayers = placedLayers.associateBy { it.definition.id }
 
     layers.values.toList().forEach { applied ->
@@ -159,15 +176,13 @@ internal class StyleReconciler {
     layers.clear()
     images.clear()
     knownLayerIds = null
-    baseLayers =
-      style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
   }
 
   private fun layerIds(style: StyleBinding): MutableList<String> =
     knownLayerIds ?: style.layerIds().toMutableList().also { knownLayerIds = it }
 
   /** Resolves [anchor] against the base-style layers of the bound generation. */
-  private fun placement(anchor: Anchor): Placement =
+  private fun placement(anchor: Anchor, baseLayers: List<LayerHandle>): Placement =
     when (anchor) {
       is Anchor.Top -> Placement.Top
       is Anchor.Bottom -> Placement.Bottom
@@ -283,7 +298,13 @@ internal class StyleReconciler {
     val installation: LayerInstallation,
   )
 
-  private class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
+  internal class PreparedRevision(
+    val identity: StyleIdentity,
+    val revision: DesiredStyleRevision,
+    val layers: List<PlacedLayer>,
+  )
+
+  internal class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
     val definition: ResolvedLayerDefinition = desired.definition
   }
 
@@ -292,7 +313,7 @@ internal class StyleReconciler {
    * group in style-content order, so two anchors that resolve to the same position never move each
    * other's layers.
    */
-  private sealed interface Placement {
+  internal sealed interface Placement {
     data object Top : Placement
 
     data object Bottom : Placement

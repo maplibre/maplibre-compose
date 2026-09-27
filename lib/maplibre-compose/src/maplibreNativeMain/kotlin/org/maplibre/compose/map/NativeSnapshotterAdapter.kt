@@ -101,7 +101,10 @@ private class NativeSnapshotterAdapter(
     revision: DesiredStyleRevision,
   ): ImageBitmap = runNativeRequest {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
-    reconciler.apply(binding, revision)
+    val prepared = reconciler.prepare(binding, revision)
+    checkNotNull(engine?.loop?.await { reconciler.apply(binding, prepared) }) {
+      "The snapshotter engine map stopped during style reconciliation"
+    }
     binding.awaitGeoJsonUpdates()
     configureRequest(request)
     val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STILL_IMAGE)
@@ -218,7 +221,7 @@ private class NativeSnapshotterAdapter(
     terminalOperation = resized
     try {
       checkNotNull(
-        currentLoop.call(
+        currentLoop.await(
           action = { map ->
             currentEngine.resources.withSession { session ->
               check(currentEngine.scaleFactor == extent.scaleFactor) {
@@ -264,7 +267,7 @@ private class NativeSnapshotterAdapter(
     // A snapshot is read once and never republished, so its extents are read with its camera.
     val read =
       checkNotNull(
-        currentEngine.loop.call(
+        currentEngine.loop.await(
           action = { map ->
             val geometry = map.readViewportGeometry(EdgeInsets.ZERO)
             map.createProjection().use { projection ->
@@ -360,11 +363,11 @@ private class NativeSnapshotterAdapter(
       getScale = { currentDensity },
     )
 
-  private fun readImage(request: MapSnapshotRequest): ImageBitmap {
+  private suspend fun readImage(request: MapSnapshotRequest): ImageBitmap {
     val expected = request.extent()
     val currentEngine = checkNotNull(engine)
     val rgba =
-      currentEngine.loop.call(
+      currentEngine.loop.await(
         action = { _ ->
           currentEngine.resources.withSession { session ->
             val info = session.textureImageInfo()
@@ -443,7 +446,7 @@ private class NativeSnapshotterAdapter(
     while (!operation.isCompleted || !renderedFrame) {
       if (operation.isCompleted) operation.await().getOrThrow()
       val update =
-        currentEngine.loop.call(
+        currentEngine.loop.await(
           action = { _ -> currentEngine.resources.withSession { it.renderUpdate() } }
         )
           ?: throw snapshotterClosedCancellation().also { error ->

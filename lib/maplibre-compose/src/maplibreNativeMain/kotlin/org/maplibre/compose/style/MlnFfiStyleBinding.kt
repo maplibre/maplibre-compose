@@ -328,7 +328,12 @@ internal open class MlnFfiStyleBinding(
           { map ->
             // A cancelled reader has no use for the result, so the engine is not asked for it.
             if (!continuation.isActive) return@postMap
-            continuation.resumeWith(runCatching { action(map) })
+            continuation.resumeWith(
+              runCatching {
+                requireLoadedStyle()
+                action(map)
+              }
+            )
           },
           { continuation.resume(null) },
         )
@@ -1034,7 +1039,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun layerExists(layerId: String): Boolean? = readMap { map ->
-    map.styleLayerIds().contains(layerId)
+    map.styleLayerExists(layerId)
   }
 
   // A property's transition travels the same write path, and native refuses it as hard as the

@@ -5,12 +5,19 @@ package org.maplibre.compose.map
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 
 class MlnFfiMapRuntimeLoopTest {
@@ -59,54 +66,119 @@ class MlnFfiMapRuntimeLoopTest {
   }
 
   @Test
-  fun a_queued_read_cannot_overtake_a_synchronous_calls_native_render_update() {
-    FfiTestPlatform.initialize()
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    val published = TestLatch(1)
-    val readFinished = TestLatch(1)
-    val renderUpdateSeen = AtomicBoolean(false)
-    val readSawRenderUpdate = AtomicBoolean(false)
-    val loop =
-      MlnFfiMapRuntimeLoop(
-        extent = MapExtent.fromLogical(1, 1, 1.0),
-        cacheFile = cacheFile,
-        getLogger = { MapLog },
-        onMapCreated = {},
-        onMapPublished = { published.countDown() },
-        onEvent = {
-          if (it.type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE) renderUpdateSeen.store(true)
-        },
-        onEventsDrained = {},
-        requestFrame = {},
-      )
-    try {
-      loop.start()
-      assertTrue(published.await(TIMEOUT_MILLIS))
-      assertNotNull(
-        loop.call(
-          action = { map ->
+  fun a_queued_read_cannot_overtake_a_synchronous_calls_native_render_update(): MapTestResult =
+    runMapTest {
+      FfiTestPlatform.initialize()
+      val cacheFile = FfiTestPlatform.createCacheFile()
+      val published = TestLatch(1)
+      val readFinished = TestLatch(1)
+      val renderUpdateSeen = AtomicBoolean(false)
+      val readSawRenderUpdate = AtomicBoolean(false)
+      val loop =
+        MlnFfiMapRuntimeLoop(
+          extent = MapExtent.fromLogical(1, 1, 1.0),
+          cacheFile = cacheFile,
+          getLogger = { MapLog },
+          onMapCreated = {},
+          onMapPublished = { published.countDown() },
+          onEvent = {
+            if (it.type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE)
+              renderUpdateSeen.store(true)
+          },
+          onEventsDrained = {},
+          requestFrame = {},
+        )
+      try {
+        loop.start()
+        assertTrue(published.await(TIMEOUT_MILLIS))
+        assertNotNull(
+          loop.call(
+            action = { map ->
+              renderUpdateSeen.store(false)
+              map.requestRepaint()
+              // Already queued when this call ends: no thread-scheduling gap can rescue the drain.
+              check(
+                loop.post(
+                  action = { nextMap ->
+                    nextMap.styleLayerIds()
+                    readSawRenderUpdate.store(renderUpdateSeen.load())
+                    readFinished.countDown()
+                  }
+                )
+              )
+            }
+          )
+        )
+        assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
+        assertTrue(readSawRenderUpdate.load(), "the queued read ran before native render feedback")
+        val nextReadFinished = TestLatch(1)
+        assertNotNull(
+          loop.await { map ->
             renderUpdateSeen.store(false)
             map.requestRepaint()
-            // Already queued when this call ends: no thread-scheduling gap can rescue the drain.
             check(
-              loop.post(
-                action = { nextMap ->
-                  nextMap.styleLayerIds()
-                  readSawRenderUpdate.store(renderUpdateSeen.load())
-                  readFinished.countDown()
-                }
-              )
+              loop.post({
+                readSawRenderUpdate.store(renderUpdateSeen.load())
+                nextReadFinished.countDown()
+              })
             )
           }
         )
-      )
-      assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
-      assertTrue(readSawRenderUpdate.load(), "the queued read ran before native render feedback")
-    } finally {
-      loop.close()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+        assertTrue(nextReadFinished.await(TIMEOUT_MILLIS))
+        assertTrue(readSawRenderUpdate.load(), "the queued read overtook the awaited call's events")
+      } finally {
+        loop.close()
+        FfiTestPlatform.deleteCacheFile(cacheFile)
+      }
     }
-  }
+
+  @Test
+  fun awaiting_owner_work_releases_the_caller_and_drops_cancelled_work(): MapTestResult =
+    runMapTest {
+      FfiTestPlatform.initialize()
+      val cacheFile = FfiTestPlatform.createCacheFile()
+      val published = TestLatch(1)
+      val parked = TestLatch(1)
+      val release = TestLatch(1)
+      val ran = AtomicBoolean(false)
+      val loop =
+        MlnFfiMapRuntimeLoop(
+          extent = MapExtent.fromLogical(1, 1, 1.0),
+          cacheFile = cacheFile,
+          getLogger = { MapLog },
+          onMapCreated = {},
+          onMapPublished = { published.countDown() },
+          onEvent = {},
+          onEventsDrained = {},
+          requestFrame = {},
+        )
+      try {
+        loop.start()
+        assertTrue(published.await(TIMEOUT_MILLIS))
+        assertTrue(
+          loop.post({
+            parked.countDown()
+            check(release.await(TIMEOUT_MILLIS)) { "caller blocked instead of suspending" }
+          })
+        )
+        assertTrue(parked.await(TIMEOUT_MILLIS))
+        val cancelled =
+          launch(start = CoroutineStart.UNDISPATCHED) {
+            loop.await { ran.store(true) }
+          }
+        assertFalse(cancelled.isCompleted)
+        cancelled.cancelAndJoin()
+        release.countDown()
+        assertEquals(true, loop.await { loop.isOwnerThread() })
+        assertFalse(ran.load())
+        loop.close()
+        assertEquals(null, loop.await { true })
+      } finally {
+        release.countDown()
+        loop.close()
+        FfiTestPlatform.deleteCacheFile(cacheFile)
+      }
+    }
 
   private companion object {
     const val TIMEOUT_MILLIS = 5_000L

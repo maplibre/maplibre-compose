@@ -1891,7 +1891,7 @@ class MapPresentationTest {
       val token = state.reservePresentation()
       val adapter =
         object : PresentationTestAdapter() {
-          override fun cameraForBounds(
+          override suspend fun cameraForBounds(
             boundingBox: BoundingBox,
             bearing: Double,
             tilt: Double,
@@ -1902,7 +1902,7 @@ class MapPresentationTest {
             return CameraPosition(zoom = 5.0)
           }
 
-          override fun cameraForGeometry(
+          override suspend fun cameraForGeometry(
             geometry: Geometry,
             bearing: Double,
             tilt: Double,
@@ -2608,7 +2608,7 @@ internal open class PresentationTestAdapter(
 
   override fun setViewportInsets(insets: PaddingValues) = Unit
 
-  override fun cameraForBounds(
+  override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -2616,7 +2616,7 @@ internal open class PresentationTestAdapter(
     fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
-  override fun cameraForGeometry(
+  override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
@@ -2624,7 +2624,7 @@ internal open class PresentationTestAdapter(
     fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
-  override fun fitCameraToBounds(
+  override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
