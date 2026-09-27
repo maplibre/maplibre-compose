@@ -19,9 +19,8 @@ import org.maplibre.compose.util.toLngLat
 import org.maplibre.compose.util.toPosition
 import org.maplibre.spatialk.geojson.Position
 
-// This file vendors the GL JS bounds fit and adds pitch to it. Both become unnecessary once
-// GL JS accepts destination padding (https://github.com/maplibre/maplibre-gl-js/issues/8480) and
-// honors pitch (https://github.com/maplibre/maplibre-gl-js/issues/8479) in cameraForBounds.
+// GL JS fits bounding boxes, but has no equivalent for an arbitrary set of positions.
+// Keep the geometry fit aligned with the engine's Mercator bounds fit.
 
 /** A fitted center and zoom; bearing and tilt come from the request. */
 internal class GeometryFit(val target: Position, val zoom: Double)

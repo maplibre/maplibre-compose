@@ -1,0 +1,4 @@
+[submodule "third_party/maplibre-gl-js"]
+	path = third_party/maplibre-gl-js
+	url = https://github.com/maplibre/maplibre-gl-js.git
+	ignore = dirty

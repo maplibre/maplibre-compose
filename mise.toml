@@ -225,7 +225,21 @@ description = "Run the macOS ARM64 Kotlin/Native demo."
 depends = ["build:macos-app"]
 run = "demo-app/macos/build/MapLibreCompose.app/Contents/MacOS/MapLibreCompose"
 
+[tasks."deps:maplibre-gl-js"]
+description = "Synchronize the pinned MapLibre GL JS source and its carried patches."
+run = ".mise/bin/sync-maplibre-gl-js"
+
+[tasks."build:maplibre-gl-js"]
+description = "Build the patched MapLibre GL JS runtime embedded in the Kotlin library."
+run = ".mise/bin/build-maplibre-gl-js"
+
+[tasks."test:maplibre-gl-js"]
+description = "Run upstream camera regression tests with the carried GL JS patches."
+depends = ["build:maplibre-gl-js"]
+run = "cd third_party/maplibre-gl-js && npm run test-unit -- src/ui/camera.test.ts"
+
 [tasks."test:js"]
+depends = ["test:maplibre-gl-js"]
 description = "Run Kotlin/JS tests in Chromium, Firefox, and WebKit."
 run = '''
 ./gradlew kotlinInstallPlaywrightBrowsers

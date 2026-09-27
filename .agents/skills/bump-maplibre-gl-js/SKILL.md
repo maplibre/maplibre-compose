@@ -13,17 +13,19 @@ by hand, are `internal`, and cover the members this platform calls.
 
 ```sh
 upgrade_dir=$(mktemp -d)
-cp build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts "$upgrade_dir/maplibre-gl.d.ts"
-cp -R build/js/node_modules/maplibre-gl/src "$upgrade_dir/src"
+cp lib/maplibre-compose/build/maplibre-gl-js/maplibre-gl.d.ts "$upgrade_dir/maplibre-gl.d.ts"
+cp -R third_party/maplibre-gl-js/src "$upgrade_dir/src"
 ```
 
 Keep the temporary path for later comparisons. If the old package is absent,
 retrieve the version pinned before the upgrade.
 
-## 2. Bump and reinstall
+## 2. Bump and rebuild
 
-Edit `maplibre-js` and set `maplibre-styleSpec` to the spec version bundled by
-the new release in `gradle/libs.versions.toml`.
+Update the upstream submodule pin and reconcile the carried patches as described
+in [the patch workflow](../../../patches/maplibre-gl-js/README.md). Edit
+`maplibre-js` and set `maplibre-styleSpec` to the spec version bundled by the
+new release in `gradle/libs.versions.toml`.
 
 Also review `maplibre-geojsonVt` and `maplibre-vtPbf` against the new release's
 `@maplibre/geojson-vt` and `@maplibre/vt-pbf` dependency ranges in
@@ -36,6 +38,7 @@ installation.
 Then:
 
 ```sh
+mise run build:maplibre-gl-js
 ./gradlew kotlinNpmInstall
 ./gradlew kotlinUpgradeYarnLock   # refreshes the committed kotlin-js-store/yarn.lock
 ```
@@ -43,7 +46,7 @@ Then:
 ## 3. Diff the declarations
 
 ```sh
-diff -u "$upgrade_dir/maplibre-gl.d.ts" build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts
+diff -u "$upgrade_dir/maplibre-gl.d.ts" lib/maplibre-compose/build/maplibre-gl-js/maplibre-gl.d.ts
 ```
 
 Read the diff only for names that appear in `GlJsModule.kt` or `GlJsTypes.kt`:
@@ -109,9 +112,9 @@ internals. Compare the upstream sources to verify these assumptions:
 | `setTransition`                | `src/style/style.ts`. `getTransition()` must still read `this.stylesheet.transition`; if `setTransition` in `_getOperationsToPerform` stops being a no-op, MapLibre has a real setter to call instead |
 
 ```sh
-diff -u "$upgrade_dir/src/gl/value.ts" build/js/node_modules/maplibre-gl/src/gl/value.ts
-diff -u "$upgrade_dir/src/ui/map.ts" build/js/node_modules/maplibre-gl/src/ui/map.ts
-diff -u "$upgrade_dir/src/style/style.ts" build/js/node_modules/maplibre-gl/src/style/style.ts
+diff -u "$upgrade_dir/src/gl/value.ts" third_party/maplibre-gl-js/src/gl/value.ts
+diff -u "$upgrade_dir/src/ui/map.ts" third_party/maplibre-gl-js/src/ui/map.ts
+diff -u "$upgrade_dir/src/style/style.ts" third_party/maplibre-gl-js/src/style/style.ts
 ```
 
 Custom geometry also relies on public `addProtocol` and

@@ -312,3 +312,18 @@ internal external interface GlJsTransform {
 }
 
 internal external interface GlJsTerrain
+
+internal external interface CameraForBoundsOptions {
+  var bearing: Double
+  var pitch: Double
+  var mapPadding: PaddingOptions
+  var padding: PaddingOptions
+  var maxZoom: Double
+}
+
+internal external interface BoundsCamera {
+  val center: LngLat
+  val zoom: Double
+  val bearing: Double
+  val pitch: Double
+}

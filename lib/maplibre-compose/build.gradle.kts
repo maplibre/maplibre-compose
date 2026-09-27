@@ -1,6 +1,8 @@
 import kotlin.time.Duration.Companion.minutes
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.DefaultIncrementalSyncTask
+import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
   id("library-conventions")
@@ -40,6 +42,7 @@ kotlin {
     // The MapLibre GL JS declarations are @file:JsModule with no global to fall back on, which UMD
     // output rejects. Every consumer of this module's js target has to match.
     useEsModules()
+    outputModuleName.set("maplibre-compose")
     // Compose UI browser tests need an executable binary so webpack can load the Skiko runtime
     // (CMP-4906).
     binaries.executable()
@@ -144,7 +147,6 @@ kotlin {
     jsMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
       api(libs.kotlin.wrappers.browser)
-      implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
       implementation(
         npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get())
       )
@@ -265,14 +267,10 @@ val browserTestRuntime =
   tasks.named<DefaultIncrementalSyncTask>("jsTestTestDevelopmentExecutableCompileSync")
 val browserTestResources =
   browserTestRuntime.flatMap { it.destinationDirectory }.map { it.resolve("composeResources") }
-val maplibreWorkerFiles = rootProject.layout.buildDirectory.dir("js/node_modules/maplibre-gl/dist")
 
 tasks.named("prepareWebpackBundleForKotlinJsTests") {
   inputs.dir(browserTestResources)
-  inputs.files(
-    maplibreWorkerFiles.map { it.file("maplibre-gl-worker.mjs") },
-    maplibreWorkerFiles.map { it.file("maplibre-gl-shared.mjs") },
-  )
+  inputs.dir(layout.buildDirectory.dir("maplibre-gl-js"))
   val bundleDirectory = layout.buildDirectory.dir("kotlinJsTest/dist")
   doLast {
     val bundle = bundleDirectory.get().asFile
@@ -286,20 +284,37 @@ tasks.named("prepareWebpackBundleForKotlinJsTests") {
         )
     )
     browserTestResources.get().copyRecursively(bundle.resolve("composeResources"), overwrite = true)
-    // KGP's test server recognizes .js but serves .mjs as application/octet-stream.
-    for (name in listOf("maplibre-gl-worker", "maplibre-gl-shared")) {
-      bundle
-        .resolve("$name.js")
-        .writeText(
-          maplibreWorkerFiles
-            .get()
-            .file("$name.mjs")
-            .asFile
-            .readText()
-            .replace("maplibre-gl-shared.mjs", "maplibre-gl-shared.js")
-        )
-    }
   }
 }
 
 stageBrowserTestRunnerResources()
+
+// Both project dependencies and published KLIBs expose this same module subpath. Extraction
+// from a Maven artifact is handled by the consumer's Kotlin Gradle plugin.
+val buildMaplibreGlJs by
+  tasks.registering(Exec::class) {
+    workingDir(rootDir)
+    commandLine("mise", "run", "build:maplibre-gl-js")
+    // The script checks the submodule pin and patch state outside Gradle configuration and caches
+    // the expensive build itself. Always validate that state, including contributor source edits.
+  }
+val glJsRuntime = layout.buildDirectory.dir("maplibre-gl-js")
+
+tasks.withType<KotlinWebpack>().configureEach { inputs.dir(glJsRuntime) }
+
+val stageMaplibreGlJs by
+  tasks.registering(Sync::class) {
+    dependsOn(buildMaplibreGlJs)
+    from(glJsRuntime) { exclude(".stamp") }
+    into(kotlin.js().compilations.getByName("main").npmProject.dir.map { it.dir("maplibre-gl") })
+  }
+
+tasks.named("jsPackageJson") { dependsOn(stageMaplibreGlJs) }
+
+tasks.named<Zip>("jsJar") {
+  dependsOn(buildMaplibreGlJs)
+  from(glJsRuntime) {
+    into("maplibre-gl")
+    exclude(".stamp")
+  }
+}

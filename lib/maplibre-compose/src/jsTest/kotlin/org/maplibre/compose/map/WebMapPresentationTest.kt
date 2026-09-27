@@ -25,10 +25,8 @@ import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.promise
-import org.maplibre.compose.browser.configureMapLibreWorker
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.gljs.LOCAL_WORKER_URL
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.layers.BackgroundLayer
@@ -185,7 +183,6 @@ class WebMapPresentationTest {
 /** Uses only the browser event loop: no Compose UI test host, snapshot manager, or Skiko setup. */
 private fun withWebFixture(block: suspend (WebFixture) -> Unit): Promise<Unit> =
   MainScope().promise {
-    configureMapLibreWorker(LOCAL_WORKER_URL)
     val fixture = WebFixture()
     try {
       block(fixture)

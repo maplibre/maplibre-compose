@@ -1,0 +1,377 @@
+diff --git a/src/geo/projection/camera_helper.ts b/src/geo/projection/camera_helper.ts
+index d0159a1..3521ef8 100644
+--- a/src/geo/projection/camera_helper.ts
++++ b/src/geo/projection/camera_helper.ts
+@@ -27,6 +27,7 @@ export type CameraForBoxAndBearingHandlerResult = {
+     center: LngLat;
+     zoom: number;
+     bearing: number;
++    pitch: number;
+ };
+ 
+ export type EaseToHandlerOptions = {
+@@ -120,7 +121,7 @@ export interface ICameraHelper {
+ 
+     handleMapControlsPan(deltas: MapControlsDeltas, tr: ITransform, preZoomAroundLoc: LngLat): void;
+ 
+-    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, tr: IReadonlyTransform): CameraForBoxAndBearingHandlerResult;
++    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult;
+ 
+     handleJumpToCenterZoom(tr: ITransform, options: { zoom?: number; center?: LngLatLike }): void;
+ 
+@@ -158,7 +159,7 @@ export function updateRotation(args: UpdateRotationArgs): void {
+     }
+ }
+ 
+-export function cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, tr: IReadonlyTransform): CameraForBoxAndBearingHandlerResult {
++export function cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
+     const edgePadding = mapPadding;
+ 
+     // Consider all corners of the rotated bounding box derived from the given points
+@@ -199,7 +200,7 @@ export function cameraForBoxAndBearing(options: CameraForBoundsOptions, padding:
+         return undefined;
+     }
+ 
+-    const zoom = Math.min(scaleZoom(tr.scale * Math.min(scaleX, scaleY)), options.maxZoom);
++    let zoom = Math.min(scaleZoom(tr.scale * Math.min(scaleX, scaleY)), options.maxZoom);
+ 
+     // Calculate center: apply the zoom, the configured offset, as well as offset that exists as a result of padding.
+     const offset = Point.convert(options.offset);
+@@ -210,15 +211,50 @@ export function cameraForBoxAndBearing(options: CameraForBoundsOptions, padding:
+     const offsetAtInitialZoom = offset.add(rotatedPaddingOffset);
+     const offsetAtFinalZoom = offsetAtInitialZoom.mult(tr.scale / zoomScale(zoom));
+ 
+-    const center = unprojectFromWorldCoordinates(
++    const boxCenter = unprojectFromWorldCoordinates(tr.worldSize, nwWorld.add(seWorld).div(2));
++    let center = unprojectFromWorldCoordinates(
+         tr.worldSize,
+         // either world diagonal can be used (NW-SE or NE-SW)
+         nwWorld.add(seWorld).div(2).sub(offsetAtFinalZoom)
+     );
+ 
+-    return {
+-        center,
+-        zoom,
+-        bearing
+-    };
++    if (pitch === 0) {
++        return {center, zoom, bearing, pitch};
++    }
++
++    // The zoom and center above fit the box when looking straight down. When pitched, perspective shrinks the far
++    // side of the box and widens the near side, so measure the box on screen from that camera and correct the zoom
++    // and center to fit what is actually drawn. Same as MapLibre Native's cameraForLatLngs, this is a single pass.
++    const fitted = tr.clone();
++    fitted.setPadding(mapPadding);
++    fitted.setBearing(bearing);
++    fitted.setPitch(0);
++    fitted.setRoll(0);
++    fitted.setZoom(zoom);
++    fitted.setCenter(center);
++    // Where the box center lands on screen when looking straight down, which already accounts for the offset and the padding.
++    const targetPoint = fitted.locationToScreenPoint(boxCenter);
++    fitted.setPitch(pitch);
++
++    const screenCorners = [
++        fitted.locationToScreenPoint(bounds.getNorthWest()),
++        fitted.locationToScreenPoint(bounds.getNorthEast()),
++        fitted.locationToScreenPoint(bounds.getSouthEast()),
++        fitted.locationToScreenPoint(bounds.getSouthWest())
++    ];
++    if (screenCorners.some(p => !fitted.isPointOnMapSurface(p))) {
++        cameraBoundsWarning();
++        return undefined;
++    }
++    const screenMin = new Point(Math.min(...screenCorners.map(p => p.x)), Math.min(...screenCorners.map(p => p.y)));
++    const screenMax = new Point(Math.max(...screenCorners.map(p => p.x)), Math.max(...screenCorners.map(p => p.y)));
++    const screenSize = screenMax.sub(screenMin);
++    const screenCenter = fitted.screenPointToLocation(screenMin.add(screenMax).div(2));
++
++    zoom = Math.min(zoom + scaleZoom(Math.min(availableWidth / screenSize.x, availableHeight / screenSize.y)), options.maxZoom);
++    fitted.setZoom(zoom);
++    fitted.setLocationAtPoint(screenCenter, targetPoint);
++    center = fitted.center;
++
++    return {center, zoom, bearing, pitch};
+ }
+diff --git a/src/geo/projection/globe_camera_helper.ts b/src/geo/projection/globe_camera_helper.ts
+index 8a57783..074765e 100644
+--- a/src/geo/projection/globe_camera_helper.ts
++++ b/src/geo/projection/globe_camera_helper.ts
+@@ -45,8 +45,8 @@ export class GlobeCameraHelper implements ICameraHelper {
+         this.currentHelper.handleMapControlsPan(deltas, tr, preZoomAroundLoc);
+     }
+ 
+-    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
+-        return this.currentHelper.cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, tr);
++    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
++        return this.currentHelper.cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, pitch, tr);
+     }
+ 
+     /**
+diff --git a/src/geo/projection/mercator_camera_helper.ts b/src/geo/projection/mercator_camera_helper.ts
+index 99e5ecc..038f7ef 100644
+--- a/src/geo/projection/mercator_camera_helper.ts
++++ b/src/geo/projection/mercator_camera_helper.ts
+@@ -50,8 +50,8 @@ export class MercatorCameraHelper implements ICameraHelper {
+         tr.setLocationAtPoint(preZoomAroundLoc, deltas.around, deltas.aroundElevation);
+     }
+ 
+-    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, tr: IReadonlyTransform): CameraForBoxAndBearingHandlerResult {
+-        return cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, tr);
++    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
++        return cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, pitch, tr);
+     }
+ 
+     handleJumpToCenterZoom(tr: ITransform, options: { zoom?: number; center?: LngLatLike }): void {
+diff --git a/src/geo/projection/vertical_perspective_camera_helper.ts b/src/geo/projection/vertical_perspective_camera_helper.ts
+index d58b97f..7dee1ed 100644
+--- a/src/geo/projection/vertical_perspective_camera_helper.ts
++++ b/src/geo/projection/vertical_perspective_camera_helper.ts
+@@ -169,8 +169,11 @@ export class VerticalPerspectiveCameraHelper implements ICameraHelper {
+         versorSetLocationAtPoint(tr, preZoomAroundLoc, anchor, deltas.panDelta);
+     }
+ 
+-    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
+-        const result = cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, tr);
++    cameraForBoxAndBearing(options: CameraForBoundsOptions, padding: PaddingOptions, mapPadding: PaddingOptions, bounds: LngLatBounds, bearing: number, pitch: number, tr: ITransform): CameraForBoxAndBearingHandlerResult {
++        // The globe fit below does not support pitch, so the mercator fit it starts from ignores pitch too.
++        const result = cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, 0, tr);
++        if (!result) return undefined;
++        result.pitch = pitch;
+         // If globe is enabled, we use the parameters computed for mercator, and just update the zoom to fit the bounds.
+ 
+         // Get clip space bounds including padding
+diff --git a/src/index.ts b/src/index.ts
+index 07bc664..d377290 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -51,7 +51,7 @@ import {EXTENT} from './data/extent.ts';
+ 
+ import type {ControlPosition, IControl} from './ui/control/control.ts';
+ import type {CustomRenderMethod, CustomLayerInterface, CustomRenderMethodInput, CustomLayerProjectionDataParams, UnwrappedTileIDLiteral} from './style/style_layer/custom_style_layer.ts';
+-import type {AnimationOptions, CameraForBoundsOptions, CameraOptions, CameraUpdateTransformFunction, CenterZoomBearing, EaseToOptions, FitBoundsOptions, FlyToOptions, JumpToOptions, PointLike} from './ui/camera.ts';
++import type {AnimationOptions, CameraForBoundsOptions, CameraOptions, CameraUpdateTransformFunction, CenterZoomBearing, CenterZoomBearingPitch, EaseToOptions, FitBoundsOptions, FlyToOptions, JumpToOptions, PointLike} from './ui/camera.ts';
+ import type {DistributiveKeys, DistributiveOmit, GeoJSONFeature, MapGeoJSONFeature} from './util/vectortile_to_geojson.ts';
+ import type {Handler, HandlerResult} from './ui/handler_manager.ts';
+ import type {Complete, Mat4f32, Mat4f64, RequireAtLeastOne, Subscription} from './util/util.ts';
+@@ -286,6 +286,7 @@ export {
+     type Complete,
+     type CameraOptions,
+     type CenterZoomBearing,
++    type CenterZoomBearingPitch,
+     type StyleImage,
+     type StyleImageData,
+     type StyleImageMetadata,
+diff --git a/src/ui/camera.test.ts b/src/ui/camera.test.ts
+index 33dca66..1701e72 100644
+--- a/src/ui/camera.test.ts
++++ b/src/ui/camera.test.ts
+@@ -2405,6 +2405,108 @@ describe('mapPadding', () => {
+     });
+ });
+ 
++describe('cameraForBounds pitch', () => {
++    const bb = [[-133, 16], [-68, 50]] as [LngLatLike, LngLatLike];
++
++    // Projects the corners of the bounds through a fresh camera at the calculated result and returns how far
++    // each edge of their screen box is inside the padded viewport, in pixels. Negative means outside.
++    function slack(result: CameraOptions, mapPadding = {top: 0, right: 0, bottom: 0, left: 0}, padding = mapPadding, offset = [0, 0]) {
++        const {camera} = createCamera();
++        camera.setPadding(mapPadding);
++        camera.jumpTo(result);
++        const bounds = LngLatBounds.convert(bb);
++        const corners = [bounds.getNorthWest(), bounds.getNorthEast(), bounds.getSouthEast(), bounds.getSouthWest()]
++            .map(c => camera.transform.locationToScreenPoint(c));
++        const xs = corners.map(p => p.x);
++        const ys = corners.map(p => p.y);
++        return {
++            left: Math.min(...xs) - mapPadding.left - padding.left - offset[0],
++            right: 512 - mapPadding.right - padding.right - Math.max(...xs) + offset[0],
++            top: Math.min(...ys) - mapPadding.top - padding.top - offset[1],
++            bottom: 512 - mapPadding.bottom - padding.bottom - Math.max(...ys) + offset[1]
++        };
++    }
++
++    function expectInside(s: ReturnType<typeof slack>) {
++        for (const edge of Object.values(s)) expect(edge).toBeGreaterThanOrEqual(-0.5);
++    }
++
++    test('defaults to the map\'s current pitch and is returned', () => {
++        const {camera} = createCamera();
++        camera.setPitch(45);
++        const result = camera.cameraForBounds(bb);
++
++        expect(result.pitch).toBe(45);
++        expect(result).toEqual(createCamera().camera.cameraForBounds(bb, {pitch: 45}));
++    });
++
++    test('keeps the bounds in view when pitched', () => {
++        const {camera} = createCamera();
++        const flat = camera.cameraForBounds(bb);
++        const pitched = camera.cameraForBounds(bb, {pitch: 60});
++
++        expect(pitched.pitch).toBe(60);
++        expect(pitched.zoom).toBeLessThan(flat.zoom);
++        // The flat fit spills out of the sides once pitched, as the near edge of the box widens.
++        expect(slack({...flat, pitch: 60}).left).toBeLessThan(-50);
++        expectInside(slack(pitched));
++    });
++
++    test('keeps the bounds in view when pitched with bearing and padding', () => {
++        const {camera} = createCamera();
++        const mapPadding = {top: 20, right: 0, bottom: 0, left: 100};
++        const padding = {top: 10, right: 75, bottom: 50, left: 25};
++        const result = camera.cameraForBounds(bb, {pitch: 60, bearing: 35, padding, mapPadding});
++
++        expect(result.pitch).toBe(60);
++        expect(result.bearing).toBe(35);
++        expectInside(slack(result, mapPadding, padding));
++    });
++
++    test('keeps the bounds in view when pitched with offset', () => {
++        const {camera} = createCamera();
++        const result = camera.cameraForBounds(bb, {pitch: 60, offset: [0, 30]});
++
++        expectInside(slack(result, undefined, undefined, [0, 30]));
++    });
++
++    test('returns undefined when a corner is behind the camera', () => {
++        const {camera} = createCamera({maxPitch: 180});
++        const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
++        const result = camera.cameraForBounds(bb, {pitch: 95});
++
++        expect(result).toBeUndefined();
++        spy.mockRestore();
++    });
++
++    test('fitBounds transitions to the given pitch', () => {
++        const {camera} = createCamera();
++        camera.fitBounds(bb, {pitch: 60, duration: 0});
++
++        expect(camera.getPitch()).toBe(60);
++        expectInside(slack({center: camera.getCenter(), zoom: camera.getZoom(), bearing: 0, pitch: 60}));
++    });
++
++    test('fitBounds keeps the map\'s pitch when not given and fits for it', () => {
++        const {camera} = createCamera();
++        camera.setPitch(45);
++        camera.fitBounds(bb, {duration: 0});
++
++        expect(camera.getPitch()).toBe(45);
++        expectInside(slack({center: camera.getCenter(), zoom: camera.getZoom(), bearing: 0, pitch: 45}));
++    });
++
++    test('globe fits at pitch 0 but returns the given pitch', () => {
++        const {camera} = createCamera({}, true);
++        const flat = camera.cameraForBounds(bb);
++        const pitched = camera.cameraForBounds(bb, {pitch: 60});
++
++        expect(pitched.pitch).toBe(60);
++        expect(pitched.zoom).toBe(flat.zoom);
++        expect(pitched.center).toEqual(flat.center);
++    });
++});
++
+ describe('fitBounds', () => {
+     test('no padding passed', () => {
+         const {camera} = createCamera();
+diff --git a/src/ui/camera.ts b/src/ui/camera.ts
+index 6e00b9a..932bf52 100644
+--- a/src/ui/camera.ts
++++ b/src/ui/camera.ts
+@@ -72,6 +72,16 @@ export type CameraOptions = CenterZoomBearing & {
+     elevation?: number;
+ };
+ 
++/**
++ * Holds center, zoom, bearing and pitch properties
++ */
++export type CenterZoomBearingPitch = CenterZoomBearing & {
++    /**
++     * The desired pitch in degrees.
++     */
++    pitch?: number;
++};
++
+ /**
+  * Holds center, zoom and bearing properties
+  */
+@@ -561,7 +571,7 @@ export class Camera extends Evented<MapEventType> {
+         return this;
+     }
+ 
+-    cameraForBounds(bounds: LngLatBoundsLike, options?: CameraForBoundsOptions): CenterZoomBearing | undefined {
++    cameraForBounds(bounds: LngLatBoundsLike, options?: CameraForBoundsOptions): CenterZoomBearingPitch | undefined {
+         bounds = LngLatBounds.convert(bounds).adjustAntiMeridian();
+         const bearing = options?.bearing || 0;
+ 
+@@ -577,7 +587,7 @@ export class Camera extends Evented<MapEventType> {
+      * @param p1 - Second point
+      * @param bearing - Desired map bearing at end of animation, in degrees
+      * @param options - the camera options
+-     * @returns If map is able to fit to provided bounds, returns `center`, `zoom`, and `bearing`.
++     * @returns If map is able to fit to provided bounds, returns `center`, `zoom`, `bearing`, and `pitch`.
+      *      If map is unable to fit, method will warn and return undefined.
+      * @example
+      * ```ts
+@@ -589,7 +599,7 @@ export class Camera extends Evented<MapEventType> {
+      * });
+      * ```
+      */
+-    _cameraForBoxAndBearing(p0: LngLatLike, p1: LngLatLike, bearing: number, options?: CameraForBoundsOptions): CenterZoomBearing | undefined {
++    _cameraForBoxAndBearing(p0: LngLatLike, p1: LngLatLike, bearing: number, options?: CameraForBoundsOptions): CenterZoomBearingPitch | undefined {
+         const defaultPadding = {
+             top: 0,
+             bottom: 0,
+@@ -617,8 +627,9 @@ export class Camera extends Evented<MapEventType> {
+         const tr = this.transform;
+         const mapPadding = extend({top: 0, bottom: 0, right: 0, left: 0}, options.mapPadding ?? tr.padding) as PaddingOptions;
+         const bounds = new LngLatBounds(p0, p1);
++        const pitch = options.pitch ?? tr.pitch;
+ 
+-        const result = this.cameraHelper.cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, tr);
++        const result = this.cameraHelper.cameraForBoxAndBearing(options, padding, mapPadding, bounds, bearing, pitch, tr);
+         if (result && this._zoomSnap) {
+             result.zoom = evaluateZoomSnap(result.zoom, this._zoomSnap, -1);
+         }
+@@ -643,7 +654,7 @@ export class Camera extends Evented<MapEventType> {
+             eventData);
+     }
+ 
+-    _fitInternal(calculatedOptions?: CenterZoomBearing, options?: FitBoundsOptions, eventData?: any): this {
++    _fitInternal(calculatedOptions?: CenterZoomBearingPitch, options?: FitBoundsOptions, eventData?: any): this {
+         // cameraForBounds warns + returns undefined if unable to fit:
+         if (!calculatedOptions) return this;
+ 
+diff --git a/src/ui/map.ts b/src/ui/map.ts
+index d7fee72..f75cda3 100644
+--- a/src/ui/map.ts
++++ b/src/ui/map.ts
+@@ -13,7 +13,7 @@ import {Painter} from '../render/painter.ts';
+ import {GPUInitializationError} from '../util/gpu_initialization_error.ts';
+ import {Hash} from './hash.ts';
+ import {HandlerManager} from './handler_manager.ts';
+-import {Camera, type CameraOptions, type CameraUpdateTransformFunction, type FitBoundsOptions, type EaseToOptions, type FlyToOptions, type JumpToOptions, type AnimationOptions, type CameraForBoundsOptions, type CenterZoomBearing} from './camera.ts';
++import {Camera, type CameraOptions, type CameraUpdateTransformFunction, type FitBoundsOptions, type EaseToOptions, type FlyToOptions, type JumpToOptions, type AnimationOptions, type CameraForBoundsOptions, type CenterZoomBearingPitch} from './camera.ts';
+ import {LngLat} from '../geo/lng_lat.ts';
+ import {LngLatBounds} from '../geo/lng_lat_bounds.ts';
+ import Point from '@mapbox/point-geometry';
+@@ -1335,7 +1335,7 @@ export class Map extends Evented<MapEventType> {
+      * in the viewport. LngLatBounds represent a box that is always axis-aligned with bearing 0.
+      * Bounds will be taken in `[sw, ne]` order. Southwest point will always be to the left of the northeast point.
+      * @param options - Options object
+-     * @returns If map is able to fit to provided bounds, returns `center`, `zoom`, and `bearing`.
++     * @returns If map is able to fit to provided bounds, returns `center`, `zoom`, `bearing`, and `pitch`.
+      * If map is unable to fit, method will warn and return undefined.
+      * @example
+      * ```ts
+@@ -1345,7 +1345,7 @@ export class Map extends Evented<MapEventType> {
+      * });
+      * ```
+      */
+-    cameraForBounds(bounds: LngLatBoundsLike, options?: CameraForBoundsOptions): CenterZoomBearing | undefined { return this._camera.cameraForBounds(bounds, options); }
++    cameraForBounds(bounds: LngLatBoundsLike, options?: CameraForBoundsOptions): CenterZoomBearingPitch | undefined { return this._camera.cameraForBounds(bounds, options); }
+     /**
+      * Pans and zooms the map to contain its visible area within the specified geographical bounds.
+      * This function will also reset the map's bearing to 0 if bearing is nonzero.

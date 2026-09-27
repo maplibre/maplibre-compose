@@ -2,17 +2,8 @@ package org.maplibre.compose.gljs
 
 import web.gl.WebGL2RenderingContext
 
-/**
- * The default MapLibre GL JS 6 worker URL: the build of [getVersion] on the jsDelivr CDN. The
- * worker imports `maplibre-gl-shared.mjs` as a sibling, which the CDN serves alongside it, so no
- * bundler setup is needed for a map to render. Pass a different URL to [GlJsRuntime.pointAtWorker]
- * only to self-host the worker or pin a version other than the bundled one.
- *
- * Reads the version from the bundled MapLibre GL JS library.
- */
-internal val DEFAULT_WORKER_URL: String by lazy {
-  "https://cdn.jsdelivr.net/npm/maplibre-gl@${getVersion()}/dist/maplibre-gl-worker.mjs"
-}
+/** The worker built with the embedded engine, shared by every map in this module. */
+internal val DEFAULT_WORKER_URL: String by lazy { getDefaultWorkerUrl() }
 
 /**
  * A same-origin worker URL for [workerUrl]. A cross-origin URL becomes a blob that `import`s the
@@ -21,7 +12,7 @@ internal val DEFAULT_WORKER_URL: String by lazy {
  *
  * MapLibre wraps worker URLs with `new URL(url, import.meta.url)`. Webpack rewrites that into a
  * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
- * `import.meta.url` so the CDN default works when the library is bundled.
+ * `import.meta.url` so custom cross-origin workers work when the library is bundled.
  */
 internal fun sameOriginWorkerUrl(workerUrl: String): String =
   js(

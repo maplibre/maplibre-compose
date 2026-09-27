@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Hooks export these for the parent repository, not the submodule.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
+repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+cd "$repo_root"
+source_path=third_party/maplibre-gl-js
+pin="$(git rev-parse ":$source_path")"
+patch_hash="$(
+  for patch in "$repo_root"/patches/maplibre-gl-js/*.patch; do
+    if [[ -f "$patch" ]]; then cat "$patch"; fi
+  done | git hash-object --stdin
+)"
+
+source_state() {
+  printf '%s %s\n' "$(git -C "$source_path" rev-parse HEAD)" \
+    "$(git -C "$source_path" diff --binary HEAD | git hash-object --stdin)"
+}
+
+case "${1:-sync}" in
+  sync|force) ;;
+  *) echo "usage: $0 [sync|force]" >&2; exit 2 ;;
+esac
+
+if [[ -e "$source_path/.git" ]]; then
+  stamp="$(git -C "$source_path" rev-parse --absolute-git-dir)/maplibre-compose-sync.stamp"
+  state="$(source_state)"
+  if [[ -f "$stamp" ]]; then
+    read -r old_head old_diff old_patches < "$stamp"
+    if [[ "$state" == "$old_head $old_diff" && "$old_head" == "$pin" && "$old_patches" == "$patch_hash" ]]; then
+      exit 0
+    fi
+    expected="$old_head $old_diff"
+  else
+    expected="$(git -C "$source_path" rev-parse HEAD) $(printf '' | git hash-object --stdin)"
+  fi
+  if [[ "${1:-sync}" != force && "$state" != "$expected" ]]; then
+    echo "sync-maplibre-gl-js: local edits in $source_path; export them before syncing." >&2
+    echo "Use 'git -C $source_path diff --binary' for edits since the applied patches," >&2
+    echo "or '.mise/bin/sync-maplibre-gl-js force' to discard them." >&2
+    exit 1
+  fi
+fi
+
+git -c submodule.recurse=false submodule sync "$source_path"
+git -c submodule.recurse=false submodule update --init --checkout --force --depth 1 "$source_path"
+stamp="$(git -C "$source_path" rev-parse --absolute-git-dir)/maplibre-compose-sync.stamp"
+rm -f "$stamp"
+# Stage the carried changes so git diff shows only subsequent contributor edits.
+for patch in "$repo_root"/patches/maplibre-gl-js/*.patch; do
+  [[ -f "$patch" ]] || continue
+  if ! git -C "$source_path" apply --index "$patch"; then
+    git -C "$source_path" reset --hard "$pin"
+    exit 1
+  fi
+done
+printf '%s %s\n' "$(source_state)" "$patch_hash" > "$stamp"
