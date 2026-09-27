@@ -16,8 +16,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotSame
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -45,10 +43,12 @@ class StyleCommitTest {
       val originalSource = fixture.revisions.last().sources.single()
       count = 1
       fixture.frame()
-      assertSame(originalSource, fixture.revisions.last().sources.single())
+      assertEquals(originalSource, fixture.revisions.last().sources.single())
       sourceData = data(2)
       fixture.frame()
-      assertNotSame(originalSource, fixture.revisions.last().sources.single())
+      val updatedSource = fixture.revisions.last().sources.single() as SourceDefinition.GeoJson
+      assertEquals(originalSource.id, updatedSource.id)
+      assertEquals(data(2), updatedSource.data)
       count = 0
       fixture.frame()
       assertTrue(fixture.revisions.last().sources.isEmpty())

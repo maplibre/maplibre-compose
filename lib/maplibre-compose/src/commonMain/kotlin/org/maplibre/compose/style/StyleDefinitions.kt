@@ -112,9 +112,7 @@ internal fun layerDefinitionFromJson(id: String, value: JsonObject): LayerDefini
   LayerDefinition(JsonObject(value + ("id" to JsonPrimitive(id))))
 
 /** Compares construction inputs without allocating filtered property maps. */
-internal fun LayerDefinition.hasSameConstructionProperties(
-  other: LayerDefinition
-): Boolean {
+internal fun LayerDefinition.hasSameConstructionProperties(other: LayerDefinition): Boolean {
   if (value === other.value) return true
   return value.all { (name, value) ->
     name in MUTABLE_LAYER_PROPERTIES || other.value[name] == value

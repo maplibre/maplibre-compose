@@ -17,6 +17,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -24,25 +25,23 @@ import org.maplibre.compose.util.ImageStretch
 
 class PainterStyleImageTest {
   @Test
-  fun positive_subpixel_sizes_produce_nonempty_images() = runMapTest {
-    createMapFixture().use {
-      val painter =
-        object : Painter() {
-          override val intrinsicSize = Size(0.5f, 0.5f)
+  fun positive_subpixel_sizes_produce_nonempty_images() = runTest {
+    val painter =
+      object : Painter() {
+        override val intrinsicSize = Size(0.5f, 0.5f)
 
-          override fun DrawScope.onDraw() = drawRect(Color.Red)
-        }
-      for (size in listOf(null, DpSize(0.5.dp, 0.5.dp))) {
-        val resolved =
-          ResolvedStyleImage.fromPainter(
-            painter,
-            Density(1f),
-            LayoutDirection.Ltr,
-            size = size,
-          )
-        assertEquals(1, resolved.image.width)
-        assertEquals(1, resolved.image.height)
+        override fun DrawScope.onDraw() = drawRect(Color.Red)
       }
+    for (size in listOf(null, DpSize(0.5.dp, 0.5.dp))) {
+      val resolved =
+        ResolvedStyleImage.fromPainter(
+          painter,
+          Density(1f),
+          LayoutDirection.Ltr,
+          size = size,
+        )
+      assertEquals(1, resolved.image.width)
+      assertEquals(1, resolved.image.height)
     }
   }
 
@@ -62,47 +61,45 @@ class PainterStyleImageTest {
   }
 
   @Test
-  fun standalone_rendering_uses_explicit_environment_and_drawing_options() = runMapTest {
-    createMapFixture().use {
-      val painter =
-        object : Painter() {
-          override val intrinsicSize = Size.Unspecified
+  fun standalone_rendering_uses_explicit_environment_and_drawing_options() = runTest {
+    val painter =
+      object : Painter() {
+        override val intrinsicSize = Size.Unspecified
 
-          override fun DrawScope.onDraw() {
-            assertEquals(2f, density)
-            assertEquals(LayoutDirection.Rtl, layoutDirection)
-            drawRect(Color.Red)
-          }
+        override fun DrawScope.onDraw() {
+          assertEquals(2f, density)
+          assertEquals(LayoutDirection.Rtl, layoutDirection)
+          drawRect(Color.Red)
         }
-      val stretch = ImageStretch.capInsets(1.dp, 1.dp, 1.dp, 1.dp)
-      val resolved =
-        ResolvedStyleImage.fromPainter(
-          painter,
-          Density(2f),
-          LayoutDirection.Rtl,
-          size = DpSize(3.dp, 2.dp),
-          stretch = stretch,
-          alpha = 0.5f,
-          colorFilter = ColorFilter.tint(Color.Blue),
-        )
-      assertEquals(6, resolved.image.width)
-      assertEquals(4, resolved.image.height)
-      assertEquals(stretch, resolved.stretch)
-      val pixel = IntArray(1)
-      resolved.image.readPixels(pixel, width = 1, height = 1)
-      assertEquals(0xff, pixel[0] and 0xffffff)
-      assertTrue((pixel[0] ushr 24) in 127..128)
+      }
+    val stretch = ImageStretch.capInsets(1.dp, 1.dp, 1.dp, 1.dp)
+    val resolved =
+      ResolvedStyleImage.fromPainter(
+        painter,
+        Density(2f),
+        LayoutDirection.Rtl,
+        size = DpSize(3.dp, 2.dp),
+        stretch = stretch,
+        alpha = 0.5f,
+        colorFilter = ColorFilter.tint(Color.Blue),
+      )
+    assertEquals(6, resolved.image.width)
+    assertEquals(4, resolved.image.height)
+    assertEquals(stretch, resolved.stretch)
+    val pixel = IntArray(1)
+    resolved.image.readPixels(pixel, width = 1, height = 1)
+    assertEquals(0xff, pixel[0] and 0xffffff)
+    assertTrue((pixel[0] ushr 24) in 127..128)
 
-      val sdf =
-        ResolvedStyleImage.fromPainter(
-          ColorPainter(Color.White),
-          Density(2f),
-          LayoutDirection.Ltr,
-          drawAsSdf = true,
-        )
-      assertTrue(sdf.sdf)
-      assertTrue(sdf.image.width > 0 && sdf.image.height > 0)
-    }
+    val sdf =
+      ResolvedStyleImage.fromPainter(
+        ColorPainter(Color.White),
+        Density(2f),
+        LayoutDirection.Ltr,
+        drawAsSdf = true,
+      )
+    assertTrue(sdf.sdf)
+    assertTrue(sdf.image.width > 0 && sdf.image.height > 0)
   }
 
   @Test

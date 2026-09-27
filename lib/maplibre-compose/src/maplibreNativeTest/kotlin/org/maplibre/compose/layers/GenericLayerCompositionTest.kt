@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -108,7 +109,7 @@ class GenericLayerCompositionTest {
     runOnIdle { json = JsonObject(original - "paint" - "minzoom") }
     waitForIdle()
     assertEquals(1, additions)
-    assertTrue(recording.layerPropertyWrites.contains("mesh" to "mesh-opacity"))
+    assertEquals(JsonNull, recording.layers.getValue("mesh")["paint"]!!.jsonObject["mesh-opacity"])
     assertEquals(JsonPrimitive(0), recording.layers.getValue("mesh")["minzoom"])
     runOnIdle { json = JsonObject(json + ("metadata" to JsonObject(emptyMap()))) }
     waitForIdle()
@@ -150,7 +151,10 @@ class GenericLayerCompositionTest {
       )
       runOnIdle { opacity = null }
       waitForIdle()
-      assertTrue(recording.layerPropertyWrites.contains("plugin" to "plugin-opacity"))
+      assertEquals(
+        JsonNull,
+        recording.layers.getValue("plugin")["paint"]!!.jsonObject["plugin-opacity"],
+      )
       runOnIdle { shown = false }
       waitForIdle()
       assertTrue(recording.sources.isEmpty())

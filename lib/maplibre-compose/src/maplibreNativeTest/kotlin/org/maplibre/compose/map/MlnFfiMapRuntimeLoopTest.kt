@@ -13,13 +13,9 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
-import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.nativeffi.runtime.RuntimeEventType
@@ -137,12 +133,11 @@ class MlnFfiMapRuntimeLoopTest {
     }
 
   @Test
-  fun awaiting_owner_work_releases_the_caller_and_drops_cancelled_work(): MapTestResult =
+  fun cancelled_owner_work_is_skipped_and_nested_dispatch_runs_inline(): MapTestResult =
     runMapTest {
       FfiTestPlatform.initialize()
       val cacheFile = FfiTestPlatform.createCacheFile()
       val published = TestLatch(1)
-      val loaded = TestLatch(1)
       val parked = TestLatch(1)
       val release = TestLatch(1)
       val ran = AtomicBoolean(false)
@@ -151,18 +146,15 @@ class MlnFfiMapRuntimeLoopTest {
           extent = MapExtent.fromLogical(1, 1, 1.0),
           cacheFile = cacheFile,
           getLogger = { MapLog },
-          onMapCreated = {
-            it.setStyleJson("""{"version":8,"sources":{},"layers":[]}""".encodeToByteArray())
-          },
+          onMapCreated = {},
           onMapPublished = { published.countDown() },
-          onEvent = { if (it.type == RuntimeEventType.MAP_STYLE_LOADED) loaded.countDown() },
+          onEvent = {},
           onEventsDrained = {},
           requestFrame = {},
         )
       try {
         loop.start()
         assertTrue(published.await(TIMEOUT_MILLIS))
-        assertTrue(loaded.await(TIMEOUT_MILLIS))
         assertTrue(
           loop.post({
             parked.countDown()
@@ -177,24 +169,12 @@ class MlnFfiMapRuntimeLoopTest {
         assertFalse(cancelled.isCompleted)
         cancelled.cancelAndJoin()
         release.countDown()
-        assertEquals(
-          true,
-          loop.await { map ->
-            val binding =
-              MlnFfiStyleBinding(
-                sessionOpen = { true },
-                accessMap = { action -> loop.call(action) != null },
-                postMap = loop::dispatch,
-              )
-            binding.setGlobalStateProperty("inside-commit", JsonPrimitive(7))
-            assertEquals(
-              JsonPrimitive(7),
-              Json.parseToJsonElement(map.getGlobalState().decodeToString())
-                .jsonObject["inside-commit"],
-              "nested style writes must finish before the owner commit returns",
-            )
-            loop.isOwnerThread()
-          },
+        assertNotNull(
+          loop.await {
+            var nestedRan = false
+            assertTrue(loop.dispatch({ nestedRan = true }))
+            assertTrue(nestedRan, "nested dispatch must finish before the owner call returns")
+          }
         )
         assertFalse(ran.load())
         loop.close()

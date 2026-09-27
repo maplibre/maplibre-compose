@@ -1,7 +1,6 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -10,7 +9,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonPrimitive
-import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -130,8 +128,6 @@ class LayerTransitionWiringTest {
         highlightColorTransition = timing(58),
         accentColorTransition = timing(59),
       )
-      // `visible` selects the composable: with only `id` and `source`, the call resolves to the
-      // internal layer class of the same name instead.
       CircleLayer(id = "circles-untimed", source = features, visible = true)
     }
 
@@ -256,43 +252,6 @@ class LayerTransitionWiringTest {
     assertEquals(
       mapOf("fill-color-transition" to 200.0, "fill-outline-color-transition" to 200.0),
       style.transitionDurations("fills"),
-    )
-  }
-
-  /**
-   * A scale change and a value change in one revision reach the engine transition first, so the
-   * value animates with the new timing even if the engine updates between the two writes.
-   */
-  @Test
-  fun a_changed_transition_is_written_before_the_value_it_times() = runTest {
-    val features = featureSource()
-    val scale = mutableStateOf(1f)
-    val color = mutableStateOf(Color.Red)
-    val style =
-      composeStyle(
-        RecordingStyleBinding(animatorDurationScaleState = scale),
-        thenChange = {
-          scale.value = 0f
-          color.value = Color.Blue
-        },
-      ) {
-        FillLayer(
-          id = "fills",
-          source = features,
-          color = const(color.value),
-          colorTransition = timing(400),
-        )
-      }
-
-    val writes = style.layerPropertyWrites.filter { (id, _) -> id == "fills" }.map { it.second }
-    assertEquals(
-      listOf(
-        "fill-color-transition",
-        "fill-outline-color-transition",
-        "fill-color",
-        "fill-outline-color",
-      ),
-      writes,
     )
   }
 

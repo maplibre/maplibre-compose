@@ -23,7 +23,7 @@ import org.maplibre.nativeffi.style.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
-/** Every generated property is covered in the shared [LayerPropertyRoundTripTest]. */
+/** Covers the native setters for root layer properties. */
 class MlnFfiLayerKeyRoundTripTest {
 
   @Test
@@ -83,6 +83,14 @@ class MlnFfiLayerKeyRoundTripTest {
         assertEquals(
           Json.parseToJsonElement("""["==",["get","class"],"wood"]"""),
           map.layerFilter("after")?.toJsonElement(),
+        )
+
+        afterAttach.minZoom = 5f
+        afterHandle.update(afterAttach.definition())
+        assertEquals(
+          5.0,
+          map.layerMinZoom("after"),
+          "nested style writes must finish inside the current owner operation",
         )
       }
       assertEquals(emptyList(), it.errors, "the map should report nothing")

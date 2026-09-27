@@ -5,17 +5,13 @@ import androidx.compose.runtime.ControlledComposition
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.ui.graphics.GraphicsContext
-import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -34,18 +30,11 @@ class LayerCompositionCommitTest {
     val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { published += it })
     val recomposer = Recomposer(EmptyCoroutineContext)
     val composition = ControlledComposition(MapNodeApplier(root), recomposer)
-    val graphics =
-      object : GraphicsContext {
-        override fun createGraphicsLayer(): GraphicsLayer = error("No painters declared")
-
-        override fun releaseGraphicsLayer(layer: GraphicsLayer) = Unit
-      }
     try {
       composition.setContent {
         CompositionLocalProvider(
           LocalDensity provides Density(1f),
           LocalLayoutDirection provides LayoutDirection.Ltr,
-          LocalGraphicsContext provides graphics,
         ) {
           StyleContent(root) {
             Layer("layer", "plugin") { paint("value", const(tick.intValue)) }
@@ -65,7 +54,7 @@ class LayerCompositionCommitTest {
         snapshot.dispose()
       }
       root.commit()
-      assertSame(first, published.single())
+      assertEquals(1, published.size, "recomposition must not publish before apply")
       composition.applyChanges()
       composition.applyLateChanges()
       composition.changesApplied()

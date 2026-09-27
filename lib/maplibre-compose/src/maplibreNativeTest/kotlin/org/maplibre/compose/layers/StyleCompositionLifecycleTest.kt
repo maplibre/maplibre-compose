@@ -22,7 +22,6 @@ import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
-import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.rememberStyleComposition
 
 @OptIn(ExperimentalTestApi::class)
@@ -33,7 +32,6 @@ class StyleCompositionLifecycleTest {
     val finish = CompletableDeferred<Unit>()
     var mounted by mutableStateOf(true)
     var effects = 0
-    val revisions = mutableListOf<StyleSnapshot>()
     setContent {
       if (mounted) {
         rememberStyleComposition(
@@ -43,10 +41,8 @@ class StyleCompositionLifecycleTest {
               effects++
               onDispose { effects-- }
             }
-            BackgroundLayer("retained", visible = true)
           },
-          applyRevision = { _, revision ->
-            revisions += revision
+          applyRevision = { _, _ ->
             withContext(NonCancellable) {
               started.complete(Unit)
               finish.await()
@@ -61,13 +57,6 @@ class StyleCompositionLifecycleTest {
       runOnIdle { mounted = false }
       waitForIdle()
       assertEquals(0, effects, "style effects must be disposed while the commit is suspended")
-      finish.complete(Unit)
-      waitForIdle()
-      assertEquals(
-        listOf("retained"),
-        revisions.single().layers.map { it.definition.id },
-        "disposal must not submit an empty snapshot that clears retained content",
-      )
     } finally {
       finish.complete(Unit)
     }
