@@ -8,6 +8,7 @@
   "newLineKind": "lf",
   "excludes": [
     "**/build",
+    "third_party",
     "**/.gradle",
     "**/.kotlin",
     "**/node_modules",

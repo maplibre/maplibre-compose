@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+cd "$repo_root"
+repository="$repo_root/build/js-test-maven"
+# Publish only the root metadata and JS variants needed by this independent build.
+for module in location maplibre-compose; do
+  for publication in KotlinMultiplatform Js; do
+    ./gradlew -Dmaven.repo.local="$repository" -PmaplibreVersion=0.0.0-SNAPSHOT \
+      ":lib:$module:publish${publication}PublicationToMavenLocal"
+  done
+done
+./gradlew -p tools/maplibre-gl-js/consumer jsBrowserProductionWebpack --refresh-dependencies
+playwright_module="$(node -p 'require.resolve("playwright", {paths: [process.cwd() + "/build/js"]})')"
+node tools/maplibre-gl-js/test-consumer.mjs "$playwright_module" \
+  "$repo_root/tools/maplibre-gl-js/consumer/build/kotlin-webpack/js/productionExecutable"

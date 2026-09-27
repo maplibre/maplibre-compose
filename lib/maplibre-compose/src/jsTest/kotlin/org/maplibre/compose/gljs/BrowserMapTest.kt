@@ -18,9 +18,6 @@ import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.camera.CameraPosition
 
-/** The local module worker copied into the browser test bundle. */
-internal const val LOCAL_WORKER_URL: String = "./maplibre-gl-worker.js"
-
 /**
  * Runs a browser test that hosts a real map, detached from compositing so it is never drawn. For
  * compositing on a real GPU context, see [BrowserCompositingTest].
@@ -29,9 +26,7 @@ internal const val LOCAL_WORKER_URL: String = "./maplibre-gl-worker.js"
 internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise<*> =
   Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }
     .then {
-      // Set before any map is built: pointAtWorker keeps the first call, so this local URL wins and
-      // the CDN default never makes the suite reach the network.
-      GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
+      GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
       runComposeUiTest(block = block)
     }
     .then {}

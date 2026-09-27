@@ -73,6 +73,15 @@ the IDE, you'll need some plugins:
 - [Android](https://plugins.jetbrains.com/plugin/22989-android)
 - [Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
 
+### Browser engine
+
+The browser uses a patched MapLibre GL JS build embedded in the Kotlin library.
+Gradle prepares it automatically for JS tasks through
+`mise run build:maplibre-gl-js`. See
+[the patch workflow](patches/maplibre-gl-js/README.md) to change the upstream
+pin, add a patch, or test the published artifact. Application developers do not
+need this source checkout or its build tools.
+
 ### Building for Android
 
 If you already have an SDK, from Android Studio or elsewhere, point Gradle at it

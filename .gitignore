@@ -33,3 +33,6 @@ docs/src/generated/
 __pycache__/
 mise.local.toml
 mise.*.local.toml
+
+# Lockfile for the isolated publication test build.
+tools/maplibre-gl-js/consumer/kotlin-js-store/

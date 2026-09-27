@@ -1,4 +1,4 @@
-@file:JsModule("maplibre-gl")
+@file:JsModule("maplibre-compose/maplibre-gl/index.mjs")
 
 package org.maplibre.compose.gljs
 
@@ -6,6 +6,8 @@ import kotlin.js.Promise
 import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
+
+internal external fun getDefaultWorkerUrl(): String
 
 internal external fun setWorkerUrl(value: String)
 
@@ -81,6 +83,8 @@ internal external class MaplibreMap(options: MapOptions) {
   fun getBearing(): Double
 
   fun getPitch(): Double
+
+  fun cameraForBounds(bounds: LngLatBounds, options: CameraForBoundsOptions): BoundsCamera?
 
   fun getBounds(): LngLatBounds
 

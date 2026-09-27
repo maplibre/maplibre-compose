@@ -7,7 +7,7 @@ import org.maplibre.compose.gljs.SkikoGpuBridge
  * Installs the browser graphics integration and sets the MapLibre GL JS worker URL.
  *
  * Call this inside `onWasmReady`, before Compose starts. [workerUrl] defaults to the bundled
- * MapLibre GL JS worker on jsDelivr. Later calls are ignored.
+ * patched MapLibre GL JS worker. Later calls are ignored.
  *
  * @throws IllegalStateException if skiko has not published its exports yet.
  */
