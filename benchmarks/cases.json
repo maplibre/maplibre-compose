@@ -15,7 +15,7 @@
   },
   "map-return": {
     "title": "Map return",
-    "description": "Time to create a map with 256 declared layers and 64 images behind a 300 ms transition, and the worst UI frame while it opens.",
+    "description": "Time to create a map with 256 declared layers and 64 images during a 300 ms transition, and the worst UI frame meanwhile.",
     "tracked": true,
     "classic": true,
     "platforms": ["android", "ios"],
@@ -97,7 +97,7 @@
   },
   "padding-basemap": {
     "title": "Viewport padding",
-    "description": "Cost of animating bottom padding every frame, as a bottom sheet does.",
+    "description": "Cost of animating bottom padding every frame.",
     "tracked": true,
     "classic": true,
     "config": {
