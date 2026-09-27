@@ -280,7 +280,7 @@ export async function start() {
             unit: "ms",
             definition: `${c.description} ${metric.definition}`,
             integer: false,
-            format: formatValue,
+            format: (value) => (value == null ? "–" : `${formatValue(value)} ms`),
             series: kinds.map((kind) => ({
               key: `${id}.${kind}.${metric.key}`,
               label: kind === "compose" ? "MapLibre Compose" : "Classic SDK",
