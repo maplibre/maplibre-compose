@@ -3,9 +3,11 @@ package org.maplibre.compose.style
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -358,19 +360,24 @@ internal class RecordingStyleBinding(
     if (supportsProjection) this.projection = projection
   }
 
-  override fun setFeatureState(
+  override fun prepareFeatureStateUpdate(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  ) {
-    val key = Triple(sourceId, sourceLayerId, featureId)
-    val previous = featureStates[key].orEmpty()
-    val removed = state.filterValues { it is kotlinx.serialization.json.JsonNull }.keys
-    featureStates[key] =
-      JsonObject(
-        (previous - removed) + state.filterValues { it !is kotlinx.serialization.json.JsonNull }
-      )
+  ): () -> Unit {
+    val json = state.toString()
+    return {
+      val captured = Json.parseToJsonElement(json).jsonObject
+      val key = Triple(sourceId, sourceLayerId, featureId)
+      val previous = featureStates[key].orEmpty()
+      val removed = captured.filterValues { it is kotlinx.serialization.json.JsonNull }.keys
+      featureStates[key] =
+        JsonObject(
+          (previous - removed) +
+            captured.filterValues { it !is kotlinx.serialization.json.JsonNull }
+        )
+    }
   }
 
   override suspend fun featureState(

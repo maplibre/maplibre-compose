@@ -60,7 +60,10 @@ protected constructor(
   }
 
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
-    mutationOperation { style.setFeatureState(id, sourceLayerId, featureId, state) }
+    operation {
+      val update = style.prepareFeatureStateUpdate(id, sourceLayerId, featureId, state)
+      postMutation(update)
+    }
   }
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {

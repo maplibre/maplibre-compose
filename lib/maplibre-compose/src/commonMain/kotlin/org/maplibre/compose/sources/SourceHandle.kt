@@ -63,7 +63,10 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
     offset: Long,
   ): FeatureCollection<Geometry, JsonObject?>
 
-  /** Merges [state] into the runtime state of the feature identified by [featureId]. */
+  /**
+   * Merges [state] into the runtime state of the feature identified by [featureId]. Captures the
+   * state and its nested values before submitting the update.
+   */
   public fun setFeatureState(featureId: String, state: JsonObject): Unit
 
   /** Returns the runtime state of the feature identified by [featureId]. */
@@ -109,7 +112,10 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>>
 
-  /** Merges [state] into the runtime state of one feature. */
+  /**
+   * Merges [state] into the runtime state of one feature. Captures the state and its nested values
+   * before submitting the update.
+   */
   public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject): Unit
 
   /** Returns the runtime state of one feature. */

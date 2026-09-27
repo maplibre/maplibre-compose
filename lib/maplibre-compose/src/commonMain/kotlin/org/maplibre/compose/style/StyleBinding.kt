@@ -461,16 +461,16 @@ internal interface StyleBinding {
   fun reportSourceChanged(sourceId: String) {}
 
   /**
-   * Merges [state] into the state of one feature; a null value in [state] drops that key. The write
-   * runs on the engine's thread, possibly after this function returns. A state the engine rejects
-   * is reported through [reportRejectedWrite] and leaves the previous state in place.
+   * Captures [state] on the caller; the returned command merges it into one feature's state. A null
+   * value drops that key. Submit the command through [postSourceUpdate] to preserve the source
+   * installation's identity and report an engine rejection.
    */
-  fun setFeatureState(
+  fun prepareFeatureStateUpdate(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  )
+  ): () -> Unit
 
   /** @return an empty object when the feature has no state, or the style has unloaded. */
   suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject

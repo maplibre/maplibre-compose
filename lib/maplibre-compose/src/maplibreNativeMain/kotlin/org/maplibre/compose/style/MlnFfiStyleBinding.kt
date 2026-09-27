@@ -840,16 +840,15 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  override fun setFeatureState(
+  override fun prepareFeatureStateUpdate(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  ) {
+  ): () -> Unit {
     val bytes = state.toJsonBytes()
-    postWrite("Feature '$featureId' in source '$sourceId'", state) { map ->
-      map.setFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId), bytes)
-    }
+    val selector = featureStateSelector(sourceId, sourceLayerId, featureId)
+    return { updateSource { map -> map.setFeatureState(selector, bytes) } }
   }
 
   override suspend fun featureState(

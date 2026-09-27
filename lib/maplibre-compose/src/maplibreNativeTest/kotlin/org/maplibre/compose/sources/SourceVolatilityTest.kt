@@ -7,6 +7,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.map.MapStyleState
@@ -22,7 +25,7 @@ import org.maplibre.compose.testing.runMapTest
 
 class SourceVolatilityTest {
   @Test
-  fun queued_writes_do_not_block_or_change_a_replacement_with_the_same_id() = runBlocking {
+  fun queued_writes_capture_values_without_blocking_or_changing_a_replacement() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
@@ -33,7 +36,10 @@ class SourceVolatilityTest {
           TileSetOptions(),
         )
       binding.addSource(source.definition())
-      val handle = assertNotNull(binding.handle(source).asMutable)
+      val featureHandle = binding.handle(source) as VectorTileSourceHandle
+      val handle = assertNotNull(featureHandle.asMutable)
+      val nested = mutableMapOf("value" to JsonPrimitive("submitted"))
+      val state = mutableMapOf("selected" to JsonPrimitive(true), "nested" to JsonObject(nested))
       val parked = TestLatch(1)
       val release = TestLatch(1)
       val finished = CompletableDeferred<Boolean>()
@@ -47,6 +53,9 @@ class SourceVolatilityTest {
         )
         assertTrue(parked.await(5_000L), "native owner did not reach the gate")
         handle.setVolatile(true)
+        featureHandle.setFeatureState("layer", "1", JsonObject(state))
+        state["selected"] = JsonPrimitive(false)
+        nested["value"] = JsonPrimitive("changed after submission")
         assertTrue(
           fixture.session.postOwnerTaskForTest {
             replacement.complete(
@@ -54,6 +63,16 @@ class SourceVolatilityTest {
                 assertEquals(
                   true,
                   binding.readMap { it.styleSourceInfo(source.id)?.volatileSource },
+                )
+                assertEquals(
+                  Json.parseToJsonElement("""{"selected":true,"nested":{"value":"submitted"}}"""),
+                  binding.readMap {
+                    Json.parseToJsonElement(
+                      it
+                        .getFeatureState(featureStateSelector(source.id, "layer", "1"))
+                        .decodeToString()
+                    )
+                  },
                 )
                 binding.removeSource(source.id)
                 binding.addSource(source.definition())
