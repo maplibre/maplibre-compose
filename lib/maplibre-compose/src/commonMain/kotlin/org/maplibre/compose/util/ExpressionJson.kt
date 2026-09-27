@@ -72,7 +72,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
         buildList {
           add(JsonPrimitive(name))
           args.forEachIndexed { index, arg ->
-            add(arg.normalizeJsonLike(inLiteral || isLiteralArg(index)))
+            add(arg.normalizeJsonLike(inLiteral || index in literalArgs))
           }
         }
       )

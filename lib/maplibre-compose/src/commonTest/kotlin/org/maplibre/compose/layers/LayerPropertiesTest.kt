@@ -108,16 +108,16 @@ class LayerPropertiesTest {
   @Test
   fun equivalent_function_calls_reuse_compilation() {
     val cache = testLayerPropertyCache()
-    fun compile(literalIndex: Int) =
+    fun compile(literalArgs: Set<Int>) =
       cache.compile(
         "paint",
         "color",
-        FunctionCall.of("get", listOf(const("color"))) { it == literalIndex },
+        FunctionCall.of("get", listOf(const("color")), literalArgs),
         DefaultLayerExpressionContext,
       )
-    val first = compile(-1)
-    assertSame(first, compile(-1))
-    assertTrue(first !== compile(0))
+    val first = compile(emptySet())
+    assertSame(first, compile(emptySet()))
+    assertTrue(first !== compile(setOf(0)))
   }
 
   @Test

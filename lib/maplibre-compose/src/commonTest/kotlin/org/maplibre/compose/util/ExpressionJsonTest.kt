@@ -111,13 +111,13 @@ class ExpressionJsonTest {
   }
 
   @Test
-  fun function_equality_uses_literal_positions_and_snapshots_the_predicate() {
+  fun function_equality_uses_snapshots_of_literal_positions() {
     val args = listOf(OffsetLiteral.of(Offset(1.5f, 2.5f)))
-    var literal = true
-    val first = FunctionCall.of("literal", args) { literal }
-    val second = FunctionCall.of("literal", args) { it == 0 }
-    val ordinary = FunctionCall.of("literal", args) { false }
-    literal = false
+    val literalArgs = mutableSetOf(0)
+    val first = FunctionCall.of("literal", args, literalArgs)
+    val second = FunctionCall.of("literal", args, setOf(0))
+    val ordinary = FunctionCall.of("literal", args)
+    literalArgs.clear()
 
     assertEquals(first, second)
     assertEquals(first.hashCode(), second.hashCode())
@@ -126,8 +126,10 @@ class ExpressionJsonTest {
     assertEquals("""["literal",[1.5,2.5]]""", json(compiled(first)))
 
     val compiledArgs = args.map { compiled(it) }.toMutableList()
-    val compiledCall = CompiledFunctionCall.of("literal", compiledArgs) { it == 0 }
+    literalArgs.add(0)
+    val compiledCall = CompiledFunctionCall.of("literal", compiledArgs, literalArgs)
     compiledArgs.clear()
+    literalArgs.clear()
     assertEquals(compiled(first), compiledCall)
     assertNotEquals(compiledCall, CompiledFunctionCall.of("literal", args.map { compiled(it) }))
   }
@@ -140,12 +142,12 @@ class ExpressionJsonTest {
 
   @Test
   fun does_not_double_wrap_an_array_already_inside_a_literal() {
-    // isLiteralArg marks argument positions already in literal context.
+    // literalArgs marks argument positions already in literal context.
     val expression =
       CompiledFunctionCall.of(
         "literal",
         listOf(OffsetLiteral.of(Offset(1.5f, 2.5f)).compile(ExpressionContext.None)),
-        isLiteralArg = { true },
+        literalArgs = setOf(0),
       )
     assertEquals("""["literal",[1.5,2.5]]""", json(expression))
   }
