@@ -4,6 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.FakeImageBitmap
@@ -43,6 +50,82 @@ class StyleReconcilerTest {
     reconciler.apply(recording, revision)
     assertTrue(recording.additions.isEmpty())
     assertEquals(listOf("raster"), style.layerIds())
+  }
+
+  @Test
+  fun unchanged_layers_skip_preparation_but_duration_scale_changes_still_apply() {
+    val delegate = RecordingStyleBinding()
+    var propertyChecks = 0
+    val style =
+      object : StyleBinding by delegate {
+        override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? {
+          propertyChecks++
+          return null
+        }
+      }
+    val source = source("tiles")
+    val layer =
+      TestLayer("raster", "raster", source).apply {
+        filterUnsupportedProperties = true
+        paint("raster-opacity", JsonPrimitive(0.5))
+        paintTransition("raster-opacity", TransitionOptions(200.milliseconds))
+      }
+    val reconciler = StyleReconciler()
+    reconciler.apply(style, revision(source, layer))
+    val initialChecks = propertyChecks
+    reconciler.apply(style, revision(source, layer))
+    assertEquals(initialChecks, propertyChecks)
+    assertTrue(delegate.layerPropertyWrites.isEmpty())
+
+    reconciler.apply(style, revision(source, layer).copy(animatorDurationScale = 0f))
+    assertTrue(propertyChecks > initialChecks)
+    assertEquals(
+      0f,
+      delegate.layers
+        .getValue("raster")["paint"]!!
+        .jsonObject
+        .getValue("raster-opacity-transition")
+        .jsonObject
+        .getValue("duration")
+        .jsonPrimitive
+        .float,
+    )
+  }
+
+  @Test
+  fun construction_changes_replace_layers_but_live_properties_do_not() {
+    val delegate = RecordingStyleBinding()
+    val recording = RecordingOperations(delegate)
+    val reconciler = StyleReconciler()
+    val source = source("tiles")
+    val layer = TestLayer("raster", "raster", source)
+    val first = revision(source, layer)
+    reconciler.apply(recording, first)
+    recording.additions.clear()
+    layer.minZoom = 3f
+    layer.paint("raster-opacity", JsonPrimitive(0.5))
+    val second = revision(source, layer)
+    reconciler.apply(recording, second)
+    assertTrue(recording.additions.isEmpty())
+
+    val definition = second.layers.single().definition
+    val withConstruction =
+      second.copy(
+        layers =
+          listOf(
+            second.layers
+              .single()
+              .copy(
+                definition =
+                  definition.copy(value = JsonObject(definition.value + ("metadata" to JsonNull)))
+              )
+          )
+      )
+    reconciler.apply(recording, withConstruction)
+    assertEquals(listOf("layer:raster"), recording.additions)
+    recording.additions.clear()
+    reconciler.apply(recording, second)
+    assertEquals(listOf("layer:raster"), recording.additions)
   }
 
   @Test
