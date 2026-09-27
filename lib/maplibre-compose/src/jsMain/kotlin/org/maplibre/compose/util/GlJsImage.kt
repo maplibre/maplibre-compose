@@ -10,11 +10,22 @@ import web.dom.document
 import web.html.HTMLCanvasElement
 
 /** Alpha stays straight: GL JS uploads style images with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` on. */
-internal fun ImageBitmap.toGlJsImage(): StyleImageData = ImageSnapshot.capture(this).toGlJsImage()
+internal fun ImageBitmap.toGlJsImage(): StyleImageData {
+  val argb = IntArray(width * height)
+  readPixels(argb)
+  return glJsImage(width, height) { argb[it] }
+}
 
-internal fun ImageSnapshot.toGlJsImage(): StyleImageData {
-  val pixels = Uint8Array<ArrayBuffer>(width * height * 4)
-  forEachPixel { index, pixel ->
+internal fun ImageSnapshot.toGlJsImage(): StyleImageData = glJsImage(width, height, ::pixelAt)
+
+private inline fun glJsImage(
+  imageWidth: Int,
+  imageHeight: Int,
+  pixelAt: (Int) -> Int,
+): StyleImageData {
+  val pixels = Uint8Array<ArrayBuffer>(imageWidth * imageHeight * 4)
+  for (index in 0 until imageWidth * imageHeight) {
+    val pixel = pixelAt(index)
     val offset = index * 4
     pixels.asDynamic()[offset] = (pixel ushr 16) and 0xFF
     pixels.asDynamic()[offset + 1] = (pixel ushr 8) and 0xFF
@@ -22,8 +33,8 @@ internal fun ImageSnapshot.toGlJsImage(): StyleImageData {
     pixels.asDynamic()[offset + 3] = (pixel ushr 24) and 0xFF
   }
   return unsafeJso {
-    width = this@toGlJsImage.width.toDouble()
-    height = this@toGlJsImage.height.toDouble()
+    width = imageWidth.toDouble()
+    height = imageHeight.toDouble()
     data = pixels
   }
 }
