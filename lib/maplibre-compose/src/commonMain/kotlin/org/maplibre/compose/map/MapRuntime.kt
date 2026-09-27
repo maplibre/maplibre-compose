@@ -43,6 +43,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
@@ -244,8 +246,20 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     owner?.setBaseStyle(value) ?: setBaseStyleState(value)
   }
 
-  public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
-    internal set
+  private val loadStateState = mutableStateOf<StyleLoadState>(StyleLoadState.Pending)
+  private val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
+
+  public var loadState: StyleLoadState
+    get() = loadStateState.value
+    internal set(value) {
+      loadStateState.value = value
+      loadStates.value = value
+    }
+
+  /** Suspends while a style is loading. Source and layer handles are published when it ends. */
+  internal suspend fun awaitLoaded() {
+    loadStates.first { it !is StyleLoadState.Loading }
+  }
 
   /** Sources in the current loaded-style generation. */
   public val sources: StyleSources = StyleSources(this)
@@ -748,7 +762,11 @@ internal constructor(
 
   private suspend fun awaitViewportState(): Viewport = owner.awaitViewport(this)
 
-  private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
+  /**
+   * Runs [block] while this attachment is current. Invalidation fails it with
+   * [MapAttachmentChangedException] instead of leaving it parked.
+   */
+  internal suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
     if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
     val operation =
       async(start = CoroutineStart.UNDISPATCHED) {
