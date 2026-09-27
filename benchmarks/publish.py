@@ -170,15 +170,22 @@ def attach_tags(entries):
     Releases are tagged on commits nobody measured, so the page would otherwise
     never see one.
     """
-    pending = dict(release_tags())
-    for i, entry in enumerate(entries):
+
+    def reaches(tagged, commit):
+        command = ["git", "merge-base", "--is-ancestor", tagged, commit]
+        return subprocess.run(command, check=False).returncode == 0
+
+    first = entries[0]["commit"]
+    # Releases older than the first measurement are not on the timeline.
+    pending = {
+        tag: tagged
+        for tag, tagged in release_tags().items()
+        if tagged == first or not reaches(tagged, first)
+    }
+    for entry in entries:
         entry["tags"] = []
         for tag, tagged in list(pending.items()):
-            # Releases older than the first measurement are not on the timeline.
-            if i == 0 and tagged != entry["commit"]:
-                continue
-            command = ["git", "merge-base", "--is-ancestor", tagged, entry["commit"]]
-            if subprocess.run(command, check=False).returncode == 0:
+            if reaches(tagged, entry["commit"]):
                 entry["tags"].append(tag)
                 del pending[tag]
 
