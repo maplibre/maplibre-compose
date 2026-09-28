@@ -432,6 +432,7 @@ flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. 
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
+flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save."
 '''
 run = '''
 args=""
@@ -442,7 +443,10 @@ launch=()
 [ -n "$usage_route" ] && launch+=("--route=$usage_route")
 [ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
 [ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
-if [ "$(uname -s)" = Darwin ]; then
+if [ "$usage_hot" = true ]; then
+  # Runs outside the macOS app bundle, so Core Location ignores authorization requests.
+  ./gradlew :demo-app:desktop:hotRun --auto $args --args="${launch[*]}"
+elif [ "$(uname -s)" = Darwin ]; then
   # Core Location reads the usage description from a packaged app Info.plist. The packaged
   # launcher forwards arguments; Gradle's runDistributable does not.
   ./gradlew :demo-app:desktop:createDistributable $args
@@ -476,6 +480,7 @@ flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. 
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
+flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save."
 '''
 run = '''
 args=""
@@ -486,7 +491,9 @@ launch=()
 [ -n "$usage_route" ] && launch+=("--route=$usage_route")
 [ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
 [ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
-./gradlew :demo-app:desktop-nucleus:run $args --args="${launch[*]}"
+task=run
+[ "$usage_hot" = true ] && task="hotRun --auto"
+./gradlew :demo-app:desktop-nucleus:$task $args --args="${launch[*]}"
 '''
 
 [tasks."publish:snapshot"]

@@ -1,3 +1,5 @@
+import org.jetbrains.compose.reload.gradle.ComposeHotRun
+
 plugins {
   id("module-conventions")
   id(libs.plugins.kotlin.jvm.get().pluginId)
@@ -55,3 +57,11 @@ val run by
       languageVersion = JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt())
     }
   }
+
+tasks.withType<ComposeHotRun>().configureEach {
+  mainClass = "org.maplibre.compose.nucleus.MainKt"
+  jvmArgs(NATIVE_ACCESS_JVM_ARGS)
+  if (System.getProperty("os.name").lowercase().startsWith("mac")) {
+    jvmArgs("-XstartOnFirstThread")
+  }
+}
