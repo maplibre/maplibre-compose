@@ -2,17 +2,18 @@
 set -euo pipefail
 repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$repo_root"
-.mise/bin/sync-maplibre-gl-js
+case "${1:-build}" in
+  build|state) ;;
+  *) echo "usage: $0 [build|state]" >&2; exit 2 ;;
+esac
+# Keep stdout for the state hash.
+.mise/bin/sync-maplibre-gl-js >&2
 source_path="$repo_root/third_party/maplibre-gl-js"
 output="$repo_root/lib/maplibre-compose/build/maplibre-gl-js"
 
 # Keep native Node tooling in step with its lockfile and host architecture.
 install_state="$(cat "$source_path/package-lock.json" | git hash-object --stdin) $(node -p 'process.version + " " + process.platform + " " + process.arch')"
 install_stamp="$source_path/node_modules/.maplibre-compose-install"
-if [[ ! -f "$install_stamp" || "$(cat "$install_stamp")" != "$install_state" ]]; then
-  (cd "$source_path" && npm ci --ignore-scripts --no-audit --no-fund)
-  printf '%s\n' "$install_state" > "$install_stamp"
-fi
 
 state="$(
   git -C "$source_path" rev-parse HEAD
@@ -22,8 +23,18 @@ state="$(
   printf '%s\n' "$install_state"
 )"
 state="$(printf '%s' "$state" | git hash-object --stdin)"
+# CI keys its cache of the output on this hash.
+if [[ "${1:-build}" == state ]]; then
+  printf '%s\n' "$state"
+  exit 0
+fi
 if [[ -f "$output/.stamp" && "$(cat "$output/.stamp")" == "$state" && -f "$output/worker.mjs" && -f "$output/index.mjs" ]]; then
   exit 0
+fi
+
+if [[ ! -f "$install_stamp" || "$(cat "$install_stamp")" != "$install_state" ]]; then
+  (cd "$source_path" && npm ci --ignore-scripts --no-audit --no-fund)
+  printf '%s\n' "$install_state" > "$install_stamp"
 fi
 
 (cd "$source_path" && npm run codegen && npm run build-prod)

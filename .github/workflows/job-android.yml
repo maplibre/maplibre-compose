@@ -36,6 +36,8 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           android-emulator: ${{ matrix.api-level }}
+          # The artifact variant publishes the JS artifact in test:publishing.
+          maplibre-gl-js-cache: ${{ matrix.artifact_name != '' }}
       - id: android-host-tests
         if: ${{ matrix.api-level == 36 }}
         run: mise run test:android

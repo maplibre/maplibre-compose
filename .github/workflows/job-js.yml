@@ -31,6 +31,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
+        with:
+          maplibre-gl-js-cache: "true"
       - id: js-tests
         run: mise run test:js
       - name: Upload JS test results to Trunk

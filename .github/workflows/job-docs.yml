@@ -46,6 +46,7 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           pnpm-cache: "true"
+          maplibre-gl-js-cache: "true"
       - run: mise run test:pages
         env:
           DOCS_BANNER: >-
