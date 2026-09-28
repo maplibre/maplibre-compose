@@ -198,12 +198,10 @@ internal constructor(
     scope.launch {
       try {
         mutableStatus.value =
-          when (portal.requestPermission()) {
-            PortalPermissionResult.Granted ->
-              LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-            PortalPermissionResult.Denied -> LocationPermission.NotGranted(canRequest = null)
-            is PortalPermissionResult.Unavailable ->
-              LocationPermission.NotGranted(canRequest = null)
+          if (portal.requestPermission()) {
+            LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+          } else {
+            LocationPermission.NotGranted(canRequest = null)
           }
       } finally {
         requestPending.set(false)
@@ -217,21 +215,14 @@ internal constructor(
   }
 }
 
-internal sealed interface PortalPermissionResult {
-  data object Granted : PortalPermissionResult
-
-  data object Denied : PortalPermissionResult
-
-  data class Unavailable(
-    val reason: LocationUnavailableReason,
-    val cause: Throwable? = null,
-  ) : PortalPermissionResult
-}
-
 internal interface LinuxLocationPortal : AutoCloseable {
   val available: Boolean
 
-  suspend fun requestPermission(): PortalPermissionResult
+  /**
+   * Starts a portal session to ask for location access and returns whether the portal granted it.
+   * Returns false when the user denies access or the request fails.
+   */
+  suspend fun requestPermission(): Boolean
 
   fun updates(request: LocationRequest): Flow<LocationEvent>
 }

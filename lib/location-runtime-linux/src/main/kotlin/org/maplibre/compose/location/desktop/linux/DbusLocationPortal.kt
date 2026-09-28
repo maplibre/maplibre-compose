@@ -47,7 +47,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
   LinuxLocationPortal {
   override val available: Boolean = detectPortal()
 
-  override suspend fun requestPermission(): PortalPermissionResult =
+  override suspend fun requestPermission(): Boolean =
     withContext(Dispatchers.IO) {
       check(available) { "Location permission requires an available XDG Location portal" }
 
@@ -58,19 +58,13 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
         val portal = connection.locationPortal()
         val sessionPath = portal.createSession(sessionOptions(LocationRequest()))
         session = connection.portalSession(sessionPath)
-        when (start(connection, portal, sessionPath)) {
-          0L -> PortalPermissionResult.Granted
-          1L -> PortalPermissionResult.Denied
-          else ->
-            PortalPermissionResult.Unavailable(LocationUnavailableReason.TemporarilyUnavailable)
-        }
+        start(connection, portal, sessionPath) == 0L
       } catch (error: CancellationException) {
         throw error
-      } catch (error: Throwable) {
-        PortalPermissionResult.Unavailable(
-          error.asUnavailableReason(),
-          error,
-        )
+      } catch (_: Throwable) {
+        // The requester launches this in a SupervisorJob scope, so a throw would reach the
+        // uncaught-exception handler. updates() reports the failure with its cause.
+        false
       } finally {
         closeQuietly { session?.Close() }
         closeQuietly { connection?.close() }
