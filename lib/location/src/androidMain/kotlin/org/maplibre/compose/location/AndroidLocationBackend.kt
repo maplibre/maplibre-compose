@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.annotation.MainThread
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 
 /**
  * An Android location implementation discovered through [ServiceLoader].
@@ -79,16 +77,5 @@ internal object AndroidLocationBackendResolver {
       )
     return if (backend == null) AndroidBackendResolution.None
     else AndroidBackendResolution.Discovered(backend)
-  }
-}
-
-internal class MisconfiguredLocationProvider(cause: Throwable) : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Misconfigured(cause)
-
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
   }
 }

@@ -30,7 +30,7 @@ import platform.darwin.NSObject
  * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
  * distinguishes precise from approximate grants.
  */
-internal class AppleLocationPermissionRequester
+public class AppleLocationPermissionRequester
 internal constructor(
   manager: CLLocationManager,
   private val readStatus: (CLLocationManager) -> LocationPermission = ::readAppleLocationPermission,
