@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.first
 import org.maplibre.compose.benchmark.BenchmarkScenario
 import org.maplibre.compose.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntime
