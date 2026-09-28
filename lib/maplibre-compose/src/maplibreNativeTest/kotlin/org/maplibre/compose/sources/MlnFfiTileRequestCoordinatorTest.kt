@@ -2,10 +2,10 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapExtent
@@ -23,11 +23,11 @@ class MlnFfiTileRequestCoordinatorTest {
   fun different_tiles_load_concurrently() = withDroppingBinding { binding ->
     val started = RecordingList<TileCoordinate>()
     val release = CompletableDeferred<Unit>()
-    val coordinator = coordinator {
-      started += it
-      release.await()
-    }
-    coordinator.attach(binding)
+    val coordinator =
+      coordinator(binding) {
+        started += it
+        release.await()
+      }
 
     coordinator.fetch(CanonicalTileId(z = 1, x = 0, y = 0))
     coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
@@ -37,7 +37,7 @@ class MlnFfiTileRequestCoordinatorTest {
     }
     assertEquals(setOf(TileCoordinate(1, 0, 0), TileCoordinate(1, 1, 0)), started.toSet())
     release.complete(Unit)
-    coordinator.detach()
+    coordinator.close()
   }
 
   @Test
@@ -46,20 +46,20 @@ class MlnFfiTileRequestCoordinatorTest {
     val firstStarted = CompletableDeferred<Unit>()
     val firstCancelled = CompletableDeferred<Unit>()
     val secondFinished = CompletableDeferred<Unit>()
-    val coordinator = coordinator { tile ->
-      invocations += tile
-      if (invocations.size == 1) {
-        firstStarted.complete(Unit)
-        try {
-          awaitCancellation()
-        } finally {
-          firstCancelled.complete(Unit)
+    val coordinator =
+      coordinator(binding) { tile ->
+        invocations += tile
+        if (invocations.size == 1) {
+          firstStarted.complete(Unit)
+          try {
+            awaitCancellation()
+          } finally {
+            firstCancelled.complete(Unit)
+          }
+        } else {
+          secondFinished.complete(Unit)
         }
-      } else {
-        secondFinished.complete(Unit)
       }
-    }
-    coordinator.attach(binding)
     val tile = CanonicalTileId(z = 0, x = 0, y = 0)
 
     coordinator.fetch(tile)
@@ -71,66 +71,61 @@ class MlnFfiTileRequestCoordinatorTest {
       secondFinished.await()
     }
     assertEquals(2, invocations.size)
-    coordinator.detach()
+    coordinator.close()
   }
 
   @Test
-  fun detach_cancels_every_outstanding_job_and_reattach_accepts_new_work() =
+  fun close_cancels_every_outstanding_job_and_ignores_later_fetches() =
     withDroppingBinding { binding ->
       val starts = RecordingList<TileCoordinate>()
       val firstStarted = CompletableDeferred<Unit>()
       val firstCancelled = CompletableDeferred<Unit>()
-      val secondStarted = CompletableDeferred<Unit>()
-      val coordinator = coordinator { tile ->
-        starts += tile
-        if (starts.size == 1) {
+      val coordinator =
+        coordinator(binding) { tile ->
+          starts += tile
           firstStarted.complete(Unit)
           try {
             awaitCancellation()
           } finally {
             firstCancelled.complete(Unit)
           }
-        } else {
-          secondStarted.complete(Unit)
         }
-      }
-      coordinator.attach(binding)
       coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
       withTimeout(5.seconds) { firstStarted.await() }
 
-      coordinator.detach()
+      coordinator.close()
       withTimeout(5.seconds) { firstCancelled.await() }
-      coordinator.attach(binding)
       coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
 
-      withTimeout(5.seconds) { secondStarted.await() }
-      assertTrue(starts.size == 2)
-      coordinator.detach()
+      delay(100)
+      assertEquals(1, starts.size, "a closed coordinator must not load")
     }
 
   @Test
   fun provider_failure_does_not_cancel_other_requests() = withDroppingBinding { binding ->
     val successful = CompletableDeferred<Unit>()
     val failureHandled = CompletableDeferred<Unit>()
-    val coordinator = coordinator { tile ->
-      if (tile.x == 0L) error("fixture failure") else successful.complete(Unit)
-    }
+    val coordinator =
+      coordinator(binding) { tile ->
+        if (tile.x == 0L) error("fixture failure") else successful.complete(Unit)
+      }
     binding.onDrop = { failureHandled.complete(Unit) }
-    coordinator.attach(binding)
 
     coordinator.fetch(CanonicalTileId(z = 1, x = 0, y = 0))
     withTimeout(5.seconds) { failureHandled.await() }
     coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
 
     withTimeout(5.seconds) { successful.await() }
-    coordinator.detach()
+    coordinator.close()
   }
 
   private fun coordinator(
-    load: suspend (TileCoordinate) -> Unit
+    binding: MlnFfiStyleBinding,
+    load: suspend (TileCoordinate) -> Unit,
   ): MlnFfiTileRequestCoordinator<Unit> =
     MlnFfiTileRequestCoordinator(
       name = "coordinator-test",
+      binding = binding,
       load = load,
       deliver = { _, _, _ -> error("the dropping binding must not deliver") },
       fail = { _, _, error -> throw error },
