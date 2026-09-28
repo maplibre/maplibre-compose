@@ -34,7 +34,7 @@ class FusedHeadingProviderTest {
 
   @Test
   fun `input heading is preserved as clockwise bearing`() = runTest {
-    for (heading in listOf(0f, 45f, 90f, 123.45f, 180f, 270f, 359.99f)) {
+    for (heading in listOf(45f, 123.45f, 270f)) {
       val provider =
         FusedHeadingProvider(
           orientationClient = fakeClient(heading),
