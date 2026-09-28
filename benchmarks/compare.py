@@ -11,6 +11,8 @@ METRICS = {
     "cpu_ms_per_operation": ("cpu_ms_per_operation",),
     "cpu_ms_per_second": ("cpu_ms_per_second",),
     "completion_p50_ms": ("workload", "completion_ms", "p50"),
+    "close_p50_ms": ("workload", "close_ms", "p50"),
+    "close_completion_p50_ms": ("workload", "close_completion_ms", "p50"),
     "completion_p95_ms": ("workload", "completion_ms", "p95"),
     "ui_frame_p95_ms": ("ui_frames", "total_ms", "p95"),
     "ui_frame_max_ms": ("ui_frames", "total_ms", "max"),

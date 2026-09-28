@@ -43,3 +43,6 @@ internal actual fun benchmarkCollectGarbage() {
 
 @Composable
 internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
+
+@Composable
+internal actual fun benchmarkCacheDirectory(): String = platform.Foundation.NSTemporaryDirectory()

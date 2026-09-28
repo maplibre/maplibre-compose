@@ -46,3 +46,9 @@ internal expect fun benchmarkCollectGarbage()
 
 /** Window frame timings for the platform, or [BenchmarkUiFrames.None]. */
 @Composable internal expect fun rememberBenchmarkUiFrames(): BenchmarkUiFrames
+
+/** Native-only runtime benchmark; no map or fixture is loaded. */
+@Composable
+internal expect fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String, Boolean) -> Unit)
+
+internal expect val supportsRuntimeBenchmark: Boolean

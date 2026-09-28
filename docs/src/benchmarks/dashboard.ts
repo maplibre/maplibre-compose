@@ -11,7 +11,14 @@ const definitions = {
     "submitted: per frame for frame-driven workloads, per update otherwise.",
   cpuPerSecond: "Process CPU time per second of the measured window, on every thread.",
   completion:
-    "Time from submitting a change until a rendered-feature query, or the style-ready event, observes it.",
+    "Time from starting an update until the case's completion signal: style readiness, a rendered-feature query, or map settlement. This does not confirm screen presentation.",
+  submission:
+    "Elapsed time to prepare and submit an update. This includes suspending preparation and is not UI-thread blocking time.",
+  runtimeConstruction: "Time for the runtime constructor to return, reopening a primed empty local database in a warm process.",
+  runtimeReadiness: "Time from starting runtime construction until offline readiness is observed on the main dispatcher. No map is created.",
+  close: "Time for the first close call to return while the map is still presented, or while the runtime is open.",
+  cleanup:
+    "Time from starting close until presentation detachment and cleanup complete. Compose awaits native release; classic iOS observes view removal, not native destruction.",
   frameInterval: "Time between consecutive frame callbacks in the measured window.",
   startup:
     "Time from creating the map until its first fully rendered frame. The style, tiles, and glyphs " +
@@ -37,6 +44,11 @@ const metrics = {
   cpuPerUpdate: { key: "cpu_ms_per_operation", title: "CPU per update", definition: definitions.cpuPerOperation },
   cpuPerSecond: { key: "cpu_ms_per_second", title: "Idle CPU per second", definition: definitions.cpuPerSecond },
   completion: { key: "completion_p50_ms", title: "Completion, median", definition: definitions.completion },
+  submission: { key: "submission_p50_ms", title: "Submission, median", definition: definitions.submission },
+  runtimeConstruction: { key: "submission_p50_ms", title: "Constructor return, median", definition: definitions.runtimeConstruction },
+  runtimeReadiness: { key: "completion_p50_ms", title: "Readiness, median", definition: definitions.runtimeReadiness },
+  close: { key: "close_p50_ms", title: "Close return, median", definition: definitions.close },
+  cleanup: { key: "close_completion_p50_ms", title: "Cleanup completion, median", definition: definitions.cleanup },
   frameInterval: { key: "frame_interval_p95_ms", title: "Frame interval p95", definition: definitions.frameInterval },
   startup: { key: "startup_first_frame_ms", title: "Time to first frame", definition: definitions.startup },
   uiFrameP95: { key: "ui_frame_p95_ms", title: "Window frame p95", definition: definitions.uiFrame },
@@ -45,7 +57,8 @@ const metrics = {
 } satisfies Record<string, Metric>;
 
 const frameDriven = ["camera", "overlays", "padding", "resize", "recompose"];
-const updates = ["source", "source-latency", "layers", "layout", "paint", "sparse-paint", "style", "images", "image-burst"];
+const updates = ["source", "source-latency", "layers", "layout", "paint", "sparse-paint", "style", "style-overlay", "overlay-update", "images", "image-cycle", "image-preparation"];
+const completedUpdates = ["source-latency", "layers", "layout", "style", "style-overlay", "overlay-update", "images", "image-cycle", "image-preparation"];
 
 /**
  * Sections group charts by metric, so every chart in a section shares a unit and a meaning and
@@ -59,13 +72,23 @@ const sections: { title: string; items: { workloads: string[]; metric: Metric | 
     items: [{ workloads: [...frameDriven, "sparse-paint"], metric: [metrics.uiFrameP95, metrics.frameInterval] }],
   },
   { title: "CPU per update", items: [{ workloads: updates, metric: metrics.cpuPerUpdate }] },
-  { title: "Completion latency", items: [{ workloads: ["source-latency", "layers", "layout", "style"], metric: metrics.completion }] },
+  { title: "Submission latency", items: [{ workloads: updates, metric: metrics.submission }] },
+  { title: "Completion latency", items: [{ workloads: completedUpdates, metric: metrics.completion }] },
+  {
+    title: "Lifecycle",
+    items: [
+      { workloads: ["runtime-startup"], metric: metrics.runtimeConstruction },
+      { workloads: ["runtime-startup"], metric: metrics.runtimeReadiness },
+      { workloads: ["map-return"], metric: metrics.returnTime },
+      { workloads: ["map-return"], metric: metrics.uiFrameMax },
+      { workloads: ["map-return", "runtime-startup"], metric: metrics.close },
+      { workloads: ["map-return", "runtime-startup"], metric: metrics.cleanup },
+    ],
+  },
   {
     title: "Startup and idle",
     items: [
       { workloads: ["idle"], metric: metrics.startup },
-      { workloads: ["map-return"], metric: metrics.returnTime },
-      { workloads: ["map-return"], metric: metrics.uiFrameMax },
       { workloads: ["idle"], metric: metrics.cpuPerSecond },
     ],
   },
@@ -76,6 +99,9 @@ const banded = new Set([
   "cpu_ms_per_operation",
   "cpu_ms_per_second",
   "completion_p50_ms",
+  "submission_p50_ms",
+  "close_p50_ms",
+  "close_completion_p50_ms",
   "frame_interval_p95_ms",
   "ui_frame_p95_ms",
   "ui_frame_max_ms",

@@ -30,7 +30,10 @@ def app_package(config):
 
 
 def validate_platform(platform, config):
-    implementation = json.loads(config)["implementation"]
+    parsed = json.loads(config)
+    if parsed.get("workload") == "runtime-startup" and platform == "web":
+        raise ValueError("runtime-startup requires MapLibre Native")
+    implementation = parsed["implementation"]
     for target in ("android", "ios"):
         if implementation == f"classic-{target}" and platform != target:
             raise ValueError(f"classic-{target} requires the {target} runner")

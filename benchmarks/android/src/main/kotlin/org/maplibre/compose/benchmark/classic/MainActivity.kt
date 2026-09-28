@@ -78,7 +78,6 @@ class MainActivity : ComponentActivity() {
             ::nextAndroidFrame,
             mount = ::createDriver,
             unmount = { active ->
-              active.close()
               container.removeView((active as ClassicAndroidDriver).view)
               driver = null
               repeat(2) { nextAndroidFrame() }

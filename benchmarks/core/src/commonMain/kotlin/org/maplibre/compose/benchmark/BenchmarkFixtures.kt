@@ -42,15 +42,39 @@ class PreparedBenchmarkFixture(
    * Whether the data layers partition the points by feature id and size them by zoom, so a large
    * style is a realistic one: more declared layers do not multiply the visible overdraw.
    */
-  val partitioned
-    get() = config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+  val partitioned = config.partitionsPoints
+
+  /** Prepared reuse and fresh preparation use equal-sized images; batch icons stay small. */
+  val imageSize: Int
+    get() =
+      if (config.scenario in setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation))
+        256
+      else 32
 
   /** Whether the run registers prepared bitmaps with the style. */
   val usesImages
     get() =
       config.scenario in
-        setOf(BenchmarkScenario.Images, BenchmarkScenario.ImageBurst, BenchmarkScenario.MapReturn)
+        setOf(
+          BenchmarkScenario.Images,
+          BenchmarkScenario.ImageCycle,
+          BenchmarkScenario.ImagePreparation,
+          BenchmarkScenario.MapReturn,
+        )
 }
+
+private val BenchmarkConfig.partitionsPoints: Boolean
+  get() =
+    scene in
+      setOf(BenchmarkScene.Points100, BenchmarkScene.Points1000, BenchmarkScene.Points10000) &&
+      when (scenario) {
+        BenchmarkScenario.MapReturn,
+        BenchmarkScenario.SparsePaint,
+        BenchmarkScenario.Style,
+        BenchmarkScenario.StyleOverlay,
+        BenchmarkScenario.OverlayUpdate -> true
+        else -> false
+      }
 
 suspend fun loadBenchmarkFixture(
   config: BenchmarkConfig,
@@ -66,13 +90,17 @@ suspend fun loadBenchmarkFixture(
     else emptyList()
   val composeContent =
     config.implementation == BenchmarkImplementation.Declarative &&
-      config.scenario != BenchmarkScenario.Style &&
+      config.scenario !in
+        setOf(
+          BenchmarkScenario.Style,
+          BenchmarkScenario.StyleOverlay,
+          BenchmarkScenario.OverlayUpdate,
+        ) &&
       hasData
   // A returning map installs its content after the style loads on every host, as declared
   // content does, so the classic SDKs pay the same installation cost.
   val dynamicContent = composeContent || config.scenario == BenchmarkScenario.MapReturn
-  val partitioned =
-    config.scenario in setOf(BenchmarkScenario.MapReturn, BenchmarkScenario.SparsePaint)
+  val partitioned = config.partitionsPoints
   val styles =
     List(2) { variant ->
       buildJsonObject {
@@ -131,7 +159,8 @@ suspend fun loadBenchmarkFixture(
                 dataLayer(
                   "workload-$index",
                   config.scene == BenchmarkScene.Route,
-                  config.scenario == BenchmarkScenario.Images,
+                  config.scenario in
+                    setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation),
                   if (partitioned) index to config.layers else null,
                 )
               )
