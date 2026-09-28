@@ -9,14 +9,16 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 # `simctl list` prints runtimes oldest first, so the last match is the newest.
+# Device names can contain parentheses, so read the UDID and state from the
+# last two groups: `iPhone SE (3rd generation) (UDID) (State)`.
 udid="$(
   xcrun simctl list devices available iOS |
-    awk -F '[()]' '/ iPhone / && /Booted/ { print $2; exit }'
+    awk -F '[()]' '/ iPhone / && $(NF - 1) == "Booted" { print $(NF - 3); exit }'
 )"
 if [[ -z "$udid" ]]; then
   udid="$(
     xcrun simctl list devices available iOS |
-      awk -F '[()]' '/ iPhone / && /Shutdown/ { device = $2 } END { print device }'
+      awk -F '[()]' '/ iPhone / && $(NF - 1) == "Shutdown" { device = $(NF - 3) } END { print device }'
   )"
 fi
 if [[ -z "$udid" ]]; then
@@ -26,7 +28,7 @@ fi
 
 state="$(
   xcrun simctl list devices |
-    awk -F '[()]' -v id="$udid" '$0 ~ id { print $4; exit }'
+    awk -F '[()]' -v id="$udid" 'NF > 3 && $(NF - 3) == id { print $(NF - 1); exit }'
 )"
 if [[ "$state" != "Booted" ]]; then
   echo "Booting iOS simulator $udid." >&2
