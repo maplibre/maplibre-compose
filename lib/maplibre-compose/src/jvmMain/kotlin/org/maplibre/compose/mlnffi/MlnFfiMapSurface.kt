@@ -277,3 +277,17 @@ private class MlnFfiMapHostSessionImpl(
 
   override fun enqueueRenderer(action: () -> Unit): Boolean = host.enqueueRenderer(action)
 }
+
+/** Aligns [sourceAnchor] with [destinationAnchor] without scaling [extent]. */
+private fun presentationDestination(
+  extent: MapExtent,
+  sourceAnchor: MlnFfiMapPresentationAnchor,
+  destinationAnchor: MlnFfiMapPresentationAnchor,
+): MlnFfiMapDestination {
+  return MlnFfiMapDestination(
+    left = destinationAnchor.x - sourceAnchor.x,
+    top = destinationAnchor.y - sourceAnchor.y,
+    width = extent.physicalWidth,
+    height = extent.physicalHeight,
+  )
+}
