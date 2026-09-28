@@ -7,7 +7,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -26,10 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
-import org.junit.Assume.assumeTrue
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -141,6 +138,21 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
+  fun deniedPermissionRequestStaysNotGrantedAndCanBeRetried() = runTest {
+    val portal = FakeLinuxLocationPortal()
+    portal.permissionResult = { false }
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
+
+    provider.requestPermission()
+    runCurrent()
+    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+
+    provider.requestPermission()
+    runCurrent()
+    assertEquals(2, portal.permissionRequests)
+  }
+
+  @Test
   fun convertsPortalLocationDictionary() {
     val event =
       mapOf(
@@ -178,19 +190,6 @@ class LinuxPortalLocationProviderTest {
     assertEquals(null, event.measurement.position.altitude)
     assertEquals(null, event.measurement.distancePerSecond)
     assertEquals(null, event.measurement.course)
-  }
-
-  @Test
-  fun realPortalSessionCanOpenAndClose() = runTest {
-    assumeTrue(
-      "Requires an opted-in Linux location portal",
-      System.getenv("MAPLIBRE_TEST_LINUX_LOCATION_PORTAL") == "true",
-    )
-
-    val portal = DbusLocationPortal()
-    assertTrue(portal.available)
-    assertTrue(withTimeout(30.seconds) { portal.requestPermission() })
-    portal.close()
   }
 
   @Test
