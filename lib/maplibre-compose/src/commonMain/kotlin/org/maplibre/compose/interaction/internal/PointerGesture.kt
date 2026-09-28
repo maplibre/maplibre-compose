@@ -228,18 +228,16 @@ internal class PointerGesture(
     val sample = event.gestureSample(null, density, change.position, setOf(change.type))
     val oldSample = single.sample
     single.sample = sample
-    // Modifier/button changes can select a different camera drag. Rebase at this event so
-    // the replacement gesture cannot apply movement measured for the previous response.
-    if (
-      change.type == PointerType.Mouse &&
-        (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
-    ) {
+    // A mouse button change selects the drag again from the buttons and modifiers now held.
+    // Modifiers alone do not, as in MapLibre GL JS. The replaced drag ends as if released, and
+    // the replacement rebases at this event so it cannot apply the previous drag's movement.
+    if (change.type == PointerType.Mouse && oldSample.buttons != sample.buttons) {
       val next = drags.cameraDrag(change, sample)
       if (next?.response != single.drag?.response) {
-        single.drag?.cancel()
-        cancelCameraSession()
-        single.drag = next
         single.press?.stopClick()
+        releaseDrag(single.drag, sample)
+        endDrag()
+        single.drag = next
         return
       }
     }
@@ -268,6 +266,16 @@ internal class PointerGesture(
     if (!retainCameraAuthority()) return
     drag.update(motion.delta, change, sample, gestureToken)
     change.consume()
+  }
+
+  /** Runs a started drag's release and the momentum staged for the camera session. */
+  private fun releaseDrag(drag: SingleDrag?, sample: GesturePointerSample) {
+    val completed = drag?.takeIf { it.active }
+    completed?.release(sample, cameraSession)
+    val momentum = completed?.takeIf { gestureInProgress }?.momentum(sample)
+    val continuation = momentum?.withPrevious(pendingContinuation) ?: pendingContinuation
+    pendingContinuation = null
+    continuation?.settled()?.let(::animateContinuation)
   }
 
   private fun selectPair(
@@ -380,14 +388,8 @@ internal class PointerGesture(
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     twoFingerTap = null
 
-    val releaseSample = event.gestureSample(null, density)
-    val completedDrag = single?.drag?.takeIf { it.active }
-    completedDrag?.release(releaseSample, cameraSession)
     if (released is Transform) stage(released.gesture.end())
-    val dragMomentum = completedDrag?.takeIf { gestureInProgress }?.momentum(releaseSample)
-    val continuation = dragMomentum?.withPrevious(pendingContinuation) ?: pendingContinuation
-    pendingContinuation = null
-    continuation?.settled()?.let(::animateContinuation)
+    releaseDrag(single?.drag, event.gestureSample(null, density))
 
     val press = single?.press
     val click = press?.takeIf { it.clickable }
@@ -553,9 +555,11 @@ internal class PointerGesture(
     session.end()
   }
 
+  /** Momentum staged by lifted pairs belongs to the session and is dropped with it. */
   private fun cancelCameraSession() {
     val previous = cameraSession
     cameraSession = null
+    pendingContinuation = null
     previous?.cancel()
   }
 

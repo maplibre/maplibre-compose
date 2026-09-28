@@ -126,7 +126,7 @@ class KeyAndRotaryInputTest {
   }
 
   @Test
-  fun a_drag_enabled_mid_press_engages_keyboard_controls() =
+  fun a_modifier_drag_engages_keyboard_controls() =
     fixture.runRecognitionTest(
       options =
         InputConfiguration(from = InputConfiguration.NoBindings) {
@@ -149,9 +149,9 @@ class KeyAndRotaryInputTest {
         }
     ) { target ->
       val map = mapNode()
-      map.performMouseInput { press() }
       map.performKeyInput { keyDown(Key.CtrlLeft) }
       map.performMouseInput {
+        press()
         moveBy(Offset(20f, 0f))
         moveBy(Offset(20f, 0f))
         release()
