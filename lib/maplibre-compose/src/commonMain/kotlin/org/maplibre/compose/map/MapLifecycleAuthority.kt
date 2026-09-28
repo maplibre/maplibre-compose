@@ -80,7 +80,7 @@ internal data class PendingAttachment(
  *
  * Decisions run on the main thread: presentation reservation, publication, release, closure, and
  * platform bindings. Physical work runs on [physicalScope] and returns to main to commit. Engine
- * threads read a [snapshot] instead of taking a lock, and [close] may be called from any thread
+ * threads read an [accessView] instead of taking a lock, and [close] may be called from any thread
  * because it only posts.
  */
 internal class MapLifecycleAuthority(
@@ -109,16 +109,19 @@ internal class MapLifecycleAuthority(
   private val retiringAdapters = linkedSetOf<MapAdapter>()
   private val releaseCleanups = linkedSetOf<CompletableDeferred<Result<Unit>>>()
   private val pendingCleanupFailures = mutableListOf<Throwable>()
-  private var closed = false
+
+  /** Whether the closure has committed on main. [isClosed] turns true before it does. */
+  private val closed: Boolean
+    get() = owner.attachmentAuthority.isClosed
 
   /** Set by [close] on any thread before the closure commits on main. */
   private val closeRequested = AtomicBoolean(false)
 
   /**
-   * What engine threads may read: the current presentation and closure. Rebuilt on main after every
+   * What engine threads may read: the adapters that may still report. Rebuilt on main after every
    * change, so a reader sees one consistent state.
    */
-  @Volatile private var snapshot = Snapshot()
+  @Volatile private var accessView = AccessView()
 
   /**
    * Platform callbacks run on engine threads; closure and adapter retirement run on main. They
@@ -144,16 +147,11 @@ internal class MapLifecycleAuthority(
 
   private fun closeOnMain() {
     requireMain()
+    // The close request already refuses new callbacks; the commit waits for the running ones.
     val deferred = platformAccessLock.withLock {
-      if (platformAccessDepth.isNotEmpty()) {
-        closeAfterPlatformAccess = true
-        true
-      } else {
-        closed = true
-        // Published under the lock: no callback is admitted against the open state after this.
-        publishSnapshot()
-        false
-      }
+      val running = platformAccessDepth.isNotEmpty()
+      if (running) closeAfterPlatformAccess = true
+      running
     }
     if (deferred) return
     val maps = buildSet {
@@ -168,7 +166,7 @@ internal class MapLifecycleAuthority(
     retainedAdapter = null
     retiringAdapters.clear()
     pendingCleanupFailures.clear()
-    publishSnapshot()
+    publishAccessView()
     owner.attachmentAuthority.commitClosed()
     maps.forEach(MapAdapter::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -199,7 +197,7 @@ internal class MapLifecycleAuthority(
     if (replaced != null) owner.attachmentAuthority.invalidatePresentation(replaced)
     val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
     attachment = Attachment(ownerToken, token)
-    publishSnapshot()
+    publishAccessView()
     replaced?.let { adapter ->
       physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
         runCatching { adapter.detachPresentation() }
@@ -239,7 +237,7 @@ internal class MapLifecycleAuthority(
     if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
     retainedToReplace?.let(retiringAdapters::add)
     owner.attachmentAuthority.commitPresentation(token = token, adapter = adapter)
-    publishSnapshot()
+    publishAccessView()
     owner.attachmentAuthority.seedPresentationViewport(token, adapter)
     if (retainedToReplace != null) {
       retireAdapter(retainedToReplace)
@@ -260,12 +258,12 @@ internal class MapLifecycleAuthority(
     if (adapter != null && current.adapter !== adapter) return
     if (current.releasing) return
     current.releasing = true
-    publishSnapshot()
+    publishAccessView()
     owner.attachmentAuthority.invalidatePresentation(current.adapter)
     val closingAdapter = current.adapter
     if (closingAdapter == null) {
       if (attachment === current) attachment = null
-      publishSnapshot()
+      publishAccessView()
       return
     }
     val completion = CompletableDeferred<Result<Unit>>().also(releaseCleanups::add)
@@ -275,7 +273,7 @@ internal class MapLifecycleAuthority(
         releaseCleanups.remove(completion)
         if (!closed) result.exceptionOrNull()?.let(pendingCleanupFailures::add)
         if (attachment === current) attachment = null
-        publishSnapshot()
+        publishAccessView()
       }
       completion.complete(result)
     }
@@ -320,19 +318,19 @@ internal class MapLifecycleAuthority(
   }
 
   /** Whether [adapter] is the presentation or retained engine. Readable from any thread. */
-  fun acceptsAdapter(adapter: MapAdapter): Boolean =
-    !closeRequested.load() && snapshot.acceptsAdapter(adapter)
+  fun acceptsAdapter(adapter: MapAdapter): Boolean {
+    val view = accessView
+    return !closeRequested.load() && (view.presentation === adapter || view.retained === adapter)
+  }
 
   fun isPendingPublication(adapter: MapAdapter): Boolean {
     requireMain()
     return !closed && attachment?.adapter === adapter && attachment?.releasing == false
   }
 
-  /** Whether [adapter] is the published presentation. Readable from any thread. */
+  /** Whether [adapter] is the published presentation. Main thread only. */
   fun acceptsPresentation(adapter: MapAdapter): Boolean =
-    !closeRequested.load() &&
-      snapshot.acceptsPresentation(adapter) &&
-      owner.currentMapAttachment?.adapter === adapter
+    !closeRequested.load() && owner.currentMapAttachment?.adapter === adapter
 
   fun currentAdapter(): MapAdapter? {
     requireMain()
@@ -351,7 +349,7 @@ internal class MapLifecycleAuthority(
       }
       if (adapter is MapLifecycleSession && !register(adapter)) throw MapClosedException()
       retainedAdapter = adapter
-      publishSnapshot()
+      publishAccessView()
       owner.styleAuthority.beginStyleLoadForNewAdapter()
     }
   }
@@ -375,16 +373,6 @@ internal class MapLifecycleAuthority(
 
   fun acceptPresentationPlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
     acceptPlatformAccess(adapter, accepts = { acceptsPresentation(adapter) }, event)
-
-  /** Whether [token] and [adapter] are the published presentation. Readable from any thread. */
-  fun isCurrent(token: MapPresentationToken, adapter: MapAdapter): Boolean {
-    val seen = snapshot
-    return !closeRequested.load() &&
-      !seen.closed &&
-      seen.token == token &&
-      seen.adapter === adapter &&
-      owner.currentMapAttachment?.let { it.token == token && it.adapter === adapter } == true
-  }
 
   /** Allocates session-local state without adopting the session or starting work. */
   fun createBinding(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding =
@@ -422,7 +410,7 @@ internal class MapLifecycleAuthority(
     if (wasAttached) attachment = null
     if (wasRetained) retainedAdapter = null
     retiringAdapters += session
-    publishSnapshot()
+    publishAccessView()
     if (wasAttached || wasRetained) owner.attachmentAuthority.invalidateClosedAdapter(session)
   }
 
@@ -438,20 +426,17 @@ internal class MapLifecycleAuthority(
     if (adapter is MapLifecycleSession && !register(adapter)) return false
     if (current.adapter === adapter) return true
     current.adapter = adapter
-    publishSnapshot()
+    publishAccessView()
     if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
     return true
   }
 
-  private fun publishSnapshot() {
+  private fun publishAccessView() {
     val current = attachment
-    snapshot =
-      Snapshot(
-        closed = closed,
-        token = current?.token,
-        adapter = current?.adapter,
-        releasing = current?.releasing == true,
-        retainedAdapter = retainedAdapter,
+    accessView =
+      AccessView(
+        presentation = current?.adapter?.takeUnless { current.releasing },
+        retained = retainedAdapter,
       )
   }
 
@@ -516,19 +501,8 @@ internal class MapLifecycleAuthority(
     var releasing: Boolean = false,
   )
 
-  /** An immutable view for engine threads. */
-  private class Snapshot(
-    val closed: Boolean = false,
-    val token: MapPresentationToken? = null,
-    val adapter: MapAdapter? = null,
-    val releasing: Boolean = false,
-    val retainedAdapter: MapAdapter? = null,
-  ) {
-    fun acceptsAdapter(candidate: MapAdapter): Boolean =
-      !closed && ((adapter === candidate && !releasing) || retainedAdapter === candidate)
-
-    fun acceptsPresentation(candidate: MapAdapter): Boolean = !closed && adapter === candidate
-  }
+  /** An immutable view for engine threads. [presentation] is null while it is releasing. */
+  private class AccessView(val presentation: MapAdapter? = null, val retained: MapAdapter? = null)
 
   private companion object {
     val nextPresentationToken = AtomicLong(0L)

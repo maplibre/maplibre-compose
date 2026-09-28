@@ -598,7 +598,8 @@ internal class MlnFfiMapSession(
   internal fun beginPresentationAttachment(): Boolean =
     lifecycleAuthority.selectAdapterForPresentation(this) && lifecycle.beginAttachIfOpen()
 
-  override suspend fun attachPresentation() {
+  /** Attaches the engine to the current presentation host, creating the engine if needed. */
+  suspend fun attachPresentation() {
     lifecycleAuthority.register(this)
     lifecycle.attachRetainedEngine()
   }

@@ -299,6 +299,12 @@ internal class GlJsMapSession(
     lifecycle.awaitClosed()
   }
 
+  /** GL JS destroys its map with its presentation, so this closes the session. */
+  override suspend fun detachPresentation() {
+    close()
+    awaitClosed()
+  }
+
   fun start() {
     lifecycleAuthority.register(this)
     lifecycle.beginAttachIfOpen()
