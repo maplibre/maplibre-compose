@@ -12,7 +12,6 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature
@@ -37,7 +36,7 @@ class GeoJsonClusterTest {
           data = GeoJsonData.Features(nearbyPoints()),
           options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
         )
-      fixture.state.style.addSource(source)
+      fixture.state.style.sources.add(source)
       binding.install(TestLayer("clusters", "circle", source))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
 

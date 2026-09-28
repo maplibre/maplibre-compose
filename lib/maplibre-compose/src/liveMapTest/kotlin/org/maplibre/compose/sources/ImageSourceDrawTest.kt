@@ -14,7 +14,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -32,7 +31,7 @@ class ImageSourceDrawTest {
         val style = assertNotNull(fixture.style)
 
         val source = ImageSource("image", WESTERN_HALF, splitBitmap(64, Color.Red, Color.Green))
-        val handle = assertIs<ImageSourceHandle>(fixture.state.style.addSource(source))
+        val handle = assertIs<ImageSourceHandle>(fixture.state.style.sources.add(source))
         style.install(TestLayer("image-layer", "raster", source))
 
         // The western half of the world fills the western half of the viewport at zoom 0, with the

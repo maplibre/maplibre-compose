@@ -24,8 +24,8 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -55,7 +55,7 @@ class CustomGeometrySourceTest {
   }
 
   @Test
-  fun a_custom_geometry_handle_invalidates_a_tile() = runBlocking {
+  fun a_custom_geometry_handle_invalidates_a_tile() = runMapTest {
     requireCustomGeometrySourceCallbacks()
     val fixture = createMapFixture() as MlnFfiMapFixture
     fixture.use {
@@ -76,7 +76,7 @@ class CustomGeometrySourceTest {
   }
 
   @Test
-  fun a_custom_geometry_handle_invalidates_intersecting_bounds() = runBlocking {
+  fun a_custom_geometry_handle_invalidates_intersecting_bounds() = runMapTest {
     requireCustomGeometrySourceCallbacks()
     val fixture = createMapFixture() as MlnFfiMapFixture
     fixture.use {
@@ -172,7 +172,7 @@ class CustomGeometrySourceTest {
         requests += tile
         cover(tile.bounds, featureName)
       }
-    val handle = state.style.addSource(source)
+    val handle = state.style.sources.add(source)
     binding.install(TestLayer("custom-fill", "fill", source))
     state.styleAuthority.desiredStyleRevision =
       StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())

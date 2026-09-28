@@ -39,7 +39,6 @@ import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -81,7 +80,7 @@ class GeoJsonSourceUpdateTest {
           GeoJsonData.Features(pointAt(ORIGIN)),
           GeoJsonOptions(),
         )
-      fixture.state.style.addSource(source)
+      fixture.state.style.sources.add(source)
       val layer = TestLayer(LAYER_ID, "circle", source)
       layer.paint(
         "circle-radius",
@@ -177,7 +176,7 @@ class GeoJsonSourceUpdateTest {
           GeoJsonData.Features(pointAt(ORIGIN)),
           GeoJsonOptions(synchronousTiling = true),
         )
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.addSource(source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
       val layer = TestLayer(LAYER_ID, "circle", source)
       layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint("circle-color", (const(Color.Black)).asLayerProperty())

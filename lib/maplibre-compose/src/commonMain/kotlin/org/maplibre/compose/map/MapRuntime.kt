@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
@@ -45,6 +44,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
@@ -219,8 +220,11 @@ internal interface MapStyleStateOwner {
 
 /** Desired and applied style state for one logical map or snapshotter. */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
-  /** Waits for resource commands accepted before this call. Native rejections are logged. */
-  public suspend fun awaitCommands() {
+  /**
+   * Waits for resource commands accepted before this call. Callers wait on the resource instead:
+   * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
+   */
+  internal suspend fun awaitCommands() {
     requireOwner().resourceCommands.await()
   }
 
@@ -246,8 +250,20 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     owner?.setBaseStyle(value) ?: setBaseStyleState(value)
   }
 
-  public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
-    internal set
+  private val loadStateState = mutableStateOf<StyleLoadState>(StyleLoadState.Pending)
+  private val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
+
+  public var loadState: StyleLoadState
+    get() = loadStateState.value
+    internal set(value) {
+      loadStateState.value = value
+      loadStates.value = value
+    }
+
+  /** Suspends while a style is loading. Source and layer handles are published when it ends. */
+  internal suspend fun awaitLoaded() {
+    loadStates.first { it !is StyleLoadState.Loading }
+  }
 
   /** Sources in the current loaded-style generation. */
   public val sources: StyleSources = StyleSources(this)
@@ -401,27 +417,25 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
 
-  internal fun refreshResources() {
-    val current = loadedStyle.load()
-    if (loadState != StyleLoadState.Ready || current == null) {
-      sourcesState = emptyMap()
-      layersState = emptyMap()
-    } else {
-      updateResources(readResources(current))
-    }
-  }
-
+  /** Reads every source and layer from the engine; the caller runs it as one owner task. */
   internal fun readResources(current: StyleBinding): LoadedStyleResources =
     LoadedStyleResources(readSources(current), readLayers(current))
 
+  /**
+   * Reads the engine's sources in style order; the caller runs it as one owner task. With
+   * [changedIds], only those sources get a fresh handle and the other handles are kept, so the
+   * identities of unchanged sources survive.
+   */
   internal fun readSources(
     current: StyleBinding,
-    changedId: String? = null,
+    changedIds: Set<String>? = null,
   ): Map<String, SourceHandle> {
-    if (changedId != null) {
-      val handle = sourceHandle(current, changedId)
+    if (changedIds != null) {
       val handles = sourcesState.toMutableMap()
-      if (handle == null) handles.remove(changedId) else handles[changedId] = handle
+      changedIds.forEach { changedId ->
+        val handle = sourceHandle(current, changedId)
+        if (handle == null) handles.remove(changedId) else handles[changedId] = handle
+      }
       val ids = current.sourceIds()
       current.identity.sources.retain(ids.toSet())
       return ids.mapNotNull { id -> handles[id]?.let { id to it } }.toMap()
@@ -752,7 +766,11 @@ internal constructor(
 
   private suspend fun awaitViewportState(): Viewport = owner.awaitViewport(this)
 
-  private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
+  /**
+   * Runs [block] while this attachment is current. Invalidation fails it with
+   * [MapAttachmentChangedException] instead of leaving it parked.
+   */
+  internal suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
     if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
     val operation =
       async(start = CoroutineStart.UNDISPATCHED) {
@@ -1377,10 +1395,6 @@ internal class RuntimeImplementation(
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
   /** Pins map state to the main dispatcher's thread. */
   internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
-  /** Runs engine reads that block until the map owner thread answers. */
-  internal val readDispatcher: CoroutineDispatcher =
-    physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
-      ?: Dispatchers.Default,
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),

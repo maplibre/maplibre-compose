@@ -3,11 +3,15 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -133,8 +137,27 @@ internal open class MlnFfiStyleBinding(
     mutateMap { command(it) }
   }
 
+  /** Unlike [awaitMap], an unloaded style yields null rather than an error. */
+  override suspend fun <T> awaitOwner(action: () -> T): T? {
+    if (!isLoaded) return null
+    return suspendCancellableCoroutine { continuation ->
+      val accepted =
+        postMap(
+          { _ ->
+            if (!continuation.isActive) return@postMap
+            continuation.resumeWith(runCatching { if (isLoaded) action() else null })
+          },
+          { continuation.resume(null) },
+        )
+      if (!accepted) continuation.resume(null)
+    }
+  }
+
   override suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> {
-    val commands = definitions.map { runCatching { prepareImage(it) } }
+    // Pixel conversion is CPU work: it runs neither on the caller, which may be the main thread,
+    // nor on the owner, which only uploads.
+    val commands =
+      withContext(Dispatchers.Default) { definitions.map { runCatching { prepareImage(it) } } }
     // A refused or abandoned batch must not look like a batch that wrote nothing.
     return checkNotNull(
       awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }
@@ -375,14 +398,33 @@ internal open class MlnFfiStyleBinding(
    */
   private fun postMutation(action: (MapHandle) -> Unit) {
     requireLoadedStyle()
-    postMap(
-      { map ->
-        if (!isLoaded) return@postMap
-        action(map)
-      },
-      {},
-    )
+    postOrAbandon({}, action)
   }
+
+  /**
+   * Queues [action] for the owner thread and returns at once, for a worker that reports its own
+   * outcome. [abandon] runs instead when the style has unloaded or the owner loop stops first.
+   */
+  open fun postOrAbandon(abandon: () -> Unit, action: (MapHandle) -> Unit) {
+    if (!isLoaded) return abandon()
+    val posted = postMap({ map -> if (isLoaded) action(map) else abandon() }, abandon)
+    if (!posted) abandon()
+  }
+
+  /**
+   * Runs a worker's owner-thread step and suspends until it has run or been dropped, so the worker
+   * neither blocks its thread nor races the owner: [action] may use native memory that the worker
+   * releases when this returns, so a cancelled worker still waits for the owner to finish with it.
+   * An unloaded style skips [action].
+   */
+  private suspend fun awaitPosted(action: (MapHandle) -> Unit) =
+    withContext(NonCancellable) {
+      suspendCoroutine { continuation ->
+        postOrAbandon(abandon = { continuation.resume(Unit) }) { map ->
+          continuation.resumeWith(runCatching { action(map) })
+        }
+      }
+    }
 
   override fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
     postMutation {
@@ -700,15 +742,11 @@ internal open class MlnFfiStyleBinding(
       MlnFfiGeoJsonCoordinator(
         prepare = { data -> prepareGeoJson(data, options) },
         install = { prepared, isCurrent ->
-          accessMap { map ->
-            if (isLoaded && isCurrent()) {
-              map.setGeoJsonSourceData(sourceId, prepared)
-            }
-          }
+          awaitPosted { map -> if (isCurrent()) map.setGeoJsonSourceData(sourceId, prepared) }
         },
         reportFailure = { error, isCurrent ->
-          accessMap {
-            if (isLoaded && isCurrent()) {
+          awaitPosted {
+            if (isCurrent()) {
               logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
               sourceDataFailed(identity, sourceId, error)
             }

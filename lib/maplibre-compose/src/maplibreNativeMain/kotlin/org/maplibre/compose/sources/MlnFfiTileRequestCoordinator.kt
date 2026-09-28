@@ -95,16 +95,14 @@ internal class MlnFfiTileRequestCoordinator<T>(
     token: Long,
     result: Result<T>,
   ) {
-    current.binding.mutateMap(
-      abandon = { forget(tileId, current.generation, token) },
-      action = { map ->
-        if (!forget(tileId, current.generation, token)) return@mutateMap
-        result.fold(
-          onSuccess = { deliver(map, tileId, it) },
-          onFailure = { fail(map, tileId, it) },
-        )
-      },
-    )
+    // Posted rather than awaited: the worker has nothing left to do with the answer.
+    current.binding.postOrAbandon(abandon = { forget(tileId, current.generation, token) }) { map ->
+      if (!forget(tileId, current.generation, token)) return@postOrAbandon
+      result.fold(
+        onSuccess = { deliver(map, tileId, it) },
+        onFailure = { fail(map, tileId, it) },
+      )
+    }
   }
 
   private fun forget(tileId: CanonicalTileId, generation: Long, token: Long): Boolean =

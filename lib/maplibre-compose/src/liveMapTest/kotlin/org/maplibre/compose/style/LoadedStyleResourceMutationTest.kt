@@ -9,7 +9,6 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.setImage
@@ -26,7 +25,7 @@ class LoadedStyleResourceMutationTest {
           options = GeoJsonOptions(),
         )
 
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.addSource(source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
       handle.asMutable!!.setData(
         GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
       )

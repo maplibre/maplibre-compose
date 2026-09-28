@@ -184,6 +184,9 @@ internal constructor(
 ) :
   SourceHandleImpl(id, attributionHtml, style, expectedKind, currentKind, operations),
   VectorTileSourceHandle {
+  override val asMutable: MutableVectorTileSourceHandle?
+    get() = super.asMutable as? MutableVectorTileSourceHandle
+
   override suspend fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
@@ -230,6 +233,9 @@ internal constructor(
     operations = operations,
   ),
   CustomVectorTileSourceHandle {
+  override val asMutable: MutableCustomVectorTileSourceHandle?
+    get() = super.asMutable as? MutableCustomVectorTileSourceHandle
+
   override fun invalidateTile(tile: TileCoordinate) {
     mutationOperation { style.invalidateCustomVectorSourceTile(id, tile) }
   }
@@ -245,6 +251,9 @@ internal constructor(
 ) :
   SourceHandleImpl(id, attributionHtml, style, "custom-geometry", currentKind, operations),
   CustomGeometrySourceHandle {
+  override val asMutable: MutableCustomGeometrySourceHandle?
+    get() = super.asMutable as? MutableCustomGeometrySourceHandle
+
   override fun invalidateBounds(bounds: BoundingBox) {
     mutationOperation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
   }
@@ -297,7 +306,10 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) :
   SourceHandleImpl(id, attributionHtml, style, "raster", currentKind, operations),
-  RasterTileSourceHandle
+  RasterTileSourceHandle {
+  override val asMutable: MutableRasterTileSourceHandle?
+    get() = super.asMutable as? MutableRasterTileSourceHandle
+}
 
 internal class RasterDemTileSourceHandleImpl
 internal constructor(
@@ -308,7 +320,10 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) :
   SourceHandleImpl(id, attributionHtml, style, "raster-dem", currentKind, operations),
-  RasterDemTileSourceHandle
+  RasterDemTileSourceHandle {
+  override val asMutable: MutableRasterDemTileSourceHandle?
+    get() = super.asMutable as? MutableRasterDemTileSourceHandle
+}
 
 internal fun StyleBinding.sourceHandle(
   id: String,
@@ -408,28 +423,28 @@ private class MutableImageSourceHandleImpl(val source: ImageSourceHandleImpl) :
 }
 
 private class MutableVectorTileSourceHandleImpl(val source: VectorTileSourceHandleImpl) :
-  MutableSourceHandle, VectorTileSourceHandle by source {
+  MutableVectorTileSourceHandle, VectorTileSourceHandle by source {
   override fun remove() = source.remove()
 }
 
 private class MutableCustomVectorTileSourceHandleImpl(
   val source: CustomVectorTileSourceHandleImpl
-) : MutableSourceHandle, CustomVectorTileSourceHandle by source {
+) : MutableCustomVectorTileSourceHandle, CustomVectorTileSourceHandle by source {
   override fun remove() = source.remove()
 }
 
 private class MutableCustomGeometrySourceHandleImpl(val source: CustomGeometrySourceHandleImpl) :
-  MutableSourceHandle, CustomGeometrySourceHandle by source {
+  MutableCustomGeometrySourceHandle, CustomGeometrySourceHandle by source {
   override fun remove() = source.remove()
 }
 
 private class MutableRasterTileSourceHandleImpl(val source: RasterTileSourceHandleImpl) :
-  MutableSourceHandle, RasterTileSourceHandle by source {
+  MutableRasterTileSourceHandle, RasterTileSourceHandle by source {
   override fun remove() = source.remove()
 }
 
 private class MutableRasterDemTileSourceHandleImpl(val source: RasterDemTileSourceHandleImpl) :
-  MutableSourceHandle, RasterDemTileSourceHandle by source {
+  MutableRasterDemTileSourceHandle, RasterDemTileSourceHandle by source {
   override fun remove() = source.remove()
 }
 

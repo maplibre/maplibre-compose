@@ -70,13 +70,28 @@ internal interface StyleBinding {
   val logger: MapLog?
 
   /**
+   * Runs [action] where this binding's synchronous operations execute inline, and suspends until it
+   * has run. On MapLibre Native that is the map's owner thread, so the calls [action] makes need no
+   * round trip each and the caller's thread never waits on the owner. MapLibre GL JS runs [action]
+   * during the call.
+   *
+   * @return the result, or null when the style has unloaded or the owner stops before [action]
+   *   runs. An operation inside [action] still fails if the style unloads while it runs.
+   */
+  suspend fun <T> awaitOwner(action: () -> T): T? = if (isLoaded) action() else null
+
+  /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
    * two.
    */
   fun setImage(definition: StyleImageDefinition)
 
-  /** Installs a batch in one owner operation, retaining an independent result for each image. */
+  /**
+   * Installs a batch in one owner operation, retaining an independent result for each image. An
+   * engine that converts pixels before the upload does so off the caller, so this function suspends
+   * and must not run inside [awaitOwner].
+   */
   suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> =
     definitions.map {
       runCatching { setImage(it) }

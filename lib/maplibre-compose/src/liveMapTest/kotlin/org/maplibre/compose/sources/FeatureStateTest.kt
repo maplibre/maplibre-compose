@@ -23,7 +23,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -51,7 +50,7 @@ class FeatureStateTest {
             ),
           options = GeoJsonOptions(),
         )
-      fixture.state.style.addSource(source)
+      fixture.state.style.sources.add(source)
       val layer = TestLayer("circles", "circle", source)
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(

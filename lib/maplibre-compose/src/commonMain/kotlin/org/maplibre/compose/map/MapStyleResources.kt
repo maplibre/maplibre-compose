@@ -11,6 +11,14 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.ImageSourceHandle
+import org.maplibre.compose.sources.MutableCustomGeometrySourceHandle
+import org.maplibre.compose.sources.MutableCustomVectorTileSourceHandle
+import org.maplibre.compose.sources.MutableGeoJsonSourceHandle
+import org.maplibre.compose.sources.MutableImageSourceHandle
+import org.maplibre.compose.sources.MutableRasterDemTileSourceHandle
+import org.maplibre.compose.sources.MutableRasterTileSourceHandle
+import org.maplibre.compose.sources.MutableSourceHandle
+import org.maplibre.compose.sources.MutableVectorTileSourceHandle
 import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.RasterDemTileSourceHandle
 import org.maplibre.compose.sources.RasterTileSource
@@ -22,6 +30,7 @@ import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.TransitionOptions
 
 /** Provides lookup, iteration, and structural commands for the current loaded sources. */
@@ -67,12 +76,45 @@ public class StyleSources internal constructor(private val style: MapStyleState)
     get(source.id) as? CustomVectorTileSourceHandle
 
   /**
-   * Enqueues [source] for the loaded style. Rejected native commands are logged. Use
-   * [MapStyleState.awaitCommands] before looking up its installed handle.
+   * Adds [source] to the loaded style and returns its handle once the map has installed it. The
+   * command runs after the resource commands enqueued before this call, and this call suspends only
+   * until the engine has run it, not until a frame has rendered.
+   *
+   * @throws IllegalStateException if no style is ready.
+   * @throws StyleHandleException if the style content declares [source]'s ID, the ID is already in
+   *   the style, the engine rejects the definition, or the loaded style changes before the command
+   *   runs.
    */
-  public fun add(source: Source) {
+  public suspend fun add(source: Source): MutableSourceHandle =
     style.requireOwner().resourceCommands.add(source)
-  }
+
+  /** [add] for a GeoJSON source. */
+  public suspend fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle =
+    add(source as Source) as MutableGeoJsonSourceHandle
+
+  /** [add] for an image source. */
+  public suspend fun add(source: ImageSource): MutableImageSourceHandle =
+    add(source as Source) as MutableImageSourceHandle
+
+  /** [add] for a vector tile source. */
+  public suspend fun add(source: VectorTileSource): MutableVectorTileSourceHandle =
+    add(source as Source) as MutableVectorTileSourceHandle
+
+  /** [add] for a raster tile source. */
+  public suspend fun add(source: RasterTileSource): MutableRasterTileSourceHandle =
+    add(source as Source) as MutableRasterTileSourceHandle
+
+  /** [add] for a raster DEM tile source. */
+  public suspend fun add(source: RasterDemTileSource): MutableRasterDemTileSourceHandle =
+    add(source as Source) as MutableRasterDemTileSourceHandle
+
+  /** [add] for a custom geometry source. */
+  public suspend fun add(source: CustomGeometrySource): MutableCustomGeometrySourceHandle =
+    add(source as Source) as MutableCustomGeometrySourceHandle
+
+  /** [add] for a custom vector tile source. */
+  public suspend fun add(source: CustomVectorTileSource): MutableCustomVectorTileSourceHandle =
+    add(source as Source) as MutableCustomVectorTileSourceHandle
 
   /** Iterates over the current loaded sources in engine style order. */
   override fun iterator(): Iterator<SourceHandle> = style.sourceHandles().values.iterator()

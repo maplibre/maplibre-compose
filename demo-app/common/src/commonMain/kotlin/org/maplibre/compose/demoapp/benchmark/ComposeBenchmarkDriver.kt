@@ -288,7 +288,9 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
     // Frame callbacks run before recomposition. Cross a second frame boundary so declarations and
     // layout have been applied before requesting camera/render settlement.
     if (declared) repeat(2) { withFrameNanos {} }
-    state.style.awaitCommands()
+    // An image lookup runs after the resource commands enqueued before it, so it is the barrier
+    // that puts queued image writes inside the measured operation.
+    state.style.images["workload-image"]
     awaitSettled(state)
   }
 

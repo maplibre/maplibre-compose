@@ -67,15 +67,19 @@ class StyleResourceCommandTest {
           style.images.setAll(mapOf("replaced" to first, "removed" to first))
           style.images.set("replaced", replacement)
           style.images.remove("removed")
-          style.sources.add(
-            GeoJsonSource(
-              "points",
-              GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              GeoJsonOptions(),
-            )
-          )
+          val added =
+            async(start = CoroutineStart.UNDISPATCHED) {
+              style.sources.add(
+                GeoJsonSource(
+                  "points",
+                  GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+                  GeoJsonOptions(),
+                )
+              )
+            }
           val queried = async(start = CoroutineStart.UNDISPATCHED) { style.images["replaced"] }
           assertFalse(queried.isCompleted, "query must suspend behind the queued commands")
+          assertFalse(added.isCompleted, "the add must suspend behind the queued commands")
           assertFalse(
             ownerReleased.isCompleted,
             "commands must return while the owner stays parked",
@@ -84,7 +88,7 @@ class StyleResourceCommandTest {
           assertTrue(ownerReleased.await())
           assertNotNull(queried.await())
           assertEquals(null, style.images["removed"])
-          assertNotNull(style.sources["points"])
+          assertNotNull(added.await())
           val binding = assertNotNull(fixture.style) as MlnFfiStyleBinding
           assertEquals(2, binding.readMap { it.styleImageInfo("replaced")?.width })
           assertEquals(1, reads, "reusing prepared pixels must not read the caller bitmap again")
@@ -95,41 +99,40 @@ class StyleResourceCommandTest {
     }
 
   @Test
-  fun snapshot_resource_commands_dispatch_even_when_the_worker_scope_names_the_read_dispatcher() =
-    runMapTest {
-      FfiTestPlatform.initialize()
-      val cacheFile = FfiTestPlatform.createCacheFile()
-      val runtime =
-        createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-        )
-      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-      val parked = TestLatch(1)
-      val release = TestLatch(1)
-      try {
-        snapshotter.capture(MapSnapshotRequest(8, 8))
-        val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
-        val holdOwner =
-          async(Dispatchers.Default) {
-            binding.readMap {
-              parked.countDown()
-              check(release.await(5_000)) { "snapshot resource command blocked its caller" }
-            }
+  fun snapshot_resource_commands_return_while_the_owner_is_busy() = runMapTest {
+    FfiTestPlatform.initialize()
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val runtime =
+      createNativeMapRuntime(
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val parked = TestLatch(1)
+    val release = TestLatch(1)
+    try {
+      snapshotter.capture(MapSnapshotRequest(8, 8))
+      val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
+      val holdOwner =
+        async(Dispatchers.Default) {
+          binding.readMap {
+            parked.countDown()
+            check(release.await(5_000)) { "snapshot resource command blocked its caller" }
           }
-        assertTrue(parked.await(5_000))
-        snapshotter.style.images.remove("absent")
-        release.countDown()
-        holdOwner.await()
-        snapshotter.style.awaitCommands()
-      } finally {
-        release.countDown()
-        snapshotter.close()
-        snapshotter.awaitClosed()
-        runtime.close()
-        runtime.awaitClosed()
-        FfiTestPlatform.deleteCacheFile(cacheFile)
-      }
+        }
+      assertTrue(parked.await(5_000))
+      snapshotter.style.images.remove("absent")
+      release.countDown()
+      holdOwner.await()
+      snapshotter.style.awaitCommands()
+    } finally {
+      release.countDown()
+      snapshotter.close()
+      snapshotter.awaitClosed()
+      runtime.close()
+      runtime.awaitClosed()
+      FfiTestPlatform.deleteCacheFile(cacheFile)
     }
+  }
 
   @Test
   fun style_metadata_capture_finishes_when_the_session_has_logically_closed() = runMapTest {

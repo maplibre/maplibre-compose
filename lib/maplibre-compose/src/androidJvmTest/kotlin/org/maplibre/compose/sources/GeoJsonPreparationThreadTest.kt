@@ -11,7 +11,6 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature
@@ -53,7 +52,7 @@ class GeoJsonPreparationThreadTest {
       try {
         val handle =
           assertIs<GeoJsonSourceHandle>(
-            fixture.state.style.addSource(
+            fixture.state.style.sources.add(
               GeoJsonSource(
                 "points",
                 if (initial) data else GeoJsonData.JsonString(EMPTY),

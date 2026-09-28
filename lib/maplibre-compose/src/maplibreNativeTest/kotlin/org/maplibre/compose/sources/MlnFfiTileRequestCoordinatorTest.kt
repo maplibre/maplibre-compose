@@ -165,10 +165,9 @@ class MlnFfiTileRequestCoordinatorTest {
   private class DroppingBinding(map: MapHandle) : MlnFfiStyleBinding(map, sessionOpen = { true }) {
     var onDrop: () -> Unit = {}
 
-    override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+    override fun postOrAbandon(abandon: () -> Unit, action: (MapHandle) -> Unit) {
       abandon()
       onDrop()
-      return null
     }
 
     override suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? = null
