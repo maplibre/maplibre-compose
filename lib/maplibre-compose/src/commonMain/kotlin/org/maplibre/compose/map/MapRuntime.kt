@@ -892,9 +892,10 @@ internal constructor(
    * base style reloads or the resolver is replaced.
    *
    * The resolver is called on the main thread. [PreparedImage.fromBitmap] converts every pixel on
-   * its calling thread, so call it for a large image with `withContext(Dispatchers.Default)`. On
-   * MapLibre Native, [ResolvedStyleImage.fromPainter] already converts off the main thread.
-   * Replacing or clearing this property does not cancel calls already running.
+   * the thread that calls it, so for a large image, call it inside
+   * `withContext(Dispatchers.Default)`. On MapLibre Native, [ResolvedStyleImage.fromPainter]
+   * already converts off the main thread. Replacing or clearing this property does not cancel calls
+   * already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver

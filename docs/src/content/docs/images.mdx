@@ -37,12 +37,10 @@ coordinates. The image comes from a URI or from a
 
 ## Animate an image source
 
-To play frames such as a radar loop, prepare every frame once, off the main
-thread, and show one prepared frame at a time. Switching between prepared
-frames does no per-pixel work. Prepare the frames outside the style block:
-the map evaluates that block again for each loaded style, so preparing there
-would repeat the work after every base style change. Here, `frames` is a list
-of `ImageBitmap`:
+To play frames such as a radar loop, prepare each frame once, off the main
+thread, then show one prepared frame at a time. Switching frames does no
+per-pixel work. Prepare the frames outside the `rememberMapState` block, which
+runs again for each loaded style. Here, `frames` is a list of `ImageBitmap`:
 
 <Code code={region(images, "image-source-frames")} lang="kotlin" title="App.kt" />
 
@@ -57,13 +55,16 @@ it returns:
 
 ## Prepared images
 
-`PreparedImage.fromBitmap` copies a bitmap's pixels once, on the calling
-thread, into the form the map uploads. The result can be reused across maps,
-loaded styles, and image IDs. An image source and
-<Api of="MutableImageSourceHandle.setImage" /> take a `PreparedImage`. A style
-image takes a <Api of="ResolvedStyleImage" />: either
-`ResolvedStyleImage(image, sdf, stretch)` or `ResolvedStyleImage.fromPainter`.
-Submit it with `state.style.images.set(id, image)`.
+`PreparedImage.fromBitmap` copies a bitmap's pixels into the form the map
+uploads. It runs on the calling thread and takes longer for larger images, so
+call it off the main thread for large images. The result can be reused across
+maps, loaded styles, and image IDs.
+
+An image source and <Api of="MutableImageSourceHandle.setImage" /> take a
+`PreparedImage`. A style image takes a <Api of="ResolvedStyleImage" />: build
+one from a `PreparedImage` and the style-image options, or render a painter
+with `ResolvedStyleImage.fromPainter`. Submit it with
+`state.style.images.set(id, image)`.
 
 `set`, `setAll`, and `remove` enqueue commands without waiting for the map. A
 replacement keeps the previous image until it succeeds; an engine rejection is

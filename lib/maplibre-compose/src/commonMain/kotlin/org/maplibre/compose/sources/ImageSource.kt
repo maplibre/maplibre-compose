@@ -96,8 +96,9 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
  * Remember a new [ImageSource] from the given [image].
  *
  * Recomposition publishes a new immutable source definition when [position] or [image] changes. A
- * new instance with equal pixels publishes nothing, but comparing it reads every pixel, so keep one
- * [PreparedImage] across recompositions. Prepare it off the main thread, or once per bitmap:
+ * new [PreparedImage] with the same pixels publishes nothing, but comparing it reads every pixel.
+ * Keep one instance across recompositions: prepare it off the main thread, or remember it per
+ * bitmap:
  * ```
  * val image = remember(bitmap) { PreparedImage.fromBitmap(bitmap) }
  * ```

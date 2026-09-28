@@ -82,8 +82,7 @@ internal interface StyleBinding {
   /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
-   * two. The prepared pixels upload as they are, so a batch runs its writes in one [awaitOwner]
-   * task.
+   * two.
    */
   fun setImage(definition: StyleImageDefinition)
 
@@ -353,11 +352,7 @@ internal interface StyleBinding {
     if (identity.sources.isCurrent(sourceId, resourceIdentity)) action()
   }
 
-  /**
-   * Replaces an image source's content with prepared pixels, which upload as they are. Like
-   * [setImageSourceUrl], this runs synchronously; imperative handles queue it with
-   * [postSourceUpdate].
-   */
+  /** Replaces an image source's content with prepared pixels. */
   fun setImageSourceImage(sourceId: String, image: PreparedImage)
 
   /** Replaces an image source's content with a URL. */

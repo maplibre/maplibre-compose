@@ -470,10 +470,7 @@ internal class GlJsStyleBinding(
       },
     )
     imageSourceImages[sourceId] = image
-    if (!updateImageSource(sourceId, image)) {
-      imageSourceImages.remove(sourceId)
-      throw StyleMutationException("MapLibre did not add image source '$sourceId'", null)
-    }
+    updateImageSource(sourceId, image)
     return true
   }
 
@@ -484,11 +481,10 @@ internal class GlJsStyleBinding(
     updateImageSource(sourceId, image)
   }
 
-  /** @return false if the style has no source with [sourceId]. */
-  private fun updateImageSource(sourceId: String, image: PreparedImage): Boolean {
-    val source = map.getSource<GlJsImageSource>(sourceId) ?: return false
-    source.updateImage(unsafeJso { this.image = image.pixels.imageData() })
-    return true
+  private fun updateImageSource(sourceId: String, image: PreparedImage) {
+    map
+      .getSource<GlJsImageSource>(sourceId)
+      ?.updateImage(unsafeJso { this.image = image.pixels.imageData() })
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {

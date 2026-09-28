@@ -48,7 +48,7 @@ class BrowserImageSourceTest {
 
       handle.setImage(solid(Color.Green))
       val updated = source()
-      assertEquals(0, updated.image.data[0] as Int, "red after the update")
+      assertEquals(0, updated.image.data[0] as Int, "no red after the update")
       assertEquals(255, updated.image.data[1] as Int, "green after the update")
     }
   }
