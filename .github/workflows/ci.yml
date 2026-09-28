@@ -66,9 +66,6 @@ jobs:
       desktop: ${{ needs.plan.outputs.desktop }}
       docs: ${{ needs.plan.outputs.docs }}
     secrets: inherit
-    permissions:
-      actions: write
-      contents: write
 
   all-good:
     name: all-good (draft)
