@@ -5,8 +5,6 @@ import kotlinx.io.files.Path
 import org.junit.Assume.assumeTrue
 
 internal actual object FfiTestPlatform {
-  actual val runtimeCapabilities = FfiTestRuntimeCapabilities(customGeometrySourceCallbacks = true)
-
   actual fun initialize() {
     AndroidMlnFfiPlatform.initialize()
   }

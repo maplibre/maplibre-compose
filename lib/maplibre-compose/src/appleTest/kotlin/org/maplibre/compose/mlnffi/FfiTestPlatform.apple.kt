@@ -10,9 +10,6 @@ import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUUID
 
 internal actual object FfiTestPlatform {
-  // The Kotlin/Native binding exposes the custom geometry source callbacks in full.
-  actual val runtimeCapabilities = FfiTestRuntimeCapabilities(customGeometrySourceCallbacks = true)
-
   actual fun initialize() {
     // The runtime klib links MapLibre Native statically into the test binary, so loading only
     // checks that the linked archive's C ABI matches the binding.
@@ -46,13 +43,10 @@ internal actual object FfiTestPlatform {
   }
 
   /**
-   * kotlin.test on Native has no assumption API to record a skip with, and iOS reports every
-   * capability the shared suite gates on, so this is unreachable in practice. Failing loudly keeps
-   * a test that gains a capability gate from reading as a pass on iOS without ever having run.
+   * kotlin.test on Native has no assumption API to record a skip with. Failing loudly keeps a
+   * skipped test from reading as a pass on iOS without ever having run.
    */
   actual fun skip(reason: String): Nothing {
-    error(
-      "iOS cannot skip a shared FFI test; re-check FfiTestPlatform.runtimeCapabilities: $reason"
-    )
+    error("iOS cannot skip a shared FFI test: $reason")
   }
 }

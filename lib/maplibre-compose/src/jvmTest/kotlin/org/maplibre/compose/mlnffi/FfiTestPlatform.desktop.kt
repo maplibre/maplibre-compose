@@ -7,8 +7,6 @@ import org.junit.Assume.assumeTrue
 import org.maplibre.nativeffi.Maplibre
 
 internal actual object FfiTestPlatform {
-  actual val runtimeCapabilities = FfiTestRuntimeCapabilities(customGeometrySourceCallbacks = true)
-
   actual fun initialize() {
     Maplibre.loadNativeLibrary()
   }
