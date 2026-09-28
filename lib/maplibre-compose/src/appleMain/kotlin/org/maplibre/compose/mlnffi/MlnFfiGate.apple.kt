@@ -9,8 +9,6 @@ import platform.Foundation.dateWithTimeIntervalSinceNow
 /**
  * A gate over a condition variable. Every wait loops over the open flag, because a condition
  * variable returns from a spurious wakeup as readily as from a signal.
- *
- * Kotlin/Native threads cannot be interrupted, so [await] and [awaitUntilOpen] are the same wait.
  */
 internal actual class MlnFfiGate actual constructor() {
   private val condition = NSCondition()
@@ -26,17 +24,14 @@ internal actual class MlnFfiGate actual constructor() {
     }
   }
 
-  actual fun await() {
+  // Kotlin/Native threads cannot be interrupted, so this wait ends only when the gate opens.
+  actual fun awaitUntilOpen() {
     condition.lock()
     try {
       while (!isOpen) condition.wait()
     } finally {
       condition.unlock()
     }
-  }
-
-  actual fun awaitUntilOpen() {
-    await()
   }
 
   @OptIn(BetaInteropApi::class)
