@@ -1304,19 +1304,19 @@ public fun rememberMapState(
 
 /** Keeps IDE previews from starting MapLibre, which cannot load in the preview renderer. */
 @Composable
-private fun defaultMapRuntime(): MapRuntime =
-  if (LocalInspectionMode.current) {
-    remember {
-      RuntimeImplementation(
-        platformContext = null,
-        closeResources = {},
-        logger = null,
-        mainDispatcher = UnconfinedMain,
-      )
-    }
-  } else {
-    DefaultMapRuntime.instance
+private fun defaultMapRuntime(): MapRuntime {
+  if (!LocalInspectionMode.current) return DefaultMapRuntime.instance
+  val runtime = remember {
+    RuntimeImplementation(
+      platformContext = null,
+      closeResources = {},
+      logger = null,
+      mainDispatcher = UnconfinedMain,
+    )
   }
+  DisposableEffect(runtime) { onDispose { runtime.close() } }
+  return runtime
+}
 
 private fun mapStateSaver(
   runtime: MapRuntime,
