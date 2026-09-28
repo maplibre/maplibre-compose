@@ -1,6 +1,5 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -12,7 +11,7 @@ import org.maplibre.compose.sources.RasterDemEncoding
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.util.ImageStretch
-import org.maplibre.compose.util.toImageBitmap
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 /** Defines an immutable source that can be installed in any loaded style. */
@@ -31,7 +30,7 @@ internal sealed interface SourceDefinition {
     override val id: String,
     val value: JsonObject,
     val coordinates: List<Position>,
-    val image: ImageSnapshot?,
+    val image: PreparedImage?,
   ) : SourceDefinition
 
   data class CustomGeometry(
@@ -69,40 +68,10 @@ internal data class LayerDefinition(
 /** Defines a resolved image without a painter, composition, or loaded-style reference. */
 internal data class StyleImageDefinition(
   val id: String,
-  val image: ImageSnapshot,
+  val image: PreparedImage,
   val sdf: Boolean,
   val stretch: ImageStretch?,
 )
-
-/** Stores an independent pixel copy in an engine-neutral format. */
-internal class ImageSnapshot
-private constructor(
-  val width: Int,
-  val height: Int,
-  private val pixels: IntArray,
-) {
-  private val hash = 31 * (31 * width + height) + pixels.contentHashCode()
-
-  fun toImageBitmap(): ImageBitmap = pixels.copyOf().toImageBitmap(width, height)
-
-  fun pixelAt(index: Int): Int = pixels[index]
-
-  override fun equals(other: Any?): Boolean =
-    other is ImageSnapshot &&
-      width == other.width &&
-      height == other.height &&
-      pixels.contentEquals(other.pixels)
-
-  override fun hashCode(): Int = hash
-
-  companion object {
-    fun capture(bitmap: ImageBitmap): ImageSnapshot {
-      val pixels = IntArray(bitmap.width * bitmap.height)
-      bitmap.readPixels(pixels)
-      return ImageSnapshot(bitmap.width, bitmap.height, pixels)
-    }
-  }
-}
 
 internal data class RasterDemCapabilities(
   val supportsCustomDemEncoding: Boolean,

@@ -58,12 +58,12 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.QueuedOwnerStyleBinding
@@ -78,6 +78,8 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.testing.setImage
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -1229,7 +1231,10 @@ class MapPresentationTest {
       styleSources.add(attributedVectorSource("unready", "unready"))
     }
     assertFailsWith<IllegalStateException> {
-      styleImages.set("unready", ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1))))
+      styleImages.set(
+        "unready",
+        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
+      )
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1309,6 +1314,98 @@ class MapPresentationTest {
     style.awaitCommands()
     assertNull(style.sources["added"])
     assertFalse("added" in recorded.sources)
+    fixture.close()
+  }
+
+  @Test
+  fun image_source_handle_writes_pass_prepared_images_through_in_call_order() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val first = PreparedImage.fromBitmap(FakeImageBitmap(1, 1))
+    val second = PreparedImage.fromBitmap(FakeImageBitmap(2, 1))
+    val moved = IMAGE_QUAD.copy(topLeft = Position(-2.0, 1.0))
+    val source = ImageSource("image", IMAGE_QUAD, first)
+
+    val handle = fixture.state.style.sources.add(source)
+    assertSame(first, binding.addedImageSourceImages["image"])
+    handle.setImage(first)
+    handle.setUri("https://example.invalid/image.png")
+    handle.setBounds(moved)
+    handle.setImage(second)
+
+    assertEquals(
+      listOf(
+        first,
+        "https://example.invalid/image.png",
+        listOf(moved.topLeft, moved.topRight, moved.bottomRight, moved.bottomLeft),
+        second,
+      ),
+      binding.imageSourceWrites.map { it.second },
+    )
+    assertSame(
+      first,
+      binding.imageSourceWrites.first().second,
+      "a write neither copies nor converts",
+    )
+
+    // A handle to a source replaced under the same ID writes nothing.
+    handle.remove()
+    fixture.state.style.sources.add(source)
+    binding.imageSourceWrites.clear()
+    assertFailsWith<IllegalStateException> { handle.setImage(second) }
+    assertTrue(binding.imageSourceWrites.isEmpty())
+    fixture.close()
+  }
+
+  @Test
+  fun an_image_batch_that_sets_and_removes_is_one_owner_task() = runTest {
+    val fixture = presentationFixture()
+    val recorded = RecordingStyleBinding()
+    val binding = QueuedOwnerStyleBinding(recorded)
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    val image = ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
+
+    // The removal supersedes "b" in the pending batch, which then both sets and removes.
+    val release = CompletableDeferred<Unit>()
+    val commit =
+      launch(start = CoroutineStart.UNDISPATCHED) {
+        style.requireOwner().resourceCommands.withCommit { release.await() }
+      }
+    style.images.setAll(mapOf("a" to image, "b" to image))
+    style.images.remove("b")
+    binding.ownerBusy = true
+    release.complete(Unit)
+    commit.join()
+
+    assertEquals(1, binding.ownerTasks)
+    binding.runOwnerTasks()
+    assertEquals(0, binding.ownerTasks, "the removal shares the task that set the image")
+    binding.ownerBusy = false
+    style.awaitCommands()
+    assertEquals(listOf("set a 1", "remove b"), recorded.imageWrites)
+    fixture.close()
+  }
+
+  @Test
+  fun a_guarded_operation_that_returns_null_runs_once() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    var runs = 0
+
+    val result: Unit? =
+      fixture.state.style.operationGuard(binding).run {
+        runs++
+        null
+      }
+
+    assertNull(result)
+    assertEquals(1, runs)
     fixture.close()
   }
 
@@ -1531,7 +1628,8 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
     val style = fixture.state.style
-    fun prepared(width: Int) = ResolvedStyleImage.fromBitmap(FakeImageBitmap(width, 1))
+    fun prepared(width: Int) =
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(width, 1)))
     // Holds the queue so that every command in [block] is still pending when the next is submitted.
     suspend fun pending(block: () -> Unit) {
       val release = CompletableDeferred<Unit>()
@@ -1615,12 +1713,12 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))
     val image = FakeImageBitmap(1, 1)
-    fixture.state.missingImageResolver = { ResolvedStyleImage(ImageSnapshot.capture(image)) }
+    fixture.state.missingImageResolver = { ResolvedStyleImage(PreparedImage.fromBitmap(image)) }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
     val added = fixture.state.style.setImage("marker", image)
-    val prepared = ResolvedStyleImage(ImageSnapshot.capture(image))
+    val prepared = ResolvedStyleImage(PreparedImage.fromBitmap(image))
     fixture.state.style.images.setAll(
       mapOf("before" to prepared, "marker" to prepared, "after" to prepared)
     )
@@ -1715,7 +1813,7 @@ class MapPresentationTest {
     var calls = 0
     fixture.state.missingImageResolver = {
       calls++
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     // The style is loading, not ready: the browser asks while it parses the tiles that decide
     // whether the style has loaded.
@@ -1737,7 +1835,7 @@ class MapPresentationTest {
     var calls = 0
     fixture.state.missingImageResolver = {
       calls++
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
 
@@ -1769,7 +1867,7 @@ class MapPresentationTest {
       calls++
       started.complete(Unit)
       release.await()
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1801,7 +1899,7 @@ class MapPresentationTest {
       calls++
       started.complete(Unit)
       release.await()
-      ResolvedStyleImage(ImageSnapshot.capture(image))
+      ResolvedStyleImage(PreparedImage.fromBitmap(image))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     val pending =
@@ -1812,7 +1910,7 @@ class MapPresentationTest {
       StyleSnapshot(
         sources = emptyList(),
         layers = emptyList(),
-        images = listOf(StyleImageDefinition("icon", ImageSnapshot.capture(image), false, null)),
+        images = listOf(StyleImageDefinition("icon", PreparedImage.fromBitmap(image), false, null)),
       )
     release.complete(Unit)
     pending.await()
@@ -1839,7 +1937,7 @@ class MapPresentationTest {
       calls++
       started.complete(Unit)
       release.await()
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     val first =
@@ -1882,7 +1980,7 @@ class MapPresentationTest {
     var calls = 0
     fixture.state.missingImageResolver = {
       calls++
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "icon")).await()
@@ -1904,7 +2002,7 @@ class MapPresentationTest {
     fixture.state.missingImageResolver = {
       oldStarted.complete(Unit)
       oldRelease.await()
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     val old =
@@ -1913,7 +2011,7 @@ class MapPresentationTest {
     fixture.state.missingImageResolver = {
       newStarted.complete(Unit)
       newRelease.await()
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     val replacement =
       assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "icon"))
@@ -1948,7 +2046,7 @@ class MapPresentationTest {
     assertFailsWith<CancellationException> { old.await() }
 
     fixture.state.missingImageResolver = {
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "icon")).await()
     assertFalse(oldBinding.imageExists("icon"))
@@ -1963,7 +2061,7 @@ class MapPresentationTest {
     val release = CompletableDeferred<Unit>()
     fixture.state.missingImageResolver = {
       release.await()
-      ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(1, 1)))
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
     }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     val resolution =
@@ -2005,7 +2103,8 @@ class MapPresentationTest {
       StyleSnapshot(
         sources = listOf(source.definition()),
         layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
-        images = listOf(StyleImageDefinition("owned", ImageSnapshot.capture(image), false, null)),
+        images =
+          listOf(StyleImageDefinition("owned", PreparedImage.fromBitmap(image), false, null)),
       )
 
     assertNull(sourceHandle.asMutable)
@@ -2035,7 +2134,7 @@ class MapPresentationTest {
           listOf(
             StyleImageDefinition(
               "owned",
-              ImageSnapshot.capture(image),
+              PreparedImage.fromBitmap(image),
               sdf = false,
               stretch = null,
             )
@@ -2089,7 +2188,7 @@ class MapPresentationTest {
             listOf(
               StyleImageDefinition(
                 "shared",
-                ImageSnapshot.capture(image),
+                PreparedImage.fromBitmap(image),
                 sdf = false,
                 stretch = null,
               )
@@ -2763,6 +2862,14 @@ private fun attributedVectorSource(id: String, attribution: String): VectorTileS
     id = id,
     tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
     options = TileSetOptions(attributionHtml = attribution),
+  )
+
+private val IMAGE_QUAD =
+  PositionQuad(
+    Position(-1.0, 1.0),
+    Position(1.0, 1.0),
+    Position(1.0, -1.0),
+    Position(-1.0, -1.0),
   )
 
 private data class PresentationFixture(

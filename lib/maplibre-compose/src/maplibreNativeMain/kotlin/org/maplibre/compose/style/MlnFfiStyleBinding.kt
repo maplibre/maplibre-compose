@@ -1,6 +1,5 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -8,7 +7,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -48,6 +46,7 @@ import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toFfiClusterFeature
@@ -56,7 +55,6 @@ import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
-import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
@@ -133,8 +131,7 @@ internal open class MlnFfiStyleBinding(
     map.styleSourceIds().associateWith { reconstructSource(map, it) }
 
   override fun setImage(definition: StyleImageDefinition) {
-    val command = prepareImage(definition)
-    mutateMap { command(it) }
+    mutateMap { applyImage(it, definition) }
   }
 
   /** Unlike [awaitMap], an unloaded style yields null rather than an error. */
@@ -153,50 +150,34 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  override suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> {
-    // Pixel conversion is CPU work: it runs neither on the caller, which may be the main thread,
-    // nor on the owner, which only uploads.
-    val commands =
-      withContext(Dispatchers.Default) { definitions.map { runCatching { prepareImage(it) } } }
-    // A refused or abandoned batch must not look like a batch that wrote nothing.
-    return checkNotNull(
-      awaitMap { map -> commands.map { command -> command.mapCatching { it(map) } } }
-    ) {
-      "The map owner did not run the image batch"
-    }
-  }
-
-  private fun prepareImage(definition: StyleImageDefinition): (MapHandle) -> Unit {
-    val (id, snapshot, sdf, stretch) = definition
+  private fun applyImage(map: MapHandle, definition: StyleImageDefinition) {
+    val (id, image, sdf, stretch) = definition
     val scale = getScale()
-    val pixels = snapshot.toPremultipliedRgba8()
-    val stretchPx = stretch?.resolve(snapshot.width, snapshot.height, scale)
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     // The engine replaces an existing image in place, so no existence read is needed.
-    return { map ->
-      try {
-        map.setStyleImage(
-          imageId = id,
-          image = pixels,
-          options =
-            StyleImageOptions().also { options ->
-              options.sdf = sdf
-              options.pixelRatio = scale
-              stretchPx?.let { px ->
-                if (px.stretchX.isNotEmpty()) {
-                  options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
-                }
-                if (px.stretchY.isNotEmpty()) {
-                  options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
-                }
-                px.content?.let { box ->
-                  options.content = ImageContent(box.left, box.top, box.right, box.bottom)
-                }
+    try {
+      map.setStyleImage(
+        imageId = id,
+        image = image.pixels.ffi,
+        options =
+          StyleImageOptions().also { options ->
+            options.sdf = sdf
+            options.pixelRatio = scale
+            stretchPx?.let { px ->
+              if (px.stretchX.isNotEmpty()) {
+                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
               }
-            },
-        )
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
+              if (px.stretchY.isNotEmpty()) {
+                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              px.content?.let { box ->
+                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+              }
+            }
+          },
+      )
+    } catch (error: MaplibreException) {
+      throw StyleMutationException(error.message, error)
     }
   }
 
@@ -433,6 +414,9 @@ internal open class MlnFfiStyleBinding(
         action()
       } catch (error: StyleMutationException) {
         reportRejectedWrite("source '$sourceId'", null, error)
+      } catch (error: IllegalStateException) {
+        // The style unloaded after this task was admitted: the write is stale, as if abandoned.
+        if (isLoaded) throw error
       }
     }
   }
@@ -652,20 +636,19 @@ internal open class MlnFfiStyleBinding(
     map.styleSourceExists(sourceId)
   }
 
-  /** The bitmap is converted on the caller so the owner-thread hop only uploads. */
   override fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
-    image: ImageBitmap,
+    image: PreparedImage,
   ): Boolean {
-    val pixels = image.toPremultipliedRgba8()
     val corners = coordinates.map { it.toLatLng() }
-    return addSourceWith(sourceId) { map -> map.addImageSourceImage(sourceId, corners, pixels) }
+    return addSourceWith(sourceId) { map ->
+      map.addImageSourceImage(sourceId, corners, image.pixels.ffi)
+    }
   }
 
-  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit {
-    val pixels = image.toPremultipliedRgba8()
-    return { updateSource { map -> map.setImageSourceImage(sourceId, pixels) } }
+  override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
+    updateSource { map -> map.setImageSourceImage(sourceId, image.pixels.ffi) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {

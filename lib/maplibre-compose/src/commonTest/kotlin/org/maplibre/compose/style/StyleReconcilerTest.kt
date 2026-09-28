@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonNull
@@ -14,7 +15,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.FakeImageBitmap
+import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.RasterTileSource
+import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
+import org.maplibre.spatialk.geojson.Position
 
 class StyleReconcilerTest {
 
@@ -167,7 +172,7 @@ class StyleReconcilerTest {
     fun revisionWith(vararg images: StyleImageDefinition) =
       StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
-      StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
+      StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
     assertEquals(setOf("icon"), style.imageIds)
@@ -189,7 +194,7 @@ class StyleReconcilerTest {
     fun revisionWith(vararg images: StyleImageDefinition) =
       StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
-      StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
+      StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
     assertFailsWith<StyleMutationException> {
@@ -210,7 +215,7 @@ class StyleReconcilerTest {
     fun revisionWith(vararg images: StyleImageDefinition) =
       StyleSnapshot(emptyList(), emptyList(), images.toList())
     val icon =
-      StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
+      StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
     assertFailsWith<StyleMutationException> {
@@ -220,6 +225,37 @@ class StyleReconcilerTest {
     // The engine still holds the previous image, so dropping the ID removes it.
     reconciler.apply(style, revisionWith())
     assertTrue(style.imageIds.isEmpty())
+  }
+
+  @Test
+  fun an_image_source_uploads_only_changed_pixels_after_its_corners() {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    fun revisionWith(position: PositionQuad, image: PreparedImage) =
+      StyleSnapshot(
+        sources = listOf(ImageSource("image", position, image).definition()),
+        layers = emptyList(),
+        images = emptyList(),
+      )
+    val first = image(OPAQUE_RED)
+
+    reconciler.apply(style, revisionWith(QUAD, first))
+    assertSame(first, style.addedImageSourceImages["image"], "the add takes the prepared image")
+
+    reconciler.apply(style, revisionWith(QUAD, first))
+    assertTrue(style.imageSourceWrites.isEmpty(), "the same prepared image writes nothing")
+
+    val next = image(OPAQUE_GREEN)
+    val moved = QUAD.copy(topLeft = Position(-2.0, 1.0))
+    reconciler.apply(style, revisionWith(moved, next))
+    assertEquals(
+      listOf(
+        listOf(moved.topLeft, moved.topRight, moved.bottomRight, moved.bottomLeft),
+        next,
+      ),
+      style.imageSourceWrites.map { it.second },
+    )
+    assertSame(next, style.imageSourceWrites.last().second)
   }
 
   @Test
@@ -261,6 +297,8 @@ class StyleReconcilerTest {
     assertTrue(replacement.installedLayerIds.isEmpty())
   }
 
+  private fun image(pixel: Int) = PreparedImage.fromBitmap(FakeImageBitmap(1, 1, intArrayOf(pixel)))
+
   private fun source(id: String) =
     RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 
@@ -270,6 +308,19 @@ class StyleReconcilerTest {
       layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
       images = emptyList(),
     )
+
+  private companion object {
+    const val OPAQUE_RED = 0xffff0000.toInt()
+    const val OPAQUE_GREEN = 0xff00ff00.toInt()
+
+    val QUAD =
+      PositionQuad(
+        Position(-1.0, 1.0),
+        Position(1.0, 1.0),
+        Position(1.0, -1.0),
+        Position(-1.0, -1.0),
+      )
+  }
 
   private class RecordingOperations(private val delegate: RecordingStyleBinding) :
     StyleBinding by delegate {

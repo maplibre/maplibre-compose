@@ -9,18 +9,17 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * GL JS uploads style images with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` on. Compose leaves the colour
- * channels straight; scaling them here would darken a translucent image to a quarter after WebGL
- * does it again.
+ * GL JS premultiplies at texture upload. Compose leaves the colour channels straight; scaling them
+ * during preparation would darken a translucent image to a quarter after WebGL does it again.
  */
 class GlJsImageTest {
 
   @Test
-  fun a_translucent_bitmap_is_uploaded_straight() {
+  fun a_translucent_bitmap_is_prepared_straight() {
     val bitmap = ImageBitmap(1, 1)
     Canvas(bitmap).drawRect(Rect(0f, 0f, 1f, 1f), Paint().apply { color = Color(255, 0, 0, 128) })
 
-    val pixels = bitmap.toGlJsImage().data
+    val pixels = PreparedImage.fromBitmap(bitmap).pixels.styleImageData().data
     assertEquals(255, pixels[0].toInt() and 0xFF, "red")
     assertEquals(0, pixels[1].toInt() and 0xFF, "green")
     assertEquals(0, pixels[2].toInt() and 0xFF, "blue")

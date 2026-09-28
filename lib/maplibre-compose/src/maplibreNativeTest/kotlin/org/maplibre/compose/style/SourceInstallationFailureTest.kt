@@ -13,6 +13,7 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 class SourceInstallationFailureTest {
@@ -33,7 +34,7 @@ class SourceInstallationFailureTest {
           val changedBounds = bounds.copy(topLeft = Position(-2.0, 1.0))
           val initial =
             assertIs<SourceDefinition.Image>(
-              ImageSource("image", bounds, ImageBitmap(1, 1)).definition()
+              ImageSource("image", bounds, PreparedImage.fromBitmap(ImageBitmap(1, 1))).definition()
             )
           val next =
             assertIs<SourceDefinition.Image>(
@@ -56,6 +57,10 @@ class SourceInstallationFailureTest {
                 // coordinates intact on the original source.
                 native.setImageSourceUrl(if (rejectContent) "missing" else sourceId, url)
               }
+
+              override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
+                native.setImageSourceImage(if (rejectContent) "missing" else sourceId, image)
+              }
             }
           val installation = SourceInstallation(binding, initial)
           repeat(2) {
@@ -70,6 +75,16 @@ class SourceInstallationFailureTest {
           rejectContent = false
           installation.update(next)
           assertEquals(next, installation.definition)
+
+          // Rejected pixels are retried in the same way.
+          rejectContent = true
+          assertFailsWith<StyleMutationException> { installation.update(initial) }
+          val partial = assertIs<SourceDefinition.Image>(installation.definition)
+          assertEquals(initial.coordinates, partial.coordinates)
+          assertEquals(next.image, partial.image)
+          rejectContent = false
+          installation.update(initial)
+          assertEquals(initial, installation.definition)
         }
       }
     }

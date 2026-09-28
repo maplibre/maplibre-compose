@@ -46,7 +46,8 @@ it returns:
 ## Prepared images
 
 For imperative image updates, prepare an image with
-`ResolvedStyleImage.fromBitmap` or `.fromPainter`, then submit it with
+`ResolvedStyleImage(PreparedImage.fromBitmap(bitmap))` or
+`ResolvedStyleImage.fromPainter`, then submit it with
 `state.style.images.set(id, image)`. Preparation owns a pixel copy,
 so the result can be reused across image IDs and loaded styles.
 

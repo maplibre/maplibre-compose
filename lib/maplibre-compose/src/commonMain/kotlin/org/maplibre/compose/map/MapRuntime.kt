@@ -504,8 +504,11 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
-      override fun <T> run(action: () -> T): T =
-        owner?.runStyleHandleOperation(style, action) ?: action()
+      // An action may return null, so only a missing owner runs it unguarded.
+      override fun <T> run(action: () -> T): T {
+        val owner = owner ?: return action()
+        return owner.runStyleHandleOperation(style, action)
+      }
 
       override fun isSourceWritable(id: String): Boolean = owner?.isSourceWritable(id) == true
 

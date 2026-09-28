@@ -153,7 +153,7 @@ internal class StyleResourceCommands(
     images.keys.forEach(::requireImageWritable)
     // Snapshot the caller's collection; prepared images already own their immutable pixels.
     val definitions = images.mapValues { (id, image) ->
-      StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)
+      StyleImageDefinition(id, image.image, image.sdf, image.stretch)
     }
     val sequence = enqueueImageWrites(definitions)
     submit(
@@ -207,15 +207,16 @@ internal class StyleResourceCommands(
         isExplicitImage(id)
     )
       return@withCommit
+    val definition = StyleImageDefinition(id, image.image, image.sdf, image.stretch)
     withContext(NonCancellable) {
-      // A queued miss may arrive after another request supplied the image; an unloaded style has
-      // nothing left to supply.
-      if (binding.awaitOwner { binding.imageExists(id) } != false) return@withContext
-      // The same path as set: the engine converts pixels off the owner, then uploads in one task.
-      binding
-        .setImages(listOf(StyleImageDefinition(id, image.pixels, image.sdf, image.stretch)))
-        .single()
-        .getOrThrow()
+      // A queued miss may arrive after another request supplied the image, so the check and the
+      // write share one owner task. An unloaded style has nothing left to supply.
+      val supplied = binding.awaitOwner {
+        if (binding.imageExists(id) != false) return@awaitOwner false
+        binding.setImage(definition)
+        true
+      }
+      if (supplied != true) return@withContext
       if (style.isCurrentLoadedStyle(binding)) {
         lock.withLock { images[id] = true }
         binding.identity.images.remove(id)
@@ -263,11 +264,10 @@ internal class StyleResourceCommands(
     writes.keys.forEach(::requireImageWritable)
     val definitions = writes.values.filterNotNull()
     val removals = writes.filterValues { it == null }.keys
-    val set = if (definitions.isEmpty()) emptyList() else binding.setImages(definitions)
-    val removed =
-      if (removals.isEmpty()) emptyList()
-      else binding.onOwner { removals.map { runCatching<Unit> { binding.removeImage(it) } } }
-    val results = set + removed
+    val results = binding.onOwner {
+      definitions.map { runCatching { binding.setImage(it) } } +
+        removals.map { runCatching<Unit> { binding.removeImage(it) } }
+    }
     if (!style.isCurrentLoadedStyle(binding)) return
     (definitions.map { it.id } + removals).zip(results).forEach { (id, result) ->
       result.fold(

@@ -26,6 +26,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.runGraphicsTest
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class RuntimeShaderPainterTest {
@@ -36,7 +37,7 @@ class RuntimeShaderPainterTest {
       val painter = shaderPainter()
       val source =
         GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
-      var captured: ImageSnapshot? = null
+      var captured: PreparedImage? = null
       composeStyle(
         graphicsContext = graphics,
         awaitRevision = { it.images.size == 1 },
@@ -92,7 +93,7 @@ class RuntimeShaderPainterTest {
     runTest {
       val image = ResolvedStyleImage.fromPainter(shaderPainter(), Density(1f), LayoutDirection.Ltr)
       val pixels = IntArray(16)
-      image.toImageBitmap().readPixels(pixels)
+      image.image.toImageBitmap().readPixels(pixels)
       assertEquals(List(16) { 0xffff0000.toInt() }, pixels.toList())
     }
   }

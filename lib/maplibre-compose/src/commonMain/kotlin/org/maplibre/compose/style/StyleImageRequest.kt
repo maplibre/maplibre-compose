@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.map.ResolvedStyleImage
+import org.maplibre.compose.util.prepareInEngineContext
 
 internal sealed interface StyleImageRequest {
   data class Bitmap(val literal: BitmapLiteral) : StyleImageRequest
@@ -18,10 +19,16 @@ internal sealed interface StyleImageRequest {
   ) : StyleImageRequest
 }
 
-internal fun StyleImageRequest.Bitmap.prepare() =
-  ResolvedStyleImage(ImageSnapshot.capture(literal.value), literal.sdf, literal.stretch)
+internal suspend fun StyleImageRequest.prepare(): ResolvedStyleImage =
+  when (this) {
+    is StyleImageRequest.Bitmap -> prepare()
+    is StyleImageRequest.Painter -> prepare()
+  }
 
-internal suspend fun StyleImageRequest.Painter.prepare(): ResolvedStyleImage {
+private suspend fun StyleImageRequest.Bitmap.prepare() =
+  ResolvedStyleImage(prepareInEngineContext(literal.value), literal.sdf, literal.stretch)
+
+private suspend fun StyleImageRequest.Painter.prepare(): ResolvedStyleImage {
   val bitmap =
     renderPainter(
       literal.value,
@@ -33,5 +40,5 @@ internal suspend fun StyleImageRequest.Painter.prepare(): ResolvedStyleImage {
       literal.alpha,
       literal.colorFilter,
     )
-  return ResolvedStyleImage(ImageSnapshot.capture(bitmap), literal.sdf, literal.stretch)
+  return ResolvedStyleImage(prepareInEngineContext(bitmap), literal.sdf, literal.stretch)
 }

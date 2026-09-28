@@ -1,6 +1,5 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,7 +19,7 @@ import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
 import org.maplibre.compose.sources.rasterDemSourceJson
 import org.maplibre.compose.sources.toDataJson
-import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -86,20 +85,6 @@ internal interface StyleBinding {
    * two.
    */
   fun setImage(definition: StyleImageDefinition)
-
-  /**
-   * Installs a batch in one owner operation, retaining an independent result for each image. An
-   * engine that converts pixels before the upload does so off the caller, so this function suspends
-   * and must not run inside [awaitOwner].
-   */
-  suspend fun setImages(definitions: List<StyleImageDefinition>): List<Result<Unit>> =
-    definitions.map {
-      runCatching { setImage(it) }
-    }
-
-  fun setImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
-    setImage(StyleImageDefinition(id, ImageSnapshot.capture(image), sdf, stretch))
-  }
 
   /** @return whether [id] was in the style. */
   fun removeImage(id: String): Boolean
@@ -315,9 +300,8 @@ internal interface StyleBinding {
       is SourceDefinition.GeoJson ->
         addGeoJsonSource(definition.id, definition.data, definition.options)
       is SourceDefinition.Image ->
-        definition.image?.let {
-          addImageSourceImage(definition.id, definition.coordinates, it.toImageBitmap())
-        } ?: addSource(definition.id, definition.value)
+        definition.image?.let { addImageSourceImage(definition.id, definition.coordinates, it) }
+          ?: addSource(definition.id, definition.value)
       is SourceDefinition.CustomGeometry ->
         addCustomGeometrySource(definition.id, definition.options, definition.provider)
       is SourceDefinition.CustomVector ->
@@ -350,7 +334,7 @@ internal interface StyleBinding {
   fun sourceExists(sourceId: String): Boolean?
 
   /**
-   * Adds an image source from pixel data when source JSON only supports a URL.
+   * Adds an image source from prepared pixels, which source JSON cannot carry.
    *
    * @param coordinates the four corners in MapLibre's order: top left, top right, bottom right,
    *   bottom left.
@@ -360,7 +344,7 @@ internal interface StyleBinding {
   fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
-    image: ImageBitmap,
+    image: PreparedImage,
   ): Boolean
 
   /** Queues an imperative write for the installation captured by the source handle. */
@@ -368,8 +352,8 @@ internal interface StyleBinding {
     if (identity.sources.isCurrent(sourceId, resourceIdentity)) action()
   }
 
-  /** Prepares owned pixels on the caller; the returned command applies them synchronously. */
-  fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit
+  /** Replaces an image source's content with prepared pixels. */
+  fun setImageSourceImage(sourceId: String, image: PreparedImage)
 
   /** Replaces an image source's content with a URL. */
   fun setImageSourceUrl(sourceId: String, url: String)

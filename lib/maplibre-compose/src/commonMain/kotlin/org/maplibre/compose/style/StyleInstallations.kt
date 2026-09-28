@@ -70,7 +70,7 @@ internal class SourceInstallation(
         if (
           previous.image != definition.image || previous.value["url"] != definition.value["url"]
         ) {
-          definition.image?.let { style.prepareImageSourceUpdate(id, it).invoke() }
+          definition.image?.let { style.setImageSourceImage(id, it) }
             ?: style.setImageSourceUrl(
               id,
               (definition.value["url"] as? JsonPrimitive)?.content.orEmpty(),

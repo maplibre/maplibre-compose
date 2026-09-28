@@ -1,6 +1,10 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,16 +15,28 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import org.maplibre.compose.logging.MapLogLevel
+import org.maplibre.compose.logging.MapLogRecord
+import org.maplibre.compose.logging.MapLogSource
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
+import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.spatialk.geojson.Position
 
 class StyleResourceCommandTest {
   @Test
@@ -45,12 +61,12 @@ class StyleResourceCommandTest {
               buffer[bufferOffset] = callerPixel
             }
           }
-        val first = ResolvedStyleImage.fromBitmap(callerBitmap)
+        val first = ResolvedStyleImage(PreparedImage.fromBitmap(callerBitmap))
         callerPixel = 0xff0000ff.toInt()
         val retainedPixel = IntArray(1)
-        first.toImageBitmap().readPixels(retainedPixel)
+        first.image.toImageBitmap().readPixels(retainedPixel)
         assertEquals(0xffff0000.toInt(), retainedPixel[0], "preparation owns a pixel copy")
-        val replacement = ResolvedStyleImage.fromBitmap(ImageBitmap(2, 1))
+        val replacement = ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(2, 1)))
         val parked = TestLatch(1)
         val release = TestLatch(1)
         val ownerReleased = CompletableDeferred<Boolean>()
@@ -112,6 +128,7 @@ class StyleResourceCommandTest {
     try {
       snapshotter.capture(MapSnapshotRequest(8, 8))
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
+      val imageSource = snapshotter.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
       val holdOwner =
         async(Dispatchers.Default) {
           binding.readMap {
@@ -121,6 +138,8 @@ class StyleResourceCommandTest {
         }
       assertTrue(parked.await(5_000))
       snapshotter.style.images.remove("absent")
+      // Snapshotter handles are not confined to the main thread.
+      withContext(Dispatchers.Default) { imageSource.setImage(image(OPAQUE_GREEN)) }
       release.countDown()
       holdOwner.await()
       snapshotter.style.awaitCommands()
@@ -131,6 +150,104 @@ class StyleResourceCommandTest {
       runtime.close()
       runtime.awaitClosed()
       FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
+
+  @Test
+  fun image_source_writes_return_while_the_owner_is_busy_and_apply_in_call_order() = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val binding = fixture.style as MlnFfiStyleBinding
+      val handle = fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val parked = TestLatch(1)
+      val release = TestLatch(1)
+      val ownerReleased = CompletableDeferred<Boolean>()
+      recordingLogs { records ->
+        try {
+          assertTrue(
+            (fixture.session as MlnFfiMapSession).postOwnerTaskForTest {
+              parked.countDown()
+              ownerReleased.complete(release.await(5_000))
+            }
+          )
+          assertTrue(parked.await(5_000))
+          handle.setImage(image(OPAQUE_GREEN))
+          handle.setUri("https://example.invalid/image.png")
+          handle.setImage(image(OPAQUE_RED))
+          handle.setBounds(MOVED)
+          assertFalse(ownerReleased.isCompleted, "writes must return while the owner stays parked")
+        } finally {
+          release.countDown()
+        }
+        assertTrue(ownerReleased.await())
+        assertEquals(MOVED.corners(), binding.readMap { it.imageSourceCorners("image") })
+        assertEquals(emptyList(), records.problems())
+      }
+    }
+  }
+
+  @Test
+  fun a_source_write_whose_style_unloads_mid_task_is_dropped() = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val binding = fixture.style as MlnFfiStyleBinding
+      fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val identity = binding.identity.sources.get("image")
+      val ran = TestLatch(1)
+      recordingLogs { records ->
+        // The unload lands after the task passed its loaded and identity checks.
+        binding.postSourceUpdate("image", identity) {
+          binding.invalidate()
+          try {
+            binding.setImageSourceImage("image", image(OPAQUE_GREEN))
+          } finally {
+            ran.countDown()
+          }
+        }
+        assertTrue(ran.await(5_000))
+        val drained = TestLatch(1)
+        assertTrue(
+          (fixture.session as MlnFfiMapSession).postOwnerTaskForTest { drained.countDown() }
+        )
+        assertTrue(drained.await(5_000))
+        assertEquals(emptyList(), records.problems())
+      }
+    }
+  }
+
+  @Test
+  fun a_write_queued_behind_a_removal_does_not_reach_a_same_id_replacement() = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val binding = fixture.style as MlnFfiStyleBinding
+      val style = fixture.state.style
+      val handle = style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val parked = TestLatch(1)
+      val release = TestLatch(1)
+      recordingLogs { records ->
+        try {
+          assertTrue(
+            (fixture.session as MlnFfiMapSession).postOwnerTaskForTest {
+              parked.countDown()
+              release.await(5_000)
+            }
+          )
+          assertTrue(parked.await(5_000))
+          handle.remove()
+          handle.setBounds(MOVED)
+          handle.setImage(image(OPAQUE_GREEN))
+          val replacement =
+            async(start = CoroutineStart.UNDISPATCHED) {
+              style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+            }
+          release.countDown()
+          replacement.await()
+        } finally {
+          release.countDown()
+        }
+        assertEquals(QUAD.corners(), binding.readMap { it.imageSourceCorners("image") })
+        assertEquals(emptyList(), records.problems())
+      }
     }
   }
 
@@ -160,7 +277,7 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val actual = fixture.style as MlnFfiStyleBinding
-      val prepared = ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
+      val prepared = ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       fixture.state.style.images.set("retained", prepared)
       fixture.state.style.awaitCommands()
       for (mutating in listOf(false, true)) {
@@ -191,5 +308,50 @@ class StyleResourceCommandTest {
         assertEquals(true, actual.imageExists("retained"))
       }
     }
+  }
+
+  private fun image(pixel: Int): PreparedImage =
+    PreparedImage.fromBitmap(ImageBitmap(1, 1).also { it.fill(pixel) })
+
+  private fun ImageBitmap.fill(pixel: Int) {
+    Canvas(this).drawRect(Rect(0f, 0f, 1f, 1f), Paint().apply { color = Color(pixel) })
+  }
+
+  private fun PositionQuad.corners(): List<Pair<Double, Double>> =
+    listOf(topLeft, topRight, bottomRight, bottomLeft).map { it.longitude to it.latitude }
+
+  private fun MapHandle.imageSourceCorners(id: String): List<Pair<Double, Double>>? =
+    imageSourceCoordinates(id)?.map { it.longitude to it.latitude }
+
+  /** Records what the library logs while [block] runs. */
+  private inline fun recordingLogs(block: (RecordingList<MapLogRecord>) -> Unit) {
+    val records = RecordingList<MapLogRecord>()
+    val previous = MapLogging.logger
+    MapLogging.logger = MapLogger { records += it }
+    try {
+      block(records)
+    } finally {
+      MapLogging.logger = previous
+    }
+  }
+
+  /** The library logs a failed owner task as an error and a rejected source write as a warning. */
+  private fun List<MapLogRecord>.problems(): List<String> = filter {
+    it.source == MapLogSource.Library && it.level >= MapLogLevel.Warning
+  }
+    .map { it.message }
+
+  private companion object {
+    const val OPAQUE_RED = 0xffff0000.toInt()
+    const val OPAQUE_GREEN = 0xff00ff00.toInt()
+
+    val QUAD =
+      PositionQuad(
+        Position(-1.0, 1.0),
+        Position(1.0, 1.0),
+        Position(1.0, -1.0),
+        Position(-1.0, -1.0),
+      )
+    val MOVED = QUAD.copy(topLeft = Position(-2.0, 1.0))
   }
 }

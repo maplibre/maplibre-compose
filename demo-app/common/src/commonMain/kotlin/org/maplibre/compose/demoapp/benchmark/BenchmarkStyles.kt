@@ -1,12 +1,15 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import androidx.compose.ui.graphics.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 internal val BenchmarkOrigin = Position(BenchmarkLongitude, BenchmarkLatitude)
@@ -57,5 +60,9 @@ internal suspend fun loadBenchmarkFixture(config: BenchmarkConfig): BenchmarkFix
         }
       }
     else emptyList()
-  return BenchmarkFixture(prepared, bitmaps.map { ResolvedStyleImage.fromBitmap(it) }, bitmaps)
+  val images =
+    withContext(Dispatchers.Default) {
+      bitmaps.map { ResolvedStyleImage(PreparedImage.fromBitmap(it)) }
+    }
+  return BenchmarkFixture(prepared, images, bitmaps)
 }

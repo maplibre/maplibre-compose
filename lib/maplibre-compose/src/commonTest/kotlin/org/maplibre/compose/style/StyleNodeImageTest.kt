@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ImageValue
@@ -34,6 +35,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.PreparedImage
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StyleNodeImageTest {
@@ -47,7 +49,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         backgroundScope,
-        preparePainter = { request ->
+        prepareImage = { request ->
           if (request == replacement) ready.await()
           content(if (request == replacement) 2 else 1)
         },
@@ -97,7 +99,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
-        preparePainter = { content(1) },
+        prepareImage = { content(1) },
         publish = { revisions += it },
       )
     try {
@@ -125,7 +127,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         backgroundScope,
-        preparePainter = {
+        prepareImage = {
           started++
           try {
             awaitCancellation()
@@ -153,6 +155,49 @@ class StyleNodeImageTest {
     assertEquals(2, cancelled)
   }
 
+  @Test
+  fun bitmap_literals_are_read_in_the_image_scope_not_during_commit() = runTest {
+    val bitmap = FakeImageBitmap(2, 1)
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { snapshots += it })
+    root.children +=
+      imageLayer("bitmap", StyleImageRequest.Bitmap(BitmapLiteral.of(bitmap, false, null)))
+    root.commit()
+
+    val pending = snapshots.last()
+    assertEquals(0, bitmap.reads)
+    assertTrue(pending.imagesPending)
+    assertEquals(
+      null,
+      (pending.layers.single().definition.value["paint"] as? JsonObject)?.get("fill-pattern"),
+    )
+
+    runCurrent()
+    assertEquals(1, bitmap.reads)
+    root.close()
+  }
+
+  @Test
+  fun painters_that_draw_identical_pixels_share_one_style_image() = runTest {
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        prepareImage = { content(1) },
+        publish = { snapshots += it },
+      )
+    root.children +=
+      listOf(imageLayer("red", painter(Color.Red)), imageLayer("blue", painter(Color.Blue)))
+    root.commit()
+    runCurrent()
+
+    val ready = snapshots.last()
+    assertFalse(ready.imagesPending)
+    assertEquals(1, ready.images.size)
+    root.close()
+  }
+
   private fun imageLayer(id: String, request: StyleImageRequest, source: Source? = null) =
     LayerNode(TestLayer(id, "fill", source).definition(), Anchor.Top).apply {
       this.source = source
@@ -172,7 +217,7 @@ class StyleNodeImageTest {
     revision.layers.first().definition.value["paint"] as JsonObject
 
   private fun content(width: Int) =
-    ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(width, 1)), false, null)
+    ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(width, 1)), false, null)
 
   private fun painter(color: Color) =
     StyleImageRequest.Painter(

@@ -1,7 +1,6 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -9,9 +8,9 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 /** A map data source of an image placed at a given position. */
@@ -19,8 +18,8 @@ public class ImageSource : RasterSource {
 
   private val content: Content
 
-  /** Create an ImageSource from coordinates and a bitmap image. */
-  public constructor(id: String, position: PositionQuad, image: ImageBitmap) : super(id) {
+  /** Create an ImageSource from coordinates and a prepared image. */
+  public constructor(id: String, position: PositionQuad, image: PreparedImage) : super(id) {
     content = Declared(position, url = "", image = image)
   }
 
@@ -44,7 +43,7 @@ public class ImageSource : RasterSource {
           id,
           toJson(),
           content.bounds.toCorners(),
-          content.image?.let(ImageSnapshot::capture),
+          content.image,
         )
       is FromStyle -> super.definition()
     }
@@ -66,7 +65,7 @@ public class ImageSource : RasterSource {
   private sealed interface Content
 
   /** @param image The pixels this source draws, or null when [url] names them. */
-  private class Declared(val bounds: PositionQuad, val url: String, val image: ImageBitmap?) :
+  private class Declared(val bounds: PositionQuad, val url: String, val image: PreparedImage?) :
     Content
 
   /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
@@ -94,12 +93,12 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
   }
 
 /**
- * Remember a new [ImageSource] from the given [bitmap].
+ * Remember a new [ImageSource] from the given [image].
  *
- * Recomposition publishes a new immutable source definition when [position] or [bitmap] changes.
+ * Recomposition publishes a new immutable source definition when [position] or [image] changes.
  */
 @Composable
-public fun rememberImageSource(position: PositionQuad, bitmap: ImageBitmap): ImageSource =
+public fun rememberImageSource(position: PositionQuad, image: PreparedImage): ImageSource =
   rememberUserSource {
-    ImageSource(id = it, position = position, image = bitmap)
+    ImageSource(id = it, position = position, image = image)
   }

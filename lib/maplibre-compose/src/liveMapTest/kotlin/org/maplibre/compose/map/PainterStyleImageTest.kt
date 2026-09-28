@@ -39,8 +39,8 @@ class PainterStyleImageTest {
           LayoutDirection.Ltr,
           size = size,
         )
-      assertEquals(1, resolved.width)
-      assertEquals(1, resolved.height)
+      assertEquals(1, resolved.image.width)
+      assertEquals(1, resolved.image.height)
     }
   }
 
@@ -88,11 +88,11 @@ class PainterStyleImageTest {
         alpha = 0.5f,
         colorFilter = ColorFilter.tint(Color.Blue),
       )
-    assertEquals(6, resolved.width)
-    assertEquals(4, resolved.height)
+    assertEquals(6, resolved.image.width)
+    assertEquals(4, resolved.image.height)
     assertEquals(stretch, resolved.stretch)
     val pixel = IntArray(1)
-    resolved.toImageBitmap().readPixels(pixel, width = 1, height = 1)
+    resolved.image.toImageBitmap().readPixels(pixel, width = 1, height = 1)
     assertEquals(0xff, pixel[0] and 0xffffff)
     assertTrue((pixel[0] ushr 24) in 127..128)
 
@@ -104,6 +104,6 @@ class PainterStyleImageTest {
         drawAsSdf = true,
       )
     assertTrue(sdf.sdf)
-    assertTrue(sdf.width > 0 && sdf.height > 0)
+    assertTrue(sdf.image.width > 0 && sdf.image.height > 0)
   }
 }

@@ -19,6 +19,7 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
+import org.maplibre.compose.util.unpremultiplyChannel
 import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
@@ -394,9 +395,9 @@ private class NativeSnapshotterAdapter(
       for (x in 0 until info.width) {
         val source = y * info.stride + x * 4
         val alpha = bytes[source + 3].toInt() and 0xff
-        val red = unpremultiply(bytes[source].toInt() and 0xff, alpha)
-        val green = unpremultiply(bytes[source + 1].toInt() and 0xff, alpha)
-        val blue = unpremultiply(bytes[source + 2].toInt() and 0xff, alpha)
+        val red = unpremultiplyChannel(bytes[source].toInt() and 0xff, alpha)
+        val green = unpremultiplyChannel(bytes[source + 1].toInt() and 0xff, alpha)
+        val blue = unpremultiplyChannel(bytes[source + 2].toInt() and 0xff, alpha)
         pixels[y * info.width + x] =
           if (transparent) {
             (alpha shl 24) or (red shl 16) or (green shl 8) or blue
@@ -463,9 +464,6 @@ private class NativeSnapshotterAdapter(
     }
     operation.await().getOrThrow()
   }
-
-  private fun unpremultiply(channel: Int, alpha: Int): Int =
-    if (alpha == 0) 0 else (channel * 255 + alpha / 2) / alpha
 
   private fun MapSnapshotRequest.extent(): MapExtent =
     MapExtent.fromLogical(width, height, density.toDouble())

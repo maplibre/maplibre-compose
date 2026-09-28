@@ -10,7 +10,7 @@ internal class StyleNode(
   imageScope: CoroutineScope,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-  preparePainter: suspend (StyleImageRequest.Painter) -> ResolvedStyleImage = { it.prepare() },
+  prepareImage: suspend (StyleImageRequest) -> ResolvedStyleImage = { it.prepare() },
   private val publish: (StyleSnapshot) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
@@ -23,7 +23,7 @@ internal class StyleNode(
   private var committedSources = emptyList<SourceDefinition>()
   private var animatorDurationScale = 1f
   private var fontScale: Float? = null
-  private val images = StyleImageRegistry(imageScope, preparePainter, ::publishSnapshot)
+  private val images = StyleImageRegistry(imageScope, prepareImage, ::publishSnapshot)
   private var closed = false
 
   fun nextSourceId(): String = sourceIds.next()
