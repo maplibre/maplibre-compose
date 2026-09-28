@@ -115,7 +115,7 @@ internal class AndroidMlnFfiSurfaceController(
 
   fun surfaceDestroyed() {
     if (closed) return
-    onRenderThread {
+    tearDownOnRenderThread {
       try {
         surfaceDestroyedOnRenderThread()
       } catch (error: Throwable) {
@@ -224,8 +224,8 @@ internal class AndroidMlnFfiSurfaceController(
 
   override fun close() {
     if (closed) return
-    onRenderThread {
-      if (closed) return@onRenderThread
+    tearDownOnRenderThread {
+      if (closed) return@tearDownOnRenderThread
       try {
         surfaceDestroyedOnRenderThread()
         closed = true
@@ -251,10 +251,28 @@ internal class AndroidMlnFfiSurfaceController(
 
   private fun <T> onRenderThread(action: () -> T): T {
     if (Looper.myLooper() == renderThread.looper) return action()
-    val task = FutureTask(action)
-    check(renderHandler.post(task)) { "Android map render thread is shutting down" }
+    return postToRenderThread(action).get()
+  }
+
+  /**
+   * Like [onRenderThread], but drops a queued frame instead of drawing it while the caller waits.
+   */
+  private fun <T> tearDownOnRenderThread(action: () -> T): T {
+    val teardown = {
+      cancelFrame()
+      action()
+    }
+    if (Looper.myLooper() == renderThread.looper) return teardown()
+    val task = postToRenderThread(teardown)
+    // Removing after posting also drops a frame requested between the two.
+    renderHandler.removeCallbacks(renderFrame)
     return task.get()
   }
+
+  private fun <T> postToRenderThread(action: () -> T): FutureTask<T> =
+    FutureTask(action).also {
+      check(renderHandler.post(it)) { "Android map render thread is shutting down" }
+    }
 
   private fun fail(message: String, error: Throwable) {
     if (error is VirtualMachineError) throw error
