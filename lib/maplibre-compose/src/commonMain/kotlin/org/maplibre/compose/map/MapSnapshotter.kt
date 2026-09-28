@@ -300,6 +300,8 @@ internal class MapSnapshotterImplementation(
       )
     }
 
+  // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
+  // once while runQueue() holds the next capture until cleanup ends.
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =
     suspendCancellableCoroutine { continuation ->
       val capture = Capture(request, continuation)
@@ -316,22 +318,18 @@ internal class MapSnapshotterImplementation(
     }
 
   override fun close() {
-    var cancellation: CompletableDeferred<Result<Unit>>? = null
-    val finishNow = lock.withLock {
-      if (closed) return
-      closed = true
-      val queued = queue.toList()
-      queue.clear()
-      queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
-      active?.also {
-        cancellation = markCancellationLocked(it)
-        it.abandon(snapshotterClosedCancellation())
-        it.operation?.cancel()
+    val (finishNow, cancellation) =
+      lock.withLock {
+        if (closed) return
+        closed = true
+        val queued = queue.toList()
+        queue.clear()
+        queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
+        val cancellation = active?.let { abandonActiveLocked(it, snapshotterClosedCancellation()) }
+        (active == null && worker == null) to cancellation
       }
-      active == null && worker == null
-    }
     if (finishNow) runtime.physicalScope.launch { finishClose() }
-    else cancellation?.let(::startActiveCancellation)
+    cancellation?.let(::startActiveCancellation)
   }
 
   override suspend fun awaitClosed() {
@@ -437,22 +435,25 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun cancel(capture: Capture) {
-    var cancellation: CompletableDeferred<Result<Unit>>? = null
-    val wasQueued = lock.withLock {
-      if (queue.remove(capture)) return@withLock true
-      if (active !== capture) return@withLock false
-      capture.abandoned = true
-      cancellation = markCancellationLocked(capture)
-      capture.operation?.cancel()
-      false
+    val cancellation = lock.withLock {
+      if (queue.remove(capture) || active !== capture) return
+      abandonActiveLocked(capture)
     }
-    if (!wasQueued) cancellation?.let(::startActiveCancellation)
+    cancellation?.let(::startActiveCancellation)
   }
 
   /** Returns a new cleanup marker, or null when cleanup has already started. */
-  private fun markCancellationLocked(capture: Capture): CompletableDeferred<Result<Unit>>? {
-    if (capture.cancellation != null) return null
-    return CompletableDeferred<Result<Unit>>().also { capture.cancellation = it }
+  private fun abandonActiveLocked(
+    capture: Capture,
+    error: Throwable? = null,
+  ): CompletableDeferred<Result<Unit>>? {
+    val cancellation =
+      if (capture.cancellation == null) {
+        CompletableDeferred<Result<Unit>>().also { capture.cancellation = it }
+      } else null
+    capture.abandon(error)
+    capture.operation?.cancel()
+    return cancellation
   }
 
   private fun startActiveCancellation(cancellation: CompletableDeferred<Result<Unit>>) {
@@ -697,9 +698,9 @@ internal class MapSnapshotterImplementation(
       if (!abandoned && continuation.isActive) continuation.resumeWithException(error)
     }
 
-    fun abandon(error: Throwable) {
+    fun abandon(error: Throwable?) {
       abandoned = true
-      if (continuation.isActive) continuation.resumeWithException(error)
+      if (error != null && continuation.isActive) continuation.resumeWithException(error)
     }
   }
 }

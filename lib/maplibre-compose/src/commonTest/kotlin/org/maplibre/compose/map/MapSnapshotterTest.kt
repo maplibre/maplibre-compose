@@ -10,13 +10,17 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -76,6 +80,31 @@ class MapSnapshotterTest {
     snapshotter.awaitClosed()
     runtime.close()
     runtime.awaitClosed()
+  }
+
+  @Test
+  fun capture_work_runs_in_the_runtime_physical_scope() = runTest {
+    var captureContext: String? = null
+    val adapter =
+      FakeSnapshotterAdapter(
+        capture = { request, _ ->
+          captureContext = currentCoroutineContext()[CoroutineName]?.name
+          FakeImageBitmap(request.width, request.height)
+        }
+      )
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope =
+          CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("physical")),
+        createSnapshotterAdapter = { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    withContext(CoroutineName("caller")) { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+
+    assertEquals("physical", captureContext)
+    close(snapshotter, runtime)
   }
 
   @Test
@@ -589,12 +618,12 @@ class MapSnapshotterTest {
       val closure = async { snapshotter.awaitClosed() }
 
       assertFailsWith<CancellationException> { queued.await() }
+      assertFailsWith<CancellationException> { active.await() }
       assertFailsWith<IllegalStateException> {
         snapshotter.capture(MapSnapshotRequest(3, 3))
       }
       assertFalse(closure.isCompleted)
       releaseCleanup.complete(Unit)
-      assertFailsWith<CancellationException> { active.await() }
       closure.await()
       assertTrue(cancelledBeforeInvalidation)
       runtime.close()
