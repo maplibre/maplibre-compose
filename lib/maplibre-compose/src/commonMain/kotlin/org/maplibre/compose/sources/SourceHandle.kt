@@ -189,9 +189,7 @@ public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSou
   public fun setBounds(bounds: PositionQuad): Unit
 
   /**
-   * Queues [image] as the source's content. This returns without reading or converting pixels, so
-   * prepare [image] with [PreparedImage.fromBitmap] beforehand, off the main thread for animation
-   * frames.
+   * Replaces the source image with [image].
    *
    * @throws StyleHandleException if style content declares this source.
    */

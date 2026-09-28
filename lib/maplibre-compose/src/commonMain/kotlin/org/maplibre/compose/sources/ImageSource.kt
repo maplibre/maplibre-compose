@@ -18,7 +18,7 @@ public class ImageSource : RasterSource {
 
   private val content: Content
 
-  /** Create an ImageSource from coordinates and prepared pixels. */
+  /** Create an ImageSource from coordinates and a prepared image. */
   public constructor(id: String, position: PositionQuad, image: PreparedImage) : super(id) {
     content = Declared(position, url = "", image = image)
   }
@@ -95,13 +95,7 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
 /**
  * Remember a new [ImageSource] from the given [image].
  *
- * Recomposition publishes a new immutable source definition when [position] or [image] changes. A
- * new [PreparedImage] with the same pixels publishes nothing, but comparing it reads every pixel.
- * Keep one instance across recompositions: prepare it off the main thread, or remember it per
- * bitmap:
- * ```
- * val image = remember(bitmap) { PreparedImage.fromBitmap(bitmap) }
- * ```
+ * Recomposition publishes a new immutable source definition when [position] or [image] changes.
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, image: PreparedImage): ImageSource =

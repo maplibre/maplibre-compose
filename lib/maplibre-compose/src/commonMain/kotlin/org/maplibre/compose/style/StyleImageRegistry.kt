@@ -7,18 +7,18 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.ResolvedStyleImage
+import org.maplibre.compose.util.EnginePixels
+import org.maplibre.compose.util.ImageStretch
 
-/**
- * Shared image preparation, confined to the composition apply dispatcher. Every request prepares in
- * its own job, so a layer publishes without an image until that image is ready.
- */
+/** Shared image preparation, confined to the composition apply dispatcher. */
 internal class StyleImageRegistry(
   private val scope: CoroutineScope,
   private val prepare: suspend (StyleImageRequest) -> ResolvedStyleImage,
   private val changed: () -> Unit,
 ) {
   private val entries = mutableMapOf<StyleImageRequest, Entry>()
-  private val definitions = mutableMapOf<ResolvedStyleImage, StyleImageDefinition>()
+  // Keyed by content, so painters that draw identical pixels share one style image.
+  private val definitions = mutableMapOf<Content, StyleImageDefinition>()
   private val ids = IncrementingId("image")
 
   val pending: Boolean
@@ -53,7 +53,7 @@ internal class StyleImageRegistry(
   fun retain(retained: List<StyleImageDefinition>) {
     definitions.clear()
     (retained + entries.values.mapNotNull { it.definition }).forEach {
-      definitions[ResolvedStyleImage(it.image, it.sdf, it.stretch)] = it
+      definitions[Content(it.image.pixels, it.sdf, it.stretch)] = it
     }
   }
 
@@ -64,9 +64,11 @@ internal class StyleImageRegistry(
   }
 
   private fun definition(content: ResolvedStyleImage): StyleImageDefinition =
-    definitions.getOrPut(content) {
+    definitions.getOrPut(Content(content.image.pixels, content.sdf, content.stretch)) {
       StyleImageDefinition(ids.next(), content.image, content.sdf, content.stretch)
     }
+
+  private data class Content(val pixels: EnginePixels, val sdf: Boolean, val stretch: ImageStretch?)
 
   private class Entry {
     var definition: StyleImageDefinition? = null

@@ -20,7 +20,12 @@ private constructor(
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
   public companion object {
-    public fun of(value: ImageBitmap, isSdf: Boolean, stretch: ImageStretch?): BitmapLiteral =
-      BitmapLiteral(value, isSdf, stretch)
+    public fun of(value: ImageBitmap, isSdf: Boolean, stretch: ImageStretch?): BitmapLiteral {
+      require(value.width > 0 && value.height > 0) {
+        "Bitmap image size must have positive width and height, but was " +
+          "${value.width}x${value.height}."
+      }
+      return BitmapLiteral(value, isSdf, stretch)
+    }
   }
 }

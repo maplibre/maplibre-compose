@@ -47,13 +47,17 @@ internal actual class EnginePixels(
   private val bytes: Int8Array<ArrayBuffer>
     get() = rgba.unsafeCast<Int8Array<ArrayBuffer>>()
 
-  override fun equals(other: Any?): Boolean =
-    other is EnginePixels &&
-      width == other.width &&
-      height == other.height &&
-      rgba.contentEquals(other.rgba)
+  private val hash by lazy { 31 * (31 * width + height) + rgba.contentHashCode() }
 
-  override fun hashCode(): Int = 31 * (31 * width + height) + rgba.contentHashCode()
+  override fun equals(other: Any?): Boolean =
+    this === other ||
+      other is EnginePixels &&
+        hash == other.hash &&
+        width == other.width &&
+        height == other.height &&
+        rgba.contentEquals(other.rgba)
+
+  override fun hashCode(): Int = hash
 }
 
 internal actual fun enginePixels(width: Int, height: Int, straightArgb: IntArray): EnginePixels {

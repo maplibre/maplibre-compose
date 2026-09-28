@@ -9,20 +9,12 @@ import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.MutableImageSourceHandle
 
 /**
- * Immutable pixels that a map uploads without further conversion.
- *
- * [fromBitmap] does all per-pixel work once. Submitting a prepared image, through
- * [MutableImageSourceHandle.setImage], [ImageSource], or [ResolvedStyleImage], only passes a
- * reference. A prepared image belongs to no map or loaded style: reuse it across maps, styles,
- * handles, snapshotters, and repeated submissions, such as the frames of a looping animation.
- *
- * Two prepared images are equal when their sizes and pixels match. Comparing an image with itself,
- * or with an image whose hash differs, does not read pixels.
+ * Immutable pixels for [ImageSource], [MutableImageSourceHandle.setImage], and
+ * [ResolvedStyleImage]. A prepared image belongs to no map or loaded style, so it can be reused
+ * across maps, loaded styles, and image IDs.
  */
 @Immutable
 public class PreparedImage internal constructor(internal val pixels: EnginePixels) {
-  private val hash = pixels.hashCode()
-
   public val width: Int
     get() = pixels.width
 
@@ -35,21 +27,12 @@ public class PreparedImage internal constructor(internal val pixels: EnginePixel
    */
   public fun toImageBitmap(): ImageBitmap = pixels.toStraightArgb().toImageBitmap(width, height)
 
-  override fun equals(other: Any?): Boolean =
-    this === other || other is PreparedImage && hash == other.hash && pixels == other.pixels
-
-  override fun hashCode(): Int = hash
-
   override fun toString(): String = "PreparedImage(${width}x$height)"
 
   public companion object {
     /**
-     * Copies [bitmap] and converts it to the form the map uploads. This runs on the calling thread
-     * and takes time proportional to the pixel count, so prepare large or frequent images, such as
-     * animation frames, off the main thread. In the browser, everything runs on one thread.
-     *
-     * Do not draw into [bitmap] while this runs. Later changes to [bitmap] have no effect on the
-     * result.
+     * Copies the pixels of [bitmap] on the calling thread, so prepare large images off the main
+     * thread. Later changes to [bitmap] do not change the result.
      *
      * @throws IllegalArgumentException if [bitmap] has a zero width or height.
      */
@@ -59,14 +42,13 @@ public class PreparedImage internal constructor(internal val pixels: EnginePixel
 }
 
 /**
- * Prepares a bitmap for the library's own images: rendered painters and declared bitmap literals.
- * Its pixels are read on the calling thread, which may be the main thread, and converted in
- * [enginePixelsContext], so the caller never pays for the conversion.
+ * Reads [bitmap] on the calling thread and converts it in [enginePixelsContext]. Style image
+ * literals are deduplicated by content, so the content hash is computed there too.
  */
 internal suspend fun prepareInEngineContext(bitmap: ImageBitmap): PreparedImage {
   val read = bitmap.readStraightArgb()
   return withContext(enginePixelsContext) {
-    PreparedImage(enginePixels(read.width, read.height, read.argb))
+    PreparedImage(enginePixels(read.width, read.height, read.argb).also { it.hashCode() })
   }
 }
 
@@ -79,7 +61,10 @@ private fun ImageBitmap.readStraightArgb(): StraightArgb {
   return StraightArgb(width, height, argb)
 }
 
-/** Pixels in the form the platform's engine uploads. Equality compares size and content. */
+/**
+ * Pixels in the form the platform's engine uploads. Equality compares size and content; the hash is
+ * computed once.
+ */
 internal expect class EnginePixels {
   val width: Int
   val height: Int

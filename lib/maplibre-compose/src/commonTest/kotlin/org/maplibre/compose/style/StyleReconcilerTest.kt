@@ -242,8 +242,8 @@ class StyleReconcilerTest {
     reconciler.apply(style, revisionWith(QUAD, first))
     assertSame(first, style.addedImageSourceImages["image"], "the add takes the prepared image")
 
-    reconciler.apply(style, revisionWith(QUAD, image(OPAQUE_RED)))
-    assertTrue(style.imageSourceWrites.isEmpty(), "equal pixels in a new instance write nothing")
+    reconciler.apply(style, revisionWith(QUAD, first))
+    assertTrue(style.imageSourceWrites.isEmpty(), "the same prepared image writes nothing")
 
     val next = image(OPAQUE_GREEN)
     val moved = QUAD.copy(topLeft = Position(-2.0, 1.0))

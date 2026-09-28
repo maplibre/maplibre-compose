@@ -264,7 +264,6 @@ internal class StyleResourceCommands(
     writes.keys.forEach(::requireImageWritable)
     val definitions = writes.values.filterNotNull()
     val removals = writes.filterValues { it == null }.keys
-    // Prepared pixels upload as they are, so the whole batch is one owner task.
     val results = binding.onOwner {
       definitions.map { runCatching { binding.setImage(it) } } +
         removals.map { runCatching<Unit> { binding.removeImage(it) } }

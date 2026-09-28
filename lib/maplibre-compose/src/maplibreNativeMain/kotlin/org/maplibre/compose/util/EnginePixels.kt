@@ -4,10 +4,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 import org.maplibre.nativeffi.render.PremultipliedRgba8Image
 
-/**
- * The tightly packed premultiplied RGBA8 that MapLibre Native uploads. The FFI image owns a copy of
- * its bytes and hands them to each upload without another copy.
- */
+/** The tightly packed premultiplied RGBA8 that MapLibre Native uploads. */
 internal actual class EnginePixels(val ffi: PremultipliedRgba8Image) {
   actual val width: Int
     get() = ffi.width
@@ -27,9 +24,12 @@ internal actual class EnginePixels(val ffi: PremultipliedRgba8Image) {
     }
   }
 
-  override fun equals(other: Any?): Boolean = other is EnginePixels && ffi == other.ffi
+  private val hash by lazy { ffi.hashCode() }
 
-  override fun hashCode(): Int = ffi.hashCode()
+  override fun equals(other: Any?): Boolean =
+    this === other || other is EnginePixels && hash == other.hash && ffi == other.ffi
+
+  override fun hashCode(): Int = hash
 }
 
 /**

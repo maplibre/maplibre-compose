@@ -30,19 +30,9 @@ to `image()`:
 ## Place an image on the map
 
 An <Api of="ImageSource" /> positions one image on the map by its four corner
-coordinates. The image comes from a URI or from a
-<Api of="PreparedImage" />. A <Api of="RasterLayer" /> draws it:
+coordinates. A <Api of="RasterLayer" /> draws it:
 
 <Code code={rememberedMapStyle(region(images, "image-source"))} lang="kotlin" title="App.kt" />
-
-## Animate an image source
-
-To play frames such as a radar loop, prepare each frame once, off the main
-thread, then show one prepared frame at a time. Switching frames does no
-per-pixel work. Prepare the frames outside the `rememberMapState` block, which
-runs again for each loaded style. Here, `frames` is a list of `ImageBitmap`:
-
-<Code code={region(images, "image-source-frames")} lang="kotlin" title="App.kt" />
 
 ## Supply a missing image
 
@@ -55,16 +45,11 @@ it returns:
 
 ## Prepared images
 
-`PreparedImage.fromBitmap` copies a bitmap's pixels into the form the map
-uploads. It runs on the calling thread and takes longer for larger images, so
-call it off the main thread for large images. The result can be reused across
-maps, loaded styles, and image IDs.
-
-An image source and <Api of="MutableImageSourceHandle.setImage" /> take a
-`PreparedImage`. A style image takes a <Api of="ResolvedStyleImage" />: build
-one from a `PreparedImage` and the style-image options, or render a painter
-with `ResolvedStyleImage.fromPainter`. Submit it with
-`state.style.images.set(id, image)`.
+For imperative image updates, prepare an image with
+`ResolvedStyleImage(PreparedImage.fromBitmap(bitmap))` or
+`ResolvedStyleImage.fromPainter`, then submit it with
+`state.style.images.set(id, image)`. Preparation owns a pixel copy,
+so the result can be reused across image IDs and loaded styles.
 
 `set`, `setAll`, and `remove` enqueue commands without waiting for the map. A
 replacement keeps the previous image until it succeeds; an engine rejection is

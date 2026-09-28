@@ -19,19 +19,19 @@ class PreparedImageTest {
     pixels[0] = OPAQUE_GREEN
 
     assertEquals(1, bitmap.reads)
-    assertEquals(prepared, image(2, 1, OPAQUE_RED, OPAQUE_GREEN))
-    assertNotEquals(prepared, image(2, 1, OPAQUE_GREEN, OPAQUE_GREEN))
+    assertEquals(image(2, 1, OPAQUE_RED, OPAQUE_GREEN).pixels, prepared.pixels)
   }
 
   @Test
-  fun equality_is_by_size_and_pixels() {
+  fun prepared_images_are_equal_only_to_themselves() {
     val first = image(2, 1, OPAQUE_RED, OPAQUE_GREEN)
     val second = image(2, 1, OPAQUE_RED, OPAQUE_GREEN)
 
-    assertEquals(first, second)
-    assertEquals(first.hashCode(), second.hashCode())
-    assertNotEquals(first, image(2, 1, OPAQUE_RED, OPAQUE_RED))
-    assertNotEquals(first, image(1, 2, OPAQUE_RED, OPAQUE_GREEN))
+    assertEquals(first, first)
+    assertNotEquals(first, second)
+    assertEquals(first.pixels, second.pixels)
+    assertNotEquals(first.pixels, image(2, 1, OPAQUE_RED, OPAQUE_RED).pixels)
+    assertNotEquals(first.pixels, image(1, 2, OPAQUE_RED, OPAQUE_GREEN).pixels)
   }
 
   @Test
@@ -44,7 +44,7 @@ class PreparedImageTest {
     val image = image(1, 1, OPAQUE_RED)
     val stretch = ImageStretch.capInsets(1.dp, 1.dp, 1.dp, 1.dp)
 
-    assertEquals(ResolvedStyleImage(image), ResolvedStyleImage(image(1, 1, OPAQUE_RED)))
+    assertEquals(ResolvedStyleImage(image), ResolvedStyleImage(image))
     assertNotEquals(ResolvedStyleImage(image), ResolvedStyleImage(image, sdf = true))
     assertNotEquals(ResolvedStyleImage(image), ResolvedStyleImage(image, stretch = stretch))
   }

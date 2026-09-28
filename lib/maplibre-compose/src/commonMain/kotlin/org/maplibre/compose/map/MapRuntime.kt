@@ -90,7 +90,6 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
-import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.positions
@@ -891,11 +890,8 @@ internal constructor(
    * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
    * base style reloads or the resolver is replaced.
    *
-   * The resolver is called on the main thread. [PreparedImage.fromBitmap] converts every pixel on
-   * the thread that calls it, so for a large image, call it inside
-   * `withContext(Dispatchers.Default)`. On MapLibre Native, [ResolvedStyleImage.fromPainter]
-   * already converts off the main thread. Replacing or clearing this property does not cancel calls
-   * already running.
+   * The resolver is called on the main thread. Replacing or clearing this property does not cancel
+   * calls already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver

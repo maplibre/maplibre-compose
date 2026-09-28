@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
-import kotlinx.coroutines.Dispatchers
 import org.maplibre.compose.style.renderPainter
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
@@ -21,12 +20,12 @@ import org.maplibre.compose.util.prepareInEngineContext
 public typealias MissingImageResolver = suspend (id: String) -> ResolvedStyleImage?
 
 /**
- * Wraps a [PreparedImage] with the style-image options [sdf] and [stretch]. Like the prepared
- * image, it is independent of any map; each command targets the style loaded when submitted.
+ * A [PreparedImage] with style-image options. It belongs to no map; each command targets the style
+ * loaded when submitted.
  */
 @Immutable
 public class ResolvedStyleImage(
-  /** The pixels, prepared once and uploaded without further conversion. */
+  /** The image's pixels. */
   public val image: PreparedImage,
   /** Whether the pixels form a signed distance field, which a layer recolors. */
   public val sdf: Boolean = false,
@@ -53,11 +52,7 @@ public class ResolvedStyleImage(
      * [size] is in DP. When omitted, the painter's intrinsic pixel size is used, falling back to 16
      * by 16 DP. [drawAsSdf] converts the rendered pixels to a signed distance field for monochrome
      * icons. [alpha] and [colorFilter] are passed to [Painter.draw]. Changes to the painter after
-     * this call do not update the result. The result's [image] can also be the content of an image
-     * source.
-     *
-     * The platform chooses the thread that renders the painter; on Android it is the main thread.
-     * On MapLibre Native, converting the rendered pixels runs on [Dispatchers.Default].
+     * this call do not update the result.
      *
      * @throws IllegalArgumentException If the size has a non-positive dimension.
      */

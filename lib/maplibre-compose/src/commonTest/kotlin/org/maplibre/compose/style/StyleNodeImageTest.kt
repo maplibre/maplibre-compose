@@ -177,6 +177,27 @@ class StyleNodeImageTest {
     root.close()
   }
 
+  @Test
+  fun painters_that_draw_identical_pixels_share_one_style_image() = runTest {
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        prepareImage = { content(1) },
+        publish = { snapshots += it },
+      )
+    root.children +=
+      listOf(imageLayer("red", painter(Color.Red)), imageLayer("blue", painter(Color.Blue)))
+    root.commit()
+    runCurrent()
+
+    val ready = snapshots.last()
+    assertFalse(ready.imagesPending)
+    assertEquals(1, ready.images.size)
+    root.close()
+  }
+
   private fun imageLayer(id: String, request: StyleImageRequest, source: Source? = null) =
     LayerNode(TestLayer(id, "fill", source).definition(), Anchor.Top).apply {
       this.source = source

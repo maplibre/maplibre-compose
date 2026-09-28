@@ -150,7 +150,6 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  /** The prepared pixels upload as they are; only the per-map scale and stretch resolve here. */
   private fun applyImage(map: MapHandle, definition: StyleImageDefinition) {
     val (id, image, sdf, stretch) = definition
     val scale = getScale()
