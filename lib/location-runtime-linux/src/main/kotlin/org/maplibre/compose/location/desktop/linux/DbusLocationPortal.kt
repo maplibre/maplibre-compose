@@ -112,17 +112,9 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
           }
         }
 
-      val response = start(connection, portal, sessionPath)
-      when (response) {
-        0L -> Unit
-        1L -> {
-          trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
-          close()
-        }
-        else -> {
-          trySend(LocationEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable))
-          close()
-        }
+      startFailure(start(connection, portal, sessionPath))?.let { reason ->
+        trySend(LocationEvent.Unavailable(reason))
+        close()
       }
       awaitClose()
     } catch (error: CancellationException) {
@@ -141,14 +133,6 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     .flowOn(Dispatchers.IO)
 
   override fun close() = Unit
-
-  private fun Throwable.asUnavailableReason(): LocationUnavailableReason =
-    when (this) {
-      is DBusException,
-      is DBusExecutionException,
-      is IOException -> LocationUnavailableReason.TemporarilyUnavailable
-      else -> LocationUnavailableReason.UnexpectedFailure
-    }
 
   private fun detectPortal(): Boolean =
     try {
@@ -208,14 +192,6 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     }
   }
 
-  // A distance threshold suppresses even the first update for stationary GeoIP locations.
-  private fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
-    mapOf(
-      "session_handle_token" to Variant(newToken()),
-      "time-threshold" to Variant(UInt32(request.minimumInterval.asPortalThreshold())),
-      "accuracy" to Variant(UInt32(request.accuracy.portalValue)),
-    )
-
   private fun openConnection(): DBusConnection =
     DBusConnectionBuilder.forSessionBus().withShared(false).build()
 
@@ -233,6 +209,35 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     const val DBUS_PATH = "/org/freedesktop/DBus"
   }
 }
+
+// A distance threshold suppresses even the first update for stationary GeoIP locations.
+internal fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
+  mapOf(
+    "session_handle_token" to Variant(newToken()),
+    "time-threshold" to Variant(UInt32(request.minimumInterval.asPortalThreshold())),
+    "accuracy" to Variant(UInt32(request.accuracy.portalValue)),
+  )
+
+/**
+ * Maps a
+ * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)
+ * code from `Location.Start` to the reason the session cannot deliver locations, or null when it
+ * started.
+ */
+internal fun startFailure(response: Long): LocationUnavailableReason? =
+  when (response) {
+    0L -> null
+    1L -> LocationUnavailableReason.PermissionDenied
+    else -> LocationUnavailableReason.TemporarilyUnavailable
+  }
+
+internal fun Throwable.asUnavailableReason(): LocationUnavailableReason =
+  when (this) {
+    is DBusException,
+    is DBusExecutionException,
+    is IOException -> LocationUnavailableReason.TemporarilyUnavailable
+    else -> LocationUnavailableReason.UnexpectedFailure
+  }
 
 private val LocationAccuracy.portalValue: Long
   get() =
