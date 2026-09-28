@@ -451,8 +451,12 @@ def releases(names, local, url):
         result = []
         for tag in names:
             data = (WORK / "archive" / f"{tag}.json").read_bytes()
+            manifest = json.loads(data)
             apks = {kind: apk(tag, kind) for kind in APPS}
-            result.append((tag, sha256(data), json.loads(data), apks))
+            for kind, path in apks.items():
+                if sha256(path.read_bytes()) != manifest["apks"][kind]["sha256"]:
+                    raise SystemExit(f"{path} was rebuilt; archive {tag} again")
+            result.append((tag, sha256(data), manifest, apks))
         return result
     index = json.loads(download(url + INDEX))
     result = []
