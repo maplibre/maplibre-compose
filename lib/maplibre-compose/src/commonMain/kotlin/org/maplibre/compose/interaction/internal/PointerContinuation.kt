@@ -22,6 +22,9 @@ internal data class PointerContinuation(
       CameraComponent.Tilt -> copy(tilt = null)
     }
 
+  fun without(components: Set<CameraComponent>): PointerContinuation =
+    components.fold(this) { continuation, component -> continuation.without(component) }
+
   fun withPrevious(previous: PointerContinuation?): PointerContinuation =
     copy(
       pan = pan ?: previous?.pan,
