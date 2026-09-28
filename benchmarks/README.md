@@ -42,12 +42,12 @@ stacks, including their MapLibre Native revisions.
 
 `image-cycle` reuses prepared 32×32 pixels and times removal plus registration
 together. Completion includes queued commands and map settlement.
-`image-preparation` instead converts a 256×256 bitmap on every update before
-registering it in a visible symbol layer. Its submission time includes
-suspending preparation; it is not a measure of how long the UI thread blocks.
-`image-registration` remains the prepared-image replacement control, using the
-same 256×256 dimensions and rate. No workload reads prepared pixels back just to
-consume a result.
+`image-preparation` instead converts a 256×256 bitmap on `Dispatchers.Default`
+on every update, as the images guide recommends, before registering it in a
+visible symbol layer. Its submission time includes suspending preparation; it is
+not a measure of how long the UI thread blocks. `image-registration` remains the
+prepared-image replacement control, using the same 256×256 dimensions and rate.
+No workload reads prepared pixels back just to consume a result.
 
 `style-overlay` replaces a 600-layer base style and declares an overlay using
 `getBaseSource` and a predicate anchor, then waits for that overlay to render.

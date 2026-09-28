@@ -194,10 +194,9 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   }
 
   override suspend fun prepareImage(index: Int) {
-    state.style.images.set(
-      "workload-image",
-      ResolvedStyleImage(PreparedImage.fromBitmap(resources.bitmaps[index])),
-    )
+    val image =
+      withContext(Dispatchers.Default) { PreparedImage.fromBitmap(resources.bitmaps[index]) }
+    state.style.images.set("workload-image", ResolvedStyleImage(image))
   }
 
   override fun overlay(show: Boolean) {
