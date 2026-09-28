@@ -43,6 +43,14 @@ internal interface MapAdapter {
    */
   suspend fun detachPresentation()
 
+  /** True once [close] has been requested. Readable from any thread. */
+  val isClosing: Boolean
+    get() = false
+
+  /**
+   * Rejects new work at once and starts cleanup. Callable from any thread. A session adopted by a
+   * [MapLifecycleAuthority] reports this with [MapLifecycleAuthority.sessionClosing].
+   */
   fun close()
 
   suspend fun awaitClosed()

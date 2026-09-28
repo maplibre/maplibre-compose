@@ -182,11 +182,11 @@ internal class MlnFfiMapSession(
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
   private val awaitRuntimeReady: suspend () -> Unit = {},
-) : MapLifecycleSession, SessionStamps, MlnFfiMapRenderer, CameraInputTarget {
+) : MapAdapter, MapLifecyclePlatformAdapter, SessionStamps, MlnFfiMapRenderer, CameraInputTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
-  override val lifecycle = lifecycleAuthority.createBinding(this)
+  internal val lifecycle = lifecycleAuthority.createBinding(this)
   private val events =
     MapSessionEvents(map = this, stamps = this, postToMain = lifecycleAuthority::postToMain) {
       this.callbacks
@@ -195,8 +195,6 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   /** Presentation producer installed and sampled only on the native map's owner thread. */
   private var ownerThreadRenderLease: RenderLease? = null
-
-  override val engineRetention: EngineRetention = EngineRetention.RETAIN
 
   override val retainsEngineBetweenPresentations: Boolean = true
 
@@ -575,6 +573,9 @@ internal class MlnFfiMapSession(
     )
   }
 
+  override val isClosing: Boolean
+    get() = !lifecycle.acceptsWork
+
   override fun close() {
     lifecycle.close()
   }
@@ -608,7 +609,7 @@ internal class MlnFfiMapSession(
 
   /** Attaches the engine to the current presentation host, creating the engine if needed. */
   suspend fun attachPresentation() {
-    lifecycleAuthority.register(this)
+    lifecycleAuthority.adopt(this)
     lifecycle.attachRetainedEngine()
   }
 
@@ -682,7 +683,7 @@ internal class MlnFfiMapSession(
   }
 
   fun start() {
-    lifecycleAuthority.register(this)
+    lifecycleAuthority.adopt(this)
     lifecycle.beginAttachIfOpen()
   }
 

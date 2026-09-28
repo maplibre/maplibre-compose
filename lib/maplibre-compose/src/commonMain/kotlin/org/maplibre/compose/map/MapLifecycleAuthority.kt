@@ -23,16 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 
-/** Specifies whether presentation detachment destroys its engine map. */
-internal enum class EngineRetention {
-  RETAIN,
-  DESTROY,
-}
-
 /** Defines platform commands for the logical-map lifecycle authority. */
 internal interface MapLifecyclePlatformAdapter {
-  val engineRetention: EngineRetention
-
   suspend fun createEngine(identity: EngineMapIdentity)
 
   suspend fun attach(identity: EngineMapIdentity, lease: RenderLease)
@@ -42,11 +34,6 @@ internal interface MapLifecyclePlatformAdapter {
   suspend fun destroyEngine(identity: EngineMapIdentity)
 
   suspend fun closeResources()
-}
-
-/** Defines a platform map session with a physical lifecycle controlled by [MapState]. */
-internal interface MapLifecycleSession : MapAdapter, MapLifecyclePlatformAdapter {
-  val lifecycle: MapLifecycleBinding
 }
 
 internal class MapAlreadyAttachedException :
@@ -89,7 +76,8 @@ internal class MapLifecycleAuthority(
    */
   fun postToMain(block: () -> Unit) = postToMain(mainDispatcher, mainThread, block)
 
-  private val platforms = mutableMapOf<MapLifecycleSession, MapLifecycleBinding>()
+  /** Sessions that map closure closes. Each leaves when it reports [sessionClosing]. */
+  private val sessions = linkedSetOf<MapAdapter>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var attachment: Attachment? = null
   private var retainedAdapter: MapAdapter? = null
@@ -145,13 +133,14 @@ internal class MapLifecycleAuthority(
       retainedAdapter?.let(::add)
       attachment?.adapter?.let(::add)
       addAll(retiringAdapters)
-      addAll(platforms.keys)
+      addAll(sessions)
     }
     val recordedFailures = pendingCleanupFailures.toList()
     val releases = releaseCleanups.toList()
     attachment = null
     retainedAdapter = null
     retiringAdapters.clear()
+    sessions.clear()
     pendingCleanupFailures.clear()
     publishAccessView()
     owner.attachmentAuthority.commitClosed()
@@ -222,7 +211,11 @@ internal class MapLifecycleAuthority(
     // Configuration can re-enter and replace this reservation.
     if (closed || attachment !== current || current.releasing || current.adapter !== adapter) return
     if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
-    retainedToReplace?.let(retiringAdapters::add)
+    retainedToReplace?.let { retired ->
+      // Its closure is watched below, so its own closing report must not retire it again.
+      sessions.remove(retired)
+      retiringAdapters += retired
+    }
     owner.attachmentAuthority.commitPresentation(token = token, adapter = adapter)
     publishAccessView()
     owner.attachmentAuthority.seedPresentationViewport(token, adapter)
@@ -334,7 +327,7 @@ internal class MapLifecycleAuthority(
       check(adapter.retainsEngineBetweenPresentations) {
         "A detached platform map requires an engine-retaining adapter"
       }
-      if (adapter is MapLifecycleSession && !register(adapter)) throw MapClosedException()
+      if (!adopt(adapter)) throw MapClosedException()
       retainedAdapter = adapter
       publishAccessView()
       owner.styleAuthority.beginStyleLoadForNewAdapter()
@@ -361,37 +354,37 @@ internal class MapLifecycleAuthority(
   fun acceptPresentationPlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
     acceptPlatformAccess(adapter, accepts = { acceptsPresentation(adapter) }, event)
 
-  /** Allocates session-local state without adopting the session or starting work. */
+  /**
+   * Allocates session-local state without adopting the session or starting work. Closing the
+   * binding reports [sessionClosing] for [adapter] when it is a [MapAdapter].
+   */
   fun createBinding(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding =
-    MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
-      if (adapter is MapLifecycleSession) postToMain { retireClosingSession(adapter, binding) }
+    MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) {
+      if (adapter is MapAdapter) sessionClosing(adapter)
     }
 
-  /** Adopts a fully constructed session, returning false if it or this logical map is closed. */
-  fun register(session: MapLifecycleSession): Boolean {
+  /**
+   * Adopts [session] so that map closure closes it and waits for its cleanup. Returns false if the
+   * session is closing. If this map is closed, closes the session and returns false.
+   */
+  fun adopt(session: MapAdapter): Boolean {
     requireMain()
-    val lifecycle = session.lifecycle
-    if (!lifecycle.acceptsWork) return false
+    if (session.isClosing) return false
     if (isClosed) {
-      lifecycle.close()
+      session.close()
       return false
     }
-    if (platforms.containsKey(session)) return true
-    platforms[session] = lifecycle
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      val failure = runCatching { lifecycle.awaitClosed() }.exceptionOrNull()
-      withContext(mainDispatcher) {
-        retireClosingSession(session, lifecycle)
-        retiringAdapters.remove(session)
-        if (failure != null && !closed) pendingCleanupFailures += failure
-      }
-    }
-    return lifecycle.acceptsWork && !isClosed
+    sessions += session
+    return true
   }
 
-  private fun retireClosingSession(session: MapLifecycleSession, binding: MapLifecycleBinding) {
-    if (platforms[session] !== binding) return
-    platforms.remove(session)
+  /**
+   * Reports that an adopted [session] started closing on its own. Callable from any thread. On
+   * main, the session stops being the presentation or the retained engine, and a cleanup failure is
+   * reported when this map closes. Reports for a session that is not adopted have no effect.
+   */
+  fun sessionClosing(session: MapAdapter) = postToMain {
+    if (!sessions.remove(session)) return@postToMain
     val wasAttached = attachment?.adapter === session
     val wasRetained = retainedAdapter === session
     if (wasAttached) attachment = null
@@ -399,6 +392,13 @@ internal class MapLifecycleAuthority(
     retiringAdapters += session
     publishAccessView()
     if (wasAttached || wasRetained) owner.attachmentAuthority.invalidateClosedAdapter(session)
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      val failure = runCatching { session.awaitClosed() }.exceptionOrNull()
+      withContext(mainDispatcher) {
+        retiringAdapters.remove(session)
+        if (failure != null && !closed) pendingCleanupFailures += failure
+      }
+    }
   }
 
   /** A close request rejects new work at once; it does not wait for the closure to commit. */
@@ -410,7 +410,7 @@ internal class MapLifecycleAuthority(
     check(current.adapter == null || current.adapter === adapter) {
       "The map state already has a presentation adapter"
     }
-    if (adapter is MapLifecycleSession && !register(adapter)) return false
+    if (!adopt(adapter)) return false
     if (current.adapter === adapter) return true
     current.adapter = adapter
     publishAccessView()
@@ -502,7 +502,7 @@ internal class MapLifecycleBinding(
   private val physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   private val mainDispatcher: CoroutineDispatcher,
   private val mainThread: MainThreadGuard,
-  private val onClosing: (MapLifecycleBinding) -> Unit = {},
+  private val onClosing: () -> Unit = {},
 ) {
   /** See [MapLifecycleAuthority.postToMain]. */
   fun postToMain(block: () -> Unit) = postToMain(mainDispatcher, mainThread, block)
@@ -603,9 +603,6 @@ internal class MapLifecycleBinding(
 
   /** Creates a retained engine without requiring a presentation and returns its identity. */
   suspend fun ensureEngine(): EngineMapIdentity {
-    check(adapter.engineRetention == EngineRetention.RETAIN) {
-      "Detached engine creation requires a retained engine"
-    }
     while (true) {
       var launchCreation = false
       val state = current.load()
@@ -720,30 +717,6 @@ internal class MapLifecycleBinding(
     }
   }
 
-  /** Replaces a destroy-on-detach engine without transferring its current presentation lease. */
-  fun beginEngineReplacement(engine: EngineMapIdentity, lease: RenderLease): Boolean {
-    check(adapter.engineRetention == EngineRetention.DESTROY) {
-      "Retained engines do not need same-presentation replacement"
-    }
-    val result = CompletableDeferred<Result<RenderLease>>()
-    val replacement = EngineMapIdentity(nextIdentity.incrementAndFetch())
-    val observed = current.load()
-    if (observed !is InternalState.Attached) return false
-    if (observed.engine != engine || observed.lease != lease) return false
-    val replacing =
-      InternalState.Attaching(
-        engine = replacement,
-        lease = lease,
-        result = result,
-        engineCreated = AtomicBoolean(false),
-      )
-    if (!current.compareAndSet(observed, replacing)) return false
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      performEngineReplacement(engine, replacing)
-    }
-    return true
-  }
-
   /** Commits logical closure synchronously and starts one cancellation-independent cleanup. */
   fun close() {
     val closing: InternalState.Closing
@@ -756,7 +729,7 @@ internal class MapLifecycleBinding(
         break
       }
     }
-    val notificationFailure = runCatching { onClosing(this) }.exceptionOrNull()
+    val notificationFailure = runCatching { onClosing() }.exceptionOrNull()
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       performClose(closing, notificationFailure)
     }
@@ -879,8 +852,7 @@ internal class MapLifecycleBinding(
         )
         return
       }
-      val destroyEngine =
-        !attaching.engineCreated.load() || adapter.engineRetention == EngineRetention.DESTROY
+      val destroyEngine = !attaching.engineCreated.load()
       if (destroyEngine) {
         runCatching { adapter.destroyEngine(attaching.engine) }
           .exceptionOrNull()
@@ -898,51 +870,16 @@ internal class MapLifecycleBinding(
     }
   }
 
-  private suspend fun performEngineReplacement(
-    previousEngine: EngineMapIdentity,
-    attaching: InternalState.Attaching,
-  ) {
-    val failure = runCatching {
-      adapter.destroyEngine(previousEngine)
-      adapter.createEngine(attaching.engine)
-      attaching.engineCreated.store(true)
-      adapter.attach(attaching.engine, attaching.lease)
-    }
-      .exceptionOrNull()
-    if (failure == null) {
-      val committed =
-        current.compareAndSet(attaching, InternalState.Attached(attaching.engine, attaching.lease))
-      attaching.result.complete(
-        if (committed) Result.success(attaching.lease)
-        else Result.failure(MapLeaseInvalidatedException())
-      )
-      return
-    }
-
-    if (attaching.engineCreated.load()) {
-      runCatching { adapter.detach(attaching.engine, attaching.lease) }
-        .exceptionOrNull()
-        ?.let(failure::addSuppressed)
-      runCatching { adapter.destroyEngine(attaching.engine) }
-        .exceptionOrNull()
-        ?.let(failure::addSuppressed)
-    }
-    current.compareAndSet(attaching, InternalState.OpenDetached(null))
-    attaching.result.complete(Result.failure(failure))
-  }
-
   private suspend fun performDetach(detaching: InternalState.Detaching) {
     detaching.attachResult?.await()
     val failures = mutableListOf<Throwable>()
     collectFailure(failures) { adapter.detach(detaching.engine, detaching.lease) }
     val engineCreated = detaching.engineCreated?.load() ?: true
-    val destroyEngine = adapter.engineRetention == EngineRetention.DESTROY || !engineCreated
-    if (destroyEngine) {
+    if (!engineCreated) {
       collectFailure(failures) { adapter.destroyEngine(detaching.engine) }
     }
     val outcome = failures.cleanupResult("Map")
-    val nextEngine =
-      detaching.engine.takeIf { adapter.engineRetention == EngineRetention.RETAIN && engineCreated }
+    val nextEngine = detaching.engine.takeIf { engineCreated }
     current.compareAndSet(detaching, InternalState.OpenDetached(nextEngine))
     detaching.result.complete(outcome)
   }
@@ -973,9 +910,7 @@ internal class MapLifecycleBinding(
     val engine =
       if (previous is InternalState.CreatingEngine && !previous.engineCreated.load()) null
       else previous.engine
-    val detachAlreadyDestroyedEngine =
-      previous is InternalState.Detaching && adapter.engineRetention == EngineRetention.DESTROY
-    if (engine != null && !detachAlreadyDestroyedEngine) {
+    if (engine != null) {
       collectFailure(failures) { adapter.destroyEngine(engine) }
     }
     collectFailure(failures) { adapter.closeResources() }

@@ -91,20 +91,6 @@ class MapLifecycleBindingTest {
   }
 
   @Test
-  fun destroy_on_detach_policy_destroys_an_engine_after_attach_failure() = runTest {
-    val adapter =
-      FakeMapLifecycleAdapter().apply {
-        retention = EngineRetention.DESTROY
-        attachFailure = TestFailure("attach")
-      }
-    val lifecycle = bindLifecycle(adapter)
-
-    assertFailsWith<TestFailure> { lifecycle.attach() }
-
-    assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
-  }
-
-  @Test
   fun detach_during_attach_invalidates_the_lease_and_cleans_the_partial_attachment() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
     val lifecycle = bindLifecycle(adapter)
@@ -231,35 +217,6 @@ class MapLifecycleBindingTest {
     assertTrue(detaching.await().isFailure)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
     assertTrue("close resources" in adapter.commands)
-  }
-
-  @Test
-  fun destroying_detach_invalidates_the_engine_identity_before_reattachment() = runTest {
-    val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
-    val lifecycle = bindLifecycle(adapter)
-    val firstLease = lifecycle.attach()
-    val firstEngine = checkNotNull(lifecycle.engineIdentity)
-
-    lifecycle.detach(firstLease)
-
-    assertTrue(!lifecycle.acceptEngineEvent(firstEngine) { error("destroyed engine event ran") })
-
-    lifecycle.attach()
-    assertTrue(lifecycle.engineIdentity != firstEngine)
-  }
-
-  @Test
-  fun destroy_on_detach_engine_replacement_keeps_the_lease_but_changes_engine_identity() = runTest {
-    val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
-    val lifecycle = bindLifecycle(adapter)
-    val lease = lifecycle.attach()
-    val departedEngine = checkNotNull(lifecycle.engineIdentity)
-
-    assertTrue(lifecycle.beginEngineReplacement(departedEngine, lease))
-
-    assertEquals(lease, lifecycle.renderLease)
-    assertTrue(lifecycle.engineIdentity != departedEngine)
-    assertTrue(!lifecycle.acceptEngineEvent(departedEngine) { error("departed engine event ran") })
   }
 
   @Test
@@ -422,11 +379,6 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
   var destroyFailure: Throwable? = null
   var resourcesFailure: Throwable? = null
   var lastLease: RenderLease? = null
-
-  var retention = EngineRetention.RETAIN
-
-  override val engineRetention: EngineRetention
-    get() = retention
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
     commands += "create $identity"
