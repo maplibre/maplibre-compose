@@ -29,7 +29,9 @@ logs `MAP_BENCHMARK ERROR`; read the app log in the run folder.
 
 Use physical devices, charging, cool, and idle. `adb devices -l` lists them.
 `adb shell dumpsys thermalservice` reports `Thermal Status`; measure only at 0.
-Separate devices can measure in parallel. One device runs one app at a time.
+A fresh install can wait on a Google Play Protect prompt on the device until
+someone answers it. Separate devices can measure in parallel. One device runs
+one app at a time.
 
 Compare results only from the same device, viewport, backend, and fixtures.
 Whenever a workload's definition or operation boundary changes, earlier results
