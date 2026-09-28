@@ -321,6 +321,27 @@ class MacosLocationProviderTest {
   }
 
   @Test
+  fun failedPermissionDelegateSetupClosesManagerAndCanRetry() = runTest {
+    val failure = IllegalStateException("delegate failed")
+    val client = FakeCoreLocationClient().apply { delegateFailure = failure }
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(1, client.managers.single().closeCount)
+
+    val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+    assertEquals(failure, event.cause)
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertTrue(client.managers.all { it.closeCount == 1 })
+
+    client.delegateFailure = null
+    client.nextLocation = sampleMeasurement()
+    assertIs<LocationEvent.Update>(provider.updates().first())
+    assertIs<LocationPermission.Granted>(provider.permission.value)
+    provider.close()
+    assertTrue(client.managers.all { it.closeCount == 1 })
+  }
+
+  @Test
   fun collectionRetriesFailedPermissionChecksWithoutPrompting() = runTest {
     val createFailure = IllegalStateException("native failed")
     val client = FakeCoreLocationClient().apply { this.createFailure = createFailure }
@@ -478,6 +499,7 @@ private class FakeCoreLocationClient(
   var closed = false
   var nextLocation: CoreLocationMeasurement? = null
   var createFailure: Throwable? = null
+  var delegateFailure: Throwable? = null
   private val locationThread = Any()
 
   override fun <T> onLocationThread(action: () -> T): T = synchronized(locationThread, action)
@@ -486,6 +508,7 @@ private class FakeCoreLocationClient(
     createFailure?.let { throw it }
     return FakeCoreLocationManager(nextLocation).also {
       it.authorizationStatus = authorizationStatus
+      it.delegateFailure = delegateFailure
       managers += it
     }
   }
@@ -514,10 +537,12 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
   var updating = false
   var whenInUseRequests = 0
   var onRequest: () -> Unit = {}
+  var delegateFailure: Throwable? = null
   var closeCount = 0
   var closed = false
 
   override fun setDelegate(delegate: CoreLocationDelegate?) {
+    delegateFailure?.let { throw it }
     boundDelegate = delegate
   }
 
