@@ -3,7 +3,6 @@ package org.maplibre.compose.mlnffi
 import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
-import kotlin.time.TimeSource
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.objcPtr
@@ -12,7 +11,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.MapFramePacer
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.throwCleanupFailures
 import platform.Foundation.NSCondition
@@ -29,24 +27,34 @@ import platform.QuartzCore.CAMetalLayer
  * `CADisplayLink` schedules frames. When [maximumFps] is set, the next frame is posted on a delay
  * instead.
  *
- * Every piece of render state below belongs to the render thread; other threads reach it through
- * the queue.
+ * Every piece of render state belongs to the render thread; other threads reach it through the
+ * queue.
  */
 internal class AppleMlnFfiSurfaceController(
-  private val renderer: MlnFfiMapRenderer,
-  private val logger: MapLog?,
+  renderer: MlnFfiMapRenderer,
+  logger: MapLog?,
   maximumFps: Int? = null,
   private val onFailure: (Throwable) -> Unit,
-) : MlnFfiMapHostSession, AutoCloseable {
+) : MlnFfiSurfaceRenderLoop<CAMetalLayer>(renderer, logger, "Apple", maximumFps), AutoCloseable {
   override val isClosed: Boolean
     get() = closeRequested
 
   override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
-  private class ScheduledAction(val runAtUptimeSeconds: Double, val action: () -> Unit)
+  private inner class QueuedAction(val runAtUptimeSeconds: Double, val action: () -> Unit) :
+    ScheduledAction {
+    override fun cancel() {
+      queueCondition.lock()
+      try {
+        queue.remove(this)
+      } finally {
+        queueCondition.unlock()
+      }
+    }
+  }
 
   private val queueCondition = NSCondition()
-  private val queue = ArrayDeque<ScheduledAction>()
+  private val queue = ArrayDeque<QueuedAction>()
   private var queueClosed = false
 
   private val completion = CompletableDeferred<Result<Unit>>()
@@ -56,18 +64,6 @@ internal class AppleMlnFfiSurfaceController(
     }
 
   // Render-thread state.
-  private var layer: CAMetalLayer? = null
-  private var maximumFps = maximumFps
-  private var extent = MapExtent.Empty
-  private var generation = 0L
-  private var nextFrameId = 1L
-  private var framePosted = false
-  private var frameToken = 0L
-  private val pacer = MapFramePacer()
-  private var active = true
-  private var closed = false
-  private var terminalFailure = false
-  private var consecutiveFailures = 0
   private val cleanupFailures = mutableListOf<Throwable>()
 
   /** Set once by the first [close] from any thread, so a second [close] returns early. */
@@ -77,58 +73,17 @@ internal class AppleMlnFfiSurfaceController(
     renderThread.start()
   }
 
-  /** Records [maximumFps] for the post delay. */
-  fun setMaximumFps(maximumFps: Int?) {
-    post {
-      if (!closed && this.maximumFps != maximumFps) {
-        this.maximumFps = maximumFps
-        if (framePosted) {
-          cancelFrame()
-          requestFrameOnRenderThread()
-        }
-      }
-    }
-  }
-
   /** Retains the view's layer through queued rendering and its final renderer release. */
   fun surfaceLayoutChanged(layer: CAMetalLayer, extent: MapExtent) {
     post {
       if (closeRequested) return@post
-      if (layer !== this.layer) {
-        replaceSurfaceOnRenderThread(layer, extent)
-      } else if (extent != this.extent) {
-        resizeSurfaceOnRenderThread(extent)
+      if (layer !== surface) {
+        attachSurface(extent) { layer }
+      } else {
+        // No generation bump: the extent is part of the session's target key, so a resize
+        // retargets the session on its own.
+        resizeSurface(extent, reallocates = false)
       }
-    }
-  }
-
-  private fun replaceSurfaceOnRenderThread(layer: CAMetalLayer, extent: MapExtent) {
-    checkRenderThread()
-    surfaceDestroyedOnRenderThread()
-    this.layer = layer
-    this.extent = extent
-    generation++
-    try {
-      renderer.onSurfaceAvailable(this)
-      renderer.onSurfaceChanged(extent)
-      requestFrameOnRenderThread()
-    } catch (error: Throwable) {
-      rethrowIfFatal(error)
-      fail("Failed to create the Apple map surface", error)
-    }
-  }
-
-  private fun resizeSurfaceOnRenderThread(extent: MapExtent) {
-    checkRenderThread()
-    // No generation bump: the extent is part of the session's target key, so a resize retargets
-    // the session on its own.
-    this.extent = extent
-    try {
-      renderer.onSurfaceChanged(extent)
-      requestFrameOnRenderThread()
-    } catch (error: Throwable) {
-      rethrowIfFatal(error)
-      fail("Failed to resize the Apple map surface", error)
     }
   }
 
@@ -137,7 +92,7 @@ internal class AppleMlnFfiSurfaceController(
     val detached = CompletableDeferred<Result<Unit>>()
     val accepted = post {
       val result = runCatching {
-        if (this.layer === layer) surfaceDestroyedOnRenderThread()
+        if (surface === layer) detachSurface()
       }
         .onFailure(::rethrowIfFatal)
       detached.complete(result)
@@ -146,128 +101,14 @@ internal class AppleMlnFfiSurfaceController(
     return if (accepted) detached else completion
   }
 
-  private fun surfaceDestroyedOnRenderThread() {
-    checkRenderThread()
-    cancelFrame()
-    if (layer == null) return
-    renderer.onSurfaceLost(this)
-    layer = null
-    extent = MapExtent.Empty
-    consecutiveFailures = 0
-  }
-
-  fun setActive(active: Boolean) {
-    post { setActiveOnRenderThread(active) }
-  }
-
-  private fun setActiveOnRenderThread(active: Boolean) {
-    checkRenderThread()
-    if (closed || terminalFailure || this.active == active) return
-    this.active = active
-    if (active) requestFrameOnRenderThread() else cancelFrame()
-  }
-
-  override fun requestFrame() {
-    if (!renderThread.isCurrent()) {
-      post { if (!closed) requestFrameOnRenderThread() }
-      return
-    }
-    requestFrameOnRenderThread()
-  }
-
-  private fun requestFrameOnRenderThread() {
-    checkRenderThread()
-    if (closed || terminalFailure || !active || layer == null || extent.isEmpty || framePosted) {
-      return
-    }
-    framePosted = true
-    val token = ++frameToken
-    val remaining = pacer.remaining(maximumFps)
-    if (remaining > Duration.ZERO) {
-      post(remaining.toDouble(DurationUnit.SECONDS)) { renderFrame(token) }
-    } else post { renderFrame(token) }
-  }
-
-  @OptIn(BetaInteropApi::class)
-  private fun renderFrame(token: Long) {
-    checkRenderThread()
-    if (token != frameToken) return
-    framePosted = false
-    val currentLayer = layer
-    val currentExtent = extent
-    if (closeRequested || closed || !active || currentLayer == null || currentExtent.isEmpty) return
-
-    if (pacer.remaining(maximumFps) > Duration.ZERO) {
-      requestFrame()
-      return
-    }
-
-    val frameId = nextFrameId++
-    val target =
-      MetalSurfaceTarget(
-        device = DEFAULT_METAL_DEVICE,
-        layer = NativeHandle(currentLayer.objcPtr().toLong()),
-        extent = currentExtent,
-        generation = generation,
-      )
-    val frame = MlnFfiMapFrame(target = target)
-
-    val start = TimeSource.Monotonic.markNow()
-    try {
-      when (renderer.render(this, frame)) {
-        is MlnFfiFrameResult.Rendered -> {
-          consecutiveFailures = 0
-          pacer.rendered(start)
-        }
-        MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()
-        MlnFfiFrameResult.AwaitUpdate -> Unit
-      }
-    } catch (error: Throwable) {
-      rethrowIfFatal(error)
-      consecutiveFailures++
-      if (
-        error !is MlnFfiRecoverableFrameException || consecutiveFailures > MAX_RECOVERY_ATTEMPTS
-      ) {
-        fail("Apple map frame $frameId could not recover", error)
-        return
-      }
-      logger?.w(error) {
-        "Apple map frame $frameId failed; rebuilding the render session " +
-          "(attempt $consecutiveFailures of $MAX_RECOVERY_ATTEMPTS)"
-      }
-
-      try {
-        renderer.onSurfaceLost(this)
-        renderer.onSurfaceAvailable(this)
-        requestFrameOnRenderThread()
-      } catch (error: Throwable) {
-        rethrowIfFatal(error)
-        fail("Failed to recover the Apple map render session", error)
-      }
-    }
-  }
-
-  override fun <T> withRendererAccess(action: () -> T): T {
-    return onRenderThread(action)
-  }
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean {
-    if (closeRequested) return false
-    if (renderThread.isCurrent()) {
-      action()
-      return true
-    }
-    return post { action() }
-  }
-
   override fun close() {
     queueCondition.lock()
     try {
       if (queueClosed) return
       closeRequested = true
       queue.addLast(
-        ScheduledAction(uptimeSeconds()) {
-          surfaceDestroyedOnRenderThread()
+        QueuedAction(uptimeSeconds()) {
+          detachSurface()
           closed = true
         }
       )
@@ -280,18 +121,22 @@ internal class AppleMlnFfiSurfaceController(
 
   suspend fun awaitClosed() = completion.await().getOrThrow()
 
-  private fun cancelFrame() {
-    if (!framePosted) return
-    framePosted = false
-    frameToken++
+  override fun isRenderThread(): Boolean = renderThread.isCurrent()
+
+  override fun schedule(delay: Duration, action: () -> Unit): ScheduledAction? {
+    queueCondition.lock()
+    try {
+      if (queueClosed) return null
+      val queued = QueuedAction(uptimeSeconds() + delay.toDouble(DurationUnit.SECONDS), action)
+      queue.addLast(queued)
+      queueCondition.signal()
+      return queued
+    } finally {
+      queueCondition.unlock()
+    }
   }
 
-  private fun checkRenderThread() {
-    check(renderThread.isCurrent()) { "Apple map rendering must run on its render thread" }
-  }
-
-  private fun <T> onRenderThread(action: () -> T): T {
-    if (renderThread.isCurrent()) return action()
+  override fun <T> runAndWait(action: () -> T): T {
     val gate = MlnFfiGate()
     var result: Result<T>? = null
     check(
@@ -306,18 +151,23 @@ internal class AppleMlnFfiSurfaceController(
     return checkNotNull(result).getOrThrow()
   }
 
-  /** Queues [action] for the render thread, reporting false once the queue has shut down. */
-  private fun post(delaySeconds: Double = 0.0, action: () -> Unit): Boolean {
-    queueCondition.lock()
-    try {
-      if (queueClosed) return false
-      queue.addLast(ScheduledAction(uptimeSeconds() + delaySeconds, action))
-      queueCondition.signal()
-      return true
-    } finally {
-      queueCondition.unlock()
-    }
+  @OptIn(BetaInteropApi::class)
+  override fun renderTarget(surface: CAMetalLayer, extent: MapExtent, generation: Long) =
+    MetalSurfaceTarget(
+      device = DEFAULT_METAL_DEVICE,
+      layer = NativeHandle(surface.objcPtr().toLong()),
+      extent = extent,
+      generation = generation,
+    )
+
+  override fun onTerminalFailure(message: String, error: Throwable, releaseFailure: Throwable?) {
+    releaseFailure?.let(cleanupFailures::add)
+    // The presentation owns the map and decides whether to retain it after detachment.
+    onFailure(error)
   }
+
+  /** Queues [action] for the render thread, reporting false once the queue has shut down. */
+  private fun post(action: () -> Unit): Boolean = schedule(Duration.ZERO, action) != null
 
   @OptIn(BetaInteropApi::class)
   private fun runQueue() {
@@ -371,22 +221,7 @@ internal class AppleMlnFfiSurfaceController(
     }
   }
 
-  private fun fail(message: String, error: Throwable) {
-    terminalFailure = true
-    cancelFrame()
-    logger?.e(error) { message }
-    runCatching { surfaceDestroyedOnRenderThread() }
-      .onFailure {
-        rethrowIfFatal(it)
-        cleanupFailures.add(it)
-      }
-    // The presentation owns the map and decides whether to retain it after detachment.
-    onFailure(error)
-  }
-
   private companion object {
-    const val MAX_RECOVERY_ATTEMPTS = 3
-
     /** A null device handle, which the FFI runtime reads as the system default Metal device. */
     val DEFAULT_METAL_DEVICE = NativeHandle(0L)
 

@@ -9,6 +9,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapExtent
@@ -147,11 +148,119 @@ class AppleMlnFfiSurfaceControllerTest {
     assertSame(expected, assertFailsWith<IllegalStateException> { controller.awaitClosed() })
   }
 
+  @Test
+  fun rendered_frames_do_not_replenish_recovery_attempts() {
+    assertRecoveryLimit(replaceLayer = false)
+  }
+
+  @Test
+  fun surface_loss_does_not_replenish_recovery_attempts() {
+    assertRecoveryLimit(replaceLayer = true)
+  }
+
+  @Test
+  fun a_failed_controller_ignores_a_later_layer() = withScriptedController { controller, renderer ->
+    controller.withRendererAccess {
+      renderer.nextError = IllegalStateException("Unrecoverable test failure")
+      controller.requestFrame()
+    }
+    renderer.awaitFrameOrFailure()
+    controller.surfaceLayoutChanged(CAMetalLayer(), EXTENT)
+    controller.withRendererAccess {
+      assertEquals(1, renderer.attachments)
+      assertEquals(1, renderer.failures.size)
+    }
+  }
+
+  private fun assertRecoveryLimit(replaceLayer: Boolean) =
+    withScriptedController { controller, renderer ->
+      var layer = checkNotNull(renderer.layer)
+      repeat(4) { attempt ->
+        controller.withRendererAccess {
+          renderer.nextError = MlnFfiRecoverableFrameException("Test frame failure", null)
+          controller.requestFrame()
+        }
+        renderer.awaitFrameOrFailure()
+        controller.withRendererAccess {
+          assertEquals(if (attempt == 3) 1 else 0, renderer.failures.size)
+          assertEquals(
+            1 + minOf(attempt + 1, 3) + if (replaceLayer) attempt else 0,
+            renderer.attachments,
+          )
+        }
+        if (replaceLayer && attempt < 3) {
+          controller.surfaceDestroyed(layer).await().getOrThrow()
+          layer = CAMetalLayer()
+          controller.surfaceLayoutChanged(layer, EXTENT)
+          renderer.awaitFrameOrFailure()
+        }
+      }
+    }
+
+  /** Runs [action] after the controller rendered its first frame into a layer. */
+  private fun withScriptedController(
+    action: suspend (AppleMlnFfiSurfaceController, ScriptedRenderer) -> Unit
+  ) = runBlocking {
+    val renderer = ScriptedRenderer()
+    val controller =
+      AppleMlnFfiSurfaceController(
+        renderer,
+        logger = null,
+        onFailure = {
+          renderer.failures += it
+          renderer.completed.trySend(Unit)
+        },
+      )
+    try {
+      renderer.layer = attachLayer(controller)
+      renderer.awaitFrameOrFailure()
+      controller.withRendererAccess {
+        assertEquals(0, renderer.failures.size, "Surface initialization failed")
+      }
+      action(controller, renderer)
+    } finally {
+      controller.close()
+      withTimeout(5_000L) { controller.awaitClosed() }
+    }
+  }
+
   private fun attachLayer(controller: AppleMlnFfiSurfaceController): CAMetalLayer {
     val layer = CAMetalLayer()
-    controller.surfaceLayoutChanged(layer, MapExtent.fromLogical(32, 32, 1.0))
+    controller.surfaceLayoutChanged(layer, EXTENT)
     controller.withRendererAccess {}
     return layer
+  }
+
+  /** Renders successfully unless a test queued [nextError]; never touches the layer. */
+  private class ScriptedRenderer : MlnFfiMapRenderer {
+    override val backend = MapRenderBackend.METAL
+    var layer: CAMetalLayer? = null
+    var nextError: Throwable? = null
+    var attachments = 0
+    val failures = mutableListOf<Throwable>()
+    val completed = Channel<Unit>(Channel.UNLIMITED)
+
+    suspend fun awaitFrameOrFailure() {
+      withTimeout(5_000L) { completed.receive() }
+    }
+
+    override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
+      attachments++
+    }
+
+    override fun render(
+      host: MlnFfiMapHostSession,
+      frame: MlnFfiMapFrame,
+      captureProjection: Boolean,
+    ): MlnFfiFrameResult {
+      val error = nextError
+      nextError = null
+      if (error != null) throw error
+      completed.trySend(Unit)
+      return MlnFfiFrameResult.Rendered()
+    }
+
+    override fun close() = Unit
   }
 
   private class RecordingRenderer : MlnFfiMapRenderer {
@@ -177,5 +286,9 @@ class AppleMlnFfiSurfaceControllerTest {
     ) = MlnFfiFrameResult.AwaitUpdate
 
     override fun close() = Unit
+  }
+
+  private companion object {
+    val EXTENT = MapExtent.fromLogical(32, 32, 1.0)
   }
 }
