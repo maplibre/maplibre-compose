@@ -2205,17 +2205,8 @@ internal class MlnFfiMapSession(
     if (gestureToken == null) enqueue() else gestureToken.enqueue(enqueue)
   }
 
-  /** A zero [duration] is a jump, which is what a drag wants; a key press eases instead. */
-  override fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) {
-    onMap(gestureToken) { map ->
-      if (duration == Duration.ZERO) map.moveBy(deltaX, deltaY)
-      else map.moveByAnimated(deltaX, deltaY, duration.toAnimationOptions())
-    }
+  override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
+    onMap(gestureToken) { map -> map.moveBy(deltaX, deltaY) }
   }
 
   override suspend fun moveByAwaitingTransition(
@@ -2232,17 +2223,8 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) {
-    onMap(gestureToken) { map ->
-      val point = anchor?.toScreenPoint()
-      if (duration == Duration.ZERO) map.scaleBy(scale, point)
-      else map.scaleByAnimated(scale, point, duration.toAnimationOptions())
-    }
+  override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) {
+    onMap(gestureToken) { map -> map.scaleBy(scale, anchor?.toScreenPoint()) }
   }
 
   override suspend fun scaleByAwaitingTransition(
@@ -2269,7 +2251,6 @@ internal class MlnFfiMapSession(
   override fun rotateAndPitchBy(
     bearingDelta: Double,
     pitchDelta: Double,
-    duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
     feedback: Boolean,
@@ -2284,9 +2265,8 @@ internal class MlnFfiMapSession(
             ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
           it.anchor = anchor?.toScreenPoint()
         }
-      if (duration == Duration.ZERO) map.jumpTo(target)
-      else map.easeTo(target, duration.toAnimationOptions())
-      if (feedback && bearingDelta != 0.0 && duration == Duration.ZERO) {
+      map.jumpTo(target)
+      if (feedback && bearingDelta != 0.0) {
         gestureToken?.reportRotation(camera.bearing ?: 0.0, map.camera.bearing ?: 0.0)
       }
     }

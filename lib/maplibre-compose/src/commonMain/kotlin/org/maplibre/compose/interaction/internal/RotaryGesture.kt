@@ -3,9 +3,6 @@ package org.maplibre.compose.interaction.internal
 import androidx.compose.ui.input.rotary.RotaryScrollEvent
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputScaleBy
 
@@ -14,11 +11,9 @@ internal class RotaryGesture(
   private val target: CameraInputTarget,
   private val binding: RotaryBinding,
   private val notchPixels: Float,
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
 ) {
-  private var session: GestureInputSession? = null
-
-  private var finishJob: Job? = null
+  private val burst = InputBurst(scope, target) { cancel() }
 
   fun onEvent(event: RotaryScrollEvent): Boolean = onSample(event.verticalScrollPixels)
 
@@ -33,29 +28,18 @@ internal class RotaryGesture(
       return false
     val scale = 2.0.pow(-verticalScrollPixels / notchPixels * binding.zoomStep)
     if (!scale.isFinite() || scale <= 0.0) return false
-    target.observeInput()
-    val current =
-      session?.takeIf { it.token.acceptsCommands }
-        ?: run {
-          cancel()
+    if (burst.session?.token?.acceptsCommands == false) cancel()
 
-          lateinit var created: GestureInputSession
-          created =
-            GestureInputSession(scope, target) {
-              if (session === created) cancel()
-            }
-          created.also { session = it }
-        }
+    target.observeInput()
+    val session = burst.session ?: burst.start()
+    if (!session.token.acceptsCommands) {
+      cancel()
+      return false
+    }
+
     try {
-      target.inputScaleBy(scale, null, gestureToken = current.token)
-      finishJob?.cancel()
-      finishJob =
-        current.scope.launch {
-          delay(binding.idleDuration.inWholeMilliseconds)
-          session = null
-          finishJob = null
-          current.end()
-        }
+      target.inputScaleBy(scale, null, gestureToken = session.token)
+      burst.endAfterIdle(session, binding.idleDuration)
     } catch (error: Throwable) {
       cancel()
       throw error
@@ -64,10 +48,6 @@ internal class RotaryGesture(
   }
 
   fun cancel() {
-    finishJob?.cancel()
-    finishJob = null
-    val previous = session
-    session = null
-    previous?.cancel()
+    burst.cancel()
   }
 }

@@ -3,9 +3,12 @@ package org.maplibre.compose.interaction.internal
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.map.GestureTestFixture
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -27,6 +30,29 @@ class MapRotaryGestureTest {
     val disabled = RotaryGesture(map.target, RotaryBinding(enabled = false), 24f, backgroundScope)
     assertFalse(disabled.onSample(24f))
     assertEquals(0, map.target.startedCount)
+  }
+
+  @Test
+  fun samples_without_camera_authority_are_not_claimed() = runTest {
+    map.target.currentViewport = null
+    val input = RotaryGesture(map.target, RotaryBinding(), 24f, backgroundScope)
+    assertFalse(input.onSample(24f))
+    assertEquals(emptyList(), map.target.scaleCalls)
+  }
+
+  @Test
+  fun a_throwing_start_callback_ends_the_burst() = runTest {
+    var starts = 0
+    map.state.gestureAuthority.updateConfiguration(
+      CameraBuilder(CameraConfiguration())
+        .apply { zoom { onStart { if (++starts == 1) error("observer failed") } } }
+        .build()
+    )
+    val input = RotaryGesture(map.target, RotaryBinding(), 24f, backgroundScope)
+    assertFailsWith<IllegalStateException> { input.onSample(24f) }
+    assertTrue(input.onSample(24f))
+    assertEquals(2, starts)
+    assertEquals(2, map.target.startedCount)
   }
 
   @Test

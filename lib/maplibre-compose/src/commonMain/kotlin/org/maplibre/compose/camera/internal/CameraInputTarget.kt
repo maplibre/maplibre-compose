@@ -49,25 +49,14 @@ internal interface CameraInputTarget {
 
   fun onGestureEnded(token: CameraInputToken)
 
-  /** A zero [duration] is a jump. */
-  fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration = Duration.ZERO,
-    gestureToken: CameraInputToken? = null,
-  )
+  /** Jumps the camera. */
+  fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken? = null)
 
-  fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration = Duration.ZERO,
-    gestureToken: CameraInputToken? = null,
-  )
+  fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken? = null)
 
   fun rotateAndPitchBy(
     bearingDelta: Double,
     pitchDelta: Double,
-    duration: Duration = Duration.ZERO,
     anchor: DpOffset? = null,
     gestureToken: CameraInputToken? = null,
     feedback: Boolean = false,
