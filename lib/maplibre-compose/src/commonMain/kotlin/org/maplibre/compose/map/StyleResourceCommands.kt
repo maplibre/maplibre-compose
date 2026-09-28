@@ -203,7 +203,7 @@ internal class StyleResourceCommands(
   suspend fun supply(binding: StyleBinding, id: String, image: ResolvedStyleImage) = withCommit {
     if (
       !style.isCurrentLoadedStyle(binding) ||
-        !style.requireOwner().isImageWritable(id) ||
+        !style.owner.isImageWritable(id) ||
         isExplicitImage(id)
     )
       return@withCommit
@@ -350,12 +350,12 @@ internal class StyleResourceCommands(
 
   private fun requireSourceWritable(id: String) {
     require(id.isNotBlank()) { "Source ID must not be blank" }
-    style.requireOwner().requireSourceWritable(id)
+    style.owner.requireSourceWritable(id)
   }
 
   private fun requireImageWritable(id: String) {
     require(id.isNotBlank()) { "Image ID must not be blank" }
-    if (!style.requireOwner().isImageWritable(id))
+    if (!style.owner.isImageWritable(id))
       throw StyleHandleException("Image ID '$id' is declared by the style content")
   }
 

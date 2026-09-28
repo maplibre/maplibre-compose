@@ -86,7 +86,7 @@ public class StyleSources internal constructor(private val style: MapStyleState)
    *   runs.
    */
   public suspend fun add(source: Source): MutableSourceHandle =
-    style.requireOwner().resourceCommands.add(source)
+    style.owner.resourceCommands.add(source)
 
   /** [add] for a GeoJSON source. */
   public suspend fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle =
@@ -146,17 +146,17 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
 
   /** Enqueues one ordered batch. Each image succeeds or fails independently. */
   public fun setAll(images: Map<String, ResolvedStyleImage>) {
-    style.requireOwner().resourceCommands.set(images)
+    style.owner.resourceCommands.set(images)
   }
 
   /** Enqueues removal of [id] in the current loaded style, if it exists. */
   public fun remove(id: String) {
-    style.requireOwner().resourceCommands.removeImage(id)
+    style.owner.resourceCommands.removeImage(id)
   }
 
   /** Queries the engine after earlier resource commands; null means absent or unavailable. */
   public suspend operator fun get(id: String): StyleImageHandle? =
-    style.requireOwner().resourceCommands.image(id)
+    style.owner.resourceCommands.image(id)
 }
 
 /**

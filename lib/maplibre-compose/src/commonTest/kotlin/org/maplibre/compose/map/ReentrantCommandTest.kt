@@ -24,12 +24,14 @@ class ReentrantCommandTest {
         val writes = mutableListOf<CameraPosition>()
         var reenterWith: CameraPosition? = null
 
+        // Re-enters before applying, as GL JS does when jumpTo ends a running ease.
         override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
+          reenterWith?.let { newer ->
+            reenterWith = null
+            state.setCameraPosition(newer)
+          }
           super.setCameraPosition(cameraPosition, guard)
           writes += cameraPosition
-          val newer = reenterWith ?: return
-          reenterWith = null
-          state.setCameraPosition(newer)
         }
       }
     state.publishPresentation(state.reservePresentation(), adapter)
@@ -56,12 +58,12 @@ class ReentrantCommandTest {
         private var reentered = false
 
         override fun setBaseStyle(style: BaseStyle) {
-          super.setBaseStyle(style)
-          writes += style
           if (!reentered) {
             reentered = true
             checkNotNull(state.style.asMutable).baseStyle = latest
           }
+          super.setBaseStyle(style)
+          writes += style
         }
       }
 
