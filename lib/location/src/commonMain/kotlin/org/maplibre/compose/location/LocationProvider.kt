@@ -64,8 +64,8 @@ public interface LocationProvider : AutoCloseable {
    * Releases resources owned by this provider. Repeated calls have no effect.
    *
    * Cancel update collectors when disposing the provider. Implementations that own permission
-   * observers or platform clients release them here. Android and iOS providers require the main
-   * thread. The default does nothing.
+   * observers or platform clients release them here. Android, iOS, and macOS providers require the
+   * main thread. The default does nothing.
    */
   override fun close(): Unit = Unit
 }
@@ -259,10 +259,13 @@ public sealed interface LocationPermission {
 }
 
 /** A provider for a target or host that has no installed location implementation. */
-public object UnsupportedLocationProvider : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Unsupported
+public object UnsupportedLocationProvider :
+  LocationProvider by UnavailableLocationProvider(LocationBackendAvailability.Unsupported)
 
+/** A provider that reports [backendAvailability] and fails every update collection. */
+internal class UnavailableLocationProvider(
+  override val backendAvailability: LocationBackendAvailability
+) : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"

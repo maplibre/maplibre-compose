@@ -251,7 +251,8 @@ public fun createDefaultLocationProvider(context: Context): LocationProvider =
         backendId = resolution.backend.id,
         delegate = resolution.backend.createLocationProvider(context),
       )
-    is AndroidBackendResolution.Misconfigured -> MisconfiguredLocationProvider(resolution.cause)
+    is AndroidBackendResolution.Misconfigured ->
+      UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(resolution.cause))
     AndroidBackendResolution.None ->
       AndroidLocationProvider(context, AndroidLocationPermissionRequester(context))
   }

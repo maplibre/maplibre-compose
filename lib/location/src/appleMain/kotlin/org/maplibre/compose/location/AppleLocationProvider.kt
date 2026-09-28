@@ -31,19 +31,21 @@ import platform.Foundation.NSError
 import platform.darwin.NSObject
 
 /**
- * Foreground location from Core Location.
+ * Foreground location from Core Location on iOS and macOS.
  *
  * Applies the requested accuracy and minimum distance. [LocationRequest.minimumInterval] is
- * ignored. See [AppleLocationPermissionRequester] for permission behavior.
+ * ignored. See [AppleLocationPermissionRequester] for permission behavior. The application must
+ * declare its location usage description in its `Info.plist`.
  *
- * Create the provider, request permission, and close it on the main thread.
+ * Create the provider, request permission, and close it on the main thread. Cancel [updates]
+ * collectors before closing.
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
  * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
  * report [LocationUnavailableReason.UnexpectedFailure].
  */
-internal class AppleLocationProvider
+public class AppleLocationProvider
 internal constructor(
   private val requester: AppleLocationPermissionRequester,
   private val servicesEnabled: suspend () -> Boolean = ::locationServicesEnabled,
@@ -146,7 +148,7 @@ private sealed interface AppleLocationCallback {
 }
 
 internal suspend fun NSError.asUnavailableReason(
-  locationServicesEnabled: suspend () -> Boolean = ::locationServicesEnabled
+  locationServicesEnabled: suspend () -> Boolean
 ): LocationUnavailableReason =
   when {
     domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure

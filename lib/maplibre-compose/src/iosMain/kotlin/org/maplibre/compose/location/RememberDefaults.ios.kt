@@ -6,7 +6,7 @@ import androidx.compose.runtime.remember
 
 @Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider {
-  val provider = remember { IosLocationProvider() }
+  val provider = remember { AppleLocationProvider() }
   DisposableEffect(provider) { onDispose { provider.close() } }
   return provider
 }

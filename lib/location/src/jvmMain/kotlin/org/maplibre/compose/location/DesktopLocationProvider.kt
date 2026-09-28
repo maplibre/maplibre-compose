@@ -2,8 +2,6 @@ package org.maplibre.compose.location
 
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 
 /**
  * A host-specific desktop location implementation discovered through [ServiceLoader].
@@ -43,7 +41,7 @@ internal object DesktopLocationBackendResolver {
     try {
       resolve(loadBackends(), window)
     } catch (error: ServiceConfigurationError) {
-      UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+      UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
     }
 
   fun resolve(
@@ -54,13 +52,12 @@ internal object DesktopLocationBackendResolver {
       try {
         backends.filter { it.isAvailable() }
       } catch (error: Throwable) {
-        return UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+        return UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
       }
     return when {
-      availableBackends.isEmpty() ->
-        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
+      availableBackends.isEmpty() -> UnsupportedLocationProvider
       availableBackends.size > 1 ->
-        UnavailableDesktopLocationProvider(
+        UnavailableLocationProvider(
           LocationBackendAvailability.Misconfigured(
             IllegalStateException(
               "Multiple desktop location backends are available: " +
@@ -72,18 +69,8 @@ internal object DesktopLocationBackendResolver {
         try {
           availableBackends.single().createProvider(window)
         } catch (error: Throwable) {
-          UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+          UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
         }
-    }
-  }
-}
-
-private class UnavailableDesktopLocationProvider(
-  override val backendAvailability: LocationBackendAvailability
-) : LocationProvider {
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
     }
   }
 }

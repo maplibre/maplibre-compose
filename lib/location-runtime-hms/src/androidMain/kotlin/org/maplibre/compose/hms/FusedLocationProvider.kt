@@ -155,7 +155,7 @@ internal constructor(
   }
 }
 
-internal fun Task<*>.invokeOnCompletion(block: () -> Unit) {
+private fun Task<*>.invokeOnCompletion(block: () -> Unit) {
   addOnCompleteListener(TaskExecutors.immediate()) { block() }
 }
 
