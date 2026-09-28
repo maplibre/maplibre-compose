@@ -103,18 +103,21 @@ Submission, completion, close return and cleanup completion remain separate
 metrics on the page. Uploads need a clean checkout of a commit on `main`;
 otherwise the results stay under `build/benchmarks/publish`.
 
-Backfill history with fresh captures using the same workload definitions and
-fixtures. Each device's measurement replaces its earlier results for that
-commit. Do not mix old logs or archived builds with different operation
-boundaries into the same comparison.
+Each device's measurement replaces its earlier results for that commit. Do not
+mix old logs or archived builds with different operation boundaries into the
+same comparison.
 
-## Archived builds
+## Backfill releases
 
-Prepared Android benchmark APKs are preserved in the
-[artifact archive][artifacts] for measuring older releases on additional
-devices. Each manifest records the APK hashes, library and harness versions,
-instrumentation patch, and scenario configurations. Reuse an artifact set for
-comparisons; changing its harness requires a new set.
+`mise run benchmark:backfill` measures past releases on Android with the current
+harness, so the page's history uses the same workloads as new measurements. It
+builds each release with the harness overlaid and archives the APKs in the
+[artifact archive][artifacts]. Each manifest records the APK hashes, the release
+and harness commits, the harness patch applied to the release, and the cases it
+runs. Adding a device measures the archived builds; changing the harness
+requires a new archive. The
+[benchmarks skill](../.agents/skills/benchmarks/SKILL.md) walks through the
+steps.
 
 ## Fixtures
 

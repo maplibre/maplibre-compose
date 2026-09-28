@@ -5,13 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -19,42 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.benchmark.*
-import org.maplibre.compose.demoapp.DemoAppState
-import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
-
-/** [viewportInsets] keeps the placeholder text out from under the panel. */
-@Composable
-internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
-  val ui = state.benchmark
-  val runId = ui.runId
-  val config = ui.config
-  Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
-    if (config == null || runId == 0)
-      Text(
-        "Choose settings and run the benchmark.",
-        Modifier.padding(viewportInsets.asPaddingValues()).align(Alignment.Center).padding(24.dp),
-        color = Color.LightGray,
-      )
-    else
-      key(runId) {
-        BenchmarkRun(config) { status, running ->
-          if (ui.runId == runId) {
-            ui.status = status
-            ui.running = running
-          }
-        }
-      }
-  }
-}
 
 /** Wait for the scene and viewport, warm up, reset, measure the workload, then close the map. */
 @Composable

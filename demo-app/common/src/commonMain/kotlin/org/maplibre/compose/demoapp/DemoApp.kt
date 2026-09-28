@@ -50,7 +50,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.flow.filterNotNull
-import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 import org.maplibre.compose.demoapp.benchmark.BenchmarkRun
 import org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig
 
