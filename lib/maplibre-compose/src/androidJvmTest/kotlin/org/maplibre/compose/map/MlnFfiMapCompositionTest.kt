@@ -789,6 +789,7 @@ class MlnFfiMapCompositionTest {
       }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
       val firstAttachment = requireNotNull(state.currentMapAttachment)
+      val firstMap = firstAttachment.adapter
 
       generation++
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -796,6 +797,7 @@ class MlnFfiMapCompositionTest {
       }
 
       assertTrue(!firstAttachment.isValid)
+      assertSame(firstMap, requireNotNull(state.currentMapAttachment).adapter)
     }
   }
 
