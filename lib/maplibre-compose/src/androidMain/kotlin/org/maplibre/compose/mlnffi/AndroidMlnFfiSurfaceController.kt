@@ -120,10 +120,12 @@ internal class AndroidMlnFfiSurfaceController(
       action()
     }
     if (isRenderThread()) return teardown()
-    val task = postToRenderThread(teardown)
-    // Removing after posting also drops a frame requested between the two.
-    cancelScheduledFrameFromAnyThread()
-    return task.get()
+    holdFramesForTeardown()
+    return postToRenderThread {
+      resumeFramesAfterTeardown()
+      teardown()
+    }
+      .get()
   }
 
   private fun <T> postToRenderThread(action: () -> T): FutureTask<T> =

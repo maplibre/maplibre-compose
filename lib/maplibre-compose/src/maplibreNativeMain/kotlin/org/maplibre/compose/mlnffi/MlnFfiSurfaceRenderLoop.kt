@@ -1,6 +1,10 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
@@ -81,8 +85,9 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   private var extent = MapExtent.Empty
   private var generation = 0L
   private var nextFrameId = 1L
-  /** The queued frame; read from other threads only to cancel it. */
-  @Volatile private var scheduledFrame: ScheduledAction? = null
+  private var scheduledFrame: ScheduledAction? = null
+  /** Teardowns queued from other threads; frames that run before them draw nothing. */
+  private val queuedTeardowns = AtomicInt(0)
   private val pacer = MapFramePacer()
   private var maximumFps = maximumFps
   private var active = true
@@ -191,11 +196,17 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   }
 
   /**
-   * Removes the queued frame if it has not started, from any thread. A caller that queued teardown
-   * uses this so the render thread does not draw one more frame before reaching it.
+   * Stops frames from drawing until the matching [resumeFramesAfterTeardown]. A caller on another
+   * thread calls this before it queues a teardown, so the render thread does not draw one more
+   * frame before reaching it. Safe to call from any thread.
    */
-  protected fun cancelScheduledFrameFromAnyThread() {
-    scheduledFrame?.cancel()
+  protected fun holdFramesForTeardown() {
+    queuedTeardowns.fetchAndAdd(1)
+  }
+
+  /** Ends one [holdFramesForTeardown]. Called by the queued teardown on the render thread. */
+  protected fun resumeFramesAfterTeardown() {
+    queuedTeardowns.fetchAndAdd(-1)
   }
 
   protected fun checkRenderThread() {
@@ -243,7 +254,8 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
         terminalFailure ||
         !active ||
         currentSurface == null ||
-        currentExtent.isEmpty
+        currentExtent.isEmpty ||
+        queuedTeardowns.load() > 0
     ) {
       return
     }
