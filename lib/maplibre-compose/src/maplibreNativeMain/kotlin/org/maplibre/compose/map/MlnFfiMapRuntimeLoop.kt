@@ -2,14 +2,12 @@ package org.maplibre.compose.map
 
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiGate
-import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
-import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeThread
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
@@ -20,10 +18,6 @@ import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.WakeSource
-
-/** Parks in the native pump until a wake arrives, rather than on a bound. */
-private const val PUMP_PARK_MILLIS = -1L
 
 /**
  * Caps one native drain below a 120 Hz frame so posted gesture work runs before the next vsync. The
@@ -42,8 +36,7 @@ private const val PUMP_BUDGET_MILLIS = 4L
  * The render session belongs to whichever thread attached it, and native refuses to destroy a map
  * that still has one attached, so teardown waits for that thread to close it.
  *
- * This loop uses a dedicated [MlnFfiOwnerThread] rather than a dispatcher or a pooled executor.
- * maplibre-native-ffi#631 proposes an owner thread inside the C API, which would retire this class.
+ * The loop runs on an [MlnFfiRuntimeThread].
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
@@ -72,39 +65,30 @@ internal class MlnFfiMapRuntimeLoop(
   private val logger: MapLog?
     get() = getLogger()
 
-  /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */
-  private class OwnerTask(
-    val run: (MapHandle) -> Unit,
-    val abandon: () -> Unit,
-    val drainAfter: Boolean,
-  )
-
   private class DrainBarrier(val run: () -> Unit, val abandon: () -> Unit)
 
-  /**
-   * The owner thread. A parked pump ignores interruption, so [close] is the only way to stop it.
-   */
-  private val completion = CompletableDeferred<Result<Unit>>()
   private val thread =
-    MlnFfiOwnerThread("maplibre-compose-map") {
-      completion.complete(runCatching { runLoop() })
-    }
+    MlnFfiRuntimeThread(
+      name = "maplibre-compose-map",
+      getLogger = getLogger,
+      openRuntime = {
+        MlnFfiRuntimeOwner.open(
+          cacheFile,
+          getLogger,
+          "MapLibre runtime",
+          resourceProviderFactory,
+          resourceConfig,
+        )
+      },
+      pumpBudgetMillis = PUMP_BUDGET_MILLIS,
+      host = OwnerHost(),
+    )
 
-  /**
-   * Guards [tasks], [accepting], and [wake] together: nothing may be queued after the final drain,
-   * and nothing may signal a wake source that is closing.
-   */
-  private val acceptLock = MlnFfiOwnerLock(thread)
-  private val tasks = ArrayDeque<OwnerTask>()
   /** Callbacks that run after the next native pump and event drain. Owner thread only. */
   private val eventDrainBarriers = mutableListOf<DrainBarrier>()
-  private var accepting = true
-  private var wake: WakeSource? = null
 
-  @Volatile private var stopRequested = false
-
-  /** Owner-thread state: the runtime and everything retired before it. */
-  private var runtimeOwner: MlnFfiRuntimeOwner? = null
+  /** The created map, published or not. Owner thread only. */
+  private var created: MapHandle? = null
 
   private val stopSignal = MlnFfiGate()
 
@@ -118,23 +102,20 @@ internal class MlnFfiMapRuntimeLoop(
   var failure: Throwable? = null
     private set
 
-  /** Release failures, recorded only by the owner and reported after every release is attempted. */
-  private val cleanupFailures = mutableListOf<Throwable>()
-
   /** The density this loop's map was created with; a change means a new loop, not a resize. */
   val scaleFactor: Double
     get() = extent.scaleFactor
 
   fun start(startThread: (MlnFfiOwnerThread) -> Unit = MlnFfiOwnerThread::start) {
-    try {
-      startThread(thread)
-    } catch (error: Throwable) {
-      // No owner body will run to abandon queued work or acknowledge destruction. There are no
-      // native resources to release; the caller receives the startup failure directly.
-      failure = error
-      rejectQueuedTasks()
-      completion.complete(Result.success(Unit))
-      throw error
+    thread.start { owner ->
+      try {
+        startThread(owner)
+      } catch (error: Throwable) {
+        // Recorded before queued work is abandoned, so abandon callbacks can report it. The caller
+        // receives the startup failure directly.
+        failure = error
+        throw error
+      }
     }
   }
 
@@ -168,8 +149,8 @@ internal class MlnFfiMapRuntimeLoop(
     var result: Result<T>? = null
     val done = MlnFfiGate()
     val posted =
-      submit(
-        run = { map ->
+      post(
+        action = { map ->
           result = runCatching { action(map) }
           done.open()
         },
@@ -191,22 +172,47 @@ internal class MlnFfiMapRuntimeLoop(
     return result?.getOrThrow()
   }
 
-  /** Suspends instead of blocking the caller; cancellation drops work that has not started. */
+  /**
+   * Suspends instead of blocking the caller; cancellation drops work that has not started. Like
+   * [call], this ends its task batch.
+   */
   suspend fun <T> await(action: (MapHandle) -> T): T? =
     suspendCancellableCoroutine { continuation ->
       val accepted =
-        postAndDrainEvents(
+        post(
           action = { map ->
             if (continuation.isActive) continuation.resumeWith(runCatching { action(map) })
           },
           abandon = { continuation.resume(null) },
+          drainAfter = true,
         )
       if (!accepted) continuation.resume(null)
     }
 
-  /** Queues [action] for the owner thread, reporting whether it was accepted. */
-  fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
-    submit(run = action, abandon = abandon)
+  /**
+   * Queues [action] for the owner thread, reporting whether it was accepted. [abandon] runs instead
+   * when the loop stops before [action] runs. [drainAfter] drains the events [action] raises before
+   * later queued work runs.
+   */
+  fun post(
+    action: (MapHandle) -> Unit,
+    abandon: () -> Unit = {},
+    drainAfter: Boolean = false,
+  ): Boolean =
+    thread.post(
+      MlnFfiRuntimeThread.Task(
+        run = {
+          try {
+            action(checkNotNull(created))
+          } catch (error: Throwable) {
+            // Logged, not abandoned: the task already started.
+            logger?.e(error) { "A map owner-thread task failed" }
+          }
+        },
+        reject = { abandon() },
+        endsBatch = drainAfter,
+      )
+    )
 
   /** Keeps nested writes inside an owner commit; other callers enqueue their work. */
   fun dispatch(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean {
@@ -216,100 +222,68 @@ internal class MlnFfiMapRuntimeLoop(
     return true
   }
 
-  /** Drains this action's events before executing later queued work. */
-  fun postAndDrainEvents(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
-    submit(run = action, abandon = abandon, drainAfter = true)
-
   /** Queues a callback that runs after the next native pump and event drain. */
   fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
     post(action = { eventDrainBarriers += DrainBarrier(action, abandon) }, abandon = abandon)
-
-  private fun submit(
-    run: (MapHandle) -> Unit,
-    abandon: () -> Unit,
-    drainAfter: Boolean = false,
-  ): Boolean = acceptLock.withLock {
-    if (!accepting) return false
-    tasks.add(OwnerTask(run, abandon, drainAfter))
-    // Signalled under the lock so it cannot race the source's close, which would throw.
-    wake?.signal()
-    true
-  }
 
   /**
    * Rejects new work and requests destruction. The caller must first release every render session
    * not owned by [onMapClosing]. [awaitClosed] acknowledges actual map and runtime destruction.
    */
   override fun close() {
-    stopRequested = true
     stopSignal.open()
-    acceptLock.withLock {
-      accepting = false
-      wake?.signal()
-    }
+    thread.stop()
   }
 
-  suspend fun awaitClosed() = completion.await().getOrThrow()
+  suspend fun awaitClosed() = thread.awaitStopped()
 
-  private fun runLoop() {
-    val owner =
-      try {
-        MlnFfiRuntimeOwner.open(
-            cacheFile,
-            getLogger,
-            "MapLibre runtime",
-            resourceProviderFactory,
-            resourceConfig,
-          )
-          .also { runtimeOwner = it }
-      } catch (error: Throwable) {
-        logger?.e(error) { "Could not create the MapLibre runtime" }
-        fail(error)
-        return
-      }
-    val runtime = owner.runtime
-
-    var created: MapHandle? = null
-    try {
-      created = MapHandle.create(runtime, mapOptions())
-      onMapCreated(created)
-      map = created
-      onMapPublished(created)
+  private inner class OwnerHost : MlnFfiRuntimeThread.Host {
+    override fun onStarted(runtime: RuntimeHandle) {
+      val map = MapHandle.create(runtime, mapOptions())
+      created = map
+      onMapCreated(map)
+      this@MlnFfiMapRuntimeLoop.map = map
+      onMapPublished(map)
       // The renderer cannot attach until a map exists, and nothing else will tell it one now does.
       requestFrame()
-      pump(runtime, created)
-    } catch (error: Throwable) {
-      logger?.e(error) { "The MapLibre map runtime loop failed" }
-      fail(error)
-    } finally {
+    }
+
+    override fun afterPump(runtime: RuntimeHandle) {
+      drainEvents(runtime, checkNotNull(created))
+    }
+
+    override fun onLoopFailure(error: Throwable, runtime: RuntimeHandle?): Throwable {
+      logger?.e(error) {
+        if (runtime == null) "Could not create the MapLibre runtime"
+        else "The MapLibre map runtime loop failed"
+      }
+      val firstFailure = failure == null
+      failure = failure ?: error
+      if (firstFailure) runCatching { onFailure(error) }
+      return error
+    }
+
+    // Map tasks abandon without a reason.
+    override fun stopReason(): Throwable = IllegalStateException("The map runtime loop stopped")
+
+    override fun onStopping(runtime: RuntimeHandle?, failures: MutableList<Throwable>) {
+      abandonDrainBarriers()
+      // The renderer republishes the failure, but only from a frame, and close() waits for it.
+      if (failure != null) runCatching { requestFrame() }
+      if (runtime == null) return
       // A failed loop still owns its map until the renderer acknowledges release via close().
       stopSignal.awaitUntilOpen()
-      rejectQueuedTasks()
-      runCatching { created?.let(onMapClosing) }
-        .exceptionOrNull()
-        ?.let(cleanupFailures::addCleanupFailure)
+      val closing = created ?: return
+      runCatching { onMapClosing(closing) }.exceptionOrNull()?.let(failures::add)
       map = null
-      runCatching { created?.close() }.exceptionOrNull()?.let(cleanupFailures::addCleanupFailure)
-      runCatching { owner.close() }.exceptionOrNull()?.let(cleanupFailures::addCleanupFailure)
-      runtimeOwner = null
-      cleanupFailures.cleanupResult("Native map").getOrThrow()
+      created = null
+      runCatching { closing.close() }.exceptionOrNull()?.let(failures::add)
     }
-  }
 
-  private fun pump(runtime: RuntimeHandle, map: MapHandle) {
-    val source = runtime.acquireWakeSource()
-    acceptLock.withLock { wake = source }
-    while (!stopRequested) {
-      // Queued work first: a task posted before the source was published set no wake flag.
-      val ranTasks = runTasks(map)
-      if (stopRequested) {
-        abandonDrainBarriers()
-        break
-      }
-      check(!acceptLock.isHeldByOwnerThread) { "the pump must not run under acceptLock" }
-      // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
-      runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, PUMP_BUDGET_MILLIS)
-      drainEvents(runtime, map)
+    override fun reportCleanup(failures: List<Throwable>) {
+      val reported = mutableListOf<Throwable>()
+      failures.forEach(reported::addCleanupFailure)
+      reported.cleanupResult("Native map").getOrThrow()
     }
   }
 
@@ -336,52 +310,6 @@ internal class MlnFfiMapRuntimeLoop(
     val barriers = eventDrainBarriers.toList()
     eventDrainBarriers.clear()
     barriers.forEach { runCatching { it.run() } }
-  }
-
-  /** Runs everything queued, reporting whether anything ran. */
-  private fun runTasks(map: MapHandle): Boolean {
-    var ran = false
-    while (true) {
-      // Taken one at a time, and run outside the lock: a task posts, closes, and calls back.
-      val task = acceptLock.withLock { tasks.removeFirstOrNull() } ?: break
-      ran = true
-      try {
-        task.run(map)
-      } catch (error: Throwable) {
-        logger?.e(error) { "A map owner-thread task failed" }
-      }
-      if (task.drainAfter) break
-    }
-    return ran
-  }
-
-  private fun fail(error: Throwable) {
-    val firstFailure = failure == null
-    failure = failure ?: error
-    if (firstFailure) runCatching { onFailure(error) }
-    rejectQueuedTasks()
-    // The renderer republishes the failure, but only from a frame.
-    runCatching { requestFrame() }
-  }
-
-  private fun rejectQueuedTasks() {
-    // Stop accepting, drain the queue, and take the wake source out under one lock, so the drain
-    // cannot race a task that would then never run and nothing can signal a source that is about to
-    // close.
-    val abandoned = mutableListOf<OwnerTask>()
-    val source = acceptLock.withLock {
-      accepting = false
-      abandoned.addAll(tasks)
-      tasks.clear()
-      wake.also { wake = null }
-    }
-    // Released rather than run: a caller blocked in call() would otherwise never be resumed.
-    abandoned.forEach { runCatching { it.abandon() } }
-    abandonDrainBarriers()
-    // A wake source is its own native handle, so closing the runtime does not release it.
-    source?.let { closing ->
-      runCatching { closing.close() }.onFailure { cleanupFailures.addCleanupFailure(it) }
-    }
   }
 
   private fun abandonDrainBarriers() {

@@ -223,8 +223,7 @@ internal class MlnFfiMapSession(
     val abandon: () -> Unit,
     val drainAfter: Boolean,
   ) {
-    fun post(loop: MlnFfiMapRuntimeLoop): Boolean =
-      if (drainAfter) loop.postAndDrainEvents(run, abandon) else loop.post(run, abandon)
+    fun post(loop: MlnFfiMapRuntimeLoop): Boolean = loop.post(run, abandon, drainAfter)
   }
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
@@ -2064,7 +2063,7 @@ internal class MlnFfiMapSession(
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       val accepted =
-        loop?.postAndDrainEvents(
+        loop?.post(
           action = { map ->
             if (activeGestureToken === token) {
               if (token.isCancelled) map.cancelTransitions()
@@ -2075,6 +2074,7 @@ internal class MlnFfiMapSession(
             if (ownerThreadRenderLease == null) finishPendingGesture(map)
           },
           abandon = { token.complete() },
+          drainAfter = true,
         ) ?: false
       if (!accepted) token.complete()
     }
