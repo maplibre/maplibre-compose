@@ -24,7 +24,7 @@ those sources.
 ## Development
 
 Use mise tasks: `mise tasks --all` lists them, and `CONTRIBUTING.md` covers
-setup, demo launch, packaging, and documentation builds. For work that mise does
+setup outside mise and the demo checks CI cannot run. For work that mise does
 not cover, run one named Gradle task per invocation. `./gradlew build` builds
 every target, including iOS release frameworks, and can exhaust memory.
 
