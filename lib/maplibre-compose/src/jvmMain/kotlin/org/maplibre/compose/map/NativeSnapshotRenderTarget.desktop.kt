@@ -7,8 +7,8 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlclose
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
-import org.maplibre.compose.desktop.bridge.DesktopVulkanContext
 import org.maplibre.compose.desktop.bridge.ObjectiveC
+import org.maplibre.compose.desktop.bridge.VulkanDevice
 import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.VulkanContextHandles
@@ -46,7 +46,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
           }
         MapRenderBackend.VULKAN in backends ->
           NativeSnapshotRenderTargetPlan {
-            NativeSnapshotRenderTarget(VulkanDelegate(DesktopVulkanContext.createOffscreen()))
+            NativeSnapshotRenderTarget(VulkanDelegate(VulkanDevice.create()))
           }
         (os.contains("linux") || os.contains("windows") || os.contains("mac")) &&
           MapRenderBackend.OPENGL in backends ->
@@ -106,7 +106,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
     }
   }
 
-  private class VulkanDelegate(private val context: DesktopVulkanContext) : Delegate {
+  private class VulkanDelegate(private val context: VulkanDevice) : Delegate {
     override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
       map.attachVulkanOwnedTexture(
         VulkanOwnedTextureDescriptor(

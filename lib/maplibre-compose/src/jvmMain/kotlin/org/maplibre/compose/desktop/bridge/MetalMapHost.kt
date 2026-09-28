@@ -35,7 +35,7 @@ internal class MetalMapHost(
   private var generation = 0L
   private var device = NativeHandle(0)
   private var pendingDevice: NativeHandle? = null
-  private var vulkan: MacVulkanContext? = null
+  private var vulkan: VulkanDevice? = null
   private var angle: DesktopEglContext? = null
 
   override val backends = RenderBackendPair(producer, ComposeRenderBackend.METAL)
@@ -94,8 +94,8 @@ internal class MetalMapHost(
       return when (producer) {
         MapRenderBackend.METAL -> SharedTexture(presentation, presentation) {}
         MapRenderBackend.VULKAN -> {
-          val context = vulkan ?: MacVulkanContext.create(device.address).also { vulkan = it }
-          val imported = context.createImportedTexture(texture, extent)
+          val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
+          val imported = MacVulkanImportedTexture.create(context, texture, extent)
           SharedTexture(imported.target(generation), presentation, imported::close)
         }
         MapRenderBackend.OPENGL -> {

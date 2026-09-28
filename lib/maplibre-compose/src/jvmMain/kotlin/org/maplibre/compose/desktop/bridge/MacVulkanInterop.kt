@@ -35,45 +35,25 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
-internal class MacVulkanContext private constructor(private val context: VulkanDevice) :
-  AutoCloseable {
-  val handles
-    get() = context.handles
-
-  fun device() = context.device
-
-  fun physicalDevice() = context.physicalDevice
-
-  fun waitIdle() = context.waitIdle()
-
-  override fun close() = context.close()
-
-  fun createImportedTexture(texture: NativeHandle, extent: MapExtent) =
-    MacVulkanImportedTexture.create(this, texture, extent)
-
-  companion object {
-    fun create(requiredMetalDevice: Long) =
-      MacVulkanContext(
-        VulkanDevice.create(setOf(VK_EXT_METAL_OBJECTS_EXTENSION_NAME)) { _, device ->
-          MemoryStack.stackPush().use { stack ->
-            val info =
-              VkExportMetalDeviceInfoEXT.calloc(stack)
-                .sType(VK_STRUCTURE_TYPE_EXPORT_METAL_DEVICE_INFO_EXT)
-            val objects =
-              VkExportMetalObjectsInfoEXT.calloc(stack)
-                .sType(VK_STRUCTURE_TYPE_EXPORT_METAL_OBJECTS_INFO_EXT)
-                .pNext(info.address())
-            vkExportMetalObjectsEXT(device, objects)
-            info.mtlDevice() == requiredMetalDevice
-          }
-        }
-      )
+/** A MoltenVK device that renders on [metalDevice], the `MTLDevice` Compose draws with. */
+internal fun VulkanDevice.Companion.forMetalDevice(metalDevice: Long): VulkanDevice =
+  create(setOf(VK_EXT_METAL_OBJECTS_EXTENSION_NAME)) { _, device ->
+    MemoryStack.stackPush().use { stack ->
+      val info =
+        VkExportMetalDeviceInfoEXT.calloc(stack)
+          .sType(VK_STRUCTURE_TYPE_EXPORT_METAL_DEVICE_INFO_EXT)
+      val objects =
+        VkExportMetalObjectsInfoEXT.calloc(stack)
+          .sType(VK_STRUCTURE_TYPE_EXPORT_METAL_OBJECTS_INFO_EXT)
+          .pNext(info.address())
+      vkExportMetalObjectsEXT(device, objects)
+      info.mtlDevice() == metalDevice
+    }
   }
-}
 
 internal class MacVulkanImportedTexture
 private constructor(
-  private val context: MacVulkanContext,
+  private val vulkan: VulkanDevice,
   private val metalTexture: NativeHandle,
   val extent: MapExtent,
 ) : AutoCloseable {
@@ -82,13 +62,13 @@ private constructor(
 
   fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
-      context = context.handles,
+      context = vulkan.handles,
       image = NativeHandle(image),
       imageView = NativeHandle(view),
       format = VK_FORMAT_B8G8R8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      queueFamilyIndex = context.handles.graphicsQueueFamilyIndex,
+      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )
@@ -120,7 +100,7 @@ private constructor(
           .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
           .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(context.device(), imageInfo, null, imageOut), "vkCreateImage")
+      checkVulkan(vkCreateImage(vulkan.device, imageInfo, null, imageOut), "vkCreateImage")
       image = imageOut[0]
 
       val viewInfo =
@@ -138,30 +118,30 @@ private constructor(
               .layerCount(1)
           )
       val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(context.device(), viewInfo, null, viewOut), "vkCreateImageView")
+      checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
       view = viewOut[0]
     }
   }
 
   override fun close() {
-    context.waitIdle()
+    vulkan.waitIdle()
     if (view != NULL) {
-      vkDestroyImageView(context.device(), view, null)
+      vkDestroyImageView(vulkan.device, view, null)
       view = NULL
     }
     if (image != NULL) {
-      vkDestroyImage(context.device(), image, null)
+      vkDestroyImage(vulkan.device, image, null)
       image = NULL
     }
   }
 
   companion object {
     fun create(
-      context: MacVulkanContext,
+      vulkan: VulkanDevice,
       metalTexture: NativeHandle,
       extent: MapExtent,
     ): MacVulkanImportedTexture {
-      val texture = MacVulkanImportedTexture(context, metalTexture, extent)
+      val texture = MacVulkanImportedTexture(vulkan, metalTexture, extent)
       try {
         texture.create()
         return texture

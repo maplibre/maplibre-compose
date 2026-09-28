@@ -96,7 +96,7 @@ internal class LinuxOpenGlMapHost(
   private val rendererThread = MapRendererThread("maplibre-linux-map-renderer")
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Native)
   private val frameCompletion = ComposeFrameCompletion()
-  private var vulkan: DesktopVulkanContext? = null
+  private var vulkan: VulkanDevice? = null
   private var egl: DesktopEglContext? = null
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
@@ -212,22 +212,19 @@ internal class LinuxOpenGlMapHost(
     }
 
     val context =
-      vulkan
-        ?: DesktopVulkanContext.createForLinuxInterop(currentOpenGlDeviceUuids()).also {
-          vulkan = it
-        }
+      vulkan ?: VulkanDevice.forOpenGlDevices(currentOpenGlDeviceUuids()).also { vulkan = it }
     val producerContext =
       if (producer == MapRenderBackend.OPENGL) {
         egl
           ?: run {
-            val deviceUuid = vulkanDeviceUuid(context.physicalDevice())
+            val deviceUuid = vulkanDeviceUuid(context.physicalDevice)
             rendererThread.run {
               DesktopEglContext.create(requiredDeviceUuids = setOf(deviceUuid))
             }
           }
             .also { egl = it }
       } else null
-    val newExported = context.createExportedTexture(extent)
+    val newExported = LinuxExportedVulkanTexture.create(context, extent)
     var producerImport: LinuxOpenGlImportedTexture? = null
     try {
       if (producerContext != null) {
@@ -345,37 +342,18 @@ internal fun currentOpenGlDeviceUuids(): Set<String> {
   }
 }
 
-/** A Vulkan instance, device, and queue for desktop interop or an owned offscreen target. */
-internal class DesktopVulkanContext private constructor(private val context: VulkanDevice) :
-  AutoCloseable {
-  val handles
-    get() = context.handles
-
-  fun device() = context.device
-
-  fun physicalDevice() = context.physicalDevice
-
-  fun waitIdle() = context.waitIdle()
-
-  override fun close() = context.close()
-
-  fun createExportedTexture(extent: MapExtent) = LinuxExportedVulkanTexture.create(this, extent)
-
-  companion object {
-    fun createForLinuxInterop(requiredDeviceUuids: Set<String> = emptySet()) =
-      DesktopVulkanContext(
-        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) { physical, _ ->
-          requiredDeviceUuids.isEmpty() || vulkanDeviceUuid(physical) in requiredDeviceUuids
-        }
-      )
-
-    fun createOffscreen() = DesktopVulkanContext(VulkanDevice.create())
+/**
+ * A Vulkan device that can export memory as file descriptors, on one of [deviceUuids] when any are
+ * given: Vulkan and OpenGL must be on the same physical device for the export/import to work.
+ */
+internal fun VulkanDevice.Companion.forOpenGlDevices(deviceUuids: Set<String>): VulkanDevice =
+  create(setOf(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) { physical, _ ->
+    deviceUuids.isEmpty() || vulkanDeviceUuid(physical) in deviceUuids
   }
-}
 
 /** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
 internal class LinuxExportedVulkanTexture
-private constructor(private val context: DesktopVulkanContext, private val extent: MapExtent) :
+private constructor(private val vulkan: VulkanDevice, private val extent: MapExtent) :
   AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -396,20 +374,20 @@ private constructor(private val context: DesktopVulkanContext, private val exten
           .memory(memory)
           .handleType(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
       val fdOut = stack.mallocInt(1)
-      checkVulkan(vkGetMemoryFdKHR(context.device(), fdInfo, fdOut), "vkGetMemoryFdKHR")
+      checkVulkan(vkGetMemoryFdKHR(vulkan.device, fdInfo, fdOut), "vkGetMemoryFdKHR")
       return fdOut[0]
     }
   }
 
   fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
-      context = context.handles,
+      context = vulkan.handles,
       image = NativeHandle(image),
       imageView = NativeHandle(view),
       format = VK_FORMAT_R8G8B8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = context.handles.graphicsQueueFamilyIndex,
+      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )
@@ -440,11 +418,11 @@ private constructor(private val context: DesktopVulkanContext, private val exten
           .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
           .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(context.device(), imageInfo, null, imageOut), "vkCreateImage")
+      checkVulkan(vkCreateImage(vulkan.device, imageInfo, null, imageOut), "vkCreateImage")
       image = imageOut[0]
 
       val requirements = VkMemoryRequirements.calloc(stack)
-      vkGetImageMemoryRequirements(context.device(), image, requirements)
+      vkGetImageMemoryRequirements(vulkan.device, image, requirements)
       memorySize = requirements.size()
       val dedicated =
         VkMemoryDedicatedAllocateInfo.calloc(stack)
@@ -462,18 +440,18 @@ private constructor(private val context: DesktopVulkanContext, private val exten
           .allocationSize(requirements.size())
           .memoryTypeIndex(
             findVulkanDeviceLocalMemoryType(
-              context.physicalDevice(),
+              vulkan.physicalDevice,
               requirements.memoryTypeBits(),
               "No compatible Vulkan memory type found",
             )
           )
       val memoryOut = stack.mallocLong(1)
       checkVulkan(
-        vkAllocateMemory(context.device(), allocateInfo, null, memoryOut),
+        vkAllocateMemory(vulkan.device, allocateInfo, null, memoryOut),
         "vkAllocateMemory",
       )
       memory = memoryOut[0]
-      checkVulkan(vkBindImageMemory(context.device(), image, memory, 0), "vkBindImageMemory")
+      checkVulkan(vkBindImageMemory(vulkan.device, image, memory, 0), "vkBindImageMemory")
 
       val viewInfo =
         VkImageViewCreateInfo.calloc(stack)
@@ -490,30 +468,30 @@ private constructor(private val context: DesktopVulkanContext, private val exten
               .layerCount(1)
           )
       val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(context.device(), viewInfo, null, viewOut), "vkCreateImageView")
+      checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
       view = viewOut[0]
     }
   }
 
   override fun close() {
-    context.waitIdle()
+    vulkan.waitIdle()
     if (view != NULL) {
-      vkDestroyImageView(context.device(), view, null)
+      vkDestroyImageView(vulkan.device, view, null)
       view = NULL
     }
     if (image != NULL) {
-      vkDestroyImage(context.device(), image, null)
+      vkDestroyImage(vulkan.device, image, null)
       image = NULL
     }
     if (memory != NULL) {
-      vkFreeMemory(context.device(), memory, null)
+      vkFreeMemory(vulkan.device, memory, null)
       memory = NULL
     }
   }
 
   companion object {
-    fun create(context: DesktopVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
-      val texture = LinuxExportedVulkanTexture(context, extent)
+    fun create(vulkan: VulkanDevice, extent: MapExtent): LinuxExportedVulkanTexture {
+      val texture = LinuxExportedVulkanTexture(vulkan, extent)
       try {
         texture.create()
         return texture

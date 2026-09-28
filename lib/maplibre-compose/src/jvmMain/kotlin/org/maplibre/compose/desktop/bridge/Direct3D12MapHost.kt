@@ -101,7 +101,7 @@ internal class Direct3D12MapHost(
   private val rendererThread = MapRendererThread("maplibre-windows-map-renderer")
   private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
   private val frameCompletion = ComposeFrameCompletion()
-  private var vulkan: WindowsVulkanContext? = null
+  private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
   private var pendingDevice: NativeHandle? = null
   private var direct3DTexture = NativeHandle(0)
@@ -264,8 +264,9 @@ internal class Direct3D12MapHost(
             WindowsDirect3DInterop.adapterLuidOf(direct3DDevice),
           )
         } else {
-          val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
-          context.importDirect3DTexture(sharedHandle, storageExtent, extent)
+          val context =
+            vulkan ?: VulkanDevice.forDirect3D12Resource(sharedHandle).also { vulkan = it }
+          WindowsVulkanImportedDirect3DTexture.create(context, sharedHandle, storageExtent, extent)
         }
     } finally {
       // The import duplicates the handle rather than taking ownership, so this copy is always ours.
@@ -344,46 +345,25 @@ internal class Direct3D12MapHost(
   )
 }
 
-/** The Vulkan instance, device, and queue MapLibre renders with on Windows. */
-private class WindowsVulkanContext private constructor(private val context: VulkanDevice) :
-  AutoCloseable {
-  val handles
-    get() = context.handles
-
-  fun device() = context.device
-
-  fun physicalDevice() = context.physicalDevice
-
-  fun waitIdle() = context.waitIdle()
-
-  override fun close() = context.close()
-
-  fun importDirect3DTexture(sharedHandle: Long, storageExtent: MapExtent, renderExtent: MapExtent) =
-    WindowsVulkanImportedDirect3DTexture.create(this, sharedHandle, storageExtent, renderExtent)
-
-  companion object {
-    fun create(sharedHandle: Long) =
-      WindowsVulkanContext(
-        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { _, device ->
-          MemoryStack.stackPush().use { stack ->
-            val properties =
-              VkMemoryWin32HandlePropertiesKHR.calloc(stack)
-                .sType(VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR)
-            vkGetMemoryWin32HandlePropertiesKHR(
-              device,
-              VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
-              sharedHandle,
-              properties,
-            ) == VK_SUCCESS && properties.memoryTypeBits() != 0
-          }
-        }
-      )
+/** A Vulkan device that can import [sharedHandle], an NT handle to a Direct3D 12 resource. */
+private fun VulkanDevice.Companion.forDirect3D12Resource(sharedHandle: Long): VulkanDevice =
+  create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { _, device ->
+    MemoryStack.stackPush().use { stack ->
+      val properties =
+        VkMemoryWin32HandlePropertiesKHR.calloc(stack)
+          .sType(VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR)
+      vkGetMemoryWin32HandlePropertiesKHR(
+        device,
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
+        sharedHandle,
+        properties,
+      ) == VK_SUCCESS && properties.memoryTypeBits() != 0
+    }
   }
-}
 
 private class WindowsVulkanImportedDirect3DTexture
 private constructor(
-  private val context: WindowsVulkanContext,
+  private val vulkan: VulkanDevice,
   private val sharedHandle: Long,
   /** The size the D3D12 resource was allocated at, which is what the `VkImage` must match. */
   override val storageExtent: MapExtent,
@@ -395,13 +375,13 @@ private constructor(
 
   override fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
-      context = context.handles,
+      context = vulkan.handles,
       image = NativeHandle(image),
       imageView = NativeHandle(view),
       format = VK_FORMAT_B8G8R8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = context.handles.graphicsQueueFamilyIndex,
+      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = renderExtent,
       generation = generation,
     )
@@ -432,17 +412,17 @@ private constructor(
           .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
           .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(context.device(), imageInfo, null, imageOut), "vkCreateImage")
+      checkVulkan(vkCreateImage(vulkan.device, imageInfo, null, imageOut), "vkCreateImage")
       image = imageOut[0]
 
       val requirements = VkMemoryRequirements.calloc(stack)
-      vkGetImageMemoryRequirements(context.device(), image, requirements)
+      vkGetImageMemoryRequirements(vulkan.device, image, requirements)
       val handleProperties =
         VkMemoryWin32HandlePropertiesKHR.calloc(stack)
           .sType(VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR)
       checkVulkan(
         vkGetMemoryWin32HandlePropertiesKHR(
-          context.device(),
+          vulkan.device,
           VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
           sharedHandle,
           handleProperties,
@@ -468,18 +448,18 @@ private constructor(
           .allocationSize(requirements.size())
           .memoryTypeIndex(
             findVulkanDeviceLocalMemoryType(
-              context.physicalDevice(),
+              vulkan.physicalDevice,
               requirements.memoryTypeBits() and handleProperties.memoryTypeBits(),
               "No compatible Vulkan memory type found for imported D3D12 resource",
             )
           )
       val memoryOut = stack.mallocLong(1)
       checkVulkan(
-        vkAllocateMemory(context.device(), allocateInfo, null, memoryOut),
+        vkAllocateMemory(vulkan.device, allocateInfo, null, memoryOut),
         "vkAllocateMemory",
       )
       memory = memoryOut[0]
-      checkVulkan(vkBindImageMemory(context.device(), image, memory, 0), "vkBindImageMemory")
+      checkVulkan(vkBindImageMemory(vulkan.device, image, memory, 0), "vkBindImageMemory")
 
       val viewInfo =
         VkImageViewCreateInfo.calloc(stack)
@@ -496,36 +476,36 @@ private constructor(
               .layerCount(1)
           )
       val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(context.device(), viewInfo, null, viewOut), "vkCreateImageView")
+      checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
       view = viewOut[0]
     }
   }
 
   override fun close() {
-    context.waitIdle()
+    vulkan.waitIdle()
     if (view != NULL) {
-      vkDestroyImageView(context.device(), view, null)
+      vkDestroyImageView(vulkan.device, view, null)
       view = NULL
     }
     if (image != NULL) {
-      vkDestroyImage(context.device(), image, null)
+      vkDestroyImage(vulkan.device, image, null)
       image = NULL
     }
     if (memory != NULL) {
-      vkFreeMemory(context.device(), memory, null)
+      vkFreeMemory(vulkan.device, memory, null)
       memory = NULL
     }
   }
 
   companion object {
     fun create(
-      context: WindowsVulkanContext,
+      vulkan: VulkanDevice,
       sharedHandle: Long,
       storageExtent: MapExtent,
       renderExtent: MapExtent,
     ): WindowsVulkanImportedDirect3DTexture {
       val texture =
-        WindowsVulkanImportedDirect3DTexture(context, sharedHandle, storageExtent, renderExtent)
+        WindowsVulkanImportedDirect3DTexture(vulkan, sharedHandle, storageExtent, renderExtent)
       try {
         texture.create()
         return texture

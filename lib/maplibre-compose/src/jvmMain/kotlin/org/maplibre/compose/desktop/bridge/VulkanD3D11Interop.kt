@@ -50,38 +50,17 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
-/** The Vulkan instance, device, and queue MapLibre renders with on the Windows OpenGL path. */
-internal class WindowsOpenGlVulkanContext private constructor(private val context: VulkanDevice) :
-  AutoCloseable {
-  val handles
-    get() = context.handles
-
-  fun device() = context.device
-
-  fun physicalDevice() = context.physicalDevice
-
-  fun waitIdle() = context.waitIdle()
-
-  override fun close() = context.close()
-
-  fun importD3D11Texture(sharedHandle: Long, extent: MapExtent) =
-    WindowsOpenGlExportedVulkanTexture.create(this, sharedHandle, extent)
-
-  companion object {
-    fun create(preferredAdapterLuid: Long): WindowsOpenGlVulkanContext {
-      require(preferredAdapterLuid != 0L) { "ANGLE adapter LUID is required" }
-      return WindowsOpenGlVulkanContext(
-        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { physical, _ ->
-          vulkanDeviceLuid(physical) == preferredAdapterLuid
-        }
-      )
-    }
+/** A Vulkan device on the DXGI adapter [adapterLuid] names, able to import Win32 handles. */
+internal fun VulkanDevice.Companion.forAdapter(adapterLuid: Long): VulkanDevice {
+  require(adapterLuid != 0L) { "ANGLE adapter LUID is required" }
+  return create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { physical, _ ->
+    vulkanDeviceLuid(physical) == adapterLuid
   }
 }
 
 internal class WindowsOpenGlExportedVulkanTexture
 private constructor(
-  private val context: WindowsOpenGlVulkanContext,
+  private val vulkan: VulkanDevice,
   private val sharedHandle: Long,
   private val extent: MapExtent,
 ) : ImportedMapTexture {
@@ -94,13 +73,13 @@ private constructor(
 
   override fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
-      context = context.handles,
+      context = vulkan.handles,
       image = NativeHandle(image),
       imageView = NativeHandle(view),
       format = VK_FORMAT_R8G8B8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = context.handles.graphicsQueueFamilyIndex,
+      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )
@@ -131,17 +110,17 @@ private constructor(
           .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
           .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(context.device(), imageInfo, null, imageOut), "vkCreateImage")
+      checkVulkan(vkCreateImage(vulkan.device, imageInfo, null, imageOut), "vkCreateImage")
       image = imageOut[0]
 
       val requirements = VkMemoryRequirements.calloc(stack)
-      vkGetImageMemoryRequirements(context.device(), image, requirements)
+      vkGetImageMemoryRequirements(vulkan.device, image, requirements)
       val handleProperties =
         VkMemoryWin32HandlePropertiesKHR.calloc(stack)
           .sType(VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR)
       checkVulkan(
         vkGetMemoryWin32HandlePropertiesKHR(
-          context.device(),
+          vulkan.device,
           VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT,
           sharedHandle,
           handleProperties,
@@ -165,18 +144,18 @@ private constructor(
           .allocationSize(requirements.size())
           .memoryTypeIndex(
             findVulkanDeviceLocalMemoryType(
-              context.physicalDevice(),
+              vulkan.physicalDevice,
               requirements.memoryTypeBits() and handleProperties.memoryTypeBits(),
               "No compatible Vulkan memory type found for imported D3D11 texture",
             )
           )
       val memoryOut = stack.mallocLong(1)
       checkVulkan(
-        vkAllocateMemory(context.device(), allocateInfo, null, memoryOut),
+        vkAllocateMemory(vulkan.device, allocateInfo, null, memoryOut),
         "vkAllocateMemory",
       )
       memory = memoryOut[0]
-      checkVulkan(vkBindImageMemory(context.device(), image, memory, 0), "vkBindImageMemory")
+      checkVulkan(vkBindImageMemory(vulkan.device, image, memory, 0), "vkBindImageMemory")
 
       val viewInfo =
         VkImageViewCreateInfo.calloc(stack)
@@ -193,34 +172,34 @@ private constructor(
               .layerCount(1)
           )
       val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(context.device(), viewInfo, null, viewOut), "vkCreateImageView")
+      checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
       view = viewOut[0]
     }
   }
 
   override fun close() {
-    context.waitIdle()
+    vulkan.waitIdle()
     if (view != NULL) {
-      vkDestroyImageView(context.device(), view, null)
+      vkDestroyImageView(vulkan.device, view, null)
       view = NULL
     }
     if (image != NULL) {
-      vkDestroyImage(context.device(), image, null)
+      vkDestroyImage(vulkan.device, image, null)
       image = NULL
     }
     if (memory != NULL) {
-      vkFreeMemory(context.device(), memory, null)
+      vkFreeMemory(vulkan.device, memory, null)
       memory = NULL
     }
   }
 
   companion object {
     fun create(
-      context: WindowsOpenGlVulkanContext,
+      vulkan: VulkanDevice,
       sharedHandle: Long,
       extent: MapExtent,
     ): WindowsOpenGlExportedVulkanTexture {
-      val texture = WindowsOpenGlExportedVulkanTexture(context, sharedHandle, extent)
+      val texture = WindowsOpenGlExportedVulkanTexture(vulkan, sharedHandle, extent)
       try {
         texture.create()
         return texture

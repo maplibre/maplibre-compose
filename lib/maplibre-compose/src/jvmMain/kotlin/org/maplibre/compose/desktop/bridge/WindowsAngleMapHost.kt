@@ -27,7 +27,7 @@ internal class WindowsAngleMapHost(
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-gl-renderer")
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Angle)
   private val frameCompletion = ComposeFrameCompletion()
-  private var vulkan: WindowsOpenGlVulkanContext? = null
+  private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
   private var producerAdapterLuid = 0L
   private var pendingAdapterLuid: Long? = null
@@ -171,9 +171,8 @@ internal class WindowsAngleMapHost(
             val context = wgl ?: WindowsWglContext.create().also { wgl = it }
             context.importTexture(d3d11.sharedHandle, extent, "ANGLE", adapterLuid, d3d11 = true)
           } else {
-            val context =
-              vulkan ?: WindowsOpenGlVulkanContext.create(adapterLuid).also { vulkan = it }
-            context.importD3D11Texture(d3d11.sharedHandle, extent)
+            val context = vulkan ?: VulkanDevice.forAdapter(adapterLuid).also { vulkan = it }
+            WindowsOpenGlExportedVulkanTexture.create(context, d3d11.sharedHandle, extent)
           }
         producerAdapterLuid = adapterLuid
         imported
