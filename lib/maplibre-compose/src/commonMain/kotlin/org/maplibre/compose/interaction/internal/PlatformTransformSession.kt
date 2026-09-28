@@ -13,12 +13,12 @@ import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 internal class PlatformTransformSession(
   private val target: CameraInputTarget,
   private val options: InputConfiguration,
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val routing: PlatformTransformRouting,
   private val onAccepted: () -> Unit,
 ) {
   private val components = mutableSetOf<Kind>()
-  private var session: GestureInputSession? = null
+  private val burst = InputBurst(scope, target) { cancel() }
   val isActive: Boolean
     get() = components.isNotEmpty()
 
@@ -45,7 +45,7 @@ internal class PlatformTransformSession(
       else Kind.Pan
     val end = type == PointerEventType.ScaleEnd || type == PointerEventType.PanEnd
 
-    if (session?.token?.acceptsCommands == false) cancel()
+    if (burst.session?.token?.acceptsCommands == false) cancel()
 
     // A cancelled component stays suppressed until the host ends it; later deltas must not
     // reopen a camera session after another handler has taken the input.
@@ -93,7 +93,7 @@ internal class PlatformTransformSession(
     if (!delta) return true
 
     target.observeInput()
-    val token = checkNotNull(session).token
+    val token = checkNotNull(burst.session).token
     when (kind) {
       Kind.Scale -> {
         val scale = scaleFactor.pow(settings.zoom.zoomScale)
@@ -117,39 +117,32 @@ internal class PlatformTransformSession(
   }
 
   private fun startComponent(kind: Kind) {
-    if (session == null) {
-      onAccepted()
-      target.observeInput()
-      lateinit var input: GestureInputSession
-      input =
-        GestureInputSession(scope, target) {
-          if (session === input) cancel()
+    val session =
+      burst.session
+        ?: run {
+          onAccepted()
+          target.observeInput()
+          burst.start()
         }
-      session = input
-    }
 
-    session?.token?.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
+    session.token.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
     components += kind
   }
 
   private fun retainAuthority(): Boolean {
-    if (session?.token?.acceptsCommands == true) return true
+    if (burst.session?.token?.acceptsCommands == true) return true
     cancel()
     return false
   }
 
   private fun finishIfIdle() {
     if (components.isNotEmpty()) return
-    val completed = session
-    session = null
-    completed?.end()
+    burst.end()
   }
 
   fun cancel() {
     routing.suppressed += components
     components.clear()
-    val cancelled = session
-    session = null
-    cancelled?.cancel()
+    burst.cancel()
   }
 }

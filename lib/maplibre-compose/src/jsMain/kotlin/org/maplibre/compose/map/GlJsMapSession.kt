@@ -1405,13 +1405,10 @@ internal class GlJsMapSession(
     }
   }
 
-  override fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) {
-    onGestureMap(gestureToken) { map -> map.panBy(panOffset(deltaX, deltaY), animation(duration)) }
+  override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
+    onGestureMap(gestureToken) { map ->
+      map.panBy(panOffset(deltaX, deltaY), animation(Duration.ZERO))
+    }
   }
 
   override suspend fun moveByAwaitingTransition(
@@ -1431,13 +1428,10 @@ internal class GlJsMapSession(
     y = -deltaY
   }
 
-  override fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) {
-    onGestureMap(gestureToken) { map -> map.easeTo(zoomOptions(map, scale, anchor, duration)) }
+  override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) {
+    onGestureMap(gestureToken) { map ->
+      map.easeTo(zoomOptions(map, scale, anchor, Duration.ZERO))
+    }
   }
 
   override suspend fun scaleByAwaitingTransition(
@@ -1480,16 +1474,14 @@ internal class GlJsMapSession(
   override fun rotateAndPitchBy(
     bearingDelta: Double,
     pitchDelta: Double,
-    duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
     feedback: Boolean,
   ) {
     onGestureMap(gestureToken) { map ->
       val before = map.getBearing()
-      map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
-      if (feedback && bearingDelta != 0.0 && duration == Duration.ZERO)
-        gestureToken?.reportRotation(before, map.getBearing())
+      map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, Duration.ZERO))
+      if (feedback && bearingDelta != 0.0) gestureToken?.reportRotation(before, map.getBearing())
     }
   }
 

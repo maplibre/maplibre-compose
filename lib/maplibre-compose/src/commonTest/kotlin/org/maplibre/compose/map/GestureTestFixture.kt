@@ -108,24 +108,15 @@ internal class RecordingGestureTarget(
     while (pending.isNotEmpty()) pending.removeFirst().invoke()
   }
 
-  override fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) = command(gestureToken) { moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat()) }
+  override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) =
+    command(gestureToken) { moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat()) }
 
-  override fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: CameraInputToken?,
-  ) = command(gestureToken) { scaleCalls += ScaleCall(scale, anchor) }
+  override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) =
+    command(gestureToken) { scaleCalls += ScaleCall(scale, anchor) }
 
   override fun rotateAndPitchBy(
     bearingDelta: Double,
     pitchDelta: Double,
-    duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
     feedback: Boolean,
@@ -142,14 +133,14 @@ internal class RecordingGestureTarget(
     deltaY: Double,
     duration: Duration,
     gestureToken: CameraInputToken,
-  ) = moveBy(deltaX, deltaY, duration, gestureToken)
+  ) = moveBy(deltaX, deltaY, gestureToken)
 
   override suspend fun scaleByAwaitingTransition(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
     gestureToken: CameraInputToken,
-  ) = scaleBy(scale, anchor, duration, gestureToken)
+  ) = scaleBy(scale, anchor, gestureToken)
 
   override suspend fun rotateAndPitchByAwaitingTransition(
     bearingDelta: Double,
@@ -157,7 +148,7 @@ internal class RecordingGestureTarget(
     duration: Duration,
     gestureToken: CameraInputToken,
     anchor: DpOffset?,
-  ) = rotateAndPitchBy(bearingDelta, pitchDelta, duration, anchor, gestureToken)
+  ) = rotateAndPitchBy(bearingDelta, pitchDelta, anchor, gestureToken)
 
   override suspend fun snapBearingAwaitingTransition(
     snapping: BearingSnapping,

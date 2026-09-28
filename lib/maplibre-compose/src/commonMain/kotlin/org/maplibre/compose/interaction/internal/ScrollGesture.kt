@@ -4,9 +4,6 @@ import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
@@ -19,18 +16,13 @@ internal class ScrollGesture(
   private val density: Density,
   private val viewportSize: () -> IntSize,
   private val scrollConverter: ScrollConverter,
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
 ) {
-  private class Burst(
-    val response: ScrollResponse,
-    val session: GestureInputSession,
-  ) {
-    val token
-      get() = session.token
-  }
-
-  private var burst: Burst? = null
-  private var finishJob: Job? = null
+  private val burst = InputBurst(scope, target) { cancel() }
+  /**
+   * The response the current burst started with; meaningful only while `burst.session` is non-null.
+   */
+  private var response: ScrollResponse? = null
 
   fun onPointerEvent(event: PointerEvent, takeOverContacts: () -> Unit) {
     if (event.changes.any { it.isConsumed }) {
@@ -41,33 +33,26 @@ internal class ScrollGesture(
     val normalized =
       normalizeScroll(scrollConverter(event, density, viewportSize()), density) ?: return
     val sample = event.gestureSample(null, density)
-    val previous = burst
-    if (previous != null && !previous.token.acceptsCommands) {
-      cancel()
-    }
+    if (burst.session?.token?.acceptsCommands == false) cancel()
 
     val selected =
       options.bindings.scroll.select(sample, options.camera.settings)?.takeUnless {
         it == ScrollResponse.None
       }
-    if (burst != null && burst?.response != selected) cancel()
+    if (burst.session != null && response != selected) cancel()
     if (selected == null) return
     if (selected == ScrollResponse.Zoom && normalized.y.value == 0f) return
 
     target.observeInput()
-    val current =
-      burst
+    val session =
+      burst.session
         ?: run {
           takeOverContacts()
-          lateinit var session: GestureInputSession
-          session =
-            GestureInputSession(scope, target) {
-              if (burst?.session === session) cancel()
-            }
-          Burst(selected, session).also { burst = it }
+          response = selected
+          burst.start()
         }
 
-    if (!current.token.acceptsCommands) {
+    if (!session.token.acceptsCommands) {
       cancel()
       return
     }
@@ -77,7 +62,7 @@ internal class ScrollGesture(
         target.inputPanBy(
           normalized.x.value.toDouble(),
           normalized.y.value.toDouble(),
-          gestureToken = current.token,
+          gestureToken = session.token,
         )
       ScrollResponse.Zoom -> {
         val scale =
@@ -86,7 +71,7 @@ internal class ScrollGesture(
           target.inputScaleBy(
             scale,
             options.bindings.scroll.anchor.location(sample),
-            gestureToken = current.token,
+            gestureToken = session.token,
           )
       }
       else -> Unit
@@ -96,21 +81,10 @@ internal class ScrollGesture(
 
     // Wheel events have no release. The idle timeout closes one burst without adding momentum;
     // the host may already include its own inertial scrolling.
-    finishJob?.cancel()
-    finishJob =
-      current.session.scope.launch {
-        delay(options.bindings.scroll.idleDuration.inWholeMilliseconds)
-        burst = null
-        finishJob = null
-        current.session.end()
-      }
+    burst.endAfterIdle(session, options.bindings.scroll.idleDuration)
   }
 
   fun cancel() {
-    finishJob?.cancel()
-    finishJob = null
-    val previous = burst ?: return
-    burst = null
-    previous.session.cancel()
+    burst.cancel()
   }
 }
