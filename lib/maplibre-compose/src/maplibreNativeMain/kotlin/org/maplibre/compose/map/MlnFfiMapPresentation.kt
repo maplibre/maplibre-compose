@@ -26,7 +26,7 @@ internal fun <T> MlnFfiMapPresentation(
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
   content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
-): T {
+): T? {
   val compatibility =
     NativeEngineCompatibility(renderBackend, LocalDensity.current.density.toDouble())
   return key(compatibility) {

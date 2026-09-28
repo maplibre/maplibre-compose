@@ -802,19 +802,27 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun two_maps_cannot_present_one_state_at_once() = runFfiComposeUiTest {
+  fun a_second_map_cannot_present_a_presented_state() = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+      var includeRival by mutableStateOf(false)
 
-      val error =
-        assertFailsWith<IllegalStateException> {
-          setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
-            MaplibreMap(state = state)
-            MaplibreMap(state = state)
-          }
-          waitForIdle()
-        }
+      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+        MaplibreMap(state = state)
+        if (includeRival) MaplibreMap(state = state)
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val presentation = requireNotNull(state.currentMapAttachment)
+
+      runOnIdle { includeRival = true }
+      val error = assertFailsWith<IllegalStateException> { waitForIdle() }
+
       assertEquals("The map state already has a presentation", error.message)
+      assertSame(presentation, state.currentMapAttachment)
+      assertTrue(presentation.isValid)
+      assertEquals(StyleLoadState.Ready, state.style.loadState)
     }
   }
 

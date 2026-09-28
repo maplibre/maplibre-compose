@@ -33,8 +33,13 @@ private class MapStateAttachment(
 ) : RememberObserver {
   private var token: MapPresentationToken? = null
 
+  /** Whether the apply phase has reserved [state] for this presentation. */
+  var isReserved by mutableStateOf(false)
+    private set
+
   override fun onRemembered() {
     token = state.reservePresentation(owner)
+    isReserved = true
   }
 
   override fun onForgotten() {
@@ -68,16 +73,24 @@ private class MapStateAttachment(
   }
 }
 
-/** Style composition, callbacks, and recognized input for one presentation of [state]. */
+/**
+ * Style composition, callbacks, and recognized input for one presentation of [state]. Returns null
+ * while another map presents [state].
+ */
 @Composable
 internal fun <T> MapPresentationContent(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
   content: @Composable (MapPresentationBinding) -> T,
-): T {
+): T? {
   val attachment =
     remember(state, presentationOwner) { MapStateAttachment(state, presentationOwner) }
+  // The other map may be leaving in this same recomposition, and then this map takes over its
+  // engine. Until the apply phase settles which, touching that engine would disturb a live map.
+  if (!attachment.isReserved && state.lifecycle.isPresentedByOtherOwner(presentationOwner)) {
+    return null
+  }
   // The dispatcher reads this state directly: a click can arrive between the style binding's
   // invalidation and the recomposition that clears it.
   val rememberedStyleState = remember { mutableStateOf<StyleBinding?>(null) }
