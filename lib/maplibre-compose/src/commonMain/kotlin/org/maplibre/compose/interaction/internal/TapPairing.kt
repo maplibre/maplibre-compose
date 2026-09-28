@@ -20,6 +20,9 @@ internal class TapPairing(
     Paired,
   }
 
+  /** [doubleTap] is true when a paired press and the first tap can both double-tap. */
+  data class Pairing(val role: Press, val doubleTap: Boolean)
+
   private class Pending(
     val sample: GesturePointerSample,
     val generation: Long,
@@ -45,14 +48,15 @@ internal class TapPairing(
     slop: Float,
     doubleTap: Boolean,
     quickZoom: Boolean,
-  ): Press {
+  ): Pairing {
     val first = pending
     val elapsed = timeMillis - (first?.sample?.uptimeMillis ?: timeMillis)
+    val bothDoubleTap = doubleTap && first?.doubleTap == true
     val role =
       when {
         first == null ||
           first.claimed ||
-          !(quickZoom || (doubleTap && first.doubleTap)) ||
+          !(quickZoom || bothDoubleTap) ||
           first.type != type ||
           (origin - first.origin).getDistance() > slop -> Press.First
         elapsed < minimumGapMillis -> Press.Bounce
@@ -68,7 +72,7 @@ internal class TapPairing(
       }
       Press.Bounce -> Unit
     }
-    return role
+    return Pairing(role, role == Press.Paired && bothDoubleTap)
   }
 
   /** Mouse clicks have already been delivered; only touch clicks need a delayed delivery. */

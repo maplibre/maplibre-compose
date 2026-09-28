@@ -151,7 +151,7 @@ internal class PointerGesture(
     val tapDemand = TapFamily.entries.filterTo(mutableSetOf()) { hasTapDemand(it, sample) }
     val doubleTap = TapFamily.DoubleTap in tapDemand
     val quickZoom = quickZoomMatches(sample)
-    val role =
+    val paired =
       pairing.press(
         change.position,
         change.uptimeMillis,
@@ -163,7 +163,7 @@ internal class PointerGesture(
 
     dragSample = sample
     drag =
-      if (role == TapPairing.Press.Paired && quickZoom) SingleDrag.QuickZoom(drags, change)
+      if (paired.role == TapPairing.Press.Paired && quickZoom) SingleDrag.QuickZoom(drags, change)
       else drags.cameraDrag(change, sample)
 
     val clickDemand = doubleTap || quickZoom || tapDemand.any { it != TapFamily.TwoFingerTap }
@@ -173,7 +173,7 @@ internal class PointerGesture(
         change.type,
         secondary,
         change.uptimeMillis,
-        role,
+        paired,
         tapDemand,
         quickZoom,
         clickable = clickDemand,
@@ -508,7 +508,7 @@ internal class PointerGesture(
       return
     }
 
-    if (click.role == TapPairing.Press.Paired && TapFamily.DoubleTap in demand) {
+    if (click.pairing.doubleTap) {
       emitTap(TapFamily.DoubleTap, clickSample)
       pairing.discard(emitClick = false)
       return
@@ -662,7 +662,7 @@ internal class PointerGesture(
     val type: PointerType,
     val secondary: Boolean,
     val startedAtMillis: Long,
-    val role: TapPairing.Press,
+    val pairing: TapPairing.Pairing,
     val tapDemand: Set<TapFamily>,
     val quickZoom: Boolean,
     /** False once the press moves, drags, or is held too long to click. */
@@ -670,6 +670,9 @@ internal class PointerGesture(
   ) {
     var longClickJob: Job? = null
     var longClickHandled = false
+
+    val role: TapPairing.Press
+      get() = pairing.role
 
     fun clickSlop(): Float = if (type == PointerType.Mouse) clickSlopPx else touchSlopPx
 
