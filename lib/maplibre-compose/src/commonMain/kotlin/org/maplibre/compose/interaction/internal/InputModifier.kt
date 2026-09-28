@@ -18,8 +18,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
@@ -179,8 +177,7 @@ private fun Modifier.pointerGestures(
         scope,
       )
 
-    lateinit var platform: PlatformTransformSession
-    var platformRouteActive = false
+    lateinit var router: PointerRouter
     val gesture =
       PointerGesture(
         target = target,
@@ -201,15 +198,9 @@ private fun Modifier.pointerGestures(
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
         onHaptic = onHaptic.takeIf { options.camera.settings.rotate.haptics.isNotEmpty() },
-        onRecognizedGesture = {
-          scroll.cancel()
-          platform.cancel()
-          platformRouteActive = false
-        },
+        onRecognizedGesture = { router.onPointerRecognized() },
       )
-
-    val consumption = PointerInputConsumption(gesture::cancel, gesture::yieldToOtherHandler)
-    platform =
+    val platform =
       PlatformTransformSession(
         target,
         options,
@@ -220,79 +211,17 @@ private fun Modifier.pointerGestures(
         runCatching { focusRequester.requestFocus() }
         focus.engage(byKey = false)
       }
+    router = PointerRouter(target, density, platformRouting, scroll, platform, gesture)
 
     try {
       awaitPointerEventScope {
         while (true) {
-          val event = awaitPointerEvent(PointerEventPass.Main)
-          val ready = target.isGestureReady
-          val routed =
-            platformRouting.route(
-              event.type,
-              hasAndroidTransformClassification(event),
-              event.changes,
-            )
-
-          // Host transforms and raw contacts are exclusive: wrapper contacts must never also
-          // become a map drag or tap. Scroll competes in the same Compose consumption pass.
-          var claimedPlatform = false
-          if (routed) {
-            if (!platformRouteActive) {
-              gesture.cancel()
-              platformRouteActive = true
-            }
-            val admitted = consumption.main(event, ready) {}
-            if (!admitted || event.changes.any { it.isConsumed }) platformRouting.intercept()
-            val change =
-              event.changes.firstOrNull { it.scaleFactor != 1f || it.panOffset != Offset.Zero }
-                ?: event.changes.firstOrNull()
-            if (change != null) {
-              claimedPlatform =
-                platform.onInput(
-                  event.type,
-                  event.gestureSample(null, density, change.position),
-                  change.scaleFactor.toDouble(),
-                  // Platform pans report a scroll delta (positive = scroll down/right, like a
-                  // wheel); the camera pans in drag convention (content follows the fingers).
-                  (-change.panOffset).toLogicalDpOffset(density),
-                  !admitted || platformRouting.blocked || event.changes.any { it.isConsumed },
-                )
-              if (claimedPlatform) event.changes.forEach(PointerInputChange::consume)
-            }
-            if (
-              !platform.isActive &&
-                !platformRouting.hasContacts &&
-                (event.type == PointerEventType.ScaleEnd ||
-                  event.type == PointerEventType.PanEnd ||
-                  event.type == PointerEventType.Release)
-            )
-              platformRouteActive = false
-          } else if (event.type == PointerEventType.Scroll && !ready) {
-            scroll.cancel()
-          } else if (event.type == PointerEventType.Scroll) {
-            scroll.onPointerEvent(event) {
-              platform.cancel()
-              platformRouteActive = false
-              consumption.suppress()
-            }
-          } else {
-            consumption.main(event, ready, gesture::onPointerEvent)
-          }
-
-          // A parent can consume later in Main. Recheck in Final before continuing the session.
-          val final = awaitPointerEvent(PointerEventPass.Final)
-          if (routed) {
-            if (!claimedPlatform && final.changes.any { it.isConsumed }) {
-              platformRouting.intercept()
-              platform.cancel()
-            }
-          } else if (event.type != PointerEventType.Scroll) consumption.final(final)
+          router.onMain(awaitPointerEvent(PointerEventPass.Main))
+          router.onFinal(awaitPointerEvent(PointerEventPass.Final))
         }
       }
     } finally {
-      gesture.cancel()
-      scroll.cancel()
-      platform.cancel()
+      router.cancel()
     }
   }
 
