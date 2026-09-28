@@ -156,7 +156,7 @@ private constructor(
   ): MlnFfiFrameResult {
     frameRequested.store(false)
     val frame =
-      when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
+      when (val acquisition = driver.acquireFrame(frameId++, extent)) {
         is MlnFfiMapFrameAcquisition.Acquired -> acquisition.frame
         MlnFfiMapFrameAcquisition.NotReady ->
           error("The production ${driver.backends} bridge had no test GPU context")

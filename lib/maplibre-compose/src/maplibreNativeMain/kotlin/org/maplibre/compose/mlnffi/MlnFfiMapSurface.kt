@@ -10,14 +10,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.ComposeMapSurface
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapSurface
 import org.maplibre.compose.util.rethrowIfFatal
-
-private val frameClockOrigin = TimeSource.Monotonic.markNow()
 
 /**
  * The node schedules preparation before overlay placement; the controller owns the presentation.
@@ -119,8 +116,7 @@ internal class MlnFfiSurfaceController(
         renderer.onSurfaceChanged(extent)
         configuredExtent = extent
       }
-      val acquired =
-        host.acquireFrame(frameId, extent, frameClockOrigin.elapsedNow().inWholeNanoseconds)
+      val acquired = host.acquireFrame(frameId, extent)
       if (acquired == MlnFfiMapFrameAcquisition.NotReady) {
         requestFrame()
         return false

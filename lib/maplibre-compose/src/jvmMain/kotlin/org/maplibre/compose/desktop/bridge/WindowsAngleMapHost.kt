@@ -42,7 +42,6 @@ internal class WindowsAngleMapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
@@ -55,7 +54,6 @@ internal class WindowsAngleMapHost(
             requireNotNull(texture) { "Windows OpenGL texture is not initialized" }
               .exported
               .target(generation),
-          presentationTimeNanos = presentationTimeNanos,
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady

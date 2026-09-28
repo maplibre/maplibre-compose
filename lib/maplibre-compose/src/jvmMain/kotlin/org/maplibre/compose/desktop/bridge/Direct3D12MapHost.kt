@@ -154,7 +154,6 @@ internal class Direct3D12MapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     val context = withPreparedContext { it } ?: return MlnFfiMapFrameAcquisition.NotReady
     val device = context.device
@@ -174,7 +173,6 @@ internal class Direct3D12MapHost(
         frameId = frameId,
         extent = extent,
         target = target(generation),
-        presentationTimeNanos = presentationTimeNanos,
       )
     )
   }
@@ -241,11 +239,10 @@ internal class Direct3D12MapHost(
 
     val direct3DDevice =
       checkNotNull(device) { "resize() resolves the Direct3D device before this hop" }
-    val storageExtent = extent
     direct3DTexture =
       WindowsDirect3DInterop.createSharedTexture(
         direct3DDevice,
-        storageExtent,
+        extent,
         if (producer == MapRenderBackend.OPENGL) 28 else DXGI_FORMAT_B8G8R8A8_UNORM,
       )
     currentDevice = direct3DDevice
@@ -266,7 +263,7 @@ internal class Direct3D12MapHost(
         } else {
           val context =
             vulkan ?: VulkanDevice.forDirect3D12Resource(sharedHandle).also { vulkan = it }
-          WindowsVulkanImportedDirect3DTexture.create(context, sharedHandle, storageExtent, extent)
+          WindowsVulkanImportedDirect3DTexture.create(context, sharedHandle, extent)
         }
     } finally {
       // The import duplicates the handle rather than taking ownership, so this copy is always ours.
@@ -311,8 +308,7 @@ internal class Direct3D12MapHost(
       origin =
         if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
         else TextureOrigin.TOP_LEFT,
-      // Skia wraps the D3D12 resource, so it needs the allocated size, not the render size.
-      extent = importedTexture?.storageExtent ?: currentExtent,
+      extent = currentExtent,
       generation = generation,
     )
   }
@@ -366,8 +362,7 @@ private constructor(
   private val vulkan: VulkanDevice,
   private val sharedHandle: Long,
   /** The size the D3D12 resource was allocated at, which is what the `VkImage` must match. */
-  override val storageExtent: MapExtent,
-  private val renderExtent: MapExtent,
+  private val extent: MapExtent,
 ) : ImportedMapTexture {
   private var image = NULL
   private var memory = NULL
@@ -381,8 +376,7 @@ private constructor(
       format = VK_FORMAT_B8G8R8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
-      extent = renderExtent,
+      extent = extent,
       generation = generation,
     )
 
@@ -400,8 +394,8 @@ private constructor(
           .format(VK_FORMAT_B8G8R8A8_UNORM)
           .extent(
             VkExtent3D.calloc(stack)
-              .width(storageExtent.physicalWidth)
-              .height(storageExtent.physicalHeight)
+              .width(extent.physicalWidth)
+              .height(extent.physicalHeight)
               .depth(1)
           )
           .mipLevels(1)
@@ -501,11 +495,9 @@ private constructor(
     fun create(
       vulkan: VulkanDevice,
       sharedHandle: Long,
-      storageExtent: MapExtent,
-      renderExtent: MapExtent,
+      extent: MapExtent,
     ): WindowsVulkanImportedDirect3DTexture {
-      val texture =
-        WindowsVulkanImportedDirect3DTexture(vulkan, sharedHandle, storageExtent, renderExtent)
+      val texture = WindowsVulkanImportedDirect3DTexture(vulkan, sharedHandle, extent)
       try {
         texture.create()
         return texture

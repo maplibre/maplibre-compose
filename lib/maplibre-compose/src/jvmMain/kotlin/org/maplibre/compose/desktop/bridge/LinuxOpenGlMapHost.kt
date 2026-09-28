@@ -115,7 +115,6 @@ internal class LinuxOpenGlMapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
@@ -125,7 +124,6 @@ internal class LinuxOpenGlMapHost(
           frameId = frameId,
           extent = extent,
           target = requireNotNull(texture) { "Map texture is not initialized" }.target(generation),
-          presentationTimeNanos = presentationTimeNanos,
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
@@ -387,7 +385,6 @@ private constructor(private val vulkan: VulkanDevice, private val extent: MapExt
       format = VK_FORMAT_R8G8B8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )

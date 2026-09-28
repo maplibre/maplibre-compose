@@ -215,7 +215,6 @@ internal class AppleMlnFfiSurfaceController(
         frameId = frameId,
         extent = currentExtent,
         target = target,
-        presentationTimeNanos = (uptimeSeconds() * NANOS_PER_SECOND).toLong(),
       )
 
     val start = TimeSource.Monotonic.markNow()
@@ -392,7 +391,6 @@ internal class AppleMlnFfiSurfaceController(
 
   private companion object {
     const val MAX_RECOVERY_ATTEMPTS = 3
-    const val NANOS_PER_SECOND = 1_000_000_000.0
 
     /** A null device handle, which the FFI runtime reads as the system default Metal device. */
     val DEFAULT_METAL_DEVICE = NativeHandle(0L)

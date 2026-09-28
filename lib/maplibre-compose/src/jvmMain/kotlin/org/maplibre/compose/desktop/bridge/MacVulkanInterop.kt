@@ -68,7 +68,6 @@ private constructor(
       format = VK_FORMAT_B8G8R8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )

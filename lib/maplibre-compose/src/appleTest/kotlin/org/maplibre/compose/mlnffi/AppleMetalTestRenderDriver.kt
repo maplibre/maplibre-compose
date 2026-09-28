@@ -49,7 +49,6 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     val texture = ensureTexture(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
@@ -64,7 +63,6 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
             extent = extent,
             generation = generation,
           ),
-        presentationTimeNanos = presentationTimeNanos,
       )
     )
   }

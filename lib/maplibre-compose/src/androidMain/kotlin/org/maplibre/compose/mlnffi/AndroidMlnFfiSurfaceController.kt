@@ -38,7 +38,7 @@ internal class AndroidMlnFfiSurfaceController(
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
-  private val renderFrame = Runnable { renderFrame(System.nanoTime()) }
+  private val renderFrame = Runnable { renderFrame() }
   private var graphics: AndroidMapGraphicsContext? = null
   private var maximumFps = maximumFps
   private var extent = MapExtent.Empty
@@ -162,7 +162,7 @@ internal class AndroidMlnFfiSurfaceController(
     } else renderHandler.post(renderFrame)
   }
 
-  private fun renderFrame(frameTimeNanos: Long) {
+  private fun renderFrame() {
     framePosted = false
     val currentGraphics = graphics
     val currentExtent = extent
@@ -176,7 +176,7 @@ internal class AndroidMlnFfiSurfaceController(
 
     val frameId = nextFrameId++
     val target = currentGraphics.target(currentExtent, generation)
-    val frame = MlnFfiMapFrame(frameId, currentExtent, target, frameTimeNanos)
+    val frame = MlnFfiMapFrame(frameId, currentExtent, target)
 
     val start = TimeSource.Monotonic.markNow()
     try {

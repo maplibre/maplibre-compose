@@ -43,7 +43,6 @@ internal class MetalMapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     withPreparedContext { context ->
       if (!device.isNull && device != context.device) {
@@ -72,7 +71,7 @@ internal class MetalMapHost(
         generation = nextGeneration
       }
       MlnFfiMapFrameAcquisition.Acquired(
-        MlnFfiMapFrame(frameId, extent, textures.getValue(generation).target, presentationTimeNanos)
+        MlnFfiMapFrame(frameId, extent, textures.getValue(generation).target)
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 

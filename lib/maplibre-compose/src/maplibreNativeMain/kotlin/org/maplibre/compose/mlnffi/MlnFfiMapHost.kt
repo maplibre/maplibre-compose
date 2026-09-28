@@ -45,12 +45,6 @@ internal data class MlnFfiMapFrame(
   /** The size this frame's target was allocated at. */
   val extent: MapExtent,
   val target: MlnFfiRenderTarget,
-
-  /**
-   * When this frame is expected to be presented, if the host knows. Nanoseconds on a monotonic
-   * clock whose origin is arbitrary, so only differences between frames mean anything.
-   */
-  val presentationTimeNanos: Long?,
 )
 
 /** The explicit outcome of asking a host for a frame. */
@@ -110,7 +104,6 @@ internal interface MlnFfiMapHost : AutoCloseable {
   fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition
 
   /** Runs [action] with the producer side able to render into [frame]'s target. */

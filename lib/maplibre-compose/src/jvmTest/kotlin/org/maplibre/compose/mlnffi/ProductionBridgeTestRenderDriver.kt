@@ -92,9 +92,8 @@ private constructor(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition = environment.withContext {
-    bridge.acquireFrame(frameId, extent, presentationTimeNanos)
+    bridge.acquireFrame(frameId, extent)
   }
 
   override fun present(target: MlnFfiRenderTarget): Boolean = environment.present(bridge, target)

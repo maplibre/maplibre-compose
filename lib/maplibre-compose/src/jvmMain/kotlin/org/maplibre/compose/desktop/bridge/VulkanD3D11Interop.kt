@@ -64,9 +64,6 @@ private constructor(
   private val sharedHandle: Long,
   private val extent: MapExtent,
 ) : ImportedMapTexture {
-  override val storageExtent
-    get() = extent
-
   private var image = NULL
   private var memory = NULL
   private var view = NULL
@@ -79,7 +76,6 @@ private constructor(
       format = VK_FORMAT_R8G8B8A8_UNORM,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = vulkan.handles.graphicsQueueFamilyIndex,
       extent = extent,
       generation = generation,
     )

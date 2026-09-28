@@ -94,7 +94,6 @@ internal class FakeMlnFfiMapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     calls += "acquireFrame($frameId)"
     acquireCount++
@@ -149,11 +148,9 @@ internal class FakeMlnFfiMapHost(
             format = 37,
             initialLayout = 0,
             finalLayout = 1,
-            queueFamilyIndex = 0,
             extent = extent,
             generation = generation,
           ),
-        presentationTimeNanos = presentationTimeNanos,
       )
     )
   }
