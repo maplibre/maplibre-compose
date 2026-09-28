@@ -1,6 +1,8 @@
 package org.maplibre.compose.location.desktop.windows
 
 import java.util.ServiceLoader
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -223,6 +225,36 @@ class WindowsLocationProviderTest {
     assertTrue(first.isCompleted)
     assertTrue(second.isCompleted)
     assertTrue(client.sessions.all { it.closeCount == 1 })
+  }
+
+  @Test
+  fun cancellationDuringSessionCreationClosesTheReturnedSession() = runTest {
+    val creationStarted = CountDownLatch(1)
+    val finishCreation = CountDownLatch(1)
+    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
+    client.onCreateSession = {
+      creationStarted.countDown()
+      check(finishCreation.await(5, TimeUnit.SECONDS))
+    }
+    val provider = WindowsLocationProvider(client)
+    val collector =
+      backgroundScope.launch(Dispatchers.Default) {
+        provider.updates(LocationRequest()).collect {}
+      }
+
+    try {
+      assertTrue(creationStarted.await(5, TimeUnit.SECONDS))
+      collector.cancel()
+    } finally {
+      finishCreation.countDown()
+    }
+    collector.join()
+
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(0, client.closeCount)
+    provider.close()
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(1, client.closeCount)
   }
 
   @Test
