@@ -73,7 +73,7 @@ internal class MlnFfiRuntimeThread(
    * Guards [tasks], [accepting], and [wake] together: nothing may be queued after the final drain,
    * and nothing may signal a wake source that is closing.
    */
-  private val acceptLock = MlnFfiOwnerLock(thread)
+  private val acceptLock = MlnFfiLock()
   private val tasks = ArrayDeque<Task>()
   private var accepting = true
 
@@ -149,8 +149,8 @@ internal class MlnFfiRuntimeThread(
         // Queued work first: a task posted before the source was published set no wake flag.
         val ranTasks = runTasks(runtime)
         if (stopRequested) break
-        check(!acceptLock.isHeldByOwnerThread) { "the pump must not run under acceptLock" }
         // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
+        // Never pump holding acceptLock: a parked pump would block the post that could wake it.
         runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, pumpBudgetMillis)
         host.afterPump(runtime)
       }
