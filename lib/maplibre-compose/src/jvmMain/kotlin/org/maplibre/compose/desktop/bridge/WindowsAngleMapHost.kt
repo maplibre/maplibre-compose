@@ -170,7 +170,7 @@ internal class WindowsAngleMapHost(
             context.importTexture(d3d11.sharedHandle, extent, "ANGLE", adapterLuid, d3d11 = true)
           } else {
             val context = vulkan ?: VulkanDevice.forAdapter(adapterLuid).also { vulkan = it }
-            WindowsOpenGlExportedVulkanTexture.create(context, d3d11.sharedHandle, extent)
+            context.importD3D11Texture(d3d11.sharedHandle, extent)
           }
         producerAdapterLuid = adapterLuid
         imported

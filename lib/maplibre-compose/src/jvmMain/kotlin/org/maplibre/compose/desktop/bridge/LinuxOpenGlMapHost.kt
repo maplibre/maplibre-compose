@@ -30,46 +30,13 @@ import org.lwjgl.opengl.GL11.glGetInteger
 import org.lwjgl.opengl.GL11.glTexParameteri
 import org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.linux.UNISTD
 import org.lwjgl.vulkan.KHRExternalMemoryFd.VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryFd.vkGetMemoryFdKHR
 import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
-import org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
-import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED
-import org.lwjgl.vulkan.VK10.VK_IMAGE_TILING_OPTIMAL
-import org.lwjgl.vulkan.VK10.VK_IMAGE_TYPE_2D
-import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT
-import org.lwjgl.vulkan.VK10.VK_IMAGE_VIEW_TYPE_2D
-import org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT
-import org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK10.vkAllocateMemory
-import org.lwjgl.vulkan.VK10.vkBindImageMemory
-import org.lwjgl.vulkan.VK10.vkCreateImage
-import org.lwjgl.vulkan.VK10.vkCreateImageView
-import org.lwjgl.vulkan.VK10.vkDestroyImage
-import org.lwjgl.vulkan.VK10.vkDestroyImageView
-import org.lwjgl.vulkan.VK10.vkFreeMemory
-import org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
-import org.lwjgl.vulkan.VkExportMemoryAllocateInfo
-import org.lwjgl.vulkan.VkExtent3D
-import org.lwjgl.vulkan.VkExternalMemoryImageCreateInfo
-import org.lwjgl.vulkan.VkImageCreateInfo
-import org.lwjgl.vulkan.VkImageSubresourceRange
-import org.lwjgl.vulkan.VkImageViewCreateInfo
-import org.lwjgl.vulkan.VkMemoryAllocateInfo
-import org.lwjgl.vulkan.VkMemoryDedicatedAllocateInfo
 import org.lwjgl.vulkan.VkMemoryGetFdInfoKHR
-import org.lwjgl.vulkan.VkMemoryRequirements
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -84,7 +51,6 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
@@ -222,7 +188,7 @@ internal class LinuxOpenGlMapHost(
           }
             .also { egl = it }
       } else null
-    val newExported = LinuxExportedVulkanTexture.create(context, extent)
+    val newExported = context.createExportableImage(extent)
     var producerImport: LinuxOpenGlImportedTexture? = null
     try {
       if (producerContext != null) {
@@ -230,7 +196,7 @@ internal class LinuxOpenGlMapHost(
           producerContext.makeCurrent()
           LinuxOpenGlImportedTexture.create(
             newExported.exportFd(),
-            newExported.memorySize(),
+            newExported.memorySize,
             extent,
             TextureOrigin.BOTTOM_LEFT,
           )
@@ -239,7 +205,7 @@ internal class LinuxOpenGlMapHost(
       val newImported =
         LinuxOpenGlImportedTexture.create(
           newExported.exportFd(),
-          newExported.memorySize(),
+          newExported.memorySize,
           extent,
           if (producerContext != null) TextureOrigin.BOTTOM_LEFT else TextureOrigin.TOP_LEFT,
         )
@@ -291,7 +257,7 @@ internal class LinuxOpenGlMapHost(
   }
 
   private inner class LinuxSharedTexture(
-    val exported: LinuxExportedVulkanTexture,
+    val exported: VulkanImage,
     val imported: LinuxOpenGlImportedTexture,
     val producerImport: LinuxOpenGlImportedTexture?,
   ) : AutoCloseable {
@@ -349,154 +315,30 @@ internal fun VulkanDevice.Companion.forOpenGlDevices(deviceUuids: Set<String>): 
     deviceUuids.isEmpty() || vulkanDeviceUuid(physical) in deviceUuids
   }
 
-/** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
-internal class LinuxExportedVulkanTexture
-private constructor(private val vulkan: VulkanDevice, private val extent: MapExtent) :
-  AutoCloseable {
-  private var image = NULL
-  private var memory = NULL
-  private var view = NULL
-  private var memorySize = 0L
+/** A `VkImage` of [extent] whose memory is exportable to OpenGL as a file descriptor. */
+internal fun VulkanDevice.createExportableImage(extent: MapExtent) =
+  VulkanImage.create(
+    this,
+    extent,
+    VK_FORMAT_R8G8B8A8_UNORM,
+    VK_IMAGE_LAYOUT_GENERAL,
+    VulkanImageMemory.Exported(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT),
+  )
 
-  fun memorySize(): Long = memorySize
-
-  /**
-   * Exports the image memory as a file descriptor. Ownership transfers to the caller: importing it
-   * into GL consumes it, and a failed import must close it.
-   */
-  fun exportFd(): Int {
-    MemoryStack.stackPush().use { stack ->
-      val fdInfo =
-        VkMemoryGetFdInfoKHR.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR)
-          .memory(memory)
-          .handleType(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-      val fdOut = stack.mallocInt(1)
-      checkVulkan(vkGetMemoryFdKHR(vulkan.device, fdInfo, fdOut), "vkGetMemoryFdKHR")
-      return fdOut[0]
-    }
-  }
-
-  fun target(generation: Long): VulkanImageTarget =
-    VulkanImageTarget(
-      context = vulkan.handles,
-      image = NativeHandle(image),
-      imageView = NativeHandle(view),
-      format = VK_FORMAT_R8G8B8A8_UNORM,
-      initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      extent = extent,
-      generation = generation,
-    )
-
-  private fun create() {
-    MemoryStack.stackPush().use { stack ->
-      val externalImageInfo =
-        VkExternalMemoryImageCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO)
-          .handleTypes(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-      val imageInfo =
-        VkImageCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO)
-          .pNext(externalImageInfo.address())
-          .imageType(VK_IMAGE_TYPE_2D)
-          .format(VK_FORMAT_R8G8B8A8_UNORM)
-          .extent(
-            VkExtent3D.calloc(stack)
-              .width(extent.physicalWidth)
-              .height(extent.physicalHeight)
-              .depth(1)
-          )
-          .mipLevels(1)
-          .arrayLayers(1)
-          .samples(VK_SAMPLE_COUNT_1_BIT)
-          .tiling(VK_IMAGE_TILING_OPTIMAL)
-          .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT or VK_IMAGE_USAGE_SAMPLED_BIT)
-          .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
-          .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
-      val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(vulkan.device, imageInfo, null, imageOut), "vkCreateImage")
-      image = imageOut[0]
-
-      val requirements = VkMemoryRequirements.calloc(stack)
-      vkGetImageMemoryRequirements(vulkan.device, image, requirements)
-      memorySize = requirements.size()
-      val dedicated =
-        VkMemoryDedicatedAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO)
-          .image(image)
-      val exportMemory =
-        VkExportMemoryAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO)
-          .handleTypes(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-          .pNext(dedicated.address())
-      val allocateInfo =
-        VkMemoryAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
-          .pNext(exportMemory.address())
-          .allocationSize(requirements.size())
-          .memoryTypeIndex(
-            findVulkanDeviceLocalMemoryType(
-              vulkan.physicalDevice,
-              requirements.memoryTypeBits(),
-              "No compatible Vulkan memory type found",
-            )
-          )
-      val memoryOut = stack.mallocLong(1)
-      checkVulkan(
-        vkAllocateMemory(vulkan.device, allocateInfo, null, memoryOut),
-        "vkAllocateMemory",
-      )
-      memory = memoryOut[0]
-      checkVulkan(vkBindImageMemory(vulkan.device, image, memory, 0), "vkBindImageMemory")
-
-      val viewInfo =
-        VkImageViewCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-          .image(image)
-          .viewType(VK_IMAGE_VIEW_TYPE_2D)
-          .format(VK_FORMAT_R8G8B8A8_UNORM)
-          .subresourceRange(
-            VkImageSubresourceRange.calloc(stack)
-              .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-              .baseMipLevel(0)
-              .levelCount(1)
-              .baseArrayLayer(0)
-              .layerCount(1)
-          )
-      val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
-      view = viewOut[0]
-    }
-  }
-
-  override fun close() {
-    vulkan.waitIdle()
-    if (view != NULL) {
-      vkDestroyImageView(vulkan.device, view, null)
-      view = NULL
-    }
-    if (image != NULL) {
-      vkDestroyImage(vulkan.device, image, null)
-      image = NULL
-    }
-    if (memory != NULL) {
-      vkFreeMemory(vulkan.device, memory, null)
-      memory = NULL
-    }
-  }
-
-  companion object {
-    fun create(vulkan: VulkanDevice, extent: MapExtent): LinuxExportedVulkanTexture {
-      val texture = LinuxExportedVulkanTexture(vulkan, extent)
-      try {
-        texture.create()
-        return texture
-      } catch (error: RuntimeException) {
-        texture.close()
-        throw error
-      }
-    }
+/**
+ * Exports the image memory as a file descriptor. Ownership transfers to the caller: importing it
+ * into GL consumes it, and a failed import must close it.
+ */
+internal fun VulkanImage.exportFd(): Int {
+  MemoryStack.stackPush().use { stack ->
+    val fdInfo =
+      VkMemoryGetFdInfoKHR.calloc(stack)
+        .sType(VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR)
+        .memory(memory)
+        .handleType(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
+    val fdOut = stack.mallocInt(1)
+    checkVulkan(vkGetMemoryFdKHR(vulkan.device, fdInfo, fdOut), "vkGetMemoryFdKHR")
+    return fdOut[0]
   }
 }
 

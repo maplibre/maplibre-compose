@@ -94,7 +94,7 @@ internal class MetalMapHost(
         MapRenderBackend.METAL -> SharedTexture(presentation, presentation) {}
         MapRenderBackend.VULKAN -> {
           val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
-          val imported = MacVulkanImportedTexture.create(context, texture, extent)
+          val imported = context.importMetalTexture(texture, extent)
           SharedTexture(imported.target(generation), presentation, imported::close)
         }
         MapRenderBackend.OPENGL -> {
