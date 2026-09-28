@@ -207,6 +207,26 @@ class PointerInputTest {
   }
 
   @Test
+  fun a_box_zoom_replaced_by_a_button_change_still_fits() = fixture.runRecognitionTest { target ->
+    target.project = { Position(it.x.value.toDouble(), -it.y.value.toDouble()) }
+    val map = mapNode()
+    map.performKeyInput { keyDown(Key.ShiftLeft) }
+    map.performMouseInput {
+      moveTo(Offset(20f, 20f))
+      press()
+      moveTo(Offset(120f, 80f))
+      press(MouseButton.Secondary)
+    }
+    map.performKeyInput { keyUp(Key.ShiftLeft) }
+    map.performMouseInput {
+      release(MouseButton.Secondary)
+      release()
+    }
+    waitForIdle()
+    assertEquals(1, target.fitCalls.size, "the replaced box zoom did not fit")
+  }
+
+  @Test
   fun cancelling_box_zoom_clears_the_preview_without_fitting() {
     var configuration by mutableStateOf(InputConfiguration.Standard)
     fixture.runRecognitionTest(optionsProvider = { configuration }) { target ->
