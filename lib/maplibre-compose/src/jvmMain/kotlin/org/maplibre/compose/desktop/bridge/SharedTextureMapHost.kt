@@ -170,15 +170,22 @@ internal class SharedTextures<T : Any>(private val release: (T) -> Unit) {
     }
   }
 
-  /** Takes every texture out without releasing it, [current] first. */
+  /** Takes every texture out without releasing it, [current] first, for release in stages. */
   fun removeAll(): List<T> = all.also {
     current = null
     retired.clear()
   }
 
-  /** Releases every texture, [current] first. */
+  /**
+   * Releases every texture, [current] first. Each stays until its release returns, so after a
+   * failure the caller can still reach, and retry, the ones not yet released.
+   */
   fun releaseAll() {
-    removeAll().forEach(release)
+    current?.let {
+      release(it)
+      current = null
+    }
+    releaseRetired()
   }
 }
 

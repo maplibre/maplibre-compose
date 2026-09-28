@@ -102,32 +102,38 @@ internal class Direct3D12MapHost(
   }
 
   /**
-   * Replaces the current texture. The producer's view of it is closed on the renderer thread, and a
-   * failure releases the Direct3D textures on this one; see [release].
+   * Replaces the current texture. The producer's view of it is closed on the renderer thread. After
+   * a failure the previous texture has no producer view, so it is released on this thread; see
+   * [release].
    */
   private fun reallocate(extent: MapExtent, device: NativeHandle, deviceChanged: Boolean) {
     val previous = textures.current
     val generation = textures.generation + 1
-    var created: SharedTexture? = null
-    val failure = rendererThread.run {
+    val created = rendererThread.run {
       previous?.closeImported()
       if (deviceChanged) closeProducers()
-      runCatching {
-        if (!extent.isEmpty) {
-          val texture = WindowsDirect3DInterop.createSharedTexture(device, extent, dxgiFormat)
-          created = SharedTexture(presentationTarget(texture, extent, generation), device)
-          checkNotNull(created).imported = importTexture(texture, device, extent)
-        }
-      }
-        .exceptionOrNull()
+      runCatching { if (extent.isEmpty) null else createTexture(extent, device, generation) }
     }
-    if (failure != null) {
-      textures.takeCurrent()?.let(::release)
-      created?.let(::release)
-      throw failure
-    }
+    created.onFailure { textures.takeCurrent()?.let(::release) }
     // The previous texture stays presentable until Compose has drawn a newer generation.
-    textures.replaceCurrent(created)
+    textures.replaceCurrent(created.getOrThrow())
+  }
+
+  /** Allocates a texture on [device] and opens it for the producer. Runs on the renderer thread. */
+  private fun createTexture(
+    extent: MapExtent,
+    device: NativeHandle,
+    generation: Long,
+  ): SharedTexture {
+    val texture = WindowsDirect3DInterop.createSharedTexture(device, extent, dxgiFormat)
+    try {
+      val imported = importTexture(texture, device, extent)
+      return SharedTexture(presentationTarget(texture, extent, generation), device, imported)
+    } catch (error: Throwable) {
+      // Compose never drew this texture, so Skia holds no wrapper to drop on the GPU thread first.
+      WindowsDirect3DInterop.release(texture)
+      throw error
+    }
   }
 
   /** Opens [texture] for the producer. Runs on the renderer thread. */
@@ -234,16 +240,23 @@ internal class Direct3D12MapHost(
    * A Direct3D texture Compose draws, and the producer's view of it. Retiring a texture closes the
    * view at once; the Direct3D texture stays presentable until [release].
    */
-  internal class SharedTexture(val presentation: Direct3DTextureTarget, val device: NativeHandle) {
-    var imported: ImportedMapTexture? = null
+  internal class SharedTexture(
+    val presentation: Direct3DTextureTarget,
+    val device: NativeHandle,
+    private val imported: ImportedMapTexture,
+  ) {
+    private var importedClosed = false
 
-    fun target(generation: Long): MlnFfiRenderTarget =
-      checkNotNull(imported) { "Windows map texture is not initialized" }.target(generation)
+    fun target(generation: Long): MlnFfiRenderTarget {
+      check(!importedClosed) { "Windows map texture is not initialized" }
+      return imported.target(generation)
+    }
 
     /** Runs on the renderer thread. */
     fun closeImported() {
-      imported?.close()
-      imported = null
+      if (importedClosed) return
+      imported.close()
+      importedClosed = true
     }
   }
 }

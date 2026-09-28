@@ -64,7 +64,8 @@ internal sealed interface VulkanImageMemory {
 
 /**
  * A single-sampled 2D color `VkImage` MapLibre renders into, with its view and any memory it owns.
- * Access and disposal run on the renderer thread.
+ * The Windows and macOS hosts access and dispose it on the renderer thread; the Linux host, which
+ * exports its memory to Compose, creates and closes it on Compose's GPU thread.
  */
 internal class VulkanImage
 private constructor(

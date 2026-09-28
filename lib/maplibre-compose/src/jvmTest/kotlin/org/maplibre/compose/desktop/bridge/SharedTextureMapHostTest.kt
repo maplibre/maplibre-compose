@@ -46,6 +46,27 @@ class SharedTextureMapHostTest {
   }
 
   @Test
+  fun a_texture_whose_release_fails_is_kept_for_a_retry() {
+    val released = mutableListOf<String>()
+    var failing = true
+    val textures =
+      SharedTextures<String> {
+        if (it == "second" && failing) error("release failed")
+        released += it
+      }
+    textures.replaceCurrent("first")
+    textures.replaceCurrent("second")
+
+    assertFailsWith<IllegalStateException> { textures.releaseAll() }
+    assertEquals(listOf("second", "first"), textures.all)
+
+    failing = false
+    textures.releaseAll()
+    assertEquals(listOf("second", "first"), released)
+    assertEquals(emptyList(), textures.all)
+  }
+
+  @Test
   fun a_device_change_asks_for_recovery_once_before_replacing_the_device() {
     val recovery = DeviceChangeRecovery<String>("device changed")
 

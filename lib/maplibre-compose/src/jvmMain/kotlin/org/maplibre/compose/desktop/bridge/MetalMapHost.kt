@@ -30,8 +30,8 @@ internal class MetalMapHost(
   ) {
   private val presenter = SkiaTexturePresenter(MetalTextureWrapper)
 
-  /** Retired `MTLTexture`s whose Skia wrappers are still alive, waiting for the GPU thread. */
-  private val retiredMetalTextures = ConcurrentLinkedQueue<Long>()
+  /** `MTLTexture`s from [release], waiting for the GPU thread to drop their Skia wrappers. */
+  private val pendingMetalDisposals = ConcurrentLinkedQueue<Long>()
   private val deviceChange =
     DeviceChangeRecovery<NativeHandle>("Compose changed Metal devices; recreating the map renderer")
   private var device = NativeHandle(0)
@@ -107,7 +107,7 @@ internal class MetalMapHost(
     generation: Long,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    releaseRetiredMetalTextures(keepAlive = texture.presentation.texture.address)
+    disposePendingMetalTextures(keepAlive = texture.presentation.texture.address)
     return presenter.draw(
       scope,
       context.skiaContext,
@@ -121,20 +121,20 @@ internal class MetalMapHost(
   override fun release(texture: SharedTexture) {
     rendererThread.run(texture.closeProducer)
     val metalTexture = texture.presentation.texture
-    if (!metalTexture.isNull) retiredMetalTextures.add(metalTexture.address)
+    if (!metalTexture.isNull) pendingMetalDisposals.add(metalTexture.address)
   }
 
   /**
-   * Frees retired textures, except one the caller is about to draw: a texture retired inside
+   * Frees pending textures, except one the caller is about to draw: a texture handed back inside
    * `acquireFrame` can be presented again in the same frame, and freeing it early makes
    * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. Runs with the
    * host's exclusive GPU access.
    */
-  private fun releaseRetiredMetalTextures(keepAlive: Long) {
-    if (retiredMetalTextures.isEmpty()) return
+  private fun disposePendingMetalTextures(keepAlive: Long) {
+    if (pendingMetalDisposals.isEmpty()) return
     var deferred: Long? = null
     while (true) {
-      val address = retiredMetalTextures.poll() ?: break
+      val address = pendingMetalDisposals.poll() ?: break
       if (address == keepAlive) {
         deferred = address
         continue
@@ -143,7 +143,7 @@ internal class MetalMapHost(
       presenter.forget(address)
       MetalTexture.dispose(address)
     }
-    deferred?.let(retiredMetalTextures::add)
+    deferred?.let(pendingMetalDisposals::add)
   }
 
   override fun <R> withComposeContext(action: (MetalComposeGpuContext) -> R): R? =
@@ -160,7 +160,7 @@ internal class MetalMapHost(
   override fun closeTextures() {
     textures.releaseAll()
     presentationHost.runOnGpuThread {
-      releaseRetiredMetalTextures(keepAlive = 0L)
+      disposePendingMetalTextures(keepAlive = 0L)
       presenter.closeAll()
     }
   }
