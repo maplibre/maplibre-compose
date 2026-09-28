@@ -138,7 +138,8 @@ region for each Kotlin example.
 
 Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft
 status for unfinished work, unresolved decisions, or generated code pending
-human review.
+human review. Prefer Conventional Commits for PR titles, which become the
+squash-merge commit message.
 
 Write the description for a reviewer who has not seen your working session, and
 for someone reading the history later. Aim for the shortest description that

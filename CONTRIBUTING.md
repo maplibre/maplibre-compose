@@ -90,3 +90,8 @@ of the next patch; `mise run version` prints what this checkout builds as.
 `mise run check` reports problems and `mise run fix` rewrites what it can; the
 pre-commit hook that mise installs runs them on staged files.
 `mise run lint:android` runs Android Lint, which CI runs in the same job.
+
+## Pull requests
+
+Prefer Conventional Commits for PR titles, which become the squash-merge commit
+message.
