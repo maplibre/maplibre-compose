@@ -1,6 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.onGpuThread
@@ -25,9 +26,12 @@ internal class MetalMapHost(
   private val producer: MapRenderBackend = MapRenderBackend.METAL,
 ) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-host-renderer")
-  private val presenter = MetalPresenter(presentationHost)
+  private val presenter = SkiaTexturePresenter(MetalTextureWrapper)
   private val frameCompletion = ComposeFrameCompletion()
   private val textures = mutableMapOf<Long, SharedTexture>()
+
+  /** Retired `MTLTexture`s whose Skia wrappers are still alive, waiting for the GPU thread. */
+  private val retiredMetalTextures = ConcurrentLinkedQueue<Long>()
   private var generation = 0L
   private var device = NativeHandle(0)
   private var pendingDevice: NativeHandle? = null
@@ -131,6 +135,7 @@ internal class MetalMapHost(
   ): Boolean =
     withPreparedContext { context ->
       val texture = textures[target.generation] ?: return@withPreparedContext false
+      releaseRetiredMetalTextures(keepAlive = texture.presentation.texture.address)
       val drew =
         presenter.draw(
           scope,
@@ -146,9 +151,33 @@ internal class MetalMapHost(
       drew
     } ?: false
 
+  /** Hands a texture back once nothing will render into it again. Safe from any thread. */
   private fun retire(texture: SharedTexture) {
     rendererThread.run(texture.closeProducer)
-    presenter.retire(texture.presentation.texture)
+    val metalTexture = texture.presentation.texture
+    if (!metalTexture.isNull) retiredMetalTextures.add(metalTexture.address)
+  }
+
+  /**
+   * Frees retired textures, except one the caller is about to draw: a texture retired inside
+   * `acquireFrame` can be presented again in the same frame, and freeing it early makes
+   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. Runs with the
+   * host's exclusive GPU access.
+   */
+  private fun releaseRetiredMetalTextures(keepAlive: Long) {
+    if (retiredMetalTextures.isEmpty()) return
+    var deferred: Long? = null
+    while (true) {
+      val address = retiredMetalTextures.poll() ?: break
+      if (address == keepAlive) {
+        deferred = address
+        continue
+      }
+      // Order matters: Skia holds a surface wrapping this texture, so that has to go first.
+      presenter.forget(address)
+      MetalTexture.dispose(address)
+    }
+    deferred?.let(retiredMetalTextures::add)
   }
 
   private fun disposeTextures() {
@@ -160,7 +189,7 @@ internal class MetalMapHost(
     presentationHost.onGpuThread {
       val context = presentationHost.gpuContext() ?: return@onGpuThread null
       check(context is MetalComposeGpuContext) { "The host no longer reports a Metal context" }
-      frameCompletion.prepare(context.skiaContext, presenter::resetContext)
+      frameCompletion.prepare(context.skiaContext, presenter::closeAll)
       action(context)
     }
 
@@ -168,8 +197,10 @@ internal class MetalMapHost(
     try {
       frameCompletion.abandon()
       disposeTextures()
-      // The presenter acquires the host's GPU access once to release the Skia wrappers.
-      presenter.close()
+      presentationHost.runOnGpuThread {
+        releaseRetiredMetalTextures(keepAlive = 0L)
+        presenter.closeAll()
+      }
     } finally {
       try {
         rendererThread.run {

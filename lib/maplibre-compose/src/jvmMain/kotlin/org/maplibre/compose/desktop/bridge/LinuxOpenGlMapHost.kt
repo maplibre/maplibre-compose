@@ -94,7 +94,7 @@ internal class LinuxOpenGlMapHost(
   private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
 ) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-map-renderer")
-  private val presenter = OpenGlPresenter.native()
+  private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Native)
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: DesktopVulkanContext? = null
   private var egl: DesktopEglContext? = null
@@ -182,7 +182,7 @@ internal class LinuxOpenGlMapHost(
       runCatching {
         presentationHost.withOpenGlContext {
           disposeAllTextures()
-          presenter.close()
+          presenter.closeAll()
         }
       }
         .onFailure {
@@ -264,7 +264,7 @@ internal class LinuxOpenGlMapHost(
 
   /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
   private fun abandonContext() {
-    presenter.abandon()
+    presenter.abandonAll()
     acquireProducerWrites = false
     // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
     // until the next producer frame retargets it.
@@ -316,7 +316,7 @@ internal class LinuxOpenGlMapHost(
         }
       }
       // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-      presenter.forget(imported.textureName)
+      presenter.forget(imported.textureName.toLong())
       imported.close()
       exported.close()
     }

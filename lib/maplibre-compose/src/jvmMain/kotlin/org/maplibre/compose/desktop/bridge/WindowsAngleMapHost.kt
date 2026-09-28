@@ -25,7 +25,7 @@ internal class WindowsAngleMapHost(
   private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
 ) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-gl-renderer")
-  private val presenter = OpenGlPresenter.angle()
+  private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Angle)
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsOpenGlVulkanContext? = null
   private var wgl: WindowsWglContext? = null
@@ -200,7 +200,7 @@ internal class WindowsAngleMapHost(
   }
 
   private fun abandonContext() {
-    presenter.abandon()
+    presenter.abandonAll()
     retireCurrentTexture()
     retiredTextures.values.forEach(WindowsOpenGlSharedTexture::abandonImported)
     currentExtent = MapExtent.Empty
@@ -229,12 +229,12 @@ internal class WindowsAngleMapHost(
     val closedWithContext = runCatching {
       presentationHost.withOpenGlContext {
         closing.forEach(WindowsOpenGlSharedTexture::closeImported)
-        presenter.close()
+        presenter.closeAll()
       }
     }
       .isSuccess
     if (!closedWithContext) {
-      presenter.abandon()
+      presenter.abandonAll()
       closing.forEach(WindowsOpenGlSharedTexture::abandonImported)
     }
     closing.forEach { runCatching(it::closeInterop) }
@@ -257,7 +257,7 @@ internal class WindowsAngleMapHost(
     }
 
     fun closeImported() {
-      presenter.forget(imported.textureName)
+      presenter.forget(imported.textureName.toLong())
       imported.close()
     }
 

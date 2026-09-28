@@ -68,6 +68,26 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
+internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
+
+/** An `ID3D12Resource` texture to composite into Compose's scene. */
+internal data class Direct3DTextureTarget(
+  /** `ID3D12Resource`. */
+  val texture: NativeHandle,
+  /** `DXGI_FORMAT` of [texture]. */
+  val format: Int = DXGI_FORMAT_B8G8R8A8_UNORM,
+  /** How Skia should interpret [format]. */
+  val colorFormat: SurfaceColorFormat = SurfaceColorFormat.BGRA_8888,
+  /** Row order of [texture]. */
+  val origin: TextureOrigin = TextureOrigin.TOP_LEFT,
+  /** The size [texture] was allocated at. */
+  val extent: MapExtent,
+  /**
+   * The [org.maplibre.compose.mlnffi.MlnFfiRenderTarget.generation] this texture corresponds to.
+   */
+  val generation: Long,
+)
+
 /**
  * Bridges MapLibre's Vulkan or OpenGL rendering into Compose's Direct3D 12 context on Windows.
  *
@@ -79,7 +99,7 @@ internal class Direct3D12MapHost(
   private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
 ) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-map-renderer")
-  private val presenter = Direct3D12Presenter(presentationHost)
+  private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsVulkanContext? = null
   private var wgl: WindowsWglContext? = null
@@ -197,7 +217,7 @@ internal class Direct3D12MapHost(
       // Released on the closing thread, never the renderer thread; see releaseDirect3DTexture.
       retireTexture()?.let { releaseDirect3DTexture(it.texture) }
       disposeRetiredTextures()
-      presenter.close()
+      presentationHost.runOnGpuThread(presenter::closeAll)
     } finally {
       val closingVulkan = vulkan
       vulkan = null
@@ -275,7 +295,7 @@ internal class Direct3D12MapHost(
             "${presentationHost.description} switched from Direct3D12ComposeGpuContext to " +
               context::class.simpleName
           )
-      frameCompletion.prepare(direct3DContext.skiaContext, presenter::resetContext)
+      frameCompletion.prepare(direct3DContext.skiaContext, presenter::closeAll)
       action(direct3DContext)
     }
 
@@ -314,7 +334,7 @@ internal class Direct3D12MapHost(
   private fun releaseDirect3DTexture(texture: NativeHandle) {
     if (texture.address == 0L) return
     // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-    presenter.forget(texture)
+    presentationHost.runOnGpuThread { presenter.forget(texture.address) }
     WindowsDirect3DInterop.release(texture)
   }
 
