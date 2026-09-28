@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.reload.gradle.ComposeHotRun
 
 plugins {
   id("module-conventions")
@@ -25,6 +26,11 @@ dependencies {
   implementation(libs.kotlinx.coroutines.swing)
 
   runtimeOnly(project(":lib:${desktopHostPlatform.runtimeArtifactId(desktopRenderBackend)}"))
+}
+
+tasks.withType<ComposeHotRun>().configureEach {
+  mainClass = "org.maplibre.compose.demoapp.MainKt"
+  jvmArgs(NATIVE_ACCESS_JVM_ARGS)
 }
 
 compose.desktop {
