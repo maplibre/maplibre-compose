@@ -148,7 +148,7 @@ private sealed interface AppleLocationCallback {
 }
 
 internal suspend fun NSError.asUnavailableReason(
-  locationServicesEnabled: suspend () -> Boolean = ::locationServicesEnabled
+  locationServicesEnabled: suspend () -> Boolean
 ): LocationUnavailableReason =
   when {
     domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure
