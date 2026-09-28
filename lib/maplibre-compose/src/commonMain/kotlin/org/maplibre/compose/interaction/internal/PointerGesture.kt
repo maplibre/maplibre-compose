@@ -228,12 +228,10 @@ internal class PointerGesture(
     val sample = event.gestureSample(null, density, change.position, setOf(change.type))
     val oldSample = single.sample
     single.sample = sample
-    // Modifier/button changes can select a different camera drag. Rebase at this event so
-    // the replacement gesture cannot apply movement measured for the previous response.
-    if (
-      change.type == PointerType.Mouse &&
-        (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
-    ) {
+    // A mouse button change selects the drag again from the buttons and modifiers now held.
+    // Modifiers alone do not, as in MapLibre GL JS. Rebase at this event so the replacement
+    // gesture cannot apply movement measured for the previous response.
+    if (change.type == PointerType.Mouse && oldSample.buttons != sample.buttons) {
       val next = drags.cameraDrag(change, sample)
       if (next?.response != single.drag?.response) {
         single.drag?.cancel()
@@ -553,9 +551,11 @@ internal class PointerGesture(
     session.end()
   }
 
+  /** Momentum staged by lifted pairs belongs to the session and is dropped with it. */
   private fun cancelCameraSession() {
     val previous = cameraSession
     cameraSession = null
+    pendingContinuation = null
     previous?.cancel()
   }
 
