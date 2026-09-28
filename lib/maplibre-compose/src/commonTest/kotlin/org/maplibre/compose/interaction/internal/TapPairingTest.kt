@@ -22,7 +22,7 @@ class TapPairingTest {
       TapPairing(backgroundScope, 40, 300) { sample, generation ->
         delivered += sample to generation
       }
-    pairing.remember(sample, 7, Offset.Zero, PointerType.Touch, true, true)
+    pairing.remember(sample, 7, Offset.Zero, PointerType.Touch, true, false, true)
     advanceTimeBy(299)
     runCurrent()
     assertEquals(emptyList(), delivered)
@@ -37,14 +37,14 @@ class TapPairingTest {
   fun a_bounce_leaves_the_first_tap_available_but_a_pair_claims_it() = runTest {
     var clicks = 0
     val pairing = TapPairing(backgroundScope, 40, 300) { _, _ -> clicks++ }
-    pairing.remember(sample, 0, Offset.Zero, PointerType.Touch, true, true)
+    pairing.remember(sample, 0, Offset.Zero, PointerType.Touch, true, false, true)
     assertEquals(
       TapPairing.Press.Bounce,
-      pairing.press(Offset.Zero, 10, PointerType.Touch, 20f, true),
+      pairing.press(Offset.Zero, 10, PointerType.Touch, 20f, true, false).role,
     )
     assertEquals(
       TapPairing.Press.Paired,
-      pairing.press(Offset.Zero, 80, PointerType.Touch, 20f, true),
+      pairing.press(Offset.Zero, 80, PointerType.Touch, 20f, true, false).role,
     )
     advanceTimeBy(400)
     runCurrent()
@@ -64,8 +64,11 @@ class TapPairingTest {
       )) {
       var clicks = 0
       val pairing = TapPairing(backgroundScope, 40, 300) { _, _ -> clicks++ }
-      pairing.remember(sample, 0, Offset.Zero, PointerType.Touch, true, true)
-      assertEquals(TapPairing.Press.First, pairing.press(position, time, type, 20f, useful))
+      pairing.remember(sample, 0, Offset.Zero, PointerType.Touch, true, false, true)
+      assertEquals(
+        TapPairing.Press.First,
+        pairing.press(position, time, type, 20f, useful, false).role,
+      )
       assertEquals(1, clicks)
       advanceTimeBy(400)
       runCurrent()
@@ -74,12 +77,33 @@ class TapPairingTest {
   }
 
   @Test
+  fun a_double_tap_needs_both_taps_but_a_quick_zoom_needs_only_the_second() = runTest {
+    val paired = TapPairing.Press.Paired
+    for ((doubleTap, quickZoom, expected) in
+      listOf(
+        Triple(true, false, TapPairing.Pairing(TapPairing.Press.First, false)),
+        Triple(false, true, TapPairing.Pairing(paired, false)),
+        Triple(true, true, TapPairing.Pairing(paired, false)),
+      )) {
+      val pairing = TapPairing(backgroundScope, 40, 300) { _, _ -> }
+      pairing.remember(sample, 0, Offset.Zero, PointerType.Touch, false, true, true)
+      assertEquals(
+        expected,
+        pairing.press(Offset.Zero, 80, PointerType.Touch, 20f, doubleTap, quickZoom),
+      )
+    }
+  }
+
+  @Test
   fun a_claimed_touch_click_can_fall_back_to_a_drag_but_mouse_clicks_are_not_repeated() = runTest {
     for (type in listOf(PointerType.Touch, PointerType.Mouse)) {
       var clicks = 0
       val pairing = TapPairing(backgroundScope, 40, 300) { _, _ -> clicks++ }
-      pairing.remember(sample, 0, Offset.Zero, type, true, type == PointerType.Touch)
-      assertEquals(TapPairing.Press.Paired, pairing.press(Offset.Zero, 80, type, 20f, true))
+      pairing.remember(sample, 0, Offset.Zero, type, true, false, type == PointerType.Touch)
+      assertEquals(
+        TapPairing.Press.Paired,
+        pairing.press(Offset.Zero, 80, type, 20f, true, false).role,
+      )
       pairing.discard(emitClick = true)
       advanceTimeBy(400)
       runCurrent()

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.moveBy
 import androidx.compose.ui.test.moveTo
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
@@ -28,6 +30,8 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.TapResponse
 import org.maplibre.compose.map.RecordingGestureTarget
@@ -471,6 +475,38 @@ class ClickInputTest {
       waitForIdle()
       assertTrue(target.scaleCalls.isNotEmpty())
       assertEquals(0, target.clicks)
+    }
+  }
+
+  @Test
+  fun a_quick_zoom_pair_does_not_double_click_unless_the_first_click_could() {
+    fixture.runRecognitionTest(
+      options =
+        InputConfiguration(InputConfiguration.Standard) {
+          bindings {
+            doubleTap {
+              mappings {
+                on(
+                  modifiers = ModifierMatch.Containing(KeyModifier.Shift),
+                  response = TapResponse.ZoomIn,
+                )
+              }
+            }
+            tapDrag { modifiers = null }
+          }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performMouseInput { click(center) }
+      map.performKeyInput { keyDown(Key.ShiftLeft) }
+      map.performMouseInput {
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        click(center)
+      }
+      map.performKeyInput { keyUp(Key.ShiftLeft) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, target.scaleCalls.size, "only the second click supported a double click")
     }
   }
 
