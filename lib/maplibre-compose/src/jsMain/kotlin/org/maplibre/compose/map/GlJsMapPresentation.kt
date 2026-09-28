@@ -18,7 +18,7 @@ internal fun <T> GlJsMapPresentation(
   options: MapViewOptions,
   container: HTMLElement? = null,
   content: @Composable (GlJsMapSession, FeatureClickDispatcher) -> T,
-): T {
+): T? {
   return MapPresentationContent(state, owner, options) { binding ->
     val layoutDirection = LocalLayoutDirection.current
     val callbacks = binding.callbacks

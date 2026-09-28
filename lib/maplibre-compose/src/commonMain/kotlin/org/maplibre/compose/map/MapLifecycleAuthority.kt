@@ -208,6 +208,13 @@ internal class MapLifecycleAuthority(
     return token
   }
 
+  /** Whether a presentation that [ownerToken] does not own holds this map and is not releasing. */
+  fun isPresentedByOtherOwner(ownerToken: MapPresentationOwnerToken): Boolean {
+    requireMain()
+    val current = attachment ?: return false
+    return !current.releasing && current.owner !== ownerToken
+  }
+
   fun publishPresentation(token: MapPresentationToken, adapter: MapAdapter) {
     requireMain()
     if (closed) return

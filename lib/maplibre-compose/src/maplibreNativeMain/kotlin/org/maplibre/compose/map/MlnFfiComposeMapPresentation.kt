@@ -31,7 +31,7 @@ internal fun rememberMlnFfiComposeMapPresentation(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-): ComposeMapPresentation {
+): ComposeMapPresentation? {
   val density = LocalDensity.current
   val logger = state.runtime.logger
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
@@ -65,7 +65,7 @@ internal fun rememberMlnFfiComposeMapPresentation(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-): ComposeMapPresentation {
+): ComposeMapPresentation? {
   return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks
     ->
     ComposeMapPresentation(

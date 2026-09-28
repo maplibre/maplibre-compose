@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,16 +19,41 @@ import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
 
+/**
+ * Holds one presentation reservation of [state] while this object is remembered.
+ *
+ * It reserves in the apply phase rather than during composition. Compose forgets removed groups
+ * before it remembers new ones, so when a recomposition replaces the group that holds a map, the
+ * old map releases [state] before the new one reserves it. Two maps that stay in composition
+ * together still conflict.
+ */
 private class MapStateAttachment(
   val state: MapState,
-  private val token: MapPresentationToken,
-) {
+  private val owner: MapPresentationOwnerToken,
+) : RememberObserver {
+  private var token: MapPresentationToken? = null
+
+  /** Whether the apply phase has reserved [state] for this presentation. */
+  var isReserved by mutableStateOf(false)
+    private set
+
+  override fun onRemembered() {
+    token = state.reservePresentation(owner)
+    isReserved = true
+  }
+
+  override fun onForgotten() {
+    release()
+  }
+
+  override fun onAbandoned() = Unit
+
   fun publish(map: MapAdapter) {
-    state.publishPresentation(token, map)
+    state.publishPresentation(checkNotNull(token) { "The map presentation is not reserved" }, map)
   }
 
   fun release(map: MapAdapter? = null) {
-    state.releasePresentation(token, map)
+    token?.let { state.releasePresentation(it, map) }
   }
 
   fun markStyleFailed(map: MapAdapter, reason: String?) {
@@ -47,17 +73,24 @@ private class MapStateAttachment(
   }
 }
 
-/** Style composition, callbacks, and recognized input for one presentation of [state]. */
+/**
+ * Style composition, callbacks, and recognized input for one presentation of [state]. Returns null
+ * while another map presents [state].
+ */
 @Composable
 internal fun <T> MapPresentationContent(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
   content: @Composable (MapPresentationBinding) -> T,
-): T {
-  val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
-  val attachment = remember(state, token) { MapStateAttachment(state, token) }
-  DisposableEffect(attachment) { onDispose { attachment.release() } }
+): T? {
+  val attachment =
+    remember(state, presentationOwner) { MapStateAttachment(state, presentationOwner) }
+  // The other map may be leaving in this same recomposition, and then this map takes over its
+  // engine. Until the apply phase settles which, touching that engine would disturb a live map.
+  if (!attachment.isReserved && state.lifecycle.isPresentedByOtherOwner(presentationOwner)) {
+    return null
+  }
   // The dispatcher reads this state directly: a click can arrive between the style binding's
   // invalidation and the recomposition that clears it.
   val rememberedStyleState = remember { mutableStateOf<StyleBinding?>(null) }
