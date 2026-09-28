@@ -537,7 +537,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun a_successfully_presented_frame_resets_recovery() = runFfiComposeUiTest {
+  fun a_presented_frame_does_not_replenish_recovery() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
     setSurfaceContent(renderer, factory)
@@ -549,8 +549,8 @@ class MlnFfiMapSurfaceRecoveryTest {
     }
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
 
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 1, renderer.surfaceLostCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 3, host.acquireCount)
+    assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
+    assertEquals(MAX_RECOVERY_ATTEMPTS + 2, host.acquireCount)
   }
 
   @Test

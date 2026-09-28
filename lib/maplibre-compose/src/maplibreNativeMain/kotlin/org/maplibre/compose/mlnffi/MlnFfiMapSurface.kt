@@ -191,10 +191,6 @@ internal class MlnFfiSurfaceController(
     if (!closed && !failed.load() && completed != null && destination != null) {
       try {
         drew = host?.draw(scope, completed.target, destination) == true
-        if (drew && !completed.presented) {
-          completed.presented = true
-          failures = 0
-        }
         if (!drew) requestFrame()
       } catch (error: Throwable) {
         recover(error, nextFrameId - 1)
@@ -214,12 +210,12 @@ internal class MlnFfiSurfaceController(
   private fun recover(error: Throwable, frameId: Long) {
     rethrowIfFatal(error)
     clearPresentation()
-    if (error !is MlnFfiRecoverableFrameException || ++failures > MAX_RECOVERY_ATTEMPTS) {
+    if (error !is MlnFfiRecoverableFrameException || ++failures > MAX_RENDER_RECOVERY_ATTEMPTS) {
       fail(error)
       return
     }
     logger?.w(error) {
-      "Map frame $frameId failed; rebuilding the render session (attempt $failures of $MAX_RECOVERY_ATTEMPTS)"
+      "Map frame $frameId failed; rebuilding the render session (attempt $failures of $MAX_RENDER_RECOVERY_ATTEMPTS)"
     }
     try {
       session?.let(renderer::onSurfaceLost)
@@ -255,15 +251,10 @@ internal class MlnFfiSurfaceController(
     val projection: MlnFfiMapFrameProjection?,
   ) : AutoCloseable {
     var anchor = target.extent.centerPresentationAnchor()
-    var presented = false
 
     override fun close() {
       projection?.close()
     }
-  }
-
-  private companion object {
-    const val MAX_RECOVERY_ATTEMPTS = 3
   }
 }
 
