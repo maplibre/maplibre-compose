@@ -93,7 +93,6 @@ class MlnFfiResourceRequestTest {
     val provider =
       MlnFfiResourceProvider(
           getLogger = { null },
-          passThroughNetwork = true,
           userCoroutineScope = CoroutineScope(SupervisorJob().apply { cancel() }),
         )
         .also { providers += it }
@@ -113,7 +112,6 @@ class MlnFfiResourceRequestTest {
     val provider =
       MlnFfiResourceProvider(
         getLogger = { null },
-        passThroughNetwork = true,
         userCoroutineScope = callerScope,
       )
     provider.close()
@@ -123,7 +121,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun take_user_after_shutdown_is_refused() {
     val provider =
-      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+      MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
       }
     val userProvider =
@@ -142,7 +140,7 @@ class MlnFfiResourceRequestTest {
     val loading = TestLatch(1)
     val cancelled = AtomicBoolean(false)
     val provider =
-      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+      MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
       }
     val userProvider =
@@ -218,7 +216,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun a_provider_timeout_completes_an_active_request() {
     val provider =
-      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+      MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
       }
     val userProvider =
@@ -315,7 +313,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun a_user_load_reaches_the_request_as_the_ffi_response() {
     val provider =
-      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+      MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
       }
     val userProvider =
@@ -361,6 +359,7 @@ class MlnFfiResourceRequestTest {
     finishRead.countDown()
     request.awaitAnswer()
     assertEquals(1, request.completions, "the in-flight request must still be answered")
+    assertEquals("in flight", request.response.bytes.decodeToString())
     request.awaitClose()
   }
 

@@ -1,7 +1,9 @@
 package org.maplibre.compose.resource
 
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import org.maplibre.compose.util.rethrowIfFatal
@@ -14,9 +16,12 @@ import platform.Foundation.dataWithContentsOfURL
  * Reads a resource through `NSURL`; in practice the resource provider passes only `file:` URLs
  * here, which include the application bundle's packaged resources. Every failure arrives as an
  * [MlnFfiResourceReadException].
+ *
+ * `NSURL` and `NSData` autorelease onto the calling thread's pool, which a worker thread may never
+ * drain, so each read drains a pool of its own.
  */
-@OptIn(ExperimentalForeignApi::class)
-internal actual fun readPlatformResourceBytes(url: String): ByteArray =
+@OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
+internal actual fun readPlatformResourceBytes(url: String): ByteArray = autoreleasepool {
   try {
     val nsUrl =
       NSURL.URLWithString(url)
@@ -46,6 +51,7 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray =
     rethrowIfFatal(error)
     throw MlnFfiResourceReadException(MlnFfiResourceReadFailure.UNREADABLE, error)
   }
+}
 
 private class NoSuchFileException(path: String) : Exception("No such file: $path")
 
