@@ -26,6 +26,11 @@ dependencies {
 
   testImplementation(kotlin("test"))
   testImplementation(libs.kotlinx.coroutines.test)
+  // Lets macOS test runs call Core Location through LWJGL's Objective-C bindings.
+  testRuntimeOnly(
+    "org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:" +
+      DesktopHostPlatform.MacosArm64.lwjglNativesClassifier
+  )
 }
 
 tasks.test { jvmArgs(NATIVE_ACCESS_JVM_ARGS) }
