@@ -1264,7 +1264,7 @@ internal constructor(
   internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? =
     lifecycle.retainedAdapter(compatibilityKey)
 
-  internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
+  internal fun durableStyleCallbacks(): MapAdapter.Callbacks = MapStateCallbacks(this)
 
   private fun requireOpen() {
     check(!lifecycle.isClosed) { "The map state is closed" }

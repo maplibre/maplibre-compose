@@ -225,9 +225,19 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onViewportChanged(map: MapAdapter) = Unit
 }
 
-internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
+/**
+ * Routes a session's reports to [owner]'s style and attachment authorities.
+ *
+ * [onStyleBound] runs after [owner] accepts the binding that [onStyleChanged] offers. A
+ * presentation uses it to hand the binding to its style composition and resynchronize the camera; a
+ * session with no presentation passes nothing.
+ */
+internal class MapStateCallbacks(
+  private val owner: MapState,
+  private val onStyleBound: (map: MapAdapter, style: StyleBinding?) -> Unit = { _, _ -> },
+) : MapAdapter.Callbacks {
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    owner.styleAuthority.updateLoadedStyle(map, style)
+    if (owner.styleAuthority.updateLoadedStyle(map, style)) onStyleBound(map, style)
   }
 
   override fun onStyleReady(map: MapAdapter) {
@@ -244,8 +254,8 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
 
   /**
    * Starts undispatched so the read claims its revision inside the engine callback, then finishes
-   * on the runtime's main scope. A read that fails while its style is current marks the style
-   * failed.
+   * on the runtime's main scope rather than a composition's, which the engine read's owner task
+   * resumes on. A read that fails while its style is current marks the style failed.
    */
   private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
     owner.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {

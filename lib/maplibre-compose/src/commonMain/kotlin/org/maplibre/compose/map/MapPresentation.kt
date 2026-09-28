@@ -10,9 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
@@ -54,22 +51,6 @@ private class MapStateAttachment(
 
   fun release(map: MapAdapter? = null) {
     token?.let { state.releasePresentation(it, map) }
-  }
-
-  fun markStyleFailed(map: MapAdapter, reason: String?) {
-    state.styleAuthority.markStyleFailed(map, reason)
-  }
-
-  /** Runs a style read and marks the style failed instead of throwing when the read fails. */
-  suspend fun readStyle(map: MapAdapter, read: suspend () -> Unit) {
-    try {
-      read()
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      state.runtime.logger?.w(error) { "Could not read the loaded style" }
-      state.styleAuthority.markStyleFailed(map, error.message)
-    }
   }
 }
 
@@ -148,56 +129,9 @@ internal fun <T> MapPresentationContent(
   }
   val adapterCallbacks =
     remember(attachment, mapAttachment) {
-      object : MapAdapter.Callbacks {
-        private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
-          return state.attachmentAuthority.synchronizeCamera(map)
-        }
-
-        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-          if (!state.styleAuthority.updateLoadedStyle(map, style)) return
-          rememberedStyle = style
-          synchronizeCamera(map)
-        }
-
-        override fun onStyleReady(map: MapAdapter) {
-          launchStyleRead(map) { state.styleAuthority.markStyleReady(map) }
-        }
-
-        override fun onStyleFailed(map: MapAdapter, reason: String?) {
-          attachment.markStyleFailed(map, reason)
-        }
-
-        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-          launchStyleRead(map) {
-            state.styleAuthority.refreshStyleSources(map, sourceId?.let(::setOf))
-          }
-        }
-
-        /**
-         * Starts undispatched so the read claims its revision inside the engine callback, then
-         * finishes on the runtime's main scope rather than the composition's, which the engine
-         * read's owner task resumes on.
-         */
-        private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
-          state.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            attachment.readStyle(map) { read() }
-          }
-        }
-
-        override fun onEvent(map: MapAdapter, event: MapEvent) {
-          state.attachmentAuthority.onEvent(map, event)
-        }
-
-        override fun resolveMissingImage(map: MapAdapter, imageId: String) =
-          state.styleAuthority.resolveMissingImage(map, imageId)
-
-        override fun onGestureActive(map: MapAdapter, active: Boolean) {
-          state.attachmentAuthority.setGestureActive(map, active)
-        }
-
-        override fun onViewportChanged(map: MapAdapter) {
-          synchronizeCamera(map)
-        }
+      MapStateCallbacks(state) { map, style ->
+        rememberedStyle = style
+        state.attachmentAuthority.synchronizeCamera(map)
       }
     }
 
