@@ -1,26 +1,13 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.style
 
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 
 /** Opaque identity for one loaded base-style generation. */
 internal class StyleIdentity private constructor() {
   val sources = ResourceIdentities()
   val layers = ResourceIdentities()
   val images = ResourceIdentities()
-
-  private val baseLayers = AtomicReference<Map<String, LayerSummary>?>(null)
-
-  /** The base-style layers of this generation, in stack order: [read] once, then kept. */
-  fun baseLayers(read: () -> Map<String, LayerSummary>): Map<String, LayerSummary> {
-    baseLayers.load()?.let {
-      return it
-    }
-    val layers = read()
-    return if (baseLayers.compareAndSet(null, layers)) layers else checkNotNull(baseLayers.load())
-  }
 
   companion object {
     fun create(): StyleIdentity = StyleIdentity()
@@ -29,34 +16,18 @@ internal class StyleIdentity private constructor() {
 
 /** Resource identity follows the installed object, including replacement under the same ID. */
 internal class ResourceIdentities {
-  private val identities = AtomicReference<Map<String, Any>>(emptyMap())
+  private val lock = reentrantLock()
+  private val identities = mutableMapOf<String, Any>()
 
-  fun get(id: String): Any {
-    while (true) {
-      val current = identities.load()
-      current[id]?.let {
-        return it
-      }
-      val identity = Any()
-      if (identities.compareAndSet(current, current + (id to identity))) return identity
-    }
-  }
+  fun get(id: String): Any = lock.withLock { identities.getOrPut(id) { Any() } }
 
-  fun isCurrent(id: String, identity: Any): Boolean = identities.load()[id] === identity
+  fun isCurrent(id: String, identity: Any): Boolean = lock.withLock { identities[id] === identity }
 
   fun retain(ids: Set<String>) {
-    while (true) {
-      val current = identities.load()
-      val retained = current.filterKeys { it in ids }
-      if (retained.size == current.size || identities.compareAndSet(current, retained)) return
-    }
+    lock.withLock { identities.keys.retainAll(ids) }
   }
 
   fun remove(id: String) {
-    while (true) {
-      val current = identities.load()
-      val remaining = current - id
-      if (remaining.size == current.size || identities.compareAndSet(current, remaining)) return
-    }
+    lock.withLock { identities.remove(id) }
   }
 }

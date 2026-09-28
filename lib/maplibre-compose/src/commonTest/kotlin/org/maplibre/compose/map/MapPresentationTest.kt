@@ -65,7 +65,6 @@ import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ImageSnapshot
-import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -244,11 +243,6 @@ class MapPresentationTest {
           override fun layerIds(): List<String> {
             resourceReads++
             return backing.layerIds()
-          }
-
-          override fun layerSummaries(): Map<String, LayerSummary> {
-            resourceReads++
-            return backing.layerSummaries()
           }
         }
       val reconciler = StyleReconciler()
@@ -434,20 +428,11 @@ class MapPresentationTest {
   fun resource_edits_update_the_catalog_without_restarting_loading() = runTest {
     val fixture = presentationFixture()
     try {
-      val backing = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
-      var layerReads = 0
-      val binding =
-        object : StyleBinding by backing {
-          override fun layerSummaries(): Map<String, LayerSummary> {
-            layerReads++
-            return backing.layerSummaries()
-          }
-        }
+      val binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
       val reconciler = StyleReconciler()
       fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
       fixture.state.styleAuthority.markStyleReady(fixture.adapter)
       val base = checkNotNull(fixture.state.style.layers["base"])
-      assertEquals(1, layerReads)
       suspend fun apply(ids: List<String>) {
         val revision =
           StyleSnapshot(
@@ -471,7 +456,6 @@ class MapPresentationTest {
       assertEquals(listOf("base", "a", "b"), fixture.state.style.layers.map { it.id })
       assertEquals("background", a.type)
       assertEquals("attribution", fixture.state.style.sources["added"]?.attributionHtml)
-      assertEquals(1, layerReads, "a declared layer's handle comes from its definition")
       apply(listOf("b", "a"))
       assertEquals(listOf("base", "b", "a"), fixture.state.style.layers.map { it.id })
       assertSame(a, fixture.state.style.layers["a"])

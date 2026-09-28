@@ -16,9 +16,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException

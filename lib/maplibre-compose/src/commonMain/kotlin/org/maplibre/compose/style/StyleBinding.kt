@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
@@ -41,6 +42,12 @@ import org.maplibre.spatialk.geojson.Position
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
   val identity: StyleIdentity
+
+  /** Immutable base resources captured before the binding is published or composition runs. */
+  val baseSources: Map<String, Source?>
+
+  /** Base-style layers in stack order. */
+  val baseLayers: List<LayerSummary>
 
   val isLoaded: Boolean
 
@@ -93,14 +100,6 @@ internal interface StyleBinding {
   fun getLayer(id: String): LayerDefinition?
 
   fun layerIds(): List<String>
-
-  /**
-   * Every layer's [LayerSummary] keyed by ID, in stack order from bottom to top. A layer the engine
-   * adds for its own use is omitted, as [getLayer] omits it. The default reads each layer
-   * separately; engines can override this to read metadata without reconstructing full layers.
-   */
-  fun layerSummaries(): Map<String, LayerSummary> =
-    layerIds().mapNotNull { id -> getLayer(id)?.summary()?.let { id to it } }.toMap()
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -502,25 +501,9 @@ internal interface StyleBinding {
   ): List<Feature<Geometry, JsonObject?>>
 }
 
-/**
- * The values of a layer that are fixed for a loaded style generation: its style-spec [type], the
- * [source] it draws from, and the [sourceLayer] within that source, each null when the layer names
- * none.
- */
-internal data class LayerSummary(val type: String, val source: String?, val sourceLayer: String?)
-
-/**
- * The base-style layers of this generation, keyed by ID in stack order. The first call reads them
- * from the engine and every later call returns that read. Composition never modifies the base
- * style, so the read stays valid for the generation, but it must happen before the composition adds
- * its first layer: a layer in the engine at that time counts as a base layer.
- */
-internal fun StyleBinding.baseLayerSummaries(): Map<String, LayerSummary> = identity.baseLayers {
-  layerSummaries()
-}
-
 internal fun LayerDefinition.summary(): LayerSummary =
   LayerSummary(
+    id = id,
     type = type,
     source = sourceId ?: value.rootString("source"),
     sourceLayer = value.rootString("source-layer"),

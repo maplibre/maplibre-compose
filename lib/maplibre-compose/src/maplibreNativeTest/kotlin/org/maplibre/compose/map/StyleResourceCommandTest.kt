@@ -132,6 +132,27 @@ class StyleResourceCommandTest {
     }
 
   @Test
+  fun style_metadata_capture_finishes_when_the_session_has_logically_closed() = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(
+        BaseStyle.Json(
+          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
+        )
+      )
+      val actual = fixture.style as MlnFfiStyleBinding
+      val binding =
+        checkNotNull(
+          actual.readMap { map ->
+            MlnFfiStyleBinding(map = map, sessionOpen = { false })
+          }
+        )
+      assertEquals(listOf("background"), binding.baseLayers.map { it.id })
+      assertFalse(binding.isLoaded)
+      assertFailsWith<IllegalStateException> { binding.layerIds() }
+    }
+  }
+
+  @Test
   fun a_binding_invalidated_after_admission_cannot_read_or_mutate_the_owner_map() = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
@@ -143,17 +164,22 @@ class StyleResourceCommandTest {
         var invalidateOnAccess = false
         lateinit var binding: MlnFfiStyleBinding
         binding =
-          MlnFfiStyleBinding(
-            sessionOpen = { true },
-            accessMap = { action ->
-              actual.readMap { map ->
-                // Models invalidation after an operation was admitted but before its owner
-                // callback.
-                if (invalidateOnAccess) binding.invalidate()
-                action(map)
-              }
-              true
-            },
+          checkNotNull(
+            actual.readMap { map ->
+              MlnFfiStyleBinding(
+                map = map,
+                sessionOpen = { true },
+                accessMap = { action ->
+                  actual.readMap { map ->
+                    // Models invalidation after an operation was admitted but before its owner
+                    // callback.
+                    if (invalidateOnAccess) binding.invalidate()
+                    action(map)
+                  }
+                  true
+                },
+              )
+            }
           )
         invalidateOnAccess = true
         assertFailsWith<IllegalStateException> {

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.RasterTileSource
 
@@ -102,7 +103,7 @@ class StyleCompositionOrderTest {
     )
   }
 
-  /** A predicate reaches the handle's plain values: its type, source, and source layer. */
+  /** A predicate receives immutable layer metadata: its type, source, and source layer. */
   @Test
   fun a_predicate_can_read_a_layers_source_and_source_layer() {
     val base =
@@ -113,7 +114,6 @@ class StyleCompositionOrderTest {
       )
     val style = RecordingStyleBinding(layers = base)
     val belowRoads = Anchor.Below {
-      assertNull(it.asMutable)
       it.type == "symbol" && it.source == "base" && it.sourceLayer == "road"
     }
 
@@ -167,7 +167,7 @@ class StyleCompositionOrderTest {
     val style = RecordingStyleBinding(layers = listOf(TestLayer("engine-owned", "background")))
     val base =
       object : StyleBinding by style {
-        override fun layerSummaries(): Map<String, LayerSummary> = emptyMap()
+        override val baseLayers: List<LayerSummary> = emptyList()
       }
     val reconciler = StyleReconciler()
     val revision = revision(background("front") to Anchor.Top, background("back") to Anchor.Bottom)

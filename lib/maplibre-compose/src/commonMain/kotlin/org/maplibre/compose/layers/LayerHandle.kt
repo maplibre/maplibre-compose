@@ -12,9 +12,7 @@ public sealed interface LayerHandle {
   public val source: String?
   /** The source layer, or null when none is specified. */
   public val sourceLayer: String?
-  /**
-   * Definition writes, or null for a declared layer or a handle supplied to an anchor predicate.
-   */
+  /** Definition writes, or null for a declared layer. */
   public val asMutable: MutableLayerHandle?
 
   /** Returns the current value of [name], or null when the layer has no value for that property. */

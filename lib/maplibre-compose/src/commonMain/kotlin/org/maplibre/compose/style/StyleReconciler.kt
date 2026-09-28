@@ -2,16 +2,11 @@ package org.maplibre.compose.style
 
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.LayerHandle
-import org.maplibre.compose.layers.LayerHandleImpl
+import org.maplibre.compose.layers.LayerSummary
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
   private var fontScale: Float? = null
-
-  // Preparation is serialized by the style composition; only it accesses these predicate handles.
-  private var preparationBinding: StyleBinding? = null
-  private var baseLayers: List<LayerHandle> = emptyList()
 
   // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
@@ -34,18 +29,13 @@ internal class StyleReconciler {
   /** Resolve application anchor predicates on the composition's caller, before owner work. */
   fun prepare(style: StyleBinding, revision: StyleSnapshot): PreparedRevision {
     style.requireCurrent()
-    if (preparationBinding !== style) {
-      baseLayers =
-        style.baseLayerSummaries().map { (id, summary) -> predicateLayerHandle(style, id, summary) }
-      preparationBinding = style
-    }
     val placements = hashMapOf<Anchor, Placement>()
     val layers =
       revision.layers.map { desired ->
         PlacedLayer(
           desired,
           placements.getOrPut(desired.anchor) {
-            placement(desired.anchor, baseLayers)
+            placement(desired.anchor, style.baseLayers)
           },
         )
       }
@@ -179,7 +169,7 @@ internal class StyleReconciler {
     knownLayerIds ?: style.layerIds().toMutableList().also { knownLayerIds = it }
 
   /** Resolves [anchor] against the base-style layers of the bound generation. */
-  private fun placement(anchor: Anchor, baseLayers: List<LayerHandle>): Placement =
+  private fun placement(anchor: Anchor, baseLayers: List<LayerSummary>): Placement =
     when (anchor) {
       is Anchor.Top -> Placement.Top
       is Anchor.Bottom -> Placement.Bottom
@@ -315,44 +305,6 @@ internal class StyleReconciler {
     /** Directly under the base-style layer [layerId]. */
     data class Below(val layerId: String) : Placement
   }
-}
-
-/**
- * A handle for an anchor predicate. A predicate is not a suspend function, so it reaches only the
- * handle's plain values, which base layers keep for the generation. A write from a predicate would
- * mutate the base style mid-revision, so writes are refused.
- */
-private fun predicateLayerHandle(
-  style: StyleBinding,
-  id: String,
-  summary: LayerSummary,
-): LayerHandle {
-  val identity = style.identity.layers.get(id)
-  return LayerHandleImpl(
-    id = id,
-    type = summary.type,
-    source = summary.source,
-    sourceLayer = summary.sourceLayer,
-    style = style,
-    isCurrentResource = { style.identity.layers.isCurrent(id, identity) },
-    operations =
-      object : StyleHandleOperationGuard {
-        override fun <T> run(action: () -> T): T = action()
-
-        override fun isSourceWritable(id: String): Boolean = false
-
-        override fun isLayerWritable(id: String): Boolean = false
-
-        override fun removeSource(id: String, identity: Any) = refuseWrite(id)
-
-        override fun requireSourceWritable(id: String) = refuseWrite(id)
-
-        override fun requireLayerWritable(id: String) = refuseWrite(id)
-
-        private fun refuseWrite(id: String): Nothing =
-          throw StyleHandleException("Layer '$id' is read-only in an anchor predicate")
-      },
-  )
 }
 
 internal fun SourceDefinition.canUpdateTo(next: SourceDefinition): Boolean =

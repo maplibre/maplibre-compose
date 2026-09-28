@@ -42,20 +42,13 @@ internal fun rememberStyleComposition(
     if (!style.isLoaded) return@DisposableEffect onDispose {}
     val revisions = Channel<StyleSnapshot>(Channel.CONFLATED)
     val rootNode =
-      try {
-        StyleNode(
-          style,
-          scope,
-          replaceableSourceIds,
-          replaceableLayerIds,
-          publish = {
-            revisions.trySend(it).getOrThrow()
-          },
-        )
-      } catch (error: IllegalStateException) {
-        if (!style.isLoaded) return@DisposableEffect onDispose {}
-        throw error
-      }
+      StyleNode(
+        style,
+        scope,
+        replaceableSourceIds,
+        replaceableLayerIds,
+        publish = { revisions.trySend(it).getOrThrow() },
+      )
     val composition = Composition(MapNodeApplier(rootNode), compositionContext)
     fun dispose() {
       // Stop declarations first so disposal cannot clear the retained map's content.

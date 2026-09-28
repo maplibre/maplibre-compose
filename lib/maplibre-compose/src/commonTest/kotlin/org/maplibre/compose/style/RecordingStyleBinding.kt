@@ -56,8 +56,9 @@ internal class RecordingStyleBinding(
   val layerPropertyBatches: MutableList<List<LayerPropertyWrite>> = mutableListOf()
   private val images =
     images.associate { (id, bitmap) -> id to ImageSnapshot.capture(bitmap) }.toMutableMap()
-  private val baseSources = sources.associateBy { it.id }.toMutableMap()
-  private val baseLayers = layers.associateBy { it.id }.toMutableMap()
+  override val baseSources = sources.associateBy { it.id }
+  private val sourceObjects = baseSources.toMutableMap()
+  override val baseLayers = layers.map { it.definition().summary() }
   private val orderedLayerIds = mutableListOf<String>()
   private val featureStates = mutableMapOf<Triple<String, String?, String>, JsonObject>()
   private var addImageHookInvoked = false
@@ -69,7 +70,7 @@ internal class RecordingStyleBinding(
     get() = this.sources.keys - baseSources.keys
 
   val installedLayerIds: Set<String>
-    get() = this.layers.keys - baseLayers.keys
+    get() = this.layers.keys - baseLayers.map { it.id }
 
   val imageIds: Set<String>
     get() = images.keys
@@ -119,7 +120,7 @@ internal class RecordingStyleBinding(
   override fun imageExists(id: String): Boolean = id in images
 
   override fun getSource(id: String): Source? =
-    baseSources[id] ?: sources[id]?.let { reconstructedSource(id, it) }
+    sourceObjects[id] ?: sources[id]?.let { reconstructedSource(id, it) }
 
   override fun getSources(): List<Source> = sources.keys.mapNotNull(::getSource)
 
@@ -141,13 +142,13 @@ internal class RecordingStyleBinding(
       throw StyleMutationException("Source '$sourceId' is still in use", null)
     }
     sources.remove(sourceId)
-    baseSources.remove(sourceId)
+    sourceObjects.remove(sourceId)
   }
 
   fun replaceSource(source: Source) {
     check(source.id in baseSources) { "Source ID '${source.id}' not found in style" }
     sources[source.id] = source.toJson()
-    baseSources[source.id] = source
+    sourceObjects[source.id] = source
   }
 
   override fun sourceExists(sourceId: String): Boolean = sourceId in sources
@@ -238,7 +239,6 @@ internal class RecordingStyleBinding(
 
   override fun removeLayer(layerId: String) {
     layers.remove(layerId)
-    baseLayers.remove(layerId)
     orderedLayerIds.remove(layerId)
   }
 
