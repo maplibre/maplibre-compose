@@ -300,11 +300,8 @@ internal class MapSnapshotterImplementation(
       )
     }
 
-  // Captures run one at a time on a worker in the runtime's physical scope, not in the caller's
-  // coroutine. Cancellation and close() therefore release the caller at once, while the platform
-  // operation and its terminal cleanup continue and runQueue() holds the next capture until both
-  // end. Cleanup starts alongside the canceled operation, because a platform operation may end only
-  // after cancelActiveCapture() asks it to.
+  // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
+  // once while runQueue() holds the next capture until cleanup ends.
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =
     suspendCancellableCoroutine { continuation ->
       val capture = Capture(request, continuation)
@@ -445,11 +442,7 @@ internal class MapSnapshotterImplementation(
     cancellation?.let(::startActiveCancellation)
   }
 
-  /**
-   * Abandons the result of the active [capture], resuming its caller with [error] if given, and
-   * cancels its operation. Returns a new cleanup marker to pass to [startActiveCancellation], or
-   * null when cleanup has already started.
-   */
+  /** Returns a new cleanup marker, or null when cleanup has already started. */
   private fun abandonActiveLocked(
     capture: Capture,
     error: Throwable? = null,
