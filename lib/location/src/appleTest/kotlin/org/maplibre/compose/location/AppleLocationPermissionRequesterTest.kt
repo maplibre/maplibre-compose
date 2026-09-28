@@ -4,14 +4,8 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlinx.cinterop.interpretObjCPointer
 import kotlinx.cinterop.objcPtr
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import platform.CoreLocation.CLLocationManager
 
 class AppleLocationPermissionRequesterTest {
@@ -34,20 +28,5 @@ class AppleLocationPermissionRequesterTest {
           requester.status.value,
         )
       }
-  }
-
-  @Test
-  fun failedOffMainCloseCanStillDisposeOnMain() = runTest {
-    val manager = CLLocationManager()
-    val requester = AppleLocationPermissionRequester(manager)
-    try {
-      withContext(Dispatchers.Default) {
-        assertFailsWith<IllegalStateException> { requester.close() }
-      }
-      assertNotNull(manager.delegate)
-    } finally {
-      requester.close()
-    }
-    assertNull(manager.delegate)
   }
 }

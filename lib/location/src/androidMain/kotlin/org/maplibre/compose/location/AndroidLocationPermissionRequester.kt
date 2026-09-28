@@ -204,31 +204,19 @@ internal constructor(
     val shouldShowRationale = readRationale()
     // A grant or a rationale proves the permission is requestable, so any record is stale.
     if (granted != null || shouldShowRationale == true) permanentlyDenied = false
-    return resolveAndroidLocationPermission(granted, shouldShowRationale, permanentlyDenied)
+    return when {
+      granted != null -> LocationPermission.Granted(granted)
+      shouldShowRationale == null -> LocationPermission.NotGranted(canRequest = null)
+      shouldShowRationale ->
+        LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true)
+      else -> LocationPermission.NotGranted(canRequest = !permanentlyDenied)
+    }
   }
 
   private companion object {
     private val nextKey = AtomicInteger()
   }
 }
-
-/**
- * Maps the platform permission signals to [LocationPermission]. [granted] is the granted accuracy,
- * or null when permission is absent. [shouldShowRationale] is the platform rationale check, or null
- * when no activity can answer it. [permanentlyDenied] is the recorded permanent denial.
- */
-internal fun resolveAndroidLocationPermission(
-  granted: LocationAccuracyAuthorization?,
-  shouldShowRationale: Boolean?,
-  permanentlyDenied: Boolean,
-): LocationPermission =
-  when {
-    granted != null -> LocationPermission.Granted(granted)
-    shouldShowRationale == null -> LocationPermission.NotGranted(canRequest = null)
-    shouldShowRationale ->
-      LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true)
-    else -> LocationPermission.NotGranted(canRequest = !permanentlyDenied)
-  }
 
 internal tailrec fun Context.findActivityOrNull(): Activity? =
   when (this) {

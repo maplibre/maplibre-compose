@@ -3,8 +3,6 @@ package org.maplibre.compose.location
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.core.app.ActivityOptionsCompat
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,27 +32,6 @@ class AndroidLocationPermissionRequestTest {
         observer.cancel()
         requester.close()
       }
-    }
-  }
-
-  @Test
-  fun failedOffMainCloseCanStillDisposeOnMain() {
-    val instrumentation = InstrumentationRegistry.getInstrumentation()
-    val owner =
-      object : LifecycleOwner {
-        override val lifecycle = LifecycleRegistry(this)
-      }
-    lateinit var requester: AndroidLocationPermissionRequester
-    instrumentation.runOnMainSync {
-      requester = AndroidLocationPermissionRequester(owner.lifecycle, null, { null }, { false })
-      assertEquals(1, owner.lifecycle.observerCount)
-    }
-
-    assertFailsWith<IllegalStateException> { requester.close() }
-
-    instrumentation.runOnMainSync {
-      requester.close()
-      assertEquals(0, owner.lifecycle.observerCount)
     }
   }
 

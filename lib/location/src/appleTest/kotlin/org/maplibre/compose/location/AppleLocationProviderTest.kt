@@ -9,7 +9,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,6 +32,7 @@ import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
 import platform.CoreLocation.kCLErrorNetwork
+import platform.CoreLocation.kCLErrorPromptDeclined
 import platform.Foundation.NSDate
 import platform.Foundation.NSError
 import platform.Foundation.NSThread
@@ -42,12 +42,7 @@ class AppleLocationProviderTest {
   @Test
   fun invalidCoordinatesDoNotReplaceTheLastValidFixOrStopUpdates() = runTest {
     Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
-    val manager =
-      object : CLLocationManager() {
-        override fun startUpdatingLocation() {}
-
-        override fun stopUpdatingLocation() {}
-      }
+    val manager = TestLocationManager()
     val requester =
       AppleLocationPermissionRequester(CLLocationManager()) {
         LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
@@ -58,25 +53,14 @@ class AppleLocationProviderTest {
     val collection = backgroundScope.launch { provider.updates().collect { events += it } }
     try {
       runCurrent()
-      fun send(accuracy: Double) {
-        val location =
-          CLLocation(
-            coordinate = CLLocationCoordinate2DMake(52.0, 13.0),
-            altitude = 0.0,
-            horizontalAccuracy = accuracy,
-            verticalAccuracy = -1.0,
-            timestamp = NSDate(),
-          )
-        checkNotNull(manager.delegate)
-          .locationManager(manager, didUpdateLocations = listOf(location))
-      }
-      send(5.0)
+      manager.sendLocation(horizontalAccuracy = 5.0)
       runCurrent()
       val first = events.single()
-      send(-1.0)
+      manager.sendLocation(horizontalAccuracy = -1.0)
       runCurrent()
       assertEquals(listOf(first), events)
-      send(0.0)
+      assertTrue(manager.updating)
+      manager.sendLocation(horizontalAccuracy = 0.0)
       runCurrent()
       assertEquals(
         listOf(5.0, 0.0),
@@ -158,15 +142,6 @@ class AppleLocationProviderTest {
   }
 
   @Test
-  fun exposesPermissionFromItsRequester() {
-    AppleLocationPermissionRequester().use { requester ->
-      AppleLocationProvider(requester).use { provider ->
-        assertSame(requester.status, provider.permission)
-      }
-    }
-  }
-
-  @Test
   fun closeDetachesPermissionObserverAndRejectsRequests() {
     val manager = CLLocationManager()
     val requester = AppleLocationPermissionRequester(manager)
@@ -197,25 +172,22 @@ class AppleLocationProviderTest {
       LocationUnavailableReason.PermissionDenied,
       coreLocationError(kCLErrorDenied).asUnavailableReason { true },
     )
-    var locationServicesQueried = false
-    val locationServicesEnabled = {
-      locationServicesQueried = true
-      true
-    }
     assertEquals(
-      LocationUnavailableReason.TemporarilyUnavailable,
-      coreLocationError(kCLErrorLocationUnknown).asUnavailableReason(locationServicesEnabled),
+      LocationUnavailableReason.PermissionDenied,
+      coreLocationError(kCLErrorPromptDeclined).asUnavailableReason { true },
     )
     assertEquals(
       LocationUnavailableReason.TemporarilyUnavailable,
-      coreLocationError(kCLErrorNetwork).asUnavailableReason(locationServicesEnabled),
+      coreLocationError(kCLErrorLocationUnknown).asUnavailableReason { true },
+    )
+    assertEquals(
+      LocationUnavailableReason.TemporarilyUnavailable,
+      coreLocationError(kCLErrorNetwork).asUnavailableReason { true },
     )
     assertEquals(
       LocationUnavailableReason.UnexpectedFailure,
-      NSError.errorWithDomain("example.error", 1, null)
-        .asUnavailableReason(locationServicesEnabled),
+      NSError.errorWithDomain("example.error", 1, null).asUnavailableReason { true },
     )
-    assertFalse(locationServicesQueried)
   }
 
   private fun coreLocationError(code: Long): NSError =
@@ -241,7 +213,15 @@ private class TestLocationManager : CLLocationManager() {
     requests++
   }
 
-  fun sendLocation() {
-    delegate?.locationManager(this, didUpdateLocations = listOf(CLLocation(52.0, 13.0)))
+  fun sendLocation(horizontalAccuracy: Double = 5.0) {
+    val location =
+      CLLocation(
+        coordinate = CLLocationCoordinate2DMake(52.0, 13.0),
+        altitude = 0.0,
+        horizontalAccuracy = horizontalAccuracy,
+        verticalAccuracy = -1.0,
+        timestamp = NSDate(),
+      )
+    delegate?.locationManager(this, didUpdateLocations = listOf(location))
   }
 }

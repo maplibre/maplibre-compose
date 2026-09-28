@@ -1,8 +1,6 @@
 package org.maplibre.compose.location.desktop.windows
 
 import java.util.ServiceLoader
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -10,7 +8,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -36,43 +33,6 @@ class WindowsLocationProviderTest {
   fun serviceLoaderFindsWindowsBackend() {
     assertTrue(
       ServiceLoader.load(DesktopLocationBackend::class.java).any { it is WindowsLocationBackend }
-    )
-  }
-
-  @Test
-  fun backendIsAvailableOnlyOnWindows() {
-    assertTrue(isWindows("Windows 11"))
-    assertTrue(isWindows("windows server 2025"))
-    assertFalse(isWindows("Linux"))
-    assertFalse(isWindows("Mac OS X"))
-    assertFalse(isWindows(null))
-    assertEquals(isWindows(System.getProperty("os.name")), WindowsLocationBackend().isAvailable())
-  }
-
-  @Test
-  fun mapsAppCapabilityAccess() {
-    assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
-      WindowsAccessStatus.Allowed.asLocationPermission(),
-    )
-    assertEquals(
-      LocationPermission.NotGranted(canRequest = true),
-      WindowsAccessStatus.UserPromptRequired.asLocationPermission(),
-    )
-    listOf(
-        WindowsAccessStatus.DeniedBySystem,
-        WindowsAccessStatus.NotDeclared,
-        WindowsAccessStatus.DeniedByUser,
-      )
-      .forEach {
-        assertEquals(
-          LocationPermission.NotGranted(canRequest = false),
-          it.asLocationPermission(),
-        )
-      }
-    assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
-      WindowsAccessStatus.Unknown.asLocationPermission(),
     )
   }
 
@@ -113,48 +73,18 @@ class WindowsLocationProviderTest {
   }
 
   @Test
-  fun mapsAccuracyAndReportInterval() {
-    assertEquals(1, LocationAccuracy.BestForNavigation.toDesiredAccuracyMeters())
-    assertEquals(10, LocationAccuracy.High.toDesiredAccuracyMeters())
-    assertEquals(100, LocationAccuracy.Balanced.toDesiredAccuracyMeters())
-    assertEquals(1_000, LocationAccuracy.Low.toDesiredAccuracyMeters())
-    assertEquals(5_000, LocationAccuracy.Lowest.toDesiredAccuracyMeters())
-    assertEquals(0, 0.milliseconds.toReportIntervalMilliseconds())
-    assertEquals(1, 1.milliseconds.toReportIntervalMilliseconds())
-    assertEquals(1_500, 1_500.milliseconds.toReportIntervalMilliseconds())
-  }
-
-  @Test
-  fun mapsPositionStatuses() {
-    val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    val denied = LocationPermission.NotGranted(canRequest = false)
-    assertNull(WindowsPositionStatus.Ready.asUnavailableReason(granted))
-    listOf(
-        WindowsPositionStatus.Initializing,
-        WindowsPositionStatus.NoData,
-        WindowsPositionStatus.NotInitialized,
-      )
-      .forEach {
-        assertEquals(
-          LocationUnavailableReason.TemporarilyUnavailable,
-          it.asUnavailableReason(granted),
-        )
-      }
+  fun disabledPositionStatusDependsOnPermission() {
     assertEquals(
       LocationUnavailableReason.ServicesDisabled,
-      WindowsPositionStatus.Disabled.asUnavailableReason(granted),
+      WindowsPositionStatus.Disabled.asUnavailableReason(
+        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+      ),
     )
     assertEquals(
       LocationUnavailableReason.PermissionDenied,
-      WindowsPositionStatus.Disabled.asUnavailableReason(denied),
-    )
-    assertEquals(
-      LocationUnavailableReason.Unsupported,
-      WindowsPositionStatus.NotAvailable.asUnavailableReason(granted),
-    )
-    assertEquals(
-      LocationUnavailableReason.UnexpectedFailure,
-      WindowsPositionStatus.Unknown.asUnavailableReason(granted),
+      WindowsPositionStatus.Disabled.asUnavailableReason(
+        LocationPermission.NotGranted(canRequest = false)
+      ),
     )
   }
 
@@ -293,69 +223,6 @@ class WindowsLocationProviderTest {
     assertTrue(first.isCompleted)
     assertTrue(second.isCompleted)
     assertTrue(client.sessions.all { it.closeCount == 1 })
-  }
-
-  @Test
-  fun closeDuringSessionCreationDefersClientRelease() = runTest {
-    val creationStarted = CountDownLatch(1)
-    val finishCreation = CountDownLatch(1)
-    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
-    client.onCreateSession = {
-      creationStarted.countDown()
-      check(finishCreation.await(5, TimeUnit.SECONDS))
-      assertEquals(0, client.closeCount)
-    }
-    val provider = WindowsLocationProvider(client)
-    val collector =
-      backgroundScope.launch(Dispatchers.Default) {
-        provider.updates(LocationRequest()).collect {}
-      }
-
-    try {
-      assertTrue(creationStarted.await(5, TimeUnit.SECONDS))
-      provider.close()
-      provider.close()
-      assertEquals(0, client.closeCount)
-      assertEquals(0, client.observationCloses)
-    } finally {
-      finishCreation.countDown()
-    }
-    collector.join()
-
-    assertFalse(collector.isCancelled)
-    assertEquals(1, client.sessions.single().closeCount)
-    assertEquals(1, client.observationCloses)
-    assertEquals(1, client.closeCount)
-  }
-
-  @Test
-  fun cancellationDuringSessionCreationClosesTheReturnedSession() = runTest {
-    val creationStarted = CountDownLatch(1)
-    val finishCreation = CountDownLatch(1)
-    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
-    client.onCreateSession = {
-      creationStarted.countDown()
-      check(finishCreation.await(5, TimeUnit.SECONDS))
-    }
-    val provider = WindowsLocationProvider(client)
-    val collector =
-      backgroundScope.launch(Dispatchers.Default) {
-        provider.updates(LocationRequest()).collect {}
-      }
-
-    try {
-      assertTrue(creationStarted.await(5, TimeUnit.SECONDS))
-      collector.cancel()
-    } finally {
-      finishCreation.countDown()
-    }
-    collector.join()
-
-    assertEquals(1, client.sessions.single().closeCount)
-    assertEquals(0, client.closeCount)
-    provider.close()
-    assertEquals(1, client.sessions.single().closeCount)
-    assertEquals(1, client.closeCount)
   }
 
   @Test

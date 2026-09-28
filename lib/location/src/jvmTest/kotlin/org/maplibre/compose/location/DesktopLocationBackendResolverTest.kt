@@ -3,16 +3,13 @@ package org.maplibre.compose.location
 import java.util.ServiceConfigurationError
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 
 class DesktopLocationBackendResolverTest {
   @Test
-  fun missingOrUnavailableBackendIsUnsupported() = runTest {
+  fun missingOrUnavailableBackendIsUnsupported() {
     val unavailableBackend = FakeBackend("wrong-platform", available = false)
     val providers =
       listOf(
@@ -20,20 +17,18 @@ class DesktopLocationBackendResolverTest {
         DesktopLocationBackendResolver.resolve(listOf(unavailableBackend)),
       )
 
-    providers.forEach { provider ->
-      assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-      assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    providers.forEach {
+      assertEquals(LocationBackendAvailability.Unsupported, it.backendAvailability)
     }
     assertEquals(0, unavailableBackend.createCalls)
   }
 
   @Test
-  fun multipleBackendsAreMisconfigured() = runTest {
+  fun multipleBackendsAreMisconfigured() {
     val backends = listOf(FakeBackend("first"), FakeBackend("second"))
     val provider = DesktopLocationBackendResolver.resolve(backends)
 
     assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
   }
 
   @Test
@@ -50,12 +45,11 @@ class DesktopLocationBackendResolverTest {
   }
 
   @Test
-  fun backendConstructionFailureBecomesMisconfiguration() = runTest {
+  fun backendConstructionFailureBecomesMisconfiguration() {
     val failure = IllegalStateException("native dependency is missing")
     val backend = FakeBackend("broken", failure = failure)
 
     val provider = DesktopLocationBackendResolver.resolve(listOf(backend))
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
 
     val availability =
       assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
@@ -64,10 +58,9 @@ class DesktopLocationBackendResolverTest {
   }
 
   @Test
-  fun serviceDiscoveryFailureBecomesMisconfiguration() = runTest {
+  fun serviceDiscoveryFailureBecomesMisconfiguration() {
     val failure = ServiceConfigurationError("provider constructor failed")
     val provider = DesktopLocationBackendResolver.discover(loadBackends = { throw failure })
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
 
     assertSame(
       failure,

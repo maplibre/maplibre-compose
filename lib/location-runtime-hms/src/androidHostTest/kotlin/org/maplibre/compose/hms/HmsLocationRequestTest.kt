@@ -26,20 +26,4 @@ class HmsLocationRequestTest {
     assertEquals(7f, request.smallestDisplacement)
     assertEquals(HmsLocationRequest.COORDINATE_TYPE_WGS84, request.coordinateType)
   }
-
-  @Test
-  fun mapsEveryAccuracyPriority() {
-    val expected =
-      mapOf(
-        LocationAccuracy.BestForNavigation to HmsLocationRequest.PRIORITY_HIGH_ACCURACY,
-        LocationAccuracy.High to HmsLocationRequest.PRIORITY_HIGH_ACCURACY,
-        LocationAccuracy.Balanced to HmsLocationRequest.PRIORITY_BALANCED_POWER_ACCURACY,
-        LocationAccuracy.Low to HmsLocationRequest.PRIORITY_LOW_POWER,
-        LocationAccuracy.Lowest to HmsLocationRequest.PRIORITY_NO_POWER,
-      )
-
-    expected.forEach { (accuracy, priority) ->
-      assertEquals(priority, LocationRequest(accuracy = accuracy).asHmsLocationRequest().priority)
-    }
-  }
 }

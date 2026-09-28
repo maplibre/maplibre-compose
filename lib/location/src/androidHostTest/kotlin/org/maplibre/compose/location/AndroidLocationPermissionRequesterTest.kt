@@ -1,5 +1,9 @@
 package org.maplibre.compose.location
 
+import android.Manifest.permission.ACCESS_FINE_LOCATION
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.core.app.ActivityOptionsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -18,8 +22,13 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class) // The permission request path needs a real Bundle.
+@Config(sdk = [36], manifest = Config.NONE)
 class AndroidLocationPermissionRequesterTest {
   @BeforeTest
   fun setUp() {
@@ -93,6 +102,54 @@ class AndroidLocationPermissionRequesterTest {
 
     assertEquals(0, owner.lifecycle.observerCount)
     assertFailsWith<IllegalStateException> { requester.refresh() }
+  }
+
+  @Test
+  fun `status resolves platform signals in precedence order`() {
+    var granted: LocationAccuracyAuthorization? = null
+    var rationale: Boolean? = false
+    val registry = TestResultRegistry()
+    val requester = AndroidLocationPermissionRequester(null, registry, { granted }, { rationale })
+    assertEquals(LocationPermission.NotGranted(canRequest = true), requester.status.value)
+    requester.requestForegroundPermission()
+    registry.dispatchResult(registry.requestCode, mapOf(ACCESS_FINE_LOCATION to false))
+
+    // Rows run in order: the denial above stays recorded until a rationale or grant clears it.
+    listOf(
+        Triple(null, false, LocationPermission.NotGranted(canRequest = false)),
+        Triple(null, null, LocationPermission.NotGranted(canRequest = null)),
+        Triple(null, true, LocationPermission.NotGranted(true, shouldShowRationale = true)),
+        Triple(null, false, LocationPermission.NotGranted(canRequest = true)),
+        Triple(
+          LocationAccuracyAuthorization.Precise,
+          true,
+          LocationPermission.Granted(LocationAccuracyAuthorization.Precise),
+        ),
+        Triple(
+          LocationAccuracyAuthorization.Approximate,
+          null,
+          LocationPermission.Granted(LocationAccuracyAuthorization.Approximate),
+        ),
+      )
+      .forEach { (grantedAccuracy, shouldShowRationale, expected) ->
+        granted = grantedAccuracy
+        rationale = shouldShowRationale
+        assertEquals(expected, requester.refresh(), "$grantedAccuracy, $shouldShowRationale")
+      }
+    requester.close()
+  }
+
+  private class TestResultRegistry : ActivityResultRegistry() {
+    var requestCode = 0
+
+    override fun <I, O> onLaunch(
+      requestCode: Int,
+      contract: ActivityResultContract<I, O>,
+      input: I,
+      options: ActivityOptionsCompat?,
+    ) {
+      this.requestCode = requestCode
+    }
   }
 
   private class TestLifecycleOwner : LifecycleOwner {
