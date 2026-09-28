@@ -11,7 +11,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
@@ -97,6 +99,48 @@ class MlnFfiViewportTest {
       assertEquals(target.bearing, after.bearing, 0.0001)
       assertEquals(start.padding, after.padding)
       assertEquals(36.0, fixture.session.readMap { it.camera.padding?.top })
+    }
+  }
+
+  @Test
+  fun camera_events_describe_the_mirrored_camera() = runBlocking {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    BridgeMapFixture.create().use { fixture ->
+      val state = fixture.state
+      state.publishPresentation(state.reservePresentation(), fixture.session)
+      fixture.bindState(state)
+      fixture.loadStyle(BaseStyle.Empty)
+      val start = CameraPosition(zoom = 3.0)
+      state.setCameraPosition(start)
+      fixture.pumpUntil("the starting camera") { state.cameraPosition.zoom == start.zoom }
+      fixture.settle()
+      val moved = mutableListOf<CameraPosition>()
+      var ended: CameraPosition? = null
+      // An unconfined collector runs at the emission, so it reads the camera that event published.
+      val collector =
+        launch(Dispatchers.Unconfined) {
+          state.events.collect { event ->
+            if (event == MapEvent.CameraMoved) moved += state.cameraPosition
+            if (event is MapEvent.CameraMoveEnded) ended = state.cameraPosition
+          }
+        }
+
+      val target = start.copy(zoom = 6.0, bearing = 45.0)
+      val animation = async {
+        state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(500.milliseconds))
+      }
+      fixture.awaitUntil("the camera animation to finish") { animation.isCompleted }
+      animation.await()
+      fixture.awaitFrames(frames = 2)
+      collector.cancel()
+
+      assertTrue(
+        moved.any { it.zoom > start.zoom && it.zoom < target.zoom },
+        "a move event must see the camera between its start and target: ${moved.map { it.zoom }}",
+      )
+      val last = assertNotNull(ended)
+      assertEquals(target.zoom, last.zoom, 0.0001)
+      assertEquals(target.bearing, last.bearing, 0.0001)
     }
   }
 

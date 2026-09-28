@@ -70,6 +70,7 @@ import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
@@ -181,19 +182,19 @@ internal class MlnFfiMapSession(
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
   private val awaitRuntimeReady: suspend () -> Unit = {},
-) : MapLifecycleSession, MlnFfiMapRenderer, CameraInputTarget {
+) : MapLifecycleSession, SessionStamps, MlnFfiMapRenderer, CameraInputTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
   override val lifecycle = lifecycleAuthority.createBinding(this)
-  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
+  private val events =
+    MapSessionEvents(map = this, stamps = this, postToMain = lifecycleAuthority::postToMain) {
+      this.callbacks
+    }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   /** Presentation producer installed and sampled only on the native map's owner thread. */
   private var ownerThreadRenderLease: RenderLease? = null
-  @Volatile private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
-  @Volatile private var styleEventProducer: StyleEventProducer? = null
-  @Volatile private var lifecycleStyleIdentity: StyleIdentity? = null
 
   override val engineRetention: EngineRetention = EngineRetention.RETAIN
 
@@ -348,14 +349,12 @@ internal class MlnFfiMapSession(
           !info.attribution.isNullOrEmpty() &&
           reportedUrlAttribution.add(id)
       ) {
-        withLifecycleStyle { engine, style ->
-          lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, id)
-        }
+        styleBinding?.identity?.let { events.styleSourcesChanged(it, id) }
       }
     }
   }
 
-  private fun createStyleBinding(engine: EngineMapIdentity, map: MapHandle): MlnFfiStyleBinding =
+  private fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = map,
       loggerProvider = { logger },
@@ -384,14 +383,11 @@ internal class MlnFfiMapSession(
       },
       sourceChanged = { sourceId ->
         reportedUrlAttribution.remove(sourceId)
-        withLifecycleStyle { engine, style ->
-          lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, sourceId)
-        }
+        styleBinding?.identity?.let { events.styleSourcesChanged(it, sourceId) }
       },
       sourceDataFailed = { bindingIdentity, sourceId, error ->
-        val style = lifecycleStyleIdentity
-        if (style != null && styleBinding?.identity === bindingIdentity) {
-          postStyleEvent(engine, style, MapEvent.SourceDataFailed(sourceId, error))
+        if (styleBinding?.identity === bindingIdentity) {
+          events.styleEvent(bindingIdentity, MapEvent.SourceDataFailed(sourceId, error))
         }
       },
       getScale = ::imageScale,
@@ -587,6 +583,18 @@ internal class MlnFfiMapSession(
     lifecycle.awaitClosed()
   }
 
+  override fun isCurrentEngine(engine: EngineMapIdentity): Boolean =
+    lifecycle.acceptEngineEvent(engine) {}
+
+  override fun isCurrentPresentation(engine: EngineMapIdentity, lease: RenderLease): Boolean =
+    lifecycle.acceptPresentationEvent(engine, lease) {}
+
+  override fun isCurrentStyleRequest(request: StyleRequestId): Boolean =
+    lifecycle.acceptsWork && request === styleLoadTracker.requestId
+
+  override fun isCurrentStyle(style: StyleIdentity): Boolean =
+    lifecycle.acceptsWork && styleLoadTracker.isCurrent(style)
+
   internal fun preparePresentation() {
     styleLoadTracker.resetPresentation()
   }
@@ -615,7 +623,6 @@ internal class MlnFfiMapSession(
   override suspend fun createEngine(identity: EngineMapIdentity) {
     awaitRuntimeReady()
     lifecycleEngineIdentity = identity
-    lifecycleStyleRequestIdentity = lifecycle.claimStyleRequestIdentity(identity)
     startEngine(identity)
   }
 
@@ -656,12 +663,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun destroyEngine(identity: EngineMapIdentity) {
-    if (lifecycleEngineIdentity == identity) {
-      lifecycleEngineIdentity = null
-      lifecycleStyleRequestIdentity = null
-      styleEventProducer = null
-      lifecycleStyleIdentity = null
-    }
+    if (lifecycleEngineIdentity == identity) lifecycleEngineIdentity = null
     closePlatform()
   }
 
@@ -699,7 +701,7 @@ internal class MlnFfiMapSession(
           resourceConfig = resourceConfig,
           onMapCreated = ::onMapCreated,
           onEvent = { map, event -> handleEvent(identity, map, event) },
-          onEventsDrained = { onEventsDrained(identity, it) },
+          onEventsDrained = ::onEventsDrained,
           requestFrame = ::requestRender,
           mapEventMask = HANDLED_MAP_EVENTS,
         )
@@ -945,47 +947,35 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        val producer = styleEventProducer?.takeIf { it.engine == engine } ?: return
-        val binding = createStyleBinding(engine, map)
-        val trackerRequest = appliedStyleRequest ?: return binding.invalidate()
-        if (!styleLoadTracker.loaded(trackerRequest, binding.identity)) {
+        val binding = createStyleBinding(map)
+        val request = appliedStyleRequest ?: return binding.invalidate()
+        // The tracker claims the load for its request under its lock, so a base style requested
+        // on main meanwhile rejects it instead of leaving a stale style installed.
+        if (!styleLoadTracker.loaded(request, binding.identity) || !lifecycle.acceptsWork) {
           binding.invalidate()
           return
         }
-        val acceptedStyle =
-          lifecycleCallbacks.onStyleChanged(engine, producer.request, this, binding) { identity ->
-            // Live handles from the previous binding must not write into a style that is gone.
-            styleBinding?.invalidate()
-            styleBinding = binding
-            lifecycleStyleIdentity = identity
-            reportedUrlAttribution.clear()
-          }
-        if (acceptedStyle == null) {
-          binding.invalidate()
-          return
-        }
-        postStyleEvent(engine, acceptedStyle, mapEvent)
+        // Live handles from the previous binding must not write into a style that is gone.
+        styleBinding?.invalidate()
+        styleBinding = binding
+        reportedUrlAttribution.clear()
+        events.styleLoaded(binding)
+        mapEvent?.let { events.styleEvent(binding.identity, it) }
       }
 
       RuntimeEventType.MAP_IDLE -> {
         if (styleLoadTracker.isReady) reportNewlyArrivedAttribution()
-        postEngineEvent(engine, mapEvent)
+        mapEvent?.let { events.engineEvent(engine, it) }
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         // Asynchronous document failures arrive here. Setter exceptions are reported at submission.
         val reason = event.styleLoadFailureReason()
         val request = appliedStyleRequest
-        val accepted = request != null && styleLoadTracker.failed(request)
-        if (accepted) {
-          styleEventProducer
-            ?.takeIf { it.engine == engine }
-            ?.let {
-              if (lifecycleCallbacks.onStyleFailed(engine, it.request, this, reason)) {
-                logger?.e { "Map loading failed (code ${event.code}): $reason" }
-                postStyleRequestEvent(engine, it.request, mapEvent)
-              }
-            }
+        if (request != null && styleLoadTracker.failed(request) && lifecycle.acceptsWork) {
+          events.styleFailed(request, reason)
+          logger?.e { "Map loading failed (code ${event.code}): $reason" }
+          mapEvent?.let { events.styleRequestEvent(request, it) }
         }
       }
 
@@ -1000,8 +990,9 @@ internal class MlnFfiMapSession(
           cameraEventInDrain = true
           viewportSnapshotStale = true
         }
-        postPresentationEvent(engine, lease, mapEvent) {
+        if (lease != null && mapEvent != null) {
           if (viewportSnapshotStale) loop?.map?.let(::snapshotViewport)
+          events.presentationEvent(engine, lease, mapEvent)
         }
       }
 
@@ -1027,7 +1018,8 @@ internal class MlnFfiMapSession(
         }
       }
 
-      RuntimeEventType.MAP_RENDER_FRAME_FINISHED -> postPresentationEvent(engine, lease, mapEvent)
+      RuntimeEventType.MAP_RENDER_FRAME_FINISHED ->
+        if (lease != null && mapEvent != null) events.presentationEvent(engine, lease, mapEvent)
 
       RuntimeEventType.MAP_RENDER_ERROR ->
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
@@ -1035,44 +1027,12 @@ internal class MlnFfiMapSession(
       // mbgl re-checks its image set at the next placement after setStyleImage, so a resolution
       // that finishes after this drain still reaches a later frame.
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
-        withLifecycleStyle { e, style ->
-          lifecycleCallbacks.resolveMissingImage(e, style, this, event.message)
-        }
+        styleBinding?.identity?.let { events.resolveMissingImage(it, event.message) }
 
       // Event types are value classes over Int, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.
       else -> logger?.d { "Unrecognized MapLibre event type ${event.type}" }
     }
-  }
-
-  /** These four post nothing for a null [event]: a type outside the common catalog. */
-  private fun postEngineEvent(engine: EngineMapIdentity, event: MapEvent?) {
-    if (event == null) return
-    lifecycleCallbacks.onEvent(engine, this, event)
-  }
-
-  private fun postPresentationEvent(
-    engine: EngineMapIdentity,
-    lease: RenderLease?,
-    event: MapEvent?,
-    beforeDelegate: () -> Unit = {},
-  ) {
-    if (lease == null || event == null) return
-    lifecycleCallbacks.onEvent(engine, lease, this, event, beforeDelegate)
-  }
-
-  private fun postStyleEvent(engine: EngineMapIdentity, style: StyleIdentity, event: MapEvent?) {
-    if (event == null) return
-    lifecycleCallbacks.onEvent(engine, style, this, event)
-  }
-
-  private fun postStyleRequestEvent(
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-    event: MapEvent?,
-  ) {
-    if (event == null) return
-    lifecycleCallbacks.onEvent(engine, request, this, event)
   }
 
   /** Exists for tests. */
@@ -1237,32 +1197,26 @@ internal class MlnFfiMapSession(
     if (style == requestedStyle) return
     styleBinding?.invalidate()
     requestedStyle = style
-    val trackerRequest = styleLoadTracker.request()
+    val request = styleLoadTracker.request()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // be validated against the base layers being replaced.
-    val lifecycleRequest = lifecycleEngineIdentity?.let {
-      lifecycleCallbacks.beginStyleRequest(it, this)
-    }
+    if (lifecycleEngineIdentity != null) events.styleRequested(request)
     // Invalidation calls application code. A nested assignment owns the newer request.
-    if (styleLoadTracker.requestId !== trackerRequest || !lifecycle.acceptsWork) return
-    if (lifecycleRequest != null) lifecycleStyleRequestIdentity = lifecycleRequest
-    lifecycleStyleIdentity = null
-    requestedStyleLoad = RequestedStyleLoad(style, trackerRequest, lifecycleRequest)
+    if (styleLoadTracker.requestId !== request || !lifecycle.acceptsWork) return
+    requestedStyleLoad = RequestedStyleLoad(style, request)
     // Wake the owner loop, but do not replace native until its preceding events are handled.
     onMap {}
   }
 
   override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
-    val engine = checkNotNull(lifecycleEngineIdentity)
-    val style = checkNotNull(lifecycleStyleIdentity)
     try {
       val prepared = styleReconciler.prepare(binding, revision)
       return checkNotNull(
         loop?.await {
           val changes = styleReconciler.apply(binding, prepared)
           if (!styleLoadTracker.contentReady && styleLoadTracker.reconciled(binding.identity)) {
-            lifecycleCallbacks.onStyleReady(engine, style, this)
+            events.styleReady(binding.identity)
           }
           changes
         }
@@ -1281,49 +1235,32 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle) {
     val load = requestedStyleLoad ?: return
     val style = load.style
-    if (!lifecycle.acceptsWork) return
-    val engine = lifecycleEngineIdentity ?: return
-    val lifecycleRequest = load.lifecycleRequest ?: lifecycleStyleRequestIdentity ?: return
-    if (load.lifecycleRequest != null && load.lifecycleRequest != lifecycleStyleRequestIdentity) {
-      return
-    }
+    if (!lifecycle.acceptsWork || lifecycleEngineIdentity == null) return
     val request = styleLoadTracker.requestId
     if (load.trackerRequest != request || appliedStyleRequest == request) return
+    // Only bootstrap and the end of an event drain may replace the applied request. Native retires
+    // the old document request in the setter; its queued response cannot run after that
+    // retirement.
     appliedStyleRequest = request
-    // Only bootstrap and the end of an event drain may replace this producer. Native retires the
-    // old document request in the setter; its queued response cannot run after that retirement.
-    styleEventProducer = StyleEventProducer(engine, lifecycleRequest)
     // A malformed JSON document queues a failure and throws. Argument rejection can throw before
-    // native retires the old document, with no event. Report either once and disconnect its
-    // producer.
+    // native retires the old document, with no event. Report either once; the failed request then
+    // rejects the old document's late success.
     try {
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
     } catch (error: MaplibreException) {
-      styleEventProducer = null
       val reason = error.message ?: "Failed to apply the base style"
-      if (
-        styleLoadTracker.failed(request) &&
-          lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)
-      ) {
+      if (styleLoadTracker.failed(request) && lifecycle.acceptsWork) {
+        events.styleFailed(request, reason)
         logger?.e(error) { "Failed to apply style $style" }
-        postStyleRequestEvent(engine, lifecycleRequest, MapEvent.StyleLoadFailed(reason))
+        events.styleRequestEvent(request, MapEvent.StyleLoadFailed(reason))
       }
     }
   }
 
-  private data class StyleEventProducer(
-    val engine: EngineMapIdentity,
-    val request: StyleRequestIdentity,
-  )
-
-  private class RequestedStyleLoad(
-    val style: BaseStyle,
-    val trackerRequest: StyleRequestId,
-    val lifecycleRequest: StyleRequestIdentity?,
-  )
+  private class RequestedStyleLoad(val style: BaseStyle, val trackerRequest: StyleRequestId)
 
   /** Applied when a map is created. Getters read [mirroredViewport] after native applies it. */
   @Volatile private var requestedCamera: CameraPosition? = null
@@ -1392,9 +1329,7 @@ internal class MlnFfiMapSession(
     // The first attach snapshot can land before the lease is Attached. Seed from the snapshot
     // itself so a dropped camera callback cannot leave MapState.viewport null.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onViewportChanged(engine, lease, this)
-    }
+    withLifecyclePresentation { engine, lease -> events.viewportChanged(engine, lease) }
   }
 
   /**
@@ -2163,18 +2098,14 @@ internal class MlnFfiMapSession(
   private fun reportGestureActive(active: Boolean) {
     val engine = lifecycleEngineIdentity ?: return
     val lease = ownerThreadRenderLease ?: return
-    lifecycleCallbacks.onGestureActive(engine, lease, this, active)
+    events.gestureActive(engine, lease, active)
   }
 
-  private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+  private fun onEventsDrained(map: MapHandle) {
     // Cleared first: a failure below must not leave the next drain unable to mark the mirror stale.
     cameraEventInDrain = false
     applyPendingViewport(map)
-    if (viewportSnapshotStale) {
-      ownerThreadRenderLease?.let { lease ->
-        lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
-      }
-    }
+    if (viewportSnapshotStale && ownerThreadRenderLease != null) snapshotViewport(map)
     // A detached presentation cannot publish events, but accepted command fences still finish.
     finishPendingGesture(map)
     flushTransitionResumes()
@@ -2317,12 +2248,6 @@ internal class MlnFfiMapSession(
         animation,
       )
     }
-  }
-
-  private inline fun withLifecycleStyle(action: (EngineMapIdentity, StyleIdentity) -> Unit) {
-    val engine = lifecycleEngineIdentity ?: return
-    val style = lifecycleStyleIdentity ?: return
-    action(engine, style)
   }
 
   private inline fun withLifecyclePresentation(action: (EngineMapIdentity, RenderLease) -> Unit) {

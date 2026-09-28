@@ -127,14 +127,12 @@ class MapLifecycleBindingTest {
     val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
-    val style = lifecycle.claimStyle(engine)
 
     lifecycle.close()
     lifecycle.close()
 
     assertFailsWith<MapClosedException> { lifecycle.attach() }
     assertTrue(!lifecycle.acceptEngineEvent(engine) { error("closed engine event ran") })
-    assertTrue(!lifecycle.acceptStyleEvent(engine, style) { error("closed style event ran") })
     assertTrue(!lifecycle.acceptPresentationEvent(engine, lease) { error("closed event ran") })
     adapter.detachStarted.await()
     adapter.allowDetach.complete(Unit)
@@ -199,55 +197,18 @@ class MapLifecycleBindingTest {
   }
 
   @Test
-  fun durable_engine_and_current_style_events_are_accepted_while_native_is_detached() = runTest {
+  fun durable_engine_events_are_accepted_while_native_is_detached() = runTest {
     val adapter = FakeMapLifecycleAdapter()
     val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
-    val firstStyle = lifecycle.claimStyle(engine)
-    val currentStyle = lifecycle.claimStyle(engine)
     lifecycle.detach(lease)
     val accepted = mutableListOf<String>()
 
     assertTrue(lifecycle.acceptEngineEvent(engine) { accepted += "engine" })
-    assertTrue(!lifecycle.acceptStyleEvent(engine, firstStyle) { accepted += "stale style" })
-    assertTrue(lifecycle.acceptStyleEvent(engine, currentStyle) { accepted += "style" })
     assertTrue(!lifecycle.acceptPresentationEvent(engine, lease) { accepted += "presentation" })
 
-    assertEquals(listOf("engine", "style"), accepted)
-  }
-
-  @Test
-  fun a_style_claim_for_a_superseded_request_is_rejected_and_claims_nothing() = runTest {
-    val lifecycle = bindLifecycle(FakeMapLifecycleAdapter())
-    lifecycle.attach()
-    val engine = checkNotNull(lifecycle.engineIdentity)
-    val superseded = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
-    // The engine loads the first request while main has already requested another style.
-    val current = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
-
-    var delivered = false
-    assertNull(lifecycle.claimStyleIdentity(engine, superseded) { delivered = true })
-    assertTrue(!delivered)
-
-    val style = checkNotNull(lifecycle.claimStyleIdentity(engine, current) {})
-    assertTrue(lifecycle.acceptStyleEvent(engine, style) {})
-    assertTrue(lifecycle.acceptStyleRequestEvent(engine, current) {})
-  }
-
-  @Test
-  fun superseded_style_request_events_are_rejected() = runTest {
-    val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = bindLifecycle(adapter)
-    lifecycle.attach()
-    val engine = checkNotNull(lifecycle.engineIdentity)
-    val superseded = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
-    val current = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
-    val accepted = mutableListOf<String>()
-
-    assertTrue(!lifecycle.acceptStyleRequestEvent(engine, superseded) { accepted += "superseded" })
-    assertTrue(lifecycle.acceptStyleRequestEvent(engine, current) { accepted += "current" })
-    assertEquals(listOf("current"), accepted)
+    assertEquals(listOf("engine"), accepted)
   }
 
   @Test
@@ -273,19 +234,15 @@ class MapLifecycleBindingTest {
   }
 
   @Test
-  fun destroying_detach_invalidates_engine_and_style_identities_before_reattachment() = runTest {
+  fun destroying_detach_invalidates_the_engine_identity_before_reattachment() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
     val lifecycle = bindLifecycle(adapter)
     val firstLease = lifecycle.attach()
     val firstEngine = checkNotNull(lifecycle.engineIdentity)
-    val firstStyle = lifecycle.claimStyle(firstEngine)
 
     lifecycle.detach(firstLease)
 
     assertTrue(!lifecycle.acceptEngineEvent(firstEngine) { error("destroyed engine event ran") })
-    assertTrue(
-      !lifecycle.acceptStyleEvent(firstEngine, firstStyle) { error("destroyed style event ran") }
-    )
 
     lifecycle.attach()
     assertTrue(lifecycle.engineIdentity != firstEngine)
@@ -297,18 +254,12 @@ class MapLifecycleBindingTest {
     val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val departedEngine = checkNotNull(lifecycle.engineIdentity)
-    val departedStyle = lifecycle.claimStyle(departedEngine)
 
     assertTrue(lifecycle.beginEngineReplacement(departedEngine, lease))
 
     assertEquals(lease, lifecycle.renderLease)
     assertTrue(lifecycle.engineIdentity != departedEngine)
     assertTrue(!lifecycle.acceptEngineEvent(departedEngine) { error("departed engine event ran") })
-    assertTrue(
-      !lifecycle.acceptStyleEvent(departedEngine, departedStyle) {
-        error("departed style event ran")
-      }
-    )
   }
 
   @Test
@@ -512,8 +463,3 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
 }
 
 private class TestFailure(message: String) : RuntimeException(message)
-
-private fun MapLifecycleBinding.claimStyle(engine: EngineMapIdentity): StyleIdentity {
-  val request = checkNotNull(claimStyleRequestIdentity(engine))
-  return checkNotNull(claimStyleIdentity(engine, request) {})
-}

@@ -8,7 +8,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -151,37 +150,6 @@ class MainConfinementTest {
     runtime.close()
   }
 
-  @Test
-  fun a_queued_style_callback_is_dropped_once_its_style_is_replaced() = runTest {
-    val main = StandardTestDispatcher(testScheduler)
-    val binding =
-      MapLifecycleBinding(NoOpLifecycleAdapter(), backgroundScope, main, MainThreadGuard(main))
-    testScheduler.runCurrent() // The dispatcher pins the main thread.
-    binding.attach()
-    val engine = checkNotNull(binding.engineIdentity)
-    val recorder = CountingCallbacks()
-    val callbacks = MapLifecycleCallbacks(binding) { recorder }
-    val map = PresentationTestAdapter()
-    val first = binding.claimStyle(engine)
-
-    // Queued from "another thread": the test dispatcher needs a dispatch even from here.
-    assertTrue(callbacks.onStyleReady(engine, first, map))
-    val second = binding.claimStyle(engine)
-    testScheduler.runCurrent()
-    assertEquals(0, recorder.styleReady)
-
-    assertTrue(callbacks.onStyleReady(engine, second, map))
-    testScheduler.runCurrent()
-    assertEquals(1, recorder.styleReady)
-    binding.close()
-    binding.awaitClosed()
-  }
-
-  private fun MapLifecycleBinding.claimStyle(engine: EngineMapIdentity): StyleIdentity {
-    val request = checkNotNull(claimStyleRequestIdentity(engine))
-    return checkNotNull(claimStyleIdentity(engine, request) {})
-  }
-
   private class ClosableRetainedAdapter(private val compatibilityKey: Any) :
     PresentationTestAdapter() {
     var closeCalled = false
@@ -194,42 +162,6 @@ class MainConfinementTest {
     override fun close() {
       closeCalled = true
     }
-  }
-
-  private class NoOpLifecycleAdapter : MapLifecyclePlatformAdapter {
-    override val engineRetention = EngineRetention.DESTROY
-
-    override suspend fun createEngine(identity: EngineMapIdentity) = Unit
-
-    override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) = Unit
-
-    override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) = Unit
-
-    override suspend fun destroyEngine(identity: EngineMapIdentity) = Unit
-
-    override suspend fun closeResources() = Unit
-  }
-
-  private class CountingCallbacks : MapAdapter.Callbacks {
-    var styleReady = 0
-
-    override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
-
-    override fun onStyleReady(map: MapAdapter) {
-      styleReady++
-    }
-
-    override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
-
-    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
-
-    override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
-
-    override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
-
-    override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
-
-    override fun onViewportChanged(map: MapAdapter) = Unit
   }
 
   private class RejectingStyleAdapter : PresentationTestAdapter() {

@@ -9,7 +9,6 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.jvm.JvmInline
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
@@ -23,18 +22,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputAuthority
-
-/** Identifies one platform engine-map instance until its destruction. */
-@JvmInline internal value class EngineMapIdentity(private val value: Long)
-
-/** Identifies one temporary attachment of a logical map to a presentation. */
-@JvmInline internal value class RenderLease(private val value: Long)
-
-/** Identifies one loaded base-style generation on one engine map. */
-@JvmInline internal value class StyleIdentity(private val value: Long)
-
-/** Identifies one requested base-style generation before it has loaded. */
-@JvmInline internal value class StyleRequestIdentity(private val value: Long)
 
 /** Specifies whether presentation detachment destroys its engine map. */
 internal enum class EngineRetention {
@@ -522,8 +509,6 @@ internal class MapLifecycleBinding(
 
   private val nextIdentity = AtomicLong(0L)
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
-  /** The requested and loaded style together, so a claim cannot outlive its request. */
-  private val styleState = AtomicReference(StyleState())
   private val closure = CompletableDeferred<Result<Unit>>()
 
   val engineIdentity: EngineMapIdentity?
@@ -532,77 +517,15 @@ internal class MapLifecycleBinding(
   val renderLease: RenderLease?
     get() = (current.load() as? InternalState.Attached)?.lease
 
-  fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? {
-    if (!acceptEngineIdentity(engine)) return null
-    val identity = StyleRequestIdentity(nextIdentity.incrementAndFetch())
-    styleState.store(StyleState(request = StyleRequestClaim(engine, identity)))
-    return identity
-  }
-
-  fun acceptStyleRequestEvent(
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-    event: () -> Unit,
-  ): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    if (styleState.load().request != StyleRequestClaim(engine, request)) return false
-    event()
-    return true
-  }
-
   val acceptsWork: Boolean
     get() {
       val observed = current.load()
       return observed !is InternalState.Closing && observed !== InternalState.Closed
     }
 
-  /**
-   * Claims a loaded style for [request] and delivers it; the claim is visible before [event] runs.
-   * The check against the current request and the claim are one compare-and-set, so a request that
-   * replaces [request] meanwhile rejects the claim instead of leaving a stale style claimed.
-   */
-  fun claimStyleIdentity(
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-    event: (StyleIdentity) -> Unit,
-  ): StyleIdentity? {
-    if (!acceptEngineIdentity(engine)) return null
-    val identity = StyleIdentity(nextIdentity.incrementAndFetch())
-    while (true) {
-      val observed = styleState.load()
-      if (observed.request != StyleRequestClaim(engine, request)) return null
-      val claimed = StyleState(observed.request, StyleClaim(engine, identity))
-      if (styleState.compareAndSet(observed, claimed)) break
-    }
-    event(identity)
-    return identity
-  }
-
-  fun invalidateStyleIdentity(engine: EngineMapIdentity): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    while (true) {
-      val observed = styleState.load()
-      val claimed = observed.style ?: return true
-      if (claimed.engine != engine) return false
-      if (styleState.compareAndSet(observed, StyleState(observed.request))) return true
-    }
-  }
-
   /** Accepts an engine-durable event, including while a retained native engine is detached. */
   fun acceptEngineEvent(engine: EngineMapIdentity, event: () -> Unit): Boolean {
     if (!acceptEngineIdentity(engine)) return false
-    event()
-    return true
-  }
-
-  /** Accepts an event only from the current loaded style on the current engine map. */
-  fun acceptStyleEvent(
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    event: () -> Unit,
-  ): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    if (styleState.load().style != StyleClaim(engine, style)) return false
     event()
     return true
   }
@@ -768,7 +691,6 @@ internal class MapLifecycleBinding(
       runCatching { adapter.destroyEngine(creating.engine) }
         .exceptionOrNull()
         ?.let(failure::addSuppressed)
-      styleState.store(StyleState())
     }
     current.compareAndSet(creating, InternalState.OpenDetached(outcome.getOrNull()))
     creating.result.complete(outcome)
@@ -816,7 +738,6 @@ internal class MapLifecycleBinding(
         engineCreated = AtomicBoolean(false),
       )
     if (!current.compareAndSet(observed, replacing)) return false
-    styleState.store(StyleState())
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       performEngineReplacement(engine, replacing)
     }
@@ -964,7 +885,6 @@ internal class MapLifecycleBinding(
         runCatching { adapter.destroyEngine(attaching.engine) }
           .exceptionOrNull()
           ?.let(error::addSuppressed)
-        styleState.store(StyleState())
       }
       current.compareAndSet(
         attaching,
@@ -1019,7 +939,6 @@ internal class MapLifecycleBinding(
     val destroyEngine = adapter.engineRetention == EngineRetention.DESTROY || !engineCreated
     if (destroyEngine) {
       collectFailure(failures) { adapter.destroyEngine(detaching.engine) }
-      styleState.store(StyleState())
     }
     val outcome = failures.cleanupResult("Map")
     val nextEngine =
@@ -1059,7 +978,6 @@ internal class MapLifecycleBinding(
     if (engine != null && !detachAlreadyDestroyedEngine) {
       collectFailure(failures) { adapter.destroyEngine(engine) }
     }
-    styleState.store(StyleState())
     collectFailure(failures) { adapter.closeResources() }
 
     current.compareAndSet(closing, InternalState.Closed)
@@ -1076,18 +994,6 @@ internal class MapLifecycleBinding(
   private fun addCleanupFailure(failures: MutableList<Throwable>, failure: Throwable) {
     failures.addCleanupFailure(failure)
   }
-
-  private data class StyleClaim(val engine: EngineMapIdentity, val style: StyleIdentity)
-
-  private data class StyleState(
-    val request: StyleRequestClaim? = null,
-    val style: StyleClaim? = null,
-  )
-
-  private data class StyleRequestClaim(
-    val engine: EngineMapIdentity,
-    val request: StyleRequestIdentity,
-  )
 
   private data class AttachmentStart(
     val state: InternalState.Attaching,

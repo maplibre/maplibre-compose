@@ -82,6 +82,25 @@ class StyleLoadTrackerTest {
   }
 
   @Test
+  fun a_load_for_a_superseded_request_claims_nothing() {
+    val tracker = StyleLoadTracker()
+    val superseded = tracker.requestId
+    // The engine loads the first request while main has already requested another style.
+    val current = tracker.request()
+    val stale = StyleIdentity.create()
+    assertFalse(tracker.loaded(superseded, stale))
+    assertFalse(tracker.isCurrent(stale))
+
+    val loaded = StyleIdentity.create()
+    assertTrue(tracker.loaded(current, loaded))
+    assertTrue(tracker.isCurrent(loaded))
+    assertTrue(tracker.failed(current))
+    assertTrue(tracker.isCurrent(loaded), "a failure keeps the loaded style until a new request")
+    tracker.request()
+    assertFalse(tracker.isCurrent(loaded))
+  }
+
+  @Test
   fun failed_reconciliation_can_recover_with_a_new_revision() {
     val tracker = StyleLoadTracker()
     val identity = StyleIdentity.create()
