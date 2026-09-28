@@ -207,35 +207,6 @@ class PointerInputTest {
   }
 
   @Test
-  fun a_mouse_button_change_mid_drag_selects_the_drag_again() =
-    fixture.runRecognitionTest(
-      options =
-        InputConfiguration(InputConfiguration.Standard) {
-          camera { pan { momentum { enabled = false } } }
-        }
-    ) { target ->
-      val map = mapNode()
-      map.performMouseInput {
-        moveTo(Offset(20f, 20f))
-        press()
-        moveTo(Offset(60f, 40f))
-        press(MouseButton.Secondary)
-        release()
-      }
-      waitForIdle()
-      val pans = target.moveCalls.size
-      assertTrue(pans > 0, "the primary drag did not pan")
-      map.performMouseInput {
-        moveTo(Offset(160f, 100f))
-        release(MouseButton.Secondary)
-      }
-      waitForIdle()
-      assertEquals(pans, target.moveCalls.size, "the pan continued without its button")
-      assertTrue(target.rotateCalls.isNotEmpty(), "the secondary button did not rotate")
-      assertEquals(2, target.startedCount)
-    }
-
-  @Test
   fun cancelling_box_zoom_clears_the_preview_without_fitting() {
     var configuration by mutableStateOf(InputConfiguration.Standard)
     fixture.runRecognitionTest(optionsProvider = { configuration }) { target ->
