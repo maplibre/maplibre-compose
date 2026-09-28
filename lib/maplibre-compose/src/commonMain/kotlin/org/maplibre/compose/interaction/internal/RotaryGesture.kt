@@ -28,20 +28,17 @@ internal class RotaryGesture(
       return false
     val scale = 2.0.pow(-verticalScrollPixels / notchPixels * binding.zoomStep)
     if (!scale.isFinite() || scale <= 0.0) return false
+    if (burst.session?.token?.acceptsCommands == false) cancel()
+
     target.observeInput()
-    val session =
-      burst.session?.takeIf { it.token.acceptsCommands }
-        ?: run {
-          cancel()
-          burst.start()
-        }
-    try {
-      target.inputScaleBy(scale, null, gestureToken = session.token)
-      burst.endAfterIdle(session, binding.idleDuration)
-    } catch (error: Throwable) {
+    val session = burst.session ?: burst.start()
+    if (!session.token.acceptsCommands) {
       cancel()
-      throw error
+      return false
     }
+
+    target.inputScaleBy(scale, null, gestureToken = session.token)
+    burst.endAfterIdle(session, binding.idleDuration)
     return true
   }
 

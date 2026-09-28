@@ -30,6 +30,14 @@ class MapRotaryGestureTest {
   }
 
   @Test
+  fun samples_without_camera_authority_are_not_claimed() = runTest {
+    map.target.currentViewport = null
+    val input = RotaryGesture(map.target, RotaryBinding(), 24f, backgroundScope)
+    assertFalse(input.onSample(24f))
+    assertEquals(emptyList(), map.target.scaleCalls)
+  }
+
+  @Test
   fun focus_notifications_replay_current_engagement_and_balance_focus_loss() {
     val notifications = mutableListOf<Boolean>()
     val focus = InputFocus { notifications += it }
