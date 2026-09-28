@@ -25,6 +25,7 @@ internal class TapPairing(
     val generation: Long,
     val origin: Offset,
     val type: PointerType,
+    val doubleTap: Boolean,
     val clickOnExpiry: Boolean,
   ) {
     var claimed = false
@@ -33,12 +34,17 @@ internal class TapPairing(
 
   private var pending: Pending? = null
 
+  /**
+   * A press pairs for a double tap only if both taps can double-tap. A quick zoom needs only the
+   * second press to match.
+   */
   fun press(
     origin: Offset,
     timeMillis: Long,
     type: PointerType,
     slop: Float,
-    canPair: Boolean,
+    doubleTap: Boolean,
+    quickZoom: Boolean,
   ): Press {
     val first = pending
     val elapsed = timeMillis - (first?.sample?.uptimeMillis ?: timeMillis)
@@ -46,7 +52,7 @@ internal class TapPairing(
       when {
         first == null ||
           first.claimed ||
-          !canPair ||
+          !(quickZoom || (doubleTap && first.doubleTap)) ||
           first.type != type ||
           (origin - first.origin).getDistance() > slop -> Press.First
         elapsed < minimumGapMillis -> Press.Bounce
@@ -71,12 +77,13 @@ internal class TapPairing(
     generation: Long,
     origin: Offset,
     type: PointerType,
-    secondTapUseful: Boolean,
+    doubleTap: Boolean,
+    quickZoom: Boolean,
     clickOnExpiry: Boolean,
   ) {
     discard(emitClick = false)
-    if (!secondTapUseful) return
-    val tap = Pending(sample, generation, origin, type, clickOnExpiry)
+    if (!doubleTap && !quickZoom) return
+    val tap = Pending(sample, generation, origin, type, doubleTap, clickOnExpiry)
     pending = tap
     if (clickOnExpiry)
       tap.job = scope.launch {
