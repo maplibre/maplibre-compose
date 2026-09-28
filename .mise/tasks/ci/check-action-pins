@@ -2,55 +2,18 @@
 # [MISE] description="Verify every GitHub Actions reference is pinned to one SHA."
 # [MISE] shell="python"
 
-# Keeps each action on a commit SHA with a `# version` comment, and each action
-# repository on the same pin wherever it is used, so a Dependabot bump that
-# misses a workflow or composite action fails instead of merging.
-
 import pathlib
-import re
 import sys
 
+
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-USES = re.compile(r"^\s*(?:-\s+)?uses:\s*(?P<reference>\S+)(?P<rest>.*)$")
-PINNED = re.compile(r"(?P<repo>[\w.-]+/[\w.-]+)(?:/[\w./-]+)?@(?P<sha>[0-9a-f]{40})$")
-VERSION = re.compile(r"\s+#\s*(?P<version>\S+)\s*$")
+sys.path.insert(0, str(ROOT))
+
+from ci.action_pins import check_pins  # noqa: E402
 
 
 def main() -> int:
-    paths = sorted(
-        path
-        for pattern in (
-            "workflows/*.yml",
-            "workflows/*.yaml",
-            "actions/**/action.yml",
-            "actions/**/action.yaml",
-        )
-        for path in (ROOT / ".github").glob(pattern)
-    )
-    problems: list[str] = []
-    first: dict[str, tuple[str, str]] = {}
-    for path in paths:
-        relative = path.relative_to(ROOT).as_posix()
-        for number, line in enumerate(path.read_text().splitlines(), 1):
-            uses = USES.match(line)
-            if not uses or uses["reference"].startswith("./"):
-                continue
-            where = f"{relative}:{number}"
-            pinned = PINNED.match(uses["reference"])
-            version = VERSION.match(uses["rest"])
-            if not pinned or not version:
-                problems.append(
-                    f"{where}: {uses['reference']} is not pinned as "
-                    "owner/repo@<40-hex-sha> # <version>"
-                )
-                continue
-            pin = f"{pinned['sha']} ({version['version']})"
-            seen = first.setdefault(pinned["repo"], (pin, where))
-            if seen[0] != pin:
-                problems.append(
-                    f"{where}: {pinned['repo']} is pinned to {pin}, "
-                    f"but {seen[1]} pins {seen[0]}"
-                )
+    problems = check_pins(ROOT)
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)
     return 1 if problems else 0
