@@ -14,11 +14,11 @@ import kotlinx.coroutines.Runnable
 internal expect fun currentThreadIdentity(): Any
 
 /**
- * Turns main-thread confinement off. Only the Compose test harnesses use it: they compose on one
- * thread and drive the test from another, so no single thread owns the map. It is not reachable
- * through the public API, which rejects [Dispatchers.Unconfined].
+ * Turns main-thread confinement off. Only the Compose test harnesses and IDE previews use it: they
+ * compose on a thread that the platform main dispatcher does not run, so no single thread owns the
+ * map. It is not reachable through the public API, which rejects [Dispatchers.Unconfined].
  */
-internal object UnconfinedTestMain : CoroutineDispatcher() {
+internal object UnconfinedMain : CoroutineDispatcher() {
   override fun isDispatchNeeded(context: CoroutineContext): Boolean = false
 
   override fun dispatch(context: CoroutineContext, block: Runnable) = block.run()
@@ -30,7 +30,7 @@ internal object UnconfinedTestMain : CoroutineDispatcher() {
  * some other thread can never become the main thread by being first.
  */
 internal class MainThreadGuard(dispatcher: CoroutineDispatcher) {
-  private val unconfined = dispatcher === UnconfinedTestMain
+  private val unconfined = dispatcher === UnconfinedMain
   private val thread = AtomicReference<Any?>(null)
 
   init {

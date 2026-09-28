@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -1272,10 +1273,14 @@ internal class MapPresentationOwnerToken
  *
  * [content] declares the map's sources, layers, and images. It reads the returned state through
  * [LocalMapState] and its viewport through [LocalViewport].
+ *
+ * The default [runtime] is [DefaultMapRuntime.instance]. In [LocalInspectionMode], such as an IDE
+ * `@Preview`, it is instead a runtime that never starts MapLibre, so the map state works but no map
+ * renders.
  */
 @Composable
 public fun rememberMapState(
-  runtime: MapRuntime = DefaultMapRuntime.instance,
+  runtime: MapRuntime = defaultMapRuntime(),
   baseStyle: BaseStyle = BaseStyle.Demo,
   initialCameraPosition: CameraPosition = CameraPosition(),
   content: @Composable @MaplibreComposable () -> Unit = {},
@@ -1295,6 +1300,22 @@ public fun rememberMapState(
   SideEffect { state.style.updateBaseStyle(baseStyle) }
   DisposableEffect(state) { onDispose { state.close() } }
   return state
+}
+
+/** Keeps IDE previews from starting MapLibre, which cannot load in the preview renderer. */
+@Composable
+private fun defaultMapRuntime(): MapRuntime {
+  if (!LocalInspectionMode.current) return DefaultMapRuntime.instance
+  val runtime = remember {
+    RuntimeImplementation(
+      platformContext = null,
+      closeResources = {},
+      logger = null,
+      mainDispatcher = UnconfinedMain,
+    )
+  }
+  DisposableEffect(runtime) { onDispose { runtime.close() } }
+  return runtime
 }
 
 private fun mapStateSaver(

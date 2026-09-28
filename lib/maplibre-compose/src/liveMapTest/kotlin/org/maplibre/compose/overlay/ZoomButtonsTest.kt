@@ -13,7 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import org.maplibre.compose.map.UnconfinedTestMain
+import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 
@@ -26,8 +26,7 @@ class ZoomButtonsTest {
     // This harness composes on one thread and drives the test from another, so the map has no
     // single main thread here.
     val mapState =
-      mapRuntimeForTest(mainDispatcher = UnconfinedTestMain)
-        .createMapState(baseStyle = BaseStyle.Empty)
+      mapRuntimeForTest(mainDispatcher = UnconfinedMain).createMapState(baseStyle = BaseStyle.Empty)
     var zoomInClicks = 0
     var zoomOutClicks = 0
     setContent {
