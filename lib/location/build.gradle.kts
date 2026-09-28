@@ -77,4 +77,4 @@ kotlin {
   }
 }
 
-stageBrowserTestRunnerResources()
+configureBrowserTestBundle()

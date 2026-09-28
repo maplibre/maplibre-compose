@@ -269,7 +269,6 @@ val browserTestResources =
   browserTestRuntime.flatMap { it.destinationDirectory }.map { it.resolve("composeResources") }
 
 tasks.named("prepareWebpackBundleForKotlinJsTests") {
-  inputs.dir(browserTestResources)
   inputs.dir(layout.buildDirectory.dir("maplibre-gl-js"))
   val bundleDirectory = layout.buildDirectory.dir("kotlinJsTest/dist")
   doLast {
@@ -287,7 +286,7 @@ tasks.named("prepareWebpackBundleForKotlinJsTests") {
   }
 }
 
-stageBrowserTestRunnerResources()
+configureBrowserTestBundle()
 
 // Both project dependencies and published KLIBs expose this same module subpath. Extraction
 // from a Maven artifact is handled by the consumer's Kotlin Gradle plugin.

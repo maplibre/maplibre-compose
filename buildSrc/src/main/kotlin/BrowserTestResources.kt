@@ -1,9 +1,17 @@
 import org.gradle.api.Project
+import org.gradle.api.tasks.PathSensitivity
 
-/** Serve the pinned Mocha dependency instead of the runner template's unversioned CDN URLs. */
-fun Project.stageBrowserTestRunnerResources() {
+/**
+ * Rebuild the browser test bundle when any bundled module changes, not only the test entry file,
+ * and serve the pinned Mocha dependency instead of the runner template's unversioned CDN URLs.
+ */
+fun Project.configureBrowserTestBundle() {
   val mochaDirectory = rootProject.layout.buildDirectory.dir("js/node_modules/mocha")
   tasks.named("prepareWebpackBundleForKotlinJsTests") {
+    inputs
+      .files(tasks.named("jsTestTestDevelopmentExecutableCompileSync"))
+      .withPropertyName("testRuntime")
+      .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(
       mochaDirectory.map { it.file("mocha.js") },
       mochaDirectory.map { it.file("mocha.css") },
