@@ -12,12 +12,7 @@ import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.JumpToOptions
-import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
-import org.maplibre.compose.gljs.SetStyleOptions
-import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
-import org.maplibre.compose.gljs.styleJson
-import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.GlJsRequestController
@@ -45,8 +40,7 @@ internal class GlJsSnapshotterAdapter(
   private var loadedBaseStyleRevision: Long? = null
   private var loadedDensity: Float? = null
   private var currentDensity = 1f
-  private var styleLoadSubscription: GlJsSubscription? = null
-  private var styleErrorSubscription: GlJsSubscription? = null
+  private var styleSubscription: GlJsSubscription? = null
   private var renderSubscription: GlJsSubscription? = null
   private var terminalOperation: CompletableDeferred<Result<Unit>>? = null
   private val reconciler = StyleReconciler()
@@ -84,44 +78,27 @@ internal class GlJsSnapshotterAdapter(
     styleBinding = null
     loadedBaseStyleRevision = null
     loadedDensity = null
-    cancelStyleSubscriptions()
+    cancelStyleSubscription()
     val loading = CompletableDeferred<Result<Unit>>()
     terminalOperation = loading
-    lateinit var loadSubscription: GlJsSubscription
-    lateinit var errorSubscription: GlJsSubscription
-    loadSubscription =
-      currentMap.subscribe("style.load") {
-        loadSubscription.cancel()
-        errorSubscription.cancel()
-        if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
-        if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
-        val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
-        styleBinding?.invalidate()
-        styleBinding = binding
-        loadedBaseStyleRevision = baseStyleRevision
-        loadedDensity = request.density
-        loading.complete(Result.success(Unit))
-      }
-    errorSubscription =
-      currentMap.subscribe("error") { event ->
-        if (!event.isTerminalStyleLoadFailure()) return@subscribe
-        loadSubscription.cancel()
-        errorSubscription.cancel()
-        if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
-        if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
-        val reason = event.error?.message ?: "MapLibre failed to load the snapshot style"
-        loading.complete(Result.failure(IllegalStateException(reason)))
-      }
-    styleLoadSubscription = loadSubscription
-    styleErrorSubscription = errorSubscription
-    val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
-      when (baseStyle) {
-        is BaseStyle.Uri -> currentMap.setStyle(styleUrl(baseStyle.uri), options)
-        is BaseStyle.Json -> currentMap.setStyle(styleJson(baseStyle.json), options)
-      }
+      styleSubscription =
+        currentMap.loadBaseStyle(
+          baseStyle,
+          onLoaded = {
+            val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
+            styleBinding?.invalidate()
+            styleBinding = binding
+            loadedBaseStyleRevision = baseStyleRevision
+            loadedDensity = request.density
+            loading.complete(Result.success(Unit))
+          },
+          onFailed = { message ->
+            val reason = message ?: "MapLibre failed to load the snapshot style"
+            loading.complete(Result.failure(IllegalStateException(reason)))
+          },
+        )
     } catch (error: Throwable) {
-      cancelStyleSubscriptions()
       loading.complete(Result.failure(error))
     }
     try {
@@ -202,18 +179,10 @@ internal class GlJsSnapshotterAdapter(
     container = host
 
     val options =
-      unsafeJso<MapOptions> {
-        container = host
-        interactive = false
-        attributionControl = false
-        maplibreLogo = false
-        pixelRatio = renderPixelRatio(request)
+      headlessMapOptions(host, renderPixelRatio(request), requests) {
         maxCanvasSize = arrayOf(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
-        requests?.let { controller ->
-          transformRequest = { url, resourceType -> controller.transformRequest(url, resourceType) }
-        }
       }
     GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
     return try {
@@ -292,7 +261,7 @@ internal class GlJsSnapshotterAdapter(
   private fun releaseEngine(reason: Throwable) {
     terminalOperation?.complete(Result.failure(reason))
     terminalOperation = null
-    cancelStyleSubscriptions()
+    cancelStyleSubscription()
     renderSubscription?.cancel()
     renderSubscription = null
     runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(cleanupFailures::add)
@@ -307,11 +276,9 @@ internal class GlJsSnapshotterAdapter(
     runCatching { currentContainer?.remove() }.exceptionOrNull()?.let(cleanupFailures::add)
   }
 
-  private fun cancelStyleSubscriptions() {
-    styleLoadSubscription?.cancel()
-    styleLoadSubscription = null
-    styleErrorSubscription?.cancel()
-    styleErrorSubscription = null
+  private fun cancelStyleSubscription() {
+    styleSubscription?.cancel()
+    styleSubscription = null
   }
 
   private suspend fun awaitDocumentBody(): HTMLElement {

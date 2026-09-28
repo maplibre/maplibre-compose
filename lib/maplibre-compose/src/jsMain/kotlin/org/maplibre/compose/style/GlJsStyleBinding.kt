@@ -23,6 +23,7 @@ import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.GeoJsonSourceData
 import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
+import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsVectorSource
 import org.maplibre.compose.gljs.JsRecord
@@ -107,23 +108,17 @@ internal class GlJsStyleBinding(
   internal val lastReportedError: String?
     get() = lastError
 
-  private val errors: GlJsSubscription =
-    map.subscribe("error") { event ->
-      errorCount++
-      lastError = event.error?.message
-    }
+  private val errors: List<GlJsSubscription> =
+    listOf(
+      map.subscribe("error", ::recordError),
+      map.style.light.subscribe("error", ::recordError),
+      map.style.sky.subscribe("error", ::recordError),
+    )
 
-  private val lightErrors: GlJsSubscription =
-    map.style.light.subscribe("error") { event ->
-      errorCount++
-      lastError = event.error?.message
-    }
-
-  private val skyErrors: GlJsSubscription =
-    map.style.sky.subscribe("error") { event ->
-      errorCount++
-      lastError = event.error?.message
-    }
+  private fun recordError(event: GlJsMapEvent) {
+    errorCount++
+    lastError = event.error?.message
+  }
 
   private val pendingCustomGeometryReloads = mutableSetOf<String>()
 
@@ -184,9 +179,7 @@ internal class GlJsStyleBinding(
     orderChanges.cancel()
     contextLost.cancel()
     contextStyleLoaded.cancel()
-    errors.cancel()
-    lightErrors.cancel()
-    skyErrors.cancel()
+    errors.forEach { it.cancel() }
     customGeometryReloads.cancel()
     pendingCustomGeometryReloads.clear()
     val vectorAttachments = customVectorAttachments.values.toList()

@@ -5,6 +5,7 @@ package org.maplibre.compose.map
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 
 /** Marks direct platform-map access with a callback-scoped lifetime. */
 @RequiresOptIn(
@@ -62,6 +63,27 @@ internal class PlatformMapInvocation<T>(private val continuation: CancellableCon
 
   fun fail(error: Throwable) {
     execute { throw error }
+  }
+
+  /**
+   * Runs [block] inside [lifecycleGate] and then [authorityGate]. A gate returns false when the map
+   * changed after this invocation was queued, which fails it with [changedMessage].
+   */
+  fun executeGated(
+    changedMessage: String,
+    lifecycleGate: (() -> Unit) -> Boolean,
+    authorityGate: (() -> Unit) -> Boolean,
+    block: () -> T,
+  ) {
+    execute {
+      var result: Result<T>? = null
+      val lifecycleAccepted = lifecycleGate {
+        val authorityAccepted = authorityGate { result = runCatching(block) }
+        if (!authorityAccepted) throw CancellationException(changedMessage)
+      }
+      if (!lifecycleAccepted) throw CancellationException(changedMessage)
+      checkNotNull(result).getOrThrow()
+    }
   }
 }
 

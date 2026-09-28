@@ -1916,6 +1916,7 @@ internal class MlnFfiMapSession(
   internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
 
   internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
+    val changed = "The native platform map changed before access could begin"
     val engine = lifecycle.ensureEngine()
     return suspendCancellableCoroutine { continuation ->
       val invocation = PlatformMapInvocation(continuation)
@@ -1923,36 +1924,18 @@ internal class MlnFfiMapSession(
       val queued =
         postWhenMapExists(
           action = { map ->
-            invocation.execute {
-              var result: Result<T>? = null
-              val engineAccepted =
-                lifecycle.acceptEngineEvent(engine) {
-                  val authorityAccepted =
-                    lifecycleAuthority.acceptEnginePlatformAccess(this) {
-                      // Raw access can change the transform without an event, so the mirror is
-                      // refreshed when this drain ends.
-                      viewportSnapshotStale = true
-                      result = runCatching { PlatformMapScope(map).block() }
-                    }
-                  if (!authorityAccepted) {
-                    throw CancellationException(
-                      "The native platform map changed before access could begin"
-                    )
-                  }
-                }
-              if (!engineAccepted) {
-                throw CancellationException(
-                  "The native platform map changed before access could begin"
-                )
-              }
-              checkNotNull(result).getOrThrow()
+            invocation.executeGated(
+              changed,
+              lifecycleGate = { lifecycle.acceptEngineEvent(engine, it) },
+              authorityGate = { lifecycleAuthority.acceptEnginePlatformAccess(this, it) },
+            ) {
+              // Raw access can change the transform without an event, so the mirror is refreshed
+              // when this drain ends.
+              viewportSnapshotStale = true
+              PlatformMapScope(map).block()
             }
           },
-          abandon = {
-            invocation.fail(
-              CancellationException("The native platform map changed before access could begin")
-            )
-          },
+          abandon = { invocation.fail(CancellationException(changed)) },
         )
       if (!queued) {
         invocation.fail(CancellationException("The map state closed before access could begin"))
