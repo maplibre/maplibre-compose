@@ -358,7 +358,7 @@ internal class MlnFfiMapSession(
       loggerProvider = { logger },
       sessionOpen = { !isClosing },
       accessMap = { action ->
-        if (isClosing) false else runOnMap(action).let { true }
+        if (isClosing) false else readMap(action).let { true }
       },
       postMap = { action, abandon ->
         if (isClosing) false else loop?.dispatch(action, abandon) ?: false
@@ -636,7 +636,8 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
-    updateOwnerThreadPresentationAfterDrain { ownerThreadRenderLease = lease }
+    // Installs the new producer only after events raised without a presentation were discarded.
+    runOnOwnerAndWait(afterEventDrain = true) { ownerThreadRenderLease = lease }
     lifecycleRenderLease = lease
     val attachment = rendererAttachment
     if (attachment?.releaseRequested == true) {
@@ -662,10 +663,11 @@ internal class MlnFfiMapSession(
     }
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     rendererAttachment?.releaseAndAwait()
-    updateOwnerThreadPresentation {
+    runOnOwnerAndWait(afterEventDrain = false) {
       if (ownerThreadRenderLease == lease) ownerThreadRenderLease = null
     }
-    awaitEventDrain()
+    // Keeps a later attachment from adopting native events queued by the departed lease.
+    runOnOwnerAndWait(afterEventDrain = true)
   }
 
   override suspend fun destroyEngine(identity: EngineMapIdentity) {
@@ -1044,12 +1046,12 @@ internal class MlnFfiMapSession(
   }
 
   /** Exists for tests. */
-  internal fun styleImageInfo(imageId: String): StyleImageInfo? = runOnMap {
+  internal fun styleImageInfo(imageId: String): StyleImageInfo? = readMap {
     it.styleImageInfo(imageId)
   }
 
   /** Exists for tests. */
-  internal fun currentStyleLayerIds(): List<String> = runOnMap { it.styleLayerIds() }.orEmpty()
+  internal fun currentStyleLayerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
   private fun imageScale(): Float = (loop?.scaleFactor ?: 1.0).toFloat()
 
@@ -1072,50 +1074,20 @@ internal class MlnFfiMapSession(
   internal fun postOwnerTaskForTest(action: (MapHandle) -> Unit): Boolean =
     loop?.post(action = action) ?: false
 
-  private suspend fun updateOwnerThreadPresentation(action: () -> Unit) {
-    val completion = CompletableDeferred<Result<Unit>>()
-    val accepted =
-      loop?.post(
-        action = { completion.complete(runCatching(action)) },
-        abandon = {
-          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
-        },
-      ) ?: false
-    if (!accepted) {
-      completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
-    }
-    completion.await().getOrThrow()
-  }
-
   /**
-   * Installs a new producer only after events raised without a presentation have been discarded.
+   * Runs [action] on the owner thread, after the next native pump and event drain when
+   * [afterEventDrain], and waits for it.
    */
-  private suspend fun updateOwnerThreadPresentationAfterDrain(action: () -> Unit) {
+  private suspend fun runOnOwnerAndWait(afterEventDrain: Boolean, action: () -> Unit = {}) {
     val completion = CompletableDeferred<Result<Unit>>()
-    val accepted =
-      loop?.postEventDrainBarrier(
-        action = { completion.complete(runCatching(action)) },
-        abandon = {
-          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
-        },
-      ) ?: false
-    if (!accepted) {
-      completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
+    val run: () -> Unit = { completion.complete(runCatching(action)) }
+    val abandon: () -> Unit = {
+      completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
     }
-    completion.await().getOrThrow()
-  }
-
-  /** Prevents a later attachment from adopting native events queued by the departed lease. */
-  private suspend fun awaitEventDrain() {
-    val completion = CompletableDeferred<Result<Unit>>()
     val accepted =
-      loop?.postEventDrainBarrier(
-        action = { completion.complete(Result.success(Unit)) },
-        abandon = {
-          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
-        },
-      ) ?: false
-    if (!accepted) {
+      if (afterEventDrain) loop?.postEventDrainBarrier(run, abandon)
+      else loop?.post({ run() }, abandon)
+    if (accepted != true) {
       completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
     }
     completion.await().getOrThrow()
@@ -1123,9 +1095,9 @@ internal class MlnFfiMapSession(
 
   /** Queues [action] until a map exists, including before the session starts. */
   private fun postWhenMapExists(
-    action: (MapHandle) -> Unit,
-    abandon: () -> Unit,
+    abandon: () -> Unit = {},
     drainAfter: Boolean = false,
+    action: (MapHandle) -> Unit,
   ): Boolean {
     val pending = PendingMapAction(action, abandon, drainAfter)
     val current = stateLock.withLock {
@@ -1133,10 +1105,6 @@ internal class MlnFfiMapSession(
       loop.also { if (it == null) pendingMapActions += pending }
     }
     return current?.let(pending::post) ?: true
-  }
-
-  private fun configureMap(action: (MapHandle) -> Unit) {
-    postWhenMapExists(action, abandon = {})
   }
 
   /**
@@ -1172,8 +1140,8 @@ internal class MlnFfiMapSession(
   private fun recordCamera(position: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
     requestedCamera = position
-    configureMap { map ->
-      if (guard?.isValid() == false) return@configureMap
+    postWhenMapExists { map ->
+      if (guard?.isValid() == false) return@postWhenMapExists
       val applied =
         if (hasViewport) position
         else {
@@ -1183,17 +1151,6 @@ internal class MlnFfiMapSession(
       map.jumpTo(applied.toCameraOptions(appliedViewportInsets))
       snapshotViewport(map)
     }
-  }
-
-  private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action)
-
-  private fun <T> runOnMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-    val current = loop
-    if (current == null) {
-      abandon()
-      return null
-    }
-    return current.call(action, abandon)
   }
 
   /** The render session lives on the host's renderer thread. */
@@ -1400,7 +1357,7 @@ internal class MlnFfiMapSession(
     val resolved = insets.toEdgeInsets(layoutDirection)
     if (viewportInsets == resolved) return
     viewportInsets = resolved
-    configureMap { map ->
+    postWhenMapExists { map ->
       if (hasViewport) {
         applyViewportInsets(map)
         snapshotViewport(map)
@@ -1674,7 +1631,7 @@ internal class MlnFfiMapSession(
     val enqueue = {
       val queued =
         postWhenMapExists(
-          { map ->
+          action = { map ->
             val started =
               continuation.isActive &&
                 runCameraCommand(
@@ -1692,7 +1649,7 @@ internal class MlnFfiMapSession(
                 }
             if (!started && continuation.isActive) continuation.resume(Unit)
           },
-          { if (continuation.isActive) continuation.resume(Unit) },
+          abandon = { if (continuation.isActive) continuation.resume(Unit) },
           // Retire superseded anchor IDs before a later geometry command can cancel them.
           drainAfter = true,
         )
@@ -1784,7 +1741,7 @@ internal class MlnFfiMapSession(
   override fun setCameraConstraints(value: CameraConstraints) {
     if (value == cameraConstraints) return
     cameraConstraints = value
-    configureMap { map ->
+    postWhenMapExists { map ->
       map.bounds =
         map.bounds.copy {
           // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
@@ -1835,7 +1792,7 @@ internal class MlnFfiMapSession(
     }
     val cameraProjectionChanged = cameraProjection != value.cameraProjection
     cameraProjection = value.cameraProjection
-    configureMap { map ->
+    postWhenMapExists { map ->
       map.debugOptions = buildSet {
         if (value.debug.tileBorders) add(DebugOption.TILE_BORDERS)
         if (value.debug.tileTimestamps) add(DebugOption.TIMESTAMPS)
@@ -1853,11 +1810,11 @@ internal class MlnFfiMapSession(
   override fun setTileLodSettings(value: TileLodOptions) {
     if (value == tileLodOptions) return
     tileLodOptions = value
-    configureMap { map -> map.tileOptions = value.toFfi() }
+    postWhenMapExists { map -> map.tileOptions = value.toFfi() }
   }
 
-  /** Test seam: runs [action] on the owner thread and waits for it. */
-  internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
+  /** Runs [action] on the owner thread and waits for it. Returns null when there is no map. */
+  internal fun <T> readMap(action: (MapHandle) -> T): T? = loop?.call(action)
 
   /** Main thread. Returns the engine for [withPlatformMap], creating it if none exists. */
   internal suspend fun ensureEngine(): EngineMapIdentity = lifecycle.ensureEngine()

@@ -311,8 +311,14 @@ internal open class MlnFfiStyleBinding(
     check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
   }
 
-  /** Returns null if owner access ends before [action] can run. */
-  open fun <T> readMap(action: (MapHandle) -> T): T? {
+  /** Reads the style on the map owner thread. Returns null if owner access ends first. */
+  fun <T> readMap(action: (MapHandle) -> T): T? = mutateMap(action)
+
+  /**
+   * Runs a style mutation on the map owner thread and returns after it has run or been dropped.
+   * Returns null if owner access ends before [action] can run.
+   */
+  fun <T> mutateMap(action: (MapHandle) -> T): T? {
     requireLoadedStyle()
     var result: Result<T>? = null
     if (
@@ -324,27 +330,6 @@ internal open class MlnFfiStyleBinding(
       }
     )
       return null
-    return checkNotNull(result).getOrThrow()
-  }
-
-  /** Runs a style mutation on the map owner thread. */
-  fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
-
-  /** Returns after [action] has run or been dropped. [abandon] runs when [action] will not run. */
-  open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-    requireLoadedStyle()
-    var result: Result<T>? = null
-    if (
-      !accessMap { map ->
-        result = runCatching {
-          requireLoadedStyle()
-          action(map)
-        }
-      }
-    ) {
-      abandon()
-      return null
-    }
     return checkNotNull(result).getOrThrow()
   }
 
