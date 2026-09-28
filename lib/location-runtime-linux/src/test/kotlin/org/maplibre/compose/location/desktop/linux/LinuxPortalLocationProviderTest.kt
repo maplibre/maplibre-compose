@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -121,7 +120,7 @@ class LinuxPortalLocationProviderTest {
   @Test
   fun overlappingPermissionRequestsStartOnePortalRequestAndReuseGrant() = runTest {
     val portal = FakeLinuxLocationPortal()
-    val pendingResult = CompletableDeferred<PortalPermissionResult>()
+    val pendingResult = CompletableDeferred<Boolean>()
     portal.permissionResult = { pendingResult.await() }
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
@@ -130,7 +129,7 @@ class LinuxPortalLocationProviderTest {
     runCurrent()
     assertEquals(1, portal.permissionRequests)
 
-    pendingResult.complete(PortalPermissionResult.Granted)
+    pendingResult.complete(true)
     runCurrent()
     val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
     assertEquals(granted, provider.permission.value)
@@ -190,8 +189,7 @@ class LinuxPortalLocationProviderTest {
 
     val portal = DbusLocationPortal()
     assertTrue(portal.available)
-    val result = withTimeout(30.seconds) { portal.requestPermission() }
-    assertNotEquals(PortalPermissionResult.Unavailable::class, result::class)
+    assertTrue(withTimeout(30.seconds) { portal.requestPermission() })
     portal.close()
   }
 
@@ -298,7 +296,7 @@ private class FakeLinuxLocationPortal(override val available: Boolean = true) :
   var closed = false
   var updateCollections = 0
   var permissionRequests = 0
-  var permissionResult: suspend () -> PortalPermissionResult = { PortalPermissionResult.Granted }
+  var permissionResult: suspend () -> Boolean = { true }
   var events: Flow<LocationEvent> =
     flowOf(
       mapOf(
@@ -309,7 +307,7 @@ private class FakeLinuxLocationPortal(override val available: Boolean = true) :
         .toLocationEvent()
     )
 
-  override suspend fun requestPermission(): PortalPermissionResult {
+  override suspend fun requestPermission(): Boolean {
     permissionRequests += 1
     return permissionResult()
   }
