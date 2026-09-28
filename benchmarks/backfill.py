@@ -442,16 +442,18 @@ def fetch_hash(url):
 
 
 def releases(names, local, url):
-    """(tag, manifest, APK paths) for each archived release in [names], oldest first."""
+    """(tag, manifest hash, manifest, APK paths) for each archived release in [names].
+
+    The manifest hash identifies the APKs and harness patch, so runs of a rebuilt
+    archive never reuse earlier captures.
+    """
     if local:
-        manifests = {
-            tag: json.loads((WORK / "archive" / f"{tag}.json").read_text())
-            for tag in names
-        }
-        return [
-            (tag, m, {kind: apk(tag, kind) for kind in APPS})
-            for tag, m in manifests.items()
-        ]
+        result = []
+        for tag in names:
+            data = (WORK / "archive" / f"{tag}.json").read_bytes()
+            apks = {kind: apk(tag, kind) for kind in APPS}
+            result.append((tag, sha256(data), json.loads(data), apks))
+        return result
     index = json.loads(download(url + INDEX))
     result = []
     for entry in index["artifacts"]:
@@ -466,7 +468,7 @@ def releases(names, local, url):
             kind: cached(record, cache / f"{kind}.apk")
             for kind, record in manifest["apks"].items()
         }
-        result.append((tag, manifest, apks))
+        result.append((tag, entry["manifest"]["sha256"], manifest, apks))
     return result
 
 
@@ -549,7 +551,9 @@ def measure(args):
     try:
         device("shell", "settings", "put", "global", "stay_on_while_plugged_in", "7")
         device("shell", "input", "keyevent", "KEYCODE_WAKEUP")
-        for tag, manifest, apks in releases(args.release, args.local, args.url):
+        for tag, archive_id, manifest, apks in releases(
+            args.release, args.local, args.url
+        ):
             for kind, path in apks.items():
                 # An installed build signed with another key refuses the update.
                 if device("install", "-r", str(path), check=False) != "Success":
@@ -572,7 +576,7 @@ def measure(args):
                         output = (
                             folder
                             / ("smoke" if args.smoke else "runs")
-                            / tag
+                            / f"{tag}-{archive_id[:12]}"
                             / name
                             / kind
                             / f"{repetition + 1:03d}"
@@ -616,7 +620,7 @@ def measure(args):
                 "measuredAt": datetime.datetime.now(datetime.timezone.utc).isoformat(
                     timespec="seconds"
                 ),
-                "backfill": manifest["build"]["backfill"],
+                "backfill": manifest["build"]["backfill"] | {"archive": archive_id},
                 "cases": cases,
             }
             write(folder / f"{tag}.json", json.dumps(snapshot, indent=2) + "\n")
@@ -663,12 +667,14 @@ def publish_results(args, store):
         "platform": "android",
         "backend": "opengl",
     }
-    for tag, manifest, _ in releases(args.release, False, args.url):
+    for tag, archive_id, manifest, _ in releases(args.release, False, args.url):
         snapshot = json.loads((folder / f"{tag}.json").read_text())
         expected = {(e["case"], e["kind"]) for e in manifest["plan"]}
         measured = {
             (name, kind) for name, case in snapshot["cases"].items() for kind in case
         }
+        if snapshot["backfill"].get("archive") != archive_id:
+            raise SystemExit(f"{tag}: the results measured another archive")
         if measured != expected or snapshot["device"] != args.label:
             raise SystemExit(f"{tag}: the results are incomplete or for another label")
         commit = snapshot["commit"]
