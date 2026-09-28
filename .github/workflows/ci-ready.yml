@@ -67,9 +67,6 @@ jobs:
       macos-native: ${{ needs.plan.outputs.macos-native }}
       desktop: ${{ needs.plan.outputs.desktop }}
     secrets: inherit
-    permissions:
-      actions: write
-      contents: write
 
   all-good:
     name: all-good (ready)

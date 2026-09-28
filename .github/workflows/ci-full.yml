@@ -60,9 +60,6 @@ jobs:
       secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
       desktop: ${{ needs.plan.outputs.desktop }}
     secrets: inherit
-    permissions:
-      actions: write
-      contents: write
 
   all-good:
     name: all-good (full)

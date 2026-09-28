@@ -513,8 +513,6 @@ class WorkflowTest(unittest.TestCase):
             text = (WORKFLOWS / workflow).read_text()
             self.assertIn("  push:\n    branches: [main]\n", text)
             self.assertIn("  workflow_dispatch:\n", text)
-        task = (ROOT / ".mise/tasks/ci/commit-hygiene-fixes").read_text()
-        self.assertIn('for workflow in CI "CI ready" "CI full"; do', task)
 
     def test_each_caller_gates_its_tier_as_a_unit_and_names_its_check(self) -> None:
         for tier, workflow in CALLERS.items():
