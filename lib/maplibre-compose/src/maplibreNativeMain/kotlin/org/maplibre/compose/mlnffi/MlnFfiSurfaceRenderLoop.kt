@@ -11,7 +11,9 @@ import org.maplibre.compose.util.rethrowIfFatal
 /**
  * How many times one surface controller rebuilds its render session after a recoverable frame
  * failure, over the controller's whole life. Rendered frames and surface loss do not replenish the
- * count, so a failure that returns after every rebuild stops instead of flickering forever.
+ * count, so a failure that returns after every rebuild stops instead of flickering forever. The
+ * Compose-drawn desktop surface is the exception: its hosts rebuild on purpose after each
+ * graphics-device change, so it restarts the count once a rebuilt session presents an image.
  */
 internal const val MAX_RENDER_RECOVERY_ATTEMPTS = 3
 

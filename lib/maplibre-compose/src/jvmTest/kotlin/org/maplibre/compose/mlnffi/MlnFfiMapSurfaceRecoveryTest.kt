@@ -537,7 +537,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun a_presented_frame_does_not_replenish_recovery() = runFfiComposeUiTest {
+  fun a_successfully_presented_frame_resets_recovery() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
     setSurfaceContent(renderer, factory)
@@ -549,8 +549,31 @@ class MlnFfiMapSurfaceRecoveryTest {
     }
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
 
-    assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 2, host.acquireCount)
+    assertEquals(MAX_RECOVERY_ATTEMPTS + 1, renderer.surfaceLostCount)
+    assertEquals(MAX_RECOVERY_ATTEMPTS + 3, host.acquireCount)
+  }
+
+  @Test
+  fun repeated_device_changes_each_recover_after_presenting() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    setSurfaceContent(renderer, factory)
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+
+    // Desktop hosts fail one acquire per graphics-device change; each rebuild presents again.
+    repeat(MAX_RECOVERY_ATTEMPTS * 2) { change ->
+      val before = runOnIdle {
+        host.failingAcquires = 1
+        renderer.requestFrame()
+        host.drawnTargets.last()
+      }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        renderer.surfaceLostCount == change + 1 && host.drawnTargets.last() !== before
+      }
+    }
+
+    assertEquals(0, renderer.closeCount)
   }
 
   @Test
