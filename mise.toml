@@ -431,7 +431,7 @@ flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. 
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
-flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save. Editing the composable that calls MaplibreMap needs a restart."
+flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save."
 '''
 run = '''
 args=""
@@ -479,7 +479,7 @@ flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. 
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
-flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save. Editing the composable that calls MaplibreMap needs a restart."
+flag "--hot" help="Run with Compose Hot Reload, which applies Kotlin changes on save."
 '''
 run = '''
 args=""

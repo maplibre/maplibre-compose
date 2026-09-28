@@ -171,15 +171,6 @@ Map render backend than the platform default, as in
 `maplibre.desktop.backend` Gradle property, which swaps the packaged
 `maplibre-compose-runtime-*` artifact.
 
-Both desktop demo tasks take `--hot` to run under
-[Compose Hot Reload](https://github.com/JetBrains/compose-hot-reload), which
-recompiles and applies Kotlin changes to the demo and the libraries on save.
-Gradle downloads the JetBrains Runtime it needs on first use. Map content and UI
-edits apply in place. An edit to the composable that calls `MaplibreMap`
-replaces the map's composition group, which fails with "The map state already
-has a presentation" until you restart. On macOS the hot-reload run is not an app
-bundle, so the location demo cannot request permission.
-
 `mise run test:desktop:all` runs every supported backend and saves its reports
 under `build/desktop-backends/<backend>/`. For bridge changes, also run both
 desktop demos with each backend and check resize, zoom, pan, and window closure.
