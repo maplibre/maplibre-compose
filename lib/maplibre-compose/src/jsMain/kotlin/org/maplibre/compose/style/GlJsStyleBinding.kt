@@ -460,8 +460,9 @@ internal class GlJsStyleBinding(
       },
     )
 
-  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
-    setImageSourceUrl(sourceId, image.toDataUrl())
+  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit {
+    val url = image.toDataUrl()
+    return { setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
@@ -474,13 +475,6 @@ internal class GlJsStyleBinding(
     requireLoaded()
     val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
     map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
-  }
-
-  override fun imageSourceCoordinates(sourceId: String): List<Position>? {
-    requireLoaded()
-    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
-      Position(longitude = it[0], latitude = it[1])
-    }
   }
 
   override fun submitGeoJsonData(
@@ -547,17 +541,19 @@ internal class GlJsStyleBinding(
     return ClusterQuery(source, clusterId)
   }
 
-  override fun setFeatureState(
+  override fun prepareFeatureStateUpdate(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  ) {
-    requireLoaded()
+  ): () -> Unit {
     val js = state.toJsValue<Any>()
-    posted("Feature '$featureId' in source '$sourceId'", state) {
-      for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
-        mutate("set the feature state") { map.setFeatureState(ident, js) }
+    return {
+      requireLoaded()
+      posted("Feature '$featureId' in source '$sourceId'", null) {
+        for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
+          mutate("set the feature state") { map.setFeatureState(ident, js) }
+        }
       }
     }
   }

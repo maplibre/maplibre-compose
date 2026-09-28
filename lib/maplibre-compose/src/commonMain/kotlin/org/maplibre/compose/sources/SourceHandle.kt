@@ -15,8 +15,8 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Access to a source in one loaded style generation. Feature state and invalidation remain
  * available when composition owns the source definition. Handles expire on removal, replacement, or
- * a base-style reload. A feature-state write does not wait for the engine; rejected writes are
- * logged and retain the previous state.
+ * a base-style reload. Native feature-state writes and invalidations return without waiting for the
+ * engine. Rejected writes are logged and retain the previous state.
  */
 public sealed interface SourceHandle {
   public val id: String
@@ -63,7 +63,10 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
     offset: Long,
   ): FeatureCollection<Geometry, JsonObject?>
 
-  /** Merges [state] into the runtime state of the feature identified by [featureId]. */
+  /**
+   * Merges [state] into the runtime state of the feature identified by [featureId]. Captures the
+   * state and its nested values before submitting the update.
+   */
   public fun setFeatureState(featureId: String, state: JsonObject): Unit
 
   /** Returns the runtime state of the feature identified by [featureId]. */
@@ -81,22 +84,19 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
   /**
    * Submits [data] to replace the source data for this loaded style.
    *
-   * By default, a successful return means that the update was submitted to the current source
-   * generation. A newer call supersedes an older pending update. Loading a new base style discards
-   * the submitted data. This function does not wait for URL loading or rendering.
+   * A successful return means that the update was submitted to the current source generation. A
+   * newer call supersedes older pending data preparation. Loading a new base style discards the
+   * submitted data. This function does not wait for URL loading or rendering.
    *
    * Submitted [GeoJsonData.Features] and all nested collections and properties must remain
-   * immutable. By default, native engines serialize and prepare the data on a background thread.
-   * Preparation or installation failures after submission emit
+   * immutable. Native engines serialize and prepare the data on a background thread. Preparation or
+   * installation failures after submission emit
    * [org.maplibre.compose.map.MapEvent.SourceDataFailed] and retain the previous source data.
    *
-   * With [GeoJsonOptions.synchronousUpdate], native engines serialize, parse, index, and install
-   * inline data on the map's owner thread before returning. Failures throw and retain the previous
-   * data. The source's currently applied options determine this behavior, including after source
-   * replacement. The browser ignores this option.
+   * [GeoJsonOptions.synchronousTiling] controls native tile generation and does not make this
+   * function wait for preparation, installation, or rendering.
    *
-   * @throws StyleHandleException if style content declares this source, or submission or
-   *   synchronous preparation or installation fails.
+   * @throws StyleHandleException if style content declares this source or submission fails.
    */
   public fun setData(data: GeoJsonData): Unit
 }
@@ -112,7 +112,10 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>>
 
-  /** Merges [state] into the runtime state of one feature. */
+  /**
+   * Merges [state] into the runtime state of one feature. Captures the state and its nested values
+   * before submitting the update.
+   */
   public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject): Unit
 
   /** Returns the runtime state of one feature. */
@@ -155,7 +158,10 @@ public sealed interface ImageSourceHandle : SourceHandle {
   override val asMutable: MutableImageSourceHandle?
 }
 
-/** Definition writes and removal for an image source. */
+/**
+ * Definition writes and removal for an image source. Native image and bounds updates return without
+ * waiting for the engine. Rejected writes are logged and retain the previous value.
+ */
 public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSourceHandle {
   /**
    * Updates the geographic corners of the image.

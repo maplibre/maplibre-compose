@@ -149,13 +149,13 @@ class MlnFfiSurfaceLossTest {
       )
       style.install(layer)
 
-      style.setFeatureState(source.id, null, "1", state("before-surface"))
+      style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
       it.pumpUntil("the incomplete feature state to render blue") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
       it.loseSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      style.setFeatureState(source.id, null, "1", state("without-surface"))
+      style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
       assertEquals(
         state("before-surface", "without-surface"),
         style.featureStateOnOwnerThread(source.id, "1"),

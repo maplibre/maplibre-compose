@@ -19,7 +19,6 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private val prepare: (GeoJsonData) -> P,
   private val install: (P, isCurrent: () -> Boolean) -> Unit,
   private val reportFailure: (Throwable, isCurrent: () -> Boolean) -> Unit,
-  val synchronousUpdate: Boolean = false,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : AutoCloseable {
   private class Request {
@@ -29,14 +28,14 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private data class Work(val request: Request, val data: GeoJsonData)
 
   private val lock = MlnFfiLock()
-  private val scope = if (synchronousUpdate) null else CoroutineScope(SupervisorJob() + dispatcher)
+  private val scope = CoroutineScope(SupervisorJob() + dispatcher)
   private val pending = Channel<Work>(Channel.CONFLATED)
   private var latest: Request? = null
   private var closed = false
 
   init {
-    val worker = scope?.launch { for (work in pending) prepareAndInstall(work) }
-    worker?.invokeOnCompletion { error ->
+    val worker = scope.launch { for (work in pending) prepareAndInstall(work) }
+    worker.invokeOnCompletion { error ->
       if (error != null) {
         val request = lock.withLock {
           closed = true
@@ -60,7 +59,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
       }
     } catch (error: Throwable) {
       result = Result.failure(error)
-      if (synchronousUpdate || error is CancellationException) throw error
+      if (error is CancellationException) throw error
       rethrowIfFatal(error)
       reportFailure(error) { isCurrent(request) }
     } finally {
@@ -76,7 +75,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
       val previous = latest
       latest = request
       if (data is GeoJsonData.Uri) pending.tryReceive()
-      else if (!synchronousUpdate) pending.trySend(Work(request, data)).getOrThrow()
+      else pending.trySend(Work(request, data)).getOrThrow()
       previous
     }
     try {
@@ -88,7 +87,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
           request.completion.complete(Result.failure(error))
           throw error
         }
-      } else if (synchronousUpdate) prepareAndInstall(Work(request, data))
+      }
     } finally {
       previous?.completion?.complete(Result.success(Unit))
     }
@@ -96,8 +95,6 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
 
   /** Snapshot capture waits for asynchronous work and receives its latest preparation failure. */
   suspend fun awaitLatest() {
-    // Synchronous work finishes on the owner thread and delivers failures to the submitter.
-    if (synchronousUpdate) return
     while (true) {
       val request = lock.withLock { latest } ?: return
       val result = request.completion.await()
@@ -116,7 +113,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
       latest.also { latest = null }
     }
     pending.cancel()
-    scope?.cancel()
+    scope.cancel()
     request?.completion?.complete(Result.success(Unit))
   }
 }

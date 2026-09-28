@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -59,7 +60,10 @@ protected constructor(
   }
 
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
-    operation { style.setFeatureState(id, sourceLayerId, featureId, state) }
+    operation {
+      val update = style.prepareFeatureStateUpdate(id, sourceLayerId, featureId, state)
+      postMutation(update)
+    }
   }
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
@@ -71,11 +75,11 @@ protected constructor(
     featureId: String,
     stateKey: String?,
   ) {
-    operation { style.removeFeatureState(id, sourceLayerId, featureId, stateKey) }
+    mutationOperation { style.removeFeatureState(id, sourceLayerId, featureId, stateKey) }
   }
 
   protected fun clearFeatureStates(sourceLayerId: String?) {
-    operation { style.resetFeatureStates(id, sourceLayerId) }
+    mutationOperation { style.resetFeatureStates(id, sourceLayerId) }
   }
 
   internal fun <T> operation(action: () -> T): T = operations.run {
@@ -85,10 +89,20 @@ protected constructor(
 
   internal fun definitionOperation(action: () -> Unit): Unit = operation {
     operations.requireSourceWritable(id)
-    action()
+    postMutation(action)
   }
 
-  protected suspend fun <T> suspendingOperation(action: suspend () -> T): T {
+  protected fun mutationOperation(action: () -> Unit): Unit = operation { postMutation(action) }
+
+  private fun postMutation(action: () -> Unit) {
+    try {
+      style.postSourceUpdate(id, resourceIdentity, action)
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not update source '$id': ${error.message}", error)
+    }
+  }
+
+  internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
     operation {}
     val result = action()
     operation {}
@@ -118,9 +132,7 @@ internal constructor(
     get() = super.asMutable as? MutableGeoJsonSourceHandle
 
   internal fun setData(data: GeoJsonData) {
-    definitionOperation {
-      mutate("set data") { style.submitGeoJsonData(id, data, options) }
-    }
+    definitionOperation { style.submitGeoJsonData(id, data, options) }
   }
 
   override fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
@@ -158,17 +170,6 @@ internal constructor(
 
   override fun resetFeatureStates() {
     clearFeatureStates(sourceLayerId = null)
-  }
-
-  private inline fun mutate(operation: String, action: () -> Unit) {
-    try {
-      action()
-    } catch (error: StyleMutationException) {
-      throw StyleHandleException(
-        "Could not $operation on GeoJSON source '$id': ${error.message}",
-        error,
-      )
-    }
   }
 }
 
@@ -230,7 +231,7 @@ internal constructor(
   ),
   CustomVectorTileSourceHandle {
   override fun invalidateTile(tile: TileCoordinate) {
-    operation { style.invalidateCustomVectorSourceTile(id, tile) }
+    mutationOperation { style.invalidateCustomVectorSourceTile(id, tile) }
   }
 }
 
@@ -245,11 +246,11 @@ internal constructor(
   SourceHandleImpl(id, attributionHtml, style, "custom-geometry", currentKind, operations),
   CustomGeometrySourceHandle {
   override fun invalidateBounds(bounds: BoundingBox) {
-    operation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
+    mutationOperation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
   }
 
   override fun invalidateTile(tile: TileCoordinate) {
-    operation { style.invalidateCustomGeometrySourceTile(id, tile) }
+    mutationOperation { style.invalidateCustomGeometrySourceTile(id, tile) }
   }
 }
 
@@ -276,7 +277,10 @@ internal constructor(
   }
 
   internal fun setImage(image: ImageBitmap) {
-    definitionOperation { style.setImageSourceImage(id, image) }
+    operation {
+      val update = style.prepareImageSourceUpdate(id, ImageSnapshot.capture(image))
+      definitionOperation(update)
+    }
   }
 
   internal fun setUri(uri: String) {

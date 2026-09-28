@@ -18,11 +18,9 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 /**
  * Defines a map data source that contains GeoJSON data.
  *
- * By default, native engines add an empty source before preparing inline data in the background.
- * Preparation or installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed].
- * Failed updates retain the previously installed data; the source remains empty if its initial data
- * fails. With [GeoJsonOptions.synchronousUpdate], initial inline data is prepared before the source
- * is added, and failures throw without adding the source.
+ * Native engines add an empty source before preparing inline data in the background. Preparation or
+ * installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed]. Failed updates
+ * retain the previously installed data; the source remains empty if its initial data fails.
  */
 public class GeoJsonSource : VectorSource {
 
@@ -79,8 +77,7 @@ public class GeoJsonSource : VectorSource {
  *
  * [Features] retains the supplied object without copying it. Treat the object and every nested
  * collection and property as immutable after submission. Create a new value for each update. Native
- * engines serialize and prepare inline data on a background thread unless
- * [GeoJsonOptions.synchronousUpdate] is enabled.
+ * engines serialize and prepare inline data on a background thread.
  */
 public sealed interface GeoJsonData {
   public data class Uri(val uri: String) : GeoJsonData
@@ -122,11 +119,11 @@ public sealed interface GeoJsonData {
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @param synchronousUpdate Whether native engines serialize, parse, index, and install inline data
- *   on the map's owner thread before source creation or [MutableGeoJsonSourceHandle.setData]
- *   returns. Requested tiles are also generated during the update pass. This blocks the caller and
- *   can reduce frame rate; it does not wait for rendering. URL loading remains asynchronous.
- *   Android, iOS, and desktop honor this option. The browser ignores it.
+ * @param synchronousTiling Whether native engines generate requested tiles during the update pass
+ *   instead of scheduling separate tile work. This can make small, frequently updated sources
+ *   appear sooner, at the cost of more work during the update. Data preparation still runs on a
+ *   worker and source updates return without waiting for native work. Android, iOS, and desktop
+ *   honor this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions(
@@ -140,7 +137,7 @@ public data class GeoJsonOptions(
   val clusterMaxZoom: Int = maxZoom - 1,
   val clusterProperties: Map<String, ClusterPropertyAggregator<*>> = emptyMap(),
   val lineMetrics: Boolean = false,
-  val synchronousUpdate: Boolean = false,
+  val synchronousTiling: Boolean = false,
 ) {
   public data class ClusterPropertyAggregator<T : ExpressionValue>(
     /** Produces the value of a single point, passed to the accumulation operator. */

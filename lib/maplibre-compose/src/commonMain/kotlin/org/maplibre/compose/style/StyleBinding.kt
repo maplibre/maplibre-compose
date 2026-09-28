@@ -35,9 +35,10 @@ import org.maplibre.spatialk.geojson.Position
  *
  * A property write does not block waiting for the owner: MapLibre Native posts it to the map's
  * owner thread, or applies it inline when already there. MapLibre GL JS applies it during the call.
- * The engine's rejection of such a write is logged through [reportRejectedWrite]. A structural
- * command, such as adding a source, layer, or image, waits for the engine and throws
- * [StyleMutationException] on refusal.
+ * The engine's rejection of such a write is logged through [reportRejectedWrite]. Source definition
+ * updates run synchronously and throw on refusal; imperative handles queue them with
+ * [postSourceUpdate]. A structural command, such as adding a source, layer, or image, waits for the
+ * engine and throws [StyleMutationException] on refusal.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -347,17 +348,19 @@ internal interface StyleBinding {
     image: ImageBitmap,
   ): Boolean
 
-  /** Replaces an image source's content with a bitmap. */
-  fun setImageSourceImage(sourceId: String, image: ImageBitmap)
+  /** Queues an imperative write for the installation captured by the source handle. */
+  fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
+    if (identity.sources.isCurrent(sourceId, resourceIdentity)) action()
+  }
+
+  /** Prepares owned pixels on the caller; the returned command applies them synchronously. */
+  fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit
 
   /** Replaces an image source's content with a URL. */
   fun setImageSourceUrl(sourceId: String, url: String)
 
   /** Sets an image source's four corners in MapLibre order. */
   fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>)
-
-  /** @return null if the style has unloaded, or the source is not a live image source. */
-  fun imageSourceCoordinates(sourceId: String): List<Position>?
 
   /**
    * Adds a GeoJSON source from its data and options. The default implementation writes style-spec
@@ -381,7 +384,8 @@ internal interface StyleBinding {
    *
    * The binding owns preparation and ordering. A newer submission supersedes older pending data.
    * Native preparation uses the source's applied options, or [fallbackOptions] if those options are
-   * unavailable, and runs synchronously when [GeoJsonOptions.synchronousUpdate] is enabled.
+   * unavailable. Preparation runs on a worker; native tiling policy does not change submission
+   * ordering or make callers wait.
    */
   fun submitGeoJsonData(sourceId: String, data: GeoJsonData, fallbackOptions: GeoJsonOptions)
 
@@ -457,16 +461,16 @@ internal interface StyleBinding {
   fun reportSourceChanged(sourceId: String) {}
 
   /**
-   * Merges [state] into the state of one feature; a null value in [state] drops that key. The write
-   * runs on the engine's thread, possibly after this function returns. A state the engine rejects
-   * is reported through [reportRejectedWrite] and leaves the previous state in place.
+   * Captures [state] on the caller; the returned command merges it into one feature's state. A null
+   * value drops that key. Submit the command through [postSourceUpdate] to preserve the source
+   * installation's identity and report an engine rejection.
    */
-  fun setFeatureState(
+  fun prepareFeatureStateUpdate(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  )
+  ): () -> Unit
 
   /** @return an empty object when the feature has no state, or the style has unloaded. */
   suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject

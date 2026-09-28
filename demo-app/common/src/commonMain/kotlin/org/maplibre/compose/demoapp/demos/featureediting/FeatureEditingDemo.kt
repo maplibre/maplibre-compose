@@ -66,7 +66,7 @@ object FeatureEditingDemo : Demo {
     val source =
       rememberGeoJsonSource(
         GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) }))),
-        GeoJsonOptions(synchronousUpdate = true),
+        GeoJsonOptions(synchronousTiling = true),
       )
     Anchor.Below({ it.type == "symbol" }) {
       if (editor.preview != null || editor.draft != null) {
@@ -98,7 +98,7 @@ object FeatureEditingDemo : Demo {
               }
             )
           ),
-          GeoJsonOptions(synchronousUpdate = true),
+          GeoJsonOptions(synchronousTiling = true),
         )
       CircleLayer(
         id = "editing-vertices",

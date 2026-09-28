@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import kotlin.test.Test
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.layers.TestLayer
@@ -13,6 +14,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.addSource
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
@@ -30,7 +32,7 @@ class ImageSourceDrawTest {
         val style = assertNotNull(fixture.style)
 
         val source = ImageSource("image", WESTERN_HALF, splitBitmap(64, Color.Red, Color.Green))
-        style.install(source)
+        val handle = assertIs<ImageSourceHandle>(fixture.state.style.addSource(source))
         style.install(TestLayer("image-layer", "raster", source))
 
         // The western half of the world fills the western half of the viewport at zoom 0, with the
@@ -44,6 +46,15 @@ class ImageSourceDrawTest {
           fixture.readPixel(384, EQUATOR).isNear(BLACK),
           "The image should not reach past the corners it was given",
         )
+
+        assertNotNull(handle.asMutable).setImage(splitBitmap(64, Color.Green, Color.Red))
+        fixture.pumpUntilPixel(
+          "the replacement image's western half to be drawn",
+          64,
+          EQUATOR,
+          GREEN,
+        )
+        assertTrue(fixture.readPixel(192, EQUATOR).isNear(RED))
       }
     }
 
