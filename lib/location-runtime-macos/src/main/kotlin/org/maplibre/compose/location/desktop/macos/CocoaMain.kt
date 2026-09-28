@@ -55,16 +55,10 @@ internal object CocoaMain {
     linker.upcallStub(handle, FunctionDescriptor.ofVoid(ADDRESS, ADDRESS), stubs)
   }
 
-  fun <T> run(action: () -> T): T = run(isMainThread(), ::performOnMainThread, action)
-
-  internal fun <T> run(
-    alreadyOnMain: Boolean,
-    dispatch: (Runnable) -> Unit,
-    action: () -> T,
-  ): T {
-    if (alreadyOnMain) return action()
+  fun <T> run(action: () -> T): T {
+    if (isMainThread()) return action()
     val job = SyncJob(action)
-    dispatch(job)
+    performOnMainThread(job)
     return job.get()
   }
 
