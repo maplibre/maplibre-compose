@@ -154,10 +154,11 @@ private class NativeSnapshotterAdapter(
     throwCleanupFailures(failures)
   }
 
-  private fun releaseEngine(failures: MutableList<Throwable>) {
+  private suspend fun releaseEngine(failures: MutableList<Throwable>) {
     val current = engine ?: return
     engine = null
-    runCatching { current.loop.close() }.exceptionOrNull()?.let(failures::add)
+    current.loop.close()
+    runCatching { current.loop.awaitClosed() }.exceptionOrNull()?.let(failures::add)
   }
 
   private fun throwCleanupFailures(failures: List<Throwable>) {
@@ -211,7 +212,8 @@ private class NativeSnapshotterAdapter(
       creationResult.getOrThrow()
     } catch (error: Throwable) {
       if (engine === candidate) engine = null
-      runCatching { candidateLoop.close() }.exceptionOrNull()?.let(error::addSuppressed)
+      candidateLoop.close()
+      runCatching { candidateLoop.awaitClosed() }.exceptionOrNull()?.let(error::addSuppressed)
       throw error
     }
   }

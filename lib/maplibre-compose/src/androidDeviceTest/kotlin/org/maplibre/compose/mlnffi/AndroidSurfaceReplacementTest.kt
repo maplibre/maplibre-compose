@@ -174,8 +174,11 @@ private class ReusableTestRenderer(private val onSurfaceAvailable: () -> Unit) :
     onSurfaceAvailable()
   }
 
-  override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean) =
-    MlnFfiFrameResult.AwaitUpdate
+  override fun render(
+    host: MlnFfiMapHostSession,
+    frame: MlnFfiMapFrame,
+    captureProjection: Boolean,
+  ) = MlnFfiFrameResult.AwaitUpdate
 
   override fun close() {}
 }

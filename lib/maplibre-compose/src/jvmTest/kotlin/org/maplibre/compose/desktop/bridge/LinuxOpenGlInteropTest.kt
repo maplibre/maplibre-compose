@@ -15,6 +15,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -282,11 +284,14 @@ class LinuxOpenGlInteropTest {
 
     private val hostSession =
       object : MlnFfiMapHostSession {
+        override val isClosed = false
         override val backends = host.backends
 
         override fun requestFrame() {}
 
         override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
+
+        override fun enqueueRenderer(action: () -> Unit): Boolean = host.enqueueRenderer(action)
       }
 
     init {
@@ -345,7 +350,7 @@ class LinuxOpenGlInteropTest {
         assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
           .frame
       try {
-        val result = host.withProducerAccess(frame) { renderer.render(frame) }
+        val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
         if (result is MlnFfiFrameResult.Rendered) {
           host.completeProducerAccess(frame)
           return PumpedFrame(result, frame.target)
@@ -357,8 +362,9 @@ class LinuxOpenGlInteropTest {
     }
 
     override fun close() {
-      state.close()
+      renderer.onSurfaceLost(hostSession)
       runtime.close()
+      runBlocking { withTimeout(TEST_TIMEOUT.inWholeMilliseconds) { runtime.awaitClosed() } }
       cacheDirectory.toFile().deleteRecursively()
     }
 

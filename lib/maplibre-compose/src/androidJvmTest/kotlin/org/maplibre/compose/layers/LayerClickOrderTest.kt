@@ -11,8 +11,6 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performMouseInput
-import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpOffset
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -28,6 +26,8 @@ import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.performMouseInputOnUiThread
+import org.maplibre.compose.mlnffi.performTouchInputOnUiThread
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
@@ -60,7 +60,7 @@ class LayerClickOrderTest {
   @Test
   fun a_click_goes_to_the_layer_in_front() =
     runLayerClickTest(composeFrontLayerFirst = false) { center ->
-      onRoot().performMouseInput { click(center) }
+      performMouseInputOnUiThread(onRoot()) { click(center) }
 
       waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
       waitForIdle()
@@ -76,7 +76,7 @@ class LayerClickOrderTest {
   @Test
   fun a_click_goes_to_the_layer_in_front_even_when_it_was_composed_first() =
     runLayerClickTest(composeFrontLayerFirst = true) { center ->
-      onRoot().performMouseInput { click(center) }
+      performMouseInputOnUiThread(onRoot()) { click(center) }
 
       waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
       waitForIdle()
@@ -86,7 +86,7 @@ class LayerClickOrderTest {
   @Test
   fun a_click_the_front_layer_passes_falls_through_to_the_layer_behind() =
     runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center ->
-      onRoot().performMouseInput { click(center) }
+      performMouseInputOnUiThread(onRoot()) { click(center) }
 
       waitUntil(timeoutMillis = TIMEOUT) { clicked.size == 2 }
       waitForIdle()
@@ -97,10 +97,10 @@ class LayerClickOrderTest {
   fun a_long_click_goes_to_the_layer_in_front_too() =
     runLayerClickTest(composeFrontLayerFirst = true) { center ->
       val map = onRoot()
-      map.performTouchInput { down(0, center) }
+      performTouchInputOnUiThread(map) { down(0, center) }
       mainClock.advanceTimeBy(1_000)
       waitUntil(timeoutMillis = TIMEOUT) { longClicked.isNotEmpty() }
-      map.performTouchInput { up(0) }
+      performTouchInputOnUiThread(map) { up(0) }
       waitForIdle()
 
       assertEquals(listOf(FRONT), longClicked)
@@ -111,10 +111,10 @@ class LayerClickOrderTest {
   fun a_long_click_the_front_layer_passes_falls_through_to_the_layer_behind() =
     runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center ->
       val map = onRoot()
-      map.performTouchInput { down(0, center) }
+      performTouchInputOnUiThread(map) { down(0, center) }
       mainClock.advanceTimeBy(1_000)
       waitUntil(timeoutMillis = TIMEOUT) { longClicked.size == 2 }
-      map.performTouchInput { up(0) }
+      performTouchInputOnUiThread(map) { up(0) }
       waitForIdle()
 
       assertEquals(listOf(FRONT, BACK), longClicked)

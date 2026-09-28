@@ -58,7 +58,9 @@ internal interface MapLifecyclePlatformAdapter {
 }
 
 /** Defines a platform map session with a physical lifecycle controlled by [MapState]. */
-internal interface MapLifecycleSession : MapAdapter, MapLifecyclePlatformAdapter
+internal interface MapLifecycleSession : MapAdapter, MapLifecyclePlatformAdapter {
+  val lifecycle: MapLifecycleBinding
+}
 
 internal class MapAlreadyAttachedException :
   IllegalStateException("The map already has a presentation")
@@ -214,7 +216,7 @@ internal class MapLifecycleAuthority(
       "The map presentation reservation is no longer current"
     }
     if (current.adapter === adapter && owner.currentMapAttachment?.adapter === adapter) return
-    selectAdapter(current, adapter)
+    if (!selectAdapter(current, adapter)) return
     val retainedToReplace = retainedAdapter?.takeUnless { retained ->
       retained === adapter || !adapter.retainsEngineBetweenPresentations
     }
@@ -307,8 +309,7 @@ internal class MapLifecycleAuthority(
     if (closed) return false
     val current = attachment ?: return false
     if (current.releasing) return false
-    selectAdapter(current, adapter)
-    return true
+    return selectAdapter(current, adapter)
   }
 
   /** Whether [adapter] is the presentation or retained engine. Readable from any thread. */
@@ -341,6 +342,7 @@ internal class MapLifecycleAuthority(
       check(adapter.retainsEngineBetweenPresentations) {
         "A detached platform map requires an engine-retaining adapter"
       }
+      if (adapter is MapLifecycleSession && !register(adapter)) throw MapClosedException()
       retainedAdapter = adapter
       publishSnapshot()
       owner.styleAuthority.beginStyleLoadForNewAdapter()
@@ -377,32 +379,37 @@ internal class MapLifecycleAuthority(
       owner.currentMapAttachment?.let { it.token == token && it.adapter === adapter } == true
   }
 
-  fun bind(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding {
+  /** Allocates session-local state without adopting the session or starting work. */
+  fun createBinding(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding =
+    MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
+      if (adapter is MapLifecycleSession) postToMain { retireClosingSession(adapter, binding) }
+    }
+
+  /** Adopts a fully constructed session, returning false if it or this logical map is closed. */
+  fun register(session: MapLifecycleSession): Boolean {
     requireMain()
-    val session = adapter as? MapLifecycleSession
-    session?.let(platforms::get)?.let {
-      return it
+    val lifecycle = session.lifecycle
+    if (!lifecycle.acceptsWork) return false
+    if (isClosed) {
+      lifecycle.close()
+      return false
     }
-    val lifecycle =
-      MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
-        if (session != null) postToMain { retireClosingSession(session, binding) }
-      }
-    if (closed) lifecycle.close() else if (session != null) platforms[session] = lifecycle
-    if (session != null) {
-      physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-        val failure = runCatching { lifecycle.awaitClosed() }.exceptionOrNull()
-        withContext(mainDispatcher) {
-          if (platforms[session] === lifecycle) platforms.remove(session)
-          retiringAdapters.remove(session)
-          if (failure != null && !closed) pendingCleanupFailures += failure
-        }
+    if (platforms.containsKey(session)) return true
+    platforms[session] = lifecycle
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      val failure = runCatching { lifecycle.awaitClosed() }.exceptionOrNull()
+      withContext(mainDispatcher) {
+        retireClosingSession(session, lifecycle)
+        retiringAdapters.remove(session)
+        if (failure != null && !closed) pendingCleanupFailures += failure
       }
     }
-    return lifecycle
+    return lifecycle.acceptsWork && !isClosed
   }
 
   private fun retireClosingSession(session: MapLifecycleSession, binding: MapLifecycleBinding) {
-    if (platforms[session] === binding) platforms.remove(session)
+    if (platforms[session] !== binding) return
+    platforms.remove(session)
     val wasAttached = attachment?.adapter === session
     val wasRetained = retainedAdapter === session
     if (wasAttached) attachment = null
@@ -417,12 +424,16 @@ internal class MapLifecycleAuthority(
     check(!isClosed) { "The map state is closed" }
   }
 
-  private fun selectAdapter(current: Attachment, adapter: MapAdapter) {
-    if (current.adapter === adapter) return
-    check(current.adapter == null) { "The map state already has a presentation adapter" }
+  private fun selectAdapter(current: Attachment, adapter: MapAdapter): Boolean {
+    check(current.adapter == null || current.adapter === adapter) {
+      "The map state already has a presentation adapter"
+    }
+    if (adapter is MapLifecycleSession && !register(adapter)) return false
+    if (current.adapter === adapter) return true
     current.adapter = adapter
     publishSnapshot()
     if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
+    return true
   }
 
   private fun publishSnapshot() {
@@ -843,8 +854,10 @@ internal class MapLifecycleBinding(
         break
       }
     }
-    onClosing(this)
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performClose(closing) }
+    val notificationFailure = runCatching { onClosing(this) }.exceptionOrNull()
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      performClose(closing, notificationFailure)
+    }
   }
 
   /** Waits for every cleanup attempt and reports their combined outcome. */
@@ -1034,9 +1047,13 @@ internal class MapLifecycleBinding(
     detaching.result.complete(outcome)
   }
 
-  private suspend fun performClose(closing: InternalState.Closing) {
+  private suspend fun performClose(
+    closing: InternalState.Closing,
+    notificationFailure: Throwable?,
+  ) {
     val previous = closing.previous
     val failures = mutableListOf<Throwable>()
+    notificationFailure?.let(failures::add)
 
     when (previous) {
       is InternalState.CreatingEngine -> previous.result.await()

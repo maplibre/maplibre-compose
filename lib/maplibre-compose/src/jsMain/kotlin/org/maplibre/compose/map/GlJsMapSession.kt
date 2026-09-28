@@ -120,8 +120,8 @@ internal class GlJsMapSession(
   }
 
   internal var callbacks: MapAdapter.Callbacks = callbacks
-  private val lifecycle by lazy { lifecycleAuthority.bind(this) }
-  private val lifecycleCallbacks by lazy { MapLifecycleCallbacks(lifecycle) { this.callbacks } }
+  override val lifecycle = lifecycleAuthority.createBinding(this)
+  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   private var lifecycleEngineIdentity: EngineMapIdentity? = null
   private var lifecycleRenderLease: RenderLease? = null
   private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
@@ -306,6 +306,7 @@ internal class GlJsMapSession(
   }
 
   fun start() {
+    lifecycleAuthority.register(this)
     lifecycle.beginAttachIfOpen()
   }
 

@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.concurrent.Volatile
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
@@ -18,16 +20,69 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiGate
+import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.map.MapHandle
 
 @OptIn(DelicateMapApi::class)
 class PlatformMapAccessTest {
+  @Test
+  fun a_renderer_can_offer_a_surface_before_the_session_starts() = runBlocking {
+    withNativeMapState { state, runtime ->
+      fun newSession() =
+        MlnFfiMapSession(
+          lifecycleAuthority = state.lifecycle,
+          callbacks = state.durableStyleCallbacks(),
+          logger = null,
+          renderBackend = MapRenderBackend.OPENGL,
+          layoutDirection = LayoutDirection.Ltr,
+          cacheFile = runtime.nativeRuntimeOptions.cacheFile,
+        )
+      val host =
+        object : MlnFfiMapHostSession {
+          override val isClosed = false
+          override val backends =
+            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+
+          override fun requestFrame() = Unit
+
+          override fun <T> withRendererAccess(action: () -> T): T = action()
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            action()
+            return true
+          }
+        }
+      val session = newSession()
+      try {
+        withContext(Dispatchers.Default) { session.onSurfaceAvailable(host) }
+        assertNull(session.lifecycle.engineIdentity)
+        state.close()
+        state.awaitClosed()
+        assertTrue(session.lifecycle.acceptsWork, "A surface offer must not adopt the session")
+      } finally {
+        session.onSurfaceLost(host)
+        session.close()
+        session.awaitClosed()
+      }
+      // A closed authority must neither run cleanup on a partially constructed session nor admit
+      // it.
+      val lateSession = newSession()
+      lateSession.start()
+      lateSession.awaitClosed()
+      assertNull(lateSession.lifecycle.engineIdentity)
+    }
+  }
+
   @Test
   fun detached_native_access_creates_the_map_and_runs_on_its_owner_context() = runBlocking {
     withNativeMapState { state, _ ->
@@ -195,6 +250,106 @@ class PlatformMapAccessTest {
         releaseOwner.open()
       }
       assertFalse(callbackRan)
+    }
+  }
+
+  @Test
+  fun a_closing_renderer_queue_does_not_count_as_released() = runBlocking {
+    withNativeMapState { state, _ ->
+      state.withPlatformMap { map.hashCode() }
+      val session = state.lifecycle.currentAdapter() as MlnFfiMapSession
+      val rejected = CompletableDeferred<Unit>()
+      val host =
+        object : MlnFfiMapHostSession {
+          override val isClosed = false
+          override val backends =
+            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+
+          override fun requestFrame() = Unit
+
+          override fun <T> withRendererAccess(action: () -> T): T = action()
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            rejected.complete(Unit)
+            return false
+          }
+        }
+      session.onSurfaceAvailable(host)
+      try {
+        state.close()
+        withTimeout(5_000L) { rejected.await() }
+        val closed = async(start = CoroutineStart.UNDISPATCHED) { state.awaitClosed() }
+        assertTrue(state.isClosed)
+        assertFalse(closed.isCompleted, "The host still owns the renderer attachment")
+        session.onSurfaceLost(host)
+        withTimeout(5_000L) { closed.await() }
+      } finally {
+        session.onSurfaceLost(host)
+      }
+    }
+  }
+
+  @Test
+  fun a_late_loss_and_offer_from_the_old_host_cannot_displace_its_replacement() = runBlocking {
+    withNativeMapState { state, _ ->
+      state.withPlatformMap { map.hashCode() }
+      val session = state.lifecycle.currentAdapter() as MlnFfiMapSession
+      val oldReleased = CompletableDeferred<Unit>()
+      val finishOldLoss = TestLatch(1)
+      val oldLossReleasedInTime = CompletableDeferred<Boolean>()
+      val oldHost =
+        object : MlnFfiMapHostSession {
+          @Volatile override var isClosed = false
+          override val backends =
+            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+
+          override fun requestFrame() = Unit
+
+          override fun <T> withRendererAccess(action: () -> T): T {
+            val result = action()
+            oldReleased.complete(Unit)
+            oldLossReleasedInTime.complete(finishOldLoss.await(5_000L))
+            return result
+          }
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            action()
+            return true
+          }
+        }
+      var newHostCommands = 0
+      val newHost =
+        object : MlnFfiMapHostSession {
+          override val isClosed = false
+          override val backends = oldHost.backends
+
+          override fun requestFrame() = Unit
+
+          override fun <T> withRendererAccess(action: () -> T): T = action()
+
+          override fun enqueueRenderer(action: () -> Unit): Boolean {
+            newHostCommands++
+            action()
+            return true
+          }
+        }
+      session.onSurfaceAvailable(oldHost)
+      val oldLoss = async(Dispatchers.Default) { session.onSurfaceLost(oldHost) }
+      try {
+        withTimeout(5_000L) { oldReleased.await() }
+        session.onSurfaceAvailable(newHost)
+        oldHost.isClosed = true
+        finishOldLoss.countDown()
+        oldLoss.await()
+        assertTrue(oldLossReleasedInTime.await())
+        session.onSurfaceAvailable(oldHost)
+        session.queryRenderedFeatures(DpOffset.Zero, null, null)
+        assertEquals(1, newHostCommands, "Late old-host callbacks cleared the replacement")
+      } finally {
+        finishOldLoss.countDown()
+        oldLoss.await()
+        session.onSurfaceLost(newHost)
+      }
     }
   }
 

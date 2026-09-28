@@ -11,11 +11,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.UnconfinedTestMain
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingMapCallbacks
@@ -25,11 +25,7 @@ class AndroidSurfaceDetachmentTest {
   @Test
   fun surface_destruction_closes_the_native_renderer_before_an_already_requested_lifecycle_close() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    // Drives the session from the test, render, and close threads; no single thread owns the map.
-    val runtime =
-      createMapRuntime(
-        MapRuntimeOptions(cacheFile = cacheFile, mainDispatcher = UnconfinedTestMain)
-      )
+    val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
     val state = runtime.createMapState(BaseStyle.Empty)
     val nativeSession =
       MlnFfiMapSession(
@@ -47,11 +43,13 @@ class AndroidSurfaceDetachmentTest {
     val closeExecutor = Executors.newSingleThreadExecutor()
     val renderer =
       object : MlnFfiMapRenderer by nativeSession {
+        private lateinit var wrappedHost: MlnFfiMapHostSession
+
         override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
           val renderThread = Thread.currentThread()
-          nativeSession.onSurfaceAvailable(
+          wrappedHost =
             object : MlnFfiMapHostSession by session {
-              override fun <T> withRendererAccess(action: () -> T): T {
+              override fun enqueueRenderer(action: () -> Unit): Boolean {
                 if (
                   Thread.currentThread() !== renderThread &&
                     interceptClose.compareAndSet(true, false)
@@ -61,24 +59,34 @@ class AndroidSurfaceDetachmentTest {
                     "The earlier Surface destruction did not finish"
                   }
                 }
-                return session.withRendererAccess(action)
+                return session.enqueueRenderer(action)
               }
             }
-          )
+          nativeSession.onSurfaceAvailable(wrappedHost)
         }
 
-        override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult =
-          nativeSession.render(frame).also {
+        override fun onSurfaceLost(session: MlnFfiMapHostSession) {
+          nativeSession.onSurfaceLost(wrappedHost)
+        }
+
+        override fun render(
+          host: MlnFfiMapHostSession,
+          frame: MlnFfiMapFrame,
+          captureProjection: Boolean,
+        ): MlnFfiFrameResult =
+          nativeSession.render(wrappedHost, frame).also {
             if (it is MlnFfiFrameResult.Rendered) rendered.countDown()
           }
       }
     try {
-      nativeSession.setBaseStyle(
-        BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#336699"}}]}"""
+      runBlocking(Dispatchers.Main.immediate) {
+        nativeSession.setBaseStyle(
+          BaseStyle.Json(
+            """{"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#336699"}}]}"""
+          )
         )
-      )
-      nativeSession.start()
+        nativeSession.start()
+      }
       withController(renderer) { controller ->
         assertTrue(rendered.await(10, TimeUnit.SECONDS), "The native renderer never drew")
         interceptClose.set(true)

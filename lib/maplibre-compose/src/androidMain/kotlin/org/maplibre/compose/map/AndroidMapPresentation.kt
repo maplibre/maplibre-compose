@@ -186,32 +186,51 @@ public class AndroidMapPresentation(
     binding.density = density
   }
 
-  /** Stops using the attached Surface, then disposes style content. Leaves [state] open. */
+  /**
+   * Stops using the attached Surface, then disposes style content. Leaves [state] open.
+   *
+   * Successful return acknowledges release of the Surface. Cleanup failures are recorded in
+   * [failure] and thrown; the binding remains owned until rendering releases it.
+   */
   override fun close() {
     checkMainThread()
-    if (closed) return
+    if (closed && controller == null && composition == null) return
     closed = true
     lifecycle.removeObserver(lifecycleObserver)
-    binding = null
+    // Keep the binding and controller reachable until the borrowed Surface is released, even if
+    // disposing the composition fails. A later close must not acknowledge unreleased ownership.
+    var cleanupFailure: Throwable? = null
+    try {
+      controller?.close()
+      controller = null
+      binding = null
+    } catch (error: Throwable) {
+      cleanupFailure = error
+    }
     val composition = composition
     this.composition = null
     try {
       composition?.close()
     } catch (error: Throwable) {
-      logger?.e(error) { "Android map presentation cleanup failed" }
-      if (failure == null) failure = error
+      val previous = cleanupFailure
+      if (previous == null) cleanupFailure = error
+      else if (previous !== error) previous.addSuppressed(error)
     } finally {
       scope.cancel()
+    }
+    cleanupFailure?.let { error ->
+      logger?.e(error) { "Android map presentation cleanup failed" }
+      if (failure == null) failure = error
+      throw error
     }
   }
 
   internal fun detach(binding: SurfaceBinding) {
     checkMainThread()
     if (this.binding !== binding) return
-    this.binding = null
-    // Synchronous, so the caller can release the Surface when this returns. The composition's
-    // effect disposal later finds nothing attached.
+    // Synchronous, so the caller can release the Surface only when this returns successfully.
     controller?.surfaceDestroyed()
+    this.binding = null
   }
 
   internal fun checkOpen() {
@@ -264,10 +283,10 @@ public class AndroidMapPresentation(
     DisposableEffect(controller) {
       this@AndroidMapPresentation.controller = controller
       onDispose {
+        controller.close()
         if (this@AndroidMapPresentation.controller === controller) {
           this@AndroidMapPresentation.controller = null
         }
-        controller.close()
       }
     }
     SideEffect { controller.setMaximumFps(maximumFps) }

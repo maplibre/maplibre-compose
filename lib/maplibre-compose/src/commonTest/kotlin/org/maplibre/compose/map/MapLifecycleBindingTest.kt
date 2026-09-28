@@ -25,7 +25,7 @@ class MapLifecycleBindingTest {
     mapRuntimeForTest(physicalScope = backgroundScope)
       .createMapState(BaseStyle.Demo)
       .lifecycle
-      .bind(adapter)
+      .createBinding(adapter)
 
   @Test
   fun a_map_attaches_with_an_engine_identity_and_render_lease() = runTest {
@@ -153,13 +153,24 @@ class MapLifecycleBindingTest {
         destroyFailure = TestFailure("engine")
         resourcesFailure = TestFailure("resources")
       }
-    val lifecycle = bindLifecycle(adapter)
+    val dispatcher = TestMainDispatcher()
+    val lifecycle =
+      MapLifecycleBinding(
+        adapter,
+        physicalScope = backgroundScope,
+        mainDispatcher = dispatcher,
+        mainThread = MainThreadGuard(dispatcher),
+        onClosing = { throw TestFailure("notification") },
+      )
     lifecycle.attach()
 
     lifecycle.close()
     val failure = assertFailsWith<MapCleanupException> { lifecycle.awaitClosed() }
 
-    assertEquals(listOf("detach", "engine", "resources"), failure.failures.map { it.message })
+    assertEquals(
+      listOf("notification", "detach", "engine", "resources"),
+      failure.failures.map { it.message },
+    )
   }
 
   @Test

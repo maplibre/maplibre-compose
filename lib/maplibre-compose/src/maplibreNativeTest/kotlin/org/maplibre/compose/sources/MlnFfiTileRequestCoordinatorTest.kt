@@ -157,6 +157,7 @@ class MlnFfiTileRequestCoordinatorTest {
       action(withTimeout(5.seconds) { binding.await() })
     } finally {
       loop.close()
+      loop.awaitClosed()
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }

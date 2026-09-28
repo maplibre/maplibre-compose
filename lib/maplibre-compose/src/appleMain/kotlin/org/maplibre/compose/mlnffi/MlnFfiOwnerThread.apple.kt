@@ -1,23 +1,18 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
-import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.asStableRef
-import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.value
-import platform.Foundation.NSCondition
-import platform.Foundation.NSDate
-import platform.Foundation.dateWithTimeIntervalSinceNow
 import platform.posix.pthread_create
 import platform.posix.pthread_detach
 import platform.posix.pthread_equal
@@ -27,20 +22,17 @@ import platform.posix.pthread_setname_np
 import platform.posix.pthread_t
 import platform.posix.pthread_tVar
 
-/**
- * The state one owner thread shares with its joiners. The thread keeps it alive through a
- * `StableRef`; a joiner holds it through the [MlnFfiOwnerThread] instance, so a join that times out
- * leaves it allocated for the thread to keep writing to.
- */
+/** The started pthread owns this context's StableRef until its body returns. */
 private class MlnFfiOwnerThreadContext(val name: String, val body: () -> Unit) {
-  val completion = NSCondition()
-  var finished = false
+  @Volatile var thread: pthread_t? = null
 }
 
 private val ownerThreadEntry =
   staticCFunction<COpaquePointer?, COpaquePointer?> { argument ->
     val reference = argument!!.asStableRef<MlnFfiOwnerThreadContext>()
     val context = reference.get()
+    // The child can run before pthread_create returns to the parent.
+    context.thread = pthread_self()
     // Darwin's pthread_setname_np names only the calling thread, so the thread names itself
     // first; a crash report from before this line shows an unnamed thread.
     pthread_setname_np(context.name.take(MAX_THREAD_NAME_LENGTH))
@@ -51,13 +43,7 @@ private val ownerThreadEntry =
       // JVM runtime reports an uncaught thread failure.
       error.printStackTrace()
     } finally {
-      context.completion.lock()
-      try {
-        context.finished = true
-        context.completion.broadcast()
-      } finally {
-        context.completion.unlock()
-      }
+      context.thread = null
       reference.dispose()
     }
     null
@@ -68,8 +54,6 @@ private const val MAX_THREAD_NAME_LENGTH = 63
 internal actual class MlnFfiOwnerThread actual constructor(name: String, body: () -> Unit) {
   private val context = MlnFfiOwnerThreadContext(name, body)
   private var contextReference: StableRef<MlnFfiOwnerThreadContext>? = StableRef.create(context)
-
-  @Volatile private var thread: pthread_t? = null
 
   actual fun start() {
     val reference = checkNotNull(contextReference) { "The owner thread was already started" }
@@ -82,7 +66,6 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
       }
       // The StableRef now belongs to the thread body, which disposes it when the body returns.
       contextReference = null
-      thread = threadVariable.value
       // A host that exits while the body still runs leaves the thread behind, so the thread
       // reclaims its own resources rather than a joiner's. Detach after create stands in for
       // pthread_attr_setdetachstate: Kotlin/Native's Darwin platform libraries do not resolve
@@ -92,28 +75,8 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
   }
 
   actual fun isCurrent(): Boolean {
-    val current = thread ?: return false
+    val current = context.thread ?: return false
     return pthread_equal(current, pthread_self()) != 0
-  }
-
-  @OptIn(BetaInteropApi::class)
-  actual fun join(timeoutMillis: Long): Boolean {
-    context.completion.lock()
-    try {
-      // A joiner can be a pool-less thread, where an autoreleased NSDate leaks, so the timed
-      // wait runs inside a pool of its own.
-      return autoreleasepool {
-        val deadline = NSDate.dateWithTimeIntervalSinceNow(timeoutMillis / 1000.0)
-        // A condition variable returns from a spurious wakeup as readily as from a signal.
-        var timedOut = false
-        while (!context.finished && !timedOut) {
-          timedOut = !context.completion.waitUntilDate(deadline)
-        }
-        context.finished
-      }
-    } finally {
-      context.completion.unlock()
-    }
   }
 }
 

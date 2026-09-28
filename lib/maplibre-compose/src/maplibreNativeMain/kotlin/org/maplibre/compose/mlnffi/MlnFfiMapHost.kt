@@ -63,6 +63,9 @@ internal sealed interface MlnFfiMapFrameAcquisition {
 
 /** The map session's view of its host, handed to [MlnFfiMapRenderer.onSurfaceAvailable]. */
 internal interface MlnFfiMapHostSession {
+  /** Logical host closure rejects a delayed surface offer before physical teardown finishes. */
+  val isClosed: Boolean
+
   val backends: RenderBackendPair
 
   /** Asks the host to schedule another frame. Safe to call from any thread; requests coalesce. */
@@ -76,12 +79,11 @@ internal interface MlnFfiMapHostSession {
 
   /**
    * Queues [action] for the renderer thread without waiting. Returns false when the host can no
-   * longer run it. Re-entrant calls from the renderer thread run directly.
+   * longer run it. After rejecting work, the host must still deliver `onSurfaceLost` before
+   * destroying its targets or stopping the renderer thread. Re-entrant calls from that thread run
+   * directly.
    */
-  fun enqueueRenderer(action: () -> Unit): Boolean {
-    action()
-    return true
-  }
+  fun enqueueRenderer(action: () -> Unit): Boolean
 }
 
 /**

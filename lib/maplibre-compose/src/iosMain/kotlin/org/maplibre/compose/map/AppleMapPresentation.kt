@@ -16,11 +16,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlinx.cinterop.objcPtr
-import kotlinx.cinterop.toLong
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -30,6 +31,7 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.mlnffi.AppleMlnFfiSurfaceController
 import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.util.throwCleanupFailures
 import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSThread
 import platform.QuartzCore.CAMetalLayer
@@ -159,8 +161,10 @@ internal constructor(
    * [density] is physical pixels per logical pixel. A density change recreates the native map.
    *
    * The host owns the layer and its layout. Use a BGRA8Unorm layer dedicated to this presentation;
-   * MapLibre owns its drawable size and presentation. Close the binding before releasing or
-   * repurposing the layer. Detachment waits for rendering to stop using it.
+   * MapLibre owns its drawable size and presentation. Call [LayerBinding.close], then await
+   * [LayerBinding.awaitClosed] before repurposing the layer. Closing returns immediately; the
+   * renderer retains the layer until it has stopped using it, so the host may release its reference
+   * without waiting.
    */
   public fun attachLayer(
     layer: CAMetalLayer,
@@ -174,12 +178,15 @@ internal constructor(
     return LayerBinding(this, layer, extent).also { binding = it }
   }
 
-  /** Stops using the layer and disposes owned style content. Leaves [state] open. */
+  /**
+   * Queues layer detachment and disposes owned style content. Leaves [state] open. Await the
+   * binding's [LayerBinding.awaitClosed] before reusing its layer.
+   */
   override fun close() {
     checkAppleMainThread()
     if (isClosed) return
     isClosed = true
-    binding = null
+    binding?.close()
     try {
       try {
         controller?.close()
@@ -273,10 +280,10 @@ internal constructor(
       if (binding != null) {
         val extent = binding.extent
         DisposableEffect(controller, binding) {
-          controller.surfaceLayoutChanged(binding.layer.objcPtr().toLong(), extent)
-          onDispose { controller.surfaceDestroyed() }
+          binding.attach(controller)
+          onDispose { binding.detach(controller) }
         }
-        SideEffect { controller.surfaceLayoutChanged(binding.layer.objcPtr().toLong(), extent) }
+        SideEffect { binding.updateSurface(controller, extent) }
       }
       content(session, clicks)
     }
@@ -299,24 +306,38 @@ internal constructor(
     check(!isClosed && !state.isClosed) { "The map presentation is closed" }
   }
 
-  private fun detach(binding: LayerBinding) {
-    checkAppleMainThread()
-    if (this.binding !== binding) return
-    this.binding = null
-    controller?.surfaceDestroyed()
-  }
-
   /**
    * The presentation's use of one layer. Closed or replaced bindings ignore updates. The binding
-   * retains the layer until detachment has stopped rendering; the host still owns its contents.
+   * retains the layer while bound; the renderer retains it until queued detachment completes. Close
+   * it, then call [awaitClosed] before using the layer for another renderer.
    */
   public class LayerBinding
   internal constructor(
     private val presentation: AppleMapPresentation,
-    internal val layer: CAMetalLayer,
+    private val layer: CAMetalLayer,
     extent: MapExtent,
   ) : AutoCloseable {
     internal var extent by mutableStateOf(extent)
+    private val controllers = mutableSetOf<AppleMlnFfiSurfaceController>()
+    private val detachments = mutableListOf<Deferred<Result<Unit>>>()
+    private val closure = CompletableDeferred<List<Deferred<Result<Unit>>>>()
+
+    internal fun attach(controller: AppleMlnFfiSurfaceController) {
+      if (closure.isCompleted) return
+      controllers.add(controller)
+      updateSurface(controller, extent)
+    }
+
+    internal fun updateSurface(controller: AppleMlnFfiSurfaceController, extent: MapExtent) {
+      if (controller in controllers) controller.surfaceLayoutChanged(layer, extent)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    internal fun detach(controller: AppleMlnFfiSurfaceController) {
+      if (!controllers.remove(controller)) return
+      detachments.removeAll { it.isCompleted && it.getCompleted().isSuccess }
+      detachments += controller.surfaceDestroyed(layer)
+    }
 
     /** Updates the physical size and density together. */
     public fun update(width: Int, height: Int, density: Float) {
@@ -325,8 +346,26 @@ internal constructor(
       extent = layerExtent(width, height, density)
     }
 
-    /** Waits for rendering to stop using the layer. Does not release the host's layer. */
-    override fun close(): Unit = presentation.detach(this)
+    /**
+     * Queues detachment without blocking the caller. Use [awaitClosed] before reusing the layer.
+     */
+    override fun close() {
+      checkAppleMainThread()
+      if (closure.isCompleted) return
+      if (presentation.binding === this) presentation.binding = null
+      controllers.toList().forEach(::detach)
+      closure.complete(detachments.toList())
+      detachments.clear()
+    }
+
+    /**
+     * Waits until every renderer has stopped using this binding's layer. Call [close] first;
+     * replacing the binding or closing its presentation also closes it. Throws if release failed,
+     * in which case the layer must not be reused.
+     */
+    public suspend fun awaitClosed() {
+      closure.await().mapNotNull { it.await().exceptionOrNull() }.throwCleanupFailures()
+    }
   }
 }
 

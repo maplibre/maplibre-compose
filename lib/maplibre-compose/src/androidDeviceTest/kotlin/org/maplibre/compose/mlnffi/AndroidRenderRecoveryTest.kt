@@ -7,6 +7,8 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -54,6 +56,40 @@ class AndroidRenderRecoveryTest {
         assertEquals(1, renderer.attachments)
         assertEquals(1, renderer.failures.size)
         assertSame(error, renderer.failures.single().cause)
+      }
+    }
+  }
+
+  @Test
+  fun failed_renderer_release_retains_the_surface_and_stops_recovery() {
+    withController { controller, renderer ->
+      val failure = IllegalStateException("Render session still borrows the surface")
+      controller.onRenderThread {
+        renderer.lossError = failure
+        renderer.nextError = MlnFfiRecoverableFrameException("Test frame failure", null)
+      }
+      try {
+        draw(controller, renderer)
+        controller.onRenderThread {
+          assertEquals(1, renderer.attachments, "Recovery must not offer a borrowed surface again")
+          assertSame(failure, renderer.failures.single().cause)
+          assertSame(failure, assertFailsWith<IllegalStateException> { controller.close() })
+          assertSame(
+            failure,
+            assertFailsWith<IllegalStateException> { controller.surfaceDestroyed() },
+          )
+          assertFalse(controller.isClosed, "Failed release must keep the renderer thread available")
+          val failedAttempts = renderer.losses
+          renderer.lossError = null
+          controller.surfaceDestroyed()
+          assertEquals(
+            failedAttempts + 1,
+            renderer.losses,
+            "The graphics must remain owned until release",
+          )
+        }
+      } finally {
+        if (!controller.isClosed) controller.onRenderThread { renderer.lossError = null }
       }
     }
   }
@@ -134,7 +170,7 @@ class AndroidRenderRecoveryTest {
         }
         action(controller, renderer)
       } finally {
-        controller.onRenderThread { controller.close() }
+        controller.close()
       }
     }
   }
@@ -142,6 +178,8 @@ class AndroidRenderRecoveryTest {
   private class ScriptedRenderer(private val reader: ImageReader) : MlnFfiMapRenderer {
     override val backend = MapRenderBackend.OPENGL
     var nextError: Throwable? = null
+    var lossError: Throwable? = null
+    var losses = 0
     var alwaysFail = false
     var result: MlnFfiFrameResult = MlnFfiFrameResult.Rendered()
     var frames = 0
@@ -163,11 +201,20 @@ class AndroidRenderRecoveryTest {
       attachments++
     }
 
+    override fun onSurfaceLost(session: MlnFfiMapHostSession) {
+      losses++
+      lossError?.let { throw it }
+    }
+
     override fun onSurfaceChanged(extent: MapExtent) {
       resizes++
     }
 
-    override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult {
+    override fun render(
+      host: MlnFfiMapHostSession,
+      frame: MlnFfiMapFrame,
+      captureProjection: Boolean,
+    ): MlnFfiFrameResult {
       frames++
       val error = nextError
       nextError = null

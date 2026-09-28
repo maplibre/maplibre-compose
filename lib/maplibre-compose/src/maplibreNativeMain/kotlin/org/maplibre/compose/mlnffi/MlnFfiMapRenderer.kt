@@ -38,7 +38,8 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   /**
    * Called once when the host surface becomes usable, before any frame.
    *
-   * [session] stays valid until [onSurfaceLost] or [close].
+   * [session] stays valid until its [onSurfaceLost] completes, including while logical map closure
+   * is awaiting renderer cleanup.
    */
   fun onSurfaceAvailable(session: MlnFfiMapHostSession) {}
 
@@ -46,11 +47,16 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   fun onSurfaceChanged(extent: MapExtent) {}
 
   /**
-   * Renders into [frame]'s target. When [captureProjection] is true, acquires the completed image's
-   * projection before returning, while renderer access is still held. Surface presenters that do
-   * not composite overlays leave this false to avoid allocating an unused snapshot.
+   * Renders into [frame]'s target on [host]. Frames from a replaced host are ignored. When
+   * [captureProjection] is true, acquires the completed image's projection before returning, while
+   * renderer access is still held. Surface presenters that do not composite overlays leave this
+   * false to avoid allocating an unused snapshot.
    */
-  fun render(frame: MlnFfiMapFrame, captureProjection: Boolean = false): MlnFfiFrameResult
+  fun render(
+    host: MlnFfiMapHostSession,
+    frame: MlnFfiMapFrame,
+    captureProjection: Boolean = false,
+  ): MlnFfiFrameResult
 
   /** Borrows the surface-owned projection until the surface replaces or clears the presentation. */
   fun presentFrame(
@@ -67,12 +73,12 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
     extent.centerPresentationAnchor()
 
   /**
-   * Called when the surface went away and any target handles previously seen are now dangling.
+   * Called before this host releases its targets. Late loss from a replaced host is ignored.
    *
    * The renderer must drop them without freeing them; the host owns them. A new surface may follow
    * via [onSurfaceAvailable].
    */
-  fun onSurfaceLost() {}
+  fun onSurfaceLost(session: MlnFfiMapHostSession) {}
 }
 
 /** A graphics failure for which rebuilding the render session can produce a usable later frame. */

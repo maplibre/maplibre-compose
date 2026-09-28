@@ -6,14 +6,20 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.autoreleasepool
+import kotlinx.cinterop.objcPtr
+import kotlinx.cinterop.toLong
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapFramePacer
 import org.maplibre.compose.util.rethrowIfFatal
+import org.maplibre.compose.util.throwCleanupFailures
 import platform.Foundation.NSCondition
 import platform.Foundation.NSDate
 import platform.Foundation.NSProcessInfo
 import platform.Foundation.dateWithTimeIntervalSinceNow
+import platform.QuartzCore.CAMetalLayer
 
 /**
  * Drives the shared FFI renderer from a dedicated Apple render thread.
@@ -32,6 +38,9 @@ internal class AppleMlnFfiSurfaceController(
   maximumFps: Int? = null,
   private val onFailure: (Throwable) -> Unit,
 ) : MlnFfiMapHostSession, AutoCloseable {
+  override val isClosed: Boolean
+    get() = closeRequested
+
   override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
   private class ScheduledAction(val runAtUptimeSeconds: Double, val action: () -> Unit)
@@ -40,10 +49,14 @@ internal class AppleMlnFfiSurfaceController(
   private val queue = ArrayDeque<ScheduledAction>()
   private var queueClosed = false
 
-  private val renderThread = MlnFfiOwnerThread("maplibre-compose-render") { runQueue() }
+  private val completion = CompletableDeferred<Result<Unit>>()
+  private val renderThread =
+    MlnFfiOwnerThread("maplibre-compose-render") {
+      completion.complete(runCatching { runQueue() }.onFailure(::rethrowIfFatal))
+    }
 
   // Render-thread state.
-  private var layerAddress: Long = 0L
+  private var layer: CAMetalLayer? = null
   private var maximumFps = maximumFps
   private var extent = MapExtent.Empty
   private var generation = 0L
@@ -55,6 +68,7 @@ internal class AppleMlnFfiSurfaceController(
   private var closed = false
   private var terminalFailure = false
   private var consecutiveFailures = 0
+  private val cleanupFailures = mutableListOf<Throwable>()
 
   /** Set once by the first [close] from any thread, so a second [close] returns early. */
   @Volatile private var closeRequested = false
@@ -76,25 +90,22 @@ internal class AppleMlnFfiSurfaceController(
     }
   }
 
-  /**
-   * Offers the view's layer and extent to the renderer. [layerAddress] is the `CAMetalLayer`'s
-   * address; the view owns the layer and reports each settled [extent] here.
-   */
-  fun surfaceLayoutChanged(layerAddress: Long, extent: MapExtent) {
+  /** Retains the view's layer through queued rendering and its final renderer release. */
+  fun surfaceLayoutChanged(layer: CAMetalLayer, extent: MapExtent) {
     post {
-      if (closed) return@post
-      if (layerAddress != this.layerAddress) {
-        replaceSurfaceOnRenderThread(layerAddress, extent)
+      if (closeRequested) return@post
+      if (layer !== this.layer) {
+        replaceSurfaceOnRenderThread(layer, extent)
       } else if (extent != this.extent) {
         resizeSurfaceOnRenderThread(extent)
       }
     }
   }
 
-  private fun replaceSurfaceOnRenderThread(layerAddress: Long, extent: MapExtent) {
+  private fun replaceSurfaceOnRenderThread(layer: CAMetalLayer, extent: MapExtent) {
     checkRenderThread()
     surfaceDestroyedOnRenderThread()
-    this.layerAddress = layerAddress
+    this.layer = layer
     this.extent = extent
     generation++
     try {
@@ -121,25 +132,26 @@ internal class AppleMlnFfiSurfaceController(
     }
   }
 
-  /**
-   * Drops the render session before the view releases the layer. Blocks so the layer outlives the
-   * session that borrows it.
-   *
-   * UIKit releases interop views in a deferred transaction, which can land after [close]; the close
-   * teardown has already dropped the session on the render thread by then.
-   */
-  fun surfaceDestroyed() {
-    if (closeRequested) return
-    onRenderThread { surfaceDestroyedOnRenderThread() }
+  /** Acknowledges release of [layer]; a stale loss never detaches its replacement. */
+  fun surfaceDestroyed(layer: CAMetalLayer): Deferred<Result<Unit>> {
+    val detached = CompletableDeferred<Result<Unit>>()
+    val accepted = post {
+      val result = runCatching {
+        if (this.layer === layer) surfaceDestroyedOnRenderThread()
+      }
+        .onFailure(::rethrowIfFatal)
+      detached.complete(result)
+      result.getOrThrow()
+    }
+    return if (accepted) detached else completion
   }
 
   private fun surfaceDestroyedOnRenderThread() {
     checkRenderThread()
     cancelFrame()
-    if (layerAddress == 0L) return
-    runCatching { renderer.onSurfaceLost() }
-      .onFailure { logger?.e(it) { "Failed to release the Apple map render session" } }
-    layerAddress = 0L
+    if (layer == null) return
+    renderer.onSurfaceLost(this)
+    layer = null
     extent = MapExtent.Empty
     consecutiveFailures = 0
   }
@@ -165,9 +177,7 @@ internal class AppleMlnFfiSurfaceController(
 
   private fun requestFrameOnRenderThread() {
     checkRenderThread()
-    if (
-      closed || terminalFailure || !active || layerAddress == 0L || extent.isEmpty || framePosted
-    ) {
+    if (closed || terminalFailure || !active || layer == null || extent.isEmpty || framePosted) {
       return
     }
     framePosted = true
@@ -178,13 +188,14 @@ internal class AppleMlnFfiSurfaceController(
     } else post { renderFrame(token) }
   }
 
+  @OptIn(BetaInteropApi::class)
   private fun renderFrame(token: Long) {
     checkRenderThread()
     if (token != frameToken) return
     framePosted = false
-    val currentLayer = layerAddress
+    val currentLayer = layer
     val currentExtent = extent
-    if (closed || !active || currentLayer == 0L || currentExtent.isEmpty) return
+    if (closeRequested || closed || !active || currentLayer == null || currentExtent.isEmpty) return
 
     if (pacer.remaining(maximumFps) > Duration.ZERO) {
       requestFrame()
@@ -195,7 +206,7 @@ internal class AppleMlnFfiSurfaceController(
     val target =
       MetalSurfaceTarget(
         device = DEFAULT_METAL_DEVICE,
-        layer = NativeHandle(currentLayer),
+        layer = NativeHandle(currentLayer.objcPtr().toLong()),
         extent = currentExtent,
         generation = generation,
       )
@@ -209,7 +220,7 @@ internal class AppleMlnFfiSurfaceController(
 
     val start = TimeSource.Monotonic.markNow()
     try {
-      when (renderer.render(frame)) {
+      when (renderer.render(this, frame)) {
         is MlnFfiFrameResult.Rendered -> {
           consecutiveFailures = 0
           pacer.rendered(start)
@@ -231,10 +242,14 @@ internal class AppleMlnFfiSurfaceController(
           "(attempt $consecutiveFailures of $MAX_RECOVERY_ATTEMPTS)"
       }
 
-      runCatching { renderer.onSurfaceLost() }
-      runCatching { renderer.onSurfaceAvailable(this) }
-        .onSuccess { requestFrameOnRenderThread() }
-        .onFailure { fail("Failed to recover the Apple map render session", it) }
+      try {
+        renderer.onSurfaceLost(this)
+        renderer.onSurfaceAvailable(this)
+        requestFrameOnRenderThread()
+      } catch (error: Throwable) {
+        rethrowIfFatal(error)
+        fail("Failed to recover the Apple map render session", error)
+      }
     }
   }
 
@@ -252,21 +267,24 @@ internal class AppleMlnFfiSurfaceController(
   }
 
   override fun close() {
-    if (closeRequested) return
-    closeRequested = true
-    onRenderThread {
-      if (closed) return@onRenderThread
-      surfaceDestroyedOnRenderThread()
-      closed = true
-    }
     queueCondition.lock()
     try {
+      if (queueClosed) return
+      closeRequested = true
+      queue.addLast(
+        ScheduledAction(uptimeSeconds()) {
+          surfaceDestroyedOnRenderThread()
+          closed = true
+        }
+      )
       queueClosed = true
       queueCondition.signal()
     } finally {
       queueCondition.unlock()
     }
   }
+
+  suspend fun awaitClosed() = completion.await().getOrThrow()
 
   private fun cancelFrame() {
     if (!framePosted) return
@@ -319,7 +337,8 @@ internal class AppleMlnFfiSurfaceController(
           val remaining = queue.sortedBy { it.runAtUptimeSeconds }.map { it.action }
           queue.clear()
           queueCondition.unlock()
-          remaining.forEach { autoreleasepool { it() } }
+          remaining.forEach { runAction(it) }
+          cleanupFailures.throwCleanupFailures()
           return
         }
         // The earliest scheduled action runs first; posting order breaks ties.
@@ -342,7 +361,19 @@ internal class AppleMlnFfiSurfaceController(
       queueCondition.unlock()
       // The render thread has no autorelease pool, so each action drains one. Metal and the
       // Objective-C bridge leave temporaries otherwise.
+      runAction(action)
+    }
+  }
+
+  @OptIn(BetaInteropApi::class)
+  private fun runAction(action: () -> Unit) {
+    try {
       autoreleasepool { action() }
+    } catch (error: Throwable) {
+      rethrowIfFatal(error)
+      cleanupFailures.add(error)
+      close()
+      runCatching { onFailure(error) }.onFailure(::rethrowIfFatal)
     }
   }
 
@@ -350,9 +381,11 @@ internal class AppleMlnFfiSurfaceController(
     terminalFailure = true
     cancelFrame()
     logger?.e(error) { message }
-    runCatching { renderer.onSurfaceLost() }
-    layerAddress = 0L
-    extent = MapExtent.Empty
+    runCatching { surfaceDestroyedOnRenderThread() }
+      .onFailure {
+        rethrowIfFatal(it)
+        cleanupFailures.add(it)
+      }
     // The presentation owns the map and decides whether to retain it after detachment.
     onFailure(error)
   }

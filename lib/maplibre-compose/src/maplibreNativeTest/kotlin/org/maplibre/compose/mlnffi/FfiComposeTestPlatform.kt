@@ -3,6 +3,11 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.MouseInjectionScope
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.TouchInjectionScope
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performTouchInput
 import org.maplibre.compose.map.MapRuntimeOptions
 
 /** Runs a Compose UI test using the platform runner that can host a real FFI map. */
@@ -28,3 +33,23 @@ internal expect fun ComposeUiTest.setFfiTestMapContent(
   presentationCount: Int = 1,
   content: @Composable () -> Unit,
 )
+
+// Desktop injects synchronously on its caller. Resolve and inject on the UI thread after
+// settling; suppress the redundant implicit wait so input cannot block UI dispatch.
+@ExperimentalTestApi
+internal fun ComposeUiTest.performMouseInputOnUiThread(
+  node: SemanticsNodeInteraction,
+  block: MouseInjectionScope.() -> Unit,
+) {
+  waitForIdle()
+  runOnUiThread { runWithoutImplicitWait { node.performMouseInput(block) } }
+}
+
+@ExperimentalTestApi
+internal fun ComposeUiTest.performTouchInputOnUiThread(
+  node: SemanticsNodeInteraction,
+  block: TouchInjectionScope.() -> Unit,
+) {
+  waitForIdle()
+  runOnUiThread { runWithoutImplicitWait { node.performTouchInput(block) } }
+}

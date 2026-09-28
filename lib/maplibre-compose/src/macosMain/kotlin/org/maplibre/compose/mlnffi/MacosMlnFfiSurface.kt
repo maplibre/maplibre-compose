@@ -18,8 +18,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.objcPtr
-import kotlinx.cinterop.toLong
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.macos.AppKitMapEntry
 import org.maplibre.compose.macos.LocalAppKitMapHost
@@ -81,14 +79,14 @@ internal fun MacosMlnFfiSurface(
           layer.contentsScale = scale.toDouble()
           if (visible && !bounds.isEmpty) {
             controller.surfaceLayoutChanged(
-              layer.objcPtr().toLong(),
+              layer,
               MapExtent.fromPhysical(bounds.width.toInt(), bounds.height.toInt(), scale.toDouble()),
             )
           } else {
-            controller.surfaceDestroyed()
+            controller.surfaceDestroyed(layer)
           }
         },
-        detach = { controller.surfaceDestroyed() },
+        detach = { controller.surfaceDestroyed(layer) },
       )
     }
   DisposableEffect(host, entry) {
