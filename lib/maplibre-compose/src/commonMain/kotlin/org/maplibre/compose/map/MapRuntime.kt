@@ -225,10 +225,13 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
    * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
    */
   internal suspend fun awaitCommands() {
-    requireOwner().resourceCommands.await()
+    owner.resourceCommands.await()
   }
 
-  private var owner: MapStyleStateOwner? = null
+  /** The map or snapshotter that owns this state, attached right after construction. */
+  internal lateinit var owner: MapStyleStateOwner
+    private set
+
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
@@ -247,7 +250,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     get() = if (baseStyleDeclared) null else MutableMapStyleState(this)
 
   internal fun updateBaseStyle(value: BaseStyle) {
-    owner?.setBaseStyle(value) ?: setBaseStyleState(value)
+    owner.setBaseStyle(value)
   }
 
   private val loadStateState = mutableStateOf<StyleLoadState>(StyleLoadState.Pending)
@@ -351,32 +354,31 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     return sourcesState[id]
   }
 
-  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? = owner.let { owner ->
-    val definition = owner?.desiredSourceDefinition(id)
+  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? {
+    val definition = owner.desiredSourceDefinition(id)
     val identity = current.identity.sources.get(id)
-    current.sourceHandle(
+    return current.sourceHandle(
       id = id,
       definition = definition,
-      currentDefinition = { owner?.desiredSourceDefinition(id) },
+      currentDefinition = { owner.desiredSourceDefinition(id) },
       isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
       operations = operationGuard(current),
     )
   }
 
   /** [sourceHandle] for a source already read from the engine, or null when it has no object. */
-  private fun sourceHandle(current: StyleBinding, id: String, source: Source?): SourceHandle? =
-    owner.let { owner ->
-      val definition = owner?.desiredSourceDefinition(id)
-      val identity = current.identity.sources.get(id)
-      current.sourceHandle(
-        id = id,
-        source = source,
-        definition = definition,
-        currentDefinition = { owner?.desiredSourceDefinition(id) },
-        isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
-        operations = operationGuard(current),
-      )
-    }
+  private fun sourceHandle(current: StyleBinding, id: String, source: Source?): SourceHandle? {
+    val definition = owner.desiredSourceDefinition(id)
+    val identity = current.identity.sources.get(id)
+    return current.sourceHandle(
+      id = id,
+      source = source,
+      definition = definition,
+      currentDefinition = { owner.desiredSourceDefinition(id) },
+      isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
+      operations = operationGuard(current),
+    )
+  }
 
   internal fun layerHandle(id: String): LayerHandle? {
     if (readyLoadedStyle() == null) return null
@@ -384,18 +386,15 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun readyLoadedStyle(): StyleBinding? {
+    // Read here as well as in the owner, so snapshot observers track the load state even while no
+    // style is loaded.
     if (loadState != StyleLoadState.Ready) return null
-    // With an owner attached, its serialized check is the only authority: a plain fallback to the
-    // stored reference could return a binding the owner has already moved to Loading.
-    val owner = owner ?: return loadedStyle.load()
     return owner.readyLoadedStyle()
   }
 
   internal fun attach(owner: MapStyleStateOwner) {
     this.owner = owner
   }
-
-  internal fun requireOwner(): MapStyleStateOwner = checkNotNull(owner)
 
   internal fun setBaseStyleState(value: BaseStyle) {
     baseStyleState = value
@@ -462,7 +461,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     val summaries =
       current
         .layerIds()
-        .mapNotNull { id -> (base[id] ?: owner?.desiredLayerSummary(id))?.let { id to it } }
+        .mapNotNull { id -> (base[id] ?: owner.desiredLayerSummary(id))?.let { id to it } }
         .toMap()
     current.identity.layers.retain(summaries.keys)
     return summaries.mapValues { (_, summary) -> layerHandle(current, summary) }
@@ -504,26 +503,18 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
-      // An action may return null, so only a missing owner runs it unguarded.
-      override fun <T> run(action: () -> T): T {
-        val owner = owner ?: return action()
-        return owner.runStyleHandleOperation(style, action)
-      }
+      override fun <T> run(action: () -> T): T = owner.runStyleHandleOperation(style, action)
 
-      override fun isSourceWritable(id: String): Boolean = owner?.isSourceWritable(id) == true
+      override fun isSourceWritable(id: String): Boolean = owner.isSourceWritable(id)
 
-      override fun isLayerWritable(id: String): Boolean = owner?.isLayerWritable(id) == true
+      override fun isLayerWritable(id: String): Boolean = owner.isLayerWritable(id)
 
       override fun removeSource(id: String, identity: Any) =
-        requireOwner().resourceCommands.removeSource(id, style, identity)
+        owner.resourceCommands.removeSource(id, style, identity)
 
-      override fun requireSourceWritable(id: String) {
-        owner?.requireSourceWritable(id)
-      }
+      override fun requireSourceWritable(id: String) = owner.requireSourceWritable(id)
 
-      override fun requireLayerWritable(id: String) {
-        owner?.requireLayerWritable(id)
-      }
+      override fun requireLayerWritable(id: String) = owner.requireLayerWritable(id)
     }
 }
 
@@ -572,8 +563,7 @@ internal constructor(
     tilt: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition = runLeaseBound {
-    awaitViewportState()
+  ): CameraPosition = afterViewport {
     adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
   }
 
@@ -583,8 +573,7 @@ internal constructor(
     tilt: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition = runLeaseBound {
-    awaitViewportState()
+  ): CameraPosition = afterViewport {
     adapter.cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
   }
 
@@ -595,28 +584,19 @@ internal constructor(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
-  ): Unit = runLeaseBound {
-    awaitViewportState()
-    guard?.awaitDispatchTurn()
-    adapter.fitCameraToBounds(
-      boundingBox,
-      bearing,
-      tilt,
-      cameraPadding,
-      fitPadding,
-      boundGuard(guard),
-    )
-  }
+  ): Unit =
+    afterCameraTurn(guard) { boundGuard ->
+      adapter.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, boundGuard)
+    }
 
   suspend fun animateCamera(
     update: CameraUpdate,
     animation: CameraAnimation = CameraAnimation.Ease(),
     guard: CameraCommandGuard? = null,
-  ): Unit = runLeaseBound {
-    awaitViewportState()
-    guard?.awaitDispatchTurn()
-    adapter.animateCamera(update, animation, boundGuard(guard))
-  }
+  ): Unit =
+    afterCameraTurn(guard) { boundGuard ->
+      adapter.animateCamera(update, animation, boundGuard)
+    }
 
   suspend fun animateCameraAround(
     anchor: CameraAnchor,
@@ -625,11 +605,10 @@ internal constructor(
     tilt: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
-  ): Unit = runLeaseBound {
-    awaitViewportState()
-    guard?.awaitDispatchTurn()
-    adapter.animateCameraAround(anchor, zoom, bearing, tilt, animation, boundGuard(guard))
-  }
+  ): Unit =
+    afterCameraTurn(guard) { boundGuard ->
+      adapter.animateCameraAround(anchor, zoom, bearing, tilt, animation, boundGuard)
+    }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -639,19 +618,18 @@ internal constructor(
     fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
-  ): Unit = runLeaseBound {
-    awaitViewportState()
-    guard?.awaitDispatchTurn()
-    adapter.animateCameraToBounds(
-      boundingBox,
-      bearing,
-      tilt,
-      cameraPadding,
-      fitPadding,
-      animation,
-      boundGuard(guard),
-    )
-  }
+  ): Unit =
+    afterCameraTurn(guard) { boundGuard ->
+      adapter.animateCameraToBounds(
+        boundingBox,
+        bearing,
+        tilt,
+        cameraPadding,
+        fitPadding,
+        animation,
+        boundGuard,
+      )
+    }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
@@ -677,8 +655,7 @@ internal constructor(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
-    awaitViewportState()
+  ): List<Feature<Geometry, JsonObject?>> = afterViewport {
     adapter.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull())
   }
 
@@ -686,16 +663,13 @@ internal constructor(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
-    awaitViewportState()
+  ): List<Feature<Geometry, JsonObject?>> = afterViewport {
     adapter.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull())
   }
 
   internal fun updateViewport(value: Viewport?) {
-    run {
-      viewportState = value
-      owner.viewportPublished(this, value)
-    }
+    viewportState = value
+    owner.viewportPublished(this, value)
   }
 
   /**
@@ -703,10 +677,8 @@ internal constructor(
    * token decides whether a change belongs to the user.
    */
   internal fun setGestureActive(active: Boolean) {
-    run {
-      gestureActiveState = active
-      if (active) moveReasonState = CameraMoveReason.GESTURE
-    }
+    gestureActiveState = active
+    if (active) moveReasonState = CameraMoveReason.GESTURE
   }
 
   internal fun setEngaged(engaged: Boolean) {
@@ -714,10 +686,8 @@ internal constructor(
   }
 
   internal fun cameraChangeStarted() {
-    run {
-      activeCameraChanges++
-      if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
-    }
+    activeCameraChanges++
+    if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
   }
 
   internal fun cameraChangeEnded() {
@@ -731,13 +701,11 @@ internal constructor(
 
   internal fun invalidate() {
     owner.gestureAuthority.detach(this)
-    run {
-      validState = false
-      viewportState = null
-      gestureActiveState = false
-      activeCameraChanges = 0
-      engagedState = false
-    }
+    validState = false
+    viewportState = null
+    gestureActiveState = false
+    activeCameraChanges = 0
+    engagedState = false
   }
 
   /**
@@ -757,6 +725,24 @@ internal constructor(
   private fun <T> withViewport(block: (MapAdapter) -> T): T? =
     owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
 
+  /** Runs [block] once this attachment has a viewport, while it stays current. */
+  private suspend fun <T> afterViewport(block: suspend () -> T): T = runLeaseBound {
+    owner.awaitViewport(this)
+    block()
+  }
+
+  /**
+   * [afterViewport] for a camera command: waits for [guard]'s dispatch turn, then passes [block] a
+   * guard that also fails once this attachment is replaced.
+   */
+  private suspend fun <T> afterCameraTurn(
+    guard: CameraCommandGuard?,
+    block: suspend (CameraCommandGuard) -> T,
+  ): T = afterViewport {
+    guard?.awaitDispatchTurn()
+    block(boundGuard(guard))
+  }
+
   private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard =
     object : CameraCommandGuard {
       override fun isValid(): Boolean =
@@ -766,8 +752,6 @@ internal constructor(
         guard?.dispatched()
       }
     }
-
-  private suspend fun awaitViewportState(): Viewport = owner.awaitViewport(this)
 
   /**
    * Runs [block] while this attachment is current. Invalidation fails it with
@@ -933,11 +917,9 @@ internal constructor(
    */
   public fun stopCameraMovement() {
     val guard = gestureAuthority.beginProgrammatic(supersededByAnyCommand = true)
-    val attachment = run {
-      requireOpen()
-      if (!guard.isValid()) return
-      currentMapAttachment ?: return
-    }
+    requireOpen()
+    if (!guard.isValid()) return
+    val attachment = currentMapAttachment ?: return
     attachment.adapter.stopCameraMovement(
       CameraCommandGuard { attachmentAuthority.isCurrent(attachment) && guard.isValid() }
     )
@@ -1270,14 +1252,8 @@ internal constructor(
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
-  private inline fun <T> withAttachmentRead(block: (MapAttachment) -> T?): T? {
-    val attachment = currentMapAttachment ?: return null
-    return try {
-      block(attachment)
-    } catch (_: MapAttachmentChangedException) {
-      null
-    }
-  }
+  private inline fun <T> withAttachmentRead(block: (MapAttachment) -> T?): T? =
+    currentMapAttachment?.let(block)
 }
 
 @JvmInline internal value class MapPresentationToken(val value: Long)

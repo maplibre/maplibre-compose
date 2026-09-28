@@ -62,13 +62,11 @@ internal class MapStyleAuthority(
     get() = missingImageResolverState
     set(value) {
       lifecycle.requireMain()
-      run {
-        if (missingImageResolverState === value) return
-        missingImageResolverState = value
-        // Forgotten rather than cancelled: the request that started a resolution in flight is still
-        // outstanding, and the engine waits on that resolution rather than asking the new resolver.
-        missingImageResolutions.clear()
-      }
+      if (missingImageResolverState === value) return
+      missingImageResolverState = value
+      // Forgotten rather than cancelled: the request that started a resolution in flight is still
+      // outstanding, and the engine waits on that resolution rather than asking the new resolver.
+      missingImageResolutions.clear()
     }
 
   override fun isSourceWritable(id: String): Boolean =
@@ -82,7 +80,7 @@ internal class MapStyleAuthority(
 
   override fun requireSourceWritable(id: String) = requireNoDesiredSource(id)
 
-  override fun requireLayerWritable(id: String) = run {
+  override fun requireLayerWritable(id: String) {
     if (desiredStyleRevision.layers.any { it.definition.id == id }) {
       throw StyleHandleException("Layer ID '$id' is declared by the style content")
     }
@@ -161,7 +159,7 @@ internal class MapStyleAuthority(
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      if (run { isCurrentStyleResourceRead(adapter, read) }) throw error
+      if (isCurrentStyleResourceRead(adapter, read)) throw error
       null
     }
 
@@ -197,11 +195,7 @@ internal class MapStyleAuthority(
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
     lifecycle.requireMain()
-    run {
-      if (lifecycle.acceptsAdapter(adapter)) {
-        style.loadState = StyleLoadState.Failed(reason)
-      }
-    }
+    if (lifecycle.acceptsAdapter(adapter)) style.loadState = StyleLoadState.Failed(reason)
   }
 
   /** Accepts a committed snapshot only for the loaded style that evaluated it. */
@@ -249,25 +243,21 @@ internal class MapStyleAuthority(
 
   override fun setBaseStyle(value: BaseStyle) {
     lifecycle.requireMain()
-    val command = run {
-      requireOpen()
-      if (style.baseStyle == value) return
-      styleHandleEpoch++
-      resourceCommands.clear()
-      cancelMissingImageResolutions()
-      style.setBaseStyleState(value)
-      style.invalidateLoadedStyle()
-      val adapter = lifecycle.currentAdapter()
-      if (adapter == null) {
-        style.loadState = StyleLoadState.Pending
-        baseStyleCommandRevision++
-        return
-      } else {
-        style.loadState = StyleLoadState.Loading
-      }
-      BaseStyleCommand(adapter, value, ++baseStyleCommandRevision)
+    requireOpen()
+    if (style.baseStyle == value) return
+    styleHandleEpoch++
+    resourceCommands.clear()
+    cancelMissingImageResolutions()
+    style.setBaseStyleState(value)
+    style.invalidateLoadedStyle()
+    val adapter = lifecycle.currentAdapter()
+    if (adapter == null) {
+      style.loadState = StyleLoadState.Pending
+      baseStyleCommandRevision++
+      return
     }
-    applyBaseStyleCommand(command)
+    style.loadState = StyleLoadState.Loading
+    applyBaseStyleCommand(BaseStyleCommand(adapter, value, ++baseStyleCommandRevision))
   }
 
   /** Answers from any thread: source reads call it from the map owner thread. */
@@ -342,11 +332,8 @@ internal class MapStyleAuthority(
     } finally {
       // Keep negative results to avoid a request loop, but let a later engine miss restore an
       // evicted image. An older resolver must not clear a replacement resolver's pending work.
-      if (!rememberFailure) {
-        run {
-          if (missingImageResolutions[imageId]?.token === token)
-            missingImageResolutions.remove(imageId)
-        }
+      if (!rememberFailure && missingImageResolutions[imageId]?.token === token) {
+        missingImageResolutions.remove(imageId)
       }
     }
   }
@@ -364,10 +351,8 @@ internal class MapStyleAuthority(
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
     var pending: (() -> Unit)? = mutate
     while (true) {
-      val read = run {
-        requireStyleHandle(binding)
-        StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
-      }
+      requireStyleHandle(binding)
+      val read = StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
       val sources =
         checkNotNull(
           binding.awaitOwner {
@@ -378,13 +363,10 @@ internal class MapStyleAuthority(
         ) {
           "The loaded style changed before the command ran"
         }
-      val committed = run {
-        requireStyleHandle(binding)
-        if (styleSourceChangeRevision != read.sourceChangeRevision) return@run false
-        style.updateSources(sources)
-        true
-      }
-      if (committed) return
+      requireStyleHandle(binding)
+      if (styleSourceChangeRevision != read.sourceChangeRevision) continue
+      style.updateSources(sources)
+      return
     }
   }
 
@@ -439,11 +421,8 @@ internal class MapStyleAuthority(
   /** Sends the durable base style to [adapter] while it awaits publication. */
   internal fun configurePendingAdapter(adapter: MapAdapter) {
     lifecycle.requireMain()
-    val command = run {
-      if (!lifecycle.isPendingPublication(adapter)) return
-      BaseStyleCommand(adapter, style.baseStyle, baseStyleCommandRevision)
-    }
-    applyBaseStyleCommand(command)
+    if (!lifecycle.isPendingPublication(adapter)) return
+    applyBaseStyleCommand(BaseStyleCommand(adapter, style.baseStyle, baseStyleCommandRevision))
   }
 
   private fun applyBaseStyleCommand(initial: BaseStyleCommand) {
@@ -451,8 +430,8 @@ internal class MapStyleAuthority(
     while (true) {
       if (lifecycle.currentAdapter() !== command.adapter) return
       command.adapter.setBaseStyle(command.value)
-      // The adapter can re-enter setBaseStyle synchronously; replay the newest value once it
-      // returns.
+      // The adapters report the outgoing style and invalidate its binding inside setBaseStyle. Code
+      // that reaches inline can assign a newer base style, which this replays.
       if (lifecycle.currentAdapter() !== command.adapter) return
       if (baseStyleCommandRevision == command.revision) return
       command = BaseStyleCommand(command.adapter, style.baseStyle, baseStyleCommandRevision)

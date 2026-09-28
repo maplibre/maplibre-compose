@@ -12,7 +12,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
@@ -209,12 +208,22 @@ class SourceVolatilityTest {
           if (current) afterValidation()
           current
         },
-        operations =
-          object :
-            StyleHandleOperationGuard by MapStyleState(BaseStyle.Empty).operationGuard(this) {
-            override fun isSourceWritable(id: String) = true
-          },
+        operations = ImmediateOperations,
       )
     )
+  }
+
+  private object ImmediateOperations : StyleHandleOperationGuard {
+    override fun <T> run(action: () -> T): T = action()
+
+    override fun isSourceWritable(id: String): Boolean = true
+
+    override fun isLayerWritable(id: String): Boolean = false
+
+    override fun removeSource(id: String, identity: Any) = error("Unused")
+
+    override fun requireSourceWritable(id: String) {}
+
+    override fun requireLayerWritable(id: String) {}
   }
 }

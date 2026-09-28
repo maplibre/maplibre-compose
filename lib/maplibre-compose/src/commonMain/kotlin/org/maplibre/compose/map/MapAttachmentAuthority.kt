@@ -95,15 +95,13 @@ internal class MapAttachmentAuthority(
     lifecycle.requireMain()
     if (!lifecycle.acceptsPresentation(adapter)) return null
     val viewport = adapter.getViewport()
-    return run {
-      if (!lifecycle.acceptsPresentation(adapter)) return@run null
-      val current = current ?: return@run null
-      if (viewport != null) {
-        cameraPositionState = viewport.cameraPosition
-        current.updateViewport(viewport)
-      }
-      current
+    if (!lifecycle.acceptsPresentation(adapter)) return null
+    val current = current ?: return null
+    if (viewport != null) {
+      cameraPositionState = viewport.cameraPosition
+      current.updateViewport(viewport)
     }
+    return current
   }
 
   /**
@@ -147,10 +145,8 @@ internal class MapAttachmentAuthority(
     presentedAttachment(adapter)?.abandonCameraChanges()
   }
 
-  private fun presentedAttachment(adapter: MapAdapter): MapAttachment? = run {
-    if (!lifecycle.acceptsPresentation(adapter)) return@run null
-    current
-  }
+  private fun presentedAttachment(adapter: MapAdapter): MapAttachment? =
+    if (lifecycle.acceptsPresentation(adapter)) current else null
 
   internal fun isCurrent(candidate: MapAttachment): Boolean =
     current === candidate && lifecycle.isCurrent(candidate.token, candidate.adapter)
@@ -213,25 +209,20 @@ internal class MapAttachmentAuthority(
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {
     lifecycle.requireMain()
-    val camera = run {
-      if (!lifecycle.isPendingPublication(adapter)) return
-      CameraCommand(adapter, cameraPositionState, cameraCommandRevision)
-    }
-    applyCameraCommand(camera)
+    if (!lifecycle.isPendingPublication(adapter)) return
+    applyCameraCommand(CameraCommand(adapter, cameraPositionState, cameraCommandRevision))
     styleAuthority.configurePendingAdapter(adapter)
   }
 
   internal fun seedPresentationViewport(token: MapPresentationToken, adapter: MapAdapter) {
     lifecycle.requireMain()
     val viewport = adapter.getViewport() ?: return
-    run {
-      val current = current ?: return@run
-      if (current.token != token || current.adapter !== adapter || current.viewport != null) return
-      // The seeded camera can predate a command applied at attach; that command's own camera
-      // event then corrects it through synchronizeCamera.
-      cameraPositionState = viewport.cameraPosition
-      current.updateViewport(viewport)
-    }
+    val current = current ?: return
+    if (current.token != token || current.adapter !== adapter || current.viewport != null) return
+    // The seeded camera can predate a command applied at attach; that command's own camera event
+    // then corrects it through synchronizeCamera.
+    cameraPositionState = viewport.cameraPosition
+    current.updateViewport(viewport)
   }
 
   private fun applyCameraCommand(initial: CameraCommand) {
@@ -239,7 +230,8 @@ internal class MapAttachmentAuthority(
     while (true) {
       if (lifecycle.currentAdapter() !== command.adapter) return
       command.adapter.setCameraPosition(command.value, command.guard)
-      // The adapter can re-enter setCameraPosition synchronously; replay the newest value after.
+      // GL JS fires camera events inside jumpTo, even before this camera applies when it stops an
+      // ease. Code they resume inline can set a newer camera, which this replays.
       if (lifecycle.currentAdapter() !== command.adapter) return
       if (cameraCommandRevision == command.revision) return
       command =
@@ -258,6 +250,7 @@ internal class MapAttachmentAuthority(
     while (true) {
       if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
       command.adapter.setCameraPosition(command.value, guard)
+      // Replays a newer camera set during the call, as in applyCameraCommand.
       if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
       if (cameraCommandRevision == command.revision) return
       command =
@@ -301,10 +294,5 @@ internal class MapAttachmentAuthority(
     val value: CameraPosition,
     val revision: Long,
     val guard: CameraCommandGuard? = null,
-  )
-
-  private data class AttachmentCameraCommand(
-    val attachment: MapAttachment,
-    val command: CameraCommand,
   )
 }

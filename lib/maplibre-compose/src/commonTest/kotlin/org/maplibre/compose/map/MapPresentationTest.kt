@@ -1373,7 +1373,7 @@ class MapPresentationTest {
     val release = CompletableDeferred<Unit>()
     val commit =
       launch(start = CoroutineStart.UNDISPATCHED) {
-        style.requireOwner().resourceCommands.withCommit { release.await() }
+        style.owner.resourceCommands.withCommit { release.await() }
       }
     style.images.setAll(mapOf("a" to image, "b" to image))
     style.images.remove("b")
@@ -1438,8 +1438,8 @@ class MapPresentationTest {
         emptyList(),
       )
     assertTrue(fixture.state.styleAuthority.beginStyleRevision(fixture.adapter, declared))
-    assertNull(style.requireOwner().resourceCommands.sourceDefinition("shared"))
-    assertTrue(style.requireOwner().resourceCommands.sourceIds().isEmpty())
+    assertNull(style.owner.resourceCommands.sourceDefinition("shared"))
+    assertTrue(style.owner.resourceCommands.sourceIds().isEmpty())
     assertFalse("shared" in replacement.sources)
     fixture.close()
   }
@@ -1558,7 +1558,7 @@ class MapPresentationTest {
     try {
       val commit =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          style.requireOwner().resourceCommands.withCommit { release.await() }
+          style.owner.resourceCommands.withCommit { release.await() }
         }
       val lookup = async(start = CoroutineStart.UNDISPATCHED) { style.images["marker"] }
       assertFalse(lookup.isCompleted)
@@ -1635,7 +1635,7 @@ class MapPresentationTest {
       val release = CompletableDeferred<Unit>()
       val commit =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          style.requireOwner().resourceCommands.withCommit { release.await() }
+          style.owner.resourceCommands.withCommit { release.await() }
         }
       block()
       release.complete(Unit)
@@ -1676,7 +1676,7 @@ class MapPresentationTest {
     pending {
       style.images.set("a", prepared(6))
       launch(start = CoroutineStart.UNDISPATCHED) {
-        style.requireOwner().resourceCommands.withCommit {
+        style.owner.resourceCommands.withCommit {
           style.loadState = StyleLoadState.Loading
         }
       }
@@ -1685,7 +1685,7 @@ class MapPresentationTest {
     assertEquals(listOf("set a 7"), binding.imageWrites)
 
     // A batch keeps its IDs when the caller changes the map after submission.
-    val commands = style.requireOwner().resourceCommands
+    val commands = style.owner.resourceCommands
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
     binding.imageWrites.clear()
     pending {
