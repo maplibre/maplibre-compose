@@ -475,9 +475,10 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Empty)
     val abandoned = BoundLifecycleSession()
-    abandoned.lifecycle = state.lifecycle.createBinding(abandoned)
+    abandoned.lifecycle = state.lifecycle.createRetainedEngineLifecycle(abandoned, abandoned)
     val failedCandidate = BoundLifecycleSession(failOnClose = true)
-    failedCandidate.lifecycle = state.lifecycle.createBinding(failedCandidate)
+    failedCandidate.lifecycle =
+      state.lifecycle.createRetainedEngineLifecycle(failedCandidate, failedCandidate)
     failedCandidate.close()
     assertFailsWith<MapCleanupException> { failedCandidate.awaitClosed() }
     state.publishPresentation(state.reservePresentation(), failedCandidate)
@@ -500,7 +501,7 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
 
@@ -519,7 +520,7 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
 
@@ -538,7 +539,7 @@ class MapPresentationTest {
     val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(failOnClose = true, finishCleanup = finishCleanup)
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
@@ -580,7 +581,7 @@ class MapPresentationTest {
     val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishCleanup = finishCleanup)
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
@@ -665,7 +666,7 @@ class MapPresentationTest {
         finishDetach = finishDetach,
         detachStarted = detachStarted,
       )
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
@@ -689,7 +690,7 @@ class MapPresentationTest {
     val finishDetach = CompletableDeferred<Unit>()
     val detachStarted = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishDetach = finishDetach, detachStarted = detachStarted)
-    session.lifecycle = state.lifecycle.createBinding(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
     state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
@@ -2887,15 +2888,15 @@ private class BoundLifecycleSession(
   private val failOnDetach: Boolean = false,
   private val finishDetach: CompletableDeferred<Unit>? = null,
   private val detachStarted: CompletableDeferred<Unit>? = null,
-) : PresentationTestAdapter(), MapLifecyclePlatformAdapter {
-  lateinit var lifecycle: MapLifecycleBinding
+) : PresentationTestAdapter(), RetainedEngineSteps {
+  lateinit var lifecycle: RetainedEngineLifecycle
   val commands = mutableListOf<String>()
 
   override val retainsEngineBetweenPresentations = true
   override val presentationCompatibilityKey: Any = Any()
 
   override val isClosing: Boolean
-    get() = !lifecycle.acceptsWork
+    get() = lifecycle.isClosing
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
     commands += "create"
@@ -2923,7 +2924,7 @@ private class BoundLifecycleSession(
   }
 
   override suspend fun detachPresentation() {
-    lifecycle.detachCurrentPresentation()
+    lifecycle.detach()
   }
 
   override fun close() = lifecycle.close()
