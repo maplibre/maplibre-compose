@@ -204,7 +204,9 @@ runs:
       id: maplibre-gl-js-key
       if: ${{ inputs.maplibre-gl-js-cache == 'true' }}
       shell: bash
-      run: echo "state=$(.mise/bin/build-maplibre-gl-js state)" >> "$GITHUB_OUTPUT"
+      run: |
+        state="$(.mise/bin/build-maplibre-gl-js state)"
+        echo "state=${state}" >> "$GITHUB_OUTPUT"
 
     # A rebuild downloads the Unicode Character Database from unicode.org, which
     # fails often enough to take the build down with it.
