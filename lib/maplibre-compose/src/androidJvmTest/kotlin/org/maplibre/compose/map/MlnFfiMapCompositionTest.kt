@@ -17,6 +17,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,6 +58,7 @@ import kotlin.math.sin
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
@@ -772,6 +775,44 @@ class MlnFfiMapCompositionTest {
 
       presented = false
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+    }
+  }
+
+  @Test
+  fun a_replaced_map_composable_hands_its_state_to_the_replacement() = runFfiComposeUiTest {
+    withTestRuntime(runtimeOptions) { runtime ->
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+      var generation by mutableIntStateOf(0)
+
+      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+        key(generation) { MaplibreMap(state = state) }
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
+      val firstAttachment = requireNotNull(state.currentMapAttachment)
+
+      generation++
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.currentMapAttachment.let { it != null && it !== firstAttachment }
+      }
+
+      assertTrue(!firstAttachment.isValid)
+    }
+  }
+
+  @Test
+  fun two_maps_cannot_present_one_state_at_once() = runFfiComposeUiTest {
+    withTestRuntime(runtimeOptions) { runtime ->
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+
+      val error =
+        assertFailsWith<IllegalStateException> {
+          setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+            MaplibreMap(state = state)
+            MaplibreMap(state = state)
+          }
+          waitForIdle()
+        }
+      assertEquals("The map state already has a presentation", error.message)
     }
   }
 

@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,16 +19,36 @@ import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
 
+/**
+ * Holds one presentation reservation of [state] while this object is remembered.
+ *
+ * It reserves in the apply phase rather than during composition. Compose forgets removed groups
+ * before it remembers new ones, so when a recomposition replaces the group that holds a map, the
+ * old map releases [state] before the new one reserves it. Two maps that stay in composition
+ * together still conflict.
+ */
 private class MapStateAttachment(
   val state: MapState,
-  private val token: MapPresentationToken,
-) {
+  private val owner: MapPresentationOwnerToken,
+) : RememberObserver {
+  private var token: MapPresentationToken? = null
+
+  override fun onRemembered() {
+    token = state.reservePresentation(owner)
+  }
+
+  override fun onForgotten() {
+    release()
+  }
+
+  override fun onAbandoned() = Unit
+
   fun publish(map: MapAdapter) {
-    state.publishPresentation(token, map)
+    state.publishPresentation(checkNotNull(token) { "The map presentation is not reserved" }, map)
   }
 
   fun release(map: MapAdapter? = null) {
-    state.releasePresentation(token, map)
+    token?.let { state.releasePresentation(it, map) }
   }
 
   fun markStyleFailed(map: MapAdapter, reason: String?) {
@@ -55,9 +76,8 @@ internal fun <T> MapPresentationContent(
   options: MapViewOptions,
   content: @Composable (MapPresentationBinding) -> T,
 ): T {
-  val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
-  val attachment = remember(state, token) { MapStateAttachment(state, token) }
-  DisposableEffect(attachment) { onDispose { attachment.release() } }
+  val attachment =
+    remember(state, presentationOwner) { MapStateAttachment(state, presentationOwner) }
   // The dispatcher reads this state directly: a click can arrive between the style binding's
   // invalidation and the recomposition that clears it.
   val rememberedStyleState = remember { mutableStateOf<StyleBinding?>(null) }
