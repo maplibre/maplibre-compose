@@ -4,11 +4,22 @@ package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
@@ -24,6 +35,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberImageSource
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
@@ -61,6 +73,30 @@ fun Images() {
     // #endregion image-source
   }
   MaplibreMap(state = imageState)
+}
+
+@Composable
+fun ImageSourceFrames(corners: PositionQuad, frames: List<ImageBitmap>) {
+  // #region image-source-frames
+  val prepared by
+    produceState(emptyList<PreparedImage>(), frames) {
+      value = withContext(Dispatchers.Default) { frames.map(PreparedImage::fromBitmap) }
+    }
+  var frame by remember { mutableIntStateOf(0) }
+  LaunchedEffect(prepared) {
+    while (prepared.isNotEmpty()) {
+      delay(100.milliseconds)
+      frame = (frame + 1) % prepared.size
+    }
+  }
+  val mapState = rememberMapState {
+    if (prepared.isNotEmpty()) {
+      val image = prepared[frame % prepared.size]
+      RasterLayer(id = "radar", source = rememberImageSource(position = corners, image = image))
+    }
+  }
+  MaplibreMap(state = mapState)
+  // #endregion image-source-frames
 }
 
 @Composable

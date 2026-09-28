@@ -27,7 +27,9 @@ import org.maplibre.compose.layers.indicatorIntersects
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.LayerPropertyKind
+import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.testing.declare
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
@@ -238,7 +240,7 @@ class BrowserLocationIndicatorTest {
           val style = host.loadedBinding as GlJsStyleBinding
           val bitmap = ImageBitmap(24, 24)
           Canvas(bitmap).drawRect(Rect(0f, 0f, 24f, 24f), Paint().apply { color = Color.Red })
-          style.setImage("dot", bitmap, false, null)
+          style.setImage(StyleImageDefinition("dot", PreparedImage.fromBitmap(bitmap), false, null))
           style.addLayer(
             Json.parseToJsonElement(
                 """{
@@ -413,7 +415,7 @@ class BrowserLocationIndicatorTest {
             )
           }
           Canvas(bitmap).drawRect(Rect(0f, 0f, 24f, 24f), Paint().apply { color = Color.Blue })
-          style.setImage("dot", bitmap, false, null)
+          style.setImage(StyleImageDefinition("dot", PreparedImage.fromBitmap(bitmap), false, null))
           host.drawOnce(target)
           assertEquals(2, indicator.uploadCount, "replaced image uploads exactly once")
           assertTrue(

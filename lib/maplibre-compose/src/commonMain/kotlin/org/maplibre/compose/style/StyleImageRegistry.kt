@@ -67,7 +67,7 @@ internal class StyleImageRegistry(
 
   private fun definition(content: ResolvedStyleImage): StyleImageDefinition =
     definitions.getOrPut(content) {
-      StyleImageDefinition(ids.next(), content.pixels, content.sdf, content.stretch)
+      StyleImageDefinition(ids.next(), content.image, content.sdf, content.stretch)
     }
 
   private class Entry {

@@ -26,6 +26,7 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -109,7 +110,7 @@ class DeclaredStyleOwnershipTest {
       val bitmap = ImageBitmap(1, 1)
       lateinit var source: ImageSource
       fixture.declare {
-        source = rememberImageSource(bounds, bitmap)
+        source = rememberImageSource(bounds, PreparedImage.fromBitmap(bitmap))
         RasterLayer("image", source, visible = true)
       }
       val handle = assertNotNull(fixture.state.style.sources[source])

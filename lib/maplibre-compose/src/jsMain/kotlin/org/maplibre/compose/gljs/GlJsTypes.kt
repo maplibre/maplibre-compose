@@ -5,6 +5,7 @@ import js.typedarrays.Uint8Array
 import kotlin.js.Date
 import kotlin.js.Promise
 import web.html.HTMLElement
+import web.images.ImageData
 
 // The hand-written subset of MapLibre GL JS this platform binds against; GlJsDeclarationsTest
 // checks it against the loaded MapLibre version.
@@ -139,8 +140,10 @@ internal external interface GlJsImageSource : SourceHandle {
   fun updateImage(options: UpdateImageOptions)
 }
 
+/** Set exactly one of [url] and [image]. */
 internal external interface UpdateImageOptions {
   var url: String
+  var image: ImageData
 }
 
 internal external interface PaddingOptions {

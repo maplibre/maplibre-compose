@@ -1,6 +1,5 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpRect
 import js.objects.unsafeJso
 import kotlin.time.Duration
@@ -59,10 +58,9 @@ import org.maplibre.compose.sources.featureIdentifiers
 import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
-import org.maplibre.compose.util.toDataUrl
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.toFeatureCollection
 import org.maplibre.compose.util.toGeoJsonFeature
-import org.maplibre.compose.util.toGlJsImage
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -86,6 +84,12 @@ internal class GlJsStyleBinding(
 
   private val indicators = mutableMapOf<String, GlJsLocationIndicator>()
   private val indicatorImages = mutableMapOf<String, IndicatorImage>()
+
+  /**
+   * The latest pixels of each image source that has no URL. GL JS recovers a lost context by
+   * serializing the style, which keeps only an image source's URL, so these are applied again.
+   */
+  private val imageSourceImages = mutableMapOf<String, PreparedImage>()
 
   internal fun indicator(id: String): GlJsLocationIndicator? = indicators[id]
 
@@ -138,6 +142,7 @@ internal class GlJsStyleBinding(
 
   // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer
   // positions before it destroys the style, then reattach them after the restored style loads.
+  // Image sources come back without their pixels, which are applied again the same way.
   private var layerOrder = map.getLayersOrder().toList()
   private var restoringContext = false
   private val orderChanges =
@@ -161,6 +166,7 @@ internal class GlJsStyleBinding(
           if (map.getLayer(id) != null) before = id
         }
         layerOrder = map.getLayersOrder().toList()
+        imageSourceImages.forEach { (id, image) -> updateImageSource(id, image) }
         map.triggerRepaint()
       }
     }
@@ -174,6 +180,7 @@ internal class GlJsStyleBinding(
     indicators.values.forEach { it.close() }
     indicators.clear()
     indicatorImages.clear()
+    imageSourceImages.clear()
     orderChanges.cancel()
     contextLost.cancel()
     contextStyleLoaded.cancel()
@@ -208,10 +215,10 @@ internal class GlJsStyleBinding(
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
     requireLoaded()
-    val (id, snapshot, sdf, stretch) = definition
+    val (id, image, sdf, stretch) = definition
     val scale = getScale()
-    val pixels = snapshot.toGlJsImage()
-    val stretchPx = stretch?.resolve(snapshot.width, snapshot.height, scale)
+    val pixels = image.pixels.styleImageData()
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     val metadata =
       unsafeJso<StyleImageMetadata> {
         pixelRatio = scale.toDouble()
@@ -343,6 +350,7 @@ internal class GlJsStyleBinding(
   override fun removeSource(sourceId: String) {
     requireLoaded()
     mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
+    imageSourceImages.remove(sourceId)
     pendingCustomGeometryReloads.remove(sourceId)
     customVectorAttachments.remove(sourceId)?.close()
     customGeometryAttachments.remove(sourceId)?.close()
@@ -438,17 +446,19 @@ internal class GlJsStyleBinding(
     return map.getSource<SourceHandle>(sourceId) != null
   }
 
-  /** MapLibre GL JS names images by URL, so the bitmap is encoded to a `data:` URL. */
+  /**
+   * Adds the source without a URL and gives it the pixels in the same task, so no frame renders it
+   * empty.
+   */
   override fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
-    image: ImageBitmap,
-  ): Boolean =
+    image: PreparedImage,
+  ): Boolean {
     addSource(
       sourceId,
       buildJsonObject {
         put("type", "image")
-        put("url", image.toDataUrl())
         putJsonArray("coordinates") {
           coordinates.forEach { corner ->
             addJsonArray {
@@ -459,14 +469,31 @@ internal class GlJsStyleBinding(
         }
       },
     )
+    imageSourceImages[sourceId] = image
+    if (!updateImageSource(sourceId, image)) {
+      imageSourceImages.remove(sourceId)
+      throw StyleMutationException("MapLibre did not add image source '$sourceId'", null)
+    }
+    return true
+  }
 
-  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit {
-    val url = image.toDataUrl()
-    return { setImageSourceUrl(sourceId, url) }
+  /** GL JS shows the pixels at once, cancelling a URL that is still loading. */
+  override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
+    requireLoaded()
+    imageSourceImages[sourceId] = image
+    updateImageSource(sourceId, image)
+  }
+
+  /** @return false if the style has no source with [sourceId]. */
+  private fun updateImageSource(sourceId: String, image: PreparedImage): Boolean {
+    val source = map.getSource<GlJsImageSource>(sourceId) ?: return false
+    source.updateImage(unsafeJso { this.image = image.pixels.imageData() })
+    return true
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
     requireLoaded()
+    imageSourceImages.remove(sourceId)
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
     map.getSource<GlJsImageSource>(sourceId)?.updateImage(options)
   }

@@ -90,6 +90,7 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.positions
@@ -504,8 +505,11 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
-      override fun <T> run(action: () -> T): T =
-        owner?.runStyleHandleOperation(style, action) ?: action()
+      // An action may return null, so only a missing owner runs it unguarded.
+      override fun <T> run(action: () -> T): T {
+        val owner = owner ?: return action()
+        return owner.runStyleHandleOperation(style, action)
+      }
 
       override fun isSourceWritable(id: String): Boolean = owner?.isSourceWritable(id) == true
 
@@ -887,8 +891,10 @@ internal constructor(
    * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
    * base style reloads or the resolver is replaced.
    *
-   * The resolver is called on the main thread. Replacing or clearing this property does not cancel
-   * calls already running.
+   * The resolver is called on the main thread. [PreparedImage.fromBitmap] converts every pixel on
+   * its calling thread, so call it for a large image with `withContext(Dispatchers.Default)`. On
+   * MapLibre Native, [ResolvedStyleImage.fromPainter] already converts off the main thread.
+   * Replacing or clearing this property does not cancel calls already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver

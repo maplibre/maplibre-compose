@@ -38,10 +38,18 @@ internal class FakeSnapshotterAdapter(
   override suspend fun close() = close.invoke()
 }
 
-internal class FakeImageBitmap(override val width: Int, override val height: Int) : ImageBitmap {
+/** Reads as transparent black, or as [pixels] in straight-alpha ARGB when given. */
+internal class FakeImageBitmap(
+  override val width: Int,
+  override val height: Int,
+  private val pixels: IntArray? = null,
+) : ImageBitmap {
   override val colorSpace: ColorSpace = ColorSpaces.Srgb
   override val hasAlpha: Boolean = true
   override val config: ImageBitmapConfig = ImageBitmapConfig.Argb8888
+
+  var reads = 0
+    private set
 
   override fun readPixels(
     buffer: IntArray,
@@ -51,7 +59,15 @@ internal class FakeImageBitmap(override val width: Int, override val height: Int
     height: Int,
     bufferOffset: Int,
     stride: Int,
-  ) = Unit
+  ) {
+    reads++
+    val pixels = pixels ?: return
+    for (y in 0 until height) {
+      for (x in 0 until width) {
+        buffer[bufferOffset + y * stride + x] = pixels[(startY + y) * this.width + startX + x]
+      }
+    }
+  }
 
   override fun prepareToDraw() = Unit
 }

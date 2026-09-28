@@ -1,12 +1,12 @@
 package org.maplibre.compose.sources
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -176,8 +176,9 @@ public sealed interface ImageSourceHandle : SourceHandle {
 }
 
 /**
- * Definition writes and removal for an image source. Native image and bounds updates return without
- * waiting for the engine. Rejected writes are logged and retain the previous value.
+ * Definition writes and removal for an image source. Image, URI, and bounds writes return without
+ * waiting for the engine and apply in call order. Rejected writes are logged and retain the
+ * previous value.
  */
 public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSourceHandle {
   /**
@@ -188,11 +189,13 @@ public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSou
   public fun setBounds(bounds: PositionQuad): Unit
 
   /**
-   * Replaces the source image with [image].
+   * Queues [image] as the source's content. This returns without reading or converting pixels, so
+   * prepare [image] with [PreparedImage.fromBitmap] beforehand, off the main thread for animation
+   * frames.
    *
    * @throws StyleHandleException if style content declares this source.
    */
-  public fun setImage(image: ImageBitmap): Unit
+  public fun setImage(image: PreparedImage): Unit
 
   /**
    * Replaces the source image URI with [uri].

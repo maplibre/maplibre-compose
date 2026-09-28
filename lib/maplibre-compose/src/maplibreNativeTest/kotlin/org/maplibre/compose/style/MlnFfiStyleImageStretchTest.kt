@@ -9,6 +9,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.nativeffi.style.ImageContent
 import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
 
@@ -24,15 +25,17 @@ class MlnFfiStyleImageStretchTest {
         assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.setImage(
-        IMAGE_ID,
-        ImageBitmap(140, 120),
-        sdf = false,
-        stretch =
-          ImageStretch(
-            x = listOf(12.5.dp..27.5.dp, 42.5.dp..57.5.dp),
-            y = listOf(12.5.dp..50.dp),
-            content = DpRect(12.5.dp, 12.5.dp, 57.5.dp, 50.dp),
-          ),
+        StyleImageDefinition(
+          IMAGE_ID,
+          PreparedImage.fromBitmap(ImageBitmap(140, 120)),
+          sdf = false,
+          stretch =
+            ImageStretch(
+              x = listOf(12.5.dp..27.5.dp, 42.5.dp..57.5.dp),
+              y = listOf(12.5.dp..50.dp),
+              content = DpRect(12.5.dp, 12.5.dp, 57.5.dp, 50.dp),
+            ),
+        )
       )
 
       val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")

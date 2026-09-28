@@ -18,6 +18,7 @@ import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.missingIconStyle
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 /** Both engines ask [MapState.missingImageResolver] for an image that the style draws and lacks. */
@@ -51,7 +52,7 @@ class MissingImageResolverTest {
       val requests = RecordingList<String>()
       fixture.state.missingImageResolver = { id ->
         requests += id
-        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
+        ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
       val style = assertNotNull(fixture.style)
@@ -77,7 +78,7 @@ class MissingImageResolverTest {
       val requests = RecordingList<String>()
       fixture.state.missingImageResolver = { id ->
         requests += id
-        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
+        ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
@@ -123,7 +124,7 @@ class MissingImageResolverTest {
 
       fixture.state.missingImageResolver = { id ->
         supplied += id
-        ResolvedStyleImage.fromBitmap(ImageBitmap(1, 1))
+        ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
       // Each engine asks once per tile parse, so a new zoom is what puts the request in front of
       // the replacement resolver.

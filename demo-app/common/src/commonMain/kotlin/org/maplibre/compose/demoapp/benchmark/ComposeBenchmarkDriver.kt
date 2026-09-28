@@ -23,6 +23,7 @@ import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.compose.util.PreparedImage
 
 /**
  * The Compose host of the shared workloads. Only this adapter knows whether a workload step is a
@@ -195,7 +196,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   override suspend fun prepareImage(index: Int) {
     state.style.images.set(
       "workload-image",
-      ResolvedStyleImage.fromBitmap(resources.bitmaps[index]),
+      ResolvedStyleImage(PreparedImage.fromBitmap(resources.bitmaps[index])),
     )
   }
 

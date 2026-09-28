@@ -1,11 +1,9 @@
 package org.maplibre.compose.sources
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -13,6 +11,7 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.util.PositionQuad
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -285,11 +284,8 @@ internal constructor(
     }
   }
 
-  internal fun setImage(image: ImageBitmap) {
-    operation {
-      val update = style.prepareImageSourceUpdate(id, ImageSnapshot.capture(image))
-      definitionOperation(update)
-    }
+  internal fun setImage(image: PreparedImage) {
+    definitionOperation { style.setImageSourceImage(id, image) }
   }
 
   internal fun setUri(uri: String) {
@@ -415,7 +411,7 @@ private class MutableImageSourceHandleImpl(val source: ImageSourceHandleImpl) :
   MutableImageSourceHandle, ImageSourceHandle by source {
   override fun setBounds(bounds: PositionQuad) = source.setBounds(bounds)
 
-  override fun setImage(image: ImageBitmap) = source.setImage(image)
+  override fun setImage(image: PreparedImage) = source.setImage(image)
 
   override fun setUri(uri: String) = source.setUri(uri)
 

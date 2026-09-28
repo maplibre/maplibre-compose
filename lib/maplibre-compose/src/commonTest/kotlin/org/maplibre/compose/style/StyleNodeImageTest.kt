@@ -34,6 +34,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.PreparedImage
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StyleNodeImageTest {
@@ -172,7 +173,7 @@ class StyleNodeImageTest {
     revision.layers.first().definition.value["paint"] as JsonObject
 
   private fun content(width: Int) =
-    ResolvedStyleImage(ImageSnapshot.capture(FakeImageBitmap(width, 1)), false, null)
+    ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(width, 1)), false, null)
 
   private fun painter(color: Color) =
     StyleImageRequest.Painter(

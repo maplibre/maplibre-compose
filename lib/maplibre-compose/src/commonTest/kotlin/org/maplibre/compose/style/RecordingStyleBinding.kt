@@ -19,6 +19,7 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.reconstructedSource
+import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -57,7 +58,7 @@ internal class RecordingStyleBinding(
   /** Every [setLayerProperties] batch, for batching assertions. */
   val layerPropertyBatches: MutableList<List<LayerPropertyWrite>> = mutableListOf()
   private val images =
-    images.associate { (id, bitmap) -> id to ImageSnapshot.capture(bitmap) }.toMutableMap()
+    images.associate { (id, bitmap) -> id to PreparedImage.fromBitmap(bitmap) }.toMutableMap()
   override val baseSources = sources.associateBy { it.id }
   private val sourceObjects = baseSources.toMutableMap()
   override val baseLayers = layers.map { it.definition().summary() }
@@ -82,6 +83,15 @@ internal class RecordingStyleBinding(
 
   /** Every [setImage] and [removeImage] that reached this engine, in order. */
   val imageWrites: MutableList<String> = mutableListOf()
+
+  /** The pixels each image source was added with. */
+  val addedImageSourceImages: MutableMap<String, PreparedImage> = mutableMapOf()
+
+  /**
+   * Every image source write after installation, in order, as source ID to the value written: a
+   * [PreparedImage], a URL, or a list of corners.
+   */
+  val imageSourceWrites: MutableList<Pair<String, Any>> = mutableListOf()
 
   var customVectorProvider: VectorTileProvider? = null
     private set
@@ -158,17 +168,24 @@ internal class RecordingStyleBinding(
   override fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
-    image: ImageBitmap,
+    image: PreparedImage,
   ): Boolean {
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("image")))
+    addedImageSourceImages[sourceId] = image
     return true
   }
 
-  override fun prepareImageSourceUpdate(sourceId: String, image: ImageSnapshot): () -> Unit = {}
+  override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
+    imageSourceWrites += sourceId to image
+  }
 
-  override fun setImageSourceUrl(sourceId: String, url: String) = Unit
+  override fun setImageSourceUrl(sourceId: String, url: String) {
+    imageSourceWrites += sourceId to url
+  }
 
-  override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
+  override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
+    imageSourceWrites += sourceId to coordinates
+  }
 
   /** The GeoJSON data each install applied, in order, keyed by source. */
   val installedGeoJson: MutableMap<String, MutableList<GeoJsonData>> = mutableMapOf()
