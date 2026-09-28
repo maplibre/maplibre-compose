@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import org.maplibre.compose.style.renderPainter
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
-import org.maplibre.compose.util.prepareRenderedImage
+import org.maplibre.compose.util.prepareInEngineContext
 
 /**
  * Supplies the image that the engine asks for by id, or null when the resolver has none.
@@ -73,7 +73,7 @@ public class ResolvedStyleImage(
     ): ResolvedStyleImage = withImageGraphicsContext { graphicsContext ->
       ResolvedStyleImage(
         image =
-          prepareRenderedImage(
+          prepareInEngineContext(
             renderPainter(
               painter,
               graphicsContext,

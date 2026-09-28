@@ -59,11 +59,11 @@ public class PreparedImage internal constructor(internal val pixels: EnginePixel
 }
 
 /**
- * Prepares a bitmap that the library rendered. Its pixels are read on the calling thread, which
- * renders painters (the main thread on Android), and converted in [enginePixelsContext], so
- * rendering never pays for the conversion.
+ * Prepares a bitmap for the library's own images: rendered painters and declared bitmap literals.
+ * Its pixels are read on the calling thread, which may be the main thread, and converted in
+ * [enginePixelsContext], so the caller never pays for the conversion.
  */
-internal suspend fun prepareRenderedImage(bitmap: ImageBitmap): PreparedImage {
+internal suspend fun prepareInEngineContext(bitmap: ImageBitmap): PreparedImage {
   val read = bitmap.readStraightArgb()
   return withContext(enginePixelsContext) {
     PreparedImage(enginePixels(read.width, read.height, read.argb))
@@ -92,7 +92,7 @@ internal expect class EnginePixels {
 internal expect fun enginePixels(width: Int, height: Int, straightArgb: IntArray): EnginePixels
 
 /**
- * Where the library converts pixels it rendered itself: off the rendering thread where the platform
- * has other threads, and in place in the browser, where a dispatch would only delay the work.
+ * Where [prepareInEngineContext] converts pixels: off the calling thread where the platform has
+ * other threads, and in place in the browser, where a dispatch would only delay the work.
  */
 internal expect val enginePixelsContext: CoroutineContext

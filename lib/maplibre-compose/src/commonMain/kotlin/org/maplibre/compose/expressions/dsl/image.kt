@@ -54,7 +54,11 @@ public fun image(value: String): Expression<ImageValue?> = image(const(value))
  *
  * The [ImageBitmap] will be registered with the style when it's referenced by a layer, and
  * unregistered from the style if it's no longer referenced by any layer. An ID referencing the
- * bitmap will be generated automatically and inserted into the expression.
+ * bitmap will be generated automatically and inserted into the expression. The pixels are copied
+ * shortly after composition, so do not draw into the bitmap after passing it here; on MapLibre
+ * Native they are then converted off the main thread. A new layer property stays unset until its
+ * bitmaps are ready. When replacing an existing property, its previous value stays visible until
+ * the replacement bitmaps are ready.
  *
  * @param isSdf Should be set to true if the bitmap is a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)

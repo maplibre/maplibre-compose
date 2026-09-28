@@ -8,10 +8,13 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.ResolvedStyleImage
 
-/** Shared image preparation, confined to the composition apply dispatcher. */
+/**
+ * Shared image preparation, confined to the composition apply dispatcher. Every request prepares in
+ * its own job, so a layer publishes without an image until that image is ready.
+ */
 internal class StyleImageRegistry(
   private val scope: CoroutineScope,
-  private val preparePainter: suspend (StyleImageRequest.Painter) -> ResolvedStyleImage,
+  private val prepare: suspend (StyleImageRequest) -> ResolvedStyleImage,
   private val changed: () -> Unit,
 ) {
   private val entries = mutableMapOf<StyleImageRequest, Entry>()
@@ -33,20 +36,15 @@ internal class StyleImageRegistry(
       if (request in entries) return@forEach
       val entry = Entry()
       entries[request] = entry
-      when (request) {
-        is StyleImageRequest.Bitmap -> entry.definition = definition(request.prepare())
-        is StyleImageRequest.Painter -> {
-          val job =
-            scope.launch(start = CoroutineStart.LAZY) {
-              val content = preparePainter(request)
-              currentCoroutineContext().ensureActive()
-              entry.definition = definition(content)
-              changed()
-            }
-          entry.job = job
-          starts += job
+      val job =
+        scope.launch(start = CoroutineStart.LAZY) {
+          val content = prepare(request)
+          currentCoroutineContext().ensureActive()
+          entry.definition = definition(content)
+          changed()
         }
-      }
+      entry.job = job
+      starts += job
     }
     // Publish callbacks may run inline. Every request must exist before any worker starts.
     starts.forEach { it.start() }

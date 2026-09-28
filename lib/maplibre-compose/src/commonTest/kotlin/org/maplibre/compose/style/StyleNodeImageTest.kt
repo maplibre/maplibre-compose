@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ImageValue
@@ -48,7 +49,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         backgroundScope,
-        preparePainter = { request ->
+        prepareImage = { request ->
           if (request == replacement) ready.await()
           content(if (request == replacement) 2 else 1)
         },
@@ -98,7 +99,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
-        preparePainter = { content(1) },
+        prepareImage = { content(1) },
         publish = { revisions += it },
       )
     try {
@@ -126,7 +127,7 @@ class StyleNodeImageTest {
       StyleNode(
         RecordingStyleBinding(),
         backgroundScope,
-        preparePainter = {
+        prepareImage = {
           started++
           try {
             awaitCancellation()
@@ -152,6 +153,28 @@ class StyleNodeImageTest {
     root.close()
     runCurrent()
     assertEquals(2, cancelled)
+  }
+
+  @Test
+  fun bitmap_literals_are_read_in_the_image_scope_not_during_commit() = runTest {
+    val bitmap = FakeImageBitmap(2, 1)
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { snapshots += it })
+    root.children +=
+      imageLayer("bitmap", StyleImageRequest.Bitmap(BitmapLiteral.of(bitmap, false, null)))
+    root.commit()
+
+    val pending = snapshots.last()
+    assertEquals(0, bitmap.reads)
+    assertTrue(pending.imagesPending)
+    assertEquals(
+      null,
+      (pending.layers.single().definition.value["paint"] as? JsonObject)?.get("fill-pattern"),
+    )
+
+    runCurrent()
+    assertEquals(1, bitmap.reads)
+    root.close()
   }
 
   private fun imageLayer(id: String, request: StyleImageRequest, source: Source? = null) =
