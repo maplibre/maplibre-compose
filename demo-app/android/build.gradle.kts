@@ -2,10 +2,12 @@ plugins {
   id("module-conventions")
   id(libs.plugins.android.application.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
+  id(libs.plugins.android.composeScreenshot.get().pluginId)
 }
 
 android {
   namespace = "org.maplibre.compose.demoapp"
+  experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
   defaultConfig {
     applicationId = "org.maplibre.compose.demoapp"
@@ -43,6 +45,7 @@ dependencies {
   implementation(project(":demo-app:common"))
   implementation(libs.androidx.activity.compose)
   implementation(libs.jetbrains.compose.ui.tooling)
+  screenshotTestImplementation(libs.android.screenshotValidationApi)
 
   runtimeOnly(project(":lib:maplibre-compose-runtime-$androidBackend-android"))
 }

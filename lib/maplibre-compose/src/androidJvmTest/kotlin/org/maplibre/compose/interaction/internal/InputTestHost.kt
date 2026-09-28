@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
-import org.maplibre.compose.map.UnconfinedTestMain
+import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
 internal const val RECOGNITION_MAP_TAG = "recognition-map"
@@ -44,7 +44,7 @@ internal expect fun assumeTrackpadEventInjectionSupported()
  * A gesture fixture for a Compose UI test. The harness composes and delivers input on one thread
  * and runs the test on another, so no single thread owns the map, and confinement is off.
  */
-internal fun composeGestureFixture(): GestureTestFixture = GestureTestFixture(UnconfinedTestMain)
+internal fun composeGestureFixture(): GestureTestFixture = GestureTestFixture(UnconfinedMain)
 
 const val TIMEOUT = 5_000L
 const val FRAME_MILLIS = 16L

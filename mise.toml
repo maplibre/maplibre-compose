@@ -141,8 +141,9 @@ run = "./gradlew lint"
 [tasks."test:android"]
 description = "Run the Android host (JVM) test suite."
 # One task name per Android plugin: the demo app is a com.android.application,
-# the library modules use the KMP Android plugin. Either alone covers half.
-run = "./gradlew testDebugUnitTest testAndroidHostTest"
+# the library modules use the KMP Android plugin. Either alone covers half. The
+# demo app also renders map previews the way Android Studio does.
+run = "./gradlew testDebugUnitTest testAndroidHostTest validateDebugScreenshotTest"
 
 [tasks."test:publishing"]
 description = "Publish the full project to an isolated local Maven repository."
