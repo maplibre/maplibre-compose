@@ -1,316 +1,92 @@
 # Contributing
 
-## Clone the repo
-
-```bash
-git clone https://github.com/maplibre/maplibre-compose.git
-```
-
-## Find or file an issue to work on
-
-If you're looking to add a feature or fix a bug and there's no issue filed yet,
-it's good to
-[file an issue](https://github.com/maplibre/maplibre-compose/issues/new/choose)
-first to have a discussion about the change before you start working on it.
-
-If you're new and looking for things to contribute, see our
-[good first issue](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22)
-label. These issues are usually ready to work on and don't require deep
-knowledge of the library's internals.
-
-If you have particular knowledge of MapLibre, Android, iOS, or anything else
-relevant, see the
+For a feature or a bug fix without an issue,
+[file one](https://github.com/maplibre/maplibre-compose/issues/new/choose) first
+to discuss the change. New contributors can start with
+[good first issues](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22);
 [help wanted](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)
-label. These are issues that need input or guidance from folks with deeper
-expertise on some topic.
-
-## Note on AI usage
+issues need MapLibre, Android, iOS, or other expertise.
 
 If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
-## Set up your development environment
+## Set up
 
-### Mise
+Install [mise](https://mise.jdx.dev/getting-started.html) and run `mise install`
+for the tool versions CI uses. `mise tasks` lists every task, and CI runs the
+same tasks, so a local failure reproduces with the command the job ran.
 
-This project uses [mise](https://mise.jdx.dev/) to manage its development
-environment.
+Use IntelliJ IDEA or Android Studio with the
+[Kotlin Multiplatform](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform),
+[Android](https://plugins.jetbrains.com/plugin/22989-android), and
+[Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
+plugins; Kotlin Multiplatform has no stable LSP.
 
-#### Option 1: use mise (recommended)
+Some tools stay outside `mise install`:
 
-1. Install mise if you haven't already:
-   https://mise.jdx.dev/getting-started.html.
-2. Run `mise install` in the project root to install all required tools.
-3. Still read the rest of the guide, because not all tools are managed by mise.
+- **Android SDK:** point `sdk.dir` in `local.properties` at an existing SDK and
+  run `mise run android-sdk-packages`. Without one, `mise -E android install`
+  installs the pinned SDK in a separate environment, because installing SDK
+  packages accepts their licenses; run Android tasks with `MISE_ENV=android`.
+- **Xcode:** `mise run install-xcode`. It is several gigabytes, so
+  `mise install` only fetches the `xcodes` CLI that manages it.
+- **Vulkan:** the desktop tests drive a real GPU through a headless Vulkan
+  device and fail on a host without one. macOS gets MoltenVK through LWJGL.
 
-`mise install` gives you the versions CI uses. `mise.toml` pins every tool and
-`mise.lock` records a checksum per platform.
+Desktop uses the published
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
+bindings, so it needs no C++ toolchain. The browser embeds a patched MapLibre GL
+JS that Gradle builds automatically; see the
+[patch workflow](patches/maplibre-gl-js/README.md) to change it. The
+[benchmark guide](benchmarks/README.md) covers performance measurements.
 
-`mise tasks` lists every task. CI runs these same tasks, so a green
-`mise run check` locally means the same thing as a green CI job.
+## Check changes by hand
 
-The [benchmark guide](benchmarks/README.md) covers repeatable map performance
-measurements, comparisons with the classic SDKs, and publishing to the
-documentation site's benchmarks page.
+CI tests the AWT desktop host. For desktop bridge changes, also run
+`demo:desktop` and `demo:desktop-nucleus` with each backend and check resize,
+zoom, pan, and window closure.
 
-#### Option 2: manual setup
-
-If you prefer not to use mise, check `mise.toml` for the list of required tools
-and versions, then install them manually.
-
-### Kotlin Multiplatform
-
-Check out
-[the official instructions](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-setup.html)
-for setting up a Kotlin Multiplatform environment.
-
-### IDE
-
-As there's no stable LSP for Kotlin Multiplatform, you'll want to use either
-IntelliJ IDEA or Android Studio for developing MapLibre Compose. In addition to
-the IDE, you'll need some plugins:
-
-- [Kotlin Multiplatform](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform)
-- [Android](https://plugins.jetbrains.com/plugin/22989-android)
-- [Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
-
-### Browser engine
-
-The browser uses a patched MapLibre GL JS build embedded in the Kotlin library.
-Gradle prepares it automatically for JS tasks through
-`mise run build:maplibre-gl-js`. See
-[the patch workflow](patches/maplibre-gl-js/README.md) to change the upstream
-pin, add a patch, or test the published artifact. Application developers do not
-need this source checkout or its build tools.
-
-### Building for Android
-
-If you already have an SDK, from Android Studio or elsewhere, point Gradle at it
-with a `local.properties` in the root of the project:
-
-```properties
-# Replace the path with the actual path on your machine
-sdk.dir=/Users/username/Library/Android/sdk
-```
-
-`mise run android-sdk-packages` adds the packages the build needs to it.
-
-For a machine with no SDK, mise pins one. It is a separate environment because
-installing an SDK package accepts its license:
-
-```bash
-mise -E android install
-```
-
-Run Android builds in that environment, as
-`MISE_ENV=android mise run test:android`. Set `MISE_ENV=android` in your shell
-to use it for the session.
-
-### Building for Apple platforms
-
-Building for Apple platforms needs Xcode. `mise install` fetches only the
-`xcodes` CLI that manages it, because Xcode itself is several gigabytes. Ask for
-Xcode explicitly:
-
-```bash
-mise run install-xcode
-```
-
-If installing manually, use the version named in the
-[`.xcode-version`](.xcode-version) file.
-
-### Building for Desktop
-
-Desktop consumes the published
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
-Multiplatform bindings. Unlike a source build of MapLibre Native, it needs no
-C++ toolchain, CMake, or vendored checkout. The demo and packaging tasks compile
-MapLibre Native's n-gon layer plugin, four source files, with Zig and Node from
-mise; `mise run deps:ngon-plugin` runs that step alone. Zig 0.16.0 segfaults
-when compiling that plugin on Windows ARM64, so that host packages the demo
-without hexbins. Git Bash on those runners often reports `x86_64`; the skip keys
-off `PROCESSOR_ARCHITECTURE` instead.
-
-The desktop tests drive a real GPU through a headless Vulkan device. On macOS
-the test runtime supplies MoltenVK through LWJGL, and CI installs a software
-Vulkan driver on Linux and Windows. A host with no usable Vulkan implementation
-fails these tests rather than skipping them.
-
-`mise run build:desktop-app` packages a host installer: an AppImage on Linux, a
-DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
-`appimagetool` and does not need fakeroot or dpkg. The Linux task also writes a
-`.tar` next to the AppImage so the CI artifact keeps the execute bit.
-
-### Building for native macOS
-
-On an Apple Silicon Mac, run `mise run test:macos` for the native tests and
-`mise run build:macos-app` to package the demo at
-`demo-app/macos/build/MapLibreCompose.app`.
-
-## Run the demo
-
-Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
-launch on iOS. Every other host has a task:
-
-- Android: `mise run demo:android`
-- Android Auto: `mise run demo:android-auto` (see setup below)
-- CarPlay: `mise run demo:ios`, then connect a CarPlay display (see setup below)
-- Android TV: `mise run demo:android-tv`, on a TV or on the emulator that
-  `mise run android-emulator:boot --tv` starts
-- Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
-  `mise run android-emulator:boot --wear 36.1` starts
-- Desktop: `mise run demo:desktop`
-- Native macOS (Apple Silicon): `mise run demo:macos`
-- Web: `mise run demo:js`; open `/?ferries` for the Compose HTML ferry departure
-  board
-- Desktop on the Nucleus Tao host instead of the AWT one:
-  `mise run demo:desktop-nucleus`
-
-The desktop demos and test suite take `--backend <name>` to package a different
-Map render backend than the platform default, as in
-`mise run demo:desktop -- --backend=opengl`. It passes the
-`maplibre.desktop.backend` Gradle property, which swaps the packaged
-`maplibre-compose-runtime-*` artifact.
-
-`mise run test:desktop:all` runs every supported backend and saves its reports
-under `build/desktop-backends/<backend>/`. For bridge changes, also run both
-desktop demos with each backend and check resize, zoom, pan, and window closure.
-macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
-`vulkan` and `opengl`.
-
-CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
+The browser demo serves a Compose HTML ferry departure board at `/?ferries`.
 
 ### Android Auto
 
-The `demo-app/android-auto` app uses the Car App Library to display a Protomaps
-map with pan, zoom, recenter, and attribution controls. It renders into the
-host's Surface. It needs an Android Auto host supporting Car API 7 or newer.
-
-For the
+`mise run demo:android-auto` needs the
 [Desktop Head Unit](https://developer.android.com/training/cars/testing/dhu):
 
-1. Install and update Android Auto on a connected phone. Enable its developer
+1. On a connected phone, install and update Android Auto, enable its developer
    mode, allow unknown sources, and start the head unit server from its
    developer menu.
 2. Install **Android Auto Desktop Head Unit Emulator** from Android Studio's SDK
    Tools, or run `sdkmanager 'extras;google;auto'`.
-3. Run `mise run demo:android-auto`. The task installs the app, forwards the
-   head unit server port, and launches the Desktop Head Unit. Select
-   **MapLibre** in the car launcher.
+3. Run the task and select **MapLibre** in the car launcher.
 
-Use `--install-only` to install for a physical head unit without starting the
-Desktop Head Unit. The demo supports `--backend vulkan`, like the phone demo.
-Check map rendering, pan/zoom, recentering, day/night mode, window resizing, and
-reconnecting the host when changing Surface integration.
+For Surface integration changes, check map rendering, pan/zoom, recentering,
+day/night mode, window resizing, and reconnecting the host.
 
 ### CarPlay
 
-The iOS app includes a CarPlay scene with the same map and controls as Android
-Auto. Kotlin owns the map state and `MaplibreMapView`; Swift connects the view
-to CarPlay's window and forwards template actions and scene lifecycle events.
+Run `mise run demo:ios`, choose **I/O > External Displays > CarPlay** in
+Simulator, and open **maplibre-compose-demo** in the car launcher. Check map
+rendering, pan/zoom, recentering, day/night mode, and reconnecting the CarPlay
+display while the phone app stays open.
 
-Run `mise run demo:ios`, then choose **I/O > External Displays > CarPlay** in
-Simulator. Open **maplibre-compose-demo** in the car launcher. Check map
-rendering, pan/zoom, recentering, day/night mode, and disconnecting and
-reconnecting the CarPlay display while the phone app remains open.
+Only simulator builds carry the CarPlay maps entitlement. A physical CarPlay
+connection needs Apple's
+[CarPlay entitlement approval](https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements),
+a matching provisioning profile, and `CODE_SIGN_ENTITLEMENTS` set to
+`iosApp/CarPlay.entitlements` for the device SDK.
 
-The project enables the CarPlay maps entitlement for simulator builds. A
-physical CarPlay connection requires Apple's
-[CarPlay entitlement approval](https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements)
-and a matching provisioning profile. After configuring signing for an approved
-app identifier, set `CODE_SIGN_ENTITLEMENTS` to `iosApp/CarPlay.entitlements`
-for the device SDK too. Ordinary phone builds do not require this entitlement.
+## Documentation and versions
 
-### Wear OS
+Build the site with `mise run build:docs` or serve it with `mise run //docs:dev`
+rather than calling Astro or Gradle directly. The tasks pass versions derived
+from Git tags, which the site quotes as dependency coordinates; Gradle alone
+uses the `0.0.0` placeholders from `gradle.properties`.
 
-The watch demo is a Protomaps map with one edge button that opens map credits.
-Drag to pan, pinch or turn the crown to zoom. It uses Wear Compose controls and
-does not load the phone demo's gallery or settings.
-
-## Run the tests
-
-CI runs these same tasks, so you can reproduce a failure with the command the
-job ran:
-
-- `mise run test:android` — Android host (JVM) suite
-- `mise run test:android:device [api-level]` — instrumented suite
-- `mise run test:ios`
-- `mise run test:js`
-- `mise run test:desktop` (one selected backend)
-- `mise run test:desktop:all` (every supported backend on this OS)
-
-The device suites bring their own device. `test:android:device` boots a headless
-emulator for the API level you name, and installs the emulator and system image
-on first use. If a session install hangs, the task reboots the emulator and
-retries once. `test:ios` boots an iPhone simulator and runs against it.
-
-You can drive the emulator on its own:
-
-```bash
-mise run android-emulator:boot 26
-mise run android-emulator:boot 26 --headless
-mise run android-emulator:boot --tv
-mise run android-emulator:stop
-```
-
-The boot task opens the emulator window by default. Pass `--headless` to run it
-without a window. The AVD lives under `build/android-emulator`, so removing the
-build tree removes the device.
-
-## Building documentation
-
-`mise run build:docs` builds the Starlight site and the Dokka API reference into
-`docs/dist`. `mise run //docs:dev` serves the same site with live reload.
-
-The site is a pnpm workspace and its own mise config root, so its tasks run as
-`//docs:<task>`. `//docs:api` generates the Dokka reference into
-`docs/public/api/`. A mise dependency of the docs config root writes the quoted
-versions into `docs/src/generated/versions.json`. Both are generated rather than
-checked in, and the `dev`, `build`, and `preview` tasks depend on them.
-
-Use the tasks rather than Astro or Gradle directly. They pass the versions
-derived from the Git tags, which the site prints as the coordinates to depend
-on; Gradle on its own uses the `0.0.0` placeholders from `gradle.properties`.
+Releases are tagged `vMAJOR.MINOR.PATCH`. Any other commit builds as a snapshot
+of the next patch; `mise run version` prints what this checkout builds as.
 
 ## Make CI happy
 
-`mise run check` reports problems and `mise run fix` rewrites what it can.
-Between them they cover dprint, actionlint, ruff, shellcheck, the GitHub Actions
-pins catalog, JSON schema validation, and the documentation site's type check.
+`mise run check` reports problems and `mise run fix` rewrites what it can; the
+pre-commit hook that mise installs runs them on staged files.
 `mise run lint:android` runs Android Lint, which CI runs in the same job.
-
-A Git pre-commit hook runs the same steps against your staged files. `mise`
-installs it for you. Remove it with:
-
-```bash
-hk uninstall
-```
-
-## Versions
-
-Every version the build pins — dependencies, plugins, Android SDK levels, and
-JVM targets — lives in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
-`gradle.properties` holds build switches only.
-
-Releases are tagged `vMAJOR.MINOR.PATCH`. `gradle.properties` carries
-placeholder versions, and `.mise/bin/version-args` derives the real ones from
-the tags. Only the tasks that publish or document a version pass them to Gradle,
-so an ordinary build needs no tags in the checkout.
-
-```bash
-mise run version            # what this commit would build as
-mise run version snapshot   # what the nightly job would publish
-mise run version release    # what the release workflow would publish
-```
-
-A tagged commit builds as that release; every other commit builds as a snapshot
-of the next patch.
-
-### GitHub Actions pins
-
-Every third-party action is pinned to a commit SHA, and every one of those pins
-is declared once in
-[`.github/workflows/action-pins.yml`](.github/workflows/action-pins.yml). That
-file never runs. It exists so that Dependabot sees the actions that the
-composite actions under `.github/actions` use, which it would otherwise skip.
-`mise run ci:check-action-pins` fails when a reference anywhere disagrees with
-the catalog, so an update lands in one place and propagates from there.
