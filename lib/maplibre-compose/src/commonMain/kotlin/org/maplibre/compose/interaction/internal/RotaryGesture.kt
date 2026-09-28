@@ -37,8 +37,13 @@ internal class RotaryGesture(
       return false
     }
 
-    target.inputScaleBy(scale, null, gestureToken = session.token)
-    burst.endAfterIdle(session, binding.idleDuration)
+    try {
+      target.inputScaleBy(scale, null, gestureToken = session.token)
+      burst.endAfterIdle(session, binding.idleDuration)
+    } catch (error: Throwable) {
+      cancel()
+      throw error
+    }
     return true
   }
 
