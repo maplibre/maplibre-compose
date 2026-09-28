@@ -19,7 +19,7 @@ inputs:
   android-emulator:
     description: >-
       API level of the Android emulator this job boots, or empty for a job that
-      boots none. Grants KVM access and caches the emulator and system image.
+      boots none. Grants KVM access.
     required: false
     default: ""
   pnpm-cache:
@@ -32,6 +32,12 @@ inputs:
     description: >-
       Restore and save dprint's incremental formatting cache. Only the jobs that
       run dprint ask for it.
+    required: false
+    default: "false"
+  maplibre-gl-js-cache:
+    description: >-
+      Restore and save the patched MapLibre GL JS build. Only the jobs that
+      build the browser target ask for it.
     required: false
     default: "false"
 
@@ -68,15 +74,6 @@ runs:
         sudo udevadm settle --timeout=10
         test -r /dev/kvm
         test -w /dev/kvm
-
-    - name: Cache the Android emulator and system image
-      if: ${{ inputs.android-emulator != '' }}
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: |
-          ${{ env.ANDROID_HOME }}/emulator
-          ${{ env.ANDROID_HOME }}/system-images
-        key: android-emulator-v1-${{ runner.os }}-${{ runner.arch }}-api${{ inputs.android-emulator }}
 
     # Also stops the daemons before the cache is saved; ones that outlive the job
     # hold Windows locks on files the archive step cannot read.
@@ -202,6 +199,23 @@ runs:
         restore-keys: |
           dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dprint.jsonc') }}-
           dprint-v1-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Compute the MapLibre GL JS cache key
+      id: maplibre-gl-js-key
+      if: ${{ inputs.maplibre-gl-js-cache == 'true' }}
+      shell: bash
+      run: |
+        state="$(.mise/bin/build-maplibre-gl-js state)"
+        echo "state=${state}" >> "$GITHUB_OUTPUT"
+
+    # A rebuild downloads the Unicode Character Database from unicode.org, which
+    # fails often enough to take the build down with it.
+    - name: Cache the MapLibre GL JS build
+      if: ${{ inputs.maplibre-gl-js-cache == 'true' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: lib/maplibre-compose/build/maplibre-gl-js
+        key: maplibre-gl-js-v1-${{ steps.maplibre-gl-js-key.outputs.state }}
 
     # The one network fetch no cache covers, and it fails often enough to retry.
     - name: Prepare Gradle wrapper
