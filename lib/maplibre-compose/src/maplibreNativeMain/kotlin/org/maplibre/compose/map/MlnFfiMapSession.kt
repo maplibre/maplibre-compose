@@ -178,6 +178,7 @@ internal class MlnFfiMapSession(
   private val cacheFile: Path,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
+  private val awaitRuntimeReady: suspend () -> Unit = {},
 ) : MapLifecycleSession, MlnFfiMapRenderer, CameraInputTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
@@ -545,6 +546,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
+    awaitRuntimeReady()
     lifecycleEngineIdentity = identity
     lifecycleStyleRequestIdentity = lifecycle.claimStyleRequestIdentity(identity)
     startEngine(identity)

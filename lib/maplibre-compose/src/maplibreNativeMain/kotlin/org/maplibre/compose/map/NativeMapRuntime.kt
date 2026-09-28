@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.normalized
 import org.maplibre.compose.offline.MlnFfiOfflineManager
+import org.maplibre.compose.offline.awaitReady
 import org.maplibre.compose.resource.MapResourceConfig
 
 internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
@@ -16,14 +17,16 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
   val offlineManager = MlnFfiOfflineManager(normalizedOptions, resourceConfig)
   return RuntimeImplementation(
     platformContext = normalizedOptions,
-    closeResources = {
-      check(offlineManager.close()) { "The offline manager did not stop" }
-    },
+    closeResources = offlineManager::awaitClosed,
     logger = normalizedOptions.logger,
     offlineManagerBackend = offlineManager,
     mainDispatcher = normalizedOptions.mainDispatcher ?: platformMainDispatcher(),
     createSnapshotterAdapter = {
-      createNativeSnapshotterAdapter(normalizedOptions, resourceConfig)
+      createNativeSnapshotterAdapter(
+        normalizedOptions,
+        resourceConfig,
+        awaitRuntimeReady = offlineManager::awaitReady,
+      )
     },
     resourceConfig = resourceConfig,
   )

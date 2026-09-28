@@ -5,6 +5,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,7 @@ class RuntimeBoundOfflineManagerTest {
     val runtime = runtime(UnsupportedOfflineManager)
     val manager = runtime.offlineManager
 
-    assertEquals(emptySet(), manager.packs.value)
+    assertEquals(emptySet(), (manager.state.value as OfflineManagerState.Ready).packs)
     assertFailsWith<UnsupportedOperationException> { manager.create(definition) }
     assertFailsWith<UnsupportedOperationException> { manager.resume(pack) }
     assertFailsWith<UnsupportedOperationException> { manager.pause(pack) }
@@ -41,7 +42,7 @@ class RuntimeBoundOfflineManagerTest {
     val runtime = runtime(backend)
     val manager = runtime.offlineManager
 
-    assertSame(backend.pack, manager.packs.value.single())
+    assertSame(backend.pack, (manager.state.value as OfflineManagerState.Ready).packs.single())
     val metadata = byteArrayOf(1, 2)
     assertSame(backend.createdPack, manager.create(definition, metadata))
     assertEquals(definition, backend.createdDefinition)
@@ -87,11 +88,12 @@ class RuntimeBoundOfflineManagerTest {
         closeResources = { releaseCleanup.await() },
       )
     val manager = runtime.offlineManager
-    val retainedPack = manager.packs.value.single()
+    val retainedPack = (manager.state.value as OfflineManagerState.Ready).packs.single()
     val createdPack = manager.create(definition)
     backend.calls.clear()
 
     runtime.close()
+    assertTrue(backend.closed, "Backend startup must be rejected before physical cleanup finishes")
 
     assertFailsWith<IllegalStateException> { manager.create(definition) }
     assertFailsWith<IllegalStateException> { manager.resume(backend.pack) }
@@ -123,6 +125,12 @@ class RuntimeBoundOfflineManagerTest {
     )
 
   private class RecordingOfflineManager : OfflineManagerBackend, OfflinePackOwner {
+    var closed = false
+
+    override fun close() {
+      closed = true
+    }
+
     val calls = mutableListOf<String>()
     private var requireRuntimeOpen: () -> Unit = {}
     var createdDefinition: OfflinePackDefinition? = null
@@ -131,7 +139,8 @@ class RuntimeBoundOfflineManagerTest {
     val createdPack = pack(regionId = 2)
     val mergedPack = pack(regionId = 3)
 
-    override val packs: StateFlow<Set<OfflinePack>> = MutableStateFlow(setOf(pack))
+    override val state: StateFlow<OfflineManagerState> =
+      MutableStateFlow(OfflineManagerState.Ready(setOf(pack)))
 
     override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {
       this.requireRuntimeOpen = requireRuntimeOpen

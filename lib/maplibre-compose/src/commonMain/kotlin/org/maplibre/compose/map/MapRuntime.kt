@@ -1347,7 +1347,7 @@ internal class RuntimeImplementation(
   internal val platformContext: Any?,
   private val closeResources: suspend () -> Unit,
   internal val logger: MapLog?,
-  offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
+  private val offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   /** The one thread that uses map states. Engine callbacks are posted to it. */
@@ -1409,10 +1409,12 @@ internal class RuntimeImplementation(
       children.toList() to snapshotters.toList()
     }
     val (closingStates, closingSnapshotters) = closingChildren
+    val offlineCloseFailure = runCatching { offlineManagerBackend.close() }.exceptionOrNull()
     closingStates.forEach(MapState::close)
     closingSnapshotters.forEach(MapSnapshotterImplementation::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       val failures = mutableListOf<Throwable>()
+      offlineCloseFailure?.let(failures::addCleanupFailure)
       closingStates.forEach { child ->
         runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }

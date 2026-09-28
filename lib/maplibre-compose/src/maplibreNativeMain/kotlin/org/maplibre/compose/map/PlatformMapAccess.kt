@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.offline.awaitReady
 import org.maplibre.nativeffi.map.MapHandle
 
 /** Provides the borrowed MapLibre Native map for one [MapState.withPlatformMap] callback. */
@@ -24,6 +25,7 @@ public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.(
             cacheFile = options.cacheFile,
             resourceProviderFactory = options.resourceProviderFactory,
             resourceConfig = runtime.resourceConfig,
+            awaitRuntimeReady = runtime.offlineManager::awaitReady,
           )
           .also { session ->
             session.setCameraPosition(cameraPosition)

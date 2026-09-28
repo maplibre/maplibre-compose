@@ -8,6 +8,11 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
@@ -19,10 +24,10 @@ class MlnFfiOfflineRuntimeTest {
   private val runtimes = mutableListOf<MlnFfiOfflineRuntime>()
 
   @AfterTest
-  fun cleanUp() {
+  fun cleanUp() = runBlocking {
     runtimes.forEach { it.shutdown() }
     runtimes.forEach {
-      assertTrue(it.awaitStopped(RESPONSE_TIMEOUT_MILLIS), "offline runtime did not stop")
+      withTimeout(RESPONSE_TIMEOUT_MILLIS) { it.awaitClosed() }
     }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
@@ -73,20 +78,32 @@ class MlnFfiOfflineRuntimeTest {
     assertFalse(ran.load(), "the cancelled task must not run")
   }
 
-  /**
-   * Posting after shutdown is refused, and refusing must not signal a closed wake source, which
-   * throws rather than no-oping.
-   */
   @Test
-  fun posting_after_shutdown_is_refused_without_throwing() {
-    val runtime = runtime().also { it.start() }
-    runtime.shutdown()
-    assertTrue(runtime.awaitStopped(RESPONSE_TIMEOUT_MILLIS), "the runtime should have stopped")
-
-    assertFalse(
-      runtime.post(task = {}, reject = {}),
-      "a task posted after shutdown should be refused",
+  fun shutdown_rejects_work_immediately_but_completion_waits_for_the_owner() = runBlocking {
+    val runtime = runtime()
+    val entered = TestLatch(1)
+    val release = TestLatch(1)
+    val releasedBeforeTimeout = CompletableDeferred<Boolean>()
+    runtime.post(
+      task = {
+        entered.countDown()
+        releasedBeforeTimeout.complete(release.await(RESPONSE_TIMEOUT_MILLIS))
+      },
+      reject = {},
     )
+    runtime.start()
+    try {
+      assertTrue(entered.await(RESPONSE_TIMEOUT_MILLIS))
+      runtime.shutdown()
+      assertFalse(runtime.post(task = {}, reject = {}))
+      val closed = async(start = CoroutineStart.UNDISPATCHED) { runtime.awaitClosed() }
+      assertFalse(closed.isCompleted, "The owner still holds the runtime")
+      release.countDown()
+      assertTrue(releasedBeforeTimeout.await(), "Shutdown blocked until the owner timed out")
+      withTimeout(RESPONSE_TIMEOUT_MILLIS) { closed.await() }
+    } finally {
+      release.countDown()
+    }
   }
 
   private companion object {

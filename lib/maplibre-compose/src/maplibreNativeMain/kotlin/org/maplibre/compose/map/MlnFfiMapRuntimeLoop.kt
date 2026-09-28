@@ -285,7 +285,11 @@ internal class MlnFfiMapRuntimeLoop(
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {
         // Retires the resource provider before the runtime that owns it.
-        owner.close()
+        runCatching { owner.close() }
+          .onFailure { error ->
+            val previous = closingFailure
+            if (previous == null) closingFailure = error else previous.addSuppressed(error)
+          }
         runtimeOwner = null
       }
     }

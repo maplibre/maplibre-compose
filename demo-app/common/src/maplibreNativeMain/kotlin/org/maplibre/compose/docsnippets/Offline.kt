@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
+import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -25,7 +26,9 @@ fun Offline() {
   val pixelRatio = LocalDensity.current.density
 
   // #region create
+  val offlineState by offlineManager.state.collectAsState()
   Button(
+    enabled = offlineState is OfflineManagerState.Ready,
     onClick = {
       scope.launch {
         val pack =
@@ -42,14 +45,19 @@ fun Offline() {
           )
         offlineManager.resume(pack)
       }
-    }
+    },
   ) {
     Text("Download Seattle")
   }
   // #endregion create
 
   // #region progress
-  val packs by offlineManager.packs.collectAsState()
+  val packs = (offlineState as? OfflineManagerState.Ready)?.packs.orEmpty()
+  when (val state = offlineState) {
+    OfflineManagerState.Loading -> Text("Loading offline packs…")
+    is OfflineManagerState.Failed -> Text(state.cause.message ?: "Could not load offline packs")
+    is OfflineManagerState.Ready -> Unit
+  }
   for (pack in packs) {
     key(pack) {
       val metadata by pack.metadata.collectAsState()

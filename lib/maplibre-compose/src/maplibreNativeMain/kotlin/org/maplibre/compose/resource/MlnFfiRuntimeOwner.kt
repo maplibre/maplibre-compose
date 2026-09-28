@@ -20,10 +20,7 @@ internal class MlnFfiRuntimeOwner
 private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
-  private val getLogger: () -> MapLog?,
 ) : AutoCloseable {
-  private val logger: MapLog?
-    get() = getLogger()
 
   /**
    * Starts teardown of everything attached to the runtime, then closes it.
@@ -32,10 +29,7 @@ private constructor(
    * request handles held by slower reads safely outlive the runtime and observe cancellation.
    */
   override fun close() {
-    runCatching { provider.close() }
-      .onFailure { logger?.w(it) { "Failed to close the resource provider" } }
-    runCatching { runtime.close() }
-      .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
+    runtime.use { provider.close() }
   }
 
   companion object {
@@ -63,10 +57,10 @@ private constructor(
         try {
           resourceProviderFactory(getLogger, resourceConfig)
         } catch (error: Throwable) {
-          runCatching { runtime.close() }
+          runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error
         }
-      val owner = MlnFfiRuntimeOwner(runtime, provider, getLogger)
+      val owner = MlnFfiRuntimeOwner(runtime, provider)
       return try {
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
@@ -78,7 +72,7 @@ private constructor(
         // Unwinds in the same order a successful close uses, or the runtime's scheduler and
         // database
         // connection stay open for the life of the process.
-        owner.close()
+        runCatching { owner.close() }.exceptionOrNull()?.let(error::addSuppressed)
         throw error
       }
     }

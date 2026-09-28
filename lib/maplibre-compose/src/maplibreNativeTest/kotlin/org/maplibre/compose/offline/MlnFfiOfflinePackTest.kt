@@ -40,9 +40,10 @@ class MlnFfiOfflinePackTest {
   private val managers = mutableListOf<MlnFfiOfflineManager>()
 
   @AfterTest
-  fun cleanUp() {
+  fun cleanUp() = runBlocking {
     // Close the runtime before deleting its database.
     managers.forEach { it.close() }
+    managers.forEach { it.awaitClosed() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -61,7 +62,7 @@ class MlnFfiOfflinePackTest {
       assertContentEquals(metadata, pack.metadata.value)
       assertEquals(
         setOf(pack),
-        manager.packs.value,
+        (manager.state.value as OfflineManagerState.Ready).packs,
         "the created pack should be listed immediately",
       )
     }
@@ -97,11 +98,12 @@ class MlnFfiOfflinePackTest {
     updated[0] = '!'.code.toByte()
     assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata.value)
 
-    assertTrue(manager.close())
+    manager.close()
+    manager.awaitClosed()
     val reopened = manager()
     assertContentEquals(
       "after, and longer than before".encodeToByteArray(),
-      reopened.packs.value.single().metadata.value,
+      (reopened.state.value as OfflineManagerState.Ready).packs.single().metadata.value,
     )
   }
 
@@ -119,11 +121,11 @@ class MlnFfiOfflinePackTest {
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(definition, "removed".encodeToByteArray())
       }
-    assertEquals(setOf(kept, removed), manager.packs.value)
+    assertEquals(setOf(kept, removed), (manager.state.value as OfflineManagerState.Ready).packs)
 
     withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.delete(removed) }
 
-    assertEquals(setOf(kept), manager.packs.value)
+    assertEquals(setOf(kept), (manager.state.value as OfflineManagerState.Ready).packs)
   }
 
   /** A runtime can close its manager and a later runtime can reopen the same persistent cache. */
@@ -135,13 +137,14 @@ class MlnFfiOfflinePackTest {
     val first = manager()
     val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
 
-    assertTrue(first.close(), "the first manager's runtime thread should have stopped")
+    first.close()
+    first.awaitClosed()
 
     val second = manager()
     assertNotSame(first, second)
 
     // The manager lists its stored packs before its constructor returns.
-    val restored = second.packs.value.single()
+    val restored = (second.state.value as OfflineManagerState.Ready).packs.single()
     assertEquals(created.regionId, restored.regionId)
     assertEquals(definition, restored.definition)
     assertContentEquals(metadata, restored.metadata.value)
@@ -174,10 +177,14 @@ class MlnFfiOfflinePackTest {
 
     val first = manager()
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
-    assertTrue(first.close(), "the first manager should stop")
+    first.close()
+    first.awaitClosed()
 
     val second = manager()
-    assertEquals(definition, second.packs.value.single().definition)
+    assertEquals(
+      definition,
+      (second.state.value as OfflineManagerState.Ready).packs.single().definition,
+    )
   }
 
   @Test
@@ -192,12 +199,17 @@ class MlnFfiOfflinePackTest {
       }
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
 
-    assertTrue(first.close(), "the first manager should stop")
+    first.close()
+    first.awaitClosed()
 
     val second = manager()
-    assertTrue(second.close(), "the reopened manager should stop")
+    second.close()
+    second.awaitClosed()
 
-    assertEquals(listOf(kept.regionId), second.packs.value.map { it.regionId })
+    assertEquals(
+      listOf(kept.regionId),
+      (second.state.value as OfflineManagerState.Ready).packs.map { it.regionId },
+    )
   }
 
   @Test
@@ -211,7 +223,8 @@ class MlnFfiOfflinePackTest {
     withTimeout(OPERATION_TIMEOUT_MILLIS) {
       source.create(definition, "source-only pack".encodeToByteArray())
     }
-    assertTrue(source.close(), "the source manager should stop before its database is merged")
+    source.close()
+    source.awaitClosed()
 
     val destination = manager()
     val existing =
@@ -221,7 +234,7 @@ class MlnFfiOfflinePackTest {
 
     assertEquals(2, merged.size)
     assertTrue(existing in merged, "an identical source pack should reuse the destination pack")
-    assertEquals(merged, destination.packs.value)
+    assertEquals(merged, (destination.state.value as OfflineManagerState.Ready).packs)
     assertEquals(
       setOf("same pack", "source-only pack"),
       merged.map { requireNotNull(it.metadata.value).decodeToString() }.toSet(),
@@ -283,8 +296,11 @@ class MlnFfiOfflinePackTest {
       }
 
     assertTrue((completed as DownloadProgress.Healthy).completedResourceCount > 0)
-    val packs = withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.packs.first { pack in it } }
-    assertEquals(setOf(pack), packs)
+    val packs =
+      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+        manager.state.first { it is OfflineManagerState.Ready && pack in it.packs }
+      }
+    assertEquals(setOf(pack), (packs as OfflineManagerState.Ready).packs)
   }
 
   /** Reopening must restore status from the database through the same code path used on restart. */
@@ -296,10 +312,11 @@ class MlnFfiOfflinePackTest {
       it.status == DownloadStatus.Complete
     }
 
-    assertTrue(first.close(), "the first manager should stop")
+    first.close()
+    first.awaitClosed()
 
     val second = manager()
-    val restored = second.packs.value.single()
+    val restored = (second.state.value as OfflineManagerState.Ready).packs.single()
 
     val status = awaitHealthy(restored, "the restored pack's status") { true }
     assertEquals(DownloadStatus.Complete, status.status)
@@ -308,8 +325,11 @@ class MlnFfiOfflinePackTest {
 
   // region fixtures
 
-  private fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
-    MlnFfiOfflineManager(options).also { managers += it }
+  private suspend fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
+    MlnFfiOfflineManager(options).also {
+      managers += it
+      it.awaitReady()
+    }
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(
