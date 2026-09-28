@@ -85,10 +85,12 @@ list_booted_iphone_simulators() {
         sub(/ --$/, "", runtime)
         next
       }
-      / iPhone / && /Booted/ {
-        name = $1
+      # Names can contain parentheses; the UDID and state are the last groups.
+      / iPhone / && $(NF - 1) == "Booted" {
+        id = $(NF - 3)
+        name = substr($0, 1, index($0, "(" id ")") - 1)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
-        printf "%s\t%s (%s) (%s)\n", $2, name, runtime, $2
+        printf "%s\t%s (%s) (%s)\n", id, name, runtime, id
       }
     '
 }
@@ -104,7 +106,7 @@ ensure_simulator_booted() {
   local state
   state="$(
     xcrun simctl list devices |
-      awk -F '[()]' -v id="$udid" '$0 ~ id { print $4; exit }'
+      awk -F '[()]' -v id="$udid" 'NF > 3 && $(NF - 3) == id { print $(NF - 1); exit }'
   )"
   if [[ "$state" != "Booted" ]]; then
     echo "Booting iOS simulator $udid." >&2
