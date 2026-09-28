@@ -1,6 +1,7 @@
 package org.maplibre.compose.location
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.time.Instant
 import org.maplibre.spatialk.geojson.Position
@@ -21,5 +22,17 @@ class LocationMeasurementTest {
     assertFailsWith<IllegalArgumentException> {
       LocationMeasurement(position, courseAccuracy = 4.0.degrees, measuredAt = at)
     }
+  }
+
+  @Test
+  fun measurementsArePublicSerializableTypes() {
+    assertEquals(
+      "org.maplibre.compose.location.LocationMeasurement",
+      LocationMeasurement.serializer().descriptor.serialName,
+    )
+    assertEquals(
+      "org.maplibre.compose.location.HeadingMeasurement",
+      HeadingMeasurement.serializer().descriptor.serialName,
+    )
   }
 }
