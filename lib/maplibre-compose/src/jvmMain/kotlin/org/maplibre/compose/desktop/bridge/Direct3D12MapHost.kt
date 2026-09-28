@@ -28,14 +28,13 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
-import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
+private const val DXGI_FORMAT_R8G8B8A8_UNORM: Int = 28
 
 /** An `ID3D12Resource` texture to composite into Compose's scene. */
 internal data class Direct3DTextureTarget(
@@ -62,196 +61,145 @@ internal data class Direct3DTextureTarget(
  * texture origin.
  */
 internal class Direct3D12MapHost(
-  private val presentationHost: ComposeMapPresentationHost,
-  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
-) : MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-windows-map-renderer")
+  presentationHost: ComposeMapPresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) :
+  SharedTextureMapHost<Direct3D12ComposeGpuContext, Direct3D12MapHost.SharedTexture>(
+    presentationHost,
+    RenderBackendPair(producer, ComposeRenderBackend.DIRECT3D12),
+    "maplibre-windows-map-renderer",
+  ) {
   private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
-  private val frameCompletion = ComposeFrameCompletion()
+  private val deviceChange =
+    DeviceChangeRecovery<NativeHandle>(
+      "Compose changed Direct3D devices; recreating the map renderer"
+    )
   private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
-  private var pendingDevice: NativeHandle? = null
-  private var direct3DTexture = NativeHandle(0)
-  private var importedTexture: ImportedMapTexture? = null
-  private val retiredTextures = mutableMapOf<Long, Direct3DTextureTarget>()
-  private var generation = 0L
-  private var currentExtent = MapExtent.Empty
-  private var currentDevice = NativeHandle(0)
 
-  override val backends: RenderBackendPair =
-    RenderBackendPair(producer, ComposeRenderBackend.DIRECT3D12)
-
-  private fun resize(extent: MapExtent, device: NativeHandle?) {
-    // Retired textures stay presentable until Compose has drawn a newer generation; a resize can
-    // race ahead of that draw, and releasing here would make the map flash transparent.
-    val result = rendererThread.run { resizeOnRendererThread(extent, device) }
-    if (result.failure != null) {
-      result.retired.forEach { releaseDirect3DTexture(it.texture) }
-      throw result.failure
-    }
-    result.retired.singleOrNull()?.let { retiredTextures[it.generation] = it }
-  }
-
-  /** Reallocates the texture, detaching every target the caller must release or retain. */
-  private fun resizeOnRendererThread(extent: MapExtent, device: NativeHandle?): ResizeResult {
-    if (extent == currentExtent && importedTexture != null && device == currentDevice) {
-      return ResizeResult()
-    }
-    val deviceChanged = !currentDevice.isNull && device != currentDevice
-    val retired = mutableListOf<Direct3DTextureTarget>()
-    retireTexture()?.let(retired::add)
-    if (deviceChanged) {
-      val closing = vulkan
-      vulkan = null
-      closing?.close()
-      wgl?.close()
-      wgl = null
-    }
-    try {
-      recreateTexture(extent, device)
-    } catch (error: Throwable) {
-      retireTexture()?.let(retired::add)
-      return ResizeResult(retired, error)
-    }
-    currentExtent = extent
-    generation += 1
-    return ResizeResult(retired)
-  }
+  private val dxgiFormat =
+    if (producer == MapRenderBackend.OPENGL) DXGI_FORMAT_R8G8B8A8_UNORM
+    else DXGI_FORMAT_B8G8R8A8_UNORM
 
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
   ): MlnFfiMapFrameAcquisition {
-    val context = withPreparedContext { it } ?: return MlnFfiMapFrameAcquisition.NotReady
-    val device = context.device
-    if (!currentDevice.isNull && currentDevice != device && pendingDevice != device) {
-      pendingDevice = device
-      throw MlnFfiRecoverableFrameException(
-        "Compose changed Direct3D devices; recreating the map renderer",
-        null,
-      )
+    val device = withPreparedContext { it.device } ?: return MlnFfiMapFrameAcquisition.NotReady
+    val current = textures.current
+    val deviceChanged = deviceChange.changed(current?.device, device)
+    if (current == null || current.presentation.extent != extent || deviceChanged) {
+      reallocate(extent, device, deviceChanged)
     }
-    pendingDevice = null
-    if (importedTexture == null || extent != currentExtent || device != currentDevice) {
-      resize(extent, device)
-    }
+    val texture = checkNotNull(textures.current) { "Windows map texture is not initialized" }
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(
         frameId = frameId,
         extent = extent,
-        target = target(generation),
+        target = texture.target(textures.generation),
       )
     )
   }
 
-  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run {
-      vulkan?.waitIdle()
-      wgl?.waitIdle()
-    }
-  }
-
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    rendererThread.run(action)
-
-  override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
-
-  override fun draw(
-    scope: DrawScope,
-    target: MlnFfiRenderTarget,
-    destination: MlnFfiMapDestination,
-  ): Boolean {
-    if (target.backend != producer) return false
-    val direct3DTarget =
-      if (target.generation == generation) presentationTarget()
-      else retiredTextures[target.generation]
-    if (direct3DTarget == null) return false
-    val drew =
-      withPreparedContext { context ->
-        presenter.draw(scope, context.skiaContext, direct3DTarget, destination, frameCompletion)
-      } ?: false
-    if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
-    return drew
-  }
-
-  override fun close() {
-    try {
-      frameCompletion.abandon()
-      // Released on the closing thread, never the renderer thread; see releaseDirect3DTexture.
-      retireTexture()?.let { releaseDirect3DTexture(it.texture) }
-      disposeRetiredTextures()
-      presentationHost.runOnGpuThread(presenter::closeAll)
-    } finally {
-      val closingVulkan = vulkan
-      vulkan = null
-      try {
-        rendererThread.run {
-          closingVulkan?.close()
-          wgl?.close()
+  /**
+   * Replaces the current texture. The producer's view of it is closed on the renderer thread, and a
+   * failure releases the Direct3D textures on this one; see [release].
+   */
+  private fun reallocate(extent: MapExtent, device: NativeHandle, deviceChanged: Boolean) {
+    val previous = textures.current
+    val generation = textures.generation + 1
+    var created: SharedTexture? = null
+    val failure = rendererThread.run {
+      previous?.closeImported()
+      if (deviceChanged) closeProducers()
+      runCatching {
+        if (!extent.isEmpty) {
+          val texture = WindowsDirect3DInterop.createSharedTexture(device, extent, dxgiFormat)
+          created = SharedTexture(presentationTarget(texture, extent, generation), device)
+          checkNotNull(created).imported = importTexture(texture, device, extent)
         }
-      } finally {
-        rendererThread.close()
       }
+        .exceptionOrNull()
     }
+    if (failure != null) {
+      textures.takeCurrent()?.let(::release)
+      created?.let(::release)
+      throw failure
+    }
+    // The previous texture stays presentable until Compose has drawn a newer generation.
+    textures.replaceCurrent(created)
   }
 
-  private fun target(generation: Long): MlnFfiRenderTarget =
-    checkNotNull(importedTexture) { "Windows map texture is not initialized" }.target(generation)
-
-  /** Allocates the texture for [extent] after the previous target has been retired. */
-  private fun recreateTexture(extent: MapExtent, device: NativeHandle?) {
-    if (extent.isEmpty) return
-
-    val direct3DDevice =
-      checkNotNull(device) { "resize() resolves the Direct3D device before this hop" }
-    direct3DTexture =
-      WindowsDirect3DInterop.createSharedTexture(
-        direct3DDevice,
-        extent,
-        if (producer == MapRenderBackend.OPENGL) 28 else DXGI_FORMAT_B8G8R8A8_UNORM,
-      )
-    currentDevice = direct3DDevice
+  /** Opens [texture] for the producer. Runs on the renderer thread. */
+  private fun importTexture(
+    texture: NativeHandle,
+    device: NativeHandle,
+    extent: MapExtent,
+  ): ImportedMapTexture {
     var sharedHandle = NULL
     try {
-      sharedHandle = WindowsDirect3DInterop.createSharedHandle(direct3DTexture)
+      sharedHandle = WindowsDirect3DInterop.createSharedHandle(texture)
       // The shared handle doubles as the probe for picking an importing Vulkan device, so the
       // context cannot be created before there is a texture to share.
-      importedTexture =
-        if (producer == MapRenderBackend.OPENGL) {
-          val context = wgl ?: WindowsWglContext.create().also { wgl = it }
-          context.importTexture(
-            sharedHandle,
-            extent,
-            "Direct3D 12",
-            WindowsDirect3DInterop.adapterLuidOf(direct3DDevice),
-          )
-        } else {
-          val context =
-            vulkan ?: VulkanDevice.forDirect3D12Resource(sharedHandle).also { vulkan = it }
-          context.importDirect3D12Resource(sharedHandle, extent)
-        }
+      return if (producer == MapRenderBackend.OPENGL) {
+        val context = wgl ?: WindowsWglContext.create().also { wgl = it }
+        context.importTexture(
+          sharedHandle,
+          extent,
+          "Direct3D 12",
+          WindowsDirect3DInterop.adapterLuidOf(device),
+        )
+      } else {
+        val context =
+          vulkan ?: VulkanDevice.forDirect3D12Resource(sharedHandle).also { vulkan = it }
+        context.importDirect3D12Resource(sharedHandle, extent)
+      }
     } finally {
       // The import duplicates the handle rather than taking ownership, so this copy is always ours.
       WindowsDirect3DInterop.closeSharedHandle(sharedHandle)
     }
   }
 
-  /**
-   * Detaches the current texture, returning the presentation target for the caller to retain or
-   * release off the renderer thread.
-   */
-  private fun retireTexture(): Direct3DTextureTarget? {
-    val retired = presentationTarget()
-    rendererThread.run { importedTexture?.close() }
-    importedTexture = null
-    direct3DTexture = NativeHandle(0)
-    currentDevice = NativeHandle(0)
-    return retired
+  private fun presentationTarget(texture: NativeHandle, extent: MapExtent, generation: Long) =
+    Direct3DTextureTarget(
+      texture = texture,
+      format = dxgiFormat,
+      colorFormat =
+        if (producer == MapRenderBackend.OPENGL) SurfaceColorFormat.RGBA_8888
+        else SurfaceColorFormat.BGRA_8888,
+      origin =
+        if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
+        else TextureOrigin.TOP_LEFT,
+      extent = extent,
+      generation = generation,
+    )
+
+  override fun waitForProducers() {
+    vulkan?.waitIdle()
+    wgl?.waitIdle()
   }
 
-  private fun <T> withPreparedContext(action: (Direct3D12ComposeGpuContext) -> T): T? =
+  override fun present(
+    scope: DrawScope,
+    context: Direct3D12ComposeGpuContext,
+    texture: SharedTexture,
+    generation: Long,
+    destination: MlnFfiMapDestination,
+  ): Boolean =
+    presenter.draw(scope, context.skiaContext, texture.presentation, destination, frameCompletion)
+
+  /**
+   * Never call this from the renderer thread: dropping the Skia wrapper waits on the GPU thread,
+   * which is usually the thread blocked on a renderer hop.
+   */
+  override fun release(texture: SharedTexture) {
+    val direct3DTexture = texture.presentation.texture
+    // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
+    presentationHost.runOnGpuThread { presenter.forget(direct3DTexture.address) }
+    WindowsDirect3DInterop.release(direct3DTexture)
+  }
+
+  override fun <R> withComposeContext(action: (Direct3D12ComposeGpuContext) -> R): R? =
     presentationHost.onGpuThread {
       val context = presentationHost.gpuContext() ?: return@onGpuThread null
       val direct3DContext =
@@ -260,52 +208,44 @@ internal class Direct3D12MapHost(
             "${presentationHost.description} switched from Direct3D12ComposeGpuContext to " +
               context::class.simpleName
           )
-      frameCompletion.prepare(direct3DContext.skiaContext, presenter::closeAll)
       action(direct3DContext)
     }
 
-  private fun presentationTarget(): Direct3DTextureTarget? {
-    if (direct3DTexture.address == 0L) return null
-    return Direct3DTextureTarget(
-      texture = direct3DTexture,
-      format = if (producer == MapRenderBackend.OPENGL) 28 else DXGI_FORMAT_B8G8R8A8_UNORM,
-      colorFormat =
-        if (producer == MapRenderBackend.OPENGL) SurfaceColorFormat.RGBA_8888
-        else SurfaceColorFormat.BGRA_8888,
-      origin =
-        if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
-        else TextureOrigin.TOP_LEFT,
-      extent = currentExtent,
-      generation = generation,
-    )
+  override fun contextReplaced() {
+    presenter.closeAll()
   }
 
-  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
-    val iterator = retiredTextures.iterator()
-    while (iterator.hasNext()) {
-      val entry = iterator.next()
-      if (entry.key != exceptGeneration) {
-        releaseDirect3DTexture(entry.value.texture)
-        iterator.remove()
-      }
-    }
+  override fun closeTextures() {
+    textures.current?.let { rendererThread.run(it::closeImported) }
+    // Released on the closing thread, never the renderer thread; see release.
+    textures.releaseAll()
+    presentationHost.runOnGpuThread(presenter::closeAll)
+  }
+
+  override fun closeProducers() {
+    val closing = vulkan
+    vulkan = null
+    closing?.close()
+    wgl?.close()
+    wgl = null
   }
 
   /**
-   * Never call this from the renderer thread: dropping the Skia wrapper waits on the GPU thread,
-   * which is usually the thread blocked on a renderer hop.
+   * A Direct3D texture Compose draws, and the producer's view of it. Retiring a texture closes the
+   * view at once; the Direct3D texture stays presentable until [release].
    */
-  private fun releaseDirect3DTexture(texture: NativeHandle) {
-    if (texture.address == 0L) return
-    // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-    presentationHost.runOnGpuThread { presenter.forget(texture.address) }
-    WindowsDirect3DInterop.release(texture)
-  }
+  internal class SharedTexture(val presentation: Direct3DTextureTarget, val device: NativeHandle) {
+    var imported: ImportedMapTexture? = null
 
-  private data class ResizeResult(
-    val retired: List<Direct3DTextureTarget> = emptyList(),
-    val failure: Throwable? = null,
-  )
+    fun target(generation: Long): MlnFfiRenderTarget =
+      checkNotNull(imported) { "Windows map texture is not initialized" }.target(generation)
+
+    /** Runs on the renderer thread. */
+    fun closeImported() {
+      imported?.close()
+      imported = null
+    }
+  }
 }
 
 /** A Vulkan device that can import [sharedHandle], an NT handle to a Direct3D 12 resource. */

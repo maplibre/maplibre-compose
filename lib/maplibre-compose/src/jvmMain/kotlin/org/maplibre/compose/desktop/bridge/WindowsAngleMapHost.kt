@@ -2,15 +2,13 @@ package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
+import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
-import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
-import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 
@@ -21,115 +19,112 @@ import org.maplibre.compose.mlnffi.TextureOrigin
  * handle; Compose samples the same texture via `EGL_ANGLE_d3d_texture_client_buffer`.
  */
 internal class WindowsAngleMapHost(
-  private val presentationHost: ComposeMapPresentationHost,
-  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
-) : MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-windows-vulkan-gl-renderer")
+  presentationHost: ComposeMapPresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) :
+  SharedTextureMapHost<OpenGlComposeGpuContext, WindowsAngleMapHost.WindowsOpenGlSharedTexture>(
+    presentationHost,
+    RenderBackendPair(producer, ComposeRenderBackend.OPENGL),
+    "maplibre-windows-vulkan-gl-renderer",
+  ) {
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Angle)
-  private val frameCompletion = ComposeFrameCompletion()
+  private val adapterChange =
+    DeviceChangeRecovery<Long>("ANGLE moved to another graphics adapter; rebuilding the map bridge")
   private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
   private var producerAdapterLuid = 0L
-  private var pendingAdapterLuid: Long? = null
-  private var texture: WindowsOpenGlSharedTexture? = null
-  private val retiredTextures = mutableMapOf<Long, WindowsOpenGlSharedTexture>()
-  private var generation = 0L
-  private var currentExtent = MapExtent.Empty
-
-  override val backends: RenderBackendPair =
-    RenderBackendPair(producer, ComposeRenderBackend.OPENGL)
 
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
   ): MlnFfiMapFrameAcquisition =
-    presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (texture == null || extent != currentExtent) recreateTexture(extent)
+    withPreparedContext {
+      if (textures.current?.extent != extent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
           frameId = frameId,
           extent = extent,
           target =
-            requireNotNull(texture) { "Windows OpenGL texture is not initialized" }
+            requireNotNull(textures.current) { "Windows OpenGL texture is not initialized" }
               .exported
-              .target(generation),
+              .target(textures.generation),
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
-  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run {
-      vulkan?.waitIdle()
-      wgl?.waitIdle()
-    }
+  override fun waitForProducers() {
+    vulkan?.waitIdle()
+    wgl?.waitIdle()
   }
 
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    rendererThread.run(action)
-
-  override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
-
-  override fun draw(
+  override fun present(
     scope: DrawScope,
-    target: MlnFfiRenderTarget,
+    context: OpenGlComposeGpuContext,
+    texture: WindowsOpenGlSharedTexture,
+    generation: Long,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (target.backend != producer) return false
-    return presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      val sharedTexture =
-        if (target.generation == generation) texture else retiredTextures[target.generation]
-      val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
-      // Context replacement abandons GL names. Presenting texture 0 builds an
-      // incomplete FBO; the next acquireFrame reallocates in the new context.
-      if (imported.textureName == 0) return@withOpenGlContextOrNull false
-      val drew =
-        presenter.draw(
-          scope,
-          context.skiaContext,
-          imported
-            .target(target.generation)
-            .copy(
-              origin =
-                if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
-                else TextureOrigin.TOP_LEFT
-            ),
-          destination,
-          frameCompletion,
-        )
-      if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
-      drew
-    } ?: false
+    val imported = texture.imported
+    // Context replacement abandons GL names. Presenting texture 0 builds an
+    // incomplete FBO; the next acquireFrame reallocates in the new context.
+    if (imported.textureName == 0) return false
+    return presenter.draw(
+      scope,
+      context.skiaContext,
+      imported
+        .target(generation)
+        .copy(
+          origin =
+            if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
+            else TextureOrigin.TOP_LEFT
+        ),
+      destination,
+      frameCompletion,
+    )
   }
 
-  override fun close() {
-    try {
-      frameCompletion.abandon()
-      closeAllTexturesForShutdown()
-    } finally {
-      val closing = vulkan
-      vulkan = null
-      producerAdapterLuid = 0L
-      pendingAdapterLuid = null
-      try {
-        rendererThread.run {
-          closing?.close()
-          wgl?.close()
-        }
-      } finally {
-        rendererThread.close()
+  override fun release(texture: WindowsOpenGlSharedTexture) {
+    texture.close()
+  }
+
+  override fun <R> withComposeContext(action: (OpenGlComposeGpuContext) -> R): R? =
+    presentationHost.withOpenGlContextOrNull(action)
+
+  override fun contextReplaced() {
+    presenter.abandonAll()
+    textures.retireCurrent()
+    textures.all.forEach(WindowsOpenGlSharedTexture::abandonImported)
+  }
+
+  override fun closeTextures() {
+    val closing = textures.removeAll()
+    val closedWithContext = runCatching {
+      presentationHost.withOpenGlContext {
+        closing.forEach(WindowsOpenGlSharedTexture::closeImported)
+        presenter.closeAll()
       }
     }
+      .isSuccess
+    if (!closedWithContext) {
+      presenter.abandonAll()
+      closing.forEach(WindowsOpenGlSharedTexture::abandonImported)
+    }
+    closing.forEach { runCatching(it::closeInterop) }
+  }
+
+  override fun closeProducers() {
+    val closing = vulkan
+    vulkan = null
+    producerAdapterLuid = 0L
+    closing?.close()
+    wgl?.close()
+    wgl = null
   }
 
   private fun recreateTexture(extent: MapExtent) {
     if (extent.isEmpty) {
-      disposeAllTextures()
-      currentExtent = MapExtent.Empty
-      generation += 1
+      textures.releaseAll()
+      textures.replaceCurrent(null)
       return
     }
 
@@ -138,28 +133,10 @@ internal class WindowsAngleMapHost(
     check(adapterLuid != 0L) {
       "ANGLE's ID3D11Device has no DXGI adapter LUID; cannot pick a matching producer device"
     }
-    if ((vulkan != null || wgl != null) && adapterLuid != producerAdapterLuid) {
-      if (pendingAdapterLuid != adapterLuid) {
-        // MapLibre still owns the old producer handles. Recovery closes that render session before
-        // retrying, at which point its allocations and device are safe to replace.
-        pendingAdapterLuid = adapterLuid
-        throw MlnFfiRecoverableFrameException(
-          "ANGLE moved to another graphics adapter; rebuilding the map bridge",
-          null,
-        )
-      }
-      disposeAllTextures()
-      val closing = vulkan
-      vulkan = null
-      producerAdapterLuid = 0L
-      pendingAdapterLuid = null
-      rendererThread.run {
-        closing?.close()
-        wgl?.close()
-        wgl = null
-      }
-    } else {
-      pendingAdapterLuid = null
+    val producerLuid = producerAdapterLuid.takeIf { vulkan != null || wgl != null }
+    if (adapterChange.changed(producerLuid, adapterLuid)) {
+      textures.releaseAll()
+      rendererThread.run(::closeProducers)
     }
     val d3d11 = WindowsD3D11Interop.createSharedTextureOnDevice(angleDevice, extent)
     try {
@@ -177,10 +154,7 @@ internal class WindowsAngleMapHost(
       }
       try {
         val imported = WindowsOpenGlImportedTexture.bindAngle(d3d11.texture, extent)
-        texture?.let { retiredTextures[generation] = it }
-        texture = WindowsOpenGlSharedTexture(d3d11, exported, imported)
-        currentExtent = extent
-        generation += 1
+        textures.replaceCurrent(WindowsOpenGlSharedTexture(extent, d3d11, exported, imported))
       } catch (error: RuntimeException) {
         rendererThread.run { exported.close() }
         throw error
@@ -191,54 +165,8 @@ internal class WindowsAngleMapHost(
     }
   }
 
-  private fun retireCurrentTexture() {
-    texture?.let { retiredTextures[generation] = it }
-    texture = null
-  }
-
-  private fun abandonContext() {
-    presenter.abandonAll()
-    retireCurrentTexture()
-    retiredTextures.values.forEach(WindowsOpenGlSharedTexture::abandonImported)
-    currentExtent = MapExtent.Empty
-  }
-
-  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
-    val iterator = retiredTextures.iterator()
-    while (iterator.hasNext()) {
-      val entry = iterator.next()
-      if (entry.key != exceptGeneration) {
-        entry.value.close()
-        iterator.remove()
-      }
-    }
-  }
-
-  private fun disposeAllTextures() {
-    texture?.close()
-    texture = null
-    disposeRetiredTextures()
-  }
-
-  private fun closeAllTexturesForShutdown() {
-    retireCurrentTexture()
-    val closing = retiredTextures.values.toList()
-    val closedWithContext = runCatching {
-      presentationHost.withOpenGlContext {
-        closing.forEach(WindowsOpenGlSharedTexture::closeImported)
-        presenter.closeAll()
-      }
-    }
-      .isSuccess
-    if (!closedWithContext) {
-      presenter.abandonAll()
-      closing.forEach(WindowsOpenGlSharedTexture::abandonImported)
-    }
-    closing.forEach { runCatching(it::closeInterop) }
-    retiredTextures.clear()
-  }
-
-  private inner class WindowsOpenGlSharedTexture(
+  internal inner class WindowsOpenGlSharedTexture(
+    val extent: MapExtent,
     val d3d11: WindowsD3D11SharedTexture,
     val exported: ImportedMapTexture,
     val imported: WindowsOpenGlImportedTexture,

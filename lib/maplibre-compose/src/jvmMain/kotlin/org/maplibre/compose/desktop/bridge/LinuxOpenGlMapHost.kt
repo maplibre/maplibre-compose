@@ -38,6 +38,7 @@ import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
 import org.lwjgl.vulkan.VkMemoryGetFdInfoKHR
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
+import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -45,7 +46,6 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
@@ -56,23 +56,19 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
 internal class LinuxOpenGlMapHost(
-  private val presentationHost: ComposeMapPresentationHost,
-  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
-) : MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-linux-map-renderer")
+  presentationHost: ComposeMapPresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) :
+  SharedTextureMapHost<OpenGlComposeGpuContext, LinuxOpenGlMapHost.LinuxSharedTexture>(
+    presentationHost,
+    RenderBackendPair(producer, ComposeRenderBackend.OPENGL),
+    "maplibre-linux-map-renderer",
+  ) {
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Native)
-  private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: VulkanDevice? = null
   private var egl: DesktopEglContext? = null
-  private var texture: LinuxSharedTexture? = null
-  private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
-  private var generation = 0L
-  private var currentExtent = MapExtent.Empty
 
   @Volatile private var acquireProducerWrites = false
-
-  override val backends: RenderBackendPair =
-    RenderBackendPair(producer, ComposeRenderBackend.OPENGL)
 
   // Importing into GL needs Compose's context current, so reallocation happens in acquireFrame.
   // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
@@ -82,96 +78,94 @@ internal class LinuxOpenGlMapHost(
     frameId: Long,
     extent: MapExtent,
   ): MlnFfiMapFrameAcquisition =
-    presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (texture == null || extent != currentExtent) recreateTexture(extent)
+    withPreparedContext {
+      if (textures.current?.extent != extent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
           frameId = frameId,
           extent = extent,
-          target = requireNotNull(texture) { "Map texture is not initialized" }.target(generation),
+          target =
+            requireNotNull(textures.current) { "Map texture is not initialized" }
+              .target(textures.generation),
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
+  override fun waitForProducers() {
+    if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
+  }
+
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run {
-      if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
-    }
+    super.completeProducerAccess(frame)
     acquireProducerWrites = true
   }
 
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    rendererThread.run(action)
-
-  override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
-
-  override fun draw(
+  override fun present(
     scope: DrawScope,
-    target: MlnFfiRenderTarget,
+    context: OpenGlComposeGpuContext,
+    texture: LinuxSharedTexture,
+    generation: Long,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (target.backend != producer) return false
-    return presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (acquireProducerWrites) {
-        // EXT_memory_object does not make producer completion visible to this context. glFinish
-        // acquires those writes.
-        glFinish()
-        acquireProducerWrites = false
-      }
-      val sharedTexture =
-        if (target.generation == generation) texture else retiredTextures[target.generation]
-      val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
-      val drew =
-        presenter.draw(
-          scope,
-          context.skiaContext,
-          imported.target(target.generation),
-          destination,
-          frameCompletion,
-        )
-      if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
-      drew
-    } ?: false
+    if (acquireProducerWrites) {
+      // EXT_memory_object does not make producer completion visible to this context. glFinish
+      // acquires those writes.
+      glFinish()
+      acquireProducerWrites = false
+    }
+    return presenter.draw(
+      scope,
+      context.skiaContext,
+      texture.imported.target(generation),
+      destination,
+      frameCompletion,
+    )
   }
 
-  override fun close() {
-    try {
-      frameCompletion.abandon()
-      // At window close the Compose surface may already be gone; the driver reclaims the GL objects
-      // along with the context.
-      runCatching {
-        presentationHost.withOpenGlContext {
-          disposeAllTextures()
-          presenter.closeAll()
-        }
-      }
-        .onFailure {
-          abandonContext()
-          disposeAllTextures()
-        }
-    } finally {
-      val closing = vulkan
-      vulkan = null
-      try {
-        rendererThread.run {
-          egl?.close()
-          closing?.close()
-        }
-      } finally {
-        rendererThread.close()
+  /** Frees every view of [texture]'s allocation. Compose's GL context must be current. */
+  override fun release(texture: LinuxSharedTexture) {
+    texture.close()
+  }
+
+  override fun <R> withComposeContext(action: (OpenGlComposeGpuContext) -> R): R? =
+    presentationHost.withOpenGlContextOrNull(action)
+
+  /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
+  override fun contextReplaced() {
+    presenter.abandonAll()
+    acquireProducerWrites = false
+    // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
+    // until the next producer frame retargets it.
+    textures.retireCurrent()
+    textures.all.forEach(LinuxSharedTexture::abandonImported)
+  }
+
+  override fun closeTextures() {
+    // At window close the Compose surface may already be gone; the driver reclaims the GL objects
+    // along with the context.
+    runCatching {
+      presentationHost.withOpenGlContext {
+        textures.releaseAll()
+        presenter.closeAll()
       }
     }
+      .onFailure {
+        contextReplaced()
+        textures.releaseAll()
+      }
+  }
+
+  override fun closeProducers() {
+    val closing = vulkan
+    vulkan = null
+    egl?.close()
+    closing?.close()
   }
 
   private fun recreateTexture(extent: MapExtent) {
     if (extent.isEmpty) {
-      disposeAllTextures()
-      currentExtent = MapExtent.Empty
-      generation += 1
+      textures.releaseAll()
+      textures.replaceCurrent(null)
       return
     }
 
@@ -209,10 +203,7 @@ internal class LinuxOpenGlMapHost(
           extent,
           if (producerContext != null) TextureOrigin.BOTTOM_LEFT else TextureOrigin.TOP_LEFT,
         )
-      texture?.let { retiredTextures[generation] = it }
-      texture = LinuxSharedTexture(newExported, newImported, producerImport)
-      currentExtent = extent
-      generation += 1
+      textures.replaceCurrent(LinuxSharedTexture(extent, newExported, newImported, producerImport))
     } catch (error: RuntimeException) {
       rendererThread.run {
         producerContext?.makeCurrent()
@@ -223,40 +214,8 @@ internal class LinuxOpenGlMapHost(
     }
   }
 
-  /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
-  private fun abandonContext() {
-    presenter.abandonAll()
-    acquireProducerWrites = false
-    // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
-    // until the next producer frame retargets it.
-    texture?.let { retiredTextures[generation] = it }
-    texture = null
-    retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
-    currentExtent = MapExtent.Empty
-  }
-
-  /**
-   * Frees retired allocations other than [exceptGeneration]. Compose's GL context must be current.
-   */
-  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
-    val iterator = retiredTextures.iterator()
-    while (iterator.hasNext()) {
-      val entry = iterator.next()
-      if (entry.key != exceptGeneration) {
-        entry.value.close()
-        iterator.remove()
-      }
-    }
-  }
-
-  /** Frees every view of every shared allocation. Compose's GL context must be current. */
-  private fun disposeAllTextures() {
-    texture?.close()
-    texture = null
-    disposeRetiredTextures()
-  }
-
-  private inner class LinuxSharedTexture(
+  internal inner class LinuxSharedTexture(
+    val extent: MapExtent,
     val exported: VulkanImage,
     val imported: LinuxOpenGlImportedTexture,
     val producerImport: LinuxOpenGlImportedTexture?,
