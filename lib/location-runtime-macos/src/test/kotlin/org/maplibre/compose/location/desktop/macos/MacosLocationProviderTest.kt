@@ -3,6 +3,8 @@ package org.maplibre.compose.location.desktop.macos
 import java.util.Collections
 import java.util.Locale
 import java.util.ServiceLoader
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -193,20 +195,47 @@ class MacosLocationProviderTest {
     val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
     val requester = MacosLocationPermissionRequester(client)
     val manager = client.managers.single()
-    val closing = Thread { requester.close() }
+    val closing = CountDownLatch(1)
+    val closer = Thread {
+      closing.countDown()
+      requester.close()
+    }
     manager.onRequest = {
-      closing.start()
-      closing.join(100)
+      closer.start()
+      check(closing.await(5, TimeUnit.SECONDS))
+      closer.join(200)
+      assertTrue(closer.isAlive)
       assertFalse(manager.closed)
       assertFalse(client.closed)
     }
 
     requester.requestForegroundPermission()
-    closing.join(5_000)
+    closer.join(5_000)
 
-    assertFalse(closing.isAlive)
+    assertFalse(closer.isAlive)
     assertEquals(1, manager.closeCount)
     assertEquals(1, client.closeCount)
+  }
+
+  @Test
+  fun requestFromStatusCollectorDuringRequestStartsOneAuthorizationRequest() = runTest {
+    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    client.createFailure = IllegalStateException("native failed")
+    val requester = MacosLocationPermissionRequester(client)
+    client.createFailure = null
+    assertEquals(LocationPermission.Unknown, requester.status.value)
+    backgroundScope.launch(Dispatchers.Unconfined) {
+      requester.status.collect {
+        if (it == LocationPermission.NotGranted(canRequest = true)) {
+          requester.requestForegroundPermission()
+        }
+      }
+    }
+
+    requester.requestForegroundPermission()
+
+    assertEquals(1, client.managers.single().whenInUseRequests)
+    requester.close()
   }
 
   @Test

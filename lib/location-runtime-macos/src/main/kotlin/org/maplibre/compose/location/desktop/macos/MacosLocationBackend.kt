@@ -344,11 +344,16 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
     checkOpen()
     if (backendAvailability != LocationBackendAvailability.Available) return@onLocationThread
     if (requestPending) return@onLocationThread
-    val permission = runCatching { refreshPermission() }.getOrNull()
-    if (permission != LocationPermission.NotGranted(canRequest = true)) return@onLocationThread
-    val manager = manager()
+    // Claim the request before refreshing: publishing the status can run a collector that
+    // requests again on this thread.
     requestPending = true
     try {
+      val permission = runCatching { refreshPermission() }.getOrNull()
+      if (permission != LocationPermission.NotGranted(canRequest = true)) {
+        requestPending = false
+        return@onLocationThread
+      }
+      val manager = manager()
       manager.requestWhenInUseAuthorization()
       // macOS presents the prompt when location updates start.
       manager.startUpdatingLocation()
