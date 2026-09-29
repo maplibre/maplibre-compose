@@ -38,14 +38,7 @@ internal fun presentationDestination(
  * After successful completion, the host keeps [target] presentable until a newer completed target
  * is drawn or the host closes, including across resize.
  */
-internal data class MlnFfiMapFrame(
-  /** Monotonically increasing identifier, for logging and frame pacing. */
-  val frameId: Long,
-
-  /** The size this frame's target was allocated at. */
-  val extent: MapExtent,
-  val target: MlnFfiRenderTarget,
-)
+internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget)
 
 /** The explicit outcome of asking a host for a frame. */
 internal sealed interface MlnFfiMapFrameAcquisition {
@@ -101,10 +94,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    * Called before Compose overlay placement. The host must obtain exclusive access to the consumer
    * graphics context when needed; it cannot assume a draw callback made it current.
    */
-  fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition
+  fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition
 
   /** Runs [action] with the producer side able to render into [frame]'s target. */
   fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T = action()

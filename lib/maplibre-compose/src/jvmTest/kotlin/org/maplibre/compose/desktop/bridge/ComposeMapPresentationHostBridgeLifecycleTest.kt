@@ -53,7 +53,7 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
       MetalMapHost(metal, producer).use { host ->
         assertEquals(
           MlnFfiMapFrameAcquisition.NotReady,
-          host.acquireFrame(1, EXTENT),
+          host.acquireFrame(EXTENT),
         )
       }
       if (producer == MapRenderBackend.METAL) continue
@@ -66,7 +66,7 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
         host.use {
           assertEquals(
             MlnFfiMapFrameAcquisition.NotReady,
-            it.acquireFrame(1, EXTENT),
+            it.acquireFrame(EXTENT),
           )
         }
       }

@@ -89,12 +89,10 @@ private constructor(
   private val environment: DesktopTestGpuEnvironment,
   private val bridge: MlnFfiMapHost,
 ) : FfiTestRenderDriver, MlnFfiMapHost by bridge {
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition = environment.withContext {
-    bridge.acquireFrame(frameId, extent)
-  }
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition =
+    environment.withContext {
+      bridge.acquireFrame(extent)
+    }
 
   override fun present(target: MlnFfiRenderTarget): Boolean = environment.present(bridge, target)
 

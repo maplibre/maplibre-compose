@@ -101,7 +101,7 @@ class LinuxOpenGlInteropTest {
             // OpenGL errors are sticky; leave one behind for the bridge to trip over.
             glEnable(Int.MIN_VALUE)
             val frame =
-              assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT)).frame
+              assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(FIRST_EXTENT)).frame
             host.releaseFrame(frame)
           }
         } finally {
@@ -240,7 +240,6 @@ class LinuxOpenGlInteropTest {
 
   private class InteropMap(private val host: LinuxOpenGlMapHost) : AutoCloseable {
     private val cacheDirectory = Files.createTempDirectory("maplibre-egl-interop-test")
-    private var nextFrameId = 1L
 
     @Volatile private var styleLoads = 0
     @Volatile private var failure: String? = null
@@ -345,8 +344,7 @@ class LinuxOpenGlInteropTest {
     }
 
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
-      val frame =
-        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent)).frame
+      val frame = assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(extent)).frame
       try {
         val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
         if (result is MlnFfiFrameResult.Rendered) {

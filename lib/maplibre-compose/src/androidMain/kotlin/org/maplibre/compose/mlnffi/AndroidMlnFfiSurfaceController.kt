@@ -176,7 +176,7 @@ internal class AndroidMlnFfiSurfaceController(
 
     val frameId = nextFrameId++
     val target = currentGraphics.target(currentExtent, generation)
-    val frame = MlnFfiMapFrame(frameId, currentExtent, target)
+    val frame = MlnFfiMapFrame(target)
 
     val start = TimeSource.Monotonic.markNow()
     try {

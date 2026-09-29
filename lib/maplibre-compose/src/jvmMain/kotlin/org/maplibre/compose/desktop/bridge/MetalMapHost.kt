@@ -38,10 +38,7 @@ internal class MetalMapHost(
   private var vulkan: VulkanDevice? = null
   private var angle: DesktopEglContext? = null
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition =
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition =
     withPreparedContext { context ->
       if (deviceChange.changed(device.takeUnless { it.isNull }, context.device)) {
         // Recovery closes the FFI session before we release its borrowed device and images.
@@ -54,9 +51,7 @@ internal class MetalMapHost(
         val nextGeneration = textures.generation + 1
         textures.replaceCurrent(rendererThread.run { allocate(extent, nextGeneration) })
       }
-      MlnFfiMapFrameAcquisition.Acquired(
-        MlnFfiMapFrame(frameId, extent, checkNotNull(textures.current).target)
-      )
+      MlnFfiMapFrameAcquisition.Acquired(MlnFfiMapFrame(checkNotNull(textures.current).target))
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
   private fun allocate(extent: MapExtent, generation: Long): SharedTexture {

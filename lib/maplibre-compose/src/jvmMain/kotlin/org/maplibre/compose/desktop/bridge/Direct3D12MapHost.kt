@@ -81,10 +81,7 @@ internal class Direct3D12MapHost(
     if (producer == MapRenderBackend.OPENGL) DXGI_FORMAT_R8G8B8A8_UNORM
     else DXGI_FORMAT_B8G8R8A8_UNORM
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition {
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
     val device = withPreparedContext { it.device } ?: return MlnFfiMapFrameAcquisition.NotReady
     val current = textures.current
     val deviceChanged = deviceChange.changed(current?.device, device)
@@ -93,11 +90,7 @@ internal class Direct3D12MapHost(
     }
     val texture = checkNotNull(textures.current) { "Windows map texture is not initialized" }
     return MlnFfiMapFrameAcquisition.Acquired(
-      MlnFfiMapFrame(
-        frameId = frameId,
-        extent = extent,
-        target = texture.target(textures.generation),
-      )
+      MlnFfiMapFrame(target = texture.target(textures.generation))
     )
   }
 

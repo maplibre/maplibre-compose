@@ -31,15 +31,10 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
     ensureSurface(extent)
   }
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition {
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
     ensureSurface(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(
-        frameId = frameId,
-        extent = extent,
         target =
           OpenGlSurfaceTarget(
             context =
@@ -54,7 +49,7 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
             surface = NativeHandle(surface.nativeHandle),
             extent = extent,
             generation = generation,
-          ),
+          )
       )
     )
   }

@@ -449,7 +449,7 @@ internal class MlnFfiMapSession(
     frame: MlnFfiMapFrame,
     captureProjection: Boolean,
   ): MlnFfiFrameResult {
-    if (!lifecycle.acceptsWork || frame.extent.isEmpty || rendererAttachment?.host !== host)
+    if (!lifecycle.acceptsWork || frame.target.extent.isEmpty || rendererAttachment?.host !== host)
       return MlnFfiFrameResult.AwaitUpdate
 
     val loop = loop ?: return MlnFfiFrameResult.AwaitUpdate
@@ -498,11 +498,11 @@ internal class MlnFfiMapSession(
       hasRenderedAFrame = true
       logger?.i {
         "Rendered the first map frame with $backend on ${currentMlnFfiThreadName()}, " +
-          "extent ${frame.extent}"
+          "extent ${frame.target.extent}"
       }
     }
     return MlnFfiFrameResult.Rendered(
-      if (captureProjection) captureFrameProjection(frame.extent) else null
+      if (captureProjection) captureFrameProjection(frame.target.extent) else null
     )
   }
 
@@ -772,7 +772,7 @@ internal class MlnFfiMapSession(
     map: MapHandle,
     frame: MlnFfiMapFrame,
   ): Boolean {
-    val extent = frame.extent
+    val extent = frame.target.extent
     if (extent.isEmpty) return false
     if (this.loop !== loop || !lifecycle.acceptsWork || lifecycleRenderLease == null) return false
 

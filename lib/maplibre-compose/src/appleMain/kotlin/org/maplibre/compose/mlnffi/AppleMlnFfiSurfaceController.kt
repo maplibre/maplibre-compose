@@ -210,12 +210,7 @@ internal class AppleMlnFfiSurfaceController(
         extent = currentExtent,
         generation = generation,
       )
-    val frame =
-      MlnFfiMapFrame(
-        frameId = frameId,
-        extent = currentExtent,
-        target = target,
-      )
+    val frame = MlnFfiMapFrame(target = target)
 
     val start = TimeSource.Monotonic.markNow()
     try {
