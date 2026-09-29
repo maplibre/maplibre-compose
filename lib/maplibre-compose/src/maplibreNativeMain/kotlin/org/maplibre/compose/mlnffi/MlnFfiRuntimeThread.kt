@@ -93,6 +93,9 @@ internal class MlnFfiRuntimeThread(
 
   @Volatile private var stopRequested = false
 
+  /** Owner thread only. Set by [endBatch] to end the batch after the running task. */
+  private var batchEndRequested = false
+
   /**
    * Starts the thread, which runs the tasks queued so far before any queued later. Called at most
    * once, and not after [stop]. When [startThread] throws, queued tasks are rejected with its
@@ -120,6 +123,15 @@ internal class MlnFfiRuntimeThread(
 
   /** Whether the calling thread is the owner thread. */
   fun isCurrent(): Boolean = thread.isCurrent()
+
+  /**
+   * Owner thread only. Ends the running batch after the running task, as if it had
+   * [Task.endsBatch], so work nested inside that task can let native deliver its events before
+   * later queued work runs.
+   */
+  fun endBatch() {
+    batchEndRequested = true
+  }
 
   /**
    * Queues [task], reporting whether it was accepted. A refused task's [Task.reject] never runs.
@@ -207,6 +219,7 @@ internal class MlnFfiRuntimeThread(
   /** Runs everything queued, up to a task that ends its batch, reporting whether anything ran. */
   private fun runTasks(runtime: RuntimeHandle): Boolean {
     var ran = false
+    batchEndRequested = false
     while (true) {
       // Taken one at a time, and run outside the lock: a task posts, closes, and calls back.
       val task = acceptLock.withLock { tasks.removeFirstOrNull() } ?: break
@@ -219,7 +232,7 @@ internal class MlnFfiRuntimeThread(
         // this.
         runCatching { task.reject(error) }
       }
-      if (task.endsBatch) break
+      if (task.endsBatch || batchEndRequested) break
     }
     return ran
   }

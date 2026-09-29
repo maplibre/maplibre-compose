@@ -1404,7 +1404,7 @@ internal class MlnFfiMapSession(
     check(hasViewport && !isClosing) {
       "A bounds fit requires the current presentation viewport"
     }
-    check(loop.await(fit) != null) { "The map became unavailable during the bounds fit" }
+    check(loop.await(action = fit) != null) { "The map became unavailable during the bounds fit" }
   }
 
   private fun cameraForBounds(
