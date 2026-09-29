@@ -40,19 +40,19 @@ public fun MapOverlayScope.PointerPinButton(
   contentPadding: PaddingValues = PaddingValues(12.dp), // good padding for a 24x24 icon
   content: @Composable BoxScope.() -> Unit,
 ) {
-  BasePointerPinButton(
-    targetPosition = targetPosition,
-    modifier = modifier,
-    onClick = onClick,
-    style = elevatedButtonStyle(colors),
-    contentPadding = contentPadding,
+  // The ripple reads the content color where it draws, inside the base button.
+  CompositionLocalProvider(
+    LocalContentColor provides colors.contentColor,
+    LocalTextStyle provides LocalTextStyle.current.merge(MaterialTheme.typography.labelLarge),
   ) {
-    CompositionLocalProvider(
-      LocalContentColor provides colors.contentColor,
-      LocalTextStyle provides LocalTextStyle.current.merge(MaterialTheme.typography.labelLarge),
-    ) {
-      content()
-    }
+    BasePointerPinButton(
+      targetPosition = targetPosition,
+      modifier = modifier,
+      onClick = onClick,
+      style = elevatedButtonStyle(colors),
+      contentPadding = contentPadding,
+      content = content,
+    )
   }
 }
 

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
@@ -62,11 +63,17 @@ public fun MapOverlayScope.PointerPinButton(
     animateDpAsState(if (hovered) style.hoveredShadowElevation else style.shadowElevation)
 
   // The layers read the angle after the layout pass writes it, so the pin points at the target on
-  // the same frame it is placed.
-  // Min constraints reach the clickable area, so a pin sized by the caller is clickable throughout
-  // and centers its content.
+  // the same frame it is placed. The caller's modifier sits on the clickable node, and min
+  // constraints reach the layers, so a pin sized by the caller fills and centers its content.
   Box(
-    Modifier.placedTowards(targetPosition, state = placement).then(modifier),
+    Modifier.placedTowards(targetPosition, state = placement)
+      .then(modifier)
+      .clickable(
+        interactionSource = interactionSource,
+        indication = null,
+        role = Role.Button,
+        onClick = onClick,
+      ),
     propagateMinConstraints = true,
   ) {
     // Android 9 and older drop the shadow of a path they don't recognize as convex, and clip to a
@@ -88,12 +95,7 @@ public fun MapOverlayScope.PointerPinButton(
           shape = PointerPinShape(placement.angleDegrees)
           clip = true
         }
-        .clickable(
-          interactionSource = interactionSource,
-          indication = LocalIndication.current,
-          role = Role.Button,
-          onClick = onClick,
-        ),
+        .indication(interactionSource, LocalIndication.current),
       contentAlignment = Alignment.Center,
     ) {
       Box(

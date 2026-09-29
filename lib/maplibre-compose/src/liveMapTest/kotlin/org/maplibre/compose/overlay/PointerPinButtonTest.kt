@@ -8,8 +8,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -19,7 +21,6 @@ import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.map.viewportFor
-import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -32,7 +33,7 @@ class PointerPinButtonTest {
   fun a_pin_sized_by_the_caller_centers_its_content() =
     assertPinCenterIsContent(Modifier.size(96.dp))
 
-  private fun assertPinCenterIsContent(modifier: Modifier) = runPlainComposeUiTest {
+  private fun assertPinCenterIsContent(modifier: Modifier) = runComposeUiTest {
     val runtime = mapRuntimeForTest()
     val map = runtime.createMapState(BaseStyle.Empty)
     val adapter =
@@ -57,7 +58,7 @@ class PointerPinButtonTest {
     }
     waitForIdle()
 
-    val image = onNodeWithTag("pin").captureToImage()
+    val image = onNodeWithTag("pin").assertHasClickAction().captureToImage()
     assertEquals(Color.Red, image.toPixelMap()[image.width / 2, image.height / 2])
     map.close()
     runtime.close()
