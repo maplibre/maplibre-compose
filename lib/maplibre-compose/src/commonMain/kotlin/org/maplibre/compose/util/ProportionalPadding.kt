@@ -1,4 +1,4 @@
-package org.maplibre.compose.material3.util
+package org.maplibre.compose.util
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout

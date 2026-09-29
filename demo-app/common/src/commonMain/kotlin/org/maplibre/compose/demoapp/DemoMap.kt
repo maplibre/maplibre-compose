@@ -78,7 +78,7 @@ import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.DisappearingCompassButton as MaterialDisappearingCompassButton
 import org.maplibre.compose.material3.DisappearingScaleBar as MaterialDisappearingScaleBar
 import org.maplibre.compose.material3.ExpandingAttributionButton as MaterialExpandingAttributionButton
-import org.maplibre.compose.material3.PointerPinButton
+import org.maplibre.compose.material3.PointerPinButton as MaterialPointerPinButton
 import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
@@ -88,6 +88,7 @@ import org.maplibre.compose.overlay.ExpandingAttributionButton
 import org.maplibre.compose.overlay.GeographicLayout
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
+import org.maplibre.compose.overlay.PointerPinButton
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.util.DpPadding
@@ -383,18 +384,24 @@ fun DemoMap(
           with(demo) { Overlay(state, controls) }
           GeographicLayout(Modifier.controlPadding()) {
             pointerPin?.let {
-              PointerPinButton(
-                targetPosition = it.target,
-                onClick = {
-                  scope.launch {
-                    state.mapState.flyTo(it.destination, state.settings.flightAnimation)
-                  }
-                },
-              ) {
-                Icon(
-                  vectorResource(Res.drawable.filter_center_focus_24px),
-                  contentDescription = "Fly back to ${demo.name}",
-                )
+              val onClick: () -> Unit = {
+                scope.launch {
+                  state.mapState.flyTo(it.destination, state.settings.flightAnimation)
+                }
+              }
+              val description = "Fly back to ${demo.name}"
+              if (state.settings.useMaterial3Controls) {
+                MaterialPointerPinButton(targetPosition = it.target, onClick = onClick) {
+                  Icon(vectorResource(Res.drawable.filter_center_focus_24px), description)
+                }
+              } else {
+                PointerPinButton(targetPosition = it.target, onClick = onClick) {
+                  Icon(
+                    vectorResource(Res.drawable.filter_center_focus_24px),
+                    description,
+                    tint = ZoomButtonsDefaults.ContentColor,
+                  )
+                }
               }
             }
           }
