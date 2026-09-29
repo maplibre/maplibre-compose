@@ -113,9 +113,10 @@ export class CommitSelection {
     const [first, last] = this.timeline.window;
     const zoomed = first > 0 || last < this.last;
     for (const button of this.spacingButtons) button.setAttribute("aria-checked", String(button.dataset.spacing === spacing));
+    const count = (n: number) => `${format(n)} ${this.noun}${n === 1 ? "" : "s"}`;
     $("metrics-range-status").textContent = zoomed
-      ? `${format(last - first + 1)} of ${format(commits.length)} ${this.noun}s, ${formatDate(commits[first].date)} – ${formatDate(commits[last].date)}`
-      : "Drag across a chart to zoom in.";
+      ? `${format(last - first + 1)} of ${count(commits.length)}, ${formatDate(commits[first].date)} – ${formatDate(commits[last].date)}`
+      : `All ${count(commits.length)} · drag across a chart to zoom`;
     $("metrics-range-reset").hidden = !zoomed;
     setSearchParams({
       spacing: spacing === "dates" ? spacing : null,

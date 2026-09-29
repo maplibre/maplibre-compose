@@ -1,15 +1,5 @@
 /* The benchmarks page shares the code metrics layout; sections group charts by metric. */
 
-#benchmarks-scope-note {
-  margin-left: auto !important;
-}
-
-@media (max-width: 40rem) {
-  #benchmarks-scope-note {
-    display: none;
-  }
-}
-
 .metrics .benchmarks-section {
   margin-top: 2.5rem;
 }

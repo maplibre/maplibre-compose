@@ -37,9 +37,10 @@ export function setSearchParams(values: Record<string, string | null>) {
   history.replaceState(null, "", url);
 }
 
-/** Shows the page body and the commit selection, or [status] in their place. */
+/** Shows the page body, the charts' range, and the commit selection, or [status] in their place. */
 export function showBody(status: string | null) {
   $("metrics-body").hidden = status != null;
+  $("metrics-range").hidden = status != null;
   $("metrics-commit").hidden = status != null;
   $("metrics-status").hidden = status == null;
   if (status != null) $("metrics-status").textContent = status;

@@ -5,6 +5,8 @@ import { CommitSelection } from "../metrics/selection";
 import { installTooltips, term } from "../metrics/terms";
 import { formatPercent, formatValue, type Index, type Kind, type Scope, type Series } from "./model";
 
+const platformNames: Record<Scope["platform"], string> = { android: "Android", ios: "iOS", desktop: "Desktop", web: "Web" };
+
 const definitions = {
   cpuPerOperation:
     "Process CPU time in the measured window, on every thread, divided by the operations the workload " +
@@ -177,8 +179,15 @@ export async function start() {
   const selection = new CommitSelection("measurement", showTiles);
 
   const scopeSelect = $<HTMLSelectElement>("benchmarks-scope");
+  const platforms = [...new Set(index.scopes.map((s) => s.platform))];
   scopeSelect.replaceChildren(
-    ...index.scopes.map((s) => el("option", { value: s.id, textContent: `${s.label} · ${s.platform}` })),
+    ...platforms.map((platform) =>
+      el(
+        "optgroup",
+        { label: platformNames[platform] },
+        ...index.scopes.filter((s) => s.platform === platform).map((s) => el("option", { value: s.id, textContent: s.label })),
+      ),
+    ),
   );
   scopeSelect.value = scope.id;
   scopeSelect.addEventListener("change", () => {
@@ -261,20 +270,17 @@ export async function start() {
       if (load !== scopeLoad) return;
       current = view(index, series);
       if (!current.commits.length) {
-        $("benchmarks-scope-note").textContent = "";
         showBody(`${scope.label} has no measurements.`);
         return;
       }
       // The URL names the selection; a commit this device did not measure opens its latest.
       selection.setCommits(current.commits);
-      $("benchmarks-scope-note").textContent = `${current.commits.length} measured commit${current.commits.length === 1 ? "" : "s"}`;
       showBody(null);
       buildCharts();
       selection.show();
       showTiles();
     } catch {
       if (load !== scopeLoad) return;
-      $("benchmarks-scope-note").textContent = "";
       showBody("Couldn't load benchmark data.");
     } finally {
       if (load === scopeLoad) root.classList.remove("metrics-loading");

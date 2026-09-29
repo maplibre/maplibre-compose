@@ -127,8 +127,10 @@ export async function start() {
   const defs = definitions(index.thresholds);
   installTooltips(root);
 
-  let group: Group = (["library", "demo", "all"] as const).find((g) => g === params.get("code")) ?? "library";
-  let module: string | null = params.get("module");
+  const groupScope = (group: Group) => index.scopes.find((s) => s.module === null && s.group === group);
+  let scope =
+    index.scopes.find((s) => s.module && s.module === params.get("module")) ??
+    groupScope((["demo", "all"] as const).find((g) => g === params.get("code")) ?? "library")!;
   let series: Series = {};
   let scopeLoad = 0;
   let detailLoad = 0;
@@ -143,8 +145,6 @@ export async function start() {
   $("metrics-charts").append(...selection.charts.map((chart) => chart.element));
 
   const tree = new Tree($("metrics-tree"), defs);
-  const scope = () =>
-    index.scopes.find((s) => (module ? s.module === module : s.module === null && s.group === group))!;
 
   /** The releases a scope's code was in, or its dates when it was never released. */
   function lifetime({ first, last }: Scope) {
@@ -158,36 +158,33 @@ export async function start() {
     return start === end ? start : `${start} – ${end}`;
   }
 
-  // Scope controls.
-  const segments = [...document.querySelectorAll<HTMLButtonElement>("[data-group]")];
-  const moduleSelect = $<HTMLSelectElement>("metrics-module");
-  function showControls() {
-    for (const button of segments) button.setAttribute("aria-checked", String(button.dataset.group === group));
-    const scopes = index.scopes
-      .filter((s) => s.module && (group === "all" || s.group === group))
-      .sort((a, b) => a.module!.localeCompare(b.module!));
-    if (module && !scopes.some((s) => s.module === module)) module = null;
-    const option = (s: Scope) => {
-      const span = lifetime(s);
-      return el("option", { value: s.module!, textContent: span ? `${s.module} · ${span}` : s.module! });
-    };
-    // Scopes from older indexes have no lifetime and count as current.
-    const removed = scopes.filter((s) => s.last != null && s.last < commits.length - 1);
-    const current = scopes.filter((s) => !removed.includes(s));
-    moduleSelect.replaceChildren(
-      el("option", { value: "", textContent: "All modules" }),
-      el("optgroup", { label: "Current" }, ...current.map(option)),
-      ...(removed.length ? [el("optgroup", { label: "Removed" }, ...removed.map(option))] : []),
+  // One list of every scope: both groups together, then each group and its current modules, then
+  // the modules each group has removed. Scopes from older indexes have no lifetime and count as
+  // current.
+  const scopeSelect = $<HTMLSelectElement>("metrics-scope");
+  {
+    const modules = (group: Group, removed: boolean) =>
+      index.scopes
+        .filter((s) => s.module && s.group === group && (s.last != null && s.last < commits.length - 1) === removed)
+        .sort((a, b) => a.module!.localeCompare(b.module!))
+        .map((s) => {
+          const span = lifetime(s);
+          const name = moduleName(s.module!);
+          return el("option", { value: s.id, title: s.module!, textContent: span ? `${name} · ${span}` : name });
+        });
+    const option = (s: Scope | undefined, textContent: string) => (s ? [el("option", { value: s.id, textContent })] : []);
+    const optgroup = (label: string, options: HTMLOptionElement[]) =>
+      options.length ? [el("optgroup", { label }, ...options)] : [];
+    scopeSelect.replaceChildren(
+      ...option(groupScope("all"), "Library and demo app"),
+      ...optgroup("Library", [...option(groupScope("library"), "All library modules"), ...modules("library", false)]),
+      ...optgroup("Demo app", [...option(groupScope("demo"), "All demo app modules"), ...modules("demo", false)]),
+      ...optgroup("Removed from library", modules("library", true)),
+      ...optgroup("Removed from demo app", modules("demo", true)),
     );
-    moduleSelect.value = module ?? "";
   }
-  for (const button of segments)
-    button.addEventListener("click", () => {
-      group = button.dataset.group as Group;
-      void loadScope();
-    });
-  moduleSelect.addEventListener("change", () => {
-    module = moduleSelect.value || null;
+  scopeSelect.addEventListener("change", () => {
+    scope = index.scopes.find((s) => s.id === scopeSelect.value)!;
     void loadScope();
   });
 
@@ -219,16 +216,16 @@ export async function start() {
   }
 
   async function loadScope() {
-    showControls();
-    setSearchParams({ code: group === "library" ? null : group, module });
+    scopeSelect.value = scope.id;
+    setSearchParams({ code: scope.module || scope.group === "library" ? null : scope.group, module: scope.module });
     // Charts show only the scope's lifetime, keeping a narrower zoom inside it.
-    const { first, last } = scope();
+    const { first, last } = scope;
     const [start, end] = selection.timeline.window;
     if (first != null && last != null && first < last && (start < first || end > last)) selection.zoom(first, last);
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
     try {
-      const next = await fetchJson<Series>(new URL(`series/${scope().id}.json?v=${version}.${commits.length}`, base));
+      const next = await fetchJson<Series>(new URL(`series/${scope.id}.json?v=${version}.${commits.length}`, base));
       if (load !== scopeLoad) return;
       series = next;
       showBody(null);
@@ -263,7 +260,7 @@ export async function start() {
       $("metrics-detail").hidden = true;
       return;
     }
-    const scopeReport = report.scopes[scope().id];
+    const scopeReport = report.scopes[scope.id];
     status.textContent = scopeReport ? "" : `Not present at ${commit.slice(0, 7)}.`;
     $("metrics-detail").hidden = !scopeReport;
     $("metrics-detail").classList.remove("metrics-stale");
@@ -276,7 +273,7 @@ export async function start() {
     const list = (title: string, measure: string | Node, ranked: Ranked[], functions: boolean) => {
       const items = ranked.slice(0, 10).map((entry) => {
         const d = declaration(entry.name);
-        const context = [module ? null : moduleName(d.module), d.sourceSet, functions ? d.file : null];
+        const context = [scope.module ? null : moduleName(d.module), d.sourceSet, functions ? d.file : null];
         return el(
           "li",
           {},
@@ -311,6 +308,7 @@ export async function start() {
   }
 
   function showTree(commit: string, snapshot: ScopeReport, files: FileReport[]) {
+    const { group, module } = scope;
     const modules = new Set(
       index.scopes.filter((s) => s.module && (group === "all" || s.group === group)).map((s) => s.module),
     );

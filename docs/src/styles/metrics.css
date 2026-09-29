@@ -19,13 +19,13 @@
 }
 
 .metrics
-  :is(.metrics-toolbar, .metrics-selection, .metrics-tiles, .metrics-charts, .metrics-hotspots, .metrics-table-scroll) {
+  :is(.metrics-bar, .metrics-tiles, .metrics-charts, .metrics-hotspots, .metrics-table-scroll) {
   margin-top: 1.25rem;
 }
 
 /* Starlight spaces consecutive content elements; these components lay out their own children. */
 .metrics
-  :is(.metrics-segmented, .metrics-hint, .metrics-hotspots, .metrics-legend, .metrics-tiles)
+  :is(.metrics-segmented, .metrics-hotspots, .metrics-legend, .metrics-tiles)
   > * {
   margin-top: 0;
 }
@@ -44,21 +44,53 @@
   transition: opacity 0.2s 0.15s;
 }
 
-.metrics-hint {
+/* Bar */
+
+/* Sticky under the site header, holding what the page measures, the charts' range, and the commit. */
+.metrics-bar {
+  position: sticky;
+  top: var(--sl-nav-height);
+  z-index: 5;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem 0;
+  border-block: 1px solid var(--metrics-hairline);
+  background: var(--sl-color-bg);
   font-size: var(--sl-text-sm);
 }
 
-/* Toolbar */
-
-.metrics-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
+.metrics-bar > *,
+.metrics-bar-row > *,
+.metrics-range > *,
+.metrics-commit > * {
+  margin: 0 !important;
 }
 
-.metrics-toolbar > * {
-  margin: 0 !important;
+.metrics-bar-row,
+.metrics-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+}
+
+/* The range sits at the end of the row, or on its own line under the picker. */
+.metrics-range {
+  margin-left: auto !important;
+}
+
+.metrics-range[hidden] {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  /* A narrow bar keeps the controls and the selected release or date, which fit one row each. */
+  #metrics-range-status,
+  #metrics-selection-commit,
+  #metrics-selection-title {
+    display: none;
+  }
 }
 
 .metrics-segmented {
@@ -86,7 +118,7 @@
 }
 
 /* A select is as wide as its longest option, such as a module and its lifetime. */
-.metrics-toolbar label,
+.metrics-bar label,
 .metrics select {
   min-width: 0;
   max-width: 100%;
@@ -115,57 +147,17 @@
   text-decoration: underline;
 }
 
-/* Timeline controls */
-
-.metrics-timeline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  font-size: var(--sl-text-sm);
-}
-
-.metrics-timeline > * {
-  margin: 0 !important;
-}
-
-.metrics .metrics-timeline {
-  margin-top: 2rem;
-}
-
-.metrics .metrics-timeline + .metrics-charts {
-  margin-top: 1rem;
-}
-
 /* Selection and tiles */
 
-.metrics-selection {
-  position: sticky;
-  top: var(--sl-nav-height);
-  z-index: 5;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem 0.625rem;
-  padding: 0.5rem 0;
-  border-block: 1px solid var(--metrics-hairline);
-  background: var(--sl-color-bg);
-  font-size: var(--sl-text-sm);
-}
-
-.metrics-selection > *,
-.metrics-commit > * {
-  margin: 0 !important;
-  white-space: nowrap;
-}
-
-/* The commit wraps under the bar's other controls when they don't share a line. */
 .metrics-commit {
   display: flex;
-  flex: 1 1 24rem;
   align-items: center;
   gap: 0.625rem;
   min-width: 0;
+}
+
+.metrics-commit > * {
+  white-space: nowrap;
 }
 
 .metrics-commit[hidden] {
