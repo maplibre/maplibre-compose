@@ -34,7 +34,7 @@ class MlnFfiIndependentCameraTest {
       fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
 
       val ownerHeld = MlnFfiGate()
-      assertTrue(fixture.session.postOwnerTaskForTest { ownerHeld.awaitUntilOpen() })
+      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
       val animation =
         try {
           state.setCameraPosition(
@@ -64,7 +64,7 @@ class MlnFfiIndependentCameraTest {
       val state = fixture.state
       val initial = state.cameraPosition
       val ownerHeld = MlnFfiGate()
-      assertTrue(fixture.session.postOwnerTaskForTest { ownerHeld.awaitUntilOpen() })
+      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
       val flight =
         try {
           state.setCameraPosition(initial.copy(target = Position(120.0, 0.0)))
@@ -103,7 +103,7 @@ class MlnFfiIndependentCameraTest {
       // The owner thread holds still, so both commands enter the same owner batch, before another
       // native event drain.
       val ownerHeld = MlnFfiGate()
-      fixture.session.postOwnerTaskForTest { ownerHeld.awaitUntilOpen() }
+      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
       val replacement =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(

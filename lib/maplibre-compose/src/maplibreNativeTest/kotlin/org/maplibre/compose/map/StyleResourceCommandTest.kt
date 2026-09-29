@@ -30,6 +30,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -72,12 +73,11 @@ class StyleResourceCommandTest {
         val ownerReleased = CompletableDeferred<Boolean>()
         val session = fixture.session as MlnFfiMapSession
         try {
-          assertTrue(
-            session.postOwnerTaskForTest {
-              parked.countDown()
-              ownerReleased.complete(release.await(5_000))
-            }
-          )
+          session.loop.submit {
+            parked.countDown()
+            ownerReleased.complete(release.await(5_000))
+          }
+
           assertTrue(parked.await(5_000))
           val style = fixture.state.style
           style.images.setAll(mapOf("replaced" to first, "removed" to first))
@@ -164,12 +164,10 @@ class StyleResourceCommandTest {
       val ownerReleased = CompletableDeferred<Boolean>()
       recordingLogs { records ->
         try {
-          assertTrue(
-            (fixture.session as MlnFfiMapSession).postOwnerTaskForTest {
-              parked.countDown()
-              ownerReleased.complete(release.await(5_000))
-            }
-          )
+          (fixture.session as MlnFfiMapSession).loop.submit {
+            parked.countDown()
+            ownerReleased.complete(release.await(5_000))
+          }
           assertTrue(parked.await(5_000))
           handle.setImage(image(OPAQUE_GREEN))
           handle.setUri("https://example.invalid/image.png")
@@ -206,9 +204,7 @@ class StyleResourceCommandTest {
         }
         assertTrue(ran.await(5_000))
         val drained = TestLatch(1)
-        assertTrue(
-          (fixture.session as MlnFfiMapSession).postOwnerTaskForTest { drained.countDown() }
-        )
+        (fixture.session as MlnFfiMapSession).loop.submit { drained.countDown() }
         assertTrue(drained.await(5_000))
         assertEquals(emptyList(), records.problems())
       }
@@ -226,12 +222,10 @@ class StyleResourceCommandTest {
       val release = TestLatch(1)
       recordingLogs { records ->
         try {
-          assertTrue(
-            (fixture.session as MlnFfiMapSession).postOwnerTaskForTest {
-              parked.countDown()
-              release.await(5_000)
-            }
-          )
+          (fixture.session as MlnFfiMapSession).loop.submit {
+            parked.countDown()
+            release.await(5_000)
+          }
           assertTrue(parked.await(5_000))
           handle.remove()
           handle.setBounds(MOVED)
@@ -263,49 +257,43 @@ class StyleResourceCommandTest {
       val binding =
         checkNotNull(
           actual.readMap { map ->
-            MlnFfiStyleBinding(map = map, sessionOpen = { false })
+            MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { false })
           }
         )
       assertEquals(listOf("background"), binding.baseLayers.map { it.id })
       assertFalse(binding.isLoaded)
-      assertFailsWith<IllegalStateException> { binding.layerIds() }
+      assertFailsWith<IllegalStateException> { actual.readMap { binding.layerIds() } }
     }
   }
 
   @Test
-  fun a_binding_invalidated_after_admission_cannot_read_or_mutate_the_owner_map() = runMapTest {
+  fun synchronous_binding_calls_run_only_on_the_owner_and_only_while_loaded() = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val actual = fixture.style as MlnFfiStyleBinding
       val prepared = ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       fixture.state.style.images.set("retained", prepared)
       fixture.state.style.awaitCommands()
+
+      val offOwner = assertFailsWith<IllegalStateException> { actual.imageExists("retained") }
+      assertTrue("owner thread" in offOwner.message.orEmpty(), offOwner.message)
+      assertFailsWith<IllegalStateException> { actual.removeImage("retained") }
+      assertEquals(true, actual.awaitOwner { actual.imageExists("retained") })
+
       for (mutating in listOf(false, true)) {
-        var invalidateOnAccess = false
-        lateinit var binding: MlnFfiStyleBinding
-        binding =
+        val binding =
           checkNotNull(
             actual.readMap { map ->
-              MlnFfiStyleBinding(
-                map = map,
-                sessionOpen = { true },
-                accessMap = { action ->
-                  actual.readMap { map ->
-                    // Models invalidation after an operation was admitted but before its owner
-                    // callback.
-                    if (invalidateOnAccess) binding.invalidate()
-                    action(map)
-                  }
-                  true
-                },
-              )
+              MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { true })
             }
           )
-        invalidateOnAccess = true
+        binding.invalidate()
         assertFailsWith<IllegalStateException> {
-          if (mutating) binding.removeImage("retained") else binding.imageExists("retained")
+          actual.readMap {
+            if (mutating) binding.removeImage("retained") else binding.imageExists("retained")
+          }
         }
-        assertEquals(true, actual.imageExists("retained"))
+        assertEquals(true, actual.readMap { actual.imageExists("retained") })
       }
     }
   }

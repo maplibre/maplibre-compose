@@ -46,7 +46,8 @@ class DeclaredStyleOwnershipTest {
       fixture.declare {}
       assertNull(fixture.state.style.sources["points"])
       assertNull(fixture.state.style.layers["points"])
-      assertTrue("points" !in assertNotNull(fixture.style).layerIds())
+      val style = assertNotNull(fixture.style)
+      assertTrue("points" !in style.onOwner { style.layerIds() })
 
       fixture.declare { CircleLayer("points", source, visible = true) }
       assertNotNull(fixture.state.style.sources["points"])

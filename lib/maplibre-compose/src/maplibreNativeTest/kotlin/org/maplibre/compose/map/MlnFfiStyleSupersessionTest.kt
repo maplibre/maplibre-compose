@@ -86,14 +86,13 @@ class MlnFfiStyleSupersessionTest {
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
       assertTrue(first.started.await(TIMEOUT_MILLIS))
-      assertTrue(
-        fixture.session.postOwnerTaskForTest { map ->
-          // Produce a real old native terminal event without letting the runtime drain it yet.
-          // The raw setter controls timing only; Compose still owns the old request identity.
-          runCatching { map.setStyleJson(oldResult.json.encodeToByteArray()) }
-          fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
-        }
-      )
+      fixture.session.loop.submit { map ->
+        // Produce a real old native terminal event without letting the runtime drain it yet.
+        // The raw setter controls timing only; Compose still owns the old request identity.
+        runCatching { map.setStyleJson(oldResult.json.encodeToByteArray()) }
+        fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
+      }
+
       assertTrue(second.started.await(TIMEOUT_MILLIS))
       fixture.pump()
       assertEquals(0, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
@@ -180,12 +179,11 @@ class MlnFfiStyleSupersessionTest {
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
       assertTrue(first.started.await(TIMEOUT_MILLIS))
-      assertTrue(
-        fixture.session.postOwnerTaskForTest {
-          fixture.session.setBaseStyle(BaseStyle.Json("{invalid intermediate"))
-          fixture.session.setBaseStyle(style("latest"))
-        }
-      )
+      fixture.session.loop.submit {
+        fixture.session.setBaseStyle(BaseStyle.Json("{invalid intermediate"))
+        fixture.session.setBaseStyle(style("latest"))
+      }
+
       fixture.pumpUntil("only the latest queued request to load", timeout = 5.seconds) {
         fixture.engineEvents.count { it == MapEvent.StyleLoaded } == 1
       }

@@ -51,12 +51,11 @@ class MlnFfiStylePresentationTest {
       val release = TestLatch(1)
       val ownerReleased = CompletableDeferred<Boolean>()
       try {
-        assertTrue(
-          session.postOwnerTaskForTest {
-            parked.countDown()
-            ownerReleased.complete(release.await(5_000L))
-          }
-        )
+        session.loop.submit {
+          parked.countDown()
+          ownerReleased.complete(release.await(5_000L))
+        }
+
         assertTrue(parked.await(5_000L), "native owner did not reach the gate")
         val node = StyleNode(assertNotNull(fixture.style), this)
         try {

@@ -4,12 +4,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.readMap
 import org.maplibre.compose.style.uninstall
 
 class BaseSourceRestoreTest {
@@ -25,11 +27,11 @@ class BaseSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val source = assertIs<VectorTileSource>(style.getSource(SOURCE_ID))
-      style.uninstall(source)
-      style.install(source)
+      val source = assertIs<VectorTileSource>(style.readMap { style.getSource(SOURCE_ID) })
+      runBlocking { style.uninstall(source) }
+      runBlocking { style.install(source) }
 
-      val restored = assertIs<VectorTileSource>(style.getSource(SOURCE_ID))
+      val restored = assertIs<VectorTileSource>(style.readMap { style.getSource(SOURCE_ID) })
       assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
@@ -49,7 +51,7 @@ class BaseSourceRestoreTest {
 
       assertEquals(
         mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
-        style.getSources().associate { source ->
+        checkNotNull(style.readMap { style.getSources() }).associate { source ->
           source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
         },
       )

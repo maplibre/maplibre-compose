@@ -213,77 +213,18 @@ internal class MlnFfiMapRuntimeLoop(
     completion.await().getOrThrow()
   }
 
-  private fun enqueue(run: (MapHandle) -> Unit, onDropped: () -> Unit, ordered: Boolean) {
-    if (!tryEnqueue(run, onDropped, ordered)) onDropped()
-  }
-
   /** The owner thread logs what [run] throws and then runs [onDropped]. */
-  private fun tryEnqueue(run: (MapHandle) -> Unit, onDropped: () -> Unit, ordered: Boolean) =
-    thread.post(
-      MlnFfiRuntimeThread.Task(
-        run = { run(checkNotNull(created)) },
-        reject = { onDropped() },
-        endsBatch = ordered,
+  private fun enqueue(run: (MapHandle) -> Unit, onDropped: () -> Unit, ordered: Boolean) {
+    val accepted =
+      thread.post(
+        MlnFfiRuntimeThread.Task(
+          run = { run(checkNotNull(created)) },
+          reject = { onDropped() },
+          endsBatch = ordered,
+        )
       )
-    )
-
-  /** Blocking form of [await], for callers not yet moved to it. Returns null before the map. */
-  fun <T> call(action: (MapHandle) -> T, abandon: () -> Unit = {}): T? {
-    if (thread.isCurrent()) {
-      val current = map
-      if (current == null) {
-        abandon()
-        return null
-      }
-      return action(current)
-    }
-    if (map == null) {
-      abandon()
-      return null
-    }
-    var result: Result<T>? = null
-    val done = MlnFfiGate()
-    val posted =
-      tryEnqueue(
-        run = { map ->
-          result = runCatching { action(map) }
-          done.open()
-        },
-        onDropped = {
-          try {
-            abandon()
-          } finally {
-            done.open()
-          }
-        },
-        ordered = true,
-      )
-    if (!posted) {
-      abandon()
-      return null
-    }
-    done.awaitUntilOpen()
-    return result?.getOrThrow()
+    if (!accepted) onDropped()
   }
-
-  /** Queued form of [submit] that reports acceptance, for callers not yet moved to it. */
-  fun post(
-    action: (MapHandle) -> Unit,
-    abandon: () -> Unit = {},
-    drainAfter: Boolean = false,
-  ): Boolean = tryEnqueue(action, abandon, drainAfter)
-
-  /** [submit] that reports acceptance, for callers not yet moved to it. */
-  fun dispatch(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean {
-    if (!thread.isCurrent()) return post(action, abandon)
-    val current = map ?: return false
-    action(current)
-    return true
-  }
-
-  /** Callback form of [awaitEventsDrained], for callers not yet moved to it. */
-  fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
-    post(action = { eventDrainBarriers += DrainBarrier(action, abandon) }, abandon = abandon)
 
   /**
    * Rejects new work and requests destruction. The caller must first release every render session

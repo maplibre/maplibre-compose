@@ -4,8 +4,10 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.onOwner
 
 /**
  * Proves a map that has finished its work stops asking to be drawn. FFI frames are requested rather
@@ -37,10 +39,14 @@ class MlnFfiMapIdleTest {
       fixture.settle()
 
       requireNotNull(fixture.style).also { style ->
-        style.getSources()
-        style.layerIds()
-        style.getSource("missing")
-        style.getLayer("missing")
+        runBlocking {
+          style.onOwner {
+            style.getSources()
+            style.layerIds()
+            style.getSource("missing")
+            style.getLayer("missing")
+          }
+        }
       }
 
       val drawn = fixture.renderOnDemand(IDLE_WINDOW)

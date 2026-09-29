@@ -11,6 +11,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
@@ -85,7 +86,7 @@ private class NativeSnapshotterAdapter(
     loadedBaseStyleRevision = null
     val loading = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STYLE)
     terminalOperation = loading
-    postStyleToMap(loading, baseStyle)
+    submitStyle(loading, baseStyle)
     val loadResult = loading.completion.await()
     if (terminalOperation === loading) terminalOperation = null
     loadResult.getOrThrow()
@@ -110,7 +111,7 @@ private class NativeSnapshotterAdapter(
     // The owner thread renders the still image from its update events; see handleEvent.
     val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STILL_IMAGE)
     terminalOperation = rendering
-    postToMap(rendering) { map -> map.requestStillImage() }
+    submitOperation(rendering) { map -> map.requestStillImage() }
     val renderResult = rendering.completion.await()
     if (terminalOperation === rendering) terminalOperation = null
     renderResult.getOrThrow()
@@ -219,18 +220,12 @@ private class NativeSnapshotterAdapter(
       ) {
         "The snapshotter engine map stopped during request configuration"
       }
-      if (
-        !currentLoop.postEventDrainBarrier(
-          { resized.completion.complete(Result.success(Unit)) },
-          {
-            resized.completion.complete(
-              Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
-            )
-          },
-        )
-      ) {
+      // The settle completes the operation even for a cancelled caller, which waits for it anyway.
+      withContext(NonCancellable) {
+        val settled = runCatching { currentLoop.awaitEventsDrained() }
         resized.completion.complete(
-          Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
+          if (settled.isSuccess) settled
+          else Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
         )
       }
     } catch (error: Throwable) {
@@ -361,15 +356,13 @@ private class NativeSnapshotterAdapter(
       map = map,
       loggerProvider = { options.logger },
       sessionOpen = { open },
-      accessMap = { action -> source.loop.call(action = action) != null },
-      postMap = { action, abandon -> source.loop.dispatch(action = action, abandon = abandon) },
+      loop = source.loop,
       // A snapshot renders on the owner thread, so the render session is reached from there.
-      enqueueRenderSession = { action ->
-        source.loop.post(
-          action = { _ -> source.resources.withSessionOrNull(action) },
-          abandon = { action(null) },
-        )
-      },
+      renderSessions =
+        object : MlnFfiRenderSessions {
+          override suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? =
+            source.loop.await { source.resources.withSessionOrNull(action) }
+        },
       getScale = { currentDensity },
     )
 
@@ -416,8 +409,8 @@ private class NativeSnapshotterAdapter(
     return pixels.toImageBitmap(info.width, info.height)
   }
 
-  private fun postStyleToMap(operation: NativeSnapshotOperation, baseStyle: BaseStyle) {
-    postToMap(operation) { map ->
+  private fun submitStyle(operation: NativeSnapshotOperation, baseStyle: BaseStyle) {
+    submitOperation(operation) { map ->
       try {
         when (baseStyle) {
           is BaseStyle.Uri -> map.setStyleUrl(baseStyle.uri)
@@ -430,24 +423,16 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private fun postToMap(operation: NativeSnapshotOperation, action: (MapHandle) -> Unit) {
+  private fun submitOperation(operation: NativeSnapshotOperation, action: (MapHandle) -> Unit) {
     val currentLoop = checkNotNull(engine).loop
-    if (
-      !currentLoop.post(
-        action = { map ->
-          runCatching { action(map) }
-            .onFailure { operation.completion.complete(Result.failure(it)) }
-        },
-        abandon = {
-          operation.completion.complete(
-            Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
-          )
-        },
-      )
-    ) {
-      operation.completion.complete(
-        Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
-      )
+    currentLoop.submit(
+      onDropped = {
+        operation.completion.complete(
+          Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
+        )
+      }
+    ) { map ->
+      runCatching { action(map) }.onFailure { operation.completion.complete(Result.failure(it)) }
     }
   }
 
@@ -511,10 +496,9 @@ private class NativeSnapshotRenderResources(
   fun <T> withSession(action: (RenderSessionHandle) -> T): T =
     checkNotNull(target).withAccess { action(checkNotNull(session)) }
 
-  /** Runs [action] with the attached session, or with null when none is attached. */
-  fun withSessionOrNull(action: (RenderSessionHandle?) -> Unit) {
-    if (target == null || session == null) action(null) else withSession(action)
-  }
+  /** Runs [action] with the attached session, or returns null when none is attached. */
+  fun <T> withSessionOrNull(action: (RenderSessionHandle) -> T): T? =
+    if (target == null || session == null) null else withSession(action)
 
   fun close() {
     val failures = mutableListOf<Throwable>()

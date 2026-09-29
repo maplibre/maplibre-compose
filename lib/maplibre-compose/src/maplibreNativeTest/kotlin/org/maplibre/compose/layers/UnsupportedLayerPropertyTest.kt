@@ -8,6 +8,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -84,7 +85,7 @@ class UnsupportedLayerPropertyTest {
       )
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and installation turns that into a throw.
-      val handle = style.install(layer)
+      val handle = runBlocking { style.install(layer) }
 
       style.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
@@ -146,7 +147,7 @@ class UnsupportedLayerPropertyTest {
         "text-overlap",
         (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val installation = style.install(layer)
+      val installation = runBlocking { style.install(layer) }
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
       for (value in listOf("cooperative", "never")) {
@@ -174,7 +175,7 @@ class UnsupportedLayerPropertyTest {
         "text-rotation-alignment",
         (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val handle = style.install(layer)
+      val handle = runBlocking { style.install(layer) }
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
@@ -213,7 +214,7 @@ class UnsupportedLayerPropertyTest {
       layer.paintTransition("fill-layer-opacity", TransitionOptions(500.milliseconds))
       // The assertion is that this returns at all: a layer object carrying either key is refused
       // wholesale, and installation turns that into a throw.
-      style.install(layer)
+      runBlocking { style.install(layer) }
 
       style.onMap { map ->
         assertTrue(map.styleLayerExists("fills"), "the layer should have been added")
@@ -242,7 +243,7 @@ class UnsupportedLayerPropertyTest {
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
         options = GeoJsonOptions(),
       )
-      .also { style.install(it) }
+      .also { runBlocking { style.install(it) } }
 
   private companion object {
     /** Warnings the library logged. */

@@ -27,6 +27,7 @@ import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -266,21 +267,25 @@ class MapQueryTest {
             .single()
             .geometry
         )
-        style.setLayerProperty(
-          "indicator",
-          "visibility",
-          JsonPrimitive("none"),
-          LayerPropertyKind.LAYOUT,
-        )
+        style.onOwner {
+          style.setLayerProperty(
+            "indicator",
+            "visibility",
+            JsonPrimitive("none"),
+            LayerPropertyKind.LAYOUT,
+          )
+        }
         fixture.pumpUntil("hidden indicator") { indicatorHits().isEmpty() }
-        style.setLayerProperty(
-          "indicator",
-          "visibility",
-          JsonPrimitive("visible"),
-          LayerPropertyKind.LAYOUT,
-        )
+        style.onOwner {
+          style.setLayerProperty(
+            "indicator",
+            "visibility",
+            JsonPrimitive("visible"),
+            LayerPropertyKind.LAYOUT,
+          )
+        }
         fixture.pumpUntil("visible indicator") { indicatorHits().size == 1 }
-        style.removeLayer("indicator")
+        style.onOwner { style.removeLayer("indicator") }
         fixture.pumpUntil("removed indicator") { indicatorHits().isEmpty() }
       }
     }

@@ -3,6 +3,7 @@ package org.maplibre.compose.layers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -38,7 +39,7 @@ class MlnFfiLayerKeyRoundTripTest {
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
             options = GeoJsonOptions(),
           )
-          .also { source -> style.install(source) }
+          .also { source -> runBlocking { style.install(source) } }
 
       val beforeAttach = TestLayer("before", "symbol", source)
       beforeAttach.sourceLayer = "places"
@@ -50,10 +51,10 @@ class MlnFfiLayerKeyRoundTripTest {
         ((Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      style.install(beforeAttach)
+      runBlocking { style.install(beforeAttach) }
 
       val afterAttach = TestLayer("after", "symbol", source)
-      val afterHandle = style.install(afterAttach)
+      val afterHandle = runBlocking { style.install(afterAttach) }
       afterAttach.sourceLayer = "roads"
       afterAttach.minZoom = 4f
       afterAttach.maxZoom = 16f

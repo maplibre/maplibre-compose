@@ -15,7 +15,6 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.render.RenderSessionHandle
 
 class MlnFfiTileRequestCoordinatorTest {
 
@@ -135,13 +134,14 @@ class MlnFfiTileRequestCoordinatorTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
     val binding = CompletableDeferred<DroppingBinding>()
-    val loop =
+    lateinit var loop: MlnFfiMapRuntimeLoop
+    loop =
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
         cacheFile = cacheFile,
         getLogger = { null },
         onMapCreated = {},
-        onMapPublished = { binding.complete(DroppingBinding(it)) },
+        onMapPublished = { binding.complete(DroppingBinding(it, loop)) },
         onEvent = { _, _ -> },
         onEventsDrained = {},
         requestFrame = {},
@@ -157,14 +157,13 @@ class MlnFfiTileRequestCoordinatorTest {
     }
   }
 
-  private class DroppingBinding(map: MapHandle) : MlnFfiStyleBinding(map, sessionOpen = { true }) {
+  private class DroppingBinding(map: MapHandle, loop: MlnFfiMapRuntimeLoop) :
+    MlnFfiStyleBinding(map, loop, sessionOpen = { true }) {
     var onDrop: () -> Unit = {}
 
-    override fun postOrAbandon(abandon: () -> Unit, action: (MapHandle) -> Unit) {
-      abandon()
+    override fun submit(onDropped: () -> Unit, action: (MapHandle) -> Unit) {
+      onDropped()
       onDrop()
     }
-
-    override suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? = null
   }
 }
