@@ -152,8 +152,11 @@ export class CommitSelection {
     const period = periods.find((p) => p.id === range);
     let first: number;
     if (period) {
-      const start = new Date(times[this.last]);
-      start.setUTCMonth(start.getUTCMonth() - period.months);
+      // The same day of an earlier month, or its last day when that month is shorter.
+      const end = new Date(times[this.last]);
+      const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - period.months, 1));
+      const days = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
+      start.setUTCDate(Math.min(end.getUTCDate(), days));
       first = times.findIndex((t) => t >= start.getTime());
     } else {
       first = commits.findIndex((c) => c.tags.includes(range));

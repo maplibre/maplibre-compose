@@ -264,6 +264,22 @@ export class TrendChart {
     this.brush.remove();
   }
 
+  /**
+   * The x position of the first commit in [first]..[last] on or after a time. Times usually come in
+   * order, so the search continues from the previous answer, and starts over when a time is earlier.
+   */
+  private commitAt(first: number, last: number) {
+    const { times } = this.timeline;
+    let j = first;
+    let previous = -Infinity;
+    return (time: number) => {
+      if (time < previous) j = first;
+      previous = time;
+      while (j < last && times[j] < time) j++;
+      return this.x(j);
+    };
+  }
+
   /** Renders the data over the timeline's window and spacing. */
   draw() {
     const { times, releases, spacing } = this.timeline;
@@ -312,11 +328,7 @@ export class TrendChart {
     const ticks =
       spacing === "dates"
         ? dateTicks(start, end, Math.max(2, Math.floor((right - margin.left) / 80))).map((t) => ({ x: scale(t.time), label: t.label }))
-        : adaptiveTicks(times[first], times[last], (time) => {
-            let j = first;
-            while (j < last && times[j] < time) j++;
-            return this.x(j);
-          }, 56);
+        : adaptiveTicks(times[first], times[last], this.commitAt(first, last), 56);
     for (const tick of ticks) {
       plot.append(svg("text", { class: "metrics-axis", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
     }

@@ -218,10 +218,15 @@ export async function start() {
   async function loadScope() {
     scopeSelect.value = scope.id;
     setSearchParams({ code: scope.module || scope.group === "library" ? null : scope.group, module: scope.module });
-    // Charts show only the scope's lifetime, keeping a narrower zoom inside it.
+    // Charts show only the scope's lifetime, keeping a narrower zoom inside it. A scope measured at
+    // one commit shows it between its neighbors.
     const { first, last } = scope;
-    const [start, end] = selection.timeline.window;
-    if (first != null && last != null && first < last && (start < first || end > last)) selection.zoom(first, last);
+    if (first != null && last != null) {
+      const pad = first === last ? 1 : 0;
+      const [from, to] = [Math.max(0, first - pad), Math.min(commits.length - 1, last + pad)];
+      const [start, end] = selection.timeline.window;
+      if (from < to && (start < from || end > to)) selection.zoom(from, to);
+    }
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
     try {
