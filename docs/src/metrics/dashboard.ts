@@ -226,6 +226,8 @@ export async function start() {
       const [from, to] = [Math.max(0, first - pad), Math.min(commits.length - 1, last + pad)];
       const [start, end] = selection.timeline.window;
       if (from < to && (start < from || end > to)) selection.zoom(from, to);
+      // The neighbors have no data for the scope, so the selection moves to its commit.
+      if (pad) selection.timeline.select(first);
     }
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
