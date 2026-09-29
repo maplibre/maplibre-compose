@@ -32,10 +32,15 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
         with:
-          save-toolchains: "true"
+          # One job per runner label saves the toolchains; see setup-ci-deps.
+          save-toolchains: ${{ matrix.ios-version == '' }}
           native-cache-scope: ios-simulator
+      # The oldest supported iOS, which the pbxproj deployment targets and
+      # getting-started page name. The runner image ships only current runtimes.
+      - if: ${{ matrix.ios-version != '' }}
+        run: mise run ios-simulator:install-runtime ${{ matrix.ios-version }}
       - id: ios-tests
-        run: mise run test:ios
+        run: mise run test:ios ${{ matrix.ios-version }}
       - name: Upload iOS test results to Trunk
         if: ${{ !cancelled() && inputs.secrets-available }}
         continue-on-error: true
@@ -44,7 +49,7 @@ jobs:
           junit-paths: "**/build/test-results/iosSimulatorArm64Test/TEST-*.xml"
           org-slug: sargunv
           token: ${{ secrets.TRUNK_API_TOKEN }}
-          variant: ios-simulator-arm64
+          variant: ios-simulator-${{ matrix.variant }}
           previous-step-outcome: ${{ steps.ios-tests.outcome }}
           allow-missing-junit-files: "false"
         env:
@@ -55,7 +60,7 @@ jobs:
         with:
           retention-days: 14
           if-no-files-found: warn
-          name: ios-test-reports
+          name: ios-${{ matrix.variant }}-test-reports
           path: |
             **/build/reports/tests
             **/build/test-results
