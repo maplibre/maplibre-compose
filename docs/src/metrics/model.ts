@@ -24,6 +24,10 @@ export interface Scope {
   id: string;
   group: "all" | "library" | "demo";
   module: string | null;
+  /** Index in [Index.commits] of the first commit with this scope's code; absent from older indexes. */
+  first?: number;
+  /** Index in [Index.commits] of the last commit with this scope's code; absent from older indexes. */
+  last?: number;
 }
 
 /** One column per metric, aligned with [Index.commits]; null where the scope didn't exist. */
@@ -112,7 +116,8 @@ export function sourceUrl(commit: string, path: string, line?: number) {
 }
 
 const whole = new Intl.NumberFormat("en");
-const compact = new Intl.NumberFormat("en", { notation: "compact" });
+// Enough digits that axis steps such as 57.5K don't round to their neighbors.
+const compact = new Intl.NumberFormat("en", { notation: "compact", maximumSignificantDigits: 4 });
 
 export function format(value: number | null | undefined) {
   return value == null ? "–" : whole.format(Math.round(value));

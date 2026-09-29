@@ -1,6 +1,6 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import CommitSelection from "../components/CommitSelection.astro";
+import DashboardBar from "../components/DashboardBar.astro";
 import "../styles/metrics.css";
 
 // Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
@@ -19,23 +19,16 @@ const source =
   }}
 >
   <div class="metrics" data-source={source}>
-    <div class="metrics-toolbar">
-      <div class="metrics-segmented" role="radiogroup" aria-label="Code">
-        <button role="radio" data-group="library">Library</button>
-        <button role="radio" data-group="demo">Demo app</button>
-        <button role="radio" data-group="all">Both</button>
-      </div>
+    <DashboardBar>
       <label>
-        <span class="sr-only">Module</span>
-        <select id="metrics-module"></select>
+        <span class="sr-only">Code</span>
+        <select id="metrics-scope"></select>
       </label>
-    </div>
+    </DashboardBar>
 
     <p id="metrics-status" class="metrics-status" role="status">Loading…</p>
 
     <div id="metrics-body" hidden>
-      <CommitSelection />
-
       <div id="metrics-tiles" class="metrics-tiles"></div>
 
       <div id="metrics-charts" class="metrics-charts"></div>

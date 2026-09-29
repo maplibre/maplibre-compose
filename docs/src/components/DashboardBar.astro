@@ -1,0 +1,50 @@
+---
+// The bar that stays in view while scrolling a dashboard. The first row says what
+// the page measures, in the default slot, and which range of the history the
+// charts show and how they space it: a preset, or dates typed in or dragged
+// across a chart. The second row names the selected commit and
+// steps through the history. The dashboard's CommitSelection drives everything
+// but the slot, and shows the range and the commit once it has data.
+---
+
+<div class="metrics-bar">
+  <div class="metrics-bar-row">
+    <slot />
+    <div id="metrics-range" class="metrics-range" hidden>
+      <label>
+        <span class="sr-only">Range</span>
+        <select id="metrics-range-select"></select>
+      </label>
+      <div class="metrics-range-dates">
+        <label>
+          <span class="sr-only">From</span>
+          <input id="metrics-range-from" type="date" />
+        </label>
+        <span aria-hidden="true">–</span>
+        <label>
+          <span class="sr-only">To</span>
+          <input id="metrics-range-to" type="date" />
+        </label>
+      </div>
+      <div
+        class="metrics-segmented"
+        role="radiogroup"
+        aria-label="Space commits"
+      >
+        <button role="radio" data-spacing="commits">By commit</button>
+        <button role="radio" data-spacing="dates">By date</button>
+      </div>
+    </div>
+  </div>
+  <div id="metrics-commit" class="metrics-commit" hidden>
+    <div class="metrics-nav" role="group" aria-label="Commits">
+      <button id="metrics-previous-release"></button>
+      <button id="metrics-previous"></button>
+      <button id="metrics-next"></button>
+      <button id="metrics-next-release"></button>
+    </div>
+    <span id="metrics-selection-label"></span>
+    <span id="metrics-selection-commit"></span>
+    <span id="metrics-selection-title" class="metrics-muted"></span>
+  </div>
+</div>

@@ -208,6 +208,10 @@ def sync(store, start, end, rebuild):
     for columns in series.values():
         for column in columns.values():
             column.extend([None] * (len(entries) - len(column)))
+    # The first and last commit with each scope's code, which the dashboard shows as its lifetime.
+    for key, scope in scopes.items():
+        present = [i for i, value in enumerate(series[key]["loc"]) if value is not None]
+        scope["first"], scope["last"] = present[0], present[-1]
     if commits:
         store.write(
             {f"series/{key}.json": columns for key, columns in series.items()},
@@ -242,9 +246,9 @@ def sync(store, start, end, rebuild):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    # The first release without the C++ JNI code; earlier commits measure a different architecture.
+    # The first release; before it, the library lived outside lib/.
     parser.add_argument(
-        "--from", dest="start", default="v0.14.0", help="First commit to measure"
+        "--from", dest="start", default="v0.1.0", help="First commit to measure"
     )
     parser.add_argument(
         "--to", dest="end", default="HEAD", help="Last commit to measure"

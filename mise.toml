@@ -615,7 +615,7 @@ done
 run = "./gradlew :tools:code-metrics:test"
 
 [tasks."metrics:site-data"]
-description = "Measure commits since v0.14.0 into docs/public/metrics-data for `metrics:dev`."
+description = "Measure commits since v0.1.0 into docs/public/metrics-data for `metrics:dev`."
 depends = ["metrics:build"]
 run = "python3 tools/code-metrics/history.py --output docs/public/metrics-data"
 
