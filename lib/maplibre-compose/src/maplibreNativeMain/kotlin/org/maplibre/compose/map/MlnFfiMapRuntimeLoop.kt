@@ -39,27 +39,14 @@ private const val PUMP_BUDGET_MILLIS = 4L
  * The render session belongs to whichever thread attached it, and native refuses to destroy a map
  * that still has one attached, so teardown waits for that thread to close it.
  *
- * The loop runs on an [MlnFfiRuntimeThread].
+ * The loop runs on an [MlnFfiRuntimeThread]. Only that thread calls a [MapHandle], apart from the
+ * renderer attaching its render session. Code already on it calls the map directly; other threads
+ * use [await] to get a result, [submit] when they need nothing back, and [awaitEventsDrained] to
+ * run after the events raised so far have been handled.
  *
- * Only the owner thread calls a [MapHandle], except that the renderer thread attaches its render
- * session to the map. Code already on the owner thread (an event handler, `onEventsDrained`, or any
- * owner task) calls the engine directly, and so do the style binding's owner-only methods, which
- * throw on any other thread (see [org.maplibre.compose.style.MlnFfiStyleBinding]). Code on any
- * other thread picks one operation by what it needs back:
- * - [await], for a value or to know that the work ran. Waits: suspends. On owner: runs inline.
- *   Before map: queued, or null on the owner. After stop: returns null. Drain: ends its batch.
- *   Errors: rethrown. Cancel: skipped if cancelled before it starts, unless `cancellable = false`.
- * - [submit], for nothing back. Waits: no. On owner: runs inline. Before map: queued, or runs
- *   `onDropped` on the owner. After stop: runs `onDropped`. Drain: ends its batch only when
- *   `ordered`. Errors: runs `onDropped`, then rethrown inline or logged when queued. Cancel: not
- *   cancellable.
- * - [awaitEventsDrained], to run after the events raised so far have been handled. Waits: suspends.
- *   On owner: do not call. Before map: queued. After stop: throws. Drain: runs after the next pump
- *   and event drain. Errors: rethrown. Cancel: the caller stops waiting; the work still runs.
- *
- * A batch is the queued work run between two native pumps. Work that ends its batch lets native
- * raise and deliver its events before later queued work runs. Not every task ends its batch,
- * because each pump costs up to [PUMP_BUDGET_MILLIS].
+ * Queued work runs in batches between native pumps. [await] and an `ordered` [submit] end their
+ * batch, so later work sees the events they raise. Other work does not, because each pump costs up
+ * to [PUMP_BUDGET_MILLIS].
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
@@ -162,11 +149,9 @@ internal class MlnFfiMapRuntimeLoop(
   fun isOwnerThread(): Boolean = thread.isCurrent()
 
   /**
-   * Runs [action] on the owner thread and suspends until it returns its result. Inline on the
-   * owner. Returns null when the loop stops before [action] runs. Rethrows what [action] throws.
-   * Ends its batch. A caller cancelled before [action] starts skips it, unless [cancellable] is
-   * false: then the caller waits for [action] even when cancelled, for work that must finish, such
-   * as work that uses memory the caller frees once this returns.
+   * Runs [action] on the owner thread and returns its result, or null when the loop stops first.
+   * Rethrows what [action] throws. A caller cancelled before [action] starts skips it; with
+   * [cancellable] false, [action] runs and the caller waits for it anyway.
    */
   suspend fun <T> await(cancellable: Boolean = true, action: (MapHandle) -> T): T? {
     if (thread.isCurrent()) {
@@ -197,11 +182,8 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /**
-   * Runs [action] on the owner thread without waiting for it. Inline on the owner; from other
-   * threads, in submission order. [onDropped] runs instead when the loop stops before [action]
-   * runs, and after [action] when it throws, so a caller waiting on either is always released. A
-   * thrown error is then rethrown to an inline caller, or logged. With [ordered], queued work
-   * submitted later runs only after this action's events have been handled.
+   * Runs [action] on the owner thread without waiting for it, in submission order. [onDropped] runs
+   * if [action] never runs or throws. With [ordered], later work runs after this action's events.
    */
   fun submit(ordered: Boolean = false, onDropped: () -> Unit = {}, action: (MapHandle) -> Unit) {
     if (!thread.isCurrent()) return enqueue(action, onDropped, ordered)

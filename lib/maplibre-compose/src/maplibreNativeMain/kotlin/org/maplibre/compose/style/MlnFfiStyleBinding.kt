@@ -89,20 +89,12 @@ internal interface MlnFfiRenderSessions {
 }
 
 /**
- * [StyleBinding] for one loaded style in a MapLibre Native map, whose engine calls run on [loop]'s
- * owner thread. Construction runs on that thread while [map] is alive; initial metadata is captured
- * before publication, independently of logical session closure.
+ * [StyleBinding] for one loaded style in a MapLibre Native map. Construction runs on [loop]'s owner
+ * thread while [map] is alive; initial metadata is captured before publication.
  *
- * Non-suspending methods that return a value or throw [StyleMutationException], such as [addLayer],
- * [setImage], [setLayerProperty], and [imageExists], call the engine through [withMap] and are
- * owner-only: they throw [IllegalStateException] on any other thread. Off the owner thread, use
- * [awaitOwner] to run them and wait for a result, [submitWrite] or [submit] to queue a write, and
- * [awaitRenderSession] for a query that belongs to the render session. See [MlnFfiMapRuntimeLoop].
- *
- * Writes whose refusal is only logged queue through [submitWrite] or [submit] and work from any
- * thread: [setLayerProperties], [setTransition], [setPlacementTransitions], [setLight],
- * [setGlobalStateProperty], [removeFeatureState], [resetFeatureStates], the custom source
- * invalidations, [setSourceVolatile], and [postSourceUpdate].
+ * Methods that return a value or throw [StyleMutationException] call the map directly and throw
+ * [IllegalStateException] on any other thread; other threads run them inside [awaitOwner]. Writes
+ * whose refusal is only logged, such as [setLayerProperties], queue themselves and work anywhere.
  */
 internal open class MlnFfiStyleBinding(
   map: MapHandle,
