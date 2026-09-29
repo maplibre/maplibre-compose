@@ -106,6 +106,10 @@ internal class MlnFfiMapRuntimeLoop(
   val scaleFactor: Double
     get() = extent.scaleFactor
 
+  /**
+   * Creates the map on a new owner thread, which runs the work queued so far before any work queued
+   * later. Called at most once; a loop whose thread could not start stays stopped.
+   */
   fun start(startThread: (MlnFfiOwnerThread) -> Unit = MlnFfiOwnerThread::start) {
     thread.start { owner ->
       try {
@@ -117,6 +121,18 @@ internal class MlnFfiMapRuntimeLoop(
         throw error
       }
     }
+  }
+
+  /** Whether [start] has been called, whether or not the thread then started. */
+  val isStarted: Boolean
+    get() = thread.isStarted
+
+  /**
+   * Abandons every queued task and keeps accepting work, so an owner that could not create its map
+   * yet can still start this loop later. Only before [start].
+   */
+  fun abandonQueuedTasks() {
+    thread.rejectQueuedTasksBeforeStart(IllegalStateException("The map was not created"))
   }
 
   /** Whether the calling thread is the one that owns this loop's runtime and map. */
@@ -228,7 +244,9 @@ internal class MlnFfiMapRuntimeLoop(
 
   /**
    * Rejects new work and requests destruction. The caller must first release every render session
-   * not owned by [onMapClosing]. [awaitClosed] acknowledges actual map and runtime destruction.
+   * not owned by [onMapClosing]. [awaitClosed] acknowledges actual map and runtime destruction. A
+   * loop that never started has nothing to destroy: this abandons its queued work instead, and
+   * [awaitClosed] returns at once.
    */
   override fun close() {
     stopSignal.open()

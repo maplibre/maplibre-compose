@@ -3,6 +3,7 @@ package org.maplibre.compose.mlnffi
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
@@ -146,6 +147,24 @@ class MlnFfiRuntimeThreadTest {
         "queued two rejected: stopped",
         "stopping",
       ),
+      recorded(),
+    )
+  }
+
+  @Test
+  fun stopping_before_start_rejects_queued_work_and_refuses_to_start() = runBlocking {
+    val thread = thread()
+    assertTrue(thread.post(task("released before start")))
+    thread.rejectQueuedTasksBeforeStart(IllegalStateException("not ready"))
+    assertTrue(thread.post(task("queued")))
+
+    thread.stop()
+    withTimeout(TIMEOUT_MILLIS) { thread.awaitStopped() }
+
+    assertFalse(thread.post(task("refused")))
+    assertFailsWith<IllegalStateException> { thread.start() }
+    assertEquals(
+      listOf("released before start rejected: not ready", "queued rejected: stopped"),
       recorded(),
     )
   }
