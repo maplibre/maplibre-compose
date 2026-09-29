@@ -85,7 +85,7 @@ class MapOverlayTest {
       }
     }
 
-    setIntegerDensityContent {
+    setUnitDensityContent {
       assertNull(LocalMapState.current)
       assertNull(LocalViewport.current)
       MapOverlayHost(
@@ -131,7 +131,7 @@ class MapOverlayTest {
       var padding by
         mutableStateOf(PaddingValues(start = 40.dp, top = 20.dp, end = 60.dp, bottom = 30.dp))
       var rtl by mutableStateOf(false)
-      setIntegerDensityContent {
+      setUnitDensityContent {
         CompositionLocalProvider(
           LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
         ) {
@@ -176,7 +176,7 @@ class MapOverlayTest {
   fun viewport_insets_are_map_relative_when_a_parent_consumes_system_insets() = runComposeUiTest {
     val runtime = mapRuntimeForTest()
     val map = runtime.createMapState(BaseStyle.Empty)
-    setIntegerDensityContent {
+    setUnitDensityContent {
       Box(Modifier.padding(20.dp).consumeWindowInsets(PaddingValues(20.dp))) {
         MapOverlayHost(
           mapState = map,
@@ -221,7 +221,7 @@ class MapOverlayTest {
     map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     var offset by mutableStateOf(20.dp)
     val towards = PlacedTowardsState()
-    setIntegerDensityContent {
+    setUnitDensityContent {
       MapOverlayHost(
         mapState = map,
         modifier = Modifier.size(300.dp).testTag("map"),
@@ -267,7 +267,7 @@ class MapOverlayTest {
           }
           .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
       map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
-      setIntegerDensityContent {
+      setUnitDensityContent {
         MapOverlayHost(
           mapState = map,
           modifier = Modifier.size(300.dp).testTag("map"),
@@ -313,7 +313,7 @@ class MapOverlayTest {
   @Test
   fun overlay_composes_before_the_map_attaches() = runComposeUiTest {
     val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
-    setContent {
+    setUnitDensityContent {
       MapOverlayHost(
         overlay = {
           Box(Modifier.placedAt(Position(0.0, 0.0)).size(8.dp).testTag("at"))
@@ -346,7 +346,7 @@ class MapOverlayTest {
     var state by mutableStateOf(first)
     var target by mutableStateOf(Position(1000.0, 150.0))
     var placed by mutableStateOf(true)
-    setContent {
+    setUnitDensityContent {
       MapOverlayHost(
         mapState = map,
         modifier = Modifier.size(300.dp),
@@ -383,10 +383,11 @@ class MapOverlayTest {
 }
 
 /**
- * Sets [content] at a whole-number density. At a fractional density, Compose places each node on a
- * whole pixel, so its bounds can differ by a fraction of a dp from the dp sums these tests expect.
+ * Sets [content] at a density of 1, so every dp is a whole pixel and the 300 dp maps still fit a
+ * small test window. At a fractional density, Compose places each node on a whole pixel, so its
+ * bounds can differ by a fraction of a dp from the dp sums these tests expect.
  */
 @OptIn(ExperimentalTestApi::class)
-private fun ComposeUiTest.setIntegerDensityContent(content: @Composable () -> Unit) = setContent {
-  CompositionLocalProvider(LocalDensity provides Density(2f), content = content)
+private fun ComposeUiTest.setUnitDensityContent(content: @Composable () -> Unit) = setContent {
+  CompositionLocalProvider(LocalDensity provides Density(1f), content = content)
 }

@@ -10,7 +10,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTrackpadInput
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.ln
@@ -105,14 +104,14 @@ class TransformInputTest {
         }
       try {
         assertFalse(animation.isCompleted)
-        map.performTouchInput { down(0, center - dpOffset(30, 0)) }
+        map.performTouchInput { down(0, center - Offset(30f, 0f)) }
         assertFalse(animation.isCompleted)
-        map.performTouchInput { down(1, center + dpOffset(30, 0)) }
+        map.performTouchInput { down(1, center + Offset(30f, 0f)) }
         assertFalse(animation.isCompleted)
         assertTrue(target.moveCalls.isEmpty())
         map.performTouchInput {
-          updatePointerBy(0, dpOffset(80, 0))
-          updatePointerBy(1, dpOffset(80, 0))
+          updatePointerBy(0, Offset(80f, 0f))
+          updatePointerBy(1, Offset(80f, 0f))
           move()
         }
         assertTrue(animation.isCancelled)
@@ -145,10 +144,10 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
-        updatePointerBy(0, dpOffset(80, 0))
-        updatePointerBy(1, dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        updatePointerBy(0, Offset(80f, 0f))
+        updatePointerBy(1, Offset(80f, 0f))
         move()
         up(0)
       }
@@ -181,11 +180,11 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(16) {
-          updatePointerBy(0, dpOffset(0, -5))
-          updatePointerBy(1, dpOffset(0, -5))
+          updatePointerBy(0, Offset(0f, -5f))
+          updatePointerBy(1, Offset(0f, -5f))
           move(delayMillis = 20)
         }
       }
@@ -193,8 +192,8 @@ class TransformInputTest {
       val panMoves = target.moveCalls.size
       assertTrue(panMoves > 0)
       map.performTouchInput {
-        updatePointerBy(0, dpOffset(0, -20))
-        updatePointerBy(1, dpOffset(0, -20))
+        updatePointerBy(0, Offset(0f, -20f))
+        updatePointerBy(1, Offset(0f, -20f))
         move(delayMillis = 20)
         up(0)
         up(1)
@@ -233,16 +232,16 @@ class TransformInputTest {
         }
     ) { target ->
       mapNode().performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
-        updatePointerTo(0, center - dpOffset(100, 0))
-        updatePointerTo(1, center + dpOffset(100, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        updatePointerTo(0, center - Offset(100f, 0f))
+        updatePointerTo(1, center + Offset(100f, 0f))
         move(delayMillis = 20)
-        updatePointerTo(0, center - dpOffset(0, 100))
-        updatePointerTo(1, center + dpOffset(0, 100))
+        updatePointerTo(0, center - Offset(0f, 100f))
+        updatePointerTo(1, center + Offset(0f, 100f))
         move(delayMillis = 20)
-        updatePointerTo(0, center - dpOffset(0, 180))
-        updatePointerTo(1, center + dpOffset(0, 180))
+        updatePointerTo(0, center - Offset(0f, 180f))
+        updatePointerTo(1, center + Offset(0f, 180f))
         move(delayMillis = 20)
         up(0)
         up(1)
@@ -272,17 +271,17 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(10, center - dpOffset(80, 0))
-        down(0, center + dpOffset(80, 0))
-        updatePointerBy(10, dpOffset(40, 0))
-        updatePointerBy(0, dpOffset(40, 0))
+        down(10, center - Offset(80f, 0f))
+        down(0, center + Offset(80f, 0f))
+        updatePointerBy(10, Offset(40f, 0f))
+        updatePointerBy(0, Offset(40f, 0f))
         move()
-        down(2, center + dpOffset(0, 80))
+        down(2, center + Offset(0f, 80f))
       }
       waitForIdle()
       val moves = target.moveCalls.size
       map.performTouchInput {
-        updatePointerBy(2, dpOffset(40, 0))
+        updatePointerBy(2, Offset(40f, 0f))
         move()
         up(10)
       }
@@ -293,8 +292,8 @@ class TransformInputTest {
         "an unselected contact or replacement jumped the camera",
       )
       map.performTouchInput {
-        updatePointerBy(0, dpOffset(40, 0))
-        updatePointerBy(2, dpOffset(40, 0))
+        updatePointerBy(0, Offset(40f, 0f))
+        updatePointerBy(2, Offset(40f, 0f))
         move()
         up(0)
         up(2)
@@ -311,17 +310,19 @@ class TransformInputTest {
     val target = fixture.target
     var touchSlop = 0f
     setContent {
-      touchSlop = LocalViewConfiguration.current.touchSlop
-      GestureHost(target, InputConfiguration.Standard)
+      UnitDensity {
+        touchSlop = LocalViewConfiguration.current.touchSlop
+        GestureHost(target, InputConfiguration.Standard)
+      }
     }
     waitForIdle()
     val map = mapNode()
     map.performTouchInput {
-      down(0, center - dpOffset(80, 0))
-      down(1, center + dpOffset(80, 0))
+      down(0, center - Offset(80f, 0f))
+      down(1, center + Offset(80f, 0f))
       repeat(6) {
-        updatePointerBy(0, dpOffset(-24, 0))
-        updatePointerBy(1, dpOffset(24, 0))
+        updatePointerBy(0, Offset(-24f, 0f))
+        updatePointerBy(1, Offset(24f, 0f))
         move(delayMillis = 16)
       }
       up(0)
@@ -344,11 +345,11 @@ class TransformInputTest {
     fixture.runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(6) {
-          updatePointerBy(0, dpOffset(8, 0))
-          updatePointerBy(1, dpOffset(56, 0))
+          updatePointerBy(0, Offset(8f, 0f))
+          updatePointerBy(1, Offset(56f, 0f))
           move(delayMillis = 16)
         }
       }
@@ -389,16 +390,16 @@ class TransformInputTest {
     fixture.runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(6) {
-          updatePointerBy(0, dpOffset(-24, 0))
-          updatePointerBy(1, dpOffset(24, 0))
+          updatePointerBy(0, Offset(-24f, 0f))
+          updatePointerBy(1, Offset(24f, 0f))
           move(delayMillis = 16)
         }
         up(0)
         repeat(12) {
-          updatePointerBy(1, dpOffset(80, 0))
+          updatePointerBy(1, Offset(80f, 0f))
           move(delayMillis = 16)
         }
       }
@@ -442,19 +443,19 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(6) {
-          updatePointerBy(0, dpOffset(-24, 0))
-          updatePointerBy(1, dpOffset(24, 0))
+          updatePointerBy(0, Offset(-24f, 0f))
+          updatePointerBy(1, Offset(24f, 0f))
           move(delayMillis = 16)
         }
         up(0)
         // A fast departing finger crosses slop during the interval between lifts.
-        updatePointerBy(1, dpOffset(160, 0))
+        updatePointerBy(1, Offset(160f, 0f))
         move(delayMillis = 8)
         repeat(3) {
-          updatePointerBy(1, dpOffset(24, 0))
+          updatePointerBy(1, Offset(24f, 0f))
           move(delayMillis = 8)
         }
       }
@@ -495,16 +496,16 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(4) {
-          updatePointerBy(0, dpOffset(20, 0))
-          updatePointerBy(1, dpOffset(20, 0))
+          updatePointerBy(0, Offset(20f, 0f))
+          updatePointerBy(1, Offset(20f, 0f))
           move(delayMillis = 16)
         }
         up(0)
         // This starts a new pan after the old velocity samples have expired.
-        updatePointerBy(1, dpOffset(-40, 0))
+        updatePointerBy(1, Offset(-40f, 0f))
         move(delayMillis = 500)
       }
       waitForIdle()
@@ -534,11 +535,11 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
         repeat(4) {
-          updatePointerBy(0, dpOffset(20, 0))
-          updatePointerBy(1, dpOffset(20, 0))
+          updatePointerBy(0, Offset(20f, 0f))
+          updatePointerBy(1, Offset(20f, 0f))
           move(delayMillis = 16)
         }
         up(0)
@@ -568,10 +569,10 @@ class TransformInputTest {
     ) { target ->
       recorded = target
       mapNode().performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
-        updatePointerBy(0, dpOffset(-60, 0))
-        updatePointerBy(1, dpOffset(60, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        updatePointerBy(0, Offset(-60f, 0f))
+        updatePointerBy(1, Offset(60f, 0f))
         move()
         up(0)
         up(1)
@@ -595,13 +596,13 @@ class TransformInputTest {
         }
     ) { target ->
       mapNode().performTouchInput {
-        down(0, center + dpOffset(-70, 0))
-        down(1, center + dpOffset(70, 0))
-        updatePointerTo(0, center + dpOffset(-100, 0))
-        updatePointerTo(1, center + dpOffset(100, 0))
+        down(0, center + Offset(-70f, 0f))
+        down(1, center + Offset(70f, 0f))
+        updatePointerTo(0, center + Offset(-100f, 0f))
+        updatePointerTo(1, center + Offset(100f, 0f))
         move()
-        updatePointerTo(0, center + dpOffset(-99, 0))
-        updatePointerTo(1, center + dpOffset(101, 0))
+        updatePointerTo(0, center + Offset(-99f, 0f))
+        updatePointerTo(1, center + Offset(101f, 0f))
         move()
         up(0)
         up(1)
@@ -634,13 +635,13 @@ class TransformInputTest {
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
-        down(0, center - dpOffset(80, 0))
-        down(1, center + dpOffset(80, 0))
-        updatePointerBy(0, dpOffset(40, 0))
-        updatePointerBy(1, dpOffset(40, 0))
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        updatePointerBy(0, Offset(40f, 0f))
+        updatePointerBy(1, Offset(40f, 0f))
         move()
         up(0)
-        updatePointerBy(1, dpOffset(40, 0))
+        updatePointerBy(1, Offset(40f, 0f))
         move()
         up(1)
       }
@@ -651,9 +652,3 @@ class TransformInputTest {
     }
   }
 }
-
-/**
- * Touch distances are in dp, like the recognition thresholds they cross, so a test recognizes the
- * same gestures at every display density.
- */
-private fun Density.dpOffset(x: Int, y: Int) = Offset(x.dp.toPx(), y.dp.toPx())

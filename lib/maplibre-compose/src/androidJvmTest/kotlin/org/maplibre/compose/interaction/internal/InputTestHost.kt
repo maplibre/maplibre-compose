@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -21,11 +22,14 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.maplibre.compose.map.GestureTestFixture
@@ -92,7 +96,7 @@ internal fun GestureTestFixture.runRecognitionTest(
 ) = runPlainComposeUiTest {
   val target = this@runRecognitionTest.target
   setContent {
-    val host: @Composable () -> Unit = { GestureHost(target, optionsProvider()) }
+    val host: @Composable () -> Unit = { UnitDensity { GestureHost(target, optionsProvider()) } }
     when {
       parentOnLongClick != null ->
         Box(
@@ -109,6 +113,28 @@ internal fun GestureTestFixture.runRecognitionTest(
   }
   waitForIdle()
   body(target)
+}
+
+/**
+ * Composes [content] at a density of 1, with the platform's touch slop and fling limit converted to
+ * dp. Pixel distances then mean what they mean at 160 dpi, whatever the test display's density.
+ */
+@Composable
+internal fun UnitDensity(content: @Composable () -> Unit) {
+  val scale = LocalDensity.current.density
+  val platform = LocalViewConfiguration.current
+  val configuration =
+    remember(scale, platform) {
+      object : ViewConfiguration by platform {
+        override val touchSlop = platform.touchSlop / scale
+        override val maximumFlingVelocity = platform.maximumFlingVelocity / scale
+      }
+    }
+  CompositionLocalProvider(
+    LocalDensity provides Density(1f),
+    LocalViewConfiguration provides configuration,
+    content = content,
+  )
 }
 
 internal fun ComposeUiTest.awaitClicks(target: RecordingGestureTarget, count: Int) {
