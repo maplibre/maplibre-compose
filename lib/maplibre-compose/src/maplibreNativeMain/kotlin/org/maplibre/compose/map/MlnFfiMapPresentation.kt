@@ -7,6 +7,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.CancellationException
@@ -57,17 +58,22 @@ private fun rememberMlnFfiMapSession(
     retainedSession
       ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
         MlnFfiMapSession(
-          lifecycleAuthority = state.lifecycle,
-          callbacks = callbacks,
-          logger = logger,
-          renderBackend = renderBackend,
-          scaleFactor = scaleFactor,
-          layoutDirection = layoutDirection,
-          cacheFile = applicationOptions.cacheFile,
-          resourceProviderFactory = applicationOptions.resourceProviderFactory,
-          resourceConfig = state.runtime.resourceConfig,
-          awaitRuntimeReady = state.runtime.offlineManager::awaitReady,
-        )
+            lifecycleAuthority = state.lifecycle,
+            callbacks = callbacks,
+            logger = logger,
+            renderBackend = renderBackend,
+            scaleFactor = scaleFactor,
+            layoutDirection = layoutDirection,
+            cacheFile = applicationOptions.cacheFile,
+            resourceProviderFactory = applicationOptions.resourceProviderFactory,
+            resourceConfig = state.runtime.resourceConfig,
+            awaitRuntimeReady = state.runtime.offlineManager::awaitReady,
+          )
+          .also { session ->
+            // The native map starts at this camera, so a viewport it reports before publication
+            // does not seed the default camera into the state. Not a read this composition tracks.
+            session.setCameraPosition(Snapshot.withoutReadObservation { state.cameraPosition })
+          }
       }
   val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
 
