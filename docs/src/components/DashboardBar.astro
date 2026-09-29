@@ -1,7 +1,7 @@
 ---
 // The bar that stays in view while scrolling a dashboard. The first row says what
-// the page measures, in the default slot, and which part of the history the
-// charts show and how they space it. The second row names the selected commit and
+// the page measures, in the default slot, and which range of the history the
+// charts show and how they space it; dragging across a chart picks custom dates. The second row names the selected commit and
 // steps through the history. The dashboard's CommitSelection drives everything
 // but the slot, and shows the range and the commit once it has data.
 ---
@@ -10,10 +10,21 @@
   <div class="metrics-bar-row">
     <slot />
     <div id="metrics-range" class="metrics-range" hidden>
-      <span id="metrics-range-status" class="metrics-muted"></span>
-      <button id="metrics-range-reset" class="metrics-link-button" hidden>
-        Show all
-      </button>
+      <label>
+        <span class="sr-only">Range</span>
+        <select id="metrics-range-select"></select>
+      </label>
+      <div id="metrics-range-dates" class="metrics-range-dates" hidden>
+        <label>
+          <span class="sr-only">From</span>
+          <input id="metrics-range-from" type="date" />
+        </label>
+        <span aria-hidden="true">–</span>
+        <label>
+          <span class="sr-only">To</span>
+          <input id="metrics-range-to" type="date" />
+        </label>
+      </div>
       <div
         class="metrics-segmented"
         role="radiogroup"

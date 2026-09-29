@@ -1,14 +1,26 @@
 import type { Spacing, TrendChart, Timeline } from "./chart";
 import { icon, type icons } from "./icons";
-import { format, formatDate, isRelease, type Commit } from "./model";
-import { $, commitLink, releaseLink, setSearchParams } from "./page";
+import { formatDate, isRelease, type Commit } from "./model";
+import { $, commitLink, el, releaseLink, setSearchParams } from "./page";
 import { define } from "./terms";
+
+/** Ranges that end at the latest commit and reach back this many months. */
+const periods = [
+  { id: "1m", label: "Last month", months: 1 },
+  { id: "3m", label: "Last 3 months", months: 3 },
+  { id: "6m", label: "Last 6 months", months: 6 },
+  { id: "1y", label: "Last year", months: 12 },
+];
+
+/** A UTC date as an `<input type="date">` value. */
+const dateValue = (time: number) => new Date(time).toISOString().slice(0, 10);
 
 /**
  * The commit a dashboard shows: the sticky bar's navigation and label, the cursor shared by the
- * trend charts, and the `commit` query parameter. Also the part of the history the charts show and
- * how they space it, in the `from`, `to`, and `spacing` parameters. [noun] names one point of the
- * history in the labels, such as "commit" or "measurement".
+ * trend charts, and the `commit` query parameter. Also the range of the history the charts show and
+ * how they space it: a preset in the `range` parameter, or custom dates as the `from` and `to`
+ * commits, and `spacing`. [noun] names one point of the history in the labels, such as "commit" or
+ * "measurement".
  */
 export class CommitSelection {
   readonly timeline: Timeline;
@@ -16,6 +28,11 @@ export class CommitSelection {
   charts: TrendChart[] = [];
   selected = 0;
   private hovered: number | null = null;
+  /** "all", a period's ID, a release tag, or "custom" for any other window. */
+  private range = "all";
+  private readonly rangeSelect = $<HTMLSelectElement>("metrics-range-select");
+  private readonly fromInput = $<HTMLInputElement>("metrics-range-from");
+  private readonly toInput = $<HTMLInputElement>("metrics-range-to");
 
   constructor(
     private readonly noun: string,
@@ -53,7 +70,29 @@ export class CommitSelection {
         this.timeline.spacing = button.dataset.spacing as Spacing;
         this.showWindow();
       });
-    $("metrics-range-reset").addEventListener("click", () => this.zoom(0, this.last));
+    this.rangeSelect.addEventListener("change", () => {
+      const range = this.rangeSelect.value;
+      if (range === "custom") {
+        // Custom dates start from the current range.
+        this.range = range;
+        this.showRange();
+        this.fromInput.focus();
+        return;
+      }
+      const span = this.resolve(range);
+      if (span) this.zoom(...span, range);
+    });
+    const day = 86_400_000;
+    for (const input of [this.fromInput, this.toInput])
+      input.addEventListener("change", () => {
+        const { times } = this.timeline;
+        const [from, to] = [Date.parse(this.fromInput.value), Date.parse(this.toInput.value) + day - 1];
+        const first = times.findIndex((t) => t >= from);
+        const last = times.findLastIndex((t) => t <= to);
+        // Dates that hold fewer than two points put back the current range.
+        if (first >= 0 && first < last) this.zoom(first, last);
+        else this.showRange();
+      });
   }
 
   private readonly spacingButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-spacing]")];
@@ -76,14 +115,52 @@ export class CommitSelection {
     const find = (key: string) => commits.findIndex((c) => c.commit === params.get(key));
     const [linked, from, to] = [find("commit"), find("from"), find("to")];
     this.selected = linked < 0 ? this.last : linked;
-    const range: [number, number] = [Math.max(0, from), to < 0 ? this.last : to];
-    this.timeline.window = range[0] < range[1] ? range : [0, this.last];
+
+    const releases = commits.flatMap((c) => c.tags.filter((tag) => /^v\d+\.\d+\.0$/.test(tag))).reverse();
+    const option = (value: string, textContent: string) =>
+      el("option", { value, textContent, disabled: value !== "custom" && !this.resolve(value) });
+    this.rangeSelect.replaceChildren(
+      option("all", "All history"),
+      el("optgroup", { label: "Recent" }, ...periods.map((p) => option(p.id, p.label))),
+      ...(releases.length ? [el("optgroup", { label: "Since release" }, ...releases.map((tag) => option(tag, `Since ${tag}`)))] : []),
+      option("custom", "Custom dates"),
+    );
+    this.fromInput.min = this.toInput.min = dateValue(this.timeline.times[0]);
+    this.fromInput.max = this.toInput.max = dateValue(this.timeline.times[this.last]);
+
+    // A preset in the URL is kept even if the history grows; custom dates name their commits.
+    const preset = params.get("range");
+    const span = preset && this.resolve(preset);
+    const custom: [number, number] = [Math.max(0, from), to < 0 ? this.last : to];
+    if (span) [this.range, this.timeline.window] = [preset, span];
+    else if (custom[0] < custom[1] && (from >= 0 || to >= 0)) [this.range, this.timeline.window] = ["custom", custom];
+    else [this.range, this.timeline.window] = ["all", [0, this.last]];
     this.reveal(this.selected);
     this.showRange();
   }
 
-  /** Shows [first] through [last] in the charts, moving the selection into them. */
-  zoom(first: number, last: number) {
+  /** The window a preset range covers, or null when it holds fewer than two points. */
+  private resolve(range: string): [number, number] | null {
+    const { commits, times } = this.timeline;
+    if (range === "all") return this.last > 0 ? [0, this.last] : null;
+    const period = periods.find((p) => p.id === range);
+    let first: number;
+    if (period) {
+      const start = new Date(times[this.last]);
+      start.setUTCMonth(start.getUTCMonth() - period.months);
+      first = times.findIndex((t) => t >= start.getTime());
+    } else {
+      first = commits.findIndex((c) => c.tags.includes(range));
+    }
+    return first >= 0 && first < this.last ? [first, this.last] : null;
+  }
+
+  /**
+   * Shows [first] through [last] in the charts, moving the selection into them. [range] names the
+   * preset the window came from; any other window is custom, unless it is the whole history.
+   */
+  zoom(first: number, last: number, range = "custom") {
+    this.range = range === "custom" && first === 0 && last === this.last ? "all" : range;
     this.timeline.window = [first, last];
     this.showWindow();
     const selected = Math.min(last, Math.max(first, this.selected));
@@ -99,6 +176,7 @@ export class CommitSelection {
     if (index >= first && index <= last) return false;
     const shift = index < first ? index - first : index - last;
     this.timeline.window = [first + shift, last + shift];
+    this.range = "custom";
     return true;
   }
 
@@ -107,21 +185,21 @@ export class CommitSelection {
     this.showRange();
   }
 
-  /** Renders the window and spacing controls and records them in the URL. */
+  /** Renders the range and spacing controls and records them in the URL. */
   private showRange() {
-    const { commits, spacing } = this.timeline;
+    const { commits, times, spacing } = this.timeline;
     const [first, last] = this.timeline.window;
-    const zoomed = first > 0 || last < this.last;
+    const custom = this.range === "custom";
     for (const button of this.spacingButtons) button.setAttribute("aria-checked", String(button.dataset.spacing === spacing));
-    const count = (n: number) => `${format(n)} ${this.noun}${n === 1 ? "" : "s"}`;
-    $("metrics-range-status").textContent = zoomed
-      ? `${format(last - first + 1)} of ${count(commits.length)}, ${formatDate(commits[first].date)} – ${formatDate(commits[last].date)}`
-      : `All ${count(commits.length)} · drag across a chart to zoom`;
-    $("metrics-range-reset").hidden = !zoomed;
+    this.rangeSelect.value = this.range;
+    $("metrics-range-dates").hidden = !custom;
+    this.fromInput.value = dateValue(times[first]);
+    this.toInput.value = dateValue(times[last]);
     setSearchParams({
       spacing: spacing === "dates" ? spacing : null,
-      from: first > 0 ? commits[first].commit : null,
-      to: last < this.last ? commits[last].commit : null,
+      range: custom || this.range === "all" ? null : this.range,
+      from: custom && first > 0 ? commits[first].commit : null,
+      to: custom && last < this.last ? commits[last].commit : null,
     });
   }
 
