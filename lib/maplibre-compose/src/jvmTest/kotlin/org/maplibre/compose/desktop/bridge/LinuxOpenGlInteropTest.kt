@@ -101,8 +101,7 @@ class LinuxOpenGlInteropTest {
             // OpenGL errors are sticky; leave one behind for the bridge to trip over.
             glEnable(Int.MIN_VALUE)
             val frame =
-              assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT, null))
-                .frame
+              assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT)).frame
             host.releaseFrame(frame)
           }
         } finally {
@@ -347,8 +346,7 @@ class LinuxOpenGlInteropTest {
 
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
       val frame =
-        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
-          .frame
+        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent)).frame
       try {
         val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
         if (result is MlnFfiFrameResult.Rendered) {

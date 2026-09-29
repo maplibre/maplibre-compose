@@ -30,47 +30,15 @@ import org.lwjgl.opengl.GL11.glGetInteger
 import org.lwjgl.opengl.GL11.glTexParameteri
 import org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.linux.UNISTD
 import org.lwjgl.vulkan.KHRExternalMemoryFd.VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryFd.vkGetMemoryFdKHR
 import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
-import org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
-import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_UNDEFINED
-import org.lwjgl.vulkan.VK10.VK_IMAGE_TILING_OPTIMAL
-import org.lwjgl.vulkan.VK10.VK_IMAGE_TYPE_2D
-import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT
-import org.lwjgl.vulkan.VK10.VK_IMAGE_VIEW_TYPE_2D
-import org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT
-import org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK10.vkAllocateMemory
-import org.lwjgl.vulkan.VK10.vkBindImageMemory
-import org.lwjgl.vulkan.VK10.vkCreateImage
-import org.lwjgl.vulkan.VK10.vkCreateImageView
-import org.lwjgl.vulkan.VK10.vkDestroyImage
-import org.lwjgl.vulkan.VK10.vkDestroyImageView
-import org.lwjgl.vulkan.VK10.vkFreeMemory
-import org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
-import org.lwjgl.vulkan.VkExportMemoryAllocateInfo
-import org.lwjgl.vulkan.VkExtent3D
-import org.lwjgl.vulkan.VkExternalMemoryImageCreateInfo
-import org.lwjgl.vulkan.VkImageCreateInfo
-import org.lwjgl.vulkan.VkImageSubresourceRange
-import org.lwjgl.vulkan.VkImageViewCreateInfo
-import org.lwjgl.vulkan.VkMemoryAllocateInfo
-import org.lwjgl.vulkan.VkMemoryDedicatedAllocateInfo
 import org.lwjgl.vulkan.VkMemoryGetFdInfoKHR
-import org.lwjgl.vulkan.VkMemoryRequirements
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
+import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -78,35 +46,29 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
 internal class LinuxOpenGlMapHost(
-  private val presentationHost: ComposeMapPresentationHost,
-  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
-) : MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-linux-map-renderer")
-  private val presenter = OpenGlPresenter.native()
-  private val frameCompletion = ComposeFrameCompletion()
-  private var vulkan: DesktopVulkanContext? = null
+  presentationHost: ComposeMapPresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) :
+  SharedTextureMapHost<OpenGlComposeGpuContext, LinuxOpenGlMapHost.LinuxSharedTexture>(
+    presentationHost,
+    RenderBackendPair(producer, ComposeRenderBackend.OPENGL),
+    "maplibre-linux-map-renderer",
+  ) {
+  private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Native)
+  private var vulkan: VulkanDevice? = null
   private var egl: DesktopEglContext? = null
-  private var texture: LinuxSharedTexture? = null
-  private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
-  private var generation = 0L
-  private var currentExtent = MapExtent.Empty
 
   @Volatile private var acquireProducerWrites = false
-
-  override val backends: RenderBackendPair =
-    RenderBackendPair(producer, ComposeRenderBackend.OPENGL)
 
   // Importing into GL needs Compose's context current, so reallocation happens in acquireFrame.
   // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
@@ -115,119 +77,112 @@ internal class LinuxOpenGlMapHost(
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
-    presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (texture == null || extent != currentExtent) recreateTexture(extent)
+    withPreparedContext {
+      if (textures.current?.extent != extent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
           frameId = frameId,
           extent = extent,
-          target = requireNotNull(texture) { "Map texture is not initialized" }.target(generation),
-          presentationTimeNanos = presentationTimeNanos,
+          target =
+            requireNotNull(textures.current) { "Map texture is not initialized" }
+              .target(textures.generation),
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
+  override fun waitForProducers() {
+    if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
+  }
+
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run {
-      if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
-    }
+    super.completeProducerAccess(frame)
     acquireProducerWrites = true
   }
 
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    rendererThread.run(action)
-
-  override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
-
-  override fun draw(
+  override fun present(
     scope: DrawScope,
-    target: MlnFfiRenderTarget,
+    context: OpenGlComposeGpuContext,
+    texture: LinuxSharedTexture,
+    generation: Long,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (target.backend != producer) return false
-    return presentationHost.withOpenGlContextOrNull { context ->
-      frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (acquireProducerWrites) {
-        // EXT_memory_object does not make producer completion visible to this context. glFinish
-        // acquires those writes.
-        glFinish()
-        acquireProducerWrites = false
-      }
-      val sharedTexture =
-        if (target.generation == generation) texture else retiredTextures[target.generation]
-      val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
-      val drew =
-        presenter.draw(
-          scope,
-          context.skiaContext,
-          imported.target(target.generation),
-          destination,
-          frameCompletion,
-        )
-      if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
-      drew
-    } ?: false
+    if (acquireProducerWrites) {
+      // EXT_memory_object does not make producer completion visible to this context. glFinish
+      // acquires those writes.
+      glFinish()
+      acquireProducerWrites = false
+    }
+    return presenter.draw(
+      scope,
+      context.skiaContext,
+      texture.imported.target(generation),
+      destination,
+      frameCompletion,
+    )
   }
 
-  override fun close() {
-    try {
-      frameCompletion.abandon()
-      // At window close the Compose surface may already be gone; the driver reclaims the GL objects
-      // along with the context.
-      runCatching {
-        presentationHost.withOpenGlContext {
-          disposeAllTextures()
-          presenter.close()
-        }
-      }
-        .onFailure {
-          abandonContext()
-          disposeAllTextures()
-        }
-    } finally {
-      val closing = vulkan
-      vulkan = null
-      try {
-        rendererThread.run {
-          egl?.close()
-          closing?.close()
-        }
-      } finally {
-        rendererThread.close()
+  /** Frees every view of [texture]'s allocation. Compose's GL context must be current. */
+  override fun release(texture: LinuxSharedTexture) {
+    texture.close()
+  }
+
+  override fun <R> withComposeContext(action: (OpenGlComposeGpuContext) -> R): R? =
+    presentationHost.withOpenGlContextOrNull(action)
+
+  /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
+  override fun contextReplaced() {
+    presenter.abandonAll()
+    acquireProducerWrites = false
+    // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
+    // until the next producer frame retargets it.
+    textures.retireCurrent()
+    textures.all.forEach(LinuxSharedTexture::abandonImported)
+  }
+
+  override fun closeTextures() {
+    // At window close the Compose surface may already be gone; the driver reclaims the GL objects
+    // along with the context.
+    runCatching {
+      presentationHost.withOpenGlContext {
+        textures.releaseAll()
+        presenter.closeAll()
       }
     }
+      .onFailure {
+        contextReplaced()
+        textures.releaseAll()
+      }
+  }
+
+  override fun closeProducers() {
+    val closing = vulkan
+    vulkan = null
+    egl?.close()
+    closing?.close()
   }
 
   private fun recreateTexture(extent: MapExtent) {
     if (extent.isEmpty) {
-      disposeAllTextures()
-      currentExtent = MapExtent.Empty
-      generation += 1
+      textures.releaseAll()
+      textures.replaceCurrent(null)
       return
     }
 
     val context =
-      vulkan
-        ?: DesktopVulkanContext.createForLinuxInterop(currentOpenGlDeviceUuids()).also {
-          vulkan = it
-        }
+      vulkan ?: VulkanDevice.forOpenGlDevices(currentOpenGlDeviceUuids()).also { vulkan = it }
     val producerContext =
       if (producer == MapRenderBackend.OPENGL) {
         egl
           ?: run {
-            val deviceUuid = vulkanDeviceUuid(context.physicalDevice())
+            val deviceUuid = vulkanDeviceUuid(context.physicalDevice)
             rendererThread.run {
               DesktopEglContext.create(requiredDeviceUuids = setOf(deviceUuid))
             }
           }
             .also { egl = it }
       } else null
-    val newExported = context.createExportedTexture(extent)
+    val newExported = context.createExportableImage(extent)
     var producerImport: LinuxOpenGlImportedTexture? = null
     try {
       if (producerContext != null) {
@@ -235,7 +190,7 @@ internal class LinuxOpenGlMapHost(
           producerContext.makeCurrent()
           LinuxOpenGlImportedTexture.create(
             newExported.exportFd(),
-            newExported.memorySize(),
+            newExported.memorySize,
             extent,
             TextureOrigin.BOTTOM_LEFT,
           )
@@ -244,14 +199,11 @@ internal class LinuxOpenGlMapHost(
       val newImported =
         LinuxOpenGlImportedTexture.create(
           newExported.exportFd(),
-          newExported.memorySize(),
+          newExported.memorySize,
           extent,
           if (producerContext != null) TextureOrigin.BOTTOM_LEFT else TextureOrigin.TOP_LEFT,
         )
-      texture?.let { retiredTextures[generation] = it }
-      texture = LinuxSharedTexture(newExported, newImported, producerImport)
-      currentExtent = extent
-      generation += 1
+      textures.replaceCurrent(LinuxSharedTexture(extent, newExported, newImported, producerImport))
     } catch (error: RuntimeException) {
       rendererThread.run {
         producerContext?.makeCurrent()
@@ -262,41 +214,9 @@ internal class LinuxOpenGlMapHost(
     }
   }
 
-  /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
-  private fun abandonContext() {
-    presenter.abandon()
-    acquireProducerWrites = false
-    // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
-    // until the next producer frame retargets it.
-    texture?.let { retiredTextures[generation] = it }
-    texture = null
-    retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
-    currentExtent = MapExtent.Empty
-  }
-
-  /**
-   * Frees retired allocations other than [exceptGeneration]. Compose's GL context must be current.
-   */
-  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
-    val iterator = retiredTextures.iterator()
-    while (iterator.hasNext()) {
-      val entry = iterator.next()
-      if (entry.key != exceptGeneration) {
-        entry.value.close()
-        iterator.remove()
-      }
-    }
-  }
-
-  /** Frees every view of every shared allocation. Compose's GL context must be current. */
-  private fun disposeAllTextures() {
-    texture?.close()
-    texture = null
-    disposeRetiredTextures()
-  }
-
-  private inner class LinuxSharedTexture(
-    val exported: LinuxExportedVulkanTexture,
+  internal inner class LinuxSharedTexture(
+    val extent: MapExtent,
+    val exported: VulkanImage,
     val imported: LinuxOpenGlImportedTexture,
     val producerImport: LinuxOpenGlImportedTexture?,
   ) : AutoCloseable {
@@ -316,7 +236,7 @@ internal class LinuxOpenGlMapHost(
         }
       }
       // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-      presenter.forget(imported.textureName)
+      presenter.forget(imported.textureName.toLong())
       imported.close()
       exported.close()
     }
@@ -345,183 +265,39 @@ internal fun currentOpenGlDeviceUuids(): Set<String> {
   }
 }
 
-/** A Vulkan instance, device, and queue for desktop interop or an owned offscreen target. */
-internal class DesktopVulkanContext private constructor(private val context: VulkanDevice) :
-  AutoCloseable {
-  val handles
-    get() = context.handles
-
-  fun device() = context.device
-
-  fun physicalDevice() = context.physicalDevice
-
-  fun waitIdle() = context.waitIdle()
-
-  override fun close() = context.close()
-
-  fun createExportedTexture(extent: MapExtent) = LinuxExportedVulkanTexture.create(this, extent)
-
-  companion object {
-    fun createForLinuxInterop(requiredDeviceUuids: Set<String> = emptySet()) =
-      DesktopVulkanContext(
-        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) { physical, _ ->
-          requiredDeviceUuids.isEmpty() || vulkanDeviceUuid(physical) in requiredDeviceUuids
-        }
-      )
-
-    fun createOffscreen() = DesktopVulkanContext(VulkanDevice.create())
-  }
-}
-
-/** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
-internal class LinuxExportedVulkanTexture
-private constructor(private val context: DesktopVulkanContext, private val extent: MapExtent) :
-  AutoCloseable {
-  private var image = NULL
-  private var memory = NULL
-  private var view = NULL
-  private var memorySize = 0L
-
-  fun memorySize(): Long = memorySize
-
-  /**
-   * Exports the image memory as a file descriptor. Ownership transfers to the caller: importing it
-   * into GL consumes it, and a failed import must close it.
-   */
-  fun exportFd(): Int {
-    MemoryStack.stackPush().use { stack ->
-      val fdInfo =
-        VkMemoryGetFdInfoKHR.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR)
-          .memory(memory)
-          .handleType(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-      val fdOut = stack.mallocInt(1)
-      checkVulkan(vkGetMemoryFdKHR(context.device(), fdInfo, fdOut), "vkGetMemoryFdKHR")
-      return fdOut[0]
-    }
+/**
+ * A Vulkan device that can export memory as file descriptors, on one of [deviceUuids] when any are
+ * given: Vulkan and OpenGL must be on the same physical device for the export/import to work.
+ */
+internal fun VulkanDevice.Companion.forOpenGlDevices(deviceUuids: Set<String>): VulkanDevice =
+  create(setOf(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) { physical, _ ->
+    deviceUuids.isEmpty() || vulkanDeviceUuid(physical) in deviceUuids
   }
 
-  fun target(generation: Long): VulkanImageTarget =
-    VulkanImageTarget(
-      context = context.handles,
-      image = NativeHandle(image),
-      imageView = NativeHandle(view),
-      format = VK_FORMAT_R8G8B8A8_UNORM,
-      initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-      queueFamilyIndex = context.handles.graphicsQueueFamilyIndex,
-      extent = extent,
-      generation = generation,
-    )
+/** A `VkImage` of [extent] whose memory is exportable to OpenGL as a file descriptor. */
+internal fun VulkanDevice.createExportableImage(extent: MapExtent) =
+  VulkanImage.create(
+    this,
+    extent,
+    VK_FORMAT_R8G8B8A8_UNORM,
+    VK_IMAGE_LAYOUT_GENERAL,
+    VulkanImageMemory.Exported(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT),
+  )
 
-  private fun create() {
-    MemoryStack.stackPush().use { stack ->
-      val externalImageInfo =
-        VkExternalMemoryImageCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO)
-          .handleTypes(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-      val imageInfo =
-        VkImageCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO)
-          .pNext(externalImageInfo.address())
-          .imageType(VK_IMAGE_TYPE_2D)
-          .format(VK_FORMAT_R8G8B8A8_UNORM)
-          .extent(
-            VkExtent3D.calloc(stack)
-              .width(extent.physicalWidth)
-              .height(extent.physicalHeight)
-              .depth(1)
-          )
-          .mipLevels(1)
-          .arrayLayers(1)
-          .samples(VK_SAMPLE_COUNT_1_BIT)
-          .tiling(VK_IMAGE_TILING_OPTIMAL)
-          .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT or VK_IMAGE_USAGE_SAMPLED_BIT)
-          .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
-          .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
-      val imageOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImage(context.device(), imageInfo, null, imageOut), "vkCreateImage")
-      image = imageOut[0]
-
-      val requirements = VkMemoryRequirements.calloc(stack)
-      vkGetImageMemoryRequirements(context.device(), image, requirements)
-      memorySize = requirements.size()
-      val dedicated =
-        VkMemoryDedicatedAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO)
-          .image(image)
-      val exportMemory =
-        VkExportMemoryAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO)
-          .handleTypes(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
-          .pNext(dedicated.address())
-      val allocateInfo =
-        VkMemoryAllocateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
-          .pNext(exportMemory.address())
-          .allocationSize(requirements.size())
-          .memoryTypeIndex(
-            findVulkanDeviceLocalMemoryType(
-              context.physicalDevice(),
-              requirements.memoryTypeBits(),
-              "No compatible Vulkan memory type found",
-            )
-          )
-      val memoryOut = stack.mallocLong(1)
-      checkVulkan(
-        vkAllocateMemory(context.device(), allocateInfo, null, memoryOut),
-        "vkAllocateMemory",
-      )
-      memory = memoryOut[0]
-      checkVulkan(vkBindImageMemory(context.device(), image, memory, 0), "vkBindImageMemory")
-
-      val viewInfo =
-        VkImageViewCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-          .image(image)
-          .viewType(VK_IMAGE_VIEW_TYPE_2D)
-          .format(VK_FORMAT_R8G8B8A8_UNORM)
-          .subresourceRange(
-            VkImageSubresourceRange.calloc(stack)
-              .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-              .baseMipLevel(0)
-              .levelCount(1)
-              .baseArrayLayer(0)
-              .layerCount(1)
-          )
-      val viewOut = stack.mallocLong(1)
-      checkVulkan(vkCreateImageView(context.device(), viewInfo, null, viewOut), "vkCreateImageView")
-      view = viewOut[0]
-    }
-  }
-
-  override fun close() {
-    context.waitIdle()
-    if (view != NULL) {
-      vkDestroyImageView(context.device(), view, null)
-      view = NULL
-    }
-    if (image != NULL) {
-      vkDestroyImage(context.device(), image, null)
-      image = NULL
-    }
-    if (memory != NULL) {
-      vkFreeMemory(context.device(), memory, null)
-      memory = NULL
-    }
-  }
-
-  companion object {
-    fun create(context: DesktopVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
-      val texture = LinuxExportedVulkanTexture(context, extent)
-      try {
-        texture.create()
-        return texture
-      } catch (error: RuntimeException) {
-        texture.close()
-        throw error
-      }
-    }
+/**
+ * Exports the image memory as a file descriptor. Ownership transfers to the caller: importing it
+ * into GL consumes it, and a failed import must close it.
+ */
+internal fun VulkanImage.exportFd(): Int {
+  MemoryStack.stackPush().use { stack ->
+    val fdInfo =
+      VkMemoryGetFdInfoKHR.calloc(stack)
+        .sType(VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR)
+        .memory(memory)
+        .handleType(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
+    val fdOut = stack.mallocInt(1)
+    checkVulkan(vkGetMemoryFdKHR(vulkan.device, fdInfo, fdOut), "vkGetMemoryFdKHR")
+    return fdOut[0]
   }
 }
 

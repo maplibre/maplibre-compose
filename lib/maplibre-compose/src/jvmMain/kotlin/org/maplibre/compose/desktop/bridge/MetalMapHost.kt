@@ -1,6 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.onGpuThread
@@ -12,8 +13,6 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
-import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.RenderBackendPair
@@ -21,54 +20,42 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 
 /** All map producers share Metal allocation, presentation, and frame ownership. */
 internal class MetalMapHost(
-  private val presentationHost: ComposeMapPresentationHost,
-  private val producer: MapRenderBackend = MapRenderBackend.METAL,
-) : MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-metal-host-renderer")
-  private val presenter = MetalPresenter(presentationHost)
-  private val frameCompletion = ComposeFrameCompletion()
-  private val textures = mutableMapOf<Long, SharedTexture>()
-  private var generation = 0L
-  private var device = NativeHandle(0)
-  private var pendingDevice: NativeHandle? = null
-  private var vulkan: MacVulkanContext? = null
-  private var angle: DesktopEglContext? = null
+  presentationHost: ComposeMapPresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.METAL,
+) :
+  SharedTextureMapHost<MetalComposeGpuContext, MetalMapHost.SharedTexture>(
+    presentationHost,
+    RenderBackendPair(producer, ComposeRenderBackend.METAL),
+    "maplibre-metal-host-renderer",
+  ) {
+  private val presenter = SkiaTexturePresenter(MetalTextureWrapper)
 
-  override val backends = RenderBackendPair(producer, ComposeRenderBackend.METAL)
+  /** `MTLTexture`s from [release], waiting for the GPU thread to drop their Skia wrappers. */
+  private val pendingMetalDisposals = ConcurrentLinkedQueue<Long>()
+  private val deviceChange =
+    DeviceChangeRecovery<NativeHandle>("Compose changed Metal devices; recreating the map renderer")
+  private var device = NativeHandle(0)
+  private var vulkan: VulkanDevice? = null
+  private var angle: DesktopEglContext? = null
 
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     withPreparedContext { context ->
-      if (!device.isNull && device != context.device) {
-        if (pendingDevice != context.device) {
-          pendingDevice = context.device
-          throw MlnFfiRecoverableFrameException(
-            "Compose changed Metal devices; recreating the map renderer",
-            null,
-          )
-        }
+      if (deviceChange.changed(device.takeUnless { it.isNull }, context.device)) {
         // Recovery closes the FFI session before we release its borrowed device and images.
-        disposeTextures()
-        rendererThread.run {
-          vulkan?.close()
-          vulkan = null
-          angle?.close()
-          angle = null
-        }
+        textures.releaseAll()
+        rendererThread.run(::closeProducers)
       }
-      pendingDevice = null
       device = context.device
-      val previous = textures[generation]
+      val previous = textures.current
       if (previous == null || previous.presentation.extent != extent) {
-        val nextGeneration = generation + 1
-        textures[nextGeneration] = rendererThread.run { allocate(extent, nextGeneration) }
-        generation = nextGeneration
+        val nextGeneration = textures.generation + 1
+        textures.replaceCurrent(rendererThread.run { allocate(extent, nextGeneration) })
       }
       MlnFfiMapFrameAcquisition.Acquired(
-        MlnFfiMapFrame(frameId, extent, textures.getValue(generation).target, presentationTimeNanos)
+        MlnFfiMapFrame(frameId, extent, checkNotNull(textures.current).target)
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
@@ -90,8 +77,8 @@ internal class MetalMapHost(
       return when (producer) {
         MapRenderBackend.METAL -> SharedTexture(presentation, presentation) {}
         MapRenderBackend.VULKAN -> {
-          val context = vulkan ?: MacVulkanContext.create(device.address).also { vulkan = it }
-          val imported = context.createImportedTexture(texture, extent)
+          val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
+          val imported = context.importMetalTexture(texture, extent)
           SharedTexture(imported.target(generation), presentation, imported::close)
         }
         MapRenderBackend.OPENGL -> {
@@ -106,83 +93,86 @@ internal class MetalMapHost(
     }
   }
 
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    withRendererAccess(action)
+  override fun <R> onRendererThread(action: () -> R): R = ObjectiveC.runInAutoreleasePool(action)
 
-  override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run {
-    ObjectiveC.runInAutoreleasePool(action)
+  override fun waitForProducers() {
+    vulkan?.waitIdle()
+    angle?.waitIdle()
   }
 
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post {
-    ObjectiveC.runInAutoreleasePool(action)
-  }
-
-  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run {
-      vulkan?.waitIdle()
-      angle?.waitIdle()
-    }
-  }
-
-  override fun draw(
+  override fun present(
     scope: DrawScope,
-    target: MlnFfiRenderTarget,
+    context: MetalComposeGpuContext,
+    texture: SharedTexture,
+    generation: Long,
     destination: MlnFfiMapDestination,
-  ): Boolean =
-    withPreparedContext { context ->
-      val texture = textures[target.generation] ?: return@withPreparedContext false
-      val drew =
-        presenter.draw(
-          scope,
-          context.skiaContext,
-          texture.presentation,
-          destination,
-          frameCompletion,
-        )
-      if (drew) {
-        val retired = textures.keys.filter { it != generation && it != target.generation }
-        retired.forEach { retire(textures.remove(it)!!) }
-      }
-      drew
-    } ?: false
+  ): Boolean {
+    disposePendingMetalTextures(keepAlive = texture.presentation.texture.address)
+    return presenter.draw(
+      scope,
+      context.skiaContext,
+      texture.presentation,
+      destination,
+      frameCompletion,
+    )
+  }
 
-  private fun retire(texture: SharedTexture) {
+  /** Hands a texture back once nothing will render into it again. Safe from any thread. */
+  override fun release(texture: SharedTexture) {
     rendererThread.run(texture.closeProducer)
-    presenter.retire(texture.presentation.texture)
+    val metalTexture = texture.presentation.texture
+    if (!metalTexture.isNull) pendingMetalDisposals.add(metalTexture.address)
   }
 
-  private fun disposeTextures() {
-    textures.values.forEach(::retire)
-    textures.clear()
+  /**
+   * Frees pending textures, except one the caller is about to draw: a texture handed back inside
+   * `acquireFrame` can be presented again in the same frame, and freeing it early makes
+   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. Runs with the
+   * host's exclusive GPU access.
+   */
+  private fun disposePendingMetalTextures(keepAlive: Long) {
+    if (pendingMetalDisposals.isEmpty()) return
+    var deferred: Long? = null
+    while (true) {
+      val address = pendingMetalDisposals.poll() ?: break
+      if (address == keepAlive) {
+        deferred = address
+        continue
+      }
+      // Order matters: Skia holds a surface wrapping this texture, so that has to go first.
+      presenter.forget(address)
+      MetalTexture.dispose(address)
+    }
+    deferred?.let(pendingMetalDisposals::add)
   }
 
-  private fun <T> withPreparedContext(action: (MetalComposeGpuContext) -> T): T? =
+  override fun <R> withComposeContext(action: (MetalComposeGpuContext) -> R): R? =
     presentationHost.onGpuThread {
       val context = presentationHost.gpuContext() ?: return@onGpuThread null
       check(context is MetalComposeGpuContext) { "The host no longer reports a Metal context" }
-      frameCompletion.prepare(context.skiaContext, presenter::resetContext)
       action(context)
     }
 
-  override fun close() {
-    try {
-      frameCompletion.abandon()
-      disposeTextures()
-      // The presenter acquires the host's GPU access once to release the Skia wrappers.
-      presenter.close()
-    } finally {
-      try {
-        rendererThread.run {
-          vulkan?.close()
-          angle?.close()
-        }
-      } finally {
-        rendererThread.close()
-      }
+  override fun contextReplaced() {
+    presenter.closeAll()
+  }
+
+  override fun closeTextures() {
+    textures.releaseAll()
+    presentationHost.runOnGpuThread {
+      disposePendingMetalTextures(keepAlive = 0L)
+      presenter.closeAll()
     }
   }
 
-  private class SharedTexture(
+  override fun closeProducers() {
+    vulkan?.close()
+    vulkan = null
+    angle?.close()
+    angle = null
+  }
+
+  internal class SharedTexture(
     val target: MlnFfiRenderTarget,
     val presentation: MetalTextureTarget,
     val closeProducer: () -> Unit,

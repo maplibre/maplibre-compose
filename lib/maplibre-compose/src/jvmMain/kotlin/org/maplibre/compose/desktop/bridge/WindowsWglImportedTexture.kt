@@ -32,7 +32,7 @@ internal class WindowsWglImportedTexture
 private constructor(
   private val context: WindowsWglContext,
   private val sharedHandle: Long,
-  override val storageExtent: MapExtent,
+  private val extent: MapExtent,
   private val d3d11: Boolean,
 ) : ImportedMapTexture {
   private var memoryObject = 0
@@ -46,7 +46,7 @@ private constructor(
       format = GL_RGBA8,
       origin = TextureOrigin.BOTTOM_LEFT,
       makeContextCurrent = { context.makeCurrent() },
-      extent = storageExtent,
+      extent = extent,
       generation = generation,
     )
 
@@ -82,8 +82,8 @@ private constructor(
       GL_TEXTURE_2D,
       1,
       GL_RGBA8,
-      storageExtent.physicalWidth,
-      storageExtent.physicalHeight,
+      extent.physicalWidth,
+      extent.physicalHeight,
       memoryObject,
       0,
     )

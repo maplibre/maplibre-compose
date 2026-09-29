@@ -77,8 +77,6 @@ internal data class VulkanImageTarget(
   val initialLayout: Int,
   /** `VkImageLayout` MapLibre must leave [image] in for the host to consume it. */
   val finalLayout: Int,
-  /** Queue family owning [image] across the producer/consumer handoff. */
-  val queueFamilyIndex: Int,
   override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {

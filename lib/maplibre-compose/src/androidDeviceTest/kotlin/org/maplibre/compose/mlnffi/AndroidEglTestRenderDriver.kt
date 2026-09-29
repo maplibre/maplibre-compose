@@ -34,7 +34,6 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   override fun acquireFrame(
     frameId: Long,
     extent: MapExtent,
-    presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     ensureSurface(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
@@ -56,7 +55,6 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
             extent = extent,
             generation = generation,
           ),
-        presentationTimeNanos = presentationTimeNanos,
       )
     )
   }
