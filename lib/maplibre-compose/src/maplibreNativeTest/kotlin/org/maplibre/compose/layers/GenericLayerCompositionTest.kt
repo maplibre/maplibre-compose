@@ -142,9 +142,9 @@ class GenericLayerCompositionTest {
           },
         )
       }
-      waitForIdle()
+      // The image is prepared on Dispatchers.Default, which waitForIdle does not wait for.
+      waitUntil(timeoutMillis = 5_000) { recording.imageIds.size == 1 }
       assertEquals(1, recording.sources.size)
-      assertEquals(1, recording.imageIds.size)
       assertEquals(
         JsonPrimitive(0.5f),
         recording.layers.getValue("plugin")["paint"]!!.jsonObject["plugin-opacity"],
