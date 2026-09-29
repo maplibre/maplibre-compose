@@ -41,6 +41,24 @@ private const val PUMP_BUDGET_MILLIS = 4L
  * that still has one attached, so teardown waits for that thread to close it.
  *
  * The loop runs on an [MlnFfiRuntimeThread].
+ *
+ * Only the owner thread touches a [MapHandle]. Code already on it (an event handler,
+ * `onEventsDrained`, or any owner task) calls the engine, and the style binding's synchronous
+ * methods, directly; those methods throw on any other thread. Code on any other thread picks one
+ * operation by what it needs back:
+ * - [await], for a value or to know that the work ran. Waits: suspends. On owner: runs inline.
+ *   Before map: queued. After stop: returns null. Drain: ends its batch. Errors: rethrown. Cancel:
+ *   skipped if cancelled before it starts, unless `cancellable = false`.
+ * - [submit], for nothing back. Waits: no. On owner: runs inline. Before map: queued. After stop:
+ *   runs `onDropped`. Drain: ends its batch only when `ordered`. Errors: runs `onDropped`, then
+ *   rethrown inline or logged when queued. Cancel: not cancellable.
+ * - [awaitEventsDrained], to run after the events raised so far have been handled. Waits: suspends.
+ *   On owner: do not call. Before map: queued. After stop: throws. Drain: runs after the next pump
+ *   and event drain. Errors: rethrown. Cancel: the caller stops waiting; the work still runs.
+ *
+ * A batch is the queued work run between two native pumps. Work that ends its batch lets native
+ * raise and deliver its events before later queued work runs. Not every task ends its batch,
+ * because each pump costs up to [PUMP_BUDGET_MILLIS].
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
