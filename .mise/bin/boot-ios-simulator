@@ -2,8 +2,9 @@
 # Boots an iPhone simulator and prints its UDID. Idempotent. Diagnostics go to
 # stderr so the UDID can be captured with a command substitution.
 #
-# With an iOS version, such as 15.5, only iPhones on that simulator runtime
-# qualify, and one is created if the installed runtime has none.
+# A booted iPhone is reused; otherwise the newest runtime's iPhone boots. With an
+# iOS version, such as 15.5, only iPhones on that simulator runtime qualify, and
+# one is created if the installed runtime has none.
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
