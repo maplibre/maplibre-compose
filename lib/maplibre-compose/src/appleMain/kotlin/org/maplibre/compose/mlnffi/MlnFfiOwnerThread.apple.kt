@@ -53,10 +53,13 @@ private const val MAX_THREAD_NAME_LENGTH = 63
 
 internal actual class MlnFfiOwnerThread actual constructor(name: String, body: () -> Unit) {
   private val context = MlnFfiOwnerThreadContext(name, body)
-  private var contextReference: StableRef<MlnFfiOwnerThreadContext>? = StableRef.create(context)
+  private var started = false
 
   actual fun start() {
-    val reference = checkNotNull(contextReference) { "The owner thread was already started" }
+    check(!started) { "The owner thread was already started" }
+    started = true
+    // Created here rather than with this object, so a thread that never starts pins nothing.
+    val reference = StableRef.create(context)
     memScoped {
       val threadVariable = alloc<pthread_tVar>()
       if (pthread_create(threadVariable.ptr, null, ownerThreadEntry, reference.asCPointer()) != 0) {
@@ -65,7 +68,6 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
         throw IllegalStateException("pthread_create failed for '${context.name}'")
       }
       // The StableRef now belongs to the thread body, which disposes it when the body returns.
-      contextReference = null
       // A host that exits while the body still runs leaves the thread behind, so the thread
       // reclaims its own resources rather than a joiner's. Detach after create stands in for
       // pthread_attr_setdetachstate: Kotlin/Native's Darwin platform libraries do not resolve
