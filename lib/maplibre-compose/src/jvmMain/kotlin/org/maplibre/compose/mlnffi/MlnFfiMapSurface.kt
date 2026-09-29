@@ -192,8 +192,7 @@ internal class MlnFfiSurfaceController(
       try {
         drew = host?.draw(scope, completed.target, destination) == true
         if (drew && !completed.presented) {
-          // Desktop hosts throw a recoverable failure once per graphics-device change to rebuild
-          // the
+          // Hosts throw a recoverable failure once per graphics-device change to rebuild the
           // session on the new device, so a rebuild that presents an image starts a fresh budget.
           completed.presented = true
           failures = 0
