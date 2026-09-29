@@ -95,8 +95,7 @@
   gap: 0.375rem;
 }
 
-.metrics-range[hidden],
-.metrics-range-dates[hidden] {
+.metrics-range[hidden] {
   display: none;
 }
 

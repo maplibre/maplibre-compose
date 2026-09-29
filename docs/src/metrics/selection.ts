@@ -73,7 +73,7 @@ export class CommitSelection {
     this.rangeSelect.addEventListener("change", () => {
       const range = this.rangeSelect.value;
       if (range === "custom") {
-        // Custom dates start from the current range.
+        // Custom dates start from the range in view.
         this.range = range;
         this.showRange();
         this.fromInput.focus();
@@ -192,7 +192,6 @@ export class CommitSelection {
     const custom = this.range === "custom";
     for (const button of this.spacingButtons) button.setAttribute("aria-checked", String(button.dataset.spacing === spacing));
     this.rangeSelect.value = this.range;
-    $("metrics-range-dates").hidden = !custom;
     this.fromInput.value = dateValue(times[first]);
     this.toInput.value = dateValue(times[last]);
     setSearchParams({
