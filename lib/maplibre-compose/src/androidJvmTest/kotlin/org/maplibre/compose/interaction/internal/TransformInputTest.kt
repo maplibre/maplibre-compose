@@ -310,8 +310,10 @@ class TransformInputTest {
     val target = fixture.target
     var touchSlop = 0f
     setContent {
-      touchSlop = LocalViewConfiguration.current.touchSlop
-      GestureHost(target, InputConfiguration.Standard)
+      UnitDensity {
+        touchSlop = LocalViewConfiguration.current.touchSlop
+        GestureHost(target, InputConfiguration.Standard)
+      }
     }
     waitForIdle()
     val map = mapNode()
