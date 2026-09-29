@@ -151,7 +151,8 @@ internal class MlnFfiMapRuntimeLoop(
   /**
    * Runs [action] on the owner thread and returns its result, or null when the loop stops first.
    * Rethrows what [action] throws. A caller cancelled before [action] starts skips it; with
-   * [cancellable] false, [action] runs and the caller waits for it anyway.
+   * [cancellable] false, [action] runs and the caller waits for it anyway. Use that for work that
+   * must finish, such as work that uses native memory the caller frees once this returns.
    */
   suspend fun <T> await(cancellable: Boolean = true, action: (MapHandle) -> T): T? {
     if (thread.isCurrent()) {
