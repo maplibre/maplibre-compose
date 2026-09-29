@@ -388,7 +388,12 @@ internal class MapLifecycleAuthority(
     if (current.adapter === adapter) return true
     current.adapter = adapter
     publishAccessView()
-    if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
+    if (retainedAdapter !== adapter) {
+      // A density or backend change during attachment can return to the retained engine.
+      owner.styleAuthority.beginStyleLoadForNewAdapter(
+        retainedEngineOwnsStyle = retainedAdapter != null
+      )
+    }
     return true
   }
 

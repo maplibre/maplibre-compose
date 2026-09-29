@@ -411,10 +411,16 @@ internal class MapStyleAuthority(
     style.loadState = StyleLoadState.Pending
   }
 
-  internal fun beginStyleLoadForNewAdapter() {
+  /**
+   * Clears the loaded style for an adapter that has not loaded one yet. A retained engine still
+   * owns its loaded style, and the presentation can return to that engine before the new adapter
+   * publishes, so [retainedEngineOwnsStyle] leaves that style valid; the engine invalidates it
+   * itself if it closes.
+   */
+  internal fun beginStyleLoadForNewAdapter(retainedEngineOwnsStyle: Boolean = false) {
     lifecycle.requireMain()
     styleHandleEpoch++
-    style.invalidateLoadedStyle()
+    if (retainedEngineOwnsStyle) style.updateLoadedStyle(null) else style.invalidateLoadedStyle()
     style.loadState = StyleLoadState.Loading
   }
 

@@ -607,6 +607,38 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_presentation_that_returns_to_the_retained_session_keeps_its_style() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val session = BoundLifecycleSession()
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
+    session.lifecycle.attach()
+    val first = state.reservePresentation()
+    state.publishPresentation(first, session)
+    val style = RecordingStyleBinding()
+    assertTrue(state.styleAuthority.updateLoadedStyle(session, style))
+    state.releasePresentation(first, session)
+    testScheduler.runCurrent()
+
+    // A density change during attachment abandons a new session before it publishes.
+    val abandoned = state.reservePresentation()
+    assertTrue(state.lifecycle.selectAdapterForPresentation(PresentationTestAdapter()))
+    assertNull(state.style.currentLoadedStyle())
+    state.releasePresentation(abandoned, null)
+    val returning = state.reservePresentation()
+    assertTrue(state.lifecycle.selectAdapterForPresentation(session))
+    state.publishPresentation(returning, session)
+
+    assertTrue(style.isLoaded, "the retained session's style was invalidated")
+    assertTrue(state.styleAuthority.updateLoadedStyle(session, style))
+    assertSame(style, state.style.currentLoadedStyle())
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun a_new_presentation_can_reserve_while_the_previous_one_is_still_detaching() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
