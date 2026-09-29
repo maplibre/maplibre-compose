@@ -1,13 +1,14 @@
-import type { TrendChart, Timeline } from "./chart";
+import type { Spacing, TrendChart, Timeline } from "./chart";
 import { icon, type icons } from "./icons";
-import { formatDate, isRelease, type Commit } from "./model";
+import { format, formatDate, isRelease, type Commit } from "./model";
 import { $, commitLink, releaseLink, setSearchParams } from "./page";
 import { define } from "./terms";
 
 /**
  * The commit a dashboard shows: the sticky bar's navigation and label, the cursor shared by the
- * trend charts, and the `commit` query parameter. [noun] names one point of the history in the
- * labels, such as "commit" or "measurement".
+ * trend charts, and the `commit` query parameter. Also the part of the history the charts show and
+ * how they space it, in the `from`, `to`, and `spacing` parameters. [noun] names one point of the
+ * history in the labels, such as "commit" or "measurement".
  */
 export class CommitSelection {
   readonly timeline: Timeline;
@@ -18,12 +19,14 @@ export class CommitSelection {
 
   constructor(
     private readonly noun: string,
-    onSelect: () => void,
+    private readonly onSelect: () => void,
   ) {
     this.timeline = {
       commits: [],
       times: [],
       releases: [],
+      spacing: new URLSearchParams(location.search).get("spacing") === "dates" ? "dates" : "commits",
+      window: [0, 0],
       hover: (i) => {
         this.hovered = i;
         this.setCursor();
@@ -31,9 +34,11 @@ export class CommitSelection {
       select: (i) => {
         if (i === this.selected) return;
         this.selected = i;
+        if (this.reveal(i)) this.showWindow();
         this.show();
         onSelect();
       },
+      zoom: (first, last) => this.zoom(first, last),
     };
     for (const nav of this.navigation) {
       const button = $<HTMLButtonElement>(nav.id);
@@ -43,7 +48,15 @@ export class CommitSelection {
         if (target != null) this.timeline.select(target);
       });
     }
+    for (const button of this.spacingButtons)
+      button.addEventListener("click", () => {
+        this.timeline.spacing = button.dataset.spacing as Spacing;
+        this.showWindow();
+      });
+    $("metrics-range-reset").addEventListener("click", () => this.zoom(0, this.last));
   }
+
+  private readonly spacingButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-spacing]")];
 
   get commits() {
     return this.timeline.commits;
@@ -59,8 +72,56 @@ export class CommitSelection {
     this.timeline.times = commits.map((c) => Date.parse(c.date));
     this.timeline.releases = commits.flatMap((c, i) => c.tags.filter(isRelease).map((label) => ({ index: i, label })));
     this.hovered = null;
-    const linked = commits.findIndex((c) => c.commit === new URLSearchParams(location.search).get("commit"));
+    const params = new URLSearchParams(location.search);
+    const find = (key: string) => commits.findIndex((c) => c.commit === params.get(key));
+    const [linked, from, to] = [find("commit"), find("from"), find("to")];
     this.selected = linked < 0 ? this.last : linked;
+    const range: [number, number] = [Math.max(0, from), to < 0 ? this.last : to];
+    this.timeline.window = range[0] < range[1] ? range : [0, this.last];
+    this.reveal(this.selected);
+    this.showRange();
+  }
+
+  /** Shows [first] through [last] in the charts, moving the selection into them. */
+  zoom(first: number, last: number) {
+    this.timeline.window = [first, last];
+    this.showWindow();
+    const selected = Math.min(last, Math.max(first, this.selected));
+    if (selected === this.selected) return;
+    this.selected = selected;
+    this.show();
+    this.onSelect();
+  }
+
+  /** Moves the window over [index] if it is outside, keeping its width. Returns whether it moved. */
+  private reveal(index: number) {
+    const [first, last] = this.timeline.window;
+    if (index >= first && index <= last) return false;
+    const shift = index < first ? index - first : index - last;
+    this.timeline.window = [first + shift, last + shift];
+    return true;
+  }
+
+  private showWindow() {
+    this.charts.forEach((chart) => chart.draw());
+    this.showRange();
+  }
+
+  /** Renders the window and spacing controls and records them in the URL. */
+  private showRange() {
+    const { commits, spacing } = this.timeline;
+    const [first, last] = this.timeline.window;
+    const zoomed = first > 0 || last < this.last;
+    for (const button of this.spacingButtons) button.setAttribute("aria-checked", String(button.dataset.spacing === spacing));
+    $("metrics-range-status").textContent = zoomed
+      ? `${format(last - first + 1)} of ${format(commits.length)} ${this.noun}s, ${formatDate(commits[first].date)} – ${formatDate(commits[last].date)}`
+      : "Drag across a chart to zoom in.";
+    $("metrics-range-reset").hidden = !zoomed;
+    setSearchParams({
+      spacing: spacing === "dates" ? spacing : null,
+      from: first > 0 ? commits[first].commit : null,
+      to: last < this.last ? commits[last].commit : null,
+    });
   }
 
   /** Renders the selection: its label, the navigation, the chart cursors, and the URL. */

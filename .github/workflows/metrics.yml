@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       rebuild:
-        description: Measure every commit since v0.14.0 again with the current reporter.
+        description: Measure every commit since v0.1.0 again with the current reporter.
         type: boolean
         default: false
 

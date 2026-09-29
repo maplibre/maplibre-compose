@@ -6,7 +6,9 @@ import { Tree } from "./tree";
 import {
   declaration,
   format,
+  formatDate,
   formatDelta,
+  isRelease,
   moduleName,
   newTab,
   sourceUrl,
@@ -144,19 +146,38 @@ export async function start() {
   const scope = () =>
     index.scopes.find((s) => (module ? s.module === module : s.module === null && s.group === group))!;
 
+  /** The releases a scope's code was in, or its dates when it was never released. */
+  function lifetime({ first, last }: Scope) {
+    if (first == null || last == null) return null;
+    const current = last === commits.length - 1;
+    const releases = commits.slice(first, last + 1).flatMap((c) => c.tags.filter(isRelease));
+    const [start, end] = releases.length
+      ? [releases[0], releases.at(-1)!]
+      : [formatDate(commits[first].date), formatDate(commits[last].date)];
+    if (current) return `since ${start}`;
+    return start === end ? start : `${start} – ${end}`;
+  }
+
   // Scope controls.
-  const segments = [...document.querySelectorAll<HTMLButtonElement>(".metrics-segmented button")];
+  const segments = [...document.querySelectorAll<HTMLButtonElement>("[data-group]")];
   const moduleSelect = $<HTMLSelectElement>("metrics-module");
   function showControls() {
     for (const button of segments) button.setAttribute("aria-checked", String(button.dataset.group === group));
-    const modules = index.scopes
+    const scopes = index.scopes
       .filter((s) => s.module && (group === "all" || s.group === group))
-      .map((s) => s.module!)
-      .sort();
-    if (module && !modules.includes(module)) module = null;
+      .sort((a, b) => a.module!.localeCompare(b.module!));
+    if (module && !scopes.some((s) => s.module === module)) module = null;
+    const option = (s: Scope) => {
+      const span = lifetime(s);
+      return el("option", { value: s.module!, textContent: span ? `${s.module} · ${span}` : s.module! });
+    };
+    // Scopes from older indexes have no lifetime and count as current.
+    const removed = scopes.filter((s) => s.last != null && s.last < commits.length - 1);
+    const current = scopes.filter((s) => !removed.includes(s));
     moduleSelect.replaceChildren(
       el("option", { value: "", textContent: "All modules" }),
-      ...modules.map((m) => el("option", { value: m, textContent: m })),
+      el("optgroup", { label: "Current" }, ...current.map(option)),
+      ...(removed.length ? [el("optgroup", { label: "Removed" }, ...removed.map(option))] : []),
     );
     moduleSelect.value = module ?? "";
   }
@@ -200,6 +221,10 @@ export async function start() {
   async function loadScope() {
     showControls();
     setSearchParams({ code: group === "library" ? null : group, module });
+    // Charts show only the scope's lifetime, keeping a narrower zoom inside it.
+    const { first, last } = scope();
+    const [start, end] = selection.timeline.window;
+    if (first != null && last != null && first < last && (start < first || end > last)) selection.zoom(first, last);
     const load = ++scopeLoad;
     root.classList.add("metrics-loading");
     try {

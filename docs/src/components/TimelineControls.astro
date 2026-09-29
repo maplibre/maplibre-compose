@@ -1,0 +1,16 @@
+---
+// How the trend charts space the history, and the part of it they show. The
+// dashboard's CommitSelection drives these controls.
+---
+
+<div class="metrics-timeline">
+  <span class="metrics-muted" aria-hidden="true">X-axis</span>
+  <div class="metrics-segmented" role="radiogroup" aria-label="X-axis">
+    <button role="radio" data-spacing="commits">Commits</button>
+    <button role="radio" data-spacing="dates">Dates</button>
+  </div>
+  <span id="metrics-range-status" class="metrics-muted"></span>
+  <button id="metrics-range-reset" class="metrics-link-button" hidden>
+    Show all
+  </button>
+</div>

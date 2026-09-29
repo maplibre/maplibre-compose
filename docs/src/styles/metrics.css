@@ -85,6 +85,13 @@
   font-weight: 600;
 }
 
+/* A select is as wide as its longest option, such as a module and its lifetime. */
+.metrics-toolbar label,
+.metrics select {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .metrics select {
   padding: 0.375rem 0.625rem;
   border: 1px solid var(--sl-color-gray-5);
@@ -106,6 +113,28 @@
 
 .metrics-link-button:hover {
   text-decoration: underline;
+}
+
+/* Timeline controls */
+
+.metrics-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: var(--sl-text-sm);
+}
+
+.metrics-timeline > * {
+  margin: 0 !important;
+}
+
+.metrics .metrics-timeline {
+  margin-top: 2rem;
+}
+
+.metrics .metrics-timeline + .metrics-charts {
+  margin-top: 1rem;
 }
 
 /* Selection and tiles */
@@ -373,6 +402,11 @@
 }
 .metrics-dot.metrics-series-3 {
   fill: var(--metrics-series-3);
+}
+
+.metrics-brush {
+  fill: var(--sl-color-text-accent);
+  opacity: 0.15;
 }
 
 .metrics-hover {

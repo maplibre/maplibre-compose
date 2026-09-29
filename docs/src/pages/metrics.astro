@@ -1,6 +1,7 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 import CommitSelection from "../components/CommitSelection.astro";
+import TimelineControls from "../components/TimelineControls.astro";
 import "../styles/metrics.css";
 
 // Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
@@ -37,6 +38,8 @@ const source =
       <CommitSelection />
 
       <div id="metrics-tiles" class="metrics-tiles"></div>
+
+      <TimelineControls />
 
       <div id="metrics-charts" class="metrics-charts"></div>
 
