@@ -484,9 +484,10 @@ class MlnFfiMapSurfaceRecoveryTest {
       val resizeDraws = host.drawRecords.drop(drawsBeforeResize)
       assertTrue(resizeDraws.isNotEmpty())
       assertTrue(resizeDraws.all { it.target == completedTarget })
+      // The completed frame stays centered, shifted by the anchor's move of 12 pixels on each axis.
       for (draw in resizeDraws) {
-        assertEquals(28, draw.destinationLeft)
-        assertEquals(28, draw.destinationTop)
+        assertEquals((draw.scopeWidth - draw.destinationWidth) / 2 + 12, draw.destinationLeft)
+        assertEquals((draw.scopeHeight - draw.destinationHeight) / 2 + 12, draw.destinationTop)
       }
     }
 

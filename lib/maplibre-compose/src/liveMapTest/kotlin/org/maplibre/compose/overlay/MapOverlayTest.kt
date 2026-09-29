@@ -16,14 +16,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -82,7 +85,7 @@ class MapOverlayTest {
       }
     }
 
-    setContent {
+    setIntegerDensityContent {
       assertNull(LocalMapState.current)
       assertNull(LocalViewport.current)
       MapOverlayHost(
@@ -128,7 +131,7 @@ class MapOverlayTest {
       var padding by
         mutableStateOf(PaddingValues(start = 40.dp, top = 20.dp, end = 60.dp, bottom = 30.dp))
       var rtl by mutableStateOf(false)
-      setContent {
+      setIntegerDensityContent {
         CompositionLocalProvider(
           LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
         ) {
@@ -173,7 +176,7 @@ class MapOverlayTest {
   fun viewport_insets_are_map_relative_when_a_parent_consumes_system_insets() = runComposeUiTest {
     val runtime = mapRuntimeForTest()
     val map = runtime.createMapState(BaseStyle.Empty)
-    setContent {
+    setIntegerDensityContent {
       Box(Modifier.padding(20.dp).consumeWindowInsets(PaddingValues(20.dp))) {
         MapOverlayHost(
           mapState = map,
@@ -218,7 +221,7 @@ class MapOverlayTest {
     map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     var offset by mutableStateOf(20.dp)
     val towards = PlacedTowardsState()
-    setContent {
+    setIntegerDensityContent {
       MapOverlayHost(
         mapState = map,
         modifier = Modifier.size(300.dp).testTag("map"),
@@ -264,7 +267,7 @@ class MapOverlayTest {
           }
           .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
       map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
-      setContent {
+      setIntegerDensityContent {
         MapOverlayHost(
           mapState = map,
           modifier = Modifier.size(300.dp).testTag("map"),
@@ -377,4 +380,13 @@ class MapOverlayTest {
     map.close()
     runtime.close()
   }
+}
+
+/**
+ * Sets [content] at a whole-number density. At a fractional density, Compose places each node on a
+ * whole pixel, so its bounds can differ by a fraction of a dp from the dp sums these tests expect.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun ComposeUiTest.setIntegerDensityContent(content: @Composable () -> Unit) = setContent {
+  CompositionLocalProvider(LocalDensity provides Density(2f), content = content)
 }
