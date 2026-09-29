@@ -560,7 +560,8 @@ def measure(args):
         ):
             for kind, path in apks.items():
                 # An installed build signed with another key refuses the update.
-                if device("install", "-r", str(path), check=False) != "Success":
+                installed = device("install", "-r", str(path), check=False)
+                if not installed.endswith("Success"):
                     device("uninstall", manifest["apks"][kind]["package"], check=False)
                     device("install", str(path))
             plan = [
