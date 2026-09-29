@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.interaction.internal.select
@@ -231,6 +233,8 @@ private class NativeSnapshotterAdapter(
     } catch (error: Throwable) {
       resized.completion.complete(Result.failure(error))
     }
+    // The settle ignored cancellation, so a cancelled caller stops here instead of rendering.
+    currentCoroutineContext().ensureActive()
     val resizeResult = resized.completion.await()
     if (terminalOperation === resized) terminalOperation = null
     resizeResult.getOrThrow()
