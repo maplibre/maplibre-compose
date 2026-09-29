@@ -12,6 +12,9 @@ const periods = [
   { id: "1y", label: "Last year", months: 12 },
 ];
 
+/** The range a dashboard opens with, unless its URL names another. */
+const defaultRange = "6m";
+
 /** A UTC date as an `<input type="date">` value. */
 const dateValue = (time: number) => new Date(time).toISOString().slice(0, 10);
 
@@ -29,7 +32,7 @@ export class CommitSelection {
   selected = 0;
   private hovered: number | null = null;
   /** "all", a period's ID, a release tag, or "custom" for any other window. */
-  private range = "all";
+  private range = defaultRange;
   private readonly rangeSelect = $<HTMLSelectElement>("metrics-range-select");
   private readonly fromInput = $<HTMLInputElement>("metrics-range-from");
   private readonly toInput = $<HTMLInputElement>("metrics-range-to");
@@ -128,12 +131,15 @@ export class CommitSelection {
     this.fromInput.min = this.toInput.min = dateValue(this.timeline.times[0]);
     this.fromInput.max = this.toInput.max = dateValue(this.timeline.times[this.last]);
 
-    // A preset in the URL is kept even if the history grows; custom dates name their commits.
+    // A preset in the URL is kept even if the history grows; custom dates name their commits. A
+    // history too sparse for the default range opens whole.
     const preset = params.get("range");
     const span = preset && this.resolve(preset);
     const custom: [number, number] = [Math.max(0, from), to < 0 ? this.last : to];
+    const fallback = this.resolve(defaultRange);
     if (span) [this.range, this.timeline.window] = [preset, span];
     else if (custom[0] < custom[1] && (from >= 0 || to >= 0)) [this.range, this.timeline.window] = ["custom", custom];
+    else if (fallback) [this.range, this.timeline.window] = [defaultRange, fallback];
     else [this.range, this.timeline.window] = ["all", [0, this.last]];
     this.reveal(this.selected);
     this.showRange();
@@ -196,7 +202,7 @@ export class CommitSelection {
     this.toInput.value = dateValue(times[last]);
     setSearchParams({
       spacing: spacing === "dates" ? spacing : null,
-      range: custom || this.range === "all" ? null : this.range,
+      range: custom || this.range === defaultRange ? null : this.range,
       from: custom && first > 0 ? commits[first].commit : null,
       to: custom && last < this.last ? commits[last].commit : null,
     });
