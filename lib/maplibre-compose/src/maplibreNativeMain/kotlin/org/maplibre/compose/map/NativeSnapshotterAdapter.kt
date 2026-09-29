@@ -318,8 +318,8 @@ private class NativeSnapshotterAdapter(
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(Result.failure(IllegalStateException(message)))
       }
-      // A still image progresses only inside renderUpdate, and every result other than RENDERED
-      // waits for the next MAP_RENDER_UPDATE_AVAILABLE, so each update event gets one render.
+      // A still image progresses only inside renderUpdate, and NO_UPDATE and SIZE_PENDING wait for
+      // the next MAP_RENDER_UPDATE_AVAILABLE, so each update event gets one render.
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> {
         if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
         renderStillImage(source, operation)
@@ -340,7 +340,14 @@ private class NativeSnapshotterAdapter(
     if (operation.completion.isCompleted) return
     try {
       val update = source.resources.withSession { it.renderUpdate() }
-      if (update.result == RenderResult.RENDERED) operation.rendered = true
+      when (update.result) {
+        RenderResult.RENDERED -> operation.rendered = true
+        // Only window surfaces report this, and no update event follows it. The snapshot renders
+        // into an owned texture, so fail rather than wait for an event that will not come.
+        RenderResult.TARGET_NOT_READY ->
+          error("The snapshot texture reported that it had no frame to render into")
+        else -> Unit
+      }
     } catch (error: Throwable) {
       rethrowIfFatal(error)
       operation.completion.complete(Result.failure(error))
