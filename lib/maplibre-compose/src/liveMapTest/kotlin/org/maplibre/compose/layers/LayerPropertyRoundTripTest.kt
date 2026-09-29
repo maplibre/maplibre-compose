@@ -40,6 +40,7 @@ import org.maplibre.compose.style.LayerInstallation
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
@@ -145,7 +146,7 @@ class LayerPropertyRoundTripTest {
         TransitionOptions(700.milliseconds, 50.milliseconds),
       )
       val scale = systemAnimatorDurationScale()
-      val installation = LayerInstallation(style, layer.definition(), "", scale)
+      val installation = style.onOwner { LayerInstallation(style, layer.definition(), "", scale) }
       suspend fun assertTiming(duration: Double, delay: Double) {
         val written = assertNotNull(style.layerProperty(layer.id, "background-color-transition"))
         val expected =

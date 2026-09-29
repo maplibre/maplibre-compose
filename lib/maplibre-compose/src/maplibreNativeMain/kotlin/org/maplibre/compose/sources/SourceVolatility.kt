@@ -11,12 +11,13 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
  *
  * Like other handle operations, access fails after the source is removed or its style is replaced.
  */
-public suspend fun SourceHandle.isVolatile(): Boolean = implementation.suspendingOperation {
-  checkNotNull(
-    (implementation.style as MlnFfiStyleBinding).awaitMap {
-      it.styleSourceInfo(id)?.volatileSource
-    }
-  )
+public suspend fun SourceHandle.isVolatile(): Boolean {
+  val binding = implementation.style as MlnFfiStyleBinding
+  // A style that unloads during the read usually fails the operation's closing check first.
+  val volatile = implementation.suspendingOperation {
+    binding.awaitOwner { binding.withMap { it.styleSourceInfo(id)?.volatileSource } }
+  }
+  return checkNotNull(volatile) { "Source '$id' is no longer in a loaded style" }
 }
 
 /**

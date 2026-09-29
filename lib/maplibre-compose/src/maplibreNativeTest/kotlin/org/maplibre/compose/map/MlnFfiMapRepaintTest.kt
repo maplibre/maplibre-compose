@@ -7,6 +7,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.TestLayer
@@ -17,6 +18,7 @@ import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.RgbaPixel
 
@@ -36,8 +38,8 @@ class MlnFfiMapRepaintTest {
         TestLayer("green", "background").apply {
           paint("background-color", (const(Color.Green)).asLayerProperty())
         }
-      fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { style.install(layer) }
-      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { style.uninstall(layer) }
+      fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { runBlocking { style.install(layer) } }
+      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { runBlocking { style.uninstall(layer) } }
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -52,13 +54,17 @@ class MlnFfiMapRepaintTest {
       )
       fixture.pumpUntilRendered()
       fixture.settle()
-      checkNotNull(fixture.style)
-        .setLayerProperty(
-          "background",
-          "background-color",
-          JsonPrimitive("#00ff00"),
-          LayerPropertyKind.PAINT,
-        )
+      val style = checkNotNull(fixture.style)
+      runBlocking {
+        style.onOwner {
+          style.setLayerProperty(
+            "background",
+            "background-color",
+            JsonPrimitive("#00ff00"),
+            LayerPropertyKind.PAINT,
+          )
+        }
+      }
       assertEquals(1, fixture.renderOnDemand(1.seconds))
       assertTrue(fixture.readPixel(256, 256).isNear(RgbaPixel(0, 255, 0, 255)))
       assertEquals(emptyList(), fixture.errors)
@@ -72,21 +78,24 @@ class MlnFfiMapRepaintTest {
       fixture.pumpUntilRendered()
       fixture.settle()
       val style = checkNotNull(fixture.style)
-      style.setLayerProperty(
-        "background",
-        "background-color",
-        JsonPrimitive("#00ff00"),
-        LayerPropertyKind.PAINT,
-      )
+      runBlocking {
+        style.onOwner {
+          style.setLayerProperty(
+            "background",
+            "background-color",
+            JsonPrimitive("#00ff00"),
+            LayerPropertyKind.PAINT,
+          )
+        }
+      }
       val ownerEntered = MlnFfiGate()
       val releaseOwner = MlnFfiGate()
       try {
-        assertTrue(
-          fixture.session.postOwnerTaskForTest {
-            ownerEntered.open()
-            releaseOwner.awaitUntilOpen()
-          }
-        )
+        fixture.session.loop.submit {
+          ownerEntered.open()
+          releaseOwner.awaitUntilOpen()
+        }
+
         assertTrue(ownerEntered.await(5_000), "The owner did not reach the gate")
         // Allow one draw of the published update while its native transition clock is held.
         fixture.session.onSurfaceChanged(BridgeMapFixture.DEFAULT_EXTENT)

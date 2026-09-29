@@ -29,28 +29,24 @@ class MlnFfiEngineStartupTest {
         val order = mutableListOf<String>()
         var maxZoomBefore: Double? = null
         var maxZoomAfter: Double? = null
-        assertTrue(
-          session.postOwnerTaskForTest { map ->
-            order += "before constraints"
-            maxZoomBefore = map.bounds.maxZoom
-          }
-        )
+        session.loop.submit { map ->
+          order += "before constraints"
+          maxZoomBefore = map.bounds.maxZoom
+        }
+
         session.setCameraConstraints(CameraConstraints(maxZoom = 10.0))
-        assertTrue(
-          session.postOwnerTaskForTest { map ->
-            order += "after constraints"
-            maxZoomAfter = map.bounds.maxZoom
-          }
-        )
+        session.loop.submit { map ->
+          order += "after constraints"
+          maxZoomAfter = map.bounds.maxZoom
+        }
 
         session.ensureEngine()
         val done = CompletableDeferred<Unit>()
-        assertTrue(
-          session.postOwnerTaskForTest {
-            order += "after start"
-            done.complete(Unit)
-          }
-        )
+        session.loop.submit {
+          order += "after start"
+          done.complete(Unit)
+        }
+
         withTimeout(TIMEOUT_MILLIS) { done.await() }
 
         assertEquals(listOf("before constraints", "after constraints", "after start"), order)
@@ -74,18 +70,16 @@ class MlnFfiEngineStartupTest {
       try {
         val abandoned = CompletableDeferred<Unit>()
         var abandonedWorkRan = false
-        assertTrue(
-          session.postOwnerTaskForTest(abandon = { abandoned.complete(Unit) }) {
-            abandonedWorkRan = true
-          }
-        )
+        session.loop.submit(onDropped = { abandoned.complete(Unit) }) {
+          abandonedWorkRan = true
+        }
 
         val failure = assertFailsWith<IllegalStateException> { session.attachPresentation() }
         assertEquals("The runtime is not ready", failure.message)
         assertTrue(abandoned.isCompleted, "Queued work was not released when creation failed")
 
         val ran = CompletableDeferred<Unit>()
-        assertTrue(session.postOwnerTaskForTest { ran.complete(Unit) })
+        session.loop.submit { ran.complete(Unit) }
         session.attachPresentation()
         withTimeout(TIMEOUT_MILLIS) { ran.await() }
         assertFalse(abandonedWorkRan)
@@ -103,16 +97,16 @@ class MlnFfiEngineStartupTest {
       val session = newSession(state, runtime)
       val abandoned = CompletableDeferred<Unit>()
       var ran = false
-      assertTrue(
-        session.postOwnerTaskForTest(abandon = { abandoned.complete(Unit) }) { ran = true }
-      )
+      session.loop.submit(onDropped = { abandoned.complete(Unit) }) { ran = true }
 
       session.close()
       withTimeout(TIMEOUT_MILLIS) { session.awaitClosed() }
 
       assertTrue(abandoned.isCompleted, "Queued work was not released at close")
       assertFalse(ran)
-      assertFalse(session.postOwnerTaskForTest {}, "A closed session accepted owner work")
+      var refused = false
+      session.loop.submit(onDropped = { refused = true }) {}
+      assertTrue(refused, "A closed session accepted owner work")
     }
   }
 

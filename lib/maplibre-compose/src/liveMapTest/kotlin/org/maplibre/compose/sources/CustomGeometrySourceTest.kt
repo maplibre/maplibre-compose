@@ -22,6 +22,7 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
@@ -101,8 +102,10 @@ class CustomGeometrySourceTest {
       fixture.attachPendingSource(state)
       val style = assertNotNull(fixture.style)
 
-      style.removeLayer(LAYER_ID)
-      style.removeSource(SOURCE_ID)
+      style.onOwner {
+        style.removeLayer(LAYER_ID)
+        style.removeSource(SOURCE_ID)
+      }
 
       fixture.pumpUntil("the removed custom geometry provider to be cancelled") { state.cancelled }
     }

@@ -226,12 +226,11 @@ class PlatformMapAccessTest {
       val original = state.lifecycle.currentAdapter() as MlnFfiMapSession
       val ownerEntered = CompletableDeferred<Unit>()
       val releaseOwner = MlnFfiGate()
-      assertTrue(
-        original.postOwnerTaskForTest {
-          ownerEntered.complete(Unit)
-          releaseOwner.awaitUntilOpen()
-        }
-      )
+      original.loop.submit {
+        ownerEntered.complete(Unit)
+        releaseOwner.awaitUntilOpen()
+      }
+
       ownerEntered.await()
 
       var callbackRan = false
@@ -274,12 +273,11 @@ class PlatformMapAccessTest {
       val session = state.lifecycle.currentAdapter() as MlnFfiMapSession
       val ownerEntered = CompletableDeferred<Unit>()
       val releaseOwner = MlnFfiGate()
-      assertTrue(
-        session.postOwnerTaskForTest {
-          ownerEntered.complete(Unit)
-          releaseOwner.awaitUntilOpen()
-        }
-      )
+      session.loop.submit {
+        ownerEntered.complete(Unit)
+        releaseOwner.awaitUntilOpen()
+      }
+
       ownerEntered.await()
 
       var callbackRan = false
@@ -293,7 +291,7 @@ class PlatformMapAccessTest {
               }
             }
           val ownerDrained = CompletableDeferred<Unit>()
-          assertTrue(session.postOwnerTaskForTest { ownerDrained.complete(Unit) })
+          session.loop.submit { ownerDrained.complete(Unit) }
 
           access.cancel()
           assertFailsWith<CancellationException> { access.await() }

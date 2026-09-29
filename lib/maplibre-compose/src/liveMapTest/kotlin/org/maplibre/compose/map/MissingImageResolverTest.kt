@@ -12,6 +12,7 @@ import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MISSING_ICON_ID
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
@@ -36,7 +37,7 @@ class MissingImageResolverTest {
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
       val style = assertNotNull(fixture.style)
       fixture.pumpUntil("the resolved image to reach the style", timeout = 20.seconds) {
-        style.imageExists(MISSING_ICON_ID) == true
+        style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
 
@@ -57,15 +58,15 @@ class MissingImageResolverTest {
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
       val style = assertNotNull(fixture.style)
       fixture.pumpUntil("the first resolution to reach the style") {
-        style.imageExists(MISSING_ICON_ID) == true
+        style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
 
       // Bypass Compose's ownership records, as Native does when evicting unused images.
-      style.removeImage(MISSING_ICON_ID)
+      style.onOwner { style.removeImage(MISSING_ICON_ID) }
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
       fixture.pumpUntil("the removed image to be requested and restored") {
-        requests.size >= 2 && style.imageExists(MISSING_ICON_ID) == true
+        requests.size >= 2 && style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
       assertEquals(listOf(MISSING_ICON_ID, MISSING_ICON_ID), requests.toList())
@@ -84,7 +85,7 @@ class MissingImageResolverTest {
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
       val firstStyle = assertNotNull(fixture.style)
       fixture.pumpUntil("the first resolution to reach the style", timeout = 20.seconds) {
-        firstStyle.imageExists(MISSING_ICON_ID) == true
+        firstStyle.onOwner { firstStyle.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
 
@@ -92,7 +93,7 @@ class MissingImageResolverTest {
       fixture.loadStyle(BaseStyle.Json(missingIconStyle(name = "missing icon again")))
       val reloadedStyle = assertNotNull(fixture.style)
       fixture.pumpUntil("the resolved image to reach the reloaded style", timeout = 20.seconds) {
-        reloadedStyle.imageExists(MISSING_ICON_ID) == true
+        reloadedStyle.onOwner { reloadedStyle.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
 
@@ -134,7 +135,7 @@ class MissingImageResolverTest {
         "the replacement resolver's image to reach the style",
         timeout = 20.seconds,
       ) {
-        style.imageExists(MISSING_ICON_ID) == true
+        style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
       }
       fixture.settle()
 

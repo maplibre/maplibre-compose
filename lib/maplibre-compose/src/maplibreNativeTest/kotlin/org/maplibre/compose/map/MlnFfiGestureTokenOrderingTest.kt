@@ -40,12 +40,11 @@ class MlnFfiGestureTokenOrderingTest {
 
           val entered = TestLatch(1)
           val release = TestLatch(1)
-          assertTrue(
-            session.postOwnerTaskForTest {
-              entered.countDown()
-              check(release.await(5_000))
-            }
-          )
+          session.loop.submit {
+            entered.countDown()
+            check(release.await(5_000))
+          }
+
           try {
             assertTrue(entered.await(5_000))
 
@@ -94,12 +93,11 @@ class MlnFfiGestureTokenOrderingTest {
         val before = fixture.state.cameraPosition
         val entered = TestLatch(1)
         val release = TestLatch(1)
-        assertTrue(
-          session.postOwnerTaskForTest {
-            entered.countDown()
-            check(release.await(5_000))
-          }
-        )
+        session.loop.submit {
+          entered.countDown()
+          check(release.await(5_000))
+        }
+
         try {
           assertTrue(entered.await(5_000))
           val input = GestureInputSession(this, fixture.gestures)
@@ -130,12 +128,11 @@ class MlnFfiGestureTokenOrderingTest {
       fixture.settle()
       val entered = TestLatch(1)
       val release = TestLatch(1)
-      assertTrue(
-        session.postOwnerTaskForTest {
-          entered.countDown()
-          check(release.await(5_000))
-        }
-      )
+      session.loop.submit {
+        entered.countDown()
+        check(release.await(5_000))
+      }
+
       try {
         assertTrue(entered.await(5_000))
         fixture.state.setCameraPosition(CameraPosition(zoom = 12.0))

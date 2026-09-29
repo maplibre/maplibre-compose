@@ -66,7 +66,7 @@ internal class MlnFfiTileRequestCoordinator<T>(
     lock.withLock { requests.remove(tileId) }?.job?.cancel()
   }
 
-  /** Cancels every request and ignores later fetches. An answer already posted is dropped. */
+  /** Cancels every request and ignores later fetches. An answer already submitted is dropped. */
   override fun close() {
     lock.withLock {
       closed = true
@@ -76,9 +76,9 @@ internal class MlnFfiTileRequestCoordinator<T>(
   }
 
   private fun answer(tileId: CanonicalTileId, token: Long, result: Result<T>) {
-    // Posted rather than awaited: the worker has nothing left to do with the answer.
-    binding.postOrAbandon(abandon = { forget(tileId, token) }) { map ->
-      if (!forget(tileId, token)) return@postOrAbandon
+    // Submitted rather than awaited: the worker has nothing left to do with the answer.
+    binding.submit(onDropped = { forget(tileId, token) }) { map ->
+      if (!forget(tileId, token)) return@submit
       result.fold(
         onSuccess = { deliver(map, tileId, it) },
         onFailure = { fail(map, tileId, it) },

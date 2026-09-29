@@ -31,6 +31,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
+import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -138,7 +140,7 @@ class MlnFfiSurfaceLossTest {
             ),
           options = GeoJsonOptions(),
         )
-      style.install(source)
+      runBlocking { style.install(source) }
       val layer = TestLayer("circles", "circle", source)
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(
@@ -156,15 +158,23 @@ class MlnFfiSurfaceLossTest {
             .compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      style.install(layer)
+      runBlocking { style.install(layer) }
 
-      style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
+      runBlocking {
+        style.onOwner {
+          style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
+        }
+      }
       it.pumpUntil("the incomplete feature state to render blue") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
       it.loseSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
+      runBlocking {
+        style.onOwner {
+          style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
+        }
+      }
       assertEquals(
         state("before-surface", "without-surface"),
         style.featureStateOnOwnerThread(source.id, "1"),

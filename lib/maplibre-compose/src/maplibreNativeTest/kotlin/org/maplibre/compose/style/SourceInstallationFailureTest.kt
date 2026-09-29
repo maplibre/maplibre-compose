@@ -23,7 +23,7 @@ class SourceInstallationFailureTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(BaseStyle.Empty)
         val native = assertIs<MlnFfiStyleBinding>(fixture.style)
-        native.awaitMap {
+        native.awaitOwner {
           val bounds =
             PositionQuad(
               Position(-1.0, 1.0),
@@ -94,7 +94,7 @@ class SourceInstallationFailureTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = assertIs<MlnFfiStyleBinding>(fixture.style)
-      binding.awaitMap {
+      binding.awaitOwner {
         val initial =
           GeoJsonSource(
               "geojson",

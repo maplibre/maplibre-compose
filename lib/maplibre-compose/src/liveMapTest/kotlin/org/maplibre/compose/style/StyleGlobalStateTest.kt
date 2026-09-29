@@ -73,7 +73,7 @@ class StyleGlobalStateTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(STYLE)
       val binding = assertNotNull(fixture.style)
-      val source = assertIs<VectorSource>(binding.getSource("points"))
+      val source = assertIs<VectorSource>(binding.onOwner { binding.getSource("points") })
       val layer = TestLayer("circle", "circle", source)
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(
@@ -106,7 +106,7 @@ class StyleGlobalStateTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(LINE_STYLE)
       val binding = assertNotNull(fixture.style)
-      val source = assertIs<VectorSource>(binding.getSource("line"))
+      val source = assertIs<VectorSource>(binding.onOwner { binding.getSource("line") })
       val layer = TestLayer("line", "line", source)
       layer.paint("line-width", (const(40.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.layout(

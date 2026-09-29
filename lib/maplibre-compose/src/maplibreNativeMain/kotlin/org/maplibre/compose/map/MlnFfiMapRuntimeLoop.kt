@@ -2,7 +2,11 @@ package org.maplibre.compose.map
 
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiGate
@@ -26,9 +30,8 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 private const val PUMP_BUDGET_MILLIS = 4L
 
 /**
- * The thread that owns one map's MapLibre runtime and map handle, and the only place calls on
- * either happen. A runtime belongs to the thread that created it, and there may be only one per
- * thread.
+ * The thread that owns one map's MapLibre runtime and map handle. A runtime belongs to the thread
+ * that created it, and there may be only one per thread.
  *
  * Camera transitions only step while frames are being drawn: mbgl advances them from
  * `onDidFinishRenderingFrame`.
@@ -36,7 +39,14 @@ private const val PUMP_BUDGET_MILLIS = 4L
  * The render session belongs to whichever thread attached it, and native refuses to destroy a map
  * that still has one attached, so teardown waits for that thread to close it.
  *
- * The loop runs on an [MlnFfiRuntimeThread].
+ * The loop runs on an [MlnFfiRuntimeThread]. Only that thread calls a [MapHandle], apart from the
+ * renderer attaching its render session. Code already on it calls the map directly; other threads
+ * use [await] to get a result, [submit] when they need nothing back, and [awaitEventsDrained] to
+ * run after the events raised so far have been handled.
+ *
+ * Queued work runs in batches between native pumps. [await] and an `ordered` [submit] end their
+ * batch, so later work sees the events they raise. Other work does not, because each pump costs up
+ * to [PUMP_BUDGET_MILLIS].
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
@@ -65,7 +75,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val logger: MapLog?
     get() = getLogger()
 
-  private class DrainBarrier(val run: () -> Unit, val abandon: () -> Unit)
+  private class DrainBarrier(val run: () -> Unit, val onDropped: () -> Unit)
 
   private val thread =
     MlnFfiRuntimeThread(
@@ -139,108 +149,85 @@ internal class MlnFfiMapRuntimeLoop(
   fun isOwnerThread(): Boolean = thread.isCurrent()
 
   /**
-   * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
-   * there is no map, or when the loop stopped before the work could run. Runs inline when the
-   * caller is already the owner thread. A queued call ends its task batch so native events are
-   * processed before later queued work.
-   *
-   * [abandon] runs when [action] will not run: the loop has already stopped, or a queued task is
-   * dropped. An interrupt on the waiting thread does not drop the work. The wait continues, and the
-   * interrupt status is restored when this returns.
+   * Runs [action] on the owner thread and returns its result, or null when the loop stops first.
+   * Rethrows what [action] throws. A caller cancelled before [action] starts skips it; with
+   * [cancellable] false, [action] runs and the caller waits for it anyway. Use that for work that
+   * must finish, such as work that uses native memory the caller frees once this returns.
    */
-  fun <T> call(action: (MapHandle) -> T, abandon: () -> Unit = {}): T? {
+  suspend fun <T> await(cancellable: Boolean = true, action: (MapHandle) -> T): T? {
     if (thread.isCurrent()) {
-      val current = map
-      if (current == null) {
-        abandon()
-        return null
-      }
+      val current = map ?: return null
+      thread.endBatch()
       return action(current)
     }
-    if (map == null) {
-      abandon()
-      return null
+    if (!cancellable) {
+      return withContext(NonCancellable) {
+        suspendCoroutine { continuation ->
+          enqueue(
+            run = { map -> continuation.resumeWith(runCatching { action(map) }) },
+            onDropped = { continuation.resume(null) },
+            ordered = true,
+          )
+        }
+      }
     }
-
-    var result: Result<T>? = null
-    val done = MlnFfiGate()
-    val posted =
-      post(
-        action = { map ->
-          result = runCatching { action(map) }
-          done.open()
+    return suspendCancellableCoroutine { continuation ->
+      enqueue(
+        run = { map ->
+          if (continuation.isActive) continuation.resumeWith(runCatching { action(map) })
         },
-        abandon = {
-          try {
-            abandon()
-          } finally {
-            done.open()
-          }
-        },
-        drainAfter = true,
+        onDropped = { if (continuation.isActive) continuation.resume(null) },
+        ordered = true,
       )
-    if (!posted) {
-      abandon()
-      return null
     }
-
-    done.awaitUntilOpen()
-    return result?.getOrThrow()
   }
 
   /**
-   * Suspends instead of blocking the caller; cancellation drops work that has not started. Like
-   * [call], this ends its task batch.
+   * Runs [action] on the owner thread without waiting for it, in submission order. [onDropped] runs
+   * if [action] never runs or throws. With [ordered], later work runs after this action's events.
    */
-  suspend fun <T> await(action: (MapHandle) -> T): T? =
-    suspendCancellableCoroutine { continuation ->
-      val accepted =
-        post(
-          action = { map ->
-            if (continuation.isActive) continuation.resumeWith(runCatching { action(map) })
-          },
-          abandon = { continuation.resume(null) },
-          drainAfter = true,
+  fun submit(ordered: Boolean = false, onDropped: () -> Unit = {}, action: (MapHandle) -> Unit) {
+    if (!thread.isCurrent()) return enqueue(action, onDropped, ordered)
+    val current = map ?: return onDropped()
+    // Requested first, like [await], so an action that throws still ends the batch.
+    if (ordered) thread.endBatch()
+    try {
+      action(current)
+    } catch (error: Throwable) {
+      onDropped()
+      throw error
+    }
+  }
+
+  /**
+   * Suspends until the owner thread has pumped native work and handled the events raised so far,
+   * then runs [action] there. Throws [IllegalStateException] when the loop stops first, and
+   * rethrows what [action] throws.
+   */
+  suspend fun awaitEventsDrained(action: () -> Unit = {}) {
+    val completion = CompletableDeferred<Result<Unit>>()
+    val stopped: () -> Unit = {
+      completion.complete(Result.failure(IllegalStateException("The map owner loop stopped")))
+    }
+    submit(onDropped = stopped) {
+      eventDrainBarriers +=
+        DrainBarrier(run = { completion.complete(runCatching(action)) }, stopped)
+    }
+    completion.await().getOrThrow()
+  }
+
+  /** The owner thread logs what [run] throws and then runs [onDropped]. */
+  private fun enqueue(run: (MapHandle) -> Unit, onDropped: () -> Unit, ordered: Boolean) {
+    val accepted =
+      thread.post(
+        MlnFfiRuntimeThread.Task(
+          run = { run(checkNotNull(created)) },
+          reject = { onDropped() },
+          endsBatch = ordered,
         )
-      if (!accepted) continuation.resume(null)
-    }
-
-  /**
-   * Queues [action] for the owner thread, reporting whether it was accepted. [abandon] runs instead
-   * when the loop stops before [action] runs. [drainAfter] drains the events [action] raises before
-   * later queued work runs.
-   */
-  fun post(
-    action: (MapHandle) -> Unit,
-    abandon: () -> Unit = {},
-    drainAfter: Boolean = false,
-  ): Boolean =
-    thread.post(
-      MlnFfiRuntimeThread.Task(
-        run = {
-          try {
-            action(checkNotNull(created))
-          } catch (error: Throwable) {
-            // Logged, not abandoned: the task already started.
-            logger?.e(error) { "A map owner-thread task failed" }
-          }
-        },
-        reject = { abandon() },
-        endsBatch = drainAfter,
       )
-    )
-
-  /** Keeps nested writes inside an owner commit; other callers enqueue their work. */
-  fun dispatch(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean {
-    if (!thread.isCurrent()) return post(action, abandon)
-    val current = map ?: return false
-    action(current)
-    return true
+    if (!accepted) onDropped()
   }
-
-  /** Queues a callback that runs after the next native pump and event drain. */
-  fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
-    post(action = { eventDrainBarriers += DrainBarrier(action, abandon) }, abandon = abandon)
 
   /**
    * Rejects new work and requests destruction. The caller must first release every render session
@@ -327,12 +314,15 @@ internal class MlnFfiMapRuntimeLoop(
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
     val barriers = eventDrainBarriers.toList()
     eventDrainBarriers.clear()
-    barriers.forEach { runCatching { it.run() } }
+    barriers.forEach { barrier ->
+      runCatching { barrier.run() }
+        .onFailure { logger?.e(it) { "Failed to run work waiting for a MapLibre event drain" } }
+    }
   }
 
   private fun abandonDrainBarriers() {
     val barriers = eventDrainBarriers.toList()
     eventDrainBarriers.clear()
-    barriers.forEach { runCatching { it.abandon() } }
+    barriers.forEach { runCatching { it.onDropped() } }
   }
 }

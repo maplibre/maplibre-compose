@@ -17,6 +17,7 @@ import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
+import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -33,7 +34,7 @@ class SourceVolatilityTest {
           listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
           TileSetOptions(),
         )
-      binding.addSource(source.definition())
+      binding.readMap { binding.addSource(source.definition()) }
       val featureHandle = binding.handle(source) as VectorTileSourceHandle
       val handle = assertNotNull(featureHandle.asMutable)
       val nested = mutableMapOf("value" to JsonPrimitive("submitted"))
@@ -43,42 +44,40 @@ class SourceVolatilityTest {
       val finished = CompletableDeferred<Boolean>()
       val replacement = CompletableDeferred<Result<Unit>>()
       try {
-        assertTrue(
-          fixture.session.postOwnerTaskForTest {
-            parked.countDown()
-            finished.complete(release.await(5_000L))
-          }
-        )
+        fixture.session.loop.submit {
+          parked.countDown()
+          finished.complete(release.await(5_000L))
+        }
+
         assertTrue(parked.await(5_000L), "native owner did not reach the gate")
         handle.setVolatile(true)
         featureHandle.setFeatureState("layer", "1", JsonObject(state))
         state["selected"] = JsonPrimitive(false)
         nested["value"] = JsonPrimitive("changed after submission")
-        assertTrue(
-          fixture.session.postOwnerTaskForTest {
-            replacement.complete(
-              runCatching {
-                assertEquals(
-                  true,
-                  binding.readMap { it.styleSourceInfo(source.id)?.volatileSource },
-                )
-                assertEquals(
-                  Json.parseToJsonElement("""{"selected":true,"nested":{"value":"submitted"}}"""),
-                  binding.readMap {
-                    Json.parseToJsonElement(
-                      it
-                        .getFeatureState(featureStateSelector(source.id, "layer", "1"))
-                        .decodeToString()
-                    )
-                  },
-                )
-                binding.removeSource(source.id)
-                binding.addSource(source.definition())
-                Unit
-              }
-            )
-          }
-        )
+        fixture.session.loop.submit {
+          replacement.complete(
+            runCatching {
+              assertEquals(
+                true,
+                binding.readMap { it.styleSourceInfo(source.id)?.volatileSource },
+              )
+              assertEquals(
+                Json.parseToJsonElement("""{"selected":true,"nested":{"value":"submitted"}}"""),
+                binding.readMap {
+                  Json.parseToJsonElement(
+                    it
+                      .getFeatureState(featureStateSelector(source.id, "layer", "1"))
+                      .decodeToString()
+                  )
+                },
+              )
+              binding.removeSource(source.id)
+              binding.addSource(source.definition())
+              Unit
+            }
+          )
+        }
+
         // This command belongs to the old installation until queued removal actually commits.
         handle.setVolatile(true)
         assertEquals(false, finished.isCompleted, "source write waited for the native owner")
@@ -87,7 +86,10 @@ class SourceVolatilityTest {
       }
       assertTrue(finished.await(), "native owner gate timed out")
       replacement.await().getOrThrow()
-      assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
+      assertEquals(
+        false,
+        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+      )
     }
   }
 
@@ -97,7 +99,7 @@ class SourceVolatilityTest {
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
       val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
-      binding.addSource(source.definition())
+      binding.readMap { binding.addSource(source.definition()) }
       var replaceAfterValidation: (() -> Unit)? = null
       fun handle() =
         binding.handle(source) {
@@ -106,16 +108,23 @@ class SourceVolatilityTest {
       val old = handle() as VectorTileSourceHandle
       val mutable = assertNotNull(old.asMutable)
       replaceAfterValidation = {
-        binding.removeSource(source.id)
-        binding.addSource(source.definition())
+        binding.readMap {
+          binding.removeSource(source.id)
+          binding.addSource(source.definition())
+        }
       }
       mutable.setVolatile(true)
-      assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
+      assertEquals(
+        false,
+        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+      )
 
       val oldFeatureHandle = handle() as VectorTileSourceHandle
       replaceAfterValidation = {
-        binding.removeSource(source.id)
-        binding.addSource(source.definition())
+        binding.readMap {
+          binding.removeSource(source.id)
+          binding.addSource(source.definition())
+        }
       }
       oldFeatureHandle.setFeatureState("layer", "1", buildJsonObject { put("selected", true) })
       assertEquals(buildJsonObject {}, binding.featureState(source.id, "layer", "1"))
@@ -128,31 +137,29 @@ class SourceVolatilityTest {
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
       val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
-      binding.addSource(source.definition())
+      binding.readMap { binding.addSource(source.definition()) }
       val oldIdentity = binding.identity.sources.get(source.id)
-      binding.removeSource(source.id)
+      binding.readMap { binding.removeSource(source.id) }
       val parked = TestLatch(1)
       val release = TestLatch(1)
       val released = CompletableDeferred<Boolean>()
       val added = CompletableDeferred<Result<Unit>>()
       try {
-        assertTrue(
-          fixture.session.postOwnerTaskForTest {
-            parked.countDown()
-            released.complete(release.await(5_000L))
-          }
-        )
+        fixture.session.loop.submit {
+          parked.countDown()
+          released.complete(release.await(5_000L))
+        }
+
         assertTrue(parked.await(5_000L))
-        assertTrue(
-          fixture.session.postOwnerTaskForTest {
-            added.complete(
-              runCatching {
-                binding.addSource(source.definition())
-                Unit
-              }
-            )
-          }
-        )
+        fixture.session.loop.submit {
+          added.complete(
+            runCatching {
+              binding.addSource(source.definition())
+              Unit
+            }
+          )
+        }
+
         // The source is absent when this write is submitted, but installed before it executes.
         binding.postSourceUpdate(source.id, oldIdentity) {
           binding.setSourceVolatile(source.id, true)
@@ -162,7 +169,10 @@ class SourceVolatilityTest {
       }
       assertTrue(released.await(), "native owner gate timed out")
       added.await().getOrThrow()
-      assertEquals(false, binding.awaitMap { it.styleSourceInfo(source.id)?.volatileSource })
+      assertEquals(
+        false,
+        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+      )
     }
   }
 
@@ -199,17 +209,19 @@ class SourceVolatilityTest {
   ): SourceHandle {
     val resource = identity.sources.get(source.id)
     return assertNotNull(
-      sourceHandle(
-        id = source.id,
-        definition = null,
-        currentDefinition = { null },
-        isCurrentResource = {
-          val current = identity.sources.isCurrent(source.id, resource)
-          if (current) afterValidation()
-          current
-        },
-        operations = ImmediateOperations,
-      )
+      readMap {
+        sourceHandle(
+          id = source.id,
+          definition = null,
+          currentDefinition = { null },
+          isCurrentResource = {
+            val current = identity.sources.isCurrent(source.id, resource)
+            if (current) afterValidation()
+            current
+          },
+          operations = ImmediateOperations,
+        )
+      }
     )
   }
 

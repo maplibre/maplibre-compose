@@ -32,12 +32,13 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * A property write does not block waiting for the owner: MapLibre Native posts it to the map's
- * owner thread, or applies it inline when already there. MapLibre GL JS applies it during the call.
- * The engine's rejection of such a write is logged through [reportRejectedWrite]. Source definition
- * updates run synchronously and throw on refusal; imperative handles queue them with
- * [postSourceUpdate]. A structural command, such as adding a source, layer, or image, waits for the
- * engine and throws [StyleMutationException] on refusal.
+ * A property write, such as [setLayerProperties], does not wait for the engine, and its rejection
+ * is logged through [reportRejectedWrite]. Imperative handles queue source definition updates with
+ * [postSourceUpdate].
+ *
+ * Structural commands, such as adding a layer, and source definition updates throw
+ * [StyleMutationException] on refusal. They and synchronous reads call the engine directly, which
+ * MapLibre Native allows only on the map's owner thread, inside [awaitOwner].
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */

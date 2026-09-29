@@ -7,6 +7,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.layers.TestLayer
+import org.maplibre.compose.map.readMap
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.install
