@@ -30,9 +30,8 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 private const val PUMP_BUDGET_MILLIS = 4L
 
 /**
- * The thread that owns one map's MapLibre runtime and map handle, and the only place calls on
- * either happen. A runtime belongs to the thread that created it, and there may be only one per
- * thread.
+ * The thread that owns one map's MapLibre runtime and map handle. A runtime belongs to the thread
+ * that created it, and there may be only one per thread.
  *
  * Camera transitions only step while frames are being drawn: mbgl advances them from
  * `onDidFinishRenderingFrame`.
@@ -42,16 +41,18 @@ private const val PUMP_BUDGET_MILLIS = 4L
  *
  * The loop runs on an [MlnFfiRuntimeThread].
  *
- * Only the owner thread touches a [MapHandle]. Code already on it (an event handler,
- * `onEventsDrained`, or any owner task) calls the engine, and the style binding's synchronous
- * methods, directly; those methods throw on any other thread. Code on any other thread picks one
- * operation by what it needs back:
+ * Only the owner thread calls a [MapHandle], except that the renderer thread attaches its render
+ * session to the map. Code already on the owner thread (an event handler, `onEventsDrained`, or any
+ * owner task) calls the engine directly, and so do the style binding's owner-only methods, which
+ * throw on any other thread (see [org.maplibre.compose.style.MlnFfiStyleBinding]). Code on any
+ * other thread picks one operation by what it needs back:
  * - [await], for a value or to know that the work ran. Waits: suspends. On owner: runs inline.
- *   Before map: queued. After stop: returns null. Drain: ends its batch. Errors: rethrown. Cancel:
- *   skipped if cancelled before it starts, unless `cancellable = false`.
- * - [submit], for nothing back. Waits: no. On owner: runs inline. Before map: queued. After stop:
- *   runs `onDropped`. Drain: ends its batch only when `ordered`. Errors: runs `onDropped`, then
- *   rethrown inline or logged when queued. Cancel: not cancellable.
+ *   Before map: queued, or null on the owner. After stop: returns null. Drain: ends its batch.
+ *   Errors: rethrown. Cancel: skipped if cancelled before it starts, unless `cancellable = false`.
+ * - [submit], for nothing back. Waits: no. On owner: runs inline. Before map: queued, or runs
+ *   `onDropped` on the owner. After stop: runs `onDropped`. Drain: ends its batch only when
+ *   `ordered`. Errors: runs `onDropped`, then rethrown inline or logged when queued. Cancel: not
+ *   cancellable.
  * - [awaitEventsDrained], to run after the events raised so far have been handled. Waits: suspends.
  *   On owner: do not call. Before map: queued. After stop: throws. Drain: runs after the next pump
  *   and event drain. Errors: rethrown. Cancel: the caller stops waiting; the work still runs.
@@ -164,8 +165,8 @@ internal class MlnFfiMapRuntimeLoop(
    * Runs [action] on the owner thread and suspends until it returns its result. Inline on the
    * owner. Returns null when the loop stops before [action] runs. Rethrows what [action] throws.
    * Ends its batch. A caller cancelled before [action] starts skips it, unless [cancellable] is
-   * false: then the caller waits for [action] even when cancelled, for work that uses memory the
-   * caller frees once this returns.
+   * false: then the caller waits for [action] even when cancelled, for work that must finish, such
+   * as work that uses memory the caller frees once this returns.
    */
   suspend fun <T> await(cancellable: Boolean = true, action: (MapHandle) -> T): T? {
     if (thread.isCurrent()) {

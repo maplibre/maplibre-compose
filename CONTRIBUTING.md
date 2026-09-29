@@ -89,16 +89,20 @@ of the next patch; `mise run version` prints what this checkout builds as.
 
 MapLibre Native binds a map to the thread that created it. Each native map
 session and snapshotter runs one `MlnFfiMapRuntimeLoop`, and only that loop's
-owner thread calls a `MapHandle`. Code already on the owner thread calls the
-engine, and the synchronous methods of `MlnFfiStyleBinding`, directly; those
-methods throw on any other thread. Code on another thread uses one of three loop
-operations, whose exact behavior the loop's KDoc lists:
+owner thread calls a `MapHandle`, apart from the renderer thread attaching its
+render session. Code already on the owner thread calls the engine directly, and
+so do the non-suspending `MlnFfiStyleBinding` methods that return a value or
+throw on refusal; those methods throw on any other thread. `MlnFfiStyleBinding`
+lists the writes that queue themselves and work from any thread. Code on another
+thread uses one of three loop operations, whose exact behavior the loop's KDoc
+lists:
 
 - `await` when the caller needs a result or needs to know that the work ran. It
   suspends instead of blocking, so no caller thread waits on the owner (#1529).
   It ends its batch, so native can render between reads (#1475).
-  `cancellable = false` is for work that uses native memory the caller frees
-  when the call returns.
+  `cancellable = false` is for work that must finish even when the caller is
+  cancelled: work that uses native memory the caller frees when the call
+  returns, or a detach that must stop the departed lease from receiving events.
 - `submit` when the caller needs nothing back. It runs inline on the owner, so
   the writes of one style commit stay in one owner task (#1511). With
   `ordered = true`, native delivers the action's events before later work runs:
