@@ -206,13 +206,14 @@ internal class MlnFfiMapRuntimeLoop(
   fun submit(ordered: Boolean = false, onDropped: () -> Unit = {}, action: (MapHandle) -> Unit) {
     if (!thread.isCurrent()) return enqueue(action, onDropped, ordered)
     val current = map ?: return onDropped()
+    // Requested first, like [await], so an action that throws still ends the batch.
+    if (ordered) thread.endBatch()
     try {
       action(current)
     } catch (error: Throwable) {
       onDropped()
       throw error
     }
-    if (ordered) thread.endBatch()
   }
 
   /**

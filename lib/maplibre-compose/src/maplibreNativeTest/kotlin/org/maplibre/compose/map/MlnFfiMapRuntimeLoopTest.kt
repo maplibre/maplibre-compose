@@ -239,6 +239,36 @@ class MlnFfiMapRuntimeLoopTest {
     }
 
   @Test
+  fun a_throwing_inline_ordered_submit_still_ends_its_batch(): MapTestResult =
+    withLoop { loop, events ->
+      assertNotNull(loop.await {})
+      val released = TestLatch(1)
+      val readFinished = TestLatch(1)
+      val readSawRenderUpdate = AtomicBoolean(false)
+      loop.submit {
+        events.clear()
+        runCatching {
+          loop.submit(ordered = true, onDropped = released::countDown) { map ->
+            map.requestRepaint()
+            queueFromAnotherThread(loop) {
+              readSawRenderUpdate.store(
+                RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE.toString() in events.toList()
+              )
+              readFinished.countDown()
+            }
+            throw IllegalStateException("expected failure")
+          }
+        }
+      }
+      assertTrue(released.await(TIMEOUT_MILLIS), "a throwing action did not run onDropped")
+      assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
+      assertTrue(
+        readSawRenderUpdate.load(),
+        "work queued behind a failed ordered submit ran before its events",
+      )
+    }
+
+  @Test
   fun await_returns_null_without_running_once_the_loop_has_stopped(): MapTestResult =
     withLoop { loop, _ ->
       loop.close()
