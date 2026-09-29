@@ -75,7 +75,6 @@ class CatalogTest(unittest.TestCase):
             catalog_names("ready"),
             {
                 "ios / arm64",
-                "ios / 15.5",
                 "macos-native / arm64",
                 "android / 26",
                 "desktop / macos-arm64",
@@ -83,7 +82,12 @@ class CatalogTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            catalog_names("full"), {"desktop / linux-arm64", "desktop / windows-arm64"}
+            catalog_names("full"),
+            {
+                "ios / 15.5",
+                "desktop / linux-arm64",
+                "desktop / windows-arm64",
+            },
         )
 
 

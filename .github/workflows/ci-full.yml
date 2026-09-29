@@ -40,6 +40,7 @@ jobs:
       restate: ${{ steps.plan.outputs.restate }}
       check: ${{ steps.plan.outputs.check }}
       secrets: ${{ steps.plan.outputs.secrets }}
+      ios: ${{ steps.plan.outputs.ios }}
       desktop: ${{ steps.plan.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,6 +59,7 @@ jobs:
     uses: ./.github/workflows/tier-full.yml
     with:
       secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
+      ios: ${{ needs.plan.outputs.ios }}
       desktop: ${{ needs.plan.outputs.desktop }}
     secrets: inherit
 
