@@ -13,11 +13,11 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
  */
 public suspend fun SourceHandle.isVolatile(): Boolean {
   val binding = implementation.style as MlnFfiStyleBinding
-  // A style that unloads during the read fails the operation's closing check, not checkNotNull.
+  // A style that unloads during the read usually fails the operation's closing check first.
   val volatile = implementation.suspendingOperation {
     binding.awaitOwner { binding.withMap { it.styleSourceInfo(id)?.volatileSource } }
   }
-  return checkNotNull(volatile)
+  return checkNotNull(volatile) { "Source '$id' is no longer in a loaded style" }
 }
 
 /**
