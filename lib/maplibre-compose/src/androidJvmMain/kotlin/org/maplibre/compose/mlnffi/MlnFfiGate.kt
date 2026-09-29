@@ -10,14 +10,6 @@ internal actual class MlnFfiGate actual constructor() {
     latch.countDown()
   }
 
-  actual fun await() {
-    try {
-      latch.await()
-    } catch (interruption: InterruptedException) {
-      Thread.currentThread().interrupt()
-    }
-  }
-
   actual fun awaitUntilOpen() {
     var interrupted = false
     while (true) {

@@ -4,9 +4,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.interaction.internal.select
@@ -17,6 +14,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.unpremultiplyChannel
@@ -66,8 +64,6 @@ private class NativeSnapshotterAdapter(
   @Volatile private var loadedBaseStyleRevision: Long? = null
   @Volatile private var currentDensity = 1f
   @Volatile private var terminalOperation: NativeSnapshotOperation? = null
-  @Volatile private var stillImageOperation: NativeSnapshotOperation? = null
-  @Volatile private var renderedFrame = false
   private val reconciler = StyleReconciler()
 
   override suspend fun prepare(
@@ -87,7 +83,7 @@ private class NativeSnapshotterAdapter(
     current?.invalidate()
     styleBinding = null
     loadedBaseStyleRevision = null
-    val loading = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STYLE)
+    val loading = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STYLE)
     terminalOperation = loading
     postStyleToMap(loading, baseStyle)
     val loadResult = loading.completion.await()
@@ -111,36 +107,22 @@ private class NativeSnapshotterAdapter(
     }
     binding.awaitGeoJsonUpdates()
     configureRequest(request)
-    val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STILL_IMAGE)
-    stillImageOperation = rendering
+    // The owner thread renders the still image from its update events; see handleEvent.
+    val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STILL_IMAGE)
     terminalOperation = rendering
-    renderedFrame = false
-    try {
-      postToMap(rendering) { map -> map.requestStillImage() }
-      driveStillImage(rendering.completion)
-      if (terminalOperation === rendering) terminalOperation = null
-      readImage(request)
-    } finally {
-      if (
-        (currentCoroutineContext().isActive ||
-          (rendering.completion.isCompleted && renderedFrame)) && stillImageOperation === rendering
-      ) {
-        stillImageOperation = null
-      }
-    }
+    postToMap(rendering) { map -> map.requestStillImage() }
+    val renderResult = rendering.completion.await()
+    if (terminalOperation === rendering) terminalOperation = null
+    renderResult.getOrThrow()
+    readImage(request)
   }
 
+  /**
+   * The owner thread finishes an abandoned operation on its own, including a still image, so the
+   * engine is idle once that operation completes.
+   */
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
-    val stillImage = stillImageOperation
-    if (stillImage != null) {
-      try {
-        driveStillImage(stillImage.completion)
-      } finally {
-        if (stillImageOperation === stillImage) stillImageOperation = null
-      }
-    } else {
-      terminalOperation?.completion?.await()
-    }
+    terminalOperation?.completion?.await()
     return SnapshotterEngineDisposition.RETAINED
   }
 
@@ -152,7 +134,7 @@ private class NativeSnapshotterAdapter(
     styleBinding = null
     loadedBaseStyleRevision = null
     releaseEngine(failures)
-    throwCleanupFailures(failures)
+    failures.cleanupResult("Native snapshotter").getOrThrow()
   }
 
   private suspend fun releaseEngine(failures: MutableList<Throwable>) {
@@ -160,10 +142,6 @@ private class NativeSnapshotterAdapter(
     engine = null
     current.loop.close()
     runCatching { current.loop.awaitClosed() }.exceptionOrNull()?.let(failures::add)
-  }
-
-  private fun throwCleanupFailures(failures: List<Throwable>) {
-    failures.cleanupResult("Native snapshotter").getOrThrow()
   }
 
   private suspend fun ensureEngine(request: MapSnapshotRequest) {
@@ -177,9 +155,9 @@ private class NativeSnapshotterAdapter(
       styleBinding = null
       loadedBaseStyleRevision = null
       releaseEngine(failures)
-      throwCleanupFailures(failures)
+      failures.cleanupResult("Native snapshotter").getOrThrow()
     }
-    val created = NativeSnapshotOperation(NativeSnapshotOperation.Kind.ENGINE_CREATION)
+    val created = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.OWNER)
     val resources = NativeSnapshotRenderResources(extent, targetPlan)
     lateinit var candidate: NativeSnapshotEngine
     val candidateLoop =
@@ -223,7 +201,7 @@ private class NativeSnapshotterAdapter(
     val currentEngine = checkNotNull(engine)
     val currentLoop = currentEngine.loop
     val extent = request.extent()
-    val resized = NativeSnapshotOperation(NativeSnapshotOperation.Kind.RESIZE)
+    val resized = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.OWNER)
     terminalOperation = resized
     try {
       checkNotNull(
@@ -323,34 +301,59 @@ private class NativeSnapshotterAdapter(
     val operation = terminalOperation
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        if (operation?.kind != NativeSnapshotOperation.Kind.STYLE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.STYLE) return
         val binding = createStyleBinding(source, map)
         styleBinding?.invalidate()
         styleBinding = binding
         operation.completion.complete(Result.success(Unit))
       }
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        if (operation?.kind != NativeSnapshotOperation.Kind.STYLE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.STYLE) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(Result.failure(IllegalStateException(message)))
       }
-      RuntimeEventType.MAP_STILL_IMAGE_FAILED -> {
-        if (operation?.kind != NativeSnapshotOperation.Kind.STILL_IMAGE) return
-        val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
-        operation.completion.complete(Result.failure(IllegalStateException(message)))
-      }
+      RuntimeEventType.MAP_STILL_IMAGE_FAILED,
       RuntimeEventType.MAP_RENDER_ERROR -> {
-        if (operation?.kind != NativeSnapshotOperation.Kind.STILL_IMAGE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(Result.failure(IllegalStateException(message)))
+      }
+      // A still image progresses only inside renderUpdate, and NO_UPDATE and SIZE_PENDING wait for
+      // the next MAP_RENDER_UPDATE_AVAILABLE, so each update event gets one render.
+      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> {
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
+        renderStillImage(source, operation)
       }
       RuntimeEventType.MAP_STILL_IMAGE_FINISHED -> {
-        if (operation?.kind == NativeSnapshotOperation.Kind.STILL_IMAGE) {
-          operation.completion.complete(Result.success(Unit))
-        }
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
+        operation.finished = true
+        // The texture needs one rendered frame to read back.
+        if (operation.rendered) operation.completeStillImage()
+        else renderStillImage(source, operation)
       }
       else -> Unit
     }
+  }
+
+  /** Owner thread. Renders the latest update into the snapshot texture for [operation]. */
+  private fun renderStillImage(source: NativeSnapshotEngine, operation: NativeSnapshotOperation) {
+    if (operation.completion.isCompleted) return
+    try {
+      val update = source.resources.withSession { it.renderUpdate() }
+      when (update.result) {
+        RenderResult.RENDERED -> operation.rendered = true
+        // Only window surfaces report this, and no update event follows it. The snapshot renders
+        // into an owned texture, so fail rather than wait for an event that will not come.
+        RenderResult.TARGET_NOT_READY ->
+          error("The snapshot texture reported that it had no frame to render into")
+        else -> Unit
+      }
+    } catch (error: Throwable) {
+      rethrowIfFatal(error)
+      operation.completion.complete(Result.failure(error))
+      return
+    }
+    operation.completeStillImage()
   }
 
   private fun createStyleBinding(source: NativeSnapshotEngine, map: MapHandle): MlnFfiStyleBinding =
@@ -448,33 +451,28 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private suspend fun driveStillImage(operation: CompletableDeferred<Result<Unit>>) {
-    val currentEngine = checkNotNull(engine)
-    while (!operation.isCompleted || !renderedFrame) {
-      if (operation.isCompleted) operation.await().getOrThrow()
-      val update =
-        currentEngine.loop.await(
-          action = { _ -> currentEngine.resources.withSession { it.renderUpdate() } }
-        )
-          ?: throw snapshotterClosedCancellation().also { error ->
-            operation.complete(Result.failure(error))
-          }
-      if (update.result == RenderResult.RENDERED) renderedFrame = true
-      if (!operation.isCompleted || !renderedFrame) delay(2)
-    }
-    operation.await().getOrThrow()
-  }
-
   private fun MapSnapshotRequest.extent(): MapExtent =
     MapExtent.fromLogical(width, height, density.toDouble())
 
-  private class NativeSnapshotOperation(val kind: Kind) {
+  /** One request step that snapshot events or the owner thread complete. */
+  private class NativeSnapshotOperation(val awaits: Awaits) {
     val completion = CompletableDeferred<Result<Unit>>()
 
-    enum class Kind {
-      ENGINE_CREATION,
+    /** Still image progress. Owner thread only. */
+    var finished = false
+    var rendered = false
+
+    /** Completes a still image once MapLibre finished it and a frame rendered into the texture. */
+    fun completeStillImage() {
+      if (finished && rendered) completion.complete(Result.success(Unit))
+    }
+
+    enum class Awaits {
+      /** Owner-thread work: engine creation or a resize. */
+      OWNER,
+      /** A style load event. */
       STYLE,
-      RESIZE,
+      /** Still image events. */
       STILL_IMAGE,
     }
   }
@@ -521,36 +519,23 @@ private class NativeSnapshotRenderResources(
   fun close() {
     val failures = mutableListOf<Throwable>()
     val currentTarget = target
-    if (currentTarget == null) {
-      val currentSession = session
-      session = null
-      runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-      throwCleanupFailures(failures)
-      return
-    }
     try {
-      currentTarget.withAccess {
-        val currentSession = session
-        session = null
-        target = null
-        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-      }
+      if (currentTarget == null) release(null, failures)
+      else currentTarget.withAccess { release(currentTarget, failures) }
     } catch (error: Throwable) {
       failures += error
-      if (target === currentTarget) {
-        val currentSession = session
-        session = null
-        target = null
-        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-      }
+      if (target === currentTarget) release(currentTarget, failures)
     }
-    throwCleanupFailures(failures)
+    failures.cleanupResult("Native snapshotter").getOrThrow()
   }
 
-  private fun throwCleanupFailures(failures: List<Throwable>) {
-    failures.cleanupResult("Native snapshotter").getOrThrow()
+  /** Forgets and closes the session, then [closing]. */
+  private fun release(closing: NativeSnapshotRenderTarget?, failures: MutableList<Throwable>) {
+    val currentSession = session
+    session = null
+    target = null
+    runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+    runCatching { closing?.close() }.exceptionOrNull()?.let(failures::add)
   }
 }
 

@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -54,10 +55,6 @@ internal class MlnFfiResourceProvider(
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
     readResource(url, requestedUrl, getLogger())
   },
-  /** Keeps the native network source in production while tests claim controlled HTTPS fixtures. */
-  private val passThroughNetwork: Boolean = true,
-  /** Test seam: observes when a native completion call finishes and whether it failed. */
-  private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
   /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
   userCoroutineScope: CoroutineScope? = null,
 ) : ResourceProviderCallback, AutoCloseable {
@@ -76,11 +73,20 @@ internal class MlnFfiResourceProvider(
       )
     }
 
+  /**
+   * Packaged-resource reads. Never cancelled, so a read taken before [close] still answers; the IO
+   * dispatcher is shared, so there is nothing to shut down.
+   */
+  private val readScope =
+    CoroutineScope(
+      SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader")
+    )
+
   override fun handle(
     request: ResourceRequest,
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
-    return when (val route = config.nativeRoute(request, passThroughNetwork)) {
+    return when (val route = config.nativeRoute(request)) {
       is NativeResourceRoute.Load -> {
         takeUser(FfiResourceRequest(handle), route.request, route.provider)
         ResourceProviderDecision.HANDLE
@@ -119,40 +125,16 @@ internal class MlnFfiResourceProvider(
   ) {
     val url = load.url
     val requestedUrl = load.requestedUrl
-    try {
-      request.use { open ->
-        if (open.isCancelled()) return
-        val response =
-          try {
-            loadWhileRequestOpen(open, provider, load)
-          } catch (error: CancellationException) {
-            if (open.isCancelled()) return
-            failure(
-              url,
-              requestedUrl,
-              ResourceErrorReason.OTHER,
-              "was cancelled",
-              error,
-              logger,
-            )
-          } catch (error: Throwable) {
-            rethrowIfFatal(error)
-            failure(url, requestedUrl, ResourceErrorReason.OTHER, "failed to load", error, logger)
-          }
-        if (open.isCancelled()) return
-        var completionError: Throwable? = null
-        try {
-          open.complete(response)
-        } catch (error: Throwable) {
-          completionError = error
-          throw error
-        } finally {
-          onResponseCompletionFinished?.invoke(url, completionError)
-        }
+    answer(request, url) { open ->
+      try {
+        loadWhileRequestOpen(open, provider, load)
+      } catch (error: CancellationException) {
+        if (open.isCancelled()) null
+        else failure(url, requestedUrl, ResourceErrorReason.OTHER, "was cancelled", error, logger)
+      } catch (error: Throwable) {
+        rethrowIfFatal(error)
+        failure(url, requestedUrl, ResourceErrorReason.OTHER, "failed to load", error, logger)
       }
-    } catch (error: Throwable) {
-      rethrowIfFatal(error)
-      logger?.w(error) { "Failed to answer the resource request for $url" }
     }
   }
 
@@ -162,27 +144,26 @@ internal class MlnFfiResourceProvider(
       refuse(request, url, requestedUrl)
       return
     }
-    startMlnFfiBlockingWork("maplibre-compose-resource-reader") {
-      serve(request, url, requestedUrl)
-    }
+    // Away from MapLibre's callback thread, because the read blocks.
+    readScope.launch { answer(request, url) { read(url, requestedUrl) } }
   }
 
-  /** Reads one resource and answers with it. Runs away from MapLibre's callback thread. */
-  private fun serve(request: TakenResourceRequest, url: String, requestedUrl: String) {
+  /**
+   * Answers [request] with what [produce] returns, and closes it. A request cancelled before or
+   * during [produce], or a null response, is closed without an answer.
+   */
+  private inline fun answer(
+    request: TakenResourceRequest,
+    url: String,
+    produce: (TakenResourceRequest) -> ResourceResponse?,
+  ) {
     try {
       request.use { open ->
-        // Rechecked here because a request queued behind a slow read may have been abandoned since.
+        // Checked here because a request may have been abandoned while it waited to start.
         if (open.isCancelled()) return
-        val response = read(url, requestedUrl)
-        var completionError: Throwable? = null
-        try {
-          open.complete(response)
-        } catch (error: Throwable) {
-          completionError = error
-          throw error
-        } finally {
-          onResponseCompletionFinished?.invoke(url, completionError)
-        }
+        val response = produce(open) ?: return
+        if (open.isCancelled()) return
+        open.complete(response)
       }
     } catch (error: Throwable) {
       rethrowIfFatal(error)
@@ -337,16 +318,13 @@ internal sealed interface NativeResourceRoute {
 }
 
 /** Chooses the loader for [request]. */
-internal fun MapResourceConfig.nativeRoute(
-  request: ResourceRequest,
-  passThroughNetwork: Boolean,
-): NativeResourceRoute {
+internal fun MapResourceConfig.nativeRoute(request: ResourceRequest): NativeResourceRoute {
   val incoming = MapResourceRequest(request.resolvedUrl, request.kind.toCommon())
   return when (val route = route(incoming)) {
     is MapResourceRoute.Load ->
       NativeResourceRoute.Load(route.provider, request.toLoadRequest(url = route.request.url))
     is MapResourceRoute.Fetch ->
-      if (passThroughNetwork && isMapLibresToFetch(route.request.url)) NativeResourceRoute.Fetch
+      if (isMapLibresToFetch(route.request.url)) NativeResourceRoute.Fetch
       else NativeResourceRoute.Read(route.request.url)
   }
 }

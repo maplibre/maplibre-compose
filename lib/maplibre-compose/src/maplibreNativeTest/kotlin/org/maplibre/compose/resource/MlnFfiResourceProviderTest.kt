@@ -85,7 +85,7 @@ class MlnFfiResourceProviderTest {
       )
     assertEquals(
       NativeResourceRoute.Fetch,
-      config.nativeRoute(request("custom://style.json"), true),
+      config.nativeRoute(request("custom://style.json")),
     )
   }
 
@@ -98,7 +98,7 @@ class MlnFfiResourceProviderTest {
         provider = provider,
       )
 
-    val route = config.nativeRoute(request("custom://style.json"), true)
+    val route = config.nativeRoute(request("custom://style.json"))
     assertTrue(route is NativeResourceRoute.Load)
     assertEquals("app://style.json", route.request.url)
     assertEquals("custom://style.json", route.request.requestedUrl)
@@ -112,19 +112,7 @@ class MlnFfiResourceProviderTest {
       )
     assertEquals(
       NativeResourceRoute.Read("file:/styles/rewritten.json"),
-      config.nativeRoute(request("custom://style.json"), true),
-    )
-  }
-
-  @Test
-  fun a_test_can_keep_a_network_url_with_the_packaged_reader() {
-    val config =
-      MapResourceConfig(
-        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
-      )
-    assertEquals(
-      NativeResourceRoute.Read("https://tiles.example.com/style.json"),
-      config.nativeRoute(request("custom://style.json"), passThroughNetwork = false),
+      config.nativeRoute(request("custom://style.json")),
     )
   }
 

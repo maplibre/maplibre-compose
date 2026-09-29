@@ -34,7 +34,7 @@ internal class TestLatch(count: Int) {
 
   /** Waits without a bound. */
   fun await() {
-    gate.await()
+    gate.awaitUntilOpen()
   }
 
   /** Waits up to [timeoutMillis], reporting whether the count reached zero. */

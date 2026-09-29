@@ -33,7 +33,6 @@ import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
-import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
@@ -103,14 +102,13 @@ internal open class MlnFfiStyleBinding(
   private val getScale: () -> Float = { 1f },
 ) : StyleBinding {
   @Volatile private var loaded = true
-  private val unloadActions = mutableSetOf<() -> Unit>()
-  private val unloadActionsLock = MlnFfiLock()
   private val geoJsonCoordinators =
     mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle>>()
   private val geoJsonLock = MlnFfiLock()
 
-  /** The tile coordinators serving this loaded style's custom sources; null when unloaded. */
-  open val tileCoordinators: MlnFfiTileCoordinatorStore? = MlnFfiTileCoordinatorStore()
+  /** The tile coordinators serving this loaded style's custom sources, by source id. */
+  private val tileCoordinators = mutableMapOf<String, MlnFfiTileRequestCoordinator<*>>()
+  private val tileLock = MlnFfiLock()
 
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
@@ -281,26 +279,10 @@ internal open class MlnFfiStyleBinding(
       geoJsonCoordinators.values.toList().also { geoJsonCoordinators.clear() }
     }
     coordinators.forEach { it.close() }
-    val actions = unloadActionsLock.withLock {
-      unloadActions.toList().also { unloadActions.clear() }
+    val tiles = tileLock.withLock {
+      tileCoordinators.values.toList().also { tileCoordinators.clear() }
     }
-    actions.forEach { it() }
-  }
-
-  private fun onUnload(action: () -> Unit): () -> Unit {
-    if (!isLoaded) {
-      action()
-      return {}
-    }
-    var runImmediately = false
-    unloadActionsLock.withLock {
-      if (!isLoaded) runImmediately = true else unloadActions += action
-    }
-    if (runImmediately) {
-      action()
-      return {}
-    }
-    return { unloadActionsLock.withLock { unloadActions -= action } }
+    tiles.forEach { it.close() }
   }
 
   override fun reportSourceChanged(sourceId: String) {
@@ -311,8 +293,14 @@ internal open class MlnFfiStyleBinding(
     check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
   }
 
-  /** Returns null if owner access ends before [action] can run. */
-  open fun <T> readMap(action: (MapHandle) -> T): T? {
+  /** Reads the style on the map owner thread. Returns null if owner access ends first. */
+  fun <T> readMap(action: (MapHandle) -> T): T? = mutateMap(action)
+
+  /**
+   * Runs a style mutation on the map owner thread and returns after it has run or been dropped.
+   * Returns null if owner access ends before [action] can run.
+   */
+  fun <T> mutateMap(action: (MapHandle) -> T): T? {
     requireLoadedStyle()
     var result: Result<T>? = null
     if (
@@ -324,27 +312,6 @@ internal open class MlnFfiStyleBinding(
       }
     )
       return null
-    return checkNotNull(result).getOrThrow()
-  }
-
-  /** Runs a style mutation on the map owner thread. */
-  fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
-
-  /** Returns after [action] has run or been dropped. [abandon] runs when [action] will not run. */
-  open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-    requireLoadedStyle()
-    var result: Result<T>? = null
-    if (
-      !accessMap { map ->
-        result = runCatching {
-          requireLoadedStyle()
-          action(map)
-        }
-      }
-    ) {
-      abandon()
-      return null
-    }
     return checkNotNull(result).getOrThrow()
   }
 
@@ -507,7 +474,7 @@ internal open class MlnFfiStyleBinding(
       geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
       reportSourceChanged(sourceId)
     }
-    tileCoordinators?.remove(sourceId)
+    removeTileCoordinator(sourceId)
   }
 
   override fun addCustomGeometrySource(
@@ -518,6 +485,7 @@ internal open class MlnFfiStyleBinding(
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-geometry-$sourceId",
+        binding = this,
         load = { tile -> provider.loadTile(tile).toJson().encodeToByteArray() },
         deliver = { map, tile, data -> map.setCustomGeometrySourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
@@ -572,6 +540,7 @@ internal open class MlnFfiStyleBinding(
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-vector-$sourceId",
+        binding = this,
         load = provider::loadTile,
         deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
@@ -610,26 +579,33 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Attaches [coordinator] before [add] runs, so a fetch fired during the add is not dropped. The
-   * store detaches it again on remove, on unload, and when the add fails.
+   * Stores [coordinator] before [add] runs, so a fetch fired during the add is answered. The
+   * coordinator closes on remove, on unload, when the add fails, and at once on an unloaded style.
    */
   private fun installCoordinator(
     sourceId: String,
     coordinator: MlnFfiTileRequestCoordinator<*>,
     add: (MapHandle) -> Unit,
   ): Boolean {
-    val store = tileCoordinators ?: return false
-    coordinator.attach(this)
-    store.put(sourceId, coordinator, onUnload { tileCoordinators?.remove(sourceId) })
+    // Checked under the lock that invalidate() takes after unloading, so no coordinator outlives
+    // the style.
+    val replaced = tileLock.withLock {
+      if (isLoaded) tileCoordinators.put(sourceId, coordinator) else coordinator
+    }
+    replaced?.close()
     val added =
       try {
         addSourceWith(sourceId, add)
       } catch (error: Throwable) {
-        store.remove(sourceId)
+        removeTileCoordinator(sourceId)
         throw error
       }
-    if (!added) store.remove(sourceId)
+    if (!added) removeTileCoordinator(sourceId)
     return added
+  }
+
+  private fun removeTileCoordinator(sourceId: String) {
+    tileLock.withLock { tileCoordinators.remove(sourceId) }?.close()
   }
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->

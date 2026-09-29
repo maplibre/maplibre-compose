@@ -8,6 +8,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
@@ -101,6 +105,52 @@ class NativeMapSnapshotterTest {
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
+
+  /**
+   * A cancelled capture leaves its still image to the engine thread, which renders it from update
+   * events whether or not anyone waits. Each later capture must still render its own image.
+   */
+  @Test
+  fun an_abandoned_capture_finishes_on_the_engine_and_the_next_capture_renders(): MapTestResult =
+    runMapTest {
+      FfiTestPlatform.initialize()
+      val cacheFile = FfiTestPlatform.createCacheFile()
+      val runtime =
+        createNativeMapRuntime(
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        )
+      val request =
+        MapSnapshotRequest(
+          width = SIZE,
+          height = SIZE,
+          cameraPosition =
+            CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
+        )
+      try {
+        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
+        try {
+          // A missing wake would park the engine forever; the bound turns that into a failure.
+          withTimeout(60_000) {
+            for (delayMillis in listOf(0L, 1L, 5L, 20L, 50L)) {
+              val abandoned = launch { snapshotter.capture(request) }
+              delay(delayMillis)
+              abandoned.cancelAndJoin()
+
+              val image = snapshotter.capture(request)
+              assertEquals(BACKGROUND, image.readPixel(6, SIZE / 2), "after $delayMillis ms")
+              assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2), "after $delayMillis ms")
+            }
+          }
+        } finally {
+          snapshotter.close()
+          snapshotter.awaitClosed()
+        }
+      } finally {
+        runtime.close()
+        runtime.awaitClosed()
+        FfiTestPlatform.deleteCacheFile(cacheFile)
+      }
+    }
 
   @Test
   fun returning_to_an_equal_base_style_creates_a_fresh_style_identity(): MapTestResult =

@@ -16,69 +16,46 @@ import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
 
-/** Runs cancellable tile requests and delivers only the current request for the current style. */
+/**
+ * Runs cancellable tile requests for one custom source of one loaded style, and delivers only the
+ * current request for each tile, until [close].
+ */
 internal class MlnFfiTileRequestCoordinator<T>(
-  private val name: String,
+  name: String,
+  private val binding: MlnFfiStyleBinding,
   private val load: suspend (TileCoordinate) -> T,
   private val deliver: (MapHandle, CanonicalTileId, T) -> Unit,
   private val fail: (MapHandle, CanonicalTileId, Throwable) -> Unit,
-) {
-  private data class Attachment(
-    val generation: Long,
-    val binding: MlnFfiStyleBinding,
-    val scope: CoroutineScope,
-  )
+) : AutoCloseable {
+  private class Request(val token: Long, val job: Job)
 
-  private data class Request(val attachment: Long, val token: Long, val job: Job)
-
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName(name))
   private val lock = MlnFfiLock()
+  private var closed = false
   private var nextToken = 0L
-  private var nextAttachment = 0L
-  private var attachment: Attachment? = null
   private val requests = mutableMapOf<CanonicalTileId, Request>()
-
-  fun attach(binding: MlnFfiStyleBinding) {
-    detach()
-    lock.withLock {
-      nextAttachment++
-      attachment =
-        Attachment(
-          generation = nextAttachment,
-          binding = binding,
-          scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName(name)),
-        )
-    }
-  }
-
-  fun detach() {
-    val previous = lock.withLock {
-      requests.clear()
-      attachment.also { attachment = null }
-    }
-    previous?.scope?.cancel()
-  }
 
   fun fetch(tileId: CanonicalTileId) {
     val coordinate = tileId.toTileCoordinate()
     var previous: Job? = null
     val job = lock.withLock {
-      val current = attachment ?: return
+      if (closed) return
       val token = ++nextToken
       val launched =
-        current.scope.launch(start = CoroutineStart.LAZY) {
+        scope.launch(start = CoroutineStart.LAZY) {
           val result: Result<T> =
             try {
               Result.success(load(coordinate))
             } catch (error: CancellationException) {
-              forget(tileId, current.generation, token)
+              forget(tileId, token)
               throw error
             } catch (error: Throwable) {
               rethrowIfFatal(error)
               Result.failure(error)
             }
-          answer(current, tileId, token, result)
+          answer(tileId, token, result)
         }
-      previous = requests.put(tileId, Request(current.generation, token, launched))?.job
+      previous = requests.put(tileId, Request(token, launched))?.job
       launched
     }
     previous?.cancel()
@@ -89,15 +66,19 @@ internal class MlnFfiTileRequestCoordinator<T>(
     lock.withLock { requests.remove(tileId) }?.job?.cancel()
   }
 
-  private fun answer(
-    current: Attachment,
-    tileId: CanonicalTileId,
-    token: Long,
-    result: Result<T>,
-  ) {
+  /** Cancels every request and ignores later fetches. An answer already posted is dropped. */
+  override fun close() {
+    lock.withLock {
+      closed = true
+      requests.clear()
+    }
+    scope.cancel()
+  }
+
+  private fun answer(tileId: CanonicalTileId, token: Long, result: Result<T>) {
     // Posted rather than awaited: the worker has nothing left to do with the answer.
-    current.binding.postOrAbandon(abandon = { forget(tileId, current.generation, token) }) { map ->
-      if (!forget(tileId, current.generation, token)) return@postOrAbandon
+    binding.postOrAbandon(abandon = { forget(tileId, token) }) { map ->
+      if (!forget(tileId, token)) return@postOrAbandon
       result.fold(
         onSuccess = { deliver(map, tileId, it) },
         onFailure = { fail(map, tileId, it) },
@@ -105,38 +86,14 @@ internal class MlnFfiTileRequestCoordinator<T>(
     }
   }
 
-  private fun forget(tileId: CanonicalTileId, generation: Long, token: Long): Boolean =
-    lock.withLock {
-      val request = requests[tileId]
-      if (request?.attachment != generation || request.token != token) {
-        false
-      } else {
-        requests.remove(tileId)
-        true
-      }
+  /** Forgets the request for [tileId] if it is still the one [token] names. */
+  private fun forget(tileId: CanonicalTileId, token: Long): Boolean = lock.withLock {
+    if (requests[tileId]?.token != token) {
+      false
+    } else {
+      requests.remove(tileId)
+      true
     }
-}
-
-/** The live tile coordinators serving one loaded style's custom sources, keyed by source id. */
-internal class MlnFfiTileCoordinatorStore {
-  private class Entry(val coordinator: MlnFfiTileRequestCoordinator<*>, val unregister: () -> Unit)
-
-  private val lock = MlnFfiLock()
-  private val entries = mutableMapOf<String, Entry>()
-
-  /** Stores [coordinator] for [sourceId], detaching any coordinator the id already held. */
-  fun put(sourceId: String, coordinator: MlnFfiTileRequestCoordinator<*>, unregister: () -> Unit) {
-    lock.withLock { entries.put(sourceId, Entry(coordinator, unregister)) }?.close()
-  }
-
-  /** Detaches and forgets the coordinator of [sourceId], if it holds one. */
-  fun remove(sourceId: String) {
-    lock.withLock { entries.remove(sourceId) }?.close()
-  }
-
-  private fun Entry.close() {
-    unregister()
-    coordinator.detach()
   }
 }
 
