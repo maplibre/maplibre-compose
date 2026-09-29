@@ -148,7 +148,9 @@ private constructor(
   var hasRendered: Boolean = false
     internal set
 
-  /** Renders one frame, with the same producer-access contract as [MlnFfiMapSurface]. */
+  /**
+   * Renders one frame, with the same producer-access contract as the desktop `MlnFfiMapSurface`.
+   */
   fun frame(
     extent: MapExtent = initialExtent,
     captureProjection: Boolean = false,

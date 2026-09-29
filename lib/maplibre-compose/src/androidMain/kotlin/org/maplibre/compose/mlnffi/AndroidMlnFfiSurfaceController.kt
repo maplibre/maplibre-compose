@@ -6,10 +6,8 @@ import android.os.Looper
 import android.view.Surface
 import java.util.concurrent.FutureTask
 import kotlin.time.Duration
-import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.MapFramePacer
 
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
@@ -25,12 +23,14 @@ import org.maplibre.compose.map.MapFramePacer
  * is not drawn as a View.
  */
 internal class AndroidMlnFfiSurfaceController(
-  private val renderer: MlnFfiMapRenderer,
+  renderer: MlnFfiMapRenderer,
   private val backend: MapRenderBackend,
-  private val logger: MapLog?,
+  logger: MapLog?,
   maximumFps: Int? = null,
   private val onFailure: (Throwable) -> Unit = {},
-) : MlnFfiMapHostSession, AutoCloseable {
+) :
+  MlnFfiSurfaceRenderLoop<AndroidMapGraphicsContext>(renderer, logger, "Android", maximumFps),
+  AutoCloseable {
   override val isClosed: Boolean
     get() = closed
 
@@ -38,78 +38,21 @@ internal class AndroidMlnFfiSurfaceController(
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
-  private val renderFrame = Runnable { renderFrame() }
-  private var graphics: AndroidMapGraphicsContext? = null
-  private var maximumFps = maximumFps
-  private var extent = MapExtent.Empty
-  private var generation = 0L
-  private var nextFrameId = 1L
-  private var framePosted = false
-  private val pacer = MapFramePacer()
-  private var active = true
-  @Volatile private var closed = false
-  private var terminalFailure = false
-  private var recoveryAttempts = 0
-
-  /** Records [maximumFps] for the post delay. */
-  fun setMaximumFps(maximumFps: Int?) {
-    renderHandler.post { setMaximumFpsOnRenderThread(maximumFps) }
-  }
-
-  private fun setMaximumFpsOnRenderThread(maximumFps: Int?) {
-    checkRenderThread()
-    if (closed) return
-    if (this.maximumFps == maximumFps) return
-    this.maximumFps = maximumFps
-    if (framePosted) {
-      cancelFrame()
-      requestFrame()
-    }
-  }
 
   fun surfaceCreated(surface: Surface, width: Int, height: Int, scaleFactor: Double) {
-    renderHandler.post { surfaceCreatedOnRenderThread(surface, width, height, scaleFactor) }
-  }
-
-  private fun surfaceCreatedOnRenderThread(
-    surface: Surface,
-    width: Int,
-    height: Int,
-    scaleFactor: Double,
-  ) {
-    checkRenderThread()
-    if (closed || terminalFailure) return
-    try {
-      surfaceDestroyedOnRenderThread()
-      graphics = AndroidMapGraphicsContext.create(backend, surface)
-      extent = MapExtent.fromPhysical(width, height, scaleFactor)
-      generation++
-      renderer.onSurfaceAvailable(this)
-      renderer.onSurfaceChanged(extent)
-      requestFrame()
-    } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
-      fail("Failed to create the Android map surface", error)
+    renderHandler.post {
+      attachSurface(MapExtent.fromPhysical(width, height, scaleFactor)) {
+        AndroidMapGraphicsContext.create(backend, surface)
+      }
     }
   }
 
   fun surfaceChanged(width: Int, height: Int, scaleFactor: Double) {
-    renderHandler.post { surfaceChangedOnRenderThread(width, height, scaleFactor) }
-  }
-
-  private fun surfaceChangedOnRenderThread(width: Int, height: Int, scaleFactor: Double) {
-    checkRenderThread()
-    if (graphics == null || closed || terminalFailure) return
-    val changed = MapExtent.fromPhysical(width, height, scaleFactor)
-    if (changed == extent) return
-    extent = changed
-    if (backend == MapRenderBackend.OPENGL) generation++
-    try {
-      renderer.onSurfaceChanged(changed)
-      requestFrame()
-    } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
-      fail("Failed to resize the Android map surface", error)
+    renderHandler.post {
+      resizeSurface(
+        MapExtent.fromPhysical(width, height, scaleFactor),
+        reallocates = backend == MapRenderBackend.OPENGL,
+      )
     }
   }
 
@@ -117,7 +60,7 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed) return
     tearDownOnRenderThread {
       try {
-        surfaceDestroyedOnRenderThread()
+        detachSurface()
       } catch (error: Throwable) {
         fail("Failed to destroy the Android map surface", error)
         throw error
@@ -125,109 +68,12 @@ internal class AndroidMlnFfiSurfaceController(
     }
   }
 
-  private fun surfaceDestroyedOnRenderThread() {
-    checkRenderThread()
-    cancelFrame()
-    if (graphics == null) return
-    // The render session names this surface, so it must be closed before the context frees it.
-    renderer.onSurfaceLost(this)
-    graphics?.close()
-    graphics = null
-    extent = MapExtent.Empty
-  }
-
-  fun setActive(active: Boolean) {
-    renderHandler.post { setActiveOnRenderThread(active) }
-  }
-
-  private fun setActiveOnRenderThread(active: Boolean) {
-    checkRenderThread()
-    if (closed || terminalFailure || this.active == active) return
-    this.active = active
-    if (active) requestFrame() else cancelFrame()
-  }
-
-  override fun requestFrame() {
-    if (Looper.myLooper() != renderThread.looper) {
-      renderHandler.post(::requestFrame)
-      return
-    }
-    if (closed || terminalFailure || !active || graphics == null || extent.isEmpty || framePosted) {
-      return
-    }
-    framePosted = true
-    val remaining = pacer.remaining(maximumFps)
-    if (remaining > Duration.ZERO) {
-      renderHandler.postDelayed(renderFrame, (remaining.inWholeNanoseconds + 999_999) / 1_000_000)
-    } else renderHandler.post(renderFrame)
-  }
-
-  private fun renderFrame() {
-    framePosted = false
-    val currentGraphics = graphics
-    val currentExtent = extent
-    if (closed || terminalFailure || !active || currentGraphics == null || currentExtent.isEmpty)
-      return
-
-    if (pacer.remaining(maximumFps) > Duration.ZERO) {
-      requestFrame()
-      return
-    }
-
-    val frameId = nextFrameId++
-    val target = currentGraphics.target(currentExtent, generation)
-    val frame = MlnFfiMapFrame(target)
-
-    val start = TimeSource.Monotonic.markNow()
-    try {
-      when (renderer.render(this, frame)) {
-        is MlnFfiFrameResult.Rendered -> {
-          pacer.rendered(start)
-        }
-        MlnFfiFrameResult.RetryNextFrame -> requestFrame()
-        MlnFfiFrameResult.AwaitUpdate -> Unit
-      }
-    } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
-      if (error !is MlnFfiRecoverableFrameException || recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
-        fail("Android map frame $frameId could not recover", error)
-        return
-      }
-      recoveryAttempts++
-      logger?.w(error) {
-        "Android map frame $frameId failed; rebuilding the render session " +
-          "(attempt $recoveryAttempts of $MAX_RECOVERY_ATTEMPTS)"
-      }
-
-      // A lost context invalidates the session but not the Android surface or the map runtime.
-      runCatching {
-        renderer.onSurfaceLost(this)
-        renderer.onSurfaceAvailable(this)
-      }
-        .onSuccess { requestFrame() }
-        .onFailure { fail("Failed to recover the Android map render session", it) }
-    }
-  }
-
-  override fun <T> withRendererAccess(action: () -> T): T {
-    return onRenderThread(action)
-  }
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean {
-    if (closed) return false
-    if (Looper.myLooper() == renderThread.looper) {
-      action()
-      return true
-    }
-    return renderHandler.post(action)
-  }
-
   override fun close() {
     if (closed) return
     tearDownOnRenderThread {
       if (closed) return@tearDownOnRenderThread
       try {
-        surfaceDestroyedOnRenderThread()
+        detachSurface()
         closed = true
       } catch (error: Throwable) {
         fail("Failed to close the Android map surface", error)
@@ -237,59 +83,53 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed) renderThread.quitSafely()
   }
 
-  private fun cancelFrame() {
-    if (!framePosted) return
-    renderHandler.removeCallbacks(renderFrame)
-    framePosted = false
+  override fun isRenderThread(): Boolean = Looper.myLooper() == renderThread.looper
+
+  override fun schedule(delay: Duration, action: () -> Unit): ScheduledAction? {
+    val runnable = Runnable { action() }
+    val posted =
+      if (delay > Duration.ZERO) {
+        renderHandler.postDelayed(runnable, (delay.inWholeNanoseconds + 999_999) / 1_000_000)
+      } else renderHandler.post(runnable)
+    return if (posted) ScheduledAction { renderHandler.removeCallbacks(runnable) } else null
   }
 
-  private fun checkRenderThread() {
-    check(Looper.myLooper() == renderThread.looper) {
-      "Android map rendering must run on its render thread"
-    }
+  override fun <T> runAndWait(action: () -> T): T = postToRenderThread(action).get()
+
+  override fun renderTarget(
+    surface: AndroidMapGraphicsContext,
+    extent: MapExtent,
+    generation: Long,
+  ): MlnFfiRenderTarget = surface.target(extent, generation)
+
+  override fun releaseSurface(surface: AndroidMapGraphicsContext) {
+    surface.close()
   }
 
-  private fun <T> onRenderThread(action: () -> T): T {
-    if (Looper.myLooper() == renderThread.looper) return action()
-    return postToRenderThread(action).get()
+  override fun onTerminalFailure(message: String, error: Throwable, releaseFailure: Throwable?) {
+    releaseFailure?.let { logger?.e(it) { "Failed to release the Android map surface" } }
+    runCatching { renderer.close() }
+      .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
+    onFailure(IllegalStateException(message, error))
   }
 
-  /**
-   * Like [onRenderThread], but drops a queued frame instead of drawing it while the caller waits.
-   */
+  /** Like [runAndWait], but drops a queued frame instead of drawing it while the caller waits. */
   private fun <T> tearDownOnRenderThread(action: () -> T): T {
     val teardown = {
       cancelFrame()
       action()
     }
-    if (Looper.myLooper() == renderThread.looper) return teardown()
-    val task = postToRenderThread(teardown)
-    // Removing after posting also drops a frame requested between the two.
-    renderHandler.removeCallbacks(renderFrame)
-    return task.get()
+    if (isRenderThread()) return teardown()
+    holdFramesForTeardown()
+    return postToRenderThread {
+      resumeFramesAfterTeardown()
+      teardown()
+    }
+      .get()
   }
 
   private fun <T> postToRenderThread(action: () -> T): FutureTask<T> =
     FutureTask(action).also {
       check(renderHandler.post(it)) { "Android map render thread is shutting down" }
     }
-
-  private fun fail(message: String, error: Throwable) {
-    if (error is VirtualMachineError) throw error
-    terminalFailure = true
-    cancelFrame()
-    logger?.e(error) { message }
-    runCatching { surfaceDestroyedOnRenderThread() }
-      .onFailure {
-        if (it is VirtualMachineError) throw it
-        logger?.e(it) { "Failed to release the Android map surface" }
-      }
-    runCatching { renderer.close() }
-      .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
-    onFailure(IllegalStateException(message, error))
-  }
-
-  private companion object {
-    const val MAX_RECOVERY_ATTEMPTS = 3
-  }
 }

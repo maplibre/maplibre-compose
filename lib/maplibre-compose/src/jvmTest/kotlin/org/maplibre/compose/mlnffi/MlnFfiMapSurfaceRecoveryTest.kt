@@ -554,6 +554,29 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
+  fun repeated_device_changes_each_recover_after_presenting() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    setSurfaceContent(renderer, factory)
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+
+    // Desktop hosts fail one acquire per graphics-device change; each rebuild presents again.
+    repeat(MAX_RECOVERY_ATTEMPTS * 2) { change ->
+      val before = runOnIdle {
+        host.failingAcquires = 1
+        renderer.requestFrame()
+        host.drawnTargets.last()
+      }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        renderer.surfaceLostCount == change + 1 && host.drawnTargets.last() !== before
+      }
+    }
+
+    assertEquals(0, renderer.closeCount)
+  }
+
+  @Test
   fun a_renderer_that_fails_one_frame_recovers() = runFfiComposeUiTest {
     val renderer = RecordingRenderer(failingRenders = 1)
     val factory = FakeMlnFfiMapHostFactory()

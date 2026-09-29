@@ -2,6 +2,7 @@ package org.maplibre.compose.mlnffi
 
 import android.graphics.PixelFormat
 import android.media.ImageReader
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.FutureTask
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -90,6 +91,34 @@ class AndroidRenderRecoveryTest {
         }
       } finally {
         if (!controller.isClosed) controller.onRenderThread { renderer.lossError = null }
+      }
+    }
+  }
+
+  @Test
+  fun teardown_from_another_thread_skips_a_frame_queued_ahead_of_it() {
+    withController { controller, renderer ->
+      val frameQueued = CountDownLatch(1)
+      val release = CountDownLatch(1)
+      // Queue a frame, then hold the render thread so the frame waits ahead of the teardown.
+      assertTrue(
+        controller.enqueueRenderer {
+          controller.requestFrame()
+          frameQueued.countDown()
+          release.await(10, TimeUnit.SECONDS)
+        }
+      )
+      assertTrue(frameQueued.await(10, TimeUnit.SECONDS))
+      val teardown = Thread { controller.surfaceDestroyed() }.apply { start() }
+      // The teardown thread waits for the render thread only after it queued the teardown.
+      while (teardown.state != Thread.State.WAITING && teardown.isAlive) Thread.yield()
+      release.countDown()
+      teardown.join(10_000)
+      assertFalse(teardown.isAlive, "Surface teardown did not finish")
+      controller.onRenderThread {
+        assertEquals(0, renderer.frames)
+        assertEquals(1, renderer.losses)
+        assertEquals(0, renderer.failures.size)
       }
     }
   }
