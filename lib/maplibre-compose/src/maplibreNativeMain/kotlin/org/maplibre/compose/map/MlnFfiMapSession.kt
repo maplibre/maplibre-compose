@@ -339,6 +339,12 @@ internal class MlnFfiMapSession(
   private var pendingGestureEndToken: CameraInputToken? = null
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
+
+  /**
+   * Exists for tests. Runs on the owner thread after a style load is claimed and before its binding
+   * is installed.
+   */
+  @Volatile internal var beforeStyleInstallForTest: ((MlnFfiStyleBinding) -> Unit)? = null
   private val styleReconciler = StyleReconciler()
 
   internal val loadedStyleIdentity
@@ -613,7 +619,9 @@ internal class MlnFfiMapSession(
   }
 
   internal fun publishRetainedStyle() {
-    styleBinding?.let { lifecycleAuthority.postToMain { callbacks.onStyleChanged(this, it) } }
+    // The installed binding stays after a replacement is requested, and after that replacement
+    // fails. Only the current request's style is republished.
+    styleBinding?.let(events::styleLoaded)
   }
 
   /**
@@ -931,14 +939,21 @@ internal class MlnFfiMapSession(
         val binding = createStyleBinding(map)
         val request = appliedStyleRequest ?: return binding.invalidate()
         // The tracker claims the load for its request under its lock, so a base style requested
-        // on main meanwhile rejects it instead of leaving a stale style installed.
+        // on main before the claim rejects it.
         if (!styleLoadTracker.loaded(request, binding.identity) || isClosing) {
           binding.invalidate()
           return
         }
+        beforeStyleInstallForTest?.invoke(binding)
         // Live handles from the previous binding must not write into a style that is gone.
         styleBinding?.invalidate()
         styleBinding = binding
+        // setBaseStyle invalidates the installed binding after it requests. A request made after
+        // the claim therefore either invalidates this binding or is seen here.
+        if (!styleLoadTracker.isCurrent(binding.identity)) {
+          binding.invalidate()
+          return
+        }
         reportedUrlAttribution.clear()
         events.styleLoaded(binding)
         mapEvent?.let { events.styleEvent(binding.identity, it) }
@@ -1083,9 +1098,11 @@ internal class MlnFfiMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
-    styleBinding?.invalidate()
     requestedStyle = style
     val request = styleLoadTracker.request()
+    // After the request, so a load the owner thread claimed earlier cannot install a live binding
+    // after this read: the owner re-checks its request once it has installed the binding.
+    styleBinding?.invalidate()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // be validated against the base layers being replaced.
     if (lifecycleEngineIdentity != null) events.styleRequested(request)

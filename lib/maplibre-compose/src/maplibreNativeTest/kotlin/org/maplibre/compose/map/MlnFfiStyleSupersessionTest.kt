@@ -8,6 +8,7 @@ import kotlin.coroutines.resume
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellableContinuation
@@ -238,6 +239,55 @@ class MlnFfiStyleSupersessionTest {
         "nested" in fixture.session.currentStyleLayerIds() && fixture.style?.isLoaded == true
       }
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
+    }
+  }
+
+  @Test
+  fun a_style_replaced_between_its_load_and_install_is_not_left_live() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(style("initial"))
+      val claimed = TestLatch(1)
+      val release = TestLatch(1)
+      val obsolete = AtomicReference<StyleBinding?>(null)
+      fixture.session.beforeStyleInstallForTest = { binding ->
+        fixture.session.beforeStyleInstallForTest = null
+        obsolete.store(binding)
+        claimed.countDown()
+        release.await()
+      }
+      try {
+        fixture.session.setBaseStyle(style("obsolete"))
+        fixture.pumpUntil("the owner to claim the obsolete style", timeout = 5.seconds) {
+          claimed.count == 0L
+        }
+        fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
+      } finally {
+        // A parked owner thread would hold up the fixture's cleanup after a failure.
+        release.countDown()
+      }
+      fixture.pumpUntil("the replacement failure", timeout = 5.seconds) {
+        fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
+      }
+      fixture.pump()
+      assertFalse(checkNotNull(obsolete.load()).isLoaded, "the obsolete binding stayed live")
+
+      fixture.session.publishRetainedStyle()
+      fixture.pump()
+      assertNull(fixture.style, "a re-attach published the obsolete style")
+    }
+  }
+
+  @Test
+  fun a_failed_replacement_does_not_republish_the_replaced_style() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(style("initial"))
+      fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
+      fixture.pumpUntil("the replacement failure", timeout = 5.seconds) {
+        fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
+      }
+      fixture.session.publishRetainedStyle()
+      fixture.pump()
+      assertNull(fixture.style, "a re-attach published the replaced style")
     }
   }
 
