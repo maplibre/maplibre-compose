@@ -257,12 +257,16 @@ class MlnFfiStyleSupersessionTest {
         claimed.countDown()
         release.await()
       }
-      fixture.session.setBaseStyle(style("obsolete"))
-      fixture.pumpUntil("the owner to claim the obsolete style", timeout = 5.seconds) {
-        claimed.count == 0L
+      try {
+        fixture.session.setBaseStyle(style("obsolete"))
+        fixture.pumpUntil("the owner to claim the obsolete style", timeout = 5.seconds) {
+          claimed.count == 0L
+        }
+        fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
+      } finally {
+        // A parked owner thread would hold up the fixture's cleanup after a failure.
+        release.countDown()
       }
-      fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
-      release.countDown()
       fixture.pumpUntil("the replacement failure", timeout = 5.seconds) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
