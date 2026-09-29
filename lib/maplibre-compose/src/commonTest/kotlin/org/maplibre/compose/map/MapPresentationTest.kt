@@ -475,9 +475,10 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Empty)
     val abandoned = BoundLifecycleSession()
-    abandoned.lifecycle = state.lifecycle.createBinding(abandoned)
+    abandoned.lifecycle = state.lifecycle.createRetainedEngineLifecycle(abandoned, abandoned)
     val failedCandidate = BoundLifecycleSession(failOnClose = true)
-    failedCandidate.lifecycle = state.lifecycle.createBinding(failedCandidate)
+    failedCandidate.lifecycle =
+      state.lifecycle.createRetainedEngineLifecycle(failedCandidate, failedCandidate)
     failedCandidate.close()
     assertFailsWith<MapCleanupException> { failedCandidate.awaitClosed() }
     state.publishPresentation(state.reservePresentation(), failedCandidate)
@@ -500,8 +501,8 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
 
     state.close()
@@ -519,8 +520,8 @@ class MapPresentationTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
 
     assertFalse(state.styleAuthority.updateLoadedStyle(session, RecordingStyleBinding()))
@@ -538,8 +539,8 @@ class MapPresentationTest {
     val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(failOnClose = true, finishCleanup = finishCleanup)
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
@@ -575,55 +576,13 @@ class MapPresentationTest {
   }
 
   @Test
-  fun completed_cleanup_retires_the_session_before_its_queued_closing_callback() = runTest {
-    val mainDispatcher =
-      object : CoroutineDispatcher() {
-        var queueCallbacks = false
-        val pending = ArrayDeque<Runnable>()
-
-        override fun isDispatchNeeded(context: CoroutineContext): Boolean = queueCallbacks
-
-        override fun dispatch(context: CoroutineContext, block: Runnable) {
-          pending.addLast(block)
-        }
-      }
-    val runtime =
-      mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = mainDispatcher)
-    val state = runtime.createMapState(BaseStyle.Empty)
-    val session = BoundLifecycleSession(failOnClose = true)
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.publishPresentation(state.reservePresentation(), session)
-    assertSame(session, state.currentMapAttachment?.adapter)
-
-    mainDispatcher.queueCallbacks = true
-    session.close()
-    testScheduler.runCurrent()
-    assertEquals(2, mainDispatcher.pending.size)
-
-    // Cleanup can finish before main processes the earlier closing notification.
-    mainDispatcher.pending.removeLast().run()
-    assertNull(state.currentMapAttachment)
-    assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
-    mainDispatcher.pending.removeFirst().run()
-    assertNull(state.lifecycle.currentAdapter())
-    mainDispatcher.queueCallbacks = false
-    testScheduler.runCurrent()
-
-    state.close()
-    val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
-    assertEquals(1, failure.failures.size)
-    assertEquals("bound session cleanup failed", failure.failures.single().message)
-    runtime.close()
-  }
-
-  @Test
   fun a_detached_retained_session_that_closes_itself_invalidates_its_style() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishCleanup = finishCleanup)
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
@@ -707,8 +666,8 @@ class MapPresentationTest {
         finishDetach = finishDetach,
         detachStarted = detachStarted,
       )
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
@@ -731,8 +690,8 @@ class MapPresentationTest {
     val finishDetach = CompletableDeferred<Unit>()
     val detachStarted = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishDetach = finishDetach, detachStarted = detachStarted)
-    session.lifecycle = state.lifecycle.createBinding(session)
-    state.lifecycle.register(session)
+    session.lifecycle = state.lifecycle.createRetainedEngineLifecycle(session, session)
+    state.lifecycle.adopt(session)
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
@@ -2929,14 +2888,15 @@ private class BoundLifecycleSession(
   private val failOnDetach: Boolean = false,
   private val finishDetach: CompletableDeferred<Unit>? = null,
   private val detachStarted: CompletableDeferred<Unit>? = null,
-) : PresentationTestAdapter(), MapLifecycleSession {
-  override lateinit var lifecycle: MapLifecycleBinding
+) : PresentationTestAdapter(), RetainedEngineSteps {
+  lateinit var lifecycle: RetainedEngineLifecycle
   val commands = mutableListOf<String>()
 
   override val retainsEngineBetweenPresentations = true
   override val presentationCompatibilityKey: Any = Any()
 
-  override val engineRetention: EngineRetention = EngineRetention.RETAIN
+  override val isClosing: Boolean
+    get() = lifecycle.isClosing
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
     commands += "create"
@@ -2964,7 +2924,7 @@ private class BoundLifecycleSession(
   }
 
   override suspend fun detachPresentation() {
-    lifecycle.detachCurrentPresentation()
+    lifecycle.detach()
   }
 
   override fun close() = lifecycle.close()

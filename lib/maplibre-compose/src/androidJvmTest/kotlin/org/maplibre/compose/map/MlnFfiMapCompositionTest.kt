@@ -62,6 +62,10 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -73,6 +77,7 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.performMouseInputOnUiThread
 import org.maplibre.compose.mlnffi.performTouchInputOnUiThread
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -773,25 +778,62 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
+  @OptIn(DelicateMapApi::class)
   fun a_replaced_map_composable_hands_its_state_to_the_replacement() = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
-      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+      var contentCompositions = 0
+      val state =
+        runtime.createMapState(baseStyle = BaseStyle.Empty) {
+          BackgroundLayer(id = "content-background", color = const(Color.Red))
+          DisposableEffect(Unit) {
+            contentCompositions++
+            onDispose {}
+          }
+        }
+      var presented by mutableStateOf(true)
       var generation by mutableIntStateOf(0)
 
-      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
-        key(generation) { MaplibreMap(state = state) }
+      setFfiTestMapContent(runtimeOptions, presentationCount = 3) {
+        if (presented) key(generation) { MaplibreMap(state = state) }
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.currentMapAttachment != null && contentCompositions == 1
+      }
       val firstAttachment = requireNotNull(state.currentMapAttachment)
       val firstMap = firstAttachment.adapter
+      presented = false
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
 
-      generation++
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-        state.currentMapAttachment.let { it != null && it !== firstAttachment }
+      // Holding the owner thread keeps the next presentation attaching, so the key change detaches
+      // it while its attachment is still running and the replacement composes before that
+      // detachment finishes.
+      val ownerHeld = CompletableDeferred<Unit>()
+      val releaseOwner = MlnFfiGate()
+      val access =
+        CoroutineScope(Dispatchers.Default).async {
+          state.withPlatformMap {
+            ownerHeld.complete(Unit)
+            releaseOwner.awaitUntilOpen()
+          }
+        }
+      try {
+        ownerHeld.await()
+        presented = true
+        waitForIdle()
+        generation++
+        waitForIdle()
+      } finally {
+        releaseOwner.open()
       }
+      access.await()
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
 
       assertTrue(!firstAttachment.isValid)
       assertSame(firstMap, requireNotNull(state.currentMapAttachment).adapter)
+      // The replacement's own callbacks receive the retained style, so its content composes.
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        contentCompositions == 2 && state.style.layers["content-background"] != null
+      }
     }
   }
 

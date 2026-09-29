@@ -31,6 +31,7 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.nativeffi.map.MapHandle
 
 @OptIn(DelicateMapApi::class)
@@ -65,10 +66,10 @@ class PlatformMapAccessTest {
       val session = newSession()
       try {
         withContext(Dispatchers.Default) { session.onSurfaceAvailable(host) }
-        assertNull(session.lifecycle.engineIdentity)
+        assertNull(session.lifecycle.engine)
         state.close()
         state.awaitClosed()
-        assertTrue(session.lifecycle.acceptsWork, "A surface offer must not adopt the session")
+        assertFalse(session.isClosing, "A surface offer must not adopt the session")
       } finally {
         session.onSurfaceLost(host)
         session.close()
@@ -79,7 +80,60 @@ class PlatformMapAccessTest {
       val lateSession = newSession()
       lateSession.start()
       lateSession.awaitClosed()
-      assertNull(lateSession.lifecycle.engineIdentity)
+      assertNull(lateSession.lifecycle.engine)
+    }
+  }
+
+  @Test
+  fun a_closing_session_refuses_the_reports_of_its_engine_and_style() = runBlocking {
+    withNativeMapState { state, runtime ->
+      val loaded = CompletableDeferred<StyleBinding>()
+      val session =
+        MlnFfiMapSession(
+          lifecycleAuthority = state.lifecycle,
+          callbacks =
+            object : MapAdapter.Callbacks by EmptyMapAdapterCallbacks {
+              override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+                style?.let(loaded::complete)
+              }
+            },
+          logger = null,
+          renderBackend = MapRenderBackend.OPENGL,
+          layoutDirection = LayoutDirection.Ltr,
+          cacheFile = runtime.nativeRuntimeOptions.cacheFile,
+        )
+      try {
+        session.setBaseStyle(BaseStyle.Empty)
+        val engine = session.ensureEngine()
+        val style = withTimeout(5_000L) { loaded.await() }.identity
+        assertTrue(session.isCurrentEngine(engine))
+        assertTrue(session.isCurrentStyle(style))
+        val ownerHeld = CompletableDeferred<Unit>()
+        val releaseOwner = MlnFfiGate()
+        val holding =
+          async(Dispatchers.Default) {
+            session.readMap {
+              ownerHeld.complete(Unit)
+              releaseOwner.awaitUntilOpen()
+            }
+          }
+        try {
+          withTimeout(5_000L) { ownerHeld.await() }
+          // An attachment waiting for the owner thread keeps the closure's cleanup queued, while
+          // reports that the engine queued earlier can still run on main.
+          session.start()
+          session.close()
+
+          assertFalse(session.isCurrentEngine(engine))
+          assertFalse(session.isCurrentStyle(style))
+        } finally {
+          releaseOwner.open()
+          holding.await()
+        }
+      } finally {
+        session.close()
+        session.awaitClosed()
+      }
     }
   }
 

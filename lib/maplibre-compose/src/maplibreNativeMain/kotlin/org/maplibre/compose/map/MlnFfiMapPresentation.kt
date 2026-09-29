@@ -75,6 +75,7 @@ private fun rememberMlnFfiMapSession(
   session.callbacks = callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
+  val currentCallbacks = rememberUpdatedState(callbacks)
   val currentUpdate = rememberUpdatedState(binding.update)
   val currentOnReset = rememberUpdatedState(binding.onReset)
 
@@ -90,6 +91,9 @@ private fun rememberMlnFfiMapSession(
   LaunchedEffect(session) {
     try {
       session.attachPresentation()
+      // A previous presentation's detachment may have installed the durable callbacks after this
+      // composition installed its own.
+      session.callbacks = currentCallbacks.value
       if (!session.isPresentationPublished) {
         currentUpdate.value(session)
         if (state.currentMapAttachment?.adapter !== session) return@LaunchedEffect

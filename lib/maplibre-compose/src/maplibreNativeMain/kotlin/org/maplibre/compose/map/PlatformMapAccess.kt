@@ -11,28 +11,29 @@ public actual class PlatformMapScope internal constructor(public val map: MapHan
 
 @DelicateMapApi
 public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
-  val session =
+  val (session, engine) =
     withContext(runtime.mainDispatcher) {
-      lifecycle.retainAdapterForPlatformAccess {
-        val options = runtime.nativeRuntimeOptions
-        MlnFfiMapSession(
-            lifecycleAuthority = lifecycle,
-            callbacks = durableStyleCallbacks(),
-            logger = runtime.logger,
-            renderBackend =
-              loadRuntimeBackends(runtime.logger).firstOrNull() ?: MapRenderBackend.OPENGL,
-            layoutDirection = LayoutDirection.Ltr,
-            cacheFile = options.cacheFile,
-            resourceProviderFactory = options.resourceProviderFactory,
-            resourceConfig = runtime.resourceConfig,
-            awaitRuntimeReady = runtime.offlineManager::awaitReady,
-          )
-          .also { session ->
-            session.setCameraPosition(cameraPosition)
-            session.setBaseStyle(style.baseStyle)
-          }
-      }
+      val session =
+        lifecycle.retainAdapterForPlatformAccess {
+          val options = runtime.nativeRuntimeOptions
+          MlnFfiMapSession(
+              lifecycleAuthority = lifecycle,
+              callbacks = durableStyleCallbacks(),
+              logger = runtime.logger,
+              renderBackend =
+                loadRuntimeBackends(runtime.logger).firstOrNull() ?: MapRenderBackend.OPENGL,
+              layoutDirection = LayoutDirection.Ltr,
+              cacheFile = options.cacheFile,
+              resourceProviderFactory = options.resourceProviderFactory,
+              resourceConfig = runtime.resourceConfig,
+              awaitRuntimeReady = runtime.offlineManager::awaitReady,
+            )
+            .also { session ->
+              session.setCameraPosition(cameraPosition)
+              session.setBaseStyle(style.baseStyle)
+            }
+        } as MlnFfiMapSession
+      session to session.ensureEngine()
     }
-      as MlnFfiMapSession
-  return session.withPlatformMap(block)
+  return session.withPlatformMap(engine, block)
 }
