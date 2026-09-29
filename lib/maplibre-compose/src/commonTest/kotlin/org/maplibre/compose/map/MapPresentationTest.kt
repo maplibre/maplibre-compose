@@ -3028,6 +3028,11 @@ internal open class PresentationTestAdapter(
 
   open override suspend fun awaitClosed() = Unit
 
+  override suspend fun detachPresentation() {
+    close()
+    awaitClosed()
+  }
+
   override suspend fun animateCamera(
     update: CameraUpdate,
     animation: CameraAnimation,

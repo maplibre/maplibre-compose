@@ -148,8 +148,12 @@ internal class MapAttachmentAuthority(
   private fun presentedAttachment(adapter: MapAdapter): MapAttachment? =
     if (lifecycle.acceptsPresentation(adapter)) current else null
 
+  /**
+   * Whether [candidate] is the published presentation. Readable from any thread: every path that
+   * replaces or clears [current] invalidates the outgoing attachment first.
+   */
   internal fun isCurrent(candidate: MapAttachment): Boolean =
-    current === candidate && lifecycle.isCurrent(candidate.token, candidate.adapter)
+    candidate.isLive && !lifecycle.isClosed
 
   internal fun <T> withCurrentOrNull(candidate: MapAttachment, block: () -> T): T? {
     if (!isCurrent(candidate)) return null
@@ -248,10 +252,10 @@ internal class MapAttachmentAuthority(
     }
     var command = initial
     while (true) {
-      if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
+      if (!isCurrent(attachment)) return
       command.adapter.setCameraPosition(command.value, guard)
       // Replays a newer camera set during the call, as in applyCameraCommand.
-      if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
+      if (!isCurrent(attachment)) return
       if (cameraCommandRevision == command.revision) return
       command =
         CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
@@ -263,6 +267,7 @@ internal class MapAttachmentAuthority(
     adapter: MapAdapter,
   ) {
     lifecycle.requireMain()
+    check(current == null) { "The previous map attachment was not invalidated" }
     val attachment = MapAttachment(this, token, adapter)
     current = attachment
     presence.value = Presence(attachment)

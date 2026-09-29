@@ -37,14 +37,11 @@ internal interface MapAdapter {
   val presentationCompatibilityKey: Any?
     get() = null
 
-  /** Attaches this engine to its current presentation host. */
-  suspend fun attachPresentation() = Unit
-
-  /** Detaches this engine from its current presentation host. */
-  suspend fun detachPresentation() {
-    close()
-    awaitClosed()
-  }
+  /**
+   * Ends this adapter's current presentation. An adapter that does not retain its engine closes
+   * instead. Returns after the physical detachment and throws its cleanup failures.
+   */
+  suspend fun detachPresentation()
 
   fun close()
 

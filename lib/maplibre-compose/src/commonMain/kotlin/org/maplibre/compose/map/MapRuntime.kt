@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.EmptyCoroutineContext
@@ -536,6 +537,7 @@ internal constructor(
   internal val adapter: MapAdapter,
 ) {
   private val invalidated = CompletableDeferred<Unit>()
+  @Volatile private var live = true
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
   private var gestureActiveState: Boolean by mutableStateOf(false)
@@ -544,6 +546,10 @@ internal constructor(
   private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
     get() = validState
+
+  /** False once [invalidate] starts. Readable from any thread, unlike the snapshot state. */
+  val isLive: Boolean
+    get() = live
 
   val isEngaged: Boolean
     get() = engagedState
@@ -700,6 +706,7 @@ internal constructor(
   }
 
   internal fun invalidate() {
+    live = false
     owner.gestureAuthority.detach(this)
     validState = false
     viewportState = null

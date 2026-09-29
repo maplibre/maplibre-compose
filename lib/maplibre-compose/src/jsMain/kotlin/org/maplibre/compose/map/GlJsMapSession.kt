@@ -64,6 +64,7 @@ import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
@@ -108,7 +109,7 @@ internal class GlJsMapSession(
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
   private val mapContainer: HTMLElement? = null,
-) : MapLifecycleSession, GlJsMapRenderer, CameraInputTarget {
+) : MapLifecycleSession, SessionStamps, GlJsMapRenderer, CameraInputTarget {
 
   init {
     createdCount += 1
@@ -116,11 +117,12 @@ internal class GlJsMapSession(
 
   internal var callbacks: MapAdapter.Callbacks = callbacks
   override val lifecycle = lifecycleAuthority.createBinding(this)
-  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
+  private val events =
+    MapSessionEvents(map = this, stamps = this, postToMain = lifecycleAuthority::postToMain) {
+      this.callbacks
+    }
   private var lifecycleEngineIdentity: EngineMapIdentity? = null
   private var lifecycleRenderLease: RenderLease? = null
-  private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
-  private var lifecycleStyleIdentity: StyleIdentity? = null
 
   /** The pending base-style load, then the loaded style's data listeners. */
   private val styleSubscriptions = mutableListOf<GlJsSubscription>()
@@ -299,6 +301,24 @@ internal class GlJsMapSession(
     lifecycle.awaitClosed()
   }
 
+  override fun isCurrentEngine(engine: EngineMapIdentity): Boolean =
+    lifecycle.acceptEngineEvent(engine) {}
+
+  override fun isCurrentPresentation(engine: EngineMapIdentity, lease: RenderLease): Boolean =
+    lifecycle.acceptPresentationEvent(engine, lease) {}
+
+  override fun isCurrentStyleRequest(request: StyleRequestId): Boolean =
+    lifecycle.acceptsWork && request === styleLoadTracker.requestId
+
+  override fun isCurrentStyle(style: StyleIdentity): Boolean =
+    lifecycle.acceptsWork && styleLoadTracker.isCurrent(style)
+
+  /** GL JS destroys its map with its presentation, so this closes the session. */
+  override suspend fun detachPresentation() {
+    close()
+    awaitClosed()
+  }
+
   fun start() {
     lifecycleAuthority.register(this)
     lifecycle.beginAttachIfOpen()
@@ -306,7 +326,6 @@ internal class GlJsMapSession(
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
     lifecycleEngineIdentity = identity
-    lifecycleStyleRequestIdentity = lifecycle.claimStyleRequestIdentity(identity)
   }
 
   override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
@@ -319,11 +338,7 @@ internal class GlJsMapSession(
   }
 
   override suspend fun destroyEngine(identity: EngineMapIdentity) {
-    if (lifecycleEngineIdentity == identity) {
-      lifecycleEngineIdentity = null
-      lifecycleStyleRequestIdentity = null
-      lifecycleStyleIdentity = null
-    }
+    if (lifecycleEngineIdentity == identity) lifecycleEngineIdentity = null
     abandonPending(pendingPlatformMapAccess)
     destroyMap()
   }
@@ -453,9 +468,7 @@ internal class GlJsMapSession(
     // the camera position did not. Seed here too: the first resize can land before the lease is
     // Attached, and acceptPresentationEvent then drops that callback.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onViewportChanged(engine, lease, this)
-    }
+    withLifecyclePresentation { engine, lease -> events.viewportChanged(engine, lease) }
   }
 
   /** Records that the current engine map has applied the logical map's desired state. */
@@ -536,17 +549,15 @@ internal class GlJsMapSession(
     // the request that asked for it rather than only later ones.
     map.setMissingStyleImageResolver { imageId ->
       // The style is whichever one is loaded when MapLibre asks, so the identity is read here
-      // rather than captured with the resolver.
-      val style = lifecycleStyleIdentity
-      val resolution =
-        if (style == null) null
-        else lifecycleCallbacks.resolveMissingImage(engine, style, this, imageId)
-      resolution?.asPromise()
+      // rather than captured with the resolver. GL JS needs null at once for a replaced style.
+      val style = styleBinding?.identity?.takeIf(::isCurrentStyle)
+      style?.let { events.resolveMissingImage(it, imageId).asPromise() }
     }
 
-    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
+    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { events.engineEvent(engine, it) }
     subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) { event ->
-      val accepted = lifecycleCallbacks.onEvent(engine, lease, this, event)
+      val accepted = isCurrentPresentation(engine, lease)
+      events.presentationEvent(engine, lease, event)
       // A `moveend` is how GL JS reports that an eased transition finished.
       if (accepted && event is MapEvent.CameraMoveEnded) resumeTransitions()
     }
@@ -562,14 +573,10 @@ internal class GlJsMapSession(
     }
   }
 
-  private fun reportBaseStyleReady(
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    binding: GlJsStyleBinding,
-  ) {
+  private fun reportBaseStyleReady(binding: GlJsStyleBinding) {
     if (map?.isStyleLoaded() == true && styleLoadTracker.baseStyleReady(binding.identity)) {
       try {
-        lifecycleCallbacks.onStyleReady(engine, style, this)
+        events.styleReady(binding.identity)
       } catch (error: Throwable) {
         styleLoadTracker.failed(binding.identity)
         throw error
@@ -624,22 +631,17 @@ internal class GlJsMapSession(
     // against base layers being replaced.
     styleBinding?.invalidate()
     requestedStyle = style
-    styleLoadTracker.request()
-    lifecycleEngineIdentity?.let {
-      lifecycleStyleRequestIdentity = lifecycleCallbacks.beginStyleRequest(it, this)
-    }
-    lifecycleStyleIdentity = null
+    val request = styleLoadTracker.request()
+    if (lifecycleEngineIdentity != null) events.styleRequested(request)
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
   }
 
   override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
-    val engine = checkNotNull(lifecycleEngineIdentity)
-    val style = checkNotNull(lifecycleStyleIdentity)
     try {
       val changes = styleReconciler.apply(binding, revision)
       if (styleLoadTracker.reconciled(binding.identity)) {
-        lifecycleCallbacks.onStyleReady(engine, style, this)
+        events.styleReady(binding.identity)
       }
       surface?.requestFrame()
       return changes
@@ -658,8 +660,6 @@ internal class GlJsMapSession(
     if (appliedStyleRequest == trackerRequest) return
     appliedStyleRequest = trackerRequest
     styleLoadPending = true
-    val engine = lifecycleEngineIdentity ?: return
-    val lifecycleRequest = lifecycleStyleRequestIdentity ?: return
     cancelStyleSubscriptions()
     try {
       styleSubscriptions +=
@@ -673,25 +673,18 @@ internal class GlJsMapSession(
                 applyRequestedStyle(map)
                 return@onLoaded
               }
-              val acceptedStyle =
-                lifecycleCallbacks.onStyleChanged(engine, lifecycleRequest, this, binding)
-              if (acceptedStyle != null) {
+              if (lifecycle.acceptsWork) {
+                events.styleLoaded(binding)
                 styleBinding?.invalidate()
                 styleBinding = binding
-                lifecycleStyleIdentity = acceptedStyle
-                lifecycleCallbacks.onEvent(engine, acceptedStyle, this, MapEvent.StyleLoaded)
-                styleSubscriptions +=
-                  map.subscribe("styledata") {
-                    reportBaseStyleReady(engine, acceptedStyle, binding)
-                  }
+                events.styleEvent(binding.identity, MapEvent.StyleLoaded)
+                styleSubscriptions += map.subscribe("styledata") { reportBaseStyleReady(binding) }
                 styleSubscriptions +=
                   map.subscribe("sourcedata") { event ->
-                    reportBaseStyleReady(engine, acceptedStyle, binding)
+                    reportBaseStyleReady(binding)
                     if (event.sourceDataType == "metadata") {
                       applyTileLod(map)
-                      event.sourceId?.let {
-                        lifecycleCallbacks.onStyleSourcesChanged(engine, acceptedStyle, this, it)
-                      }
+                      event.sourceId?.let { events.styleSourcesChanged(binding.identity, it) }
                     }
                   }
                 applyTileLod(map)
@@ -710,15 +703,11 @@ internal class GlJsMapSession(
             styleLoadPending = false
             val accepted = styleLoadTracker.failed(trackerRequest)
             if (accepted) {
-              if (lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)) {
+              if (lifecycle.acceptsWork) {
+                events.styleFailed(trackerRequest, reason)
                 logger?.e { "Map loading failed: $reason" }
                 if (!hasLoadedInitialStyle) releasePendingCameraTransition()
-                lifecycleCallbacks.onEvent(
-                  engine,
-                  lifecycleRequest,
-                  this,
-                  MapEvent.StyleLoadFailed(reason),
-                )
+                events.styleRequestEvent(trackerRequest, MapEvent.StyleLoadFailed(reason))
               }
             } else {
               applyRequestedStyle(map)
@@ -730,13 +719,8 @@ internal class GlJsMapSession(
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
       if (styleLoadTracker.failed(trackerRequest)) {
-        lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)
-        lifecycleCallbacks.onEvent(
-          engine,
-          lifecycleRequest,
-          this,
-          MapEvent.StyleLoadFailed(reason),
-        )
+        events.styleFailed(trackerRequest, reason)
+        events.styleRequestEvent(trackerRequest, MapEvent.StyleLoadFailed(reason))
       }
       if (!hasLoadedInitialStyle) releasePendingCameraTransition()
     }
@@ -1337,9 +1321,7 @@ internal class GlJsMapSession(
   }
 
   private fun reportGestureActive(active: Boolean) {
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onGestureActive(engine, lease, this, active)
-    }
+    withLifecyclePresentation { engine, lease -> events.gestureActive(engine, lease, active) }
   }
 
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {

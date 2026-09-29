@@ -26,6 +26,9 @@ internal class StyleLoadTracker {
   private var currentRequest = StyleRequestId()
   private var load: Load = Load.Loading
 
+  /** The style that loaded for [currentRequest]. A later failure of that request keeps it. */
+  private var loadedIdentity: StyleIdentity? = null
+
   var presentation by mutableStateOf(StylePresentation.Hidden)
     private set
 
@@ -38,9 +41,16 @@ internal class StyleLoadTracker {
   val contentReady: Boolean
     get() = lock.withLock { (load as? Load.Loaded)?.contentReady == true }
 
+  /**
+   * Whether [identity] loaded for the current request. It stays current if that request fails
+   * afterwards, until the next request.
+   */
+  fun isCurrent(identity: StyleIdentity): Boolean = lock.withLock { loadedIdentity === identity }
+
   fun request(): StyleRequestId = lock.withLock {
     currentRequest = StyleRequestId()
     load = Load.Loading
+    loadedIdentity = null
     retainPresentation()
     currentRequest
   }
@@ -56,6 +66,11 @@ internal class StyleLoadTracker {
     resetPresentation()
   }
 
+  /**
+   * Records that [identity] loaded for [request], and returns false instead when [request] is no
+   * longer current or has already finished. The check and the record are one step, so a request
+   * made on another thread either supersedes the load or follows it.
+   */
   fun loaded(
     request: StyleRequestId,
     identity: StyleIdentity,
@@ -63,6 +78,7 @@ internal class StyleLoadTracker {
   ): Boolean = lock.withLock {
     if (request !== currentRequest || load != Load.Loading) return false
     load = Load.Loaded(identity, baseReady = baseStyleReady)
+    loadedIdentity = identity
     true
   }
 
