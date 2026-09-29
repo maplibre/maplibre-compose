@@ -68,7 +68,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             captureProjection: Boolean,
           ): MlnFfiFrameResult {
             renderer.render(host, frame, captureProjection)
-            return MlnFfiFrameResult.Rendered(RecordingProjection(frame.extent, 1) {})
+            return MlnFfiFrameResult.Rendered(RecordingProjection(frame.target.extent, 1) {})
           }
 
           override fun presentFrame(
@@ -222,7 +222,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++created
             return MlnFfiFrameResult.Rendered(
-              RecordingProjection(frame.extent, id) { closed += id }
+              RecordingProjection(frame.target.extent, id) { closed += id }
             )
           }
         }
@@ -275,7 +275,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++nextProjection
             return MlnFfiFrameResult.Rendered(
-              RecordingProjection(frame.extent, id) { projectionCloses += id }
+              RecordingProjection(frame.target.extent, id) { projectionCloses += id }
             )
           }
 
@@ -734,7 +734,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     ): MlnFfiFrameResult {
       if (failingRenders > 0) {
         failingRenders--
-        val error = "renderer lost its device on frame ${frame.frameId}"
+        val error = "renderer lost its device on generation ${frame.target.generation}"
         throw if (unexpectedFailure) IllegalStateException(error)
         else MlnFfiRecoverableFrameException(error, null)
       }

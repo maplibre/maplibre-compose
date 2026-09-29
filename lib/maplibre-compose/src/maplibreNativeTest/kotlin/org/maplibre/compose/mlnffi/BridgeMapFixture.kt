@@ -66,7 +66,6 @@ private constructor(
   val style: StyleBinding?
     get() = recorder.style
 
-  private var frameId = 0L
   private val frameRequested = AtomicBoolean(true)
   /** Engine callbacks land here; [pumpUntil] and the test's `runBlocking` loop drain it. */
   private val testMain = TestMainDispatcher()
@@ -156,7 +155,7 @@ private constructor(
   ): MlnFfiFrameResult {
     frameRequested.store(false)
     val frame =
-      when (val acquisition = driver.acquireFrame(frameId++, extent)) {
+      when (val acquisition = driver.acquireFrame(extent)) {
         is MlnFfiMapFrameAcquisition.Acquired -> acquisition.frame
         MlnFfiMapFrameAcquisition.NotReady ->
           error("The production ${driver.backends} bridge had no test GPU context")
@@ -168,7 +167,7 @@ private constructor(
           if (it is MlnFfiFrameResult.Rendered) {
             driver.completeProducerAccess(frame)
             check(driver.present(frame.target)) {
-              "The production ${driver.backends} bridge did not present frame ${frame.frameId}"
+              "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"
             }
             hasRendered = true
           }

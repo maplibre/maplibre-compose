@@ -46,15 +46,10 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
     ensureTexture(extent)
   }
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition {
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
     val texture = ensureTexture(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(
-        frameId = frameId,
-        extent = extent,
         target =
           MetalTextureTarget(
             texture = NativeHandle(texture.rawAddress()),
@@ -62,7 +57,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
             origin = TextureOrigin.TOP_LEFT,
             extent = extent,
             generation = generation,
-          ),
+          )
       )
     )
   }

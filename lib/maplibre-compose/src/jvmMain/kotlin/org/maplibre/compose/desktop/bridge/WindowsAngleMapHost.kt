@@ -34,20 +34,15 @@ internal class WindowsAngleMapHost(
   private var wgl: WindowsWglContext? = null
   private var producerAdapterLuid = 0L
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition =
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition =
     withPreparedContext {
       if (textures.current?.extent != extent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
-          frameId = frameId,
-          extent = extent,
           target =
             requireNotNull(textures.current) { "Windows OpenGL texture is not initialized" }
               .exported
-              .target(textures.generation),
+              .target(textures.generation)
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady

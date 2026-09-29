@@ -74,19 +74,14 @@ internal class LinuxOpenGlMapHost(
   // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
   // that context.
 
-  override fun acquireFrame(
-    frameId: Long,
-    extent: MapExtent,
-  ): MlnFfiMapFrameAcquisition =
+  override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition =
     withPreparedContext {
       if (textures.current?.extent != extent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
-          frameId = frameId,
-          extent = extent,
           target =
             requireNotNull(textures.current) { "Map texture is not initialized" }
-              .target(textures.generation),
+              .target(textures.generation)
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady

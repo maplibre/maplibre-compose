@@ -116,7 +116,7 @@ internal class MlnFfiSurfaceController(
         renderer.onSurfaceChanged(extent)
         configuredExtent = extent
       }
-      val acquired = host.acquireFrame(frameId, extent)
+      val acquired = host.acquireFrame(extent)
       if (acquired == MlnFfiMapFrameAcquisition.NotReady) {
         requestFrame()
         return false
