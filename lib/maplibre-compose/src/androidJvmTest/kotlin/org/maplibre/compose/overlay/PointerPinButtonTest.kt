@@ -26,8 +26,13 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalTestApi::class)
 class PointerPinButtonTest {
   // The content clips to the turned pin, so it stays visible whichever way the pin points.
+  @Test fun content_draws_inside_a_pin_pointing_sideways() = assertPinCenterIsContent(Modifier)
+
   @Test
-  fun content_draws_inside_a_pin_pointing_sideways() = runPlainComposeUiTest {
+  fun a_pin_sized_by_the_caller_centers_its_content() =
+    assertPinCenterIsContent(Modifier.size(96.dp))
+
+  private fun assertPinCenterIsContent(modifier: Modifier) = runPlainComposeUiTest {
     val runtime = mapRuntimeForTest()
     val map = runtime.createMapState(BaseStyle.Empty)
     val adapter =
@@ -43,7 +48,7 @@ class PointerPinButtonTest {
         overlay = {
           PointerPinButton(
             targetPosition = Position(longitude = -1000.0, latitude = 150.0),
-            modifier = Modifier.testTag("pin"),
+            modifier = modifier.testTag("pin"),
           ) {
             Box(Modifier.size(24.dp).background(Color.Red))
           }

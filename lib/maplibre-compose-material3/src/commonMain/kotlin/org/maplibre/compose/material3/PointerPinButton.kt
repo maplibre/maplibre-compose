@@ -6,6 +6,8 @@ import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -21,8 +23,8 @@ import org.maplibre.spatialk.geojson.Position
  * bounds and pointing towards [targetPosition]. Only shown while [targetPosition] is outside of the
  * ellipse. The content stays upright while the pin turns.
  *
- * This is [org.maplibre.compose.overlay.PointerPinButton] with the colors and elevation of an
- * [ElevatedButton].
+ * This is [org.maplibre.compose.overlay.PointerPinButton] with the colors, elevation, and text
+ * style of an [ElevatedButton].
  *
  * @param targetPosition Position (off-screen) the pin points at.
  * @param onClick Called when the button is clicked.
@@ -45,7 +47,12 @@ public fun MapOverlayScope.PointerPinButton(
     style = elevatedButtonStyle(colors),
     contentPadding = contentPadding,
   ) {
-    CompositionLocalProvider(LocalContentColor provides colors.contentColor) { content() }
+    CompositionLocalProvider(
+      LocalContentColor provides colors.contentColor,
+      LocalTextStyle provides LocalTextStyle.current.merge(MaterialTheme.typography.labelLarge),
+    ) {
+      content()
+    }
   }
 }
 

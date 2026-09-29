@@ -63,7 +63,12 @@ public fun MapOverlayScope.PointerPinButton(
 
   // The layers read the angle after the layout pass writes it, so the pin points at the target on
   // the same frame it is placed.
-  Box(Modifier.placedTowards(targetPosition, state = placement).then(modifier)) {
+  // Min constraints reach the clickable area, so a pin sized by the caller is clickable throughout
+  // and centers its content.
+  Box(
+    Modifier.placedTowards(targetPosition, state = placement).then(modifier),
+    propagateMinConstraints = true,
+  ) {
     // Android 9 and older drop the shadow of a path they don't recognize as convex, and clip to a
     // path without antialiasing. Rotating the layer keeps the upright path they recognize, and
     // drawing the pin instead of clipping it keeps its edge smooth.
@@ -88,13 +93,16 @@ public fun MapOverlayScope.PointerPinButton(
           indication = LocalIndication.current,
           role = Role.Button,
           onClick = onClick,
-        )
-        // Keeps the content inside the round part of the pin, centered in the pin's bounds.
-        .proportionalPadding(PointerPinShape.POINTY_SIZE)
-        .padding(contentPadding),
+        ),
       contentAlignment = Alignment.Center,
-      content = content,
-    )
+    ) {
+      Box(
+        // Keeps the content inside the round part of the pin, centered in the pin's bounds.
+        Modifier.proportionalPadding(PointerPinShape.POINTY_SIZE).padding(contentPadding),
+        contentAlignment = Alignment.Center,
+        content = content,
+      )
+    }
   }
 }
 
