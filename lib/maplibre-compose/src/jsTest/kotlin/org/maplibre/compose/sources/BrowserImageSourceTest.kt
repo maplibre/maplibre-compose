@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.skiko.wasm.onWasmReady
@@ -19,6 +20,7 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
@@ -69,26 +71,119 @@ class BrowserImageSourceTest {
       )
       fixture.pumpUntilPixel("the image before context loss", 256, 256, RED)
 
+      restoreContext(fixture, style)
+      val restored = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
+      assertIs<ImageData>(restored.image, "the rebuilt source has its pixels again")
+      fixture.pumpUntilPixel("the image after context restoration", 256, 256, RED)
+    }
+  }
+
+  @Test
+  fun failed_url_keeps_prepared_pixels_through_context_loss(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BLACK_STYLE)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source = ImageSource("image", WORLD, solid(Color.Red))
+      val handle = fixture.state.style.sources.add(source)
+      style.install(
+        TestLayer("image-layer", "raster", source).apply {
+          paint("raster-fade-duration", JsonPrimitive(0))
+        }
+      )
+      fixture.pumpUntilPixel("the image before URL replacement", 256, 256, RED)
       val map = assertNotNull(style.withMap { it })
-      val extension =
-        map.getCanvas().asDynamic().getContext("webgl2").getExtension("WEBGL_lose_context")
-      assertNotNull(extension)
-      var lost = false
-      var restoredStyles = 0
-      val lostSubscription = map.subscribe("webglcontextlost") { lost = true }
-      val styleLoads = map.subscribe("style.load") { if (lost) restoredStyles++ }
+      var failed = false
+      val failures = map.subscribe("error") { if (it.sourceId == "image") failed = true }
       try {
-        extension.loseContext()
-        fixture.pumpUntil("context loss") { lost }
-        extension.restoreContext()
-        fixture.pumpUntil("the style rebuilt after context restoration") { restoredStyles > 0 }
-        val restored = map.getSource<GlJsImageSource>("image").asDynamic()
-        assertIs<ImageData>(restored.image, "the rebuilt source has its pixels again")
-        fixture.pumpUntilPixel("the image after context restoration", 256, 256, RED)
+        handle.setUri(INVALID_IMAGE)
+        fixture.pumpUntil("the failed replacement URL") { failed }
       } finally {
-        lostSubscription.cancel()
-        styleLoads.cancel()
+        failures.cancel()
       }
+      fixture.pumpUntilPixel("the old pixels after the rejected URL", 256, 256, RED)
+      restoreContext(fixture, style)
+      val restored = map.getSource<GlJsImageSource>("image").asDynamic()
+      assertIs<ImageData>(restored.image, "the rebuilt source retains its prepared pixels")
+      fixture.pumpUntilPixel("the old pixels after context restoration", 256, 256, RED)
+    }
+  }
+
+  @Test
+  fun successful_url_replaces_prepared_pixels_through_context_loss(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BLACK_STYLE)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source = ImageSource("image", WORLD, solid(Color.Red))
+      val handle = fixture.state.style.sources.add(source)
+      style.install(
+        TestLayer("image-layer", "raster", source).apply {
+          paint("raster-fade-duration", JsonPrimitive(0))
+        }
+      )
+      handle.setUri(GREEN_IMAGE)
+      fixture.pumpUntilPixel("the loaded URL image", 256, 256, GREEN)
+      restoreContext(fixture, style)
+      fixture.pumpUntilPixel("the URL image after context restoration", 256, 256, GREEN)
+    }
+  }
+
+  @Test
+  fun prepared_pixels_supersede_a_pending_url(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      handle.setUri(GREEN_IMAGE)
+      handle.setImage(solid(Color.Red))
+      restoreContext(fixture, style)
+      val restored = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
+      assertIs<ImageData>(restored.image)
+      assertEquals(255, restored.image.data[0] as Int)
+    }
+  }
+
+  @Test
+  fun invalid_bounds_retain_the_previous_value_without_throwing(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      val source = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
+      val before = js("JSON.stringify")(source.coordinates) as String
+      for (invalid in listOf(Position(0.0, 91.0), Position(Double.NaN, 0.0))) {
+        assertNull(
+          runCatching { handle.setBounds(WORLD.copy(topLeft = invalid)) }.exceptionOrNull()
+        )
+        assertEquals(before, js("JSON.stringify")(source.coordinates) as String)
+      }
+      val next = WORLD.copy(topLeft = Position(-170.0, 80.0))
+      handle.setBounds(next)
+      assertEquals(-170.0, source.coordinates[0][0] as Double)
+      assertEquals(80.0, source.coordinates[0][1] as Double)
+    }
+  }
+
+  private suspend fun restoreContext(fixture: MapFixture, style: GlJsStyleBinding) {
+    val map = assertNotNull(style.withMap { it })
+    val extension =
+      map.getCanvas().asDynamic().getContext("webgl2").getExtension("WEBGL_lose_context")
+    assertNotNull(extension)
+    var lost = false
+    var restoredStyles = 0
+    val lostSubscription = map.subscribe("webglcontextlost") { lost = true }
+    val styleLoads = map.subscribe("style.load") { if (lost) restoredStyles++ }
+    try {
+      extension.loseContext()
+      fixture.pumpUntil("context loss") { lost }
+      extension.restoreContext()
+      fixture.pumpUntil("the style rebuilt after context restoration") { restoredStyles > 0 }
+    } finally {
+      lostSubscription.cancel()
+      styleLoads.cancel()
     }
   }
 
@@ -103,6 +198,11 @@ class BrowserImageSourceTest {
   }
 
   private companion object {
+    const val INVALID_IMAGE = "data:image/png;base64,aW52YWxpZA=="
+    const val GREEN_IMAGE =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg=="
+    val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
+
     val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
 
     val WORLD =

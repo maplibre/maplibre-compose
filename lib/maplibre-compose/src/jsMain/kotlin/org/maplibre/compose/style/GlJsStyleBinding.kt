@@ -29,6 +29,7 @@ import org.maplibre.compose.gljs.GlJsVectorSource
 import org.maplibre.compose.gljs.JsRecord
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.LightSpecification
+import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.ProjectionSpecification
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
@@ -87,10 +88,21 @@ internal class GlJsStyleBinding(
   private val indicatorImages = mutableMapOf<String, IndicatorImage>()
 
   /**
-   * The latest pixels of each image source that has no URL. GL JS recovers a lost context by
-   * serializing the style, which keeps only an image source's URL, so these are applied again.
+   * The latest prepared pixels of each image source until a URL replacement succeeds. GL JS
+   * recovers a lost context by serializing the style, which keeps only an image source's URL, so
+   * these are applied again.
    */
   private val imageSourceImages = mutableMapOf<String, PreparedImage>()
+  private val pendingImageSourceUrls = mutableMapOf<String, GlJsImageSource>()
+  private val imageSourceLoads =
+    map.subscribe("sourcedata") { event ->
+      val id = event.sourceId ?: return@subscribe
+      val source = pendingImageSourceUrls[id] ?: return@subscribe
+      if (event.sourceDataType == "metadata" && map.getSource<GlJsImageSource>(id) === source) {
+        pendingImageSourceUrls.remove(id)
+        imageSourceImages.remove(id)
+      }
+    }
 
   internal fun indicator(id: String): GlJsLocationIndicator? = indicators[id]
 
@@ -118,6 +130,7 @@ internal class GlJsStyleBinding(
   private fun recordError(event: GlJsMapEvent) {
     errorCount++
     lastError = event.error?.message
+    event.sourceId?.let { pendingImageSourceUrls.remove(it) }
   }
 
   private val pendingCustomGeometryReloads = mutableSetOf<String>()
@@ -145,7 +158,11 @@ internal class GlJsStyleBinding(
       if (!restoringContext && map.asDynamic().style != null)
         layerOrder = map.getLayersOrder().toList()
     }
-  private val contextLost = map.subscribe("webglcontextlost") { restoringContext = true }
+  private val contextLost =
+    map.subscribe("webglcontextlost") {
+      restoringContext = true
+      pendingImageSourceUrls.clear()
+    }
   private val contextStyleLoaded =
     map.subscribe("style.load") {
       if (restoringContext && loaded) {
@@ -176,6 +193,8 @@ internal class GlJsStyleBinding(
     indicators.clear()
     indicatorImages.clear()
     imageSourceImages.clear()
+    pendingImageSourceUrls.clear()
+    imageSourceLoads.cancel()
     orderChanges.cancel()
     contextLost.cancel()
     contextStyleLoaded.cancel()
@@ -344,6 +363,7 @@ internal class GlJsStyleBinding(
     requireLoaded()
     mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
     imageSourceImages.remove(sourceId)
+    pendingImageSourceUrls.remove(sourceId)
     pendingCustomGeometryReloads.remove(sourceId)
     customVectorAttachments.remove(sourceId)?.close()
     customGeometryAttachments.remove(sourceId)?.close()
@@ -470,8 +490,9 @@ internal class GlJsStyleBinding(
   /** GL JS shows the pixels at once, cancelling a URL that is still loading. */
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
     requireLoaded()
-    imageSourceImages[sourceId] = image
+    pendingImageSourceUrls.remove(sourceId)
     updateImageSource(sourceId, image)
+    imageSourceImages[sourceId] = image
   }
 
   private fun updateImageSource(sourceId: String, image: PreparedImage) {
@@ -482,15 +503,27 @@ internal class GlJsStyleBinding(
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
     requireLoaded()
-    imageSourceImages.remove(sourceId)
+    val source = map.getSource<GlJsImageSource>(sourceId) ?: return
+    // An empty URL cancels a pending request without replacing the image in GL JS.
+    if (url.isEmpty()) pendingImageSourceUrls.remove(sourceId)
+    else pendingImageSourceUrls[sourceId] = source
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
-    map.getSource<GlJsImageSource>(sourceId)?.updateImage(options)
+    posted("Image source '$sourceId'", JsonPrimitive(url)) {
+      mutate("set the URL of image source '$sourceId'") { source.updateImage(options) }
+    }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     requireLoaded()
-    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
-    map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
+    posted("Image source '$sourceId' bounds", null) {
+      mutate("set the bounds of image source '$sourceId'") {
+        // setCoordinates stores its argument before validating it. Validate first so a rejection
+        // leaves the source's coordinates and rendering data together at their previous value.
+        coordinates.forEach { LngLat(it.longitude, it.latitude) }
+        val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+        map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
+      }
+    }
   }
 
   override fun submitGeoJsonData(
