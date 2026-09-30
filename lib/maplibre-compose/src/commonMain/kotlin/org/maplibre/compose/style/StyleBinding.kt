@@ -56,13 +56,13 @@ internal interface StyleBinding {
   fun invalidate()
 
   fun requireCurrent() {
-    check(isLoaded) {
+    checkStyleHandle(isLoaded) {
       "Style operation belongs to a stale loaded-style identity"
     }
   }
 
   fun requireCurrent(expectedIdentity: StyleIdentity) {
-    check(identity === expectedIdentity && isLoaded) {
+    checkStyleHandle(identity === expectedIdentity && isLoaded) {
       "Style operation belongs to a stale loaded-style identity"
     }
   }

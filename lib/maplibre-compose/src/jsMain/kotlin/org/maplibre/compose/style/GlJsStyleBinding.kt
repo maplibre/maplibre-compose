@@ -190,9 +190,7 @@ internal class GlJsStyleBinding(
     geometryAttachments.forEach { it.close() }
   }
 
-  private fun requireLoaded() {
-    check(loaded) { "Style operation belongs to a stale loaded-style identity" }
-  }
+  private fun requireLoaded() = requireCurrent()
 
   override val supportsCustomDemEncoding: Boolean = true
 

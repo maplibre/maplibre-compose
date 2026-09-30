@@ -148,7 +148,8 @@ internal open class MlnFfiStyleBinding(
   /**
    * Runs [action] with the map, on the owner thread only.
    *
-   * @throws IllegalStateException on any other thread, or when the style has unloaded.
+   * @throws IllegalStateException on any other thread.
+   * @throws StyleHandleException when the style has unloaded.
    */
   internal fun <T> withMap(action: (MapHandle) -> T): T {
     check(loop.isOwnerThread()) {
@@ -292,9 +293,7 @@ internal open class MlnFfiStyleBinding(
     sourceChanged(sourceId)
   }
 
-  private fun requireLoadedStyle() {
-    check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
-  }
+  private fun requireLoadedStyle() = requireCurrent()
 
   /**
    * Runs [action] through [MlnFfiMapRuntimeLoop.submit] and returns at once. [onDropped] runs
@@ -309,7 +308,7 @@ internal open class MlnFfiStyleBinding(
    * Submits a write and returns at once. An engine refusal is reported through
    * [reportRejectedWrite] with [target] and [value]; a style that unloads first skips the write.
    *
-   * @throws IllegalStateException when the style has already unloaded.
+   * @throws StyleHandleException when the style has already unloaded.
    */
   fun submitWrite(target: String, value: JsonElement? = null, action: (MapHandle) -> Unit) {
     requireLoadedStyle()
@@ -648,7 +647,7 @@ internal open class MlnFfiStyleBinding(
       .withLock {
         if (!isLoaded) {
           coordinator.close()
-          error("Style operation belongs to a stale loaded-style identity")
+          throw StyleHandleException("Style operation belongs to a stale loaded-style identity")
         }
         geoJsonCoordinators.put(sourceId, coordinator)
       }

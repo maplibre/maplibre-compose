@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -17,7 +18,9 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.checkStyleHandle
 
 /**
  * One ordered commit boundary for declarations, resource commands, and their published handles.
@@ -109,15 +112,17 @@ internal class StyleResourceCommands(
       // Recorded on this thread, before the owner task, so the source read inside the task builds
       // the handle from this definition. A failed addition takes the record back.
       lock.withLock {
-        check(currentSource(source.id) == null) { "Source ID '${source.id}' already exists" }
+        checkStyleHandle(currentSource(source.id) == null) {
+          "Source ID '${source.id}' already exists"
+        }
         sources[source.id] = OwnedSource(binding, definition)
       }
       try {
         commitSources(binding) {
-          check(binding.sourceExists(source.id) != true) {
+          checkStyleHandle(binding.sourceExists(source.id) != true) {
             "Source ID '${source.id}' already exists"
           }
-          check(binding.addSource(definition)) {
+          checkStyleHandle(binding.addSource(definition)) {
             "The loaded style changed during source insertion"
           }
         }
@@ -308,7 +313,7 @@ internal class StyleResourceCommands(
           withContext(NonCancellable) {
             async {
               try {
-                check(style.readyLoadedStyle() === binding) {
+                checkStyleHandle(style.readyLoadedStyle() === binding) {
                   "Style command belongs to an unready loaded-style identity"
                 }
                 started = true
@@ -317,16 +322,22 @@ internal class StyleResourceCommands(
               } catch (error: Exception) {
                 if (completion != null) {
                   completion.completeExceptionally(
-                    StyleHandleException("Could not $target: ${error.message}", error)
+                    if (error is StyleMutationException)
+                      StyleHandleException("Could not $target: ${error.message}", error)
+                    else error
                   )
-                } else if (style.isCurrentLoadedStyle(binding)) {
+                } else if (error !is CancellationException && style.isCurrentLoadedStyle(binding)) {
                   rejected(target, error)
                 }
+                if (error is CancellationException) throw error
               }
             }
               .await()
           }
         }
+      } catch (error: CancellationException) {
+        completion?.cancel(error)
+        throw error
       } finally {
         if (!started) {
           discarded()
@@ -340,13 +351,13 @@ internal class StyleResourceCommands(
 
   /** Runs [action] on the map owner; a dropped task fails the command. */
   private suspend fun <T> StyleBinding.onOwner(action: () -> T): T =
-    checkNotNull(awaitOwner(action)) { "The loaded style changed before the command ran" }
+    awaitOwner(action)
+      ?: throw StyleHandleException("The loaded style changed before the command ran")
 
   private fun requireBinding(): StyleBinding =
-    checkNotNull(style.readyLoadedStyle()) { "No ready loaded style" }
-      .also {
-        style.operationGuard(it).run {}
-      }
+    (style.readyLoadedStyle() ?: throw StyleHandleException("No ready loaded style")).also {
+      style.operationGuard(it).run {}
+    }
 
   private fun requireSourceWritable(id: String) {
     require(id.isNotBlank()) { "Source ID must not be blank" }
@@ -362,7 +373,7 @@ internal class StyleResourceCommands(
   private fun validateSource(id: String, binding: StyleBinding, identity: Any) =
     style.operationGuard(binding).run {
       requireSourceWritable(id)
-      check(binding.identity.sources.isCurrent(id, identity)) {
+      checkStyleHandle(binding.identity.sources.isCurrent(id, identity)) {
         "Source '$id' has been removed or replaced"
       }
     }
@@ -370,7 +381,7 @@ internal class StyleResourceCommands(
   private fun validateImage(id: String, binding: StyleBinding, identity: Any) =
     style.operationGuard(binding).run {
       requireImageWritable(id)
-      check(binding.identity.images.isCurrent(id, identity)) {
+      checkStyleHandle(binding.identity.images.isCurrent(id, identity)) {
         "Image '$id' has been removed or replaced"
       }
     }

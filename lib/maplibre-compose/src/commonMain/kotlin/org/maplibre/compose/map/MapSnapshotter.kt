@@ -37,6 +37,7 @@ import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -511,7 +512,7 @@ internal class MapSnapshotterImplementation(
 
   internal fun setBaseStyle(value: BaseStyle) {
     lock.withLock {
-      requireOpenLocked()
+      checkStyleHandle(!closed) { "The map snapshotter is closed" }
       if (style.baseStyle == value) return
       baseStyleRevision++
       resourceCommands.clear()
@@ -528,14 +529,10 @@ internal class MapSnapshotterImplementation(
   /** Runs [mutate] on the map owner and reads the sources it leaves behind in the same task. */
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
     val sources =
-      checkNotNull(
-        binding.awaitOwner {
-          mutate()
-          style.readSources(binding)
-        }
-      ) {
-        "The loaded style changed before the command ran"
-      }
+      binding.awaitOwner {
+        mutate()
+        style.readSources(binding)
+      } ?: throw StyleHandleException("The loaded style changed before the command ran")
     lock.withLock {
       requireStyleHandleLocked(binding)
       style.updateSources(sources)
@@ -666,8 +663,10 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun requireStyleHandleLocked(binding: StyleBinding) {
-    requireOpenLocked()
-    check(style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)) {
+    checkStyleHandle(!closed) { "The map snapshotter is closed" }
+    checkStyleHandle(
+      style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)
+    ) {
       "Style operation belongs to a stale or unready loaded-style identity"
     }
   }

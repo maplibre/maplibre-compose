@@ -2,12 +2,15 @@ package org.maplibre.compose.testing
 
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.js.Date
+import kotlin.js.Promise
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.await
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.promise
+import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
 import org.maplibre.compose.camera.CameraPosition
@@ -206,7 +209,13 @@ actual typealias MapTestResult = JsPromise
 
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult {
   GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
-  return MainScope().promise { block() }.unsafeCast<JsPromise>()
+  return MainScope()
+    .promise {
+      // Style declarations use a Skia graphics context, even on a map with its own WebGL canvas.
+      Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }.await()
+      block()
+    }
+    .unsafeCast<JsPromise>()
 }
 
 internal actual fun skipMapTest(reason: String): Nothing =

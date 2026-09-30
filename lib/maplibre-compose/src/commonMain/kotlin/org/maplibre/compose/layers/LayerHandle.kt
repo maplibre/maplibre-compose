@@ -4,7 +4,11 @@ import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.TransitionOptions
 
-/** Reads a layer in one loaded style generation. Handles expire on removal or replacement. */
+/**
+ * Reads a layer in one loaded style generation. Handles expire on removal, replacement, or a
+ * base-style reload. Operations on an expired handle or an unready style throw
+ * [StyleHandleException].
+ */
 public sealed interface LayerHandle {
   public val id: String
   public val type: String

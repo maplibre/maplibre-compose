@@ -11,6 +11,7 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
@@ -74,7 +75,9 @@ internal constructor(
 
   private fun requireCurrent() {
     style.requireCurrent(identity)
-    check(isCurrentResource()) { "Layer '$id' is no longer the $type layer owned by this handle" }
+    checkStyleHandle(isCurrentResource()) {
+      "Layer '$id' is no longer the $type layer owned by this handle"
+    }
   }
 
   private fun <T> operation(action: () -> T): T = operations.run {

@@ -2,8 +2,12 @@ package org.maplibre.compose.map
 
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.checkStyleHandle
 
-/** A style image in one loaded style generation. */
+/**
+ * A style image in one loaded style generation. Operations on an expired handle or an unready style
+ * throw [StyleHandleException].
+ */
 public sealed interface StyleImageHandle {
   public val id: String
   /** Removal access, or null when composition owns this image. */
@@ -38,7 +42,7 @@ internal class StyleImageHandleImpl(
   private fun <T> operation(action: () -> T): T =
     style.operationGuard(binding).run {
       binding.requireCurrent()
-      check(binding.identity.images.isCurrent(id, identity)) {
+      checkStyleHandle(binding.identity.images.isCurrent(id, identity)) {
         "Image '$id' has been removed or replaced"
       }
       action()

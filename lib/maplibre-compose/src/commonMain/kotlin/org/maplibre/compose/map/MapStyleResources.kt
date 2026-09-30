@@ -80,10 +80,9 @@ public class StyleSources internal constructor(private val style: MapStyleState)
    * command runs after the resource commands enqueued before this call, and this call suspends only
    * until the engine has run it, not until a frame has rendered.
    *
-   * @throws IllegalStateException if no style is ready.
-   * @throws StyleHandleException if the style content declares [source]'s ID, the ID is already in
-   *   the style, the engine rejects the definition, or the loaded style changes before the command
-   *   runs.
+   * @throws StyleHandleException if no style is ready, the style content declares [source]'s ID,
+   *   the ID is already in the style, the engine rejects the definition, or the loaded style
+   *   changes before the command runs.
    */
   public suspend fun add(source: Source): MutableSourceHandle =
     style.owner.resourceCommands.add(source)
@@ -131,7 +130,11 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
   override fun iterator(): Iterator<LayerHandle> = style.layerHandles().values.iterator()
 }
 
-/** Provides structural commands for style images in the current loaded-style generation. */
+/**
+ * Provides structural commands for style images in the current loaded-style generation.
+ *
+ * Writes throw [StyleHandleException] if no style is ready or composition declares the image ID.
+ */
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {
   /**
@@ -178,7 +181,9 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
    */
   public suspend fun get(): TransitionOptions? = style.transitionOptions()
 
-  /** Replaces the loaded style's transition. The command fails while no style is ready. */
+  /**
+   * Replaces the loaded style's transition. Throws [StyleHandleException] while no style is ready.
+   */
   public fun set(options: TransitionOptions) {
     style.setTransitionOptions(options)
   }
@@ -194,8 +199,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
    * Sets whether symbol placement changes cross-fade. A cleared cross-fade applies placement
    * changes to the next rendered frame, which suits features that move at pointer frequency.
    *
-   * MapLibre GL JS logs a warning and keeps the cross-fade. The command fails while no style is
-   * ready.
+   * MapLibre GL JS logs a warning and keeps the cross-fade. Throws [StyleHandleException] while no
+   * style is ready.
    */
   public fun setPlacementTransitions(enabled: Boolean) {
     style.setPlacementTransitions(enabled)
@@ -218,7 +223,7 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
    */
   public suspend fun getProperty(name: String): JsonElement? = style.lightProperty(name)
 
-  /** Replaces the loaded style's light. The command fails while no style is ready. */
+  /** Replaces the loaded style's light. Throws [StyleHandleException] while no style is ready. */
   public fun set(light: Light) {
     style.setLight(light)
   }
@@ -242,8 +247,8 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
   public suspend fun getProperty(name: String): JsonElement? = style.skyProperty(name)
 
   /**
-   * Replaces the loaded style's sky, or removes it when [sky] is null. The command fails while no
-   * style is ready.
+   * Replaces the loaded style's sky, or removes it when [sky] is null. Throws
+   * [StyleHandleException] while no style is ready.
    */
   public fun set(sky: Sky?) {
     style.setSky(sky)
@@ -268,7 +273,9 @@ public class StyleProjection internal constructor(private val style: MapStyleSta
    */
   public suspend fun getProperty(name: String): JsonElement? = style.projectionProperty(name)
 
-  /** Replaces the loaded style's projection. The command fails while no style is ready. */
+  /**
+   * Replaces the loaded style's projection. Throws [StyleHandleException] while no style is ready.
+   */
   public fun set(projection: Projection) {
     style.setProjection(projection)
   }

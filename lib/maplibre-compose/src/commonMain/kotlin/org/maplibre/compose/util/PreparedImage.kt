@@ -12,6 +12,9 @@ import org.maplibre.compose.sources.MutableImageSourceHandle
  * Immutable pixels for [ImageSource], [MutableImageSourceHandle.setImage], and
  * [ResolvedStyleImage]. A prepared image belongs to no map or loaded style, so it can be reused
  * across maps, loaded styles, and image IDs.
+ *
+ * Equality compares instances, not pixels. Keep and reuse the same instance while an image is
+ * unchanged; preparing it again creates a different image and can cause another upload.
  */
 @Immutable
 public class PreparedImage internal constructor(internal val pixels: EnginePixels) {
