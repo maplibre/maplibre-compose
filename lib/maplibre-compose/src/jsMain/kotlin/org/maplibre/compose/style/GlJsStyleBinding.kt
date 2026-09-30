@@ -88,10 +88,26 @@ internal class GlJsStyleBinding(
   private val indicatorImages = mutableMapOf<String, IndicatorImage>()
 
   /**
-   * The latest pixels of each image source that has no URL. GL JS recovers a lost context by
-   * serializing the style, which keeps only an image source's URL, so these are applied again.
+   * The latest prepared pixels of each image source until a URL replacement succeeds. GL JS
+   * recovers a lost context by serializing the style, which keeps only an image source's URL, so
+   * these are applied again.
    */
   private val imageSourceImages = mutableMapOf<String, PreparedImage>()
+
+  private class PendingImageSourceUrl(val source: GlJsImageSource, val url: String)
+
+  private val pendingImageSourceUrls = mutableMapOf<String, PendingImageSourceUrl>()
+  private val imageSourceLoads =
+    map.subscribe("sourcedata") { event ->
+      val id = event.sourceId ?: return@subscribe
+      val pending = pendingImageSourceUrls[id] ?: return@subscribe
+      if (
+        event.sourceDataType == "metadata" && map.getSource<GlJsImageSource>(id) === pending.source
+      ) {
+        pendingImageSourceUrls.remove(id)
+        imageSourceImages.remove(id)
+      }
+    }
 
   internal fun indicator(id: String): GlJsLocationIndicator? = indicators[id]
 
@@ -119,6 +135,7 @@ internal class GlJsStyleBinding(
   private fun recordError(event: GlJsMapEvent) {
     errorCount++
     lastError = event.error?.message
+    event.sourceId?.let { pendingImageSourceUrls.remove(it) }
   }
 
   private val pendingCustomGeometryReloads = mutableSetOf<String>()
@@ -146,7 +163,10 @@ internal class GlJsStyleBinding(
       if (!restoringContext && map.asDynamic().style != null)
         layerOrder = map.getLayersOrder().toList()
     }
-  private val contextLost = map.subscribe("webglcontextlost") { restoringContext = true }
+  private val contextLost =
+    map.subscribe("webglcontextlost") {
+      restoringContext = true
+    }
   private val contextStyleLoaded =
     map.subscribe("style.load") {
       if (restoringContext && loaded) {
@@ -162,7 +182,11 @@ internal class GlJsStyleBinding(
           if (map.getLayer(id) != null) before = id
         }
         layerOrder = map.getLayersOrder().toList()
+        val pendingUrls = pendingImageSourceUrls.toMap()
+        pendingImageSourceUrls.clear()
         imageSourceImages.forEach { (id, image) -> updateImageSource(id, image) }
+        // Applying fallback pixels cancels the rebuilt source's URL request. Start it again.
+        pendingUrls.forEach { (id, pending) -> setImageSourceUrl(id, pending.url) }
         map.triggerRepaint()
       }
     }
@@ -177,6 +201,8 @@ internal class GlJsStyleBinding(
     indicators.clear()
     indicatorImages.clear()
     imageSourceImages.clear()
+    pendingImageSourceUrls.clear()
+    imageSourceLoads.cancel()
     orderChanges.cancel()
     contextLost.cancel()
     contextStyleLoaded.cancel()
@@ -343,6 +369,7 @@ internal class GlJsStyleBinding(
     requireLoaded()
     mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
     imageSourceImages.remove(sourceId)
+    pendingImageSourceUrls.remove(sourceId)
     pendingCustomGeometryReloads.remove(sourceId)
     customVectorAttachments.remove(sourceId)?.close()
     customGeometryAttachments.remove(sourceId)?.close()
@@ -469,6 +496,7 @@ internal class GlJsStyleBinding(
   /** GL JS shows the pixels at once, cancelling a URL that is still loading. */
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
     requireLoaded()
+    pendingImageSourceUrls.remove(sourceId)
     imageSourceImages[sourceId] = image
     updateImageSource(sourceId, image)
   }
@@ -481,9 +509,16 @@ internal class GlJsStyleBinding(
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
     requireLoaded()
-    imageSourceImages.remove(sourceId)
+    val source = map.getSource<GlJsImageSource>(sourceId) ?: return
+    // Only prepared pixels need fallback recovery while their replacement URL loads.
+    // An empty URL cancels a pending request without replacing the image in GL JS.
+    if (url.isNotEmpty() && sourceId in imageSourceImages) {
+      pendingImageSourceUrls[sourceId] = PendingImageSourceUrl(source, url)
+    } else {
+      pendingImageSourceUrls.remove(sourceId)
+    }
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
-    map.getSource<GlJsImageSource>(sourceId)?.updateImage(options)
+    source.updateImage(options)
   }
 
   override fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
