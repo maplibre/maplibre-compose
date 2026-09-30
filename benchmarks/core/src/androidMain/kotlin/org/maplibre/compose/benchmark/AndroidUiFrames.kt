@@ -3,7 +3,6 @@ package org.maplibre.compose.benchmark
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import android.view.Choreographer
 import android.view.FrameMetrics
 import android.view.Window
 import kotlin.coroutines.resume
@@ -13,18 +12,10 @@ import kotlinx.serialization.encodeToString
 
 /**
  * Window [FrameMetrics]: each frame's total duration, the delay before the UI thread started it,
- * and its deadline. A measurement-only invalidation on every vsync keeps the window drawing frames
- * even when the map renders to its own surface, so a stalled UI thread shows up as a long frame.
+ * and its deadline. Observes actual window draws without requesting frames. A map rendering to its
+ * own surface can produce no window frames during a measurement.
  */
 class AndroidUiFrames(private val window: Window) : BenchmarkUiFrames {
-  private val choreographer = Choreographer.getInstance()
-  private val heartbeat =
-    object : Choreographer.FrameCallback {
-      override fun doFrame(frameTimeNanos: Long) {
-        window.decorView.invalidate()
-        choreographer.postFrameCallback(this)
-      }
-    }
   private var finish: (suspend () -> Unit)? = null
 
   override fun start() {
@@ -50,10 +41,8 @@ class AndroidUiFrames(private val window: Window) : BenchmarkUiFrames {
           )
       }
     }
-    choreographer.postFrameCallback(heartbeat)
     window.addOnFrameMetricsAvailableListener(callback, Handler(worker.looper))
     finish = {
-      choreographer.removeFrameCallback(heartbeat)
       window.removeOnFrameMetricsAvailableListener(callback)
       // Metrics already queued on the worker land before the report.
       suspendCancellableCoroutine { continuation ->

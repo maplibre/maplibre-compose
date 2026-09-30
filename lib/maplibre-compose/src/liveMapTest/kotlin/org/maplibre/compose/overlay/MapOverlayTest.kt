@@ -27,6 +27,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -39,10 +40,12 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.LocalViewport
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapPresentationOwnerToken
 import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.PresentationTestAdapter
+import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.map.viewportFor
 import org.maplibre.compose.style.BaseStyle
@@ -51,6 +54,41 @@ import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
 class MapOverlayTest {
+  @Test
+  fun viewport_readers_update_without_recomposing_the_enclosing_overlay() = runComposeUiTest {
+    val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedMain)
+    val map = runtime.createMapState(BaseStyle.Empty)
+    val adapter =
+      PresentationTestAdapter().apply {
+        currentViewport = viewportFor(MapSnapshotRequest(300, 300))
+      }
+    map.publishPresentation(map.reservePresentation(), adapter)
+    var overlayCompositions = 0
+    var observedWidth = 0.dp
+
+    setUnitDensityContent {
+      MapOverlayHost(
+        mapState = map,
+        overlay = {
+          SideEffect { overlayCompositions++ }
+          ViewportReader { observedWidth = it }
+        },
+      )
+    }
+    waitForIdle()
+    val initialCompositions = overlayCompositions
+    assertEquals(300.dp, observedWidth)
+    runOnIdle {
+      adapter.currentViewport = viewportFor(MapSnapshotRequest(400, 300))
+      map.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoved)
+    }
+    waitForIdle()
+    assertEquals(400.dp, observedWidth)
+    assertEquals(initialCompositions, overlayCompositions)
+    map.close()
+    runtime.close()
+  }
+
   @Test
   fun nested_overlays_and_reused_modifiers_use_the_nearest_map_context() = runComposeUiTest {
     val runtime = mapRuntimeForTest()
@@ -390,4 +428,10 @@ class MapOverlayTest {
 @OptIn(ExperimentalTestApi::class)
 private fun ComposeUiTest.setUnitDensityContent(content: @Composable () -> Unit) = setContent {
   CompositionLocalProvider(LocalDensity provides Density(1f), content = content)
+}
+
+@Composable
+private fun ViewportReader(onWidth: (Dp) -> Unit) {
+  val width = LocalViewport.current?.size?.width
+  SideEffect { onWidth(requireNotNull(width)) }
 }

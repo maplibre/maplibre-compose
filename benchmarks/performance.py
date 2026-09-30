@@ -58,6 +58,8 @@ def ui_frames(logs):
     values = samples(logs, "UIFRAMES")
     if len(values) != ui["frames"]:
         raise ValueError("Incomplete UI frame statistics")
+    if not values:
+        return None
     ui["total_ms"] = distribution([v["total_ms"] for v in values])
     ui["delay_ms"] = distribution([v["delay_ms"] for v in values])
     deadlines = [v for v in values if v.get("deadline_ms") is not None]

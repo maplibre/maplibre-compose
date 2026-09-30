@@ -139,7 +139,7 @@ internal fun MapOverlayHost(
   val coordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
   CompositionLocalProvider(
     LocalMapState provides mapState,
-    LocalViewport provides mapState.viewport,
+    LocalViewport providesComputed { mapState.viewport },
     LocalViewportInsets provides viewportInsets,
     LocalMapCoordinates provides coordinates,
   ) {
