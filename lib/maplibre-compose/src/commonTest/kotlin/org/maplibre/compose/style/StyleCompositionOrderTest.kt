@@ -36,8 +36,8 @@ class StyleCompositionOrderTest {
           sources = listOf(source.definition()),
           layers =
             listOf(
-              StyleSnapshot.Layer(first.definition(), anchor, null, null),
-              StyleSnapshot.Layer(second.definition(), anchor, null, null),
+              StyleSnapshot.Layer(first.definition(), anchor),
+              StyleSnapshot.Layer(second.definition(), anchor),
             ),
           images = emptyList(),
         )
@@ -76,7 +76,7 @@ class StyleCompositionOrderTest {
     val revision =
       StyleSnapshot(
         sources = listOf(source.definition()),
-        layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Above("water"), null, null)),
+        layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Above("water"))),
         images = emptyList(),
       )
     val style = RecordingStyleBinding(layers = listOf(TestLayer("water", "background")))
@@ -257,7 +257,7 @@ class StyleCompositionOrderTest {
       sources = emptyList(),
       layers =
         layers.map { (layer, anchor) ->
-          StyleSnapshot.Layer(layer.definition(), anchor, null, null)
+          StyleSnapshot.Layer(layer.definition(), anchor)
         },
       images = emptyList(),
     )

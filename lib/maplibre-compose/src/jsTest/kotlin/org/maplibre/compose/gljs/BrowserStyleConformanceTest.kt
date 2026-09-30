@@ -178,10 +178,12 @@ class BrowserStyleConformanceTest {
               location = Position(0.0, 0.0),
               bearing = Bearing.North,
               accuracyRadius = 20.meters,
-              hitPadding = 8.dp,
-              onClick = { ClickResult.Pass },
-              onLongClick = { ClickResult.Consume },
-              onDoubleClick = { ClickResult.Consume },
+              interactions = {
+                hitPadding = 8.dp
+                click { ClickResult.Pass }
+                longClick { ClickResult.Consume }
+                doubleClick { ClickResult.Consume }
+              },
             )
           },
         )
@@ -190,10 +192,16 @@ class BrowserStyleConformanceTest {
     waitUntilMap("indicator interaction registrations") { latest?.layers?.size == 1 }
     val indicator = checkNotNull(latest).layers.single()
     assertEquals("user", indicator.definition.id)
-    assertEquals(8.dp, indicator.hitPadding)
-    assertEquals(ClickResult.Pass, indicator.onClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onLongClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onDoubleClick!!(testClickEvent(), emptyList()))
+    assertEquals(8.dp, indicator.interactions.hitPadding)
+    assertEquals(ClickResult.Pass, indicator.interactions.onClick!!(testClickEvent(), emptyList()))
+    assertEquals(
+      ClickResult.Consume,
+      indicator.interactions.onLongClick!!(testClickEvent(), emptyList()),
+    )
+    assertEquals(
+      ClickResult.Consume,
+      indicator.interactions.onDoubleClick!!(testClickEvent(), emptyList()),
+    )
   }
 
   @Composable

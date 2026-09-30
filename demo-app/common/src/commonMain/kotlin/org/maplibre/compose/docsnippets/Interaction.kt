@@ -3,8 +3,10 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureHit
 import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
@@ -95,4 +97,29 @@ fun ClickableMap(onLocationSelected: (Position) -> Unit) {
       }
   )
 }
+
 // #endregion map-click
+
+// #region feature-rows
+@Composable
+fun SelectableStreetMap(onStreetSelected: (FeatureHit) -> Unit) {
+  MaplibreMap(
+    interactions =
+      MapInteractions {
+        callbacks {
+          features {
+            for (padding in listOf(0.dp, 8.dp, 16.dp)) {
+              on("motorway", "primary", "residential") {
+                hitPadding = padding
+                click { hits ->
+                  onStreetSelected(hits.first())
+                  ClickResult.Consume
+                }
+              }
+            }
+          }
+        }
+      }
+  )
+}
+// #endregion feature-rows

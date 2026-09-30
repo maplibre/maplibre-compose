@@ -205,22 +205,25 @@ class LocationIndicatorCompositionTest {
             LocationIndicatorLayer(
               id = "user",
               locationState = locationState,
-              onClick =
-                if (enabled)
-                  ({
-                    calls += "click"
-                    ClickResult.Pass
-                  })
-                else null,
-              onLongClick = {
-                calls += "long"
-                ClickResult.Consume
+              interactions = {
+                hitPadding = 12.dp
+                click(
+                  if (enabled)
+                    ({
+                      calls += "click"
+                      ClickResult.Pass
+                    })
+                  else null
+                )
+                longClick {
+                  calls += "long"
+                  ClickResult.Consume
+                }
+                doubleClick {
+                  calls += "double"
+                  ClickResult.Consume
+                }
               },
-              onDoubleClick = {
-                calls += "double"
-                ClickResult.Consume
-              },
-              hitPadding = 12.dp,
             )
           },
         )
@@ -228,14 +231,20 @@ class LocationIndicatorCompositionTest {
     }
     waitForIdle()
     val node = checkNotNull(latest).layers.single()
-    assertEquals(12.dp, node.hitPadding)
-    assertEquals(ClickResult.Pass, node.onClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, node.onLongClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, node.onDoubleClick!!(testClickEvent(), emptyList()))
+    assertEquals(12.dp, node.interactions.hitPadding)
+    assertEquals(ClickResult.Pass, node.interactions.onClick!!(testClickEvent(), emptyList()))
+    assertEquals(
+      ClickResult.Consume,
+      node.interactions.onLongClick!!(testClickEvent(), emptyList()),
+    )
+    assertEquals(
+      ClickResult.Consume,
+      node.interactions.onDoubleClick!!(testClickEvent(), emptyList()),
+    )
     assertEquals(listOf("click", "long", "double"), calls)
     runOnIdle { enabled = false }
     waitForIdle()
-    assertEquals(null, checkNotNull(latest).layers.single().onClick)
+    assertEquals(null, checkNotNull(latest).layers.single().interactions.onClick)
   }
 
   @Test

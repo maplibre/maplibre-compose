@@ -4,7 +4,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -1878,10 +1877,10 @@ internal class MlnFfiMapSession(
   /** Runs every layer's query in one render session visit instead of one visit per layer. */
   override suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
-    hitPadding: Map<String, Dp>,
-  ): Map<String, List<Feature<Geometry, JsonObject?>>> =
+    queries: Set<FeatureQuery>,
+  ): Map<FeatureQuery, List<Feature<Geometry, JsonObject?>>> =
     awaitRenderSession { session ->
-      hitPadding.mapValues { (id, padding) ->
+      queries.associateWith { (id, padding) ->
         val geometry =
           if (padding == 0.dp) RenderedQueryGeometry.Point(offset.toScreenPoint())
           else
@@ -1889,7 +1888,7 @@ internal class MlnFfiMapSession(
               .toQueryGeometry()
         session.query(geometry, setOf(id), null)
       }
-    } ?: hitPadding.mapValues { emptyList() }
+    } ?: queries.associateWith { emptyList() }
 
   private fun DpRect.toQueryGeometry(): RenderedQueryGeometry =
     RenderedQueryGeometry.Box(

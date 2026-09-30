@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
@@ -11,6 +10,7 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.mostAccurateBearingMeasurement
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
@@ -60,10 +60,7 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   val measurement = locationState.mostAccurateBearingMeasurement()
   LocationIndicatorLayer(
@@ -91,10 +88,7 @@ public fun LocationIndicatorLayer(
     bearingTransition = bearingTransition,
     accuracyRadiusTransition = accuracyRadiusTransition,
     bearingAccuracyTransition = bearingAccuracyTransition,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   )
 }
 
@@ -108,8 +102,8 @@ public fun LocationIndicatorLayer(
  *
  * Click handlers target the top and bearing image bounds, including transparent margins, but not
  * the shadow, accuracy circle, or bearing accuracy sector. Each gesture invokes its handler at most
- * once, even when the images overlap. Return [ClickResult.Pass] to continue to layers below or
- * [ClickResult.Consume] to stop dispatch.
+ * once, even when the images overlap. Return [ClickResult.Pass] to continue to the next feature row
+ * or [ClickResult.Consume] to stop dispatch.
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
@@ -145,10 +139,7 @@ public fun LocationIndicatorLayer(
  * @param locationTransition Duration and delay for position changes.
  * @param bearingTransition Bearing transition timing, defaulting to [locationTransition].
  * @param accuracyRadiusTransition Accuracy transition timing, defaulting to [locationTransition].
- * @param onClick Called when an indicator image is clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click.
- * @param onDoubleClick Called for a double tap or double click.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Feature click handlers and hit padding for this layer.
  */
 @Composable
 @MaplibreComposable
@@ -177,10 +168,7 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   require(
     accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0)
@@ -192,9 +180,6 @@ public fun LocationIndicatorLayer(
       (bearingAccuracy.inDegrees.isFinite() && bearingAccuracy.inDegrees >= 0)
   ) {
     "bearingAccuracy must be finite and nonnegative"
-  }
-  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
-    "hitPadding must be finite and nonnegative"
   }
   if (location == null) return
   key(id) {
@@ -224,10 +209,7 @@ public fun LocationIndicatorLayer(
         bearingTransition = bearingTransition,
         accuracyRadiusTransition = accuracyRadiusTransition,
         bearingAccuracyTransition = bearingAccuracyTransition,
-        onClick = onClick,
-        onLongClick = onLongClick,
-        onDoubleClick = onDoubleClick,
-        hitPadding = hitPadding,
+        interactions = interactions,
       )
     )
   }
@@ -258,13 +240,5 @@ internal data class LocationIndicatorProperties(
   val locationTransition: TransitionOptions,
   val bearingTransition: TransitionOptions,
   val accuracyRadiusTransition: TransitionOptions,
-  val onClick: (() -> ClickResult)?,
-  val onLongClick: (() -> ClickResult)?,
-  val onDoubleClick: (() -> ClickResult)?,
-  val hitPadding: Dp,
+  val interactions: FeatureInteractionsBuilder.() -> Unit,
 )
-
-internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler {
-  val onClick = this
-  return { onClick() }
-}

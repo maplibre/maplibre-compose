@@ -8,10 +8,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.interaction.FeatureInteractions
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
+import org.maplibre.compose.interaction.rememberFeatureInteractions
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.LayerNode
@@ -41,13 +42,10 @@ public fun Layer(
   id: String,
   type: String,
   source: Source? = null,
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
   properties: LayerProperties.() -> Unit = {},
 ) {
-  Layer(id, type, source, onClick, onLongClick, onDoubleClick, hitPadding, false, properties)
+  Layer(id, type, source, interactions, false, properties)
 }
 
 // Built-ins retain their documented cross-engine filtering; preparation and ownership are shared.
@@ -57,14 +55,11 @@ internal fun Layer(
   id: String,
   type: String,
   source: Source? = null,
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
   filterUnsupportedProperties: Boolean,
   properties: LayerProperties.() -> Unit,
 ) {
-  validateLayer(id, type, hitPadding)
+  validateLayer(id, type)
   val density = LocalDensity.current
   val direction = LocalLayoutDirection.current
   val fontScale = styleFontScale()
@@ -90,10 +85,7 @@ internal fun Layer(
     snapshot.definition,
     snapshot.images,
     source,
-    onClick,
-    onLongClick,
-    onDoubleClick,
-    hitPadding,
+    rememberFeatureInteractions(interactions),
   )
 }
 
@@ -103,10 +95,7 @@ private fun LayerNode(
   definition: LayerDefinition,
   images: Map<StyleProperty, LayerProperty<*>>,
   source: Source?,
-  onClick: FeaturesClickHandler?,
-  onLongClick: FeaturesClickHandler?,
-  onDoubleClick: FeaturesClickHandler?,
-  hitPadding: Dp,
+  interactions: FeatureInteractions,
 ) {
   val anchor = LocalAnchor.current
   key(definition.id, definition.type, definition.sourceId, definition.value["source-layer"]) {
@@ -117,21 +106,15 @@ private fun LayerNode(
         set(images) { imageProperties = it }
         set(source) { this.source = it }
         set(anchor) { this.anchor = it }
-        set(onClick) { this.onClick = it }
-        set(onLongClick) { this.onLongClick = it }
-        set(onDoubleClick) { this.onDoubleClick = it }
-        set(hitPadding) { this.hitPadding = it }
+        set(interactions) { this.interactions = it }
       },
     )
   }
 }
 
-private fun validateLayer(id: String, type: String, hitPadding: Dp) {
+private fun validateLayer(id: String, type: String) {
   require(id.isNotBlank()) { "Layer ID must not be blank" }
   require(type.isNotBlank()) { "Layer type must not be blank" }
-  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
-    "hitPadding must be finite and nonnegative"
-  }
 }
 
 internal fun layerSourceId(

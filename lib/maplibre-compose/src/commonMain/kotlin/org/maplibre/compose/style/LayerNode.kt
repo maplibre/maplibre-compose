@@ -1,11 +1,9 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.interaction.FeatureInteractions
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.LayerProperty
 import org.maplibre.compose.sources.Source
 
@@ -14,10 +12,7 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
   val registration = Any()
   var imageProperties: Map<StyleProperty, LayerProperty<*>> = emptyMap()
   var source: Source? = null
-  var onClick: FeaturesClickHandler? = null
-  var onLongClick: FeaturesClickHandler? = null
-  var onDoubleClick: FeaturesClickHandler? = null
-  var hitPadding: Dp = 0.dp
+  var interactions: FeatureInteractions = FeatureInteractions()
 
   private var previousDefinition: LayerDefinition? = null
   private var propertyImages = emptyMap<StyleProperty, List<StyleImageDefinition>>()
@@ -64,10 +59,7 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
     return StyleSnapshot.Layer(
       resolvedDefinition,
       anchor,
-      onClick,
-      onLongClick,
-      onDoubleClick,
-      hitPadding,
+      interactions,
       registration,
     )
   }

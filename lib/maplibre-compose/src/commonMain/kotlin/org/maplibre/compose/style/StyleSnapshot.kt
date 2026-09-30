@@ -1,9 +1,7 @@
 package org.maplibre.compose.style
 
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import org.maplibre.compose.interaction.FeatureInteractions
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.FeaturesClickHandler
 
 /** An immutable, engine-ready snapshot of committed style content. */
 internal data class StyleSnapshot(
@@ -35,10 +33,7 @@ internal data class StyleSnapshot(
   data class Layer(
     val definition: LayerDefinition,
     val anchor: Anchor,
-    val onClick: FeaturesClickHandler?,
-    val onLongClick: FeaturesClickHandler?,
-    val onDoubleClick: FeaturesClickHandler? = null,
-    val hitPadding: Dp = 0.dp,
+    val interactions: FeatureInteractions = FeatureInteractions(),
     val registration: Any? = null,
   )
 }

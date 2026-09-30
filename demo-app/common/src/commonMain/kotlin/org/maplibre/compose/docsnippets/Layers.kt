@@ -118,10 +118,12 @@ fun Layers() {
     CircleLayer(
       id = "amtrak-stations",
       source = interactiveAmtrakStations,
-      hitPadding = 12.dp,
-      onClick = { features ->
-        println("Clicked on ${features[0].toJson()}")
-        ClickResult.Consume
+      interactions = {
+        hitPadding = 12.dp
+        click { hits ->
+          println("Clicked on ${hits[0].feature.toJson()}")
+          ClickResult.Consume
+        }
       },
     )
     // #endregion interaction

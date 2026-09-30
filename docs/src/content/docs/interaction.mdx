@@ -44,15 +44,20 @@ Use `longClick` for a long press or secondary mouse click.
 
 ## Select layer features
 
-A layer's `onClick` receives the layer's features at the click and can read the
-click's `position` and `screenOffset`. Use `hitPadding` to make small features,
-such as thin lines, easier to select by touch:
+Use a layer's `interactions` to handle clicks on its features. Set `hitPadding`
+to make small features, such as thin lines, easier to select by touch:
 
 <Code code={rememberedMapStyle(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
-Layers receive clicks from front to back until a handler returns
-`ClickResult.Consume`. Use `callbacks.click.onUnhandled` for clicks that no
-layer handles, such as clearing an app's selection.
+Use `callbacks.features` to select from base-style layers or several layers
+together. This example searches with increasing padding to find a street near
+the click:
+
+<Code code={region(interaction, "feature-rows")} lang="kotlin" title="App.kt" />
+
+Return `ClickResult.Consume` when your app handles a feature click. Use
+`callbacks.click.onUnhandled` to clear the selection when no feature handles
+the click.
 
 ## Change scroll controls
 

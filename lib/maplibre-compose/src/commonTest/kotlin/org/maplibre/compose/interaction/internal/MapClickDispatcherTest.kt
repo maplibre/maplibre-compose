@@ -2,7 +2,6 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -26,10 +25,13 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureClickHandler
+import org.maplibre.compose.interaction.FeatureInteractions
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.TestLayer
+import org.maplibre.compose.map.FeatureQuery
 import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
@@ -55,7 +57,7 @@ class MapClickDispatcherTest {
           val delivered = mutableListOf<String>()
           val nodes =
             listOf("back", "front").map { id ->
-              val handler: FeaturesClickHandler = {
+              val handler: FeatureClickHandler = {
                 delivered += id
                 fixture.revision.value = StyleSnapshot.Empty
                 ClickResult.Pass
@@ -63,8 +65,12 @@ class MapClickDispatcherTest {
               fixture
                 .node(id, handler)
                 .copy(
-                  onDoubleClick = handler,
-                  onLongClick = handler,
+                  interactions =
+                    featureInteractions {
+                      click(handler)
+                      doubleClick(handler)
+                      longClick(handler)
+                    }
                 )
             }
           fixture.revision.value = StyleSnapshot(emptyList(), nodes, emptyList())
@@ -79,7 +85,7 @@ class MapClickDispatcherTest {
 
   @Test
   fun a_tap_before_layer_handles_are_published_waits_for_them() = runTest {
-    Fixture().use { fixture ->
+    for (mapRow in listOf(false, true)) Fixture().use { fixture ->
       // The owner has loaded the style, but its read that publishes the handles has not run.
       val binding = QueuedOwnerStyleBinding(checkNotNull(fixture.style.value))
       fixture.style.value = binding
@@ -115,6 +121,23 @@ class MapClickDispatcherTest {
         }
       )
 
+      if (mapRow) {
+        fixture.revision.value = StyleSnapshot.Empty
+        fixture.configure(
+          MapInteractions(fixture.gestures.value) {
+            callbacks {
+              features {
+                on("front") {
+                  click {
+                    handled++
+                    ClickResult.Consume
+                  }
+                }
+              }
+            }
+          }
+        )
+      }
       val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
       val delivery = async(start = CoroutineStart.UNDISPATCHED) { path.deliver(fixture.event) }
       assertFalse(delivery.isCompleted, "the tap waits for the handles")
@@ -173,18 +196,26 @@ class MapClickDispatcherTest {
       fixture.adapter.featureOffsets["front"] = DpOffset(12.dp, 20.dp)
       val back =
         fixture.node("back") { features ->
-          assertEquals(JsonPrimitive("back"), features.single().properties?.get("id"))
+          assertEquals(JsonPrimitive("back"), features.single().feature.properties?.get("id"))
           order += "back"
           ClickResult.Pass
         }
       val front =
         fixture
           .node("front") { features ->
-            assertEquals(JsonPrimitive("front"), features.single().properties?.get("id"))
+            assertEquals(JsonPrimitive("front"), features.single().feature.properties?.get("id"))
             order += "front"
             ClickResult.Pass
           }
-          .copy(hitPadding = 5.dp)
+          .let {
+            it.copy(
+              interactions =
+                featureInteractions {
+                  hitPadding = 5.dp
+                  click(it.interactions.onClick)
+                }
+            )
+          }
       fixture.revision.value = StyleSnapshot(emptyList(), listOf(front, back), emptyList())
       fixture.configure(
         MapInteractions {
@@ -234,10 +265,13 @@ class MapClickDispatcherTest {
               ClickResult.Pass
             },
             front.copy(
-              onClick = {
-                order += "latest front"
-                ClickResult.Pass
-              }
+              interactions =
+                featureInteractions {
+                  click {
+                    order += "latest front"
+                    ClickResult.Pass
+                  }
+                }
             ),
           ),
           emptyList(),
@@ -351,20 +385,305 @@ class MapClickDispatcherTest {
             offsets += screenOffset
             ClickResult.Pass
           }
-          .copy(hitPadding = 5.dp)
+          .let {
+            it.copy(
+              interactions =
+                featureInteractions {
+                  hitPadding = 5.dp
+                  click(it.interactions.onClick)
+                }
+            )
+          }
       fixture.revision.value = StyleSnapshot(emptyList(), listOf(back, front), emptyList())
 
       fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event)
 
       assertEquals(
-        listOf(mapOf("front" to 5.dp, "back" to 0.dp)),
+        listOf(setOf(FeatureQuery("front", 5.dp), FeatureQuery("back", 0.dp))),
         fixture.adapter.layerQueries,
       )
       assertEquals(listOf(fixture.event.screenOffset, fixture.event.screenOffset), offsets)
     }
   }
 
-  private class Fixture : AutoCloseable {
+  @Test
+  fun map_rows_pool_base_layers_and_run_before_the_layer_shorthand() = runTest {
+    Fixture().use { fixture ->
+      val calls = mutableListOf<String>()
+      fixture.revision.value =
+        StyleSnapshot(
+          emptyList(),
+          listOf(
+            fixture.node("front") {
+              calls += "layer"
+              ClickResult.Pass
+            }
+          ),
+          emptyList(),
+        )
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              on("back") {
+                click {
+                  calls += "back"
+                  ClickResult.Pass
+                }
+              }
+              on("back", "front", "missing") {
+                click { hits ->
+                  assertEquals(listOf("front", "back"), hits.map { it.layerId })
+                  assertEquals(
+                    listOf("front", "back"),
+                    hits.map { it.feature.properties?.get("id")?.toString()?.trim('"') },
+                  )
+                  calls += "group"
+                  ClickResult.Pass
+                }
+              }
+              on("front") {
+                click {
+                  calls += "front"
+                  ClickResult.Pass
+                }
+              }
+            }
+            click {
+              onUnhandled {
+                calls += "unhandled"
+                ClickResult.Pass
+              }
+            }
+          }
+        }
+      )
+      fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event)
+      assertEquals(listOf("group", "front", "layer", "back", "unhandled"), calls)
+      assertEquals(
+        listOf(setOf(FeatureQuery("front", 0.dp), FeatureQuery("back", 0.dp))),
+        fixture.adapter.layerQueries,
+      )
+    }
+  }
+
+  @Test
+  fun expanding_search_selects_a_lower_layer_before_a_farther_front_layer() = runTest {
+    Fixture().use { fixture ->
+      fixture.adapter.featureOffsets["front"] = DpOffset(12.dp, 20.dp)
+      val selected = mutableListOf<String>()
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              for (padding in listOf(0.dp, 8.dp, 16.dp)) {
+                on("front", "back") {
+                  hitPadding = padding
+                  click { hits ->
+                    selected += hits.first().layerId
+                    ClickResult.Consume
+                  }
+                }
+              }
+            }
+          }
+        }
+      )
+      assertTrue(fixture.dispatcher.hasHandlers(TapFamily.Tap))
+      assertTrue(fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event).consumed)
+      assertEquals(listOf("back"), selected)
+      assertEquals(
+        setOf(0.dp, 8.dp, 16.dp),
+        fixture.adapter.layerQueries.single().map { it.hitPadding }.toSet(),
+      )
+    }
+  }
+
+  @Test
+  fun rows_keep_their_topmost_layer_priority_when_only_a_lower_layer_has_hits() = runTest {
+    Fixture(listOf("back", "middle", "front")).use { fixture ->
+      fixture.adapter.featureOffsets["front"] = DpOffset.Zero
+      var selected = ""
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              on("middle") { click { error("the grouped row should consume first") } }
+              on("back", "front") {
+                click { hits ->
+                  assertEquals(listOf("back"), hits.map { it.layerId })
+                  selected = "group"
+                  ClickResult.Consume
+                }
+              }
+            }
+          }
+        }
+      )
+      fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event)
+      assertEquals("group", selected)
+    }
+  }
+
+  @Test
+  fun suspended_map_query_updates_callbacks_skips_removed_rows_and_ignores_new_rows() = runTest {
+    Fixture().use { fixture ->
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              on("front") { click { error("old callback") } }
+              on("back") { click { error("removed row") } }
+            }
+          }
+        }
+      )
+      fixture.adapter.gate = CompletableDeferred()
+      val delivery = async { fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event) }
+      fixture.adapter.entered.await()
+      var calls = 0
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              on("missing") { click { error("new row") } }
+              on("front") {
+                click {
+                  calls++
+                  ClickResult.Pass
+                }
+              }
+              on("back") {
+                hitPadding = 4.dp
+                click { error("different query") }
+              }
+            }
+          }
+        }
+      )
+      fixture.adapter.gate!!.complete(Unit)
+      delivery.await()
+      assertEquals(1, calls)
+    }
+  }
+
+  @Test
+  fun all_click_families_skip_empty_rows_and_can_consume_unhandled() = runTest {
+    Fixture().use { fixture ->
+      var emptyCalls = 0
+      val handler: FeatureClickHandler = {
+        emptyCalls++
+        ClickResult.Pass
+      }
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            features {
+              on("missing") {
+                click(handler)
+                doubleClick(handler)
+                longClick(handler)
+              }
+            }
+            click { onUnhandled { ClickResult.Consume } }
+            doubleClick { onUnhandled { ClickResult.Consume } }
+            longClick { onUnhandled { ClickResult.Consume } }
+          }
+        }
+      )
+      for (family in
+        listOf(TapFamily.Tap, TapFamily.DoubleTap, TapFamily.LongPress, TapFamily.SecondaryClick)) {
+        assertTrue(fixture.dispatcher.hasHandlers(family))
+        assertTrue(fixture.dispatcher.capture(family)!!.deliver(fixture.event).consumed)
+      }
+      assertEquals(0, emptyCalls)
+      assertTrue(fixture.adapter.layerQueries.isEmpty())
+    }
+  }
+
+  @Test
+  fun event_rows_unhandled_and_camera_run_in_order_for_every_click_family() = runTest {
+    for (family in
+      listOf(TapFamily.Tap, TapFamily.DoubleTap, TapFamily.LongPress, TapFamily.SecondaryClick)) {
+      Fixture().use { fixture ->
+        val calls = mutableListOf<String>()
+        val eventHandler: (ClickEvent) -> ClickResult = {
+          calls += "event"
+          ClickResult.Pass
+        }
+        val unhandled: (ClickEvent) -> ClickResult = {
+          calls += "unhandled"
+          ClickResult.Pass
+        }
+        val rowHandler: FeatureClickHandler = {
+          calls += "row"
+          ClickResult.Pass
+        }
+        val layerHandler: FeatureClickHandler = {
+          calls += "layer"
+          ClickResult.Pass
+        }
+        fixture.revision.value =
+          StyleSnapshot(
+            emptyList(),
+            listOf(
+              fixture
+                .node("front", layerHandler)
+                .copy(
+                  interactions =
+                    featureInteractions {
+                      click(layerHandler)
+                      doubleClick(layerHandler)
+                      longClick(layerHandler)
+                    }
+                )
+            ),
+            emptyList(),
+          )
+        fixture.configure(
+          MapInteractions {
+            callbacks {
+              click {
+                onEvent(eventHandler)
+                onUnhandled(unhandled)
+              }
+              doubleClick {
+                onEvent(eventHandler)
+                onUnhandled(unhandled)
+              }
+              longClick {
+                onEvent(eventHandler)
+                onUnhandled(unhandled)
+              }
+              features {
+                on("front") {
+                  click(rowHandler)
+                  doubleClick(rowHandler)
+                  longClick(rowHandler)
+                }
+              }
+            }
+          }
+        )
+        val taps =
+          TapDispatcher(
+            backgroundScope,
+            fixture.dispatcher::capture,
+            fixture.dispatcher::hasHandlers,
+            { InputConfiguration(fixture.gestures.value, InteractionBindings.standard()) },
+          )
+        val done = CompletableDeferred<Unit>()
+        taps.dispatch(family, fixture.sample) {
+          calls += "camera"
+          done.complete(Unit)
+        }
+        done.await()
+        assertEquals(listOf("event", "row", "layer", "unhandled", "camera"), calls, family.name)
+      }
+    }
+  }
+
+  private class Fixture(layerIds: List<String> = listOf("back", "front")) : AutoCloseable {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = QueryAdapter()
@@ -375,10 +694,7 @@ class MapClickDispatcherTest {
     }
 
     val revision = mutableStateOf<StyleSnapshot?>(null)
-    val style =
-      mutableStateOf<StyleBinding?>(
-        RecordingStyleBinding(layers = listOf(layer("back"), layer("front")))
-      )
+    val style = mutableStateOf<StyleBinding?>(RecordingStyleBinding(layers = layerIds.map(::layer)))
     val dispatcher: FeatureClickDispatcher
     val sample =
       GesturePointerSample(
@@ -416,8 +732,13 @@ class MapClickDispatcherTest {
       )
     }
 
-    fun node(id: String, handler: FeaturesClickHandler) =
-      StyleSnapshot.Layer(layer(id).definition(), Anchor.Top, handler, null, registration = Any())
+    fun node(id: String, handler: FeatureClickHandler) =
+      StyleSnapshot.Layer(
+        layer(id).definition(),
+        Anchor.Top,
+        featureInteractions { click(handler) },
+        registration = Any(),
+      )
 
     override fun close() {
       state.close()
@@ -429,7 +750,7 @@ class MapClickDispatcherTest {
     val featureOffsets = mutableMapOf<String, DpOffset>()
     val entered = CompletableDeferred<Unit>()
     var gate: CompletableDeferred<Unit>? = null
-    val layerQueries = mutableListOf<Map<String, Dp>>()
+    val layerQueries = mutableListOf<Set<FeatureQuery>>()
 
     init {
       currentViewport =
@@ -449,10 +770,10 @@ class MapClickDispatcherTest {
 
     override suspend fun queryRenderedFeaturesByLayer(
       offset: DpOffset,
-      hitPadding: Map<String, Dp>,
-    ): Map<String, List<Feature<Geometry, JsonObject?>>> {
-      layerQueries += hitPadding
-      return super.queryRenderedFeaturesByLayer(offset, hitPadding)
+      queries: Set<FeatureQuery>,
+    ): Map<FeatureQuery, List<Feature<Geometry, JsonObject?>>> {
+      layerQueries += queries
+      return super.queryRenderedFeaturesByLayer(offset, queries)
     }
 
     override suspend fun queryRenderedFeatures(
@@ -483,6 +804,10 @@ class MapClickDispatcherTest {
   }
 
   companion object {
+    private fun featureInteractions(
+      block: FeatureInteractionsBuilder.() -> Unit
+    ): FeatureInteractions = FeatureInteractionsBuilder().apply(block).build()
+
     private fun layer(id: String) =
       TestLayer(id, JsonObject(mapOf("type" to JsonPrimitive("circle"))))
   }

@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -40,6 +39,7 @@ import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.styleFontScale
@@ -452,10 +452,7 @@ private fun rememberEmContext(textSize: Expression<TextUnitValue>): LayerExpress
  *
  *   Ignored if [textField] is not specified.
  *
- * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
- * @param onDoubleClick Called for a double tap or double click on this layer.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Feature click handlers and hit padding for this layer.
  */
 @Composable
 @MaplibreComposable
@@ -565,10 +562,7 @@ public fun SymbolLayer(
   textTranslate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   textTranslateTransition: TransitionOptions? = null,
   textTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   // Scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057.
   val contextWithDpTextSize = rememberDpContext()
@@ -579,10 +573,7 @@ public fun SymbolLayer(
     source = source,
     type = "symbol",
     filterUnsupportedProperties = true,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   ) {
     root("source-layer", JsonPrimitive(sourceLayer))
     root("minzoom", JsonPrimitive(minZoom))

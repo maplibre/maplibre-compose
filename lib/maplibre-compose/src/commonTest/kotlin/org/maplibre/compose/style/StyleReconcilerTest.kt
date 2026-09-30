@@ -305,7 +305,7 @@ class StyleReconcilerTest {
   private fun revision(source: RasterTileSource, layer: TestLayer) =
     StyleSnapshot(
       sources = listOf(source.definition()),
-      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
       images = emptyList(),
     )
 
