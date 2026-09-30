@@ -132,12 +132,23 @@ class BrowserImageSourceTest {
             if (released) respond() else pending.add(respond)
           }
         }
+        val urlOnly = fixture.state.style.sources.add(ImageSource("url-only", WORLD, GREEN_IMAGE))
+        var urlOnlyLoads = 0
+        val urlOnlyLoading =
+          map.subscribe("sourcedataloading") {
+            if (it.sourceId == "url-only") urlOnlyLoads++
+          }
         try {
           handle.setUri("test-image://green")
-          fixture.pumpUntil("the replacement request to start") { pending.isNotEmpty() }
+          urlOnly.setUri("test-image://url-only")
+          fixture.pumpUntil("the replacement requests to start") { pending.size >= 2 }
           restoreContext()
           released = true
           pending.forEach { it() }
+          fixture.pumpUntil("the URL-only source to finish loading") {
+            map.isSourceLoaded("url-only") == true
+          }
+          assertEquals(2, urlOnlyLoads, "only GL JS reloads the source without fallback pixels")
           fixture.pumpUntilPixel("the successful URL after context restoration", 256, 256, GREEN)
           restoreContext()
           fixture.pumpUntilPixel(
@@ -147,6 +158,7 @@ class BrowserImageSourceTest {
             GREEN,
           )
         } finally {
+          urlOnlyLoading.cancel()
           removeProtocol("test-image")
         }
       } finally {

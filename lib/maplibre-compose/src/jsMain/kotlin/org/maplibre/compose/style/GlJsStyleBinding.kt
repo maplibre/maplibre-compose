@@ -511,9 +511,13 @@ internal class GlJsStyleBinding(
   override fun setImageSourceUrl(sourceId: String, url: String) {
     requireLoaded()
     val source = map.getSource<GlJsImageSource>(sourceId) ?: return
+    // Only prepared pixels need fallback recovery while their replacement URL loads.
     // An empty URL cancels a pending request without replacing the image in GL JS.
-    if (url.isEmpty()) pendingImageSourceUrls.remove(sourceId)
-    else pendingImageSourceUrls[sourceId] = PendingImageSourceUrl(source, url)
+    if (url.isNotEmpty() && sourceId in imageSourceImages) {
+      pendingImageSourceUrls[sourceId] = PendingImageSourceUrl(source, url)
+    } else {
+      pendingImageSourceUrls.remove(sourceId)
+    }
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
     source.updateImage(options)
   }
