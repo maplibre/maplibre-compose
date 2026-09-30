@@ -5,6 +5,10 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import js.buffer.ArrayBuffer
+import js.objects.unsafeJso
+import js.typedarrays.Uint8Array
+import kotlin.io.encoding.Base64
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,6 +18,9 @@ import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.gljs.GlJsImageSource
+import org.maplibre.compose.gljs.ProtocolResponse
+import org.maplibre.compose.gljs.addProtocol
+import org.maplibre.compose.gljs.removeProtocol
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
@@ -46,6 +53,7 @@ class BrowserImageSourceTest {
       assertEquals(255, added.image.data[0] as Int, "red")
       assertEquals(undefined, added.serialize().url, "no URL stands in for the pixels")
 
+      handle.setUri(GREEN_IMAGE)
       handle.setImage(solid(Color.Green))
       val updated = source()
       assertEquals(0, updated.image.data[0] as Int, "no red after the update")
@@ -55,7 +63,7 @@ class BrowserImageSourceTest {
 
   /** GL JS rebuilds a lost context from the serialized style, which has no image source pixels. */
   @Test
-  fun pixels_survive_a_failed_url_and_lost_webgl_context(): MapTestResult = runMapTest {
+  fun pixels_survive_url_replacements_and_lost_webgl_context(): MapTestResult = runMapTest {
     awaitSkia()
     createMapFixture().use { fixture ->
       fixture.loadStyle(BLACK_STYLE)
@@ -86,14 +94,61 @@ class BrowserImageSourceTest {
       var restoredStyles = 0
       val lostSubscription = map.subscribe("webglcontextlost") { lost = true }
       val styleLoads = map.subscribe("style.load") { if (lost) restoredStyles++ }
-      try {
+      suspend fun restoreContext() {
+        lost = false
+        val before = restoredStyles
         extension.loseContext()
         fixture.pumpUntil("context loss") { lost }
         extension.restoreContext()
-        fixture.pumpUntil("the style rebuilt after context restoration") { restoredStyles > 0 }
+        fixture.pumpUntil("the style rebuilt after context restoration") { restoredStyles > before }
+      }
+      try {
+        restoreContext()
         val restored = map.getSource<GlJsImageSource>("image").asDynamic()
         assertIs<ImageData>(restored.image, "the rebuilt source has its pixels again")
         fixture.pumpUntilPixel("the image after context restoration", 256, 256, RED)
+
+        // Hold the successful replacement until the style has been rebuilt with fallback pixels.
+        val png = Base64.decode(GREEN_IMAGE.substringAfter(','))
+        val bytes = Uint8Array<ArrayBuffer>(png.size)
+        png.forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
+        val response = unsafeJso<ProtocolResponse> { data = bytes.buffer }
+        val pending = mutableListOf<() -> Unit>()
+        var released = false
+        addProtocol("test-image") { _, controller ->
+          Promise { resolve, reject ->
+            controller
+              .asDynamic()
+              .signal
+              .addEventListener(
+                "abort",
+                {
+                  reject(js("new DOMException('Aborted', 'AbortError')").unsafeCast<Throwable>())
+                },
+              )
+            val respond = {
+              if (controller.asDynamic().signal.aborted != true) resolve(response)
+            }
+            if (released) respond() else pending.add(respond)
+          }
+        }
+        try {
+          handle.setUri("test-image://green")
+          fixture.pumpUntil("the replacement request to start") { pending.isNotEmpty() }
+          restoreContext()
+          released = true
+          pending.forEach { it() }
+          fixture.pumpUntilPixel("the successful URL after context restoration", 256, 256, GREEN)
+          restoreContext()
+          fixture.pumpUntilPixel(
+            "the successful URL after another context restoration",
+            256,
+            256,
+            GREEN,
+          )
+        } finally {
+          removeProtocol("test-image")
+        }
       } finally {
         lostSubscription.cancel()
         styleLoads.cancel()
@@ -112,6 +167,9 @@ class BrowserImageSourceTest {
   }
 
   private companion object {
+    const val GREEN_IMAGE =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg=="
+    val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
     val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
 
     val WORLD =

@@ -92,12 +92,17 @@ internal class GlJsStyleBinding(
    * these are applied again.
    */
   private val imageSourceImages = mutableMapOf<String, PreparedImage>()
-  private val pendingImageSourceUrls = mutableMapOf<String, GlJsImageSource>()
+
+  private class PendingImageSourceUrl(val source: GlJsImageSource, val url: String)
+
+  private val pendingImageSourceUrls = mutableMapOf<String, PendingImageSourceUrl>()
   private val imageSourceLoads =
     map.subscribe("sourcedata") { event ->
       val id = event.sourceId ?: return@subscribe
-      val source = pendingImageSourceUrls[id] ?: return@subscribe
-      if (event.sourceDataType == "metadata" && map.getSource<GlJsImageSource>(id) === source) {
+      val pending = pendingImageSourceUrls[id] ?: return@subscribe
+      if (
+        event.sourceDataType == "metadata" && map.getSource<GlJsImageSource>(id) === pending.source
+      ) {
         pendingImageSourceUrls.remove(id)
         imageSourceImages.remove(id)
       }
@@ -160,7 +165,6 @@ internal class GlJsStyleBinding(
   private val contextLost =
     map.subscribe("webglcontextlost") {
       restoringContext = true
-      pendingImageSourceUrls.clear()
     }
   private val contextStyleLoaded =
     map.subscribe("style.load") {
@@ -177,7 +181,11 @@ internal class GlJsStyleBinding(
           if (map.getLayer(id) != null) before = id
         }
         layerOrder = map.getLayersOrder().toList()
+        val pendingUrls = pendingImageSourceUrls.toMap()
+        pendingImageSourceUrls.clear()
         imageSourceImages.forEach { (id, image) -> updateImageSource(id, image) }
+        // Applying fallback pixels cancels the rebuilt source's URL request. Start it again.
+        pendingUrls.forEach { (id, pending) -> setImageSourceUrl(id, pending.url) }
         map.triggerRepaint()
       }
     }
@@ -505,7 +513,7 @@ internal class GlJsStyleBinding(
     val source = map.getSource<GlJsImageSource>(sourceId) ?: return
     // An empty URL cancels a pending request without replacing the image in GL JS.
     if (url.isEmpty()) pendingImageSourceUrls.remove(sourceId)
-    else pendingImageSourceUrls[sourceId] = source
+    else pendingImageSourceUrls[sourceId] = PendingImageSourceUrl(source, url)
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
     source.updateImage(options)
   }
