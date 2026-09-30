@@ -29,6 +29,7 @@ import org.maplibre.compose.gljs.GlJsVectorSource
 import org.maplibre.compose.gljs.JsRecord
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.LightSpecification
+import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.ProjectionSpecification
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
@@ -489,8 +490,14 @@ internal class GlJsStyleBinding(
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     requireLoaded()
-    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
-    map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
+    posted("Image source '$sourceId' bounds", null) {
+      mutate("set the bounds of image source '$sourceId'") {
+        // GL JS stores the coordinates before validating them. Validate before changing the source.
+        coordinates.forEach { LngLat(it.longitude, it.latitude) }
+        val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+        map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
+      }
+    }
   }
 
   override fun submitGeoJsonData(

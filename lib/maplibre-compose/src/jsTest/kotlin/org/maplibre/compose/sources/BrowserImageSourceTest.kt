@@ -92,6 +92,22 @@ class BrowserImageSourceTest {
     }
   }
 
+  @Test
+  fun rejected_bounds_keep_the_previous_coordinates_without_throwing(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      val source = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
+      val before = js("JSON.stringify")(source.coordinates) as String
+
+      handle.setBounds(WORLD.copy(topLeft = Position(0.0, 91.0)))
+
+      assertEquals(before, js("JSON.stringify")(source.coordinates) as String)
+    }
+  }
+
   /** Skia backs every Compose bitmap in the browser; an earlier test may not have loaded it. */
   private suspend fun awaitSkia() =
     Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }.await()
