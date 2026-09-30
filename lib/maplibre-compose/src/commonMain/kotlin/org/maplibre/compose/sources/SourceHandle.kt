@@ -16,7 +16,8 @@ import org.maplibre.spatialk.geojson.Geometry
  * Access to a source in one loaded style generation. Feature state and invalidation remain
  * available when composition owns the source definition. Handles expire on removal, replacement, or
  * a base-style reload. Native feature-state writes and invalidations return without waiting for the
- * engine. Rejected writes are logged and retain the previous state.
+ * engine. Rejected writes are logged and retain the previous state. Operations on an expired handle
+ * or an unready style throw [StyleHandleException].
  */
 public sealed interface SourceHandle {
   public val id: String

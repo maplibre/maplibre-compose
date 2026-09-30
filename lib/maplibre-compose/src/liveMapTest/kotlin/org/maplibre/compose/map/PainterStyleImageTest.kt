@@ -18,6 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageStretch
@@ -59,7 +60,7 @@ class PainterStyleImageTest {
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Blue), Density(2f), LayoutDirection.Rtl),
       )
       val replacement = assertNotNull(images["marker"]?.asMutable)
-      assertFailsWith<IllegalStateException> { handle.remove() }
+      assertFailsWith<StyleHandleException> { handle.remove() }
       replacement.remove()
       assertNull(images["marker"])
     }

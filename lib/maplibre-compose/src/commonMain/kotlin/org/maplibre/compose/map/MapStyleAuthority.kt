@@ -22,6 +22,7 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.summary
 
 /**
@@ -354,15 +355,11 @@ internal class MapStyleAuthority(
       requireStyleHandle(binding)
       val read = StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
       val sources =
-        checkNotNull(
-          binding.awaitOwner {
-            pending?.invoke()
-            pending = null
-            style.readSources(binding)
-          }
-        ) {
-          "The loaded style changed before the command ran"
-        }
+        binding.awaitOwner {
+          pending?.invoke()
+          pending = null
+          style.readSources(binding)
+        } ?: throw StyleHandleException("The loaded style changed before the command ran")
       requireStyleHandle(binding)
       if (styleSourceChangeRevision != read.sourceChangeRevision) continue
       style.updateSources(sources)
@@ -390,7 +387,9 @@ internal class MapStyleAuthority(
 
   private fun requireStyleHandle(binding: StyleBinding) {
     requireOpen()
-    check(style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)) {
+    checkStyleHandle(
+      style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)
+    ) {
       "Style operation belongs to a stale or unready loaded-style identity"
     }
   }
@@ -445,7 +444,7 @@ internal class MapStyleAuthority(
   }
 
   private fun requireOpen() {
-    check(!lifecycle.isClosed) { "The map state is closed" }
+    checkStyleHandle(!lifecycle.isClosed) { "The map state is closed" }
   }
 
   private data class BaseStyleCommand(

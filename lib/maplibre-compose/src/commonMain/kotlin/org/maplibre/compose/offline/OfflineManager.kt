@@ -97,6 +97,10 @@ public interface OfflineManager {
 public sealed interface OfflineManagerState {
   public data object Loading : OfflineManagerState
 
+  /**
+   * Initialization succeeded, with the current [packs]. This state can remain after the runtime
+   * closes; it does not indicate whether the manager accepts operations.
+   */
   public data class Ready(public val packs: Set<OfflinePack>) : OfflineManagerState
 
   public data class Failed(public val cause: Throwable) : OfflineManagerState

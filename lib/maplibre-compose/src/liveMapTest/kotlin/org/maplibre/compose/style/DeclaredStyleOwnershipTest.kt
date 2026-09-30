@@ -55,7 +55,7 @@ class DeclaredStyleOwnershipTest {
         JsonPrimitive("circle"),
         assertNotNull(fixture.state.style.layers["points"]).getProperty("type"),
       )
-      assertFailsWith<IllegalStateException> { original.getFeatureState("0") }
+      assertFailsWith<StyleHandleException> { original.getFeatureState("0") }
     }
   }
 
@@ -93,7 +93,7 @@ class DeclaredStyleOwnershipTest {
         assertEquals(3, handle.getClusterLeaves(cluster, 10, 0).features.size)
 
         fixture.loadStyle(BaseStyle.Empty)
-        assertFailsWith<IllegalStateException> { handle.getFeatureState("0") }
+        assertFailsWith<StyleHandleException> { handle.getFeatureState("0") }
       }
     }
 

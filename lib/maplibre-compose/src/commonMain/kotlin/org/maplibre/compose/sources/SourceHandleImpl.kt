@@ -10,6 +10,7 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -53,7 +54,7 @@ protected constructor(
   private fun requireCurrent() {
     style.requireCurrent(identity)
     val actualKind = currentKind()
-    check(actualKind != null && (expectedKind == null || actualKind == expectedKind)) {
+    checkStyleHandle(actualKind != null && (expectedKind == null || actualKind == expectedKind)) {
       "Source '$id' is no longer the $expectedKind source owned by this handle"
     }
   }

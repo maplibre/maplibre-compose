@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.INTERNAL_GLOBAL_STATE_PREFIX
+import org.maplibre.compose.style.StyleHandleException
 
 /**
  * Application values shared by expressions in the current loaded style.
@@ -32,7 +33,7 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
    * Arrays and objects are stored as data, not evaluated as style expressions. [JsonNull] restores
    * the style's default for [name], or null when no default exists.
    *
-   * @throws IllegalStateException if no style is ready.
+   * @throws StyleHandleException if no style is ready.
    */
   public fun setProperty(name: String, value: JsonElement) {
     require(!name.startsWith(INTERNAL_GLOBAL_STATE_PREFIX)) {

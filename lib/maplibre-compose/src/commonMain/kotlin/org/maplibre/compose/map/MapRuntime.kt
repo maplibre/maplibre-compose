@@ -84,6 +84,7 @@ import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
@@ -346,7 +347,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   /** Posts a write to the ready loaded style. The engine reports a rejection through the logger. */
   private fun mutateStyle(mutate: (StyleBinding) -> Unit) {
-    val current = checkNotNull(readyLoadedStyle()) { "No ready loaded style" }
+    val current = readyLoadedStyle() ?: throw StyleHandleException("No ready loaded style")
     operationGuard(current).run { mutate(current) }
   }
 

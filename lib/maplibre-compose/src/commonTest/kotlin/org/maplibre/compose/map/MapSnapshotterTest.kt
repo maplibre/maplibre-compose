@@ -35,6 +35,7 @@ import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.setImage
@@ -137,8 +138,8 @@ class MapSnapshotterTest {
       assertTrue(snapshotter.style.sources.none())
       snapshotter.style.sources.add(source)
       snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
-      assertFailsWith<IllegalStateException> { sourceHandle.remove() }
-      assertFailsWith<IllegalStateException> { imageHandle.remove() }
+      assertFailsWith<StyleHandleException> { sourceHandle.remove() }
+      assertFailsWith<StyleHandleException> { imageHandle.remove() }
       assertTrue(binding.sourceExists("imperative") == true)
       assertEquals(setOf("imperative"), binding.imageIds)
     }
@@ -205,7 +206,7 @@ class MapSnapshotterTest {
     desired = StyleSnapshot(listOf(replacement.definition()), emptyList(), emptyList())
     snapshotter.capture(request)
 
-    assertFailsWith<IllegalStateException> { stale.resetFeatureStates("layer") }
+    assertFailsWith<StyleHandleException> { stale.resetFeatureStates("layer") }
     assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }
@@ -234,11 +235,13 @@ class MapSnapshotterTest {
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     snapshotter.capture(MapSnapshotRequest(1, 1))
+    val handle = snapshotter.style.sources.add(attributedVectorSource("imperative"))
     blockCapture = true
     val capture = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
     captureStarted.await()
 
-    assertFailsWith<IllegalStateException> {
+    assertFailsWith<StyleHandleException> { handle.resetFeatureStates("layer") }
+    assertFailsWith<StyleHandleException> {
       snapshotter.style.setImage("crossing", FakeImageBitmap(1, 1))
     }
 
