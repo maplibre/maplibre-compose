@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Paint
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.await
@@ -18,6 +19,8 @@ import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.SourceInstallation
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -89,6 +92,36 @@ class BrowserImageSourceTest {
         lostSubscription.cancel()
         styleLoads.cancel()
       }
+    }
+  }
+
+  @Test
+  fun rejected_bounds_keep_the_previous_coordinates_and_definition(): MapTestResult = runMapTest {
+    awaitSkia()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      val source = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
+      val before = js("JSON.stringify")(source.coordinates) as String
+
+      val rejected = WORLD.copy(topLeft = Position(0.0, 91.0))
+      handle.setBounds(rejected)
+
+      assertEquals(before, js("JSON.stringify")(source.coordinates) as String)
+
+      val image = solid(Color.Red)
+      val initial = ImageSource("declarative", WORLD, image).definition()
+      val installation = SourceInstallation(style, initial)
+      val next = ImageSource("declarative", rejected, image).definition()
+      repeat(2) {
+        assertFailsWith<StyleMutationException> { installation.update(next) }
+        assertEquals(initial, installation.definition)
+      }
+      val accepted =
+        ImageSource("declarative", WORLD.copy(topLeft = Position(0.0, 80.0)), image).definition()
+      installation.update(accepted)
+      assertEquals(accepted, installation.definition)
     }
   }
 
