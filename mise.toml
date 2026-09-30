@@ -195,7 +195,15 @@ run = '.mise/bin/run-android-device-tests "$usage_api_level"'
 
 [tasks."ios-simulator:boot"]
 description = "Boot an iPhone simulator and print its UDID."
-run = ".mise/bin/boot-ios-simulator"
+usage = 'arg "[ios_version]" help="iOS version of the simulator runtime, e.g. 15.5. Defaults to a booted iPhone, else the newest runtime."'
+run = '.mise/bin/boot-ios-simulator ${usage_ios_version:+"$usage_ios_version"}'
+
+[tasks."ios-simulator:install-runtime"]
+description = "Install an iOS simulator runtime, such as 15.5 for the oldest supported iOS."
+usage = 'arg "<ios_version>"'
+# sudo may prompt for a password; mise otherwise pipes stdio.
+raw = true
+run = '.mise/bin/install-ios-simulator-runtime "$usage_ios_version"'
 
 [tasks."build:ios:device"]
 description = "Link the demo and classic benchmark frameworks for the iOS device target."
@@ -207,9 +215,10 @@ run = """
 
 [tasks."test:ios"]
 description = "Run the iOS simulator test suite."
+usage = 'arg "[ios_version]" help="iOS version of the simulator runtime, e.g. 15.5. Defaults to a booted iPhone, else the newest runtime."'
 depends = ["deps:classic-ios"]
 run = '''
-udid="$(.mise/bin/boot-ios-simulator)"
+udid="$(.mise/bin/boot-ios-simulator ${usage_ios_version:+"$usage_ios_version"})"
 ./gradlew iosSimulatorArm64Test -- --device "$udid"
 '''
 

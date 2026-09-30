@@ -1,24 +1,53 @@
 #!/usr/bin/env bash
 # Boots an iPhone simulator and prints its UDID. Idempotent. Diagnostics go to
 # stderr so the UDID can be captured with a command substitution.
+#
+# A booted iPhone is reused; otherwise the newest runtime's iPhone boots. With an
+# iOS version, such as 15.5, only iPhones on that simulator runtime qualify, and
+# one is created if the installed runtime has none.
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "iOS simulators run on macOS only." >&2
   exit 2
 fi
+if (($# > 1)); then
+  echo "Usage: boot-ios-simulator [ios-version]" >&2
+  exit 2
+fi
+version="${1:-}"
 
-# `simctl list` prints runtimes oldest first, so the last match is the newest.
-# Device names can contain parentheses, so read the UDID and state from the
-# last two groups: `iPhone SE (3rd generation) (UDID) (State)`.
-udid="$(
+# Available iPhones, grouped under `-- iOS <version> --` headers that
+# `simctl list` prints oldest first, restricted to one runtime if requested.
+iphones() {
   xcrun simctl list devices available iOS |
-    awk -F '[()]' '/ iPhone / && $(NF - 1) == "Booted" { print $(NF - 3); exit }'
-)"
+    awk -v header="-- iOS $version --" -v any="${version:+false}" '
+      /^-- / { matches = any != "false" || $0 == header; next }
+      matches && / iPhone / { print }
+    '
+}
+
+# The last match is on the newest runtime. Device names can contain
+# parentheses, so read the UDID and state from the last two groups:
+# `iPhone SE (3rd generation) (UDID) (State)`.
+udid="$(iphones | awk -F '[()]' '$(NF - 1) == "Booted" { print $(NF - 3); exit }')"
 if [[ -z "$udid" ]]; then
+  udid="$(iphones | awk -F '[()]' '$(NF - 1) == "Shutdown" { device = $(NF - 3) } END { print device }')"
+fi
+if [[ -z "$udid" && -n "$version" ]]; then
+  runtime="$(
+    xcrun simctl list runtimes available iOS |
+      awk -v name="iOS $version" 'index($0, name " (") == 1 { print $NF; exit }'
+  )"
+  if [[ -z "$runtime" ]]; then
+    echo "The iOS $version simulator runtime is not installed." >&2
+    echo "Install it with: mise run ios-simulator:install-runtime $version" >&2
+    exit 1
+  fi
+  echo "Creating an iOS $version simulator." >&2
   udid="$(
-    xcrun simctl list devices available iOS |
-      awk -F '[()]' '/ iPhone / && $(NF - 1) == "Shutdown" { device = $(NF - 3) } END { print device }'
+    xcrun simctl create "iPhone SE (3rd generation)" \
+      com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation "$runtime"
   )"
 fi
 if [[ -z "$udid" ]]; then

@@ -164,17 +164,19 @@ UI changes. Name any affected behavior that went unverified.
 has a caller workflow with its own required check and a tier workflow listing
 its jobs; each job's body is a reusable workflow. Draft PRs run Android API 36,
 JS, Linux x64 desktop, docs, hygiene, and iOS device compilation. Ready PRs add
-Android API 26, iOS simulator, macOS desktop, macOS Native ARM64, and Windows
-x64. Dependabot PRs, main, and manual runs include every variant.
+Android API 26, the iOS simulator on the runner's newest runtime, macOS desktop,
+macOS Native ARM64, and Windows x64. Dependabot PRs, main, and manual runs
+include every variant.
 
-The `ci:full` label adds the Linux and Windows ARM64 variants. They catch
-architecture-specific failures, so request the label for a change that could
-behave differently there: ABI or pointer layout, architecture-specific artifact
-selection, loading or linking, or toolchain and runner configuration. Shared
-Kotlin, existing FFI calls, and unrelated CI tasks are covered by the default
-tiers. When requesting it (`gh pr edit <number> --add-label 'ci:full'`), say in
-the PR which platform could fail and why. The label works on drafts, persists
-across pushes, and runs only the tiers the PR has not yet run.
+The `ci:full` label adds the Linux and Windows ARM64 variants and the iOS 15.5
+simulator. The ARM64 jobs catch architecture-specific failures, so request the
+label for a change that could behave differently there: ABI or pointer layout,
+architecture-specific artifact selection, loading or linking, or toolchain and
+runner configuration. Shared Kotlin, existing FFI calls, and unrelated CI tasks
+are covered by the default tiers. When requesting it
+(`gh pr edit <number> --add-label 'ci:full'`), say in the PR which platform
+could fail and why. The label works on drafts, persists across pushes, and runs
+only the tiers the PR has not yet run.
 
 ## Code review rules
 

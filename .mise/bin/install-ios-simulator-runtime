@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Installs an iOS simulator runtime, such as 15.5, for the selected Xcode.
+# Idempotent.
+#
+# Runtimes before iOS 16 are installer packages, which xcodes installs as
+# root. Apple's download index lists which Xcode and macOS versions still load
+# each runtime.
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "iOS simulators run on macOS only." >&2
+  exit 2
+fi
+if (($# != 1)); then
+  echo "Usage: install-ios-simulator-runtime <ios-version>" >&2
+  exit 2
+fi
+version="$1"
+
+installed() {
+  xcrun simctl list runtimes available iOS |
+    awk -v name="iOS $version" 'index($0, name " (") == 1 { found = 1 } END { exit !found }'
+}
+
+if installed; then
+  echo "The iOS $version simulator runtime is already installed." >&2
+  exit 0
+fi
+
+xcodes="$(command -v xcodes)" || {
+  echo "error: xcodes is not on PATH" >&2
+  echo "Install it with: mise install xcodes" >&2
+  exit 1
+}
+# Keep the multi-gigabyte archive off the home volume's Downloads folder, and
+# report disk space, which a CI runner has little of.
+download_dir="$(mktemp -d)"
+trap 'rm -rf -- "$download_dir"' EXIT
+df -h "$download_dir" >&2
+sudo "$xcodes" runtimes install "iOS $version" --directory "$download_dir" --no-color
+df -h "$download_dir" >&2
+
+if ! installed; then
+  echo "xcodes finished, but simctl does not list the iOS $version runtime." >&2
+  exit 1
+fi

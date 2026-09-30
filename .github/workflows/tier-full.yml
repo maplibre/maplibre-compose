@@ -10,12 +10,22 @@ on:
         description: Whether repository secrets are available to this run.
         type: boolean
         required: true
+      ios:
+        description: The ios job's matrix.
+        type: string
+        required: true
       desktop:
         description: The desktop job's matrix.
         type: string
         required: true
 
 jobs:
+  ios:
+    uses: ./.github/workflows/job-ios.yml
+    with:
+      matrix: ${{ inputs.ios }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
   desktop:
     uses: ./.github/workflows/job-desktop.yml
     with:
