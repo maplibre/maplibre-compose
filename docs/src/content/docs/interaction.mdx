@@ -44,8 +44,9 @@ Use `longClick` for a long press or secondary mouse click.
 
 ## Select layer features
 
-A layer's `onClick` receives the features under the pointer. Use `hitPadding`
-to make small features easier to select:
+A layer's `onClick` receives the layer's features at the click and can read the
+click's `position` and `screenOffset`. Use `hitPadding` to make small features,
+such as thin lines, easier to select by touch:
 
 <Code code={rememberedMapStyle(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 

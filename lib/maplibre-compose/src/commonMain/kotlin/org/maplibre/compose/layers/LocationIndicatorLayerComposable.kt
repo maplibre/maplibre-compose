@@ -264,4 +264,7 @@ internal data class LocationIndicatorProperties(
   val hitPadding: Dp,
 )
 
-internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler = { this() }
+internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler {
+  val onClick = this
+  return { onClick() }
+}

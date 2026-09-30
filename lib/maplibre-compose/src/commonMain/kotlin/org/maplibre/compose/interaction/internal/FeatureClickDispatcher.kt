@@ -1,8 +1,7 @@
 package org.maplibre.compose.interaction.internal
 
 import androidx.compose.runtime.State
-import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.dp
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.FeaturesClickHandler
@@ -56,43 +55,37 @@ internal class FeatureClickDispatcher(
       val layerIds =
         if (nodes.isNotEmpty() && style?.isLoaded == true) state.style.layerHandles().keys.toList()
         else emptyList()
+      val targets =
+        layerIds.asReversed().mapNotNull { id ->
+          nodes[id]?.takeIf { current(it)?.handler(family) != null }
+        }
+      if (targets.isEmpty()) return@ClickPath unhandled(family, event)
 
-      val dispatchedGroups = mutableSetOf<Any>()
-      for (id in layerIds.asReversed()) {
-        val node = nodes[id] ?: continue
-        if (node.clickGroup != null && node.clickGroup in dispatchedGroups) continue
-        if (current(node)?.handler(family) == null) continue
+      // Only layers with a handler for this click are queried, all in one engine visit.
+      val hits =
+        attachment.queryRenderedFeaturesByLayer(
+          event.screenOffset,
+          targets.associate { it.definition.id to it.hitPadding },
+        )
 
-        val offset = event.screenOffset
-        val padding = node.hitPadding
-        val features =
-          if (padding == 0.dp) attachment.queryRenderedFeatures(offset, setOf(node.definition.id))
-          else
-            attachment.queryRenderedFeatures(
-              DpRect(
-                offset.x - padding,
-                offset.y - padding,
-                offset.x + padding,
-                offset.y + padding,
-              ),
-              setOf(node.definition.id),
-            )
-
-        // A query suspends: resolve the current handler again before entering app code.
+      for (node in targets) {
+        // A query suspends, and a handler can change the map: check again before entering app code.
         if (!valid()) return@ClickPath ClickResult.Consume
         val handler = current(node)?.handler(family) ?: continue
-        if (features.isNotEmpty()) {
-          node.clickGroup?.let { dispatchedGroups.add(it) }
-          if (handler(features).consumed) return@ClickPath ClickResult.Consume
-        }
-        if (!valid()) return@ClickPath ClickResult.Consume
+        val features = hits[node.definition.id].orEmpty()
+        if (features.isEmpty()) continue
+        if (event.handler(features).consumed) return@ClickPath ClickResult.Consume
       }
+      if (!valid()) return@ClickPath ClickResult.Consume
 
-      if (family == TapFamily.Tap)
-        interactions.value.callbacks.unhandledClick?.invoke(event) ?: ClickResult.Pass
-      else ClickResult.Pass
+      unhandled(family, event)
     }
   }
+
+  private fun unhandled(family: TapFamily, event: ClickEvent): ClickResult =
+    if (family == TapFamily.Tap)
+      interactions.value.callbacks.unhandledClick?.invoke(event) ?: ClickResult.Pass
+    else ClickResult.Pass
 }
 
 private fun StyleSnapshot.Layer.handler(family: TapFamily): FeaturesClickHandler? =

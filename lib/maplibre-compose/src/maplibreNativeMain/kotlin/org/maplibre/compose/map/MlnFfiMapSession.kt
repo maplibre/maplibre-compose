@@ -4,6 +4,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -1872,16 +1873,30 @@ internal class MlnFfiMapSession(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    query(
-      RenderedQueryGeometry.Box(
-        ScreenBox(
-          min = DpOffset(rect.left, rect.top).toScreenPoint(),
-          max = DpOffset(rect.right, rect.bottom).toScreenPoint(),
-        )
-      ),
-      layerIds,
-      predicate,
+  ): List<Feature<Geometry, JsonObject?>> = query(rect.toQueryGeometry(), layerIds, predicate)
+
+  /** Runs every layer's query in one render session visit instead of one visit per layer. */
+  override suspend fun queryRenderedFeaturesByLayer(
+    offset: DpOffset,
+    hitPadding: Map<String, Dp>,
+  ): Map<String, List<Feature<Geometry, JsonObject?>>> =
+    awaitRenderSession { session ->
+      hitPadding.mapValues { (id, padding) ->
+        val geometry =
+          if (padding == 0.dp) RenderedQueryGeometry.Point(offset.toScreenPoint())
+          else
+            DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
+              .toQueryGeometry()
+        session.query(geometry, setOf(id), null)
+      }
+    } ?: hitPadding.mapValues { emptyList() }
+
+  private fun DpRect.toQueryGeometry(): RenderedQueryGeometry =
+    RenderedQueryGeometry.Box(
+      ScreenBox(
+        min = DpOffset(left, top).toScreenPoint(),
+        max = DpOffset(right, bottom).toScreenPoint(),
+      )
     )
 
   /** Rendered feature state belongs to the render session, so a query without one is empty. */
@@ -1890,14 +1905,18 @@ internal class MlnFfiMapSession(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
-    awaitRenderSession { session ->
-      session
-        .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
-        .toGeoJsonFeatures()
-        // Native walks style layers from the bottom. MapState and GL JS put the feature in front
-        // first.
-        .asReversed()
-    } ?: emptyList()
+    awaitRenderSession { session -> session.query(geometry, layerIds, predicate) } ?: emptyList()
+
+  private fun RenderSessionHandle.query(
+    geometry: RenderedQueryGeometry,
+    layerIds: Set<String>?,
+    predicate: CompiledExpression<BooleanValue>?,
+  ): List<Feature<Geometry, JsonObject?>> =
+    queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+      .toGeoJsonFeatures()
+      // Native walks style layers from the bottom. MapState and GL JS put the feature in front
+      // first.
+      .asReversed()
 
   /**
    * Runs [action] on the renderer thread with the ready render session, and suspends until it
