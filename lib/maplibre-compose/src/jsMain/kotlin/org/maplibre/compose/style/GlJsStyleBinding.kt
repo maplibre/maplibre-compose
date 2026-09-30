@@ -29,7 +29,6 @@ import org.maplibre.compose.gljs.GlJsVectorSource
 import org.maplibre.compose.gljs.JsRecord
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.LightSpecification
-import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.ProjectionSpecification
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
@@ -491,8 +490,8 @@ internal class GlJsStyleBinding(
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
     requireLoaded()
     pendingImageSourceUrls.remove(sourceId)
-    updateImageSource(sourceId, image)
     imageSourceImages[sourceId] = image
+    updateImageSource(sourceId, image)
   }
 
   private fun updateImageSource(sourceId: String, image: PreparedImage) {
@@ -508,22 +507,13 @@ internal class GlJsStyleBinding(
     if (url.isEmpty()) pendingImageSourceUrls.remove(sourceId)
     else pendingImageSourceUrls[sourceId] = source
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
-    posted("Image source '$sourceId'", JsonPrimitive(url)) {
-      mutate("set the URL of image source '$sourceId'") { source.updateImage(options) }
-    }
+    source.updateImage(options)
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     requireLoaded()
-    posted("Image source '$sourceId' bounds", null) {
-      mutate("set the bounds of image source '$sourceId'") {
-        // setCoordinates stores its argument before validating it. Validate first so a rejection
-        // leaves the source's coordinates and rendering data together at their previous value.
-        coordinates.forEach { LngLat(it.longitude, it.latitude) }
-        val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
-        map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
-      }
-    }
+    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+    map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
   }
 
   override fun submitGeoJsonData(
