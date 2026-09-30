@@ -803,7 +803,10 @@ internal constructor(
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   internal val styleContent: @Composable @MaplibreComposable () -> Unit = {
-    CompositionLocalProvider(LocalMapState provides this, LocalViewport provides viewport) {
+    CompositionLocalProvider(
+      LocalMapState provides this,
+      LocalViewport providesComputed { viewport },
+    ) {
       content()
     }
   }

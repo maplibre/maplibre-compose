@@ -2,8 +2,8 @@ package org.maplibre.compose.benchmark
 
 /**
  * Window frame timings from the platform, collected during the measured window separately from the
- * engine's render events. They show UI thread stalls the map causes, such as during map creation,
- * that the workload's own frame callbacks cannot see.
+ * engine's render events. They describe actual window draws, which may be absent when the map
+ * renders to a separate surface.
  */
 interface BenchmarkUiFrames {
   fun start()
