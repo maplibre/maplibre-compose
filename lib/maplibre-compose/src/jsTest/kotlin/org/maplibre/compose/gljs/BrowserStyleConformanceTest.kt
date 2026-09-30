@@ -16,6 +16,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.testClickEvent
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LocationIndicatorLayer
@@ -190,9 +191,9 @@ class BrowserStyleConformanceTest {
     val indicator = checkNotNull(latest).layers.single()
     assertEquals("user", indicator.definition.id)
     assertEquals(8.dp, indicator.hitPadding)
-    assertEquals(ClickResult.Pass, indicator.onClick!!(emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onLongClick!!(emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onDoubleClick!!(emptyList()))
+    assertEquals(ClickResult.Pass, indicator.onClick!!(testClickEvent(), emptyList()))
+    assertEquals(ClickResult.Consume, indicator.onLongClick!!(testClickEvent(), emptyList()))
+    assertEquals(ClickResult.Consume, indicator.onDoubleClick!!(testClickEvent(), emptyList()))
   }
 
   @Composable

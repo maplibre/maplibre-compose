@@ -109,7 +109,6 @@ private fun LayerNode(
   hitPadding: Dp,
 ) {
   val anchor = LocalAnchor.current
-  val clickGroup = LocalLayerClickGroup.current
   key(definition.id, definition.type, definition.sourceId, definition.value["source-layer"]) {
     ComposeNode<LayerNode, MapNodeApplier>(
       factory = { LayerNode(definition, anchor) },
@@ -122,7 +121,6 @@ private fun LayerNode(
         set(onLongClick) { this.onLongClick = it }
         set(onDoubleClick) { this.onDoubleClick = it }
         set(hitPadding) { this.hitPadding = it }
-        set(clickGroup) { this.clickGroup = it }
       },
     )
   }

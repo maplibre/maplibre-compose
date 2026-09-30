@@ -19,6 +19,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.testClickEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.LocationMeasurement
@@ -228,9 +229,9 @@ class LocationIndicatorCompositionTest {
     waitForIdle()
     val node = checkNotNull(latest).layers.single()
     assertEquals(12.dp, node.hitPadding)
-    assertEquals(ClickResult.Pass, node.onClick!!(emptyList()))
-    assertEquals(ClickResult.Consume, node.onLongClick!!(emptyList()))
-    assertEquals(ClickResult.Consume, node.onDoubleClick!!(emptyList()))
+    assertEquals(ClickResult.Pass, node.onClick!!(testClickEvent(), emptyList()))
+    assertEquals(ClickResult.Consume, node.onLongClick!!(testClickEvent(), emptyList()))
+    assertEquals(ClickResult.Consume, node.onDoubleClick!!(testClickEvent(), emptyList()))
     assertEquals(listOf("click", "long", "double"), calls)
     runOnIdle { enabled = false }
     waitForIdle()

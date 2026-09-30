@@ -210,6 +210,49 @@ class MapQueryTest {
   }
 
   @Test
+  fun a_query_by_layer_returns_each_layers_features(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+      it.awaitMapReady()
+      it.pumpUntil("both overlapping sources to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).names() ==
+          setOf("front", "back")
+      }
+
+      val hits =
+        assertNotNull(it.state.currentMapAttachment)
+          .queryRenderedFeaturesByLayer(
+            CENTER,
+            mapOf("front-fill" to 0.dp, "back-fill" to 4.dp, "no-such-layer" to 0.dp),
+          )
+
+      assertEquals(setOf("front"), hits.getValue("front-fill").names())
+      assertEquals(setOf("back"), hits.getValue("back-fill").names())
+      assertTrue(hits.getValue("no-such-layer").isEmpty())
+    }
+  }
+
+  @Test
+  fun a_query_by_layer_reaches_features_within_the_padding(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
+      // At zoom 0, the 20° gap between the halves is about 28dp wide at the center.
+      it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
+      val attachment = assertNotNull(it.state.currentMapAttachment)
+
+      val point = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 0.dp))
+      val padded = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 20.dp))
+
+      assertTrue(point.getValue("test-fill").isEmpty())
+      assertEquals(setOf("west", "east"), padded.getValue("test-fill").names())
+    }
+  }
+
+  @Test
   fun a_queried_feature_keeps_its_geojson_id(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))

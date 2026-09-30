@@ -2,6 +2,7 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -336,57 +337,30 @@ class MapClickDispatcherTest {
   }
 
   @Test
-  fun grouped_layers_deliver_once_per_gesture_and_allow_fallthrough() = runTest {
-    for (family in
-      listOf(TapFamily.Tap, TapFamily.DoubleTap, TapFamily.LongPress, TapFamily.SecondaryClick)) {
-      Fixture().use { fixture ->
-        val calls = mutableListOf<String>()
-        val group = Any()
-        val nodes =
-          listOf("back", "front").map { id ->
-            val handler: FeaturesClickHandler = {
-              calls += id
-              ClickResult.Pass
-            }
-            fixture
-              .node(id, handler)
-              .copy(
-                onLongClick = handler,
-                onDoubleClick = handler,
-                clickGroup = group,
-              )
-          }
-        fixture.revision.value = StyleSnapshot(emptyList(), nodes, emptyList())
-        fixture.configure(
-          MapInteractions {
-            callbacks {
-              click {
-                onUnhandled {
-                  calls += "unhandled"
-                  ClickResult.Pass
-                }
-              }
-            }
-          }
-        )
-        repeat(2) {
-          assertEquals(
-            ClickResult.Pass,
-            fixture.dispatcher.capture(family)!!.deliver(fixture.event),
-          )
+  fun one_query_covers_every_layer_and_handlers_read_the_click() = runTest {
+    Fixture().use { fixture ->
+      val offsets = mutableListOf<DpOffset>()
+      val back =
+        fixture.node("back") {
+          offsets += screenOffset
+          ClickResult.Pass
         }
-        val expected =
-          if (family == TapFamily.Tap) listOf("front", "unhandled", "front", "unhandled")
-          else listOf("front", "front")
-        assertEquals(expected, calls)
-        calls.clear()
-        fixture.adapter.featureOffsets["front"] = DpOffset(100.dp, 100.dp)
-        fixture.dispatcher.capture(family)!!.deliver(fixture.event)
-        assertEquals(
-          if (family == TapFamily.Tap) listOf("back", "unhandled") else listOf("back"),
-          calls,
-        )
-      }
+      val front =
+        fixture
+          .node("front") {
+            offsets += screenOffset
+            ClickResult.Pass
+          }
+          .copy(hitPadding = 5.dp)
+      fixture.revision.value = StyleSnapshot(emptyList(), listOf(back, front), emptyList())
+
+      fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event)
+
+      assertEquals(
+        listOf(mapOf("front" to 5.dp, "back" to 0.dp)),
+        fixture.adapter.layerQueries,
+      )
+      assertEquals(listOf(fixture.event.screenOffset, fixture.event.screenOffset), offsets)
     }
   }
 
@@ -455,6 +429,7 @@ class MapClickDispatcherTest {
     val featureOffsets = mutableMapOf<String, DpOffset>()
     val entered = CompletableDeferred<Unit>()
     var gate: CompletableDeferred<Unit>? = null
+    val layerQueries = mutableListOf<Map<String, Dp>>()
 
     init {
       currentViewport =
@@ -470,6 +445,14 @@ class MapClickDispatcherTest {
           ),
           1.0,
         )
+    }
+
+    override suspend fun queryRenderedFeaturesByLayer(
+      offset: DpOffset,
+      hitPadding: Map<String, Dp>,
+    ): Map<String, List<Feature<Geometry, JsonObject?>>> {
+      layerQueries += hitPadding
+      return super.queryRenderedFeaturesByLayer(offset, hitPadding)
     }
 
     override suspend fun queryRenderedFeatures(

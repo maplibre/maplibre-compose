@@ -1,8 +1,10 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -163,6 +165,22 @@ internal interface MapAdapter {
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
   ): List<Feature<Geometry, JsonObject?>>
+
+  /**
+   * Queries each layer in [hitPadding] on its own around [offset]: a point for zero padding,
+   * otherwise a square of that radius. Returns each layer's features front first.
+   */
+  suspend fun queryRenderedFeaturesByLayer(
+    offset: DpOffset,
+    hitPadding: Map<String, Dp>,
+  ): Map<String, List<Feature<Geometry, JsonObject?>>> = hitPadding.mapValues { (id, padding) ->
+    if (padding == 0.dp) queryRenderedFeatures(offset, setOf(id))
+    else
+      queryRenderedFeatures(
+        DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding),
+        setOf(id),
+      )
+  }
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 

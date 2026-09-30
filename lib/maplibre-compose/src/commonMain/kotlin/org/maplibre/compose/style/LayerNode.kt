@@ -17,7 +17,6 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
   var onClick: FeaturesClickHandler? = null
   var onLongClick: FeaturesClickHandler? = null
   var onDoubleClick: FeaturesClickHandler? = null
-  var clickGroup: Any? = null
   var hitPadding: Dp = 0.dp
 
   private var previousDefinition: LayerDefinition? = null
@@ -70,7 +69,6 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
       onDoubleClick,
       hitPadding,
       registration,
-      clickGroup,
     )
   }
 

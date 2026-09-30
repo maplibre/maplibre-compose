@@ -40,6 +40,5 @@ internal data class StyleSnapshot(
     val onDoubleClick: FeaturesClickHandler? = null,
     val hitPadding: Dp = 0.dp,
     val registration: Any? = null,
-    val clickGroup: Any? = null,
   )
 }
