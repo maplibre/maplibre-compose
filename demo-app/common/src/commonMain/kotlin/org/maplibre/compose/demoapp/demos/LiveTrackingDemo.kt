@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,7 +16,9 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import kotlin.time.Duration
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -24,6 +27,8 @@ import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.LineCap
+import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.LocationIndicatorLayer
@@ -31,6 +36,7 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.LineString
@@ -40,7 +46,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 
 object LiveTrackingDemo : Demo {
   override val name = "Live tracking"
-  override val description = "A simulated ferry crosses Elliott Bay with a camera-follow toggle."
+  override val description = "Follow a ferry across Elliott Bay as its remaining route disappears."
   private val routeRegion =
     BoundingBox(west = -122.5195, south = 47.5925, east = -122.3298, north = 47.6321)
   override val destination = DemoDestination.FitBounds(routeRegion)
@@ -79,8 +85,10 @@ object LiveTrackingDemo : Demo {
 
   // Off by default so the initial flight runs uninterrupted.
   private var followVehicle by mutableStateOf(false)
-  private var vehiclePosition by mutableStateOf(route.first())
-  private var vehicleBearing by mutableStateOf(Bearing.North)
+  private var showRemainingCrossing by mutableStateOf(true)
+  private var crossing by mutableStateOf(Crossing(distance = 0.0, outbound = true))
+
+  private data class Crossing(val distance: Double, val outbound: Boolean)
 
   override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
     MapInteractions(settings) { camera { pan { onStart { followVehicle = false } } } }
@@ -147,11 +155,12 @@ object LiveTrackingDemo : Demo {
           val phase = traveled % (2 * routeLength)
           val outbound = phase < routeLength
           val distance = routeLength - abs(phase - routeLength)
-          vehiclePosition = positionAt(distance)
-          vehicleBearing = bearingAt(distance, outbound)
+          crossing = Crossing(distance, outbound)
         }
         if (followVehicle && !mapState.isCameraMoving) {
-          mapState.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
+          mapState.setCameraPosition(
+            mapState.cameraPosition.copy(target = positionAt(crossing.distance))
+          )
         }
       }
     }
@@ -169,11 +178,37 @@ object LiveTrackingDemo : Demo {
       dasharray = const(listOf(1, 2)),
     )
 
-    // The indicator's default transition eases the position and heading between frames.
+    val vehiclePosition = positionAt(crossing.distance)
+    if (showRemainingCrossing) {
+      val (index, _) = segmentAt(crossing.distance)
+      // Start at the animated position and keep only the vertices ahead of the ferry.
+      val remainingVertices =
+        if (crossing.outbound) route.drop(index + 1) else route.take(index + 1).asReversed()
+      val remainingSource =
+        rememberGeoJsonSource(
+          GeoJsonData.Features(
+            Feature(
+              geometry = LineString(listOf(vehiclePosition) + remainingVertices),
+              properties = null,
+            )
+          )
+        )
+      LineLayer(
+        id = "remaining-crossing",
+        source = remainingSource,
+        color = const(Color(0xFF0077B6)),
+        width = const(5.dp),
+        cap = const(LineCap.Round),
+        join = const(LineJoin.Round),
+      )
+    }
+
+    // Position and route share the frame clock, so the indicator must not add another animation.
     LocationIndicatorLayer(
       id = "ferry-vehicle",
       location = vehiclePosition,
-      bearing = vehicleBearing,
+      bearing = bearingAt(crossing.distance, crossing.outbound),
+      locationTransition = TransitionOptions(duration = Duration.ZERO),
     )
   }
 
@@ -188,6 +223,20 @@ object LiveTrackingDemo : Demo {
 
   @Composable
   override fun Panel(state: DemoAppState) {
+    val remainingMeters =
+      if (crossing.outbound) routeLength - crossing.distance else crossing.distance
+    val distanceLabel =
+      if (remainingMeters < 1000) "${remainingMeters.roundToInt()} m"
+      else "${(remainingMeters / 100).roundToInt() / 10.0} km"
+    ListItem(
+      headlineContent = { Text(if (crossing.outbound) "To Bainbridge Island" else "To Seattle") },
+      supportingContent = { Text("$distanceLabel remaining") },
+    )
+    SwitchRow(
+      label = "Show remaining crossing",
+      checked = showRemainingCrossing,
+      onCheckedChange = { showRemainingCrossing = it },
+    )
     Text(
       "Panning stops follow. Zooming and rotating keep it enabled.",
       modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
