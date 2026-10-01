@@ -20,7 +20,9 @@ import androidx.compose.ui.unit.toSize
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 internal actual suspend fun GraphicsLayer.captureImage(
   density: Density,
@@ -38,12 +40,14 @@ internal suspend fun GraphicsLayer.captureWithImageReader(
 ): ImageBitmap {
   val reader = ImageReader.newInstance(size.width, size.height, PixelFormat.RGBA_8888, 1)
   try {
-    return suspendCancellableCoroutine { continuation ->
+    val image = suspendCancellableCoroutine { continuation ->
       reader.setOnImageAvailableListener(
         { available ->
           try {
-            val bitmap = available.acquireLatestImage()?.use { it.copyBitmap() }
-            if (bitmap != null) continuation.resume(bitmap.asImageBitmap())
+            val image = available.acquireLatestImage()
+            if (image != null) {
+              continuation.resume(image) { _, image, _ -> image.close() }
+            }
           } catch (error: Exception) {
             continuation.resumeWithException(error)
           }
@@ -60,6 +64,7 @@ internal suspend fun GraphicsLayer.captureWithImageReader(
         reader.surface.unlockCanvasAndPost(canvas)
       }
     }
+    return image.use { withContext(Dispatchers.Default) { it.copyBitmap().asImageBitmap() } }
   } finally {
     reader.setOnImageAvailableListener(null, null)
     reader.close()

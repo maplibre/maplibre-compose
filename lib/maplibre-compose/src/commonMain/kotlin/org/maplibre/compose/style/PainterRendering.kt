@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
+import kotlinx.coroutines.withContext
+import org.maplibre.compose.util.imageBitmapContext
 import org.maplibre.compose.util.toImageBitmap
 
 internal fun validatePainterSize(painter: Painter, size: DpSize?) {
@@ -42,26 +44,29 @@ internal suspend fun renderPainter(
         ?: painter.intrinsicSize.takeOrElse { Size(16.dp.toPx(), 16.dp.toPx()) }
     }
   val layer = graphicsContext.createGraphicsLayer()
-  try {
-    layer.record(
-      density,
-      layoutDirection,
-      IntSize(ceil(pixels.width).toInt(), ceil(pixels.height).toInt()),
-    ) {
-      with(painter) { draw(pixels, alpha, colorFilter) }
+  val bitmap =
+    try {
+      layer.record(
+        density,
+        layoutDirection,
+        IntSize(ceil(pixels.width).toInt(), ceil(pixels.height).toInt()),
+      ) {
+        with(painter) { draw(pixels, alpha, colorFilter) }
+      }
+      layer.captureImage(density, layoutDirection)
+    } finally {
+      graphicsContext.releaseGraphicsLayer(layer)
     }
-    return layer.captureImage(density, layoutDirection).let { if (drawAsSdf) it.toSdf() else it }
-  } finally {
-    graphicsContext.releaseGraphicsLayer(layer)
-  }
+  return if (drawAsSdf) bitmap.toSdf() else bitmap
 }
 
-private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
-  val buffer = ceil(radius * (1.0 - cutoff)).toInt()
-  val w = width + 2 * buffer
-  val h = height + 2 * buffer
-  val pixels = IntArray(w * h)
-  readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
-  convertToSdf(pixels, w, radius, cutoff)
-  return pixels.toImageBitmap(w, pixels.size / w)
-}
+internal suspend fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap =
+  withContext(imageBitmapContext) {
+    val buffer = ceil(radius * (1.0 - cutoff)).toInt()
+    val w = width + 2 * buffer
+    val h = height + 2 * buffer
+    val pixels = IntArray(w * h)
+    readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
+    convertToSdf(pixels, w, radius, cutoff)
+    pixels.toImageBitmap(w, pixels.size / w)
+  }

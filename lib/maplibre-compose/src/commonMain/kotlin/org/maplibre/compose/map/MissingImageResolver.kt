@@ -65,6 +65,8 @@ public class ResolvedStyleImage(
      * [density] and [layoutDirection] describe the environment in which the painter draws. In
      * Compose, pass `LocalDensity.current` and `LocalLayoutDirection.current` from the caller's
      * composition. Rendering uses a standalone graphics context and releases it before returning.
+     * On Android, painter drawing and graphics-layer capture use the main thread; bitmap pixel
+     * reads and SDF conversion use background workers.
      *
      * [size] is in DP. When omitted, the painter's intrinsic pixel size is used, falling back to 16
      * by 16 DP. [drawAsSdf] converts the rendered pixels to a signed distance field for monochrome
