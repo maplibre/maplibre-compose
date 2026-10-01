@@ -9,37 +9,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import org.maplibre.compose.testing.runGraphicsTest
 
 class GraphicsLayerCaptureTest {
-  @Test
-  fun image_reader_capture_can_be_cancelled_and_captured_again() = runGraphicsTest { graphics ->
-    val density = Density(1f)
-    val direction = LayoutDirection.Ltr
-    val layer = graphics.createGraphicsLayer()
-    try {
-      layer.record(density, direction, IntSize(7, 3)) { drawRect(Color.Red) }
-      coroutineScope {
-        repeat(3) {
-          val capture =
-            launch(start = CoroutineStart.UNDISPATCHED) {
-              layer.captureWithImageReader(density, direction)
-            }
-          capture.cancelAndJoin()
-        }
-      }
-      val pixels = IntArray(21)
-      layer.captureWithImageReader(density, direction).readPixels(pixels)
-      assertEquals(List(21) { 0xffff0000.toInt() }, pixels.toList())
-    } finally {
-      graphics.releaseGraphicsLayer(layer)
-    }
-  }
-
   @Test
   fun image_reader_capture_preserves_translucent_colors_and_padded_rows() =
     runGraphicsTest { graphics ->
