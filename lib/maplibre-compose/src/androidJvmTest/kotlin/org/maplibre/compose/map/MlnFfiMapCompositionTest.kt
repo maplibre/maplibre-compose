@@ -778,7 +778,6 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  @OptIn(DelicateMapApi::class)
   fun a_replaced_map_composable_hands_its_state_to_the_replacement() = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
       var contentCompositions = 0

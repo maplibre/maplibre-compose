@@ -30,7 +30,6 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.ProjectionModeOptions
 import org.maplibre.spatialk.geojson.Position
 
-@OptIn(DelicateMapApi::class)
 class MlnFfiViewportTest {
   @Test
   fun ground_scale_uses_the_native_projection_in_logical_pixels() {

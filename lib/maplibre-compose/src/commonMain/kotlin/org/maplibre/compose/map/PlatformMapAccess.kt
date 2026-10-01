@@ -6,20 +6,10 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
-
-/** Marks direct platform-map access with a callback-scoped lifetime. */
-@RequiresOptIn(
-  message =
-    "The platform map is borrowed only for the withPlatformMap callback. " +
-      "Do not retain it or run long work in the callback.",
-  level = RequiresOptIn.Level.WARNING,
-)
-@Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
-public annotation class DelicateMapApi
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
 
 /** Provides callback-scoped access to the current platform engine map. */
-@DelicateMapApi public expect class PlatformMapScope
+@DelicateMaplibreComposeApi public expect class PlatformMapScope
 
 /**
  * Runs [block] on this logical map's engine owner context.
@@ -37,7 +27,7 @@ public annotation class DelicateMapApi
  * @throws kotlinx.coroutines.CancellationException if the map, engine, or Web attachment changes
  *   before [block] starts.
  */
-@DelicateMapApi
+@DelicateMaplibreComposeApi
 public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T
 
 /** Arbitrates cancellation against the start of one queued platform-map action. */

@@ -34,7 +34,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.nativeffi.map.MapHandle
 
-@OptIn(DelicateMapApi::class)
 class PlatformMapAccessTest {
   @Test
   fun a_renderer_can_offer_a_surface_before_the_session_starts() = runBlocking {

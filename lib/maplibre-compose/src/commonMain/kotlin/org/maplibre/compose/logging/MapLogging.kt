@@ -1,6 +1,7 @@
 package org.maplibre.compose.logging
 
 import kotlin.concurrent.Volatile
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
 
 /** Process-wide logging configuration for every map runtime. */
 public object MapLogging {
@@ -9,8 +10,12 @@ public object MapLogging {
    */
   public val platformLogger: MapLogger = platformMapLogger()
 
-  /** The sink for every record. Null drops every record. Defaults to [platformLogger]. */
-  @Volatile public var logger: MapLogger? = platformLogger
+  /**
+   * The sink for every record. Null drops every record. Defaults to [platformLogger].
+   *
+   * The logger runs on engine threads. See [MapLogger] for what an implementation may do.
+   */
+  @Volatile @set:DelicateMaplibreComposeApi public var logger: MapLogger? = platformLogger
 }
 
 internal expect fun platformMapLogger(): MapLogger

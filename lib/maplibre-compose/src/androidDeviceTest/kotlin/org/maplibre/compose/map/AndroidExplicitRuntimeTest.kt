@@ -9,7 +9,6 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 import org.maplibre.compose.style.BaseStyle
 
-@OptIn(DelicateMapApi::class)
 class AndroidExplicitRuntimeTest {
   @Test
   fun explicit_runtime_uses_the_application_context() = runBlocking {
