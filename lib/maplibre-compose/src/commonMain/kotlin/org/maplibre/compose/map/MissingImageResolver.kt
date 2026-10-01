@@ -46,7 +46,7 @@ public class ResolvedStyleImage(
     /**
      * Copies [image] into a [PreparedImage] on the calling thread, so prepare large images off the
      * main thread. Later changes to [image] do not change the result. Keep and reuse the result
-     * while the image is unchanged to avoid another upload.
+     * while the image is unchanged to avoid preparing another pixel copy.
      *
      * [sdf] indicates that the pixels already form a signed distance field; it does not convert
      * them. [stretch] defines the stretch and content box for an icon that wraps its text.
