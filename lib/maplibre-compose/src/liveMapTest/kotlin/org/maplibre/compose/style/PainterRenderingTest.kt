@@ -7,9 +7,12 @@ import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.graphics.GraphicsContext
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,6 +21,33 @@ import org.maplibre.compose.testing.runGraphicsTest
 
 /** Draws painters to real bitmaps, which the Android host JVM cannot create. */
 class PainterRenderingTest {
+
+  @Test
+  fun sdf_distances_and_padding_are_density_independent() = runGraphicsTest { graphics ->
+    for (scale in listOf(1, 2, 3)) {
+      val bitmap =
+        renderPainter(
+          ColorPainter(Color.White),
+          graphics,
+          Density(scale.toFloat()),
+          LayoutDirection.Ltr,
+          DpSize(16.dp, 16.dp),
+          true,
+          DefaultAlpha,
+          null,
+        )
+      // A 16 dp icon has 6 dp of distance-field padding on each side.
+      assertEquals(28 * scale, bitmap.width)
+      assertEquals(28 * scale, bitmap.height)
+      val pixels = IntArray(bitmap.width * bitmap.height)
+      bitmap.readPixels(pixels)
+      val row = bitmap.height / 2 * bitmap.width
+      // The field must encode the same distances in dp at every density.
+      assertEquals(128, pixels[row + 4 * scale] ushr 24) // 2 dp outside the icon
+      assertEquals(64, pixels[row + 2 * scale] ushr 24) // 4 dp outside the icon
+      assertEquals(0, pixels[row] ushr 24) // 6 dp outside the icon
+    }
+  }
 
   @Test
   fun capture_preserves_pixel_rows_at_non_aligned_widths() = runGraphicsTest { graphics ->

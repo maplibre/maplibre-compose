@@ -50,18 +50,26 @@ internal suspend fun renderPainter(
     ) {
       with(painter) { draw(pixels, alpha, colorFilter) }
     }
-    return layer.captureImage(density, layoutDirection).let { if (drawAsSdf) it.toSdf() else it }
+    return layer.captureImage(density, layoutDirection).let {
+      // MapLibre's SDF shaders interpret distances in logical pixels.
+      if (drawAsSdf) it.toSdf(with(density) { 8.dp.toPx().toDouble() }) else it
+    }
   } finally {
     graphicsContext.releaseGraphicsLayer(layer)
   }
 }
 
-private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
+private fun ImageBitmap.toSdf(radius: Double, cutoff: Double = 0.25): ImageBitmap {
   val buffer = ceil(radius * (1.0 - cutoff)).toInt()
   val w = width + 2 * buffer
   val h = height + 2 * buffer
   val pixels = IntArray(w * h)
-  readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
+  // Skiko's browser readback leaves stride padding uninitialized. Copy only the image pixels.
+  val imagePixels = IntArray(width * height)
+  readPixels(imagePixels)
+  for (y in 0..<height) {
+    imagePixels.copyInto(pixels, (y + buffer) * w + buffer, y * width, (y + 1) * width)
+  }
   convertToSdf(pixels, w, radius, cutoff)
   return pixels.toImageBitmap(w, pixels.size / w)
 }
