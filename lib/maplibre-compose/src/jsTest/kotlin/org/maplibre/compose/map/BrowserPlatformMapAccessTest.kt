@@ -15,7 +15,7 @@ import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.GlJsMapFixture
 
-@OptIn(DelicateMapApi::class, ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class)
 class BrowserPlatformMapAccessTest {
   @Test
   fun web_access_requires_a_current_presentation() = runBrowserMapTest {

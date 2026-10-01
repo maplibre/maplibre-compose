@@ -1,10 +1,10 @@
 package org.maplibre.compose.demoapp.benchmark
 
-import org.maplibre.compose.map.DelicateMapApi
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.withPlatformMap
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
 
-@OptIn(DelicateMapApi::class)
+@OptIn(DelicateMaplibreComposeApi::class)
 internal actual suspend fun benchmarkRequestRepaint(state: MapState) {
   state.withPlatformMap { map.triggerRepaint() }
 }
