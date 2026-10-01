@@ -45,15 +45,16 @@ public class PreparedImage internal constructor(internal val pixels: EnginePixel
 }
 
 /**
- * Reads [bitmap] on the calling thread and converts it in [enginePixelsContext]. Style image
+ * Reads [bitmap] in [imageBitmapContext] and converts it in [enginePixelsContext]. Style image
  * literals are deduplicated by content, so the content hash is computed there too.
  */
-internal suspend fun prepareInEngineContext(bitmap: ImageBitmap): PreparedImage {
-  val read = bitmap.readStraightArgb()
-  return withContext(enginePixelsContext) {
-    PreparedImage(enginePixels(read.width, read.height, read.argb).also { it.hashCode() })
+internal suspend fun prepareInEngineContext(bitmap: ImageBitmap): PreparedImage =
+  withContext(imageBitmapContext) {
+    val read = bitmap.readStraightArgb()
+    withContext(enginePixelsContext) {
+      PreparedImage(enginePixels(read.width, read.height, read.argb).also { it.hashCode() })
+    }
   }
-}
 
 private class StraightArgb(val width: Int, val height: Int, val argb: IntArray)
 

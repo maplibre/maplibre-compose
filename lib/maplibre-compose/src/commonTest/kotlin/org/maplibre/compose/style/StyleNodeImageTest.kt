@@ -159,7 +159,16 @@ class StyleNodeImageTest {
   fun bitmap_literals_are_read_in_the_image_scope_not_during_commit() = runTest {
     val bitmap = FakeImageBitmap(2, 1)
     val snapshots = mutableListOf<StyleSnapshot>()
-    val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { snapshots += it })
+    val prepared = CompletableDeferred<Unit>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        publish = {
+          snapshots += it
+          if (!it.imagesPending) prepared.complete(Unit)
+        },
+      )
     root.children +=
       imageLayer("bitmap", StyleImageRequest.Bitmap(BitmapLiteral.of(bitmap, false, null)))
     root.commit()
@@ -173,6 +182,7 @@ class StyleNodeImageTest {
     )
 
     runCurrent()
+    prepared.await()
     assertEquals(1, bitmap.reads)
     root.close()
   }
