@@ -50,13 +50,16 @@ internal suspend fun renderPainter(
     ) {
       with(painter) { draw(pixels, alpha, colorFilter) }
     }
-    return layer.captureImage(density, layoutDirection).let { if (drawAsSdf) it.toSdf() else it }
+    return layer.captureImage(density, layoutDirection).let {
+      // MapLibre's SDF shaders interpret distances in logical pixels.
+      if (drawAsSdf) it.toSdf(with(density) { 8.dp.toPx().toDouble() }) else it
+    }
   } finally {
     graphicsContext.releaseGraphicsLayer(layer)
   }
 }
 
-private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
+private fun ImageBitmap.toSdf(radius: Double, cutoff: Double = 0.25): ImageBitmap {
   val buffer = ceil(radius * (1.0 - cutoff)).toInt()
   val w = width + 2 * buffer
   val h = height + 2 * buffer
