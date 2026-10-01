@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.DefaultAlpha
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
@@ -42,6 +43,22 @@ public class ResolvedStyleImage(
     31 * (31 * image.hashCode() + sdf.hashCode()) + (stretch?.hashCode() ?: 0)
 
   public companion object {
+    /**
+     * Copies [image] into a [PreparedImage] on the calling thread, so prepare large images off the
+     * main thread. Later changes to [image] do not change the result. Keep and reuse the result
+     * while the image is unchanged to avoid preparing another pixel copy.
+     *
+     * [sdf] indicates that the pixels already form a signed distance field; it does not convert
+     * them. [stretch] defines the stretch and content box for an icon that wraps its text.
+     *
+     * @throws IllegalArgumentException if [image] has a zero width or height.
+     */
+    public fun fromBitmap(
+      image: ImageBitmap,
+      sdf: Boolean = false,
+      stretch: ImageStretch? = null,
+    ): ResolvedStyleImage = ResolvedStyleImage(PreparedImage.fromBitmap(image), sdf, stretch)
+
     /**
      * Renders [painter] once for a missing-image resolver or another imperative image operation.
      *

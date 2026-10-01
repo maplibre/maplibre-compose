@@ -4,7 +4,10 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.map.ResolvedStyleImage
 
@@ -20,6 +23,25 @@ class PreparedImageTest {
 
     assertEquals(1, bitmap.reads)
     assertEquals(image(2, 1, OPAQUE_RED, OPAQUE_GREEN).pixels, prepared.pixels)
+  }
+
+  @Test
+  fun bitmap_style_image_owns_its_pixels_and_preserves_options() {
+    val pixels = intArrayOf(OPAQUE_RED, OPAQUE_GREEN)
+    val bitmap = FakeImageBitmap(2, 1, pixels)
+    val stretch = ImageStretch.capInsets(1.dp, 1.dp, 1.dp, 1.dp)
+
+    val defaults = ResolvedStyleImage.fromBitmap(bitmap)
+    val styled = ResolvedStyleImage.fromBitmap(image = bitmap, sdf = true, stretch = stretch)
+    pixels[0] = OPAQUE_GREEN
+
+    assertEquals(2, bitmap.reads)
+    assertEquals(image(2, 1, OPAQUE_RED, OPAQUE_GREEN).pixels, defaults.image.pixels)
+    assertEquals(defaults.image.pixels, styled.image.pixels)
+    assertFalse(defaults.sdf)
+    assertNull(defaults.stretch)
+    assertTrue(styled.sdf)
+    assertEquals(stretch, styled.stretch)
   }
 
   @Test
