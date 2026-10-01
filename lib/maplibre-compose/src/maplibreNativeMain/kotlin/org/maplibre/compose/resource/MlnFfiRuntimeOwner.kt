@@ -5,6 +5,7 @@ import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLogBridge
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.compose.mlnffi.nativeNetworkMonitor
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
@@ -20,6 +21,7 @@ internal class MlnFfiRuntimeOwner
 private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
+  private val networkMonitor: AutoCloseable,
 ) : AutoCloseable {
 
   /**
@@ -29,7 +31,7 @@ private constructor(
    * request handles held by slower reads safely outlive the runtime and observe cancellation.
    */
   override fun close() {
-    runtime.use { provider.close() }
+    networkMonitor.use { runtime.use { provider.close() } }
   }
 
   companion object {
@@ -53,14 +55,22 @@ private constructor(
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
         RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
+      val networkMonitor =
+        try {
+          nativeNetworkMonitor.acquire()
+        } catch (error: Throwable) {
+          runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
+          throw error
+        }
       val provider =
         try {
           resourceProviderFactory(getLogger, resourceConfig)
         } catch (error: Throwable) {
           runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
+          runCatching { networkMonitor.close() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error
         }
-      val owner = MlnFfiRuntimeOwner(runtime, provider)
+      val owner = MlnFfiRuntimeOwner(runtime, provider, networkMonitor)
       return try {
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
