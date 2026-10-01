@@ -25,7 +25,7 @@ class ImageProcessingThreadTest {
   @Test
   fun sdf_conversion_reads_pixels_off_main() = runBlocking {
     val bitmap = BackgroundReadBitmap(intArrayOf(0xffffffff.toInt()).toImageBitmap(1, 1))
-    val sdf = withContext(Dispatchers.Main) { bitmap.toSdf() }
+    val sdf = withContext(Dispatchers.Main) { bitmap.toSdf(radius = 8.0) }
     assertEquals(13, sdf.width)
     assertEquals(13, sdf.height)
     val pixels = IntArray(13 * 13)
