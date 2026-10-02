@@ -50,7 +50,7 @@ class HostTest(unittest.TestCase):
                     root,
                     "/app.log",
                 )
-            collector.poll.assert_called_once()
+            collector.poll_log.assert_called_once_with(root / "logcat.log")
             self.assertAlmostEqual(report["map_presentation"]["fps"], 60, places=5)
 
     def test_harness_compiles_without_the_demo_app(self):

@@ -1,12 +1,18 @@
 package org.maplibre.compose.benchmark
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.FrameMetrics
 import android.view.Window
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
@@ -15,7 +21,10 @@ import kotlinx.serialization.encodeToString
  * and its deadline. Observes actual window draws without requesting frames. A map rendering to its
  * own surface can produce no window frames during a measurement.
  */
-class AndroidUiFrames(private val window: Window) : BenchmarkUiFrames {
+class AndroidUiFrames(
+  private val window: Window,
+  private val capturePresentation: Boolean = false,
+) : BenchmarkUiFrames {
   private var finish: (suspend () -> Unit)? = null
   @Volatile private var endNs: Long = Long.MAX_VALUE
 
@@ -69,7 +78,29 @@ class AndroidUiFrames(private val window: Window) : BenchmarkUiFrames {
     val action = finish ?: return
     finish = null
     if (endNs == Long.MAX_VALUE) end()
-    action()
+    if (!capturePresentation) {
+      action()
+      return
+    }
+    // The SurfaceView history disappears when cleanup closes the map.
+    val captured = CompletableDeferred<Unit>()
+    val receiver =
+      object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+          captured.complete(Unit)
+        }
+      }
+    val context = window.context
+    val filter = IntentFilter("${context.packageName}.BENCHMARK_PRESENTATION_CAPTURED")
+    if (Build.VERSION.SDK_INT >= 33)
+      context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+    else context.registerReceiver(receiver, filter)
+    try {
+      action()
+      withTimeout(30000) { captured.await() }
+    } finally {
+      context.unregisterReceiver(receiver)
+    }
   }
 }
 

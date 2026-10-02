@@ -538,7 +538,9 @@ def capture(device, config, output, log_file):
             try:
                 runner.wait_for(
                     output / "logcat.log",
-                    poll=presentation.poll if presentation else None,
+                    poll=(lambda: presentation.poll_log(output / "logcat.log"))
+                    if presentation
+                    else None,
                 )
             except TimeoutError:
                 # logd can drop DONE itself; analysis of the full file still requires it.

@@ -1,6 +1,7 @@
 """Displayed Android map frames, independent of app-window and render-event callbacks."""
 
 import json
+import re
 import shlex
 import subprocess
 import time
@@ -35,6 +36,7 @@ class MapPresentation:
         self.next_poll = 0
         self.gaps = []
         self.refresh_periods = []
+        self.captured = False
 
     def shell(self, *args):
         return subprocess.check_output(
@@ -42,6 +44,8 @@ class MapPresentation:
         )
 
     def poll(self):
+        if self.captured:
+            return
         if time.monotonic() < self.next_poll:
             return
         self.next_poll = time.monotonic() + 0.25
@@ -75,10 +79,40 @@ class MapPresentation:
         self.frames.update(batch)
         if batch:
             self.previous = batch
+        return batch
+
+    def poll_log(self, path):
+        logs = Path(path).read_text(errors="replace")
+        if not self.captured and re.search(
+            r"MAP_BENCHMARK PRESENTATION_WINDOW .*\n", logs
+        ):
+            self.next_poll = 0
+            if not self.poll():
+                raise RuntimeError(
+                    "Map surface history is unavailable at measurement end"
+                )
+            self.captured = True
+            subprocess.check_output(
+                [
+                    *self.adb,
+                    "shell",
+                    "am",
+                    "broadcast",
+                    "-a",
+                    self.package + ".BENCHMARK_PRESENTATION_CAPTURED",
+                    "-p",
+                    self.package,
+                ],
+                text=True,
+            )
+        else:
+            self.poll()
 
     def save(self, output):
-        self.next_poll = 0
-        self.poll()
+        if not self.captured:
+            raise RuntimeError(
+                "Map presentation history was not captured before cleanup"
+            )
         Path(output, "presentation.json").write_text(
             json.dumps(
                 {

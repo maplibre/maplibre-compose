@@ -31,8 +31,10 @@ internal actual fun benchmarkCollectGarbage() {
 
 @Composable
 internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames {
-  val window = checkNotNull(LocalActivity.current).window
-  return remember(window) { AndroidUiFrames(window) }
+  val activity = checkNotNull(LocalActivity.current)
+  return remember(activity) {
+    AndroidUiFrames(activity.window, activity.intent.getBooleanExtra("capturePresentation", false))
+  }
 }
 
 @Composable
