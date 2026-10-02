@@ -47,13 +47,17 @@ class MapPresentation:
         self.next_poll = time.monotonic() + 0.25
         if self.layer is None:
             # Recent Android versions wrap the layer name in RequestedLayerState{...}.
-            layers = [
+            names = [
                 line.removeprefix("RequestedLayerState{").split(" parentId=")[0]
                 for line in self.shell("--list").splitlines()
-                if self.package + "/" in line
-                and "SurfaceView[" in line
-                and "(BLAST)" in line
             ]
+            layers = [
+                name
+                for name in names
+                if self.package + "/" in name and name.startswith("SurfaceView")
+            ]
+            # BLAST devices list both the container and its buffer layer.
+            layers = [layer for layer in layers if "(BLAST)" in layer] or layers
             if not layers:
                 return  # The map is still being created.
             if len(layers) != 1:

@@ -91,7 +91,9 @@ def map_presentation(directory, logs, config):
     times = [t for t in times if start <= t < end]
     if not capture["layer"] or len(times) < 2:
         raise ValueError("Map surface presentation timestamps are unavailable")
-    intervals = [(b - a) / 1e6 for a, b in itertools.pairwise(times)]
+    intervals = [
+        (b - a) / 1e6 for a, b in itertools.pairwise([start, *times, end]) if b > a
+    ]
     periods = [
         period for at, period in capture["refresh_periods_ns"] if start <= at < end
     ]

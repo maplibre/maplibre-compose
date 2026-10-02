@@ -23,6 +23,21 @@ class CaptureTest(unittest.TestCase):
 
 
 class PresentationTest(unittest.TestCase):
+    def test_map_layer_lookup_handles_legacy_and_blast_surfaces(self):
+        legacy = "SurfaceView - app/.MainActivity#0"
+        container = "SurfaceView[app/.MainActivity]#12"
+        blast = "SurfaceView[app/.MainActivity](BLAST)#13"
+        for names, expected in (
+            (f"{legacy}\nBackground for - {legacy}", legacy),
+            (f"{container}\nRequestedLayerState{{{blast} parentId=12}}", blast),
+        ):
+            with self.subTest(layer=expected):
+                collector = MapPresentation([], "app")
+                collector.shell = Mock(side_effect=[names, "8333333\n1 100 1"])
+                collector.poll()
+                self.assertEqual(collector.layer, expected)
+                self.assertEqual(collector.frames, {100})
+
     def test_surface_fences_ignore_empty_pending_and_duplicate_frames(self):
         self.assertEqual(
             timestamps(

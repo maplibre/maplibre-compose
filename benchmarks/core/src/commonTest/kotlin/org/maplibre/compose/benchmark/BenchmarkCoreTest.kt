@@ -271,6 +271,31 @@ class BenchmarkCoreTest {
   }
 
   @Test
+  fun animationCompletionDoesNotExtendTheMeasurement() = runTest {
+    val config = BenchmarkConfig(scenario = BenchmarkScenario.Animation, durationMs = 3000)
+    var stopped = false
+    val driver =
+      TimingDriver(
+        config,
+        nextFrame = {
+          delay(1000)
+          testScheduler.currentTime * 1_000_000
+        },
+        animation = { duration ->
+          try {
+            delay(duration * 3)
+          } finally {
+            stopped = true
+          }
+        },
+      )
+    val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
+    driver.run(clock)
+    assertTrue(stopped)
+    assertEquals(3000.0, clock.report().durationMs)
+  }
+
+  @Test
   fun classicHostsUseTheSameInlineFixtureAndResourceUrls() = runTest {
     suspend fun fixture(implementation: BenchmarkImplementation) =
       loadBenchmarkFixture(

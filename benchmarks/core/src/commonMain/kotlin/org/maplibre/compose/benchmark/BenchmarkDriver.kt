@@ -113,13 +113,14 @@ abstract class BenchmarkDriver(
       BenchmarkScenario.Animation -> {
         coroutineScope {
           val animation = launch {
-            withTimeout(clock.durationMillis + 10000) {
-              animate(benchmarkCamera(1.0), clock.durationMillis)
-            }
+            animate(benchmarkCamera(1.0), clock.durationMillis)
           }
           // Observe UI scheduling independently; the engine drives the camera and map frames.
-          clock.frames {}
-          animation.join()
+          try {
+            clock.frames {}
+          } finally {
+            animation.cancelAndJoin()
+          }
         }
       }
       BenchmarkScenario.Resize -> clock.frames { height(0.75 + 0.25 * cos(it * 4 * PI)) }

@@ -233,6 +233,29 @@ class PerformanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "history lost"):
                 map_presentation(root, logs, {"maximumFps": 60})
 
+    def test_map_frame_gaps_include_initial_and_terminal_stalls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logs = (
+                'MAP_BENCHMARK PRESENTATION_WINDOW {"start_ns":0,"end_ns":1000000000}'
+            )
+            for times in ([100_000_000, 116_000_000], [884_000_000, 900_000_000]):
+                with self.subTest(times=times):
+                    (root / "presentation.json").write_text(
+                        json.dumps(
+                            {
+                                "source": "surfaceflinger",
+                                "layer": "map",
+                                "gaps_ns": [],
+                                "refresh_periods_ns": [[times[-1], 16_666_667]],
+                                "presented_ns": times,
+                            }
+                        )
+                    )
+                    report = map_presentation(root, logs, {})
+                    self.assertEqual(report["interval_ms"]["max"], 884)
+                    self.assertAlmostEqual(report["late_percent"], 200 / 3)
+
     def test_completion_timings(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"
