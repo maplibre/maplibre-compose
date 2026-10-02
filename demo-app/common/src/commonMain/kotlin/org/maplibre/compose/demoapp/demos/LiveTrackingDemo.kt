@@ -35,6 +35,7 @@ import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -191,7 +192,8 @@ object LiveTrackingDemo : Demo {
               geometry = LineString(listOf(vehiclePosition) + remainingVertices),
               properties = null,
             )
-          )
+          ),
+          GeoJsonOptions(synchronousTiling = true),
         )
       LineLayer(
         id = "remaining-crossing",
