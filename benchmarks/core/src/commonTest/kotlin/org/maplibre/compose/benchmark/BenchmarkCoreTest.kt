@@ -243,8 +243,7 @@ class BenchmarkCoreTest {
     assertEquals(listOf(1.0 / 3.0), progress)
     assertEquals(1, clock.report().operations)
     assertEquals(3000.0, clock.report().durationMs)
-    // The interval between the first and second frame callbacks is the UI thread's pacing.
-    assertEquals(listOf(1000.0), clock.report().frameIntervalMs)
+    assertEquals(listOf(1000.0, 1000.0, 1000.0), clock.report().frameIntervalMs)
   }
 
   @Test
@@ -266,8 +265,27 @@ class BenchmarkCoreTest {
     val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
     driver.run(clock)
     assertEquals(listOf(3000L), animations)
-    assertEquals(1, clock.report().frameIntervalMs.size)
+    assertEquals(3, clock.report().frameIntervalMs.size)
     assertEquals(3000.0, clock.report().durationMs)
+  }
+
+  @Test
+  fun callbackIntervalsIncludeInitialAndDeadlineCrossingWaits() = runTest {
+    for (waits in listOf(listOf(2000L, 500L, 500L), listOf(500L, 500L, 5000L))) {
+      var frame = 0
+      val clock =
+        BenchmarkWorkload(
+          3000,
+          {
+            delay(waits[frame++])
+            testScheduler.currentTime * 1_000_000
+          },
+          testScheduler.timeSource,
+        )
+      clock.frames {}
+      assertEquals(2000.0, clock.report().frameIntervalMs.max())
+      assertEquals(3000.0, clock.report().frameIntervalMs.sum())
+    }
   }
 
   @Test

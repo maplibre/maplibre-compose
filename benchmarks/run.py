@@ -130,6 +130,16 @@ def android_launch_args(adb, config):
     ]
 
 
+def android_presentation(adb, config):
+    parsed = json.loads(config)
+    return (
+        MapPresentation(adb, app_package(config))
+        if parsed["workload"] == "animation"
+        and parsed.get("surface", "surface") == "surface"
+        else None
+    )
+
+
 def android(args, output):
     adb = args.adb
     package = app_package(args.config)
@@ -142,12 +152,7 @@ def android(args, output):
             logger = subprocess.Popen(
                 [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
             )
-            presentation = (
-                MapPresentation(adb, package)
-                if json.loads(args.config)["workload"] == "animation"
-                and json.loads(args.config).get("surface", "surface") == "surface"
-                else None
-            )
+            presentation = android_presentation(adb, args.config)
             wait_for(
                 output / "app.log", poll=presentation.poll if presentation else None
             )

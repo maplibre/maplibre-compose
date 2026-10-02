@@ -175,6 +175,17 @@ class PerformanceTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     read_run(root)
 
+    def test_animation_can_render_while_ui_callbacks_stall_for_the_whole_window(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="animation", intervals=[12000])
+            (root / "app.log").write_text(
+                log.replace('"operations": 2', '"operations": 0')
+            )
+            report = read_run(root)
+            self.assertEqual(report["workload"]["frame_interval_ms"]["max"], 12000)
+            self.assertIsNone(report["cpu_ms_per_operation"])
+
     def test_ui_frames_are_separate_from_engine_timings(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"

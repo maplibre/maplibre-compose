@@ -132,7 +132,7 @@ def read_run(directory):
     work = record(logs, "WORKLOAD")
     operations = work["operations"]
     if type(operations) is not int or operations < (
-        0 if config["workload"] == "idle" else 1
+        0 if config["workload"] in {"idle", "animation"} else 1
     ):
         raise ValueError("Workload submitted no operations")
     for label, key in (("SUBMISSIONS", "submission"), ("COMPLETIONS", "completion")):
@@ -151,7 +151,7 @@ def read_run(directory):
     ):
         raise ValueError("Every lifecycle operation must close exactly once")
     intervals = samples(logs, "INTERVALS")
-    if len(intervals) != work["frame_count"] or len(intervals) > operations:
+    if len(intervals) != work["frame_count"]:
         raise ValueError("Incomplete frame intervals")
     work["frame_interval_ms"] = distribution(intervals)
     work["late_frames"] = late_frames(intervals)

@@ -534,11 +534,17 @@ def capture(device, config, output, log_file):
                 stdout=log,
                 stderr=log,
             )
+            presentation = runner.android_presentation(device.adb, config)
             try:
-                runner.wait_for(output / "logcat.log")
+                runner.wait_for(
+                    output / "logcat.log",
+                    poll=presentation.poll if presentation else None,
+                )
             except TimeoutError:
                 # logd can drop DONE itself; analysis of the full file still requires it.
                 pass
+            if presentation:
+                presentation.save(output)
     finally:
         if logger:
             runner.stop(logger)
