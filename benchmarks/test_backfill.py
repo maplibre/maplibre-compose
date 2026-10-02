@@ -10,13 +10,14 @@ from test_performance import write_run
 
 
 class HostTest(unittest.TestCase):
-    def test_archived_animation_capture_includes_displayed_map_metrics(self):
+    def test_archived_animation_uses_file_output_for_capture_and_completion(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"
             log = write_run(
                 root, workload="animation", implementation="classic-android"
             )
             log += 'MAP_BENCHMARK PRESENTATION_WINDOW {"start_ns":1000000000,"end_ns":1033333334}\n'
+            (root / "app.log").write_text("")
             device = Mock(adb=["adb", "-s", "phone"])
             device.bytes.return_value = log.encode()
             collector = Mock()
@@ -39,9 +40,7 @@ class HostTest(unittest.TestCase):
                 patch("backfill.runner.MapPresentation", return_value=collector),
                 patch("backfill.subprocess.Popen"),
                 patch("backfill.runner.stop"),
-                patch("backfill.runner.wait_for") as wait,
             ):
-                wait.side_effect = lambda path, poll: poll()
                 report = capture(
                     device,
                     json.dumps(
@@ -50,7 +49,7 @@ class HostTest(unittest.TestCase):
                     root,
                     "/app.log",
                 )
-            collector.poll_log.assert_called_once_with(root / "logcat.log")
+            collector.poll_log.assert_called_once_with(root / "app.log")
             self.assertAlmostEqual(report["map_presentation"]["fps"], 60, places=5)
 
     def test_harness_compiles_without_the_demo_app(self):
