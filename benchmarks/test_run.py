@@ -25,11 +25,14 @@ class CaptureTest(unittest.TestCase):
 class PresentationTest(unittest.TestCase):
     def test_map_layer_lookup_handles_legacy_and_blast_surfaces(self):
         legacy = "SurfaceView - app/.MainActivity#0"
-        container = "SurfaceView[app/.MainActivity]#12"
-        blast = "SurfaceView[app/.MainActivity](BLAST)#13"
+        container = "e6494a1 SurfaceView[app/.MainActivity]#12"
+        blast = "e6494a1 SurfaceView[app/.MainActivity](BLAST)#13"
         for names, expected in (
             (f"{legacy}\nBackground for - {legacy}", legacy),
-            (f"{container}\nRequestedLayerState{{{blast} parentId=12}}", blast),
+            (
+                f"{container}\nRequestedLayerState{{{blast} parentId=12}}\nBackground for {container}",
+                blast,
+            ),
         ):
             with self.subTest(layer=expected):
                 collector = MapPresentation([], "app")

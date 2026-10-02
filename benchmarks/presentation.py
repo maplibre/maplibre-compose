@@ -54,7 +54,9 @@ class MapPresentation:
             layers = [
                 name
                 for name in names
-                if self.package + "/" in name and name.startswith("SurfaceView")
+                if self.package + "/" in name
+                and "SurfaceView" in name
+                and not name.startswith("Background for")
             ]
             # BLAST devices list both the container and its buffer layer.
             layers = [layer for layer in layers if "(BLAST)" in layer] or layers
