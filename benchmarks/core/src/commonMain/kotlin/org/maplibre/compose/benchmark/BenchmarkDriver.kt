@@ -250,6 +250,7 @@ internal fun printRunHeader(
  */
 internal suspend fun measured(
   host: BenchmarkHost,
+  frameDurationMillis: Long? = null,
   measure: suspend (BenchmarkFrameRecorder, start: () -> Unit) -> WorkloadReport,
   cleanup: suspend () -> Unit,
 ): String? {
@@ -264,7 +265,7 @@ internal suspend fun measured(
           host.cpu(true)
           measuring = true
           recorder.start()
-          host.uiFrames.start()
+          host.uiFrames.start(frameDurationMillis)
           println("MAP_BENCHMARK MEASURE")
         }
       host.cpu(false)
@@ -300,6 +301,8 @@ suspend fun runBenchmark(driver: BenchmarkDriver, host: BenchmarkHost): String? 
   val helpers = helperScope(coroutineContext)
   return measured(
     host,
+    frameDurationMillis =
+      config.durationMs.takeIf { config.scenario == BenchmarkScenario.Animation },
     measure = { recorder, start ->
       host.status("Loading")
       val startup = driver.prepare(helpers)

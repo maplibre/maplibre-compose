@@ -289,6 +289,42 @@ class BenchmarkCoreTest {
   }
 
   @Test
+  fun delayedCallbacksKeepTheConfiguredFrameWindow() = runTest {
+    var collectedDuration: Long? = null
+    val frames =
+      object : BenchmarkUiFrames {
+        override fun start(durationMillis: Long?) {
+          collectedDuration = durationMillis
+        }
+
+        override suspend fun stop() {}
+      }
+    val failure =
+      measured(
+        BenchmarkHost(cpu = {}, collectGarbage = {}, uiFrames = frames),
+        frameDurationMillis = 3000,
+        measure = { _, start ->
+          start()
+          val clock =
+            BenchmarkWorkload(
+              3000,
+              {
+                delay(6000)
+                testScheduler.currentTime * 1_000_000
+              },
+              testScheduler.timeSource,
+            )
+          clock.frames {}
+          clock.report()
+        },
+        cleanup = {},
+      )
+    assertNull(failure)
+    assertEquals(6000L, testScheduler.currentTime)
+    assertEquals(3000L, collectedDuration)
+  }
+
+  @Test
   fun animationCompletionDoesNotExtendTheMeasurement() = runTest {
     val config = BenchmarkConfig(scenario = BenchmarkScenario.Animation, durationMs = 3000)
     var stopped = false

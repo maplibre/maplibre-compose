@@ -28,11 +28,11 @@ class AndroidUiFrames(
   private var finish: (suspend () -> Unit)? = null
   @Volatile private var endNs: Long = Long.MAX_VALUE
 
-  override fun start() {
+  override fun start(durationMillis: Long?) {
     check(finish == null) { "UI frames are already being collected" }
-    endNs = Long.MAX_VALUE
     val worker = HandlerThread("BenchmarkFrameMetrics").apply { start() }
     val start = System.nanoTime()
+    endNs = durationMillis?.let { start + it * 1_000_000 } ?: Long.MAX_VALUE
     val samples = mutableListOf<UiFrame>()
     var dropped = 0
     val callback = Window.OnFrameMetricsAvailableListener { _, metrics, loss ->
@@ -71,7 +71,7 @@ class AndroidUiFrames(
   }
 
   override fun end() {
-    endNs = System.nanoTime()
+    endNs = minOf(endNs, System.nanoTime())
   }
 
   override suspend fun stop() {
