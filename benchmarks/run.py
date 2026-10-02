@@ -15,6 +15,7 @@ from pathlib import Path
 
 from config import CASES, canonical_config
 from performance import analyze
+from presentation import MapPresentation
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
@@ -84,9 +85,11 @@ def call(*command):
     return subprocess.check_output(command, text=True).strip()
 
 
-def wait_for(path, process=None):
+def wait_for(path, process=None, poll=None):
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
+        if poll is not None:
+            poll()
         logs = path.read_text(errors="replace")
         if "MAP_BENCHMARK ERROR" in logs or "FATAL EXCEPTION" in logs:
             raise RuntimeError(f"Benchmark failed; inspect {path}")
@@ -139,7 +142,17 @@ def android(args, output):
             logger = subprocess.Popen(
                 [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
             )
-            wait_for(output / "app.log")
+            presentation = (
+                MapPresentation(adb, package)
+                if json.loads(args.config)["workload"] == "animation"
+                and json.loads(args.config).get("surface", "surface") == "surface"
+                else None
+            )
+            wait_for(
+                output / "app.log", poll=presentation.poll if presentation else None
+            )
+            if presentation:
+                presentation.save(output)
     finally:
         if logger:
             stop(logger)

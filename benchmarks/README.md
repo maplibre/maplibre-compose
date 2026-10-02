@@ -31,12 +31,36 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 - Submission and completion latency, for workloads with a completion signal.
 - First close-call return and adapter cleanup completion for lifecycle
   workloads.
-- Frame intervals, and window frame timings on Android.
+- UI-thread callback intervals, and actual window frame timings on Android.
+- Displayed map FPS and frame gaps on Android during the engine animation.
 - Engine encoding and rendering time per frame.
 
 Use one device, viewport, and data set per comparison, keep the device idle and
 cool, and prefer physical hardware. SDK comparisons measure the delivered
 stacks, including their MapLibre Native revisions.
+
+## Frame pacing
+
+`animation-basemap` runs one continuous engine-driven flight without a
+frame-rate cap. The camera animation runs independently of the UI callback
+probe. On Android, the runner polls the map SurfaceView's presentation history
+from SurfaceFlinger, then filters actual presentation timestamps to the app's
+measured window. FPS counts displayed buffers per second; p95 and worst gaps
+describe uneven delivery. Gaps over 25 ms exceed one and a half periods of the
+fixed 60 FPS target. This also catches a consistently slow map rather than
+treating its median as normal.
+
+The surface collector requires a physical Android device that exposes layer
+latency timestamps and the default `surface` presentation. Empty timestamps or a
+ring-buffer overrun fail the capture. `presentation.json` retains the source
+layer and timestamps. Other platforms and texture presentation have no displayed
+map metrics; render-event arrival times are not a substitute.
+
+UI callback intervals measure how regularly the UI thread can advance the
+workload. Android window timings measure actual window draws, including controls
+and the map-return panel transition. Window timings may be absent for a map on
+its own surface. Neither measurement counts displayed map frames. The dashboard
+keeps these three signals separate; an unmeasured value stays unavailable.
 
 ## Operation boundaries
 

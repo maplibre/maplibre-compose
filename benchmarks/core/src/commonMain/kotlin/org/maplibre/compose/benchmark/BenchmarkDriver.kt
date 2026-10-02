@@ -111,13 +111,16 @@ abstract class BenchmarkDriver(
       BenchmarkScenario.Camera,
       BenchmarkScenario.Overlays -> clock.frames { camera(tourCamera(it)) }
       BenchmarkScenario.Animation -> {
-        repeat(4) { index ->
-          withTimeout(clock.durationMillis + 10000) {
-            animate(benchmarkCamera(if (index % 2 == 0) 1.0 else -1.0), clock.durationMillis / 4)
+        coroutineScope {
+          val animation = launch {
+            withTimeout(clock.durationMillis + 10000) {
+              animate(benchmarkCamera(1.0), clock.durationMillis)
+            }
           }
-          clock.submitted()
+          // Observe UI scheduling independently; the engine drives the camera and map frames.
+          clock.frames {}
+          animation.join()
         }
-        clock.idle()
       }
       BenchmarkScenario.Resize -> clock.frames { height(0.75 + 0.25 * cos(it * 4 * PI)) }
       BenchmarkScenario.Padding -> clock.frames { padding((1 - cos(it * 4 * PI)) * 100) }
@@ -276,6 +279,7 @@ internal suspend fun measured(
       // Closing is part of a completed run; cancellation must also release the map.
       withContext(NonCancellable) {
         // Engine samples end with the window; frames drawn while UI metrics drain are not counted.
+        host.uiFrames.end()
         recorder.stop()
         host.uiFrames.stop()
         report?.printResult()

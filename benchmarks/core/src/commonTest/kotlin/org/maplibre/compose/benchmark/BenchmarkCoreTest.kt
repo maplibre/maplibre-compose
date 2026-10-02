@@ -248,6 +248,29 @@ class BenchmarkCoreTest {
   }
 
   @Test
+  fun engineAnimationDoesNotDependOnUiCallbackFrequency() = runTest {
+    val config = BenchmarkConfig(scenario = BenchmarkScenario.Animation, durationMs = 3000)
+    val animations = mutableListOf<Long>()
+    val driver =
+      TimingDriver(
+        config,
+        nextFrame = {
+          delay(1000)
+          testScheduler.currentTime * 1_000_000
+        },
+        animation = { duration ->
+          animations += duration
+          delay(duration)
+        },
+      )
+    val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
+    driver.run(clock)
+    assertEquals(listOf(3000L), animations)
+    assertEquals(1, clock.report().frameIntervalMs.size)
+    assertEquals(3000.0, clock.report().durationMs)
+  }
+
+  @Test
   fun classicHostsUseTheSameInlineFixtureAndResourceUrls() = runTest {
     suspend fun fixture(implementation: BenchmarkImplementation) =
       loadBenchmarkFixture(
@@ -310,6 +333,7 @@ private class TimingDriver(
   private val action: (String) -> Unit = {},
   private val settle: suspend () -> Unit = {},
   private val awaitClose: suspend () -> Unit = {},
+  private val animation: suspend (Long) -> Unit = { error("Unused") },
 ) : BenchmarkDriver(PreparedBenchmarkFixture(config, emptyList(), emptyList()), nextFrame) {
   override suspend fun prepare(scope: CoroutineScope) = StartupReport(0.0, 0.0)
 
@@ -332,7 +356,7 @@ private class TimingDriver(
 
   override fun camera(value: BenchmarkCamera): Unit = error("Unused")
 
-  override suspend fun animate(value: BenchmarkCamera, durationMs: Long): Unit = error("Unused")
+  override suspend fun animate(value: BenchmarkCamera, durationMs: Long) = animation(durationMs)
 
   override fun style(index: Int): Deferred<Unit> = error("Unused")
 

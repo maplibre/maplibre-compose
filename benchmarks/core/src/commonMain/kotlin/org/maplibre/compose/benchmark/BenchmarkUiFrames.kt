@@ -8,6 +8,9 @@ package org.maplibre.compose.benchmark
 interface BenchmarkUiFrames {
   fun start()
 
+  /** Marks the end of measured work before reports are printed and queued metrics drain. */
+  fun end() {}
+
   /** Stops collecting and prints the `UISTATS` and `UIFRAMES` records. */
   suspend fun stop()
 
