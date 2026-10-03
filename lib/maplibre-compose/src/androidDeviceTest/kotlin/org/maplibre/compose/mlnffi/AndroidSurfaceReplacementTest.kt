@@ -242,7 +242,7 @@ class SurfaceReplacementActivity : ComponentActivity() {
     return "showingReplacement=$showingReplacement, " +
       "presentation=${state?.currentMapAttachment != null}, style=${state?.style?.loadState}, " +
       "frames=${initialFrameCount.get()}/${replacementFrameCount.get()}, " +
-      "nativeTargets=${session?.attachCount}/${session?.retargetCount}, surfaces=$surfaces"
+      "nativeTargets=${session?.presentation?.attachCount}/${session?.presentation?.retargetCount}, surfaces=$surfaces"
   }
 }
 

@@ -5,14 +5,24 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.all
 import org.maplibre.compose.expressions.dsl.asBoolean
@@ -23,6 +33,7 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -117,6 +128,49 @@ class MlnFfiSurfaceLossTest {
       it.loseSurface()
       it.session.close()
       it.session.close()
+    }
+  }
+
+  @Test
+  fun failed_renderer_release_keeps_camera_waiters_with_the_live_map_owner() = runBlocking {
+    val fixture = BridgeMapFixture.create()
+    var closureFailure: Throwable? = null
+    try {
+      fixture.loadStyle(STYLE)
+      fixture.pumpUntilRendered()
+      val session = fixture.session
+      val engine = checkNotNull(session.lifecycle.engine)
+      val map = checkNotNull(session.loop.map)
+      val animation =
+        async(start = CoroutineStart.UNDISPATCHED) {
+          session.animateCamera(CameraUpdate(zoom = 8.0), CameraAnimation.Ease(30.seconds), null)
+        }
+      fixture.awaitUntil("the camera animation to start") { session.getCameraPosition().zoom > 0.1 }
+      val ownerHeld = MlnFfiGate()
+      val entered = CompletableDeferred<Unit>()
+      session.loop.submit {
+        entered.complete(Unit)
+        ownerHeld.awaitUntilOpen()
+      }
+      entered.await()
+      fixture.rendererEnqueueFailure = IllegalStateException("renderer cleanup unavailable")
+      try {
+        session.close()
+        closureFailure = assertFailsWith<MapCleanupException> { session.awaitClosed() }
+        yield()
+        assertSame(map, session.loop.map, "renderer failure must retain its map")
+        assertFalse(animation.isCompleted, "cleanup cannot retire a live owner's camera waiter")
+      } finally {
+        fixture.rendererEnqueueFailure = null
+        ownerHeld.open()
+        // Recover the deliberately failed handoff so this test releases its real GPU resources.
+        session.destroyEngine(engine)
+      }
+      animation.await()
+    } finally {
+      val cleanup = runCatching { fixture.close() }
+      if (closureFailure == null) cleanup.getOrThrow()
+      else assertSame(closureFailure.cause, cleanup.exceptionOrNull()?.cause)
     }
   }
 
