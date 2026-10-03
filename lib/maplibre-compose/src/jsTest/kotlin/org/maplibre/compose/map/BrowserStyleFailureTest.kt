@@ -49,7 +49,7 @@ class BrowserStyleFailureTest {
             failure,
             assertFailsWith<IllegalStateException> {
               if (engineReadyLast) map.asDynamic().fire("styledata")
-              else session.reconcileStyleRevision(StyleSnapshot.Empty)
+              else session.reconcileStyleRevision(StyleSnapshot.Empty) {}
             },
           )
           assertFalse(session.canPresentFrames)
@@ -57,7 +57,7 @@ class BrowserStyleFailureTest {
           map.asDynamic().isStyleLoaded = originalIsStyleLoaded
           session.callbacks = callbacks
         }
-        session.reconcileStyleRevision(StyleSnapshot.Empty)
+        session.reconcileStyleRevision(StyleSnapshot.Empty) {}
         assertTrue(session.canPresentFrames)
       }
     }
@@ -77,7 +77,7 @@ class BrowserStyleFailureTest {
             callbacks.onStyleReady(map)
           }
         }
-      repeat(3) { session.reconcileStyleRevision(StyleSnapshot.Empty) }
+      repeat(3) { session.reconcileStyleRevision(StyleSnapshot.Empty) {} }
       assertEquals(0, readyCount)
       assertTrue(session.canPresentFrames)
     }

@@ -220,10 +220,7 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
-  override val baseLayers: List<LayerSummary> =
-    map.getLayersOrder().mapNotNull { id ->
-      map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
-    }
+  override val baseLayers: List<LayerSummary> = layerSummaries()
   override val baseSources: Map<String, Source?> = sourceIds().associateWith(::getSource)
 
   // GL JS runs the remove and add in one task, so no frame renders between them.
@@ -297,6 +294,16 @@ internal class GlJsStyleBinding(
   override fun sourceIds(): List<String> {
     requireCurrent()
     return map.getStyle().sources.keys().toList()
+  }
+
+  override fun layerSummaries(): List<LayerSummary> {
+    requireCurrent()
+    return layerIds().mapNotNull { id ->
+      indicators[id]?.let {
+        return@mapNotNull layerDefinitionFromJson(id, it.definition).summary()
+      }
+      map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
+    }
   }
 
   override fun getLayer(id: String): LayerDefinition? {

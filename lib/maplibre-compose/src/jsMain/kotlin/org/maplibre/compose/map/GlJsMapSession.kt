@@ -65,12 +65,12 @@ import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
-import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.DpPadding
@@ -653,15 +653,19 @@ internal class GlJsMapSession(
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
   }
 
-  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
+  override suspend fun <T> reconcileStyleRevision(
+    revision: StyleSnapshot,
+    capture: (StyleBinding) -> T,
+  ): T {
     val binding = checkNotNull(styleBinding)
     try {
-      val changes = styleReconciler.apply(binding, revision)
+      styleReconciler.apply(binding, revision)
+      val resources = capture(binding)
       if (styleLoadTracker.reconciled(binding.identity)) {
         events.styleReady(binding.identity)
       }
       surface?.requestFrame()
-      return changes
+      return resources
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -698,11 +702,11 @@ internal class GlJsMapSession(
                 styleSubscriptions += map.subscribe("styledata") { reportBaseStyleReady(binding) }
                 styleSubscriptions +=
                   map.subscribe("sourcedata") { event ->
-                    reportBaseStyleReady(binding)
                     if (event.sourceDataType == "metadata") {
                       applyTileLod(map)
-                      event.sourceId?.let { events.styleSourcesChanged(binding.identity, it) }
+                      events.styleSourcesChanged(binding.identity)
                     }
+                    reportBaseStyleReady(binding)
                   }
                 applyTileLod(map)
                 if (!hasLoadedInitialStyle) {

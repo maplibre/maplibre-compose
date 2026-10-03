@@ -258,7 +258,7 @@ class LinuxOpenGlInteropTest {
           failure = reason ?: "unknown map load failure"
         }
 
-        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {}
+        override fun onStyleSourcesChanged(map: MapAdapter) {}
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
 

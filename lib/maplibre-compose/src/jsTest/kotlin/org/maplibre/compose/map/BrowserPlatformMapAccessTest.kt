@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import js.objects.unsafeJso
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,9 +12,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
+import org.maplibre.compose.gljs.CustomLayerInterface
 import org.maplibre.compose.gljs.runBrowserMapTest
+import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.GlJsMapFixture
+import org.maplibre.compose.testing.declare
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserPlatformMapAccessTest {
@@ -40,6 +47,41 @@ class BrowserPlatformMapAccessTest {
 
       assertEquals(0.0, zoom)
       assertTrue(fixture.state.currentMapAttachment?.isValid == true)
+    } finally {
+      fixture.close()
+    }
+  }
+
+  @Test
+  fun raw_custom_layers_survive_resource_capture_without_serialization() = runBrowserMapTest {
+    val fixture = GlJsMapFixture(MapExtent.fromLogical(200, 100, 1.0))
+    try {
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.state.withPlatformMap {
+        map.addLayer(
+          unsafeJso<CustomLayerInterface> {
+            id = "custom"
+            type = "custom"
+            renderingMode = "2d"
+            onAdd = { _, _ -> }
+            onRemove = { _, _ -> }
+            render = { _, _ -> }
+          }
+        )
+      }
+      fixture.state.style.sources.add(
+        GeoJsonSource(
+          "points",
+          GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+          GeoJsonOptions(),
+        )
+      )
+      fixture.declare { BackgroundLayer("above", visible = true) }
+      fixture.state.styleAuthority.refreshStyleResources(fixture.session)
+      assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+      assertEquals(listOf("custom", "above"), fixture.state.style.layers.map { it.id })
+      assertTrue(fixture.state.style.sources["points"]?.asMutable != null)
+      assertEquals("custom", fixture.state.style.layers["custom"]?.type)
     } finally {
       fixture.close()
     }

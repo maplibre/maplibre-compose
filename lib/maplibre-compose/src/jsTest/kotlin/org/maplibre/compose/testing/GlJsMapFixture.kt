@@ -58,9 +58,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
   override val engineEvents: RecordingList<MapEvent>
     get() = recorder.engineEvents
 
-  override val sourceChanges: RecordingList<String?>
-    get() = recorder.sourceChanges
-
   override val errors: RecordingList<String>
     get() = recorder.errors
 
@@ -98,7 +95,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         events.count { it == MapFixture.STYLE_LOADED } > styleLoadsBefore
       }
     }
-    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty)
+    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
     state.styleAuthority.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
     state.styleAuthority.markStyleReady(glJsSession)
   }

@@ -15,6 +15,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
@@ -323,14 +327,23 @@ class BrowserMapStyleStateTest {
       }
       waitUntilMap("the map to request its TileJSON") { tileJson.isRequested() }
       assertTrue(mapState?.style?.loadState != StyleLoadState.Ready)
-      tileJson.resolve()
-      waitUntilMap("the map to report that it finished loading") {
-        mapState?.style?.loadState == StyleLoadState.Ready
+      val attributionsAtLoad = coroutineScope {
+        val currentStyle = assertNotNull(styleState)
+        val loaded =
+          async(Dispatchers.Main.immediate, start = CoroutineStart.UNDISPATCHED) {
+            currentStyle.awaitLoaded()
+            currentStyle.sources.map { it.attributionHtml }
+          }
+        tileJson.resolve()
+        waitUntilMap("the map to report that it finished loading") {
+          mapState?.style?.loadState == StyleLoadState.Ready
+        }
+        loaded.await()
       }
 
       assertEquals(
         listOf("fetched attribution"),
-        styleState?.sources?.map { it.attributionHtml },
+        attributionsAtLoad,
         "loading is only finished once a source's TileJSON has arrived; the attribution UI reads " +
           "this the moment it is told",
       )

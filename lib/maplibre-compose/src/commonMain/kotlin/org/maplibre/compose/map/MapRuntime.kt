@@ -76,9 +76,10 @@ import org.maplibre.compose.offline.OfflineManagerBackend
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.MapResourceConfig
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
+import org.maplibre.compose.sources.sourceKind
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
@@ -379,32 +380,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     return sourcesState[id]
   }
 
-  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? {
-    val definition = owner.desiredSourceDefinition(id)
-    val identity = current.identity.sources.get(id)
-    return current.sourceHandle(
-      id = id,
-      definition = definition,
-      currentDefinition = { owner.desiredSourceDefinition(id) },
-      isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
-      operations = operationGuard(current),
-    )
-  }
-
-  /** [sourceHandle] for a source already read from the engine, or null when it has no object. */
-  private fun sourceHandle(current: StyleBinding, id: String, source: Source?): SourceHandle? {
-    val definition = owner.desiredSourceDefinition(id)
-    val identity = current.identity.sources.get(id)
-    return current.sourceHandle(
-      id = id,
-      source = source,
-      definition = definition,
-      currentDefinition = { owner.desiredSourceDefinition(id) },
-      isCurrentResource = { current.identity.sources.isCurrent(id, identity) },
-      operations = operationGuard(current),
-    )
-  }
-
   internal fun layerHandle(id: String): LayerHandle? {
     if (readyLoadedStyle() == null) return null
     return layersState[id]
@@ -426,12 +401,14 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
+    publishedResources = null
     loadedStyle.store(style)
     sourcesState = emptyMap()
     layersState = emptyMap()
   }
 
   internal fun invalidateLoadedStyle() {
+    publishedResources = null
     loadedStyle.exchange(null)?.invalidate()
     sourcesState = emptyMap()
     layersState = emptyMap()
@@ -441,83 +418,83 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
 
-  /** Reads every source and layer from the engine; the caller runs it as one owner task. */
-  internal fun readResources(current: StyleBinding): LoadedStyleResources =
-    LoadedStyleResources(readSources(current), readLayers(current))
-
-  /**
-   * Reads the engine's sources in style order; the caller runs it as one owner task. With
-   * [changedIds], only those sources get a fresh handle and the other handles are kept, so the
-   * identities of unchanged sources survive.
-   */
-  internal fun readSources(
-    current: StyleBinding,
-    changedIds: Set<String>? = null,
-  ): Map<String, SourceHandle> {
-    if (changedIds != null) {
-      val handles = sourcesState.toMutableMap()
-      changedIds.forEach { changedId ->
-        val handle = sourceHandle(current, changedId)
-        if (handle == null) handles.remove(changedId) else handles[changedId] = handle
-      }
-      val ids = current.sourceIds()
-      current.identity.sources.retain(ids.toSet())
-      return ids.mapNotNull { id -> handles[id]?.let { id to it } }.toMap()
-    }
-    // Two engine reads for every source, instead of an existence read and a definition read each.
-    // A source the engine cannot reconstruct still gets a handle from its composed definition.
+  /** Captures engine metadata in one owner visit, without touching published handles. */
+  internal fun readResources(current: StyleBinding): LoadedStyleResources {
     val ids = current.sourceIds()
     val sources = current.getSources().associateBy { it.id }
     current.identity.sources.retain(ids.toSet())
-    return ids.mapNotNull { id -> sourceHandle(current, id, sources[id])?.let { id to it } }.toMap()
-  }
-
-  internal fun updateSources(sources: Map<String, SourceHandle>) {
-    sourcesState = sources
-  }
-
-  /**
-   * Handles for every layer in the engine's order: the generation's base layers and the layers the
-   * owner's style content declares. A layer that is neither, such as one the engine adds for
-   * itself, is omitted.
-   */
-  internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
-    val base = current.baseLayers.associateBy { it.id }
-    val summaries =
-      current
-        .layerIds()
-        .mapNotNull { id -> (base[id] ?: owner.desiredLayerSummary(id))?.let { id to it } }
-        .toMap()
-    current.identity.layers.retain(summaries.keys)
-    return summaries.mapValues { (_, summary) -> layerHandle(current, summary) }
-  }
-
-  internal fun layerHandle(current: StyleBinding, summary: LayerSummary): LayerHandle {
-    val id = summary.id
-    val identity = current.identity.layers.get(id)
-    return current.layerHandle(
-      summary,
-      isCurrentResource = { current.identity.layers.isCurrent(id, identity) },
-      operations = operationGuard(current),
-    )
-  }
-
-  /** Applies [changes] to the layer handles: a summary replaces a handle and null removes it. */
-  internal fun updateLayers(
-    current: StyleBinding,
-    changes: Map<String, LayerSummary?>,
-    order: List<String>,
-  ) {
-    val updated = layersState.toMutableMap()
-    changes.forEach { (id, summary) ->
-      if (summary == null) updated.remove(id) else updated[id] = layerHandle(current, summary)
+    val sourceMetadata = ids.associateWith { id ->
+      val definition = owner.desiredSourceDefinition(id)
+      val source = sources[id]
+      LoadedSourceMetadata(
+        identity = current.identity.sources.get(id),
+        kind = sourceKind(definition, source),
+        attributionHtml = source?.attributionHtml.orEmpty(),
+        options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions(),
+        composed = definition != null,
+      )
     }
-    layersState = order.mapNotNull { id -> updated[id]?.let { id to it } }.toMap()
+    val order = current.layerIds()
+    val summaries = current.layerSummaries().associateBy { it.id }
+    current.identity.layers.retain(order.toSet())
+    val layers = order.associateWith { id ->
+      LoadedLayerMetadata(
+        current.identity.layers.get(id),
+        summaries[id] ?: owner.desiredLayerSummary(id),
+      )
+    }
+    return LoadedStyleResources(current, sourceMetadata, layers)
   }
 
+  private var publishedResources: LoadedStyleResources? = null
+
+  internal fun hasResources(binding: StyleBinding): Boolean =
+    publishedResources?.binding === binding
+
+  /** Builds and publishes handles on the state owner, reusing unchanged resource identities. */
   internal fun updateResources(resources: LoadedStyleResources) {
-    sourcesState = resources.sources
-    layersState = resources.layers
+    val current = resources.binding
+    val previous = publishedResources?.takeIf { it.binding === current }
+    val sources =
+      resources.sources
+        .mapNotNull { (id, metadata) ->
+          val kind = metadata.kind ?: return@mapNotNull null
+          val handle =
+            sourcesState[id]?.takeIf { previous?.sources?.get(id) == metadata }
+              ?: current.sourceHandle(
+                id = id,
+                kind = kind,
+                attributionHtml = metadata.attributionHtml,
+                options = metadata.options,
+                currentKind = {
+                  if (!current.identity.sources.isCurrent(id, metadata.identity)) null
+                  else if (metadata.composed)
+                    owner.desiredSourceDefinition(id)?.let { sourceKind(it, null) } ?: kind
+                  else kind
+                },
+                operations = operationGuard(current),
+              )
+              ?: return@mapNotNull null
+          id to handle
+        }
+        .toMap()
+    val layers =
+      resources.layers
+        .mapNotNull { (id, metadata) ->
+          val summary = metadata.summary ?: return@mapNotNull null
+          val handle =
+            layersState[id]?.takeIf { previous?.layers?.get(id) == metadata }
+              ?: current.layerHandle(
+                summary,
+                isCurrentResource = { current.identity.layers.isCurrent(id, metadata.identity) },
+                operations = operationGuard(current),
+              )
+          id to handle
+        }
+        .toMap()
+    sourcesState = sources
+    layersState = layers
+    publishedResources = resources
   }
 
   internal fun sourceHandles(): Map<String, SourceHandle> =
@@ -544,9 +521,20 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 }
 
 internal data class LoadedStyleResources(
-  val sources: Map<String, SourceHandle>,
-  val layers: Map<String, LayerHandle>,
+  val binding: StyleBinding,
+  val sources: Map<String, LoadedSourceMetadata>,
+  val layers: Map<String, LoadedLayerMetadata>,
 )
+
+internal data class LoadedSourceMetadata(
+  val identity: Any,
+  val kind: String?,
+  val attributionHtml: String,
+  val options: GeoJsonOptions,
+  val composed: Boolean,
+)
+
+internal data class LoadedLayerMetadata(val identity: Any, val summary: LayerSummary?)
 
 /**
  * One missing-image resolution, identified by [token] so a stale one cannot evict its successor.

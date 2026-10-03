@@ -105,7 +105,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadedBinding = style
       styleLoaded = false
       if (style != null) {
-        scope.launch { session.reconcileStyleRevision(StyleSnapshot.Empty) }
+        scope.launch { session.reconcileStyleRevision(StyleSnapshot.Empty) {} }
       }
     }
 
@@ -117,7 +117,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadFailure = reason ?: "unknown"
     }
 
-    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
+    override fun onStyleSourcesChanged(map: MapAdapter) = Unit
 
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 

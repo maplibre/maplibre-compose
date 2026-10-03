@@ -36,7 +36,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.QueuedOwnerStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -409,11 +408,7 @@ class MapClickDispatcherTest {
 
     /** Publishes the engine's current layer order the way a reconciled revision does. */
     suspend fun publishLayerOrder() {
-      val binding = checkNotNull(style.value)
-      state.styleAuthority.updateStyleResources(
-        adapter,
-        StyleResourceChanges(binding.identity).apply { layerOrder = binding.layerIds() },
-      )
+      state.styleAuthority.refreshStyleResources(adapter)
     }
 
     fun node(id: String, handler: FeaturesClickHandler) =

@@ -20,7 +20,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
@@ -86,9 +85,9 @@ internal interface MapAdapter {
 
   /**
    * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
-   * subsequent updates preserve readiness and return only the resources they changed.
+   * [capture] runs immediately after mutation in the same engine-owner visit.
    */
-  suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges
+  suspend fun <T> reconcileStyleRevision(revision: StyleSnapshot, capture: (StyleBinding) -> T): T
 
   fun getCameraPosition(): CameraPosition
 
@@ -203,11 +202,8 @@ internal interface MapAdapter {
      */
     fun onStyleFailed(map: MapAdapter, reason: String?)
 
-    /**
-     * Reports that the style's sources changed. A null [sourceId] means that the adapter cannot
-     * identify the changed source.
-     */
-    fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?)
+    /** Reports that the loaded style has new source metadata. */
+    fun onStyleSourcesChanged(map: MapAdapter)
 
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
@@ -237,7 +233,7 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
 
-  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
@@ -271,12 +267,12 @@ internal class MapStateCallbacks(
     owner.styleAuthority.markStyleFailed(map, reason)
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    launchStyleRead(map) { owner.styleAuthority.refreshStyleSources(map, sourceId?.let(::setOf)) }
+  override fun onStyleSourcesChanged(map: MapAdapter) {
+    launchStyleRead(map) { owner.styleAuthority.refreshStyleResources(map) }
   }
 
   /**
-   * Starts undispatched so the read claims its revision inside the engine callback, then finishes
+   * Starts undispatched so the read captures its binding inside the engine callback, then finishes
    * on the runtime's main scope rather than a composition's, which the engine read's owner task
    * resumes on. A read that fails while its style is current marks the style failed.
    */

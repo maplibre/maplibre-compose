@@ -46,12 +46,12 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
-import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.mercatorPixelDistance
@@ -235,8 +235,7 @@ internal class MlnFfiMapSession(
 
   /**
    * Owner thread only. Checks for attribution received through a URL source's TileJSON after
-   * addSource returns. The C API has no TileJSON arrival event, so check on idle. The binding
-   * reports source addition and removal separately.
+   * addSource returns. The C API has no TileJSON arrival event, so check on idle.
    */
   private fun reportNewlyArrivedAttribution() {
     val map = loop.map ?: return
@@ -247,7 +246,7 @@ internal class MlnFfiMapSession(
           !info.attribution.isNullOrEmpty() &&
           reportedUrlAttribution.add(id)
       ) {
-        styleBinding?.identity?.let { events.styleSourcesChanged(it, id) }
+        styleBinding?.identity?.let { events.styleSourcesChanged(it) }
       }
     }
   }
@@ -261,7 +260,6 @@ internal class MlnFfiMapSession(
       renderSessions = this,
       sourceChanged = { sourceId ->
         reportedUrlAttribution.remove(sourceId)
-        styleBinding?.identity?.let { events.styleSourcesChanged(it, sourceId) }
       },
       sourceDataFailed = { bindingIdentity, sourceId, error ->
         if (styleBinding?.identity === bindingIdentity) {
@@ -642,17 +640,21 @@ internal class MlnFfiMapSession(
     loop.submit {}
   }
 
-  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): StyleResourceChanges {
+  override suspend fun <T> reconcileStyleRevision(
+    revision: StyleSnapshot,
+    capture: (StyleBinding) -> T,
+  ): T {
     val binding = checkNotNull(styleBinding)
     try {
       val prepared = styleReconciler.prepare(binding, revision)
       return checkNotNull(
         loop.await {
-          val changes = styleReconciler.apply(binding, prepared)
+          styleReconciler.apply(binding, prepared)
+          val resources = capture(binding)
           if (!styleLoadTracker.contentReady && styleLoadTracker.reconciled(binding.identity)) {
             events.styleReady(binding.identity)
           }
-          changes
+          resources
         }
       ) {
         "The map became unavailable during style reconciliation"

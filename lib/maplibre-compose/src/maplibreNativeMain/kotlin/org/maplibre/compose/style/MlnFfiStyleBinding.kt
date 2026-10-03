@@ -217,6 +217,10 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = withMap { it.styleLayerIds() }
 
+  override fun layerSummaries(): List<LayerSummary> = withMap { map ->
+    map.styleLayers().map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
+  }
+
   private fun reconstructSource(map: MapHandle, id: String): Source? =
     reconstructedSource(id, sourceDefinition(map, id))
 
@@ -289,10 +293,6 @@ internal open class MlnFfiStyleBinding(
     tiles.forEach { it.close() }
   }
 
-  override fun reportSourceChanged(sourceId: String) {
-    sourceChanged(sourceId)
-  }
-
   /**
    * Runs [action] through [MlnFfiMapRuntimeLoop.submit] and returns at once. [onDropped] runs
    * instead when the style has unloaded or the loop stops first, and after [action] when it throws.
@@ -338,13 +338,13 @@ internal open class MlnFfiStyleBinding(
 
   /**
    * Adds a source on the owner thread, for the types MapLibre Native creates from a typed adder
-   * rather than from source JSON. Reports the change and wraps a refusal the way [addSource] does.
+   * rather than from source JSON. Wraps a refusal the way [addSource] does.
    *
    * @return false if the style has unloaded, in which case [add] did not run.
    */
   fun addSourceWith(sourceId: String, add: (MapHandle) -> Unit): Boolean = mutateMap { map ->
     add(map)
-    reportSourceChanged(sourceId)
+    sourceChanged(sourceId)
     true
   }
 
@@ -353,7 +353,7 @@ internal open class MlnFfiStyleBinding(
       map.removeStyleSource(sourceId)
       identity.sources.remove(sourceId)
       geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
-      reportSourceChanged(sourceId)
+      sourceChanged(sourceId)
     }
     removeTileCoordinator(sourceId)
   }

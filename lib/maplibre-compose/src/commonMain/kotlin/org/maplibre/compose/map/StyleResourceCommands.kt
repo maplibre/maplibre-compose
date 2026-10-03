@@ -27,7 +27,7 @@ import org.maplibre.compose.style.checkStyleHandle
  *
  * A command reaches the engine in one [StyleBinding.awaitOwner] task, so the caller's thread and
  * the thread running the command never wait on the map owner. [commitSources] runs a source
- * mutation in the same task as the source read that republishes the handles.
+ * mutation in the same task as the metadata read for publication.
  */
 internal class StyleResourceCommands(
   private val style: MapStyleState,
@@ -109,8 +109,8 @@ internal class StyleResourceCommands(
     val completion = CompletableDeferred<Unit>()
     submit(binding, "add source '${source.id}'", completion = completion) {
       requireSourceWritable(source.id)
-      // Recorded on this thread, before the owner task, so the source read inside the task builds
-      // the handle from this definition. A failed addition takes the record back.
+      // Record before the owner task so metadata capture can use this definition. A failed
+      // addition takes the record back.
       lock.withLock {
         checkStyleHandle(currentSource(source.id) == null) {
           "Source ID '${source.id}' already exists"

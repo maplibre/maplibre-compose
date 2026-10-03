@@ -528,14 +528,14 @@ internal class MapSnapshotterImplementation(
 
   /** Runs [mutate] on the map owner and reads the sources it leaves behind in the same task. */
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
-    val sources =
+    val resources =
       binding.awaitOwner {
         mutate()
-        style.readSources(binding)
+        style.readResources(binding)
       } ?: throw StyleHandleException("The loaded style changed before the command ran")
     lock.withLock {
       requireStyleHandleLocked(binding)
-      style.updateSources(sources)
+      style.updateResources(resources)
     }
   }
 
@@ -619,7 +619,7 @@ internal class MapSnapshotterImplementation(
     binding: StyleBinding,
     revision: StyleSnapshot,
   ): Boolean {
-    // The read builds handles from the desired revision, so that is committed first.
+    // The read captures metadata from the desired revision, so that is committed first.
     val accepted = lock.withLock {
       if (closed || capture.abandoned || claim.revision != baseStyleRevision) {
         return@withLock false

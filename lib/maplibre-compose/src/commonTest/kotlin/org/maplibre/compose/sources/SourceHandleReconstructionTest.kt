@@ -3,50 +3,32 @@ package org.maplibre.compose.sources
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.map.PresentationTestAdapter
+import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleHandleOperationGuard
 
 class SourceHandleReconstructionTest {
-
   @Test
-  fun an_omitted_engine_source_does_not_get_a_handle() {
-    val style = RecordingStyleBinding()
-    style.addSource("clip", buildJsonObject { put("type", "video") })
-
-    assertNull(style.getSource("clip"))
-    assertNull(style.handle("clip"))
-  }
-
-  @Test
-  fun a_reconstructed_vector_source_gets_a_typed_handle() {
-    val style = RecordingStyleBinding()
-    style.addSource("tiles", buildJsonObject { put("type", "vector") })
-
-    assertIs<VectorTileSourceHandle>(style.handle("tiles"))
-  }
-
-  private fun RecordingStyleBinding.handle(id: String): SourceHandle? =
-    sourceHandle(
-      id = id,
-      definition = null,
-      currentDefinition = { null },
-      isCurrentResource = { true },
-      operations = ImmediateOperations,
-    )
-
-  private object ImmediateOperations : StyleHandleOperationGuard {
-    override fun <T> run(action: () -> T): T = action()
-
-    override fun isSourceWritable(id: String): Boolean = true
-
-    override fun isLayerWritable(id: String): Boolean = true
-
-    override fun removeSource(id: String, identity: Any) = error("Unused")
-
-    override fun requireSourceWritable(id: String) {}
-
-    override fun requireLayerWritable(id: String) {}
+  fun published_sources_omit_unsupported_types_and_keep_typed_handles() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(state.reservePresentation(), adapter)
+    val binding = RecordingStyleBinding()
+    binding.addSource("clip", buildJsonObject { put("type", "video") })
+    binding.addSource("tiles", buildJsonObject { put("type", "vector") })
+    try {
+      state.styleAuthority.updateLoadedStyle(adapter, binding)
+      state.styleAuthority.markStyleReady(adapter)
+      assertNull(state.style.sources["clip"])
+      assertIs<VectorTileSourceHandle>(state.style.sources["tiles"])
+    } finally {
+      state.close()
+      runtime.close()
+    }
   }
 }

@@ -59,9 +59,6 @@ private constructor(
   val engineEvents: RecordingList<MapEvent>
     get() = recorder.engineEvents
 
-  val sourceChanges: RecordingList<String?>
-    get() = recorder.sourceChanges
-
   val errors: RecordingList<String>
     get() = recorder.errors
 

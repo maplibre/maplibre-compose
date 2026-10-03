@@ -153,8 +153,8 @@ class MapSessionEventsTest {
       delivered += "failed($reason)"
     }
 
-    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-      delivered += "sources($sourceId)"
+    override fun onStyleSourcesChanged(map: MapAdapter) {
+      delivered += "sources"
     }
 
     override fun onEvent(map: MapAdapter, event: MapEvent) {

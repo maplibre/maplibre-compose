@@ -9,7 +9,6 @@ import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.readMap
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
@@ -47,8 +46,6 @@ class CustomVectorTileSourceNativeTest {
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isMapFullyLoaded() }
 
-      fixture.state.styleAuthority.desiredStyleRevision =
-        StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())
       val handle = assertIs<CustomVectorTileSourceHandle>(fixture.state.style.sources["empty"])
       assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())
       val answered = requests.size
