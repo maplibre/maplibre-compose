@@ -17,7 +17,8 @@ internal class DesktopAppFrames : BenchmarkUiFrames {
   private var end = Long.MAX_VALUE
 
   override fun start(durationMillis: Long?) {
-    check(EventQueue.isDispatchThread())
+    // Nucleus runs Compose on its own event loop.
+    if (!EventQueue.isDispatchThread()) return
     check(layer == null)
     times.clear()
     val layers = Window.getWindows().filter { it.isVisible }.flatMap(::layers)
@@ -40,6 +41,7 @@ internal class DesktopAppFrames : BenchmarkUiFrames {
   }
 
   override fun end() {
+    if (layer == null) return
     check(EventQueue.isDispatchThread())
     end = minOf(end, System.nanoTime())
     layer?.renderDelegate = delegate
