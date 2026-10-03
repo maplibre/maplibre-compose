@@ -116,10 +116,9 @@
   },
   "animation-basemap": {
     "title": "Map animation",
-    "description": "Displayed map frames during an engine-driven basemap flight, with independent UI callback timing.",
+    "description": "Map frames drawn per second during an engine-driven basemap flight.",
     "tracked": true,
     "classic": true,
-    "platforms": ["android"],
     "config": { "workload": "animation", "scene": "basemap-sf" }
   },
   "paint-points": {

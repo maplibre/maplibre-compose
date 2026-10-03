@@ -15,7 +15,6 @@ from pathlib import Path
 
 from config import CASES, canonical_config
 from performance import analyze
-from presentation import MapPresentation
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
@@ -113,14 +112,6 @@ def stop(process):
             process.wait()
 
 
-def captures_presentation(config):
-    parsed = json.loads(config)
-    return (
-        parsed.get("workload") == "animation"
-        and parsed.get("surface", "surface") == "surface"
-    )
-
-
 def android_launch_args(adb, config):
     # adb joins argv into a remote shell command, so JSON needs shell quoting.
     return [
@@ -132,21 +123,10 @@ def android_launch_args(adb, config):
         "--activity-clear-task",
         "-n",
         app_package(config) + "/.MainActivity",
-        "--ez",
-        "capturePresentation",
-        "true" if captures_presentation(config) else "false",
         "--es",
         "benchmark",
         shlex.quote(config),
     ]
-
-
-def android_presentation(adb, config):
-    return (
-        MapPresentation(adb, app_package(config))
-        if captures_presentation(config)
-        else None
-    )
 
 
 def android(args, output):
@@ -161,15 +141,7 @@ def android(args, output):
             logger = subprocess.Popen(
                 [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
             )
-            presentation = android_presentation(adb, args.config)
-            wait_for(
-                output / "app.log",
-                poll=(lambda: presentation.poll_log(output / "app.log"))
-                if presentation
-                else None,
-            )
-            if presentation:
-                presentation.save(output)
+            wait_for(output / "app.log")
     finally:
         if logger:
             stop(logger)

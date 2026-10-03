@@ -13,6 +13,8 @@ data class FrameSample(
   @SerialName("rendering_ms") val renderingMs: Double? = null,
   @SerialName("draw_calls") val drawCalls: Long? = null,
   @SerialName("mode") val mode: String? = null,
+  @SerialName("frame_count") val frameCount: Long? = null,
+  @SerialName("elapsed_ms") val elapsedMs: Double? = null,
 )
 
 /** Integrity report for the batched [FrameSample] lines. */
@@ -24,38 +26,42 @@ data class FrameStats(
 
 /**
  * Collects engine statistics from the render events a driver [record]s between [start] and [stop].
- * The public event stream may drop events. These samples describe engine work, not display jank.
- * Engine timing fields are unavailable on the browser.
+ * Counts completed map draws, independently of UI frame callbacks. Engine timing fields are
+ * unavailable on the browser.
  */
-class BenchmarkFrameRecorder {
+class BenchmarkFrameRecorder(private val timeSource: TimeSource = TimeSource.Monotonic) {
   private var samples: Channel<FrameSample>? = null
-  private var start = TimeSource.Monotonic.markNow()
+  private var start = timeSource.markNow()
+  private var durationMillis: Long? = null
 
-  fun start() {
+  fun start(durationMillis: Long? = null) {
     check(samples == null) { "Frame recorder is already running" }
     samples = Channel(Channel.UNLIMITED)
-    start = TimeSource.Monotonic.markNow()
+    this.durationMillis = durationMillis
+    start = timeSource.markNow()
   }
 
   fun record(sample: FrameSample) {
-    samples?.trySend(sample)
+    val elapsed = start.elapsedNow().inWholeNanoseconds / 1e6
+    if (durationMillis?.let { elapsed >= it } != true)
+      samples?.trySend(sample.copy(elapsedMs = elapsed))
   }
 
   /** Stops collection and prints the frame statistics. Does nothing when never started. */
-  fun stop() {
-    val samples = samples ?: return
+  fun stop(): FrameStats? {
+    val samples = samples ?: return null
     this.samples = null
     val frames = buildList {
       while (true) add(samples.tryReceive().getOrNull() ?: break)
     }
-    val durationMs = start.elapsedNow().inWholeNanoseconds / 1e6
-    println(
-      "MAP_BENCHMARK FRAMESTATS " +
-        BenchmarkJson.encodeToString(FrameStats(frames.size, durationMs))
-    )
+    val elapsed = start.elapsedNow().inWholeNanoseconds / 1e6
+    val durationMs = durationMillis?.let { minOf(elapsed, it.toDouble()) } ?: elapsed
+    val stats = FrameStats(frames.size, durationMs)
+    println("MAP_BENCHMARK FRAMESTATS " + BenchmarkJson.encodeToString(stats))
     // Batches stay below logcat's per-entry limit without overflowing its message queue.
     frames.chunked(16).forEach { batch ->
       println("MAP_BENCHMARK FRAMETIMES " + BenchmarkJson.encodeToString(batch))
     }
+    return stats
   }
 }

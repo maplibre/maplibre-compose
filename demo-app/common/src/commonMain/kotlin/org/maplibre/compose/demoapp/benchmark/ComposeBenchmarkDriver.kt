@@ -316,6 +316,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
               encodingMs = event.stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
               renderingMs = event.stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
               drawCalls = event.stats?.drawCallCount,
+              frameCount = event.stats?.frameCount,
               mode = event.stats?.mode?.name?.lowercase(),
             )
           }

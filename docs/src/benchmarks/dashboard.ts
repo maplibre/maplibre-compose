@@ -18,10 +18,9 @@ const definitions = {
   cleanup: "Time until closing has finished and resources are released. The classic iOS test only waits for the map view to be removed.",
   frameInterval: "How long the app waits between opportunities to update its camera or controls. 95% of these waits are this short or shorter.",
   frameIntervalMax: "The longest wait before the app could run its next update.",
-  mapFps: "New map frames shown on screen each second during a camera animation. Higher is smoother.",
-  mapInterval: "The wait between new map frames on screen. 95% of these waits are this short or shorter.",
-  mapIntervalMax: "The longest wait for a new map frame on screen.",
-  mapLate: "Percentage of gaps between map frames long enough to miss a screen refresh. Lower is better.",
+  mapDrawInterval: "Time between completed map drawings. 95% of these waits are this short or shorter. Lower is better.",
+  mapDrawGap: "The longest wait for the map to finish drawing a new frame during the animation. Lower is better.",
+  mapFps: "How many new map frames the renderer draws each second during a camera animation. Higher is faster.",
   startup: "Time from creating a map until it draws its first complete frame. Map data and fonts are already downloaded.",
   classic: "The same test on the same device, using the classic MapLibre SDK instead of MapLibre Compose.",
   spread: "The line is the middle result from repeated runs. The shaded band spans the lowest and highest results.",
@@ -49,10 +48,9 @@ const metrics = {
   cleanup: { key: "close_completion_p50_ms", title: "Time to finish closing", definition: definitions.cleanup },
   frameInterval: { key: "frame_interval_p95_ms", title: "App update interval, p95", definition: definitions.frameInterval },
   frameIntervalMax: { key: "frame_interval_max_ms", title: "Longest app update interval", definition: definitions.frameIntervalMax },
-  mapFps: { key: "map_fps", title: "Displayed map FPS", definition: definitions.mapFps, unit: "FPS" },
-  mapInterval: { key: "map_frame_p95_ms", title: "Map frame interval, p95", definition: definitions.mapInterval },
-  mapIntervalMax: { key: "map_frame_max_ms", title: "Longest map frame interval", definition: definitions.mapIntervalMax },
-  mapLate: { key: "map_late_percent", title: "Late map frames", definition: definitions.mapLate, unit: "%" },
+  mapFps: { key: "map_draw_fps", title: "Map drawing FPS", definition: definitions.mapFps, unit: "FPS" },
+  mapDrawInterval: { key: "map_draw_p95_ms", title: "Map drawing interval, p95", definition: definitions.mapDrawInterval },
+  mapDrawGap: { key: "map_draw_max_ms", title: "Longest gap between map frames", definition: definitions.mapDrawGap },
   uiMissed: { key: "ui_missed_percent", title: "Late app frames", definition: definitions.uiMissed, unit: "%" },
   startup: { key: "startup_first_frame_ms", title: "Time to first frame", definition: definitions.startup },
   uiFrameP95: { key: "ui_frame_p95_ms", title: "App frame time, p95", definition: definitions.uiFrame },
@@ -67,12 +65,11 @@ const completedUpdates = ["source-latency", "layers", "layout", "style", "style-
 /** Every chart has one signal and one unit across its history and SDK comparisons. */
 const sections: { title: string; items: { workloads: string[]; metric: Metric }[] }[] = [
   {
-    title: "Map smoothness",
+    title: "Map drawing",
     items: [
       { workloads: ["animation"], metric: metrics.mapFps },
-      { workloads: ["animation"], metric: metrics.mapInterval },
-      { workloads: ["animation"], metric: metrics.mapIntervalMax },
-      { workloads: ["animation"], metric: metrics.mapLate },
+      { workloads: ["animation"], metric: metrics.mapDrawInterval },
+      { workloads: ["animation"], metric: metrics.mapDrawGap },
     ],
   },
   {
@@ -122,10 +119,9 @@ const banded = new Set([
   "close_completion_p50_ms",
   "frame_interval_p95_ms",
   "frame_interval_max_ms",
-  "map_fps",
-  "map_frame_p95_ms",
-  "map_frame_max_ms",
-  "map_late_percent",
+  "map_draw_fps",
+  "map_draw_p95_ms",
+  "map_draw_max_ms",
   "ui_missed_percent",
   "ui_frame_p95_ms",
   "ui_frame_max_ms",
@@ -203,7 +199,10 @@ export async function start() {
     for (const section of sections) {
       const charts: HTMLElement[] = [];
       for (const item of section.items) {
-        for (const [id, c] of Object.entries(index.cases)) {
+        for (const [id, c] of Object.entries({
+          "animation-basemap": { title: "Map animation", workload: "animation", classic: true },
+          ...index.cases,
+        })) {
           if (!item.workloads.includes(c.workload)) continue;
           const metric = item.metric;
 

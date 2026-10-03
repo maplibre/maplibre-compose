@@ -112,9 +112,10 @@ abstract class BenchmarkDriver(
       BenchmarkScenario.Overlays -> clock.frames { camera(tourCamera(it)) }
       BenchmarkScenario.Animation -> {
         coroutineScope {
-          val animation = launch {
-            animate(benchmarkCamera(1.0), clock.durationMillis)
-          }
+          val animation =
+            launch(start = CoroutineStart.UNDISPATCHED) {
+              animate(benchmarkCamera(1.0), clock.durationMillis)
+            }
           // Observe UI scheduling independently; the engine drives the camera and map frames.
           try {
             clock.frames {}
@@ -251,10 +252,11 @@ internal fun printRunHeader(
 internal suspend fun measured(
   host: BenchmarkHost,
   frameDurationMillis: Long? = null,
+  timeSource: TimeSource = TimeSource.Monotonic,
   measure: suspend (BenchmarkFrameRecorder, start: () -> Unit) -> WorkloadReport,
   cleanup: suspend () -> Unit,
 ): String? {
-  val recorder = BenchmarkFrameRecorder()
+  val recorder = BenchmarkFrameRecorder(timeSource)
   var measuring = false
   var report: WorkloadReport? = null
   val failure =
@@ -264,9 +266,9 @@ internal suspend fun measured(
           host.collectGarbage()
           host.cpu(true)
           measuring = true
-          recorder.start()
           host.uiFrames.start(frameDurationMillis)
           println("MAP_BENCHMARK MEASURE")
+          recorder.start(frameDurationMillis)
         }
       host.cpu(false)
       measuring = false
@@ -313,8 +315,8 @@ suspend fun runBenchmark(driver: BenchmarkDriver, host: BenchmarkHost): String? 
       // Frame callbacks precede recomposition, so cross two frames before counting.
       host.status("Measuring")
       repeat(2) { driver.nextFrame() }
-      start()
       driver.recordFrames(recorder)
+      start()
       val workload = BenchmarkWorkload(config.durationMs, driver.nextFrame)
       driver.run(workload)
       workload.report()

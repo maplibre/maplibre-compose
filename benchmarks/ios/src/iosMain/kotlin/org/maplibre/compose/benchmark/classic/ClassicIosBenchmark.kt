@@ -243,6 +243,7 @@ private class IosDriver(
             encodingMs = renderingStats.encodingTime * 1000,
             renderingMs = renderingStats.renderingTime * 1000,
             drawCalls = renderingStats.numDrawCalls.toLong(),
+            frameCount = renderingStats.numFrames.toLong(),
             mode = if (fullyRendered) "full" else "partial",
           )
         )
