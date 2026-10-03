@@ -230,6 +230,214 @@ class BrowserLocationIndicatorTest {
     }
 
   @Test
+  fun rotated_non_square_images_keep_pixel_ratio_order_and_shadow_out_of_picking() =
+    MainScope().promise {
+      val gl = browserGpu().gl.asDynamic()
+      browserRenderTarget(512, 512, generation = 1).use { target ->
+        CompositedMap(BaseStyle.Empty, scaleFactor = 2.0).use { host ->
+          host.drawUntil(target, "loaded style") { host.loadedBinding != null }
+          val style = host.loadedBinding as GlJsStyleBinding
+          for ((id, dimensions, color) in
+            listOf(
+              Triple("shadow", 96 to 96, Color.Blue),
+              Triple("bearing", 48 to 48, Color.Green),
+              Triple("top", 48 to 24, Color.Red),
+            )) {
+            val bitmap = ImageBitmap(dimensions.first, dimensions.second)
+            Canvas(bitmap)
+              .drawRect(
+                Rect(0f, 0f, dimensions.first.toFloat(), dimensions.second.toFloat()),
+                Paint().apply { this.color = color },
+              )
+            style.setImage(StyleImageDefinition(id, PreparedImage.fromBitmap(bitmap), false, null))
+          }
+          style.addLayer(
+            Json.parseToJsonElement(
+                """{
+            "id":"indicator","type":"location-indicator",
+            "layout":{"shadow-image":"shadow","bearing-image":"bearing","top-image":"top"},
+            "paint":{"location":[0,0,0],"bearing":90,"perspective-compensation":0,
+              "bearing-accuracy":30,"bearing-accuracy-radius":70,"bearing-accuracy-color":"yellow"}
+          }"""
+              )
+              .jsonObject,
+            "",
+          )
+          val indicator = assertNotNull(style.indicator("indicator"))
+          host.drawOnce(target)
+          val pixels = readFramebuffer(gl, target.framebuffer, 512, 512)
+          fun rgb(x: Int, y: Int): List<Int> {
+            val offset = ((511 - y) * 512 + x) * 4
+            return (0..2).map { pixels[offset + it].toInt() and 255 }
+          }
+          assertEquals(
+            listOf(255, 0, 0),
+            rgb(256, 276),
+            "rotated top image uses its CSS height/width",
+          )
+          assertEquals(listOf(0, 255, 0), rgb(276, 256), "bearing image draws below top")
+          assertEquals(listOf(0, 0, 255), rgb(296, 256), "shadow draws below bearing")
+          val sector = rgb(340, 256)
+          assertTrue(
+            sector[0] > 50 && sector[1] > 50 && sector[2] == 0,
+            "signed sector UVs rotate east with the bearing: $sector",
+          )
+          assertTrue(indicator.hitTest(128.0, 138.0, 128.0, 138.0))
+          assertFalse(
+            indicator.hitTest(148.0, 128.0, 148.0, 128.0),
+            "visible shadow is not pickable",
+          )
+          // Remove bearing so the non-square top alone determines the hit quad.
+          style.setLayerProperty(
+            "indicator",
+            "bearing-image",
+            JsonPrimitive(""),
+            LayerPropertyKind.LAYOUT,
+          )
+          host.drawOnce(target)
+          assertTrue(indicator.hitTest(128.0, 138.0, 128.0, 138.0))
+          assertFalse(indicator.hitTest(138.0, 128.0, 138.0, 128.0))
+          assertEquals(0, gl.getError() as Int)
+        }
+      }
+    }
+
+  @Test
+  fun images_render_and_pick_at_zoom_22_and_during_globe_transition() =
+    MainScope().promise {
+      val gl = browserGpu().gl.asDynamic()
+      browserRenderTarget(256, 256, generation = 1).use { target ->
+        CompositedMap(BaseStyle.Empty).use { host ->
+          host.drawUntil(target, "loaded style") { host.loadedBinding != null }
+          val style = host.loadedBinding as GlJsStyleBinding
+          val bitmap = ImageBitmap(48, 24)
+          Canvas(bitmap).drawRect(Rect(0f, 0f, 48f, 24f), Paint().apply { color = Color.Red })
+          style.setImage(StyleImageDefinition("dot", PreparedImage.fromBitmap(bitmap), false, null))
+          style.addLayer(
+            Json.parseToJsonElement(
+                """{
+            "id":"indicator","type":"location-indicator","layout":{"top-image":"dot"},
+            "paint":{"location":[35,-180.0001,0],"bearing":45,"image-tilt-displacement":12}
+          }"""
+              )
+              .jsonObject,
+            "",
+          )
+          val indicator = assertNotNull(style.indicator("indicator"))
+          for ((projection, zoom) in listOf("mercator" to 22.0, "globe" to 11.5)) {
+            style.setProjection(buildJsonObject { put("type", projection) })
+            style.withMap { map ->
+              map.jumpTo(
+                js.objects.unsafeJso {
+                  center = LngLat(179.9999, 35.0)
+                  this.zoom = zoom
+                  pitch = 55.0
+                  bearing = 30.0
+                }
+              )
+            }
+            // The pinned engine's globe default interpolates from zoom 11 to 12.
+            repeat(5) {
+              host.drawOnce(target)
+              yieldToBrowser()
+            }
+            val pixels = readFramebuffer(gl, target.framebuffer, 256, 256)
+            var redPixels = 0
+            var redX = 0.0
+            var redY = 0.0
+            for (y in 80..175) for (x in 80..175) {
+              val offset = ((255 - y) * 256 + x) * 4
+              if (
+                (pixels[offset].toInt() and 255) == 255 &&
+                  (pixels[offset + 1].toInt() and 255) == 0 &&
+                  (pixels[offset + 2].toInt() and 255) == 0
+              ) {
+                redPixels++
+                redX += x + 0.5
+                redY += y + 0.5
+              }
+            }
+            assertTrue(redPixels > 100, "$projection zoom $zoom: tile-local image stays visible")
+            // Check an interior point independently of rasterized boundary coverage.
+            val x = redX / redPixels
+            val y = redY / redPixels
+            assertTrue(indicator.hitTest(x, y, x, y), "$projection zoom $zoom: image centroid hits")
+            assertFalse(indicator.hitTest(0.0, 0.0, 0.0, 0.0))
+            assertEquals(0, gl.getError() as Int)
+          }
+        }
+      }
+    }
+
+  @Test
+  fun custom_indicator_restores_gl_bindings_and_upload_state() =
+    MainScope().promise {
+      val gl = browserGpu().gl.asDynamic()
+      browserRenderTarget(256, 256, generation = 1).use { target ->
+        CompositedMap(BaseStyle.Empty).use { host ->
+          host.drawUntil(target, "loaded style") { host.loadedBinding != null }
+          val style = host.loadedBinding as GlJsStyleBinding
+          val bitmap = ImageBitmap(24, 24)
+          style.setImage(StyleImageDefinition("dot", PreparedImage.fromBitmap(bitmap), false, null))
+          style.addLayer(
+            Json.parseToJsonElement(
+                """{
+            "id":"indicator","type":"location-indicator","layout":{"top-image":"dot"},
+            "paint":{"location":[0,0,0]}
+          }"""
+              )
+              .jsonObject,
+            "",
+          )
+          val indicator = assertNotNull(style.indicator("indicator"))
+          val render = indicator.layer.render
+          val vao = gl.createVertexArray()
+          val feedback = gl.createTransformFeedback()
+          val texture = gl.createTexture()
+          val sampler = gl.createSampler()
+          var checked = false
+          indicator.layer.render = { context, input ->
+            gl.bindVertexArray(vao)
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, feedback)
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+            gl.bindSampler(0, sampler)
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+            gl.activeTexture(gl.TEXTURE1)
+            render(context, input)
+            assertTrue(gl.getParameter(gl.VERTEX_ARRAY_BINDING) === vao)
+            assertTrue(gl.getParameter(gl.TRANSFORM_FEEDBACK_BINDING) === feedback)
+            assertEquals(gl.TEXTURE1 as Int, gl.getParameter(gl.ACTIVE_TEXTURE) as Int)
+            assertEquals(true, gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL) as Boolean)
+            gl.activeTexture(gl.TEXTURE0)
+            assertTrue(gl.getParameter(gl.TEXTURE_BINDING_2D) === texture)
+            assertTrue(gl.getParameter(gl.SAMPLER_BINDING) === sampler)
+            checked = true
+          }
+          try {
+            host.drawOnce(target)
+            assertTrue(
+              checked,
+              "state is checked immediately after the custom layer, before engine reset",
+            )
+            assertEquals(0, gl.getError() as Int)
+          } finally {
+            indicator.layer.render = render
+            gl.bindVertexArray(null)
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
+            gl.bindTexture(gl.TEXTURE_2D, null)
+            gl.bindSampler(0, null)
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+            gl.deleteVertexArray(vao)
+            gl.deleteTransformFeedback(feedback)
+            gl.deleteTexture(texture)
+            gl.deleteSampler(sampler)
+          }
+        }
+      }
+    }
+
+  @Test
   fun custom_indicator_renders_and_picks_in_the_shared_compositor() =
     MainScope().promise {
       val gpu = browserGpu()
