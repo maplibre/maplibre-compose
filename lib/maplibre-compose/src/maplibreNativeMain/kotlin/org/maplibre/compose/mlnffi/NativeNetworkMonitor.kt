@@ -8,7 +8,7 @@ import org.maplibre.nativeffi.runtime.NetworkStatus
 /** Starts observing connectivity until the returned handle is closed. */
 internal expect fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit): AutoCloseable
 
-/** Network status belongs to the process, including its map, snapshot, and offline runtimes. */
+/** Network status belongs to the process, across application runtimes. */
 internal val nativeNetworkMonitor =
   SharedNetworkMonitor(::startNativeNetworkMonitor, Maplibre::setNetworkStatus)
 

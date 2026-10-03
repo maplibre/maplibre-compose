@@ -24,7 +24,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
@@ -57,6 +56,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.OpenGlContextHandles
 import org.maplibre.compose.mlnffi.OpenGlSurfaceTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
@@ -66,9 +66,6 @@ import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
-import org.maplibre.compose.resource.MapResourceConfig
-import org.maplibre.compose.resource.MlnFfiResourceProvider
-import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -168,8 +165,8 @@ internal data class NativeEngineCompatibility(
 )
 
 /**
- * The runtime and the map belong to [MlnFfiMapRuntimeLoop]'s thread; the render session belongs to
- * the host's renderer thread. A camera transition only steps while frames are being drawn: mbgl
+ * The map uses the shared runtime owner through [MlnFfiMapRuntimeLoop]; its render session belongs
+ * to the host's renderer thread. A camera transition only steps while frames are being drawn: mbgl
  * advances it from `onDidFinishRenderingFrame`.
  */
 internal class MlnFfiMapSession(
@@ -179,10 +176,7 @@ internal class MlnFfiMapSession(
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
-  private val cacheFile: Path,
-  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
-  private val resourceConfig: MapResourceConfig = MapResourceConfig(),
-  private val awaitRuntimeReady: suspend () -> Unit = {},
+  private val owner: MlnFfiRuntime,
 ) :
   MapAdapter,
   RetainedEngineSteps,
@@ -222,16 +216,14 @@ internal class MlnFfiMapSession(
   private var loopEngine: EngineMapIdentity? = null
 
   /**
-   * This session's one owner loop. Work submitted before the engine exists waits in its queue, and
-   * runs in order once [createEngine] starts it. Internal for tests.
+   * This session's executor on the shared owner. Work submitted before the engine exists waits in
+   * its queue, and runs in order once [createEngine] starts it. Internal for tests.
    */
   internal val loop =
     MlnFfiMapRuntimeLoop(
       extent = initialExtent,
-      cacheFile = cacheFile,
+      owner = owner,
       getLogger = { logger },
-      resourceProviderFactory = resourceProviderFactory,
-      resourceConfig = resourceConfig,
       onMapCreated = ::onMapCreated,
       onEvent = { map, event -> handleEvent(checkNotNull(loopEngine), map, event) },
       onEventsDrained = ::onEventsDrained,
@@ -635,7 +627,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
-    awaitRuntimeReady()
+    owner.awaitReady()
     check(!isClosing) { "Cannot start a closed map session" }
     lifecycleEngineIdentity = identity
     loopEngine = identity
@@ -670,9 +662,9 @@ internal class MlnFfiMapSession(
     }
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     rendererAttachment?.releaseAndAwait()
-    // Engine creation failed before the loop started, so no owner ever held this lease or raised
-    // its events, and nothing would run a round-trip queued on the loop.
-    if (!loop.isStarted) return
+    // An unstarted or failed owner cannot process more events or a round-trip. Renderer release
+    // above still has to finish before the shared owner's finalizer destroys this map.
+    if (!loop.isStarted || loop.failure != null) return
     // Not cancellable: a departed lease must not keep attributing events to itself.
     checkNotNull(
       loop.await(cancellable = false) {
@@ -729,8 +721,8 @@ internal class MlnFfiMapSession(
         loop.close()
         loop.awaitClosed()
       } else {
-        // Engine creation failed before the loop started. A later attachment can still start it,
-        // so it keeps accepting work.
+        // Initialization did not reach lazy map creation. Release waiting commands without
+        // consuming the executor, so a cancelled attachment can be replaced.
         loop.abandonQueuedTasks()
       }
     } finally {

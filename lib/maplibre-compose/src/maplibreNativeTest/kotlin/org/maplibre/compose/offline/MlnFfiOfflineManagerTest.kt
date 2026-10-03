@@ -7,6 +7,7 @@ import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /** Exercises the application cache's offline manager without a UI. */
@@ -23,7 +24,10 @@ class MlnFfiOfflineManagerTest {
 
   @Test
   fun an_initial_cache_budget_failure_is_published_and_rejects_operations() = runBlocking {
-    val manager = MlnFfiOfflineManager(options.copy(maximumCacheSizeBytes = -1))
+    val configured = options.copy(maximumCacheSizeBytes = -1)
+    val owner = MlnFfiRuntime(configured)
+    val manager = MlnFfiOfflineManager(owner)
+    owner.start()
     try {
       withTimeout(5_000L) {
         assertFailsWith<OfflineManagerException> { manager.clearAmbientCache() }
@@ -31,7 +35,8 @@ class MlnFfiOfflineManagerTest {
       assertIs<OfflineManagerState.Failed>(manager.state.value)
     } finally {
       manager.close()
-      withTimeout(5_000L) { manager.awaitClosed() }
+      owner.close()
+      withTimeout(5_000L) { owner.awaitClosed() }
     }
     Unit
   }

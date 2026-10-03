@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.offline.awaitReady
 
 /**
  * Owns a native presentation and its style composition for one compatible engine. Pixel density and
@@ -45,7 +44,7 @@ private fun rememberMlnFfiMapSession(
   state: MapState,
   binding: MapPresentationBinding,
 ): MlnFfiMapSession {
-  val applicationOptions = state.runtime.nativeRuntimeOptions
+  val applicationOwner = state.runtime.nativeOwner
   val layoutDirection = LocalLayoutDirection.current
   val renderBackend = compatibility.renderBackend
   val scaleFactor = compatibility.scaleFactor
@@ -56,7 +55,7 @@ private fun rememberMlnFfiMapSession(
 
   val unpreparedSession =
     retainedSession
-      ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
+      ?: remember(renderBackend, scaleFactor, applicationOwner, state) {
         MlnFfiMapSession(
             lifecycleAuthority = state.lifecycle,
             callbacks = callbacks,
@@ -64,10 +63,7 @@ private fun rememberMlnFfiMapSession(
             renderBackend = renderBackend,
             scaleFactor = scaleFactor,
             layoutDirection = layoutDirection,
-            cacheFile = applicationOptions.cacheFile,
-            resourceProviderFactory = applicationOptions.resourceProviderFactory,
-            resourceConfig = state.runtime.resourceConfig,
-            awaitRuntimeReady = state.runtime.offlineManager::awaitReady,
+            owner = state.runtime.nativeOwner,
           )
           .also { session ->
             // The native map starts at this camera, so a viewport it reports before publication

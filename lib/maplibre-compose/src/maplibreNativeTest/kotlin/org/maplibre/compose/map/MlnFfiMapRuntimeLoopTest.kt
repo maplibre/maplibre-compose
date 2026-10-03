@@ -22,6 +22,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.testing.MapTestResult
@@ -36,6 +38,7 @@ class MlnFfiMapRuntimeLoopTest {
   fun a_failed_loop_finalizes_the_published_map_on_its_owner_thread() = runBlocking {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
+    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
     val failed = TestLatch(1)
     val finalized = TestLatch(1)
     val releaseFinalizer = TestLatch(1)
@@ -47,7 +50,7 @@ class MlnFfiMapRuntimeLoopTest {
     loop =
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
-        cacheFile = cacheFile,
+        owner = owner,
         getLogger = { MapLog },
         onMapCreated = {},
         onMapPublished = { throw expectedFailure },
@@ -87,6 +90,8 @@ class MlnFfiMapRuntimeLoopTest {
       releaseFinalizer.countDown()
       loop.close()
       withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      owner.close()
+      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
@@ -96,6 +101,7 @@ class MlnFfiMapRuntimeLoopTest {
     runMapTest {
       FfiTestPlatform.initialize()
       val cacheFile = FfiTestPlatform.createCacheFile()
+      val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
       val published = TestLatch(1)
       val readFinished = TestLatch(1)
       val renderUpdateSeen = AtomicBoolean(false)
@@ -103,7 +109,7 @@ class MlnFfiMapRuntimeLoopTest {
       val loop =
         MlnFfiMapRuntimeLoop(
           extent = MapExtent.fromLogical(1, 1, 1.0),
-          cacheFile = cacheFile,
+          owner = owner,
           getLogger = { MapLog },
           onMapCreated = {},
           onMapPublished = { published.countDown() },
@@ -147,6 +153,8 @@ class MlnFfiMapRuntimeLoopTest {
       } finally {
         loop.close()
         withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+        owner.close()
+        withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
         FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
@@ -165,6 +173,7 @@ class MlnFfiMapRuntimeLoopTest {
   fun cancelled_owner_work_is_skipped_and_nested_submit_runs_inline(): MapTestResult = runMapTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
+    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
     val published = TestLatch(1)
     val parked = TestLatch(1)
     val release = TestLatch(1)
@@ -172,7 +181,7 @@ class MlnFfiMapRuntimeLoopTest {
     val loop =
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
-        cacheFile = cacheFile,
+        owner = owner,
         getLogger = { MapLog },
         onMapCreated = {},
         onMapPublished = { published.countDown() },
@@ -209,6 +218,8 @@ class MlnFfiMapRuntimeLoopTest {
       release.countDown()
       loop.close()
       withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      owner.close()
+      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
@@ -306,11 +317,12 @@ class MlnFfiMapRuntimeLoopTest {
   ): MapTestResult = runMapTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
+    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
     val events = RecordingList<String>()
     val loop =
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
-        cacheFile = cacheFile,
+        owner = owner,
         getLogger = { MapLog },
         onMapCreated = {},
         onEvent = { _, event -> events += event.type.toString() },
@@ -323,6 +335,8 @@ class MlnFfiMapRuntimeLoopTest {
     } finally {
       loop.close()
       withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      owner.close()
+      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }

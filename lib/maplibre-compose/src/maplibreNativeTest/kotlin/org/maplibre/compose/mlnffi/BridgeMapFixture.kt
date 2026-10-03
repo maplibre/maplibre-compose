@@ -21,8 +21,10 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.RuntimeImplementation
 import org.maplibre.compose.map.TestMainDispatcher
-import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.map.createNativeMapRuntime
+import org.maplibre.compose.map.nativeOwner
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
@@ -41,6 +43,7 @@ private constructor(
   private val cacheFile: Path,
   private val initialExtent: MapExtent,
   resourceConfig: MapResourceConfig,
+  sharedRuntime: RuntimeImplementation?,
 ) : AutoCloseable {
 
   private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
@@ -68,8 +71,21 @@ private constructor(
 
   private val frameRequested = AtomicBoolean(true)
   /** Engine callbacks land here; [pumpUntil] and the test's `runBlocking` loop drain it. */
-  private val testMain = TestMainDispatcher()
-  private val runtime = mapRuntimeForTest(mainDispatcher = testMain)
+  private val ownsRuntime = sharedRuntime == null
+  private val testMain =
+    sharedRuntime?.mainDispatcher as? TestMainDispatcher ?: TestMainDispatcher()
+  private val runtime =
+    sharedRuntime
+      ?: (createNativeMapRuntime(
+        MlnFfiRuntimeOptions(
+          cacheFile = cacheFile,
+          mainDispatcher = testMain,
+          requestInterceptor = resourceConfig.interceptor,
+          resourceProvider = resourceConfig.provider,
+          logger = MapLog,
+        )
+      )
+        as RuntimeImplementation)
   val state = runtime.createMapState(BaseStyle.Demo)
 
   val session: MlnFfiMapSession =
@@ -80,8 +96,7 @@ private constructor(
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
-      cacheFile = cacheFile,
-      resourceConfig = resourceConfig,
+      owner = runtime.nativeOwner,
     )
 
   fun bindState(state: MapState) {
@@ -103,7 +118,7 @@ private constructor(
 
       override fun <T> withRendererAccess(action: () -> T): T {
         val thread = rendererThread ?: return driver.withRendererAccess(action)
-        return thread.run(action)
+        return thread.run { driver.withRendererAccess(action) }
       }
 
       override fun enqueueRenderer(action: () -> Unit): Boolean {
@@ -154,7 +169,11 @@ private constructor(
   fun frame(
     extent: MapExtent = initialExtent,
     captureProjection: Boolean = false,
-  ): MlnFfiFrameResult {
+  ): MlnFfiFrameResult =
+    rendererThread?.run { renderFrame(extent, captureProjection) }
+      ?: renderFrame(extent, captureProjection)
+
+  private fun renderFrame(extent: MapExtent, captureProjection: Boolean): MlnFfiFrameResult {
     frameRequested.store(false)
     val frame =
       when (val acquisition = driver.acquireFrame(extent)) {
@@ -274,7 +293,7 @@ private constructor(
    * fails this call.
    */
   fun <T> whileRenderingOnRendererThread(block: () -> T): T {
-    val thread = RendererThread(driver) { frame() }
+    val thread = RendererThread { frame() }
     rendererThread = thread
     thread.start()
     val result = runCatching(block)
@@ -433,20 +452,18 @@ private constructor(
       state.close()
       runBlocking { state.awaitClosed() }
     }
-    cleanup {
-      runtime.close()
-      runBlocking { runtime.awaitClosed() }
-    }
+    if (ownsRuntime)
+      cleanup {
+        runtime.close()
+        runBlocking { runtime.awaitClosed() }
+      }
     cleanup { driver.close() }
-    cleanup { FfiTestPlatform.deleteCacheFile(cacheFile) }
+    if (ownsRuntime) cleanup { FfiTestPlatform.deleteCacheFile(cacheFile) }
     failure?.let { throw it }
   }
 
   /** Drives frames until stopped, running queued renderer access between them. */
-  private class RendererThread(
-    private val driver: FfiTestRenderDriver,
-    private val frame: () -> Unit,
-  ) {
+  private class RendererThread(private val frame: () -> Unit) {
     private class Access(
       val framesStartedWhenQueued: Long,
       val run: () -> Unit,
@@ -467,9 +484,9 @@ private constructor(
     }
 
     fun <T> run(action: () -> T): T {
-      if (thread.isCurrent()) return driver.withRendererAccess(action)
+      if (thread.isCurrent()) return action()
       var result: Result<T>? = null
-      enqueue { result = runCatching { driver.withRendererAccess(action) } }.awaitUntilOpen()
+      enqueue { result = runCatching(action) }.awaitUntilOpen()
       return checkNotNull(result) { "The test renderer thread stopped before running an access" }
         .getOrThrow()
     }
@@ -545,15 +562,16 @@ private constructor(
     fun create(
       initialExtent: MapExtent = DEFAULT_EXTENT,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
+      runtime: RuntimeImplementation? = null,
     ): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
-      val cacheFile = FfiTestPlatform.createCacheFile()
+      val cacheFile = runtime?.nativeOwner?.options?.cacheFile ?: FfiTestPlatform.createCacheFile()
       return try {
-        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig)
+        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig, runtime)
       } catch (error: Throwable) {
         runCatching { driver.close() }
-        FfiTestPlatform.deleteCacheFile(cacheFile)
+        if (runtime == null) FfiTestPlatform.deleteCacheFile(cacheFile)
         throw error
       }
     }

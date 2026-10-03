@@ -134,7 +134,15 @@ internal fun platformMainDispatcher(): CoroutineDispatcher =
     )
   }
 
-/** Creates logical maps that share one application-level configuration. */
+/**
+ * Creates maps and snapshotters that share configuration and resources.
+ *
+ * On MapLibre Native platforms, maps, snapshotters, and offline operations use one native runtime
+ * and owner thread. A long native call or [MapState.withPlatformMap] callback delays other work on
+ * that runtime; a fatal native runtime failure closes the runtime and all its children. Create
+ * separate runtimes when children need independent execution or failure domains. Closing a child
+ * leaves its runtime and other children open.
+ */
 public interface MapRuntime {
   /** The offline packs and ambient cache managed by this runtime. */
   public val offlineManager: OfflineManager

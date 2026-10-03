@@ -30,6 +30,11 @@ For separate configuration, use <Api of="createMapRuntime" /> and pass the resul
 to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
 when finished.
 
+On native platforms, one runtime shares an owner thread across its maps,
+snapshotters, and offline operations. A long native call or snapshot render
+delays other work on that runtime. Create separate runtimes when those operations
+need to run independently. Closing one map or snapshotter leaves the others open.
+
 ## Serve the bytes
 
 For local tiles, return a <Api of="MapResourceLoad" />: `Bytes` for resource data,

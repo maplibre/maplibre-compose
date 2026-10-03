@@ -2,60 +2,63 @@ package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CompletableDeferred
-import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
+import org.maplibre.compose.util.throwCleanupFailures
+import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventSourceType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /** Parks in the native pump until a wake arrives, rather than on a bound. */
 private const val PUMP_PARK_MILLIS = -1L
 
-/**
- * One dedicated thread that owns one MapLibre runtime: it opens the runtime, runs posted tasks,
- * parks in the native pump between them, and tears everything down on the same thread.
- *
- * A runtime belongs to the thread that created it, and there may be only one per thread, so this
- * uses a dedicated [MlnFfiOwnerThread] rather than a dispatcher or a pooled executor.
- * maplibre-native-ffi#631 proposes an owner thread inside the C API, which would retire this class.
- *
- * A parked pump ignores interruption, so [stop] is the only way to end the thread.
- */
-internal class MlnFfiRuntimeThread(
-  private val name: String,
-  private val getLogger: () -> MapLog?,
-  private val openRuntime: () -> MlnFfiRuntimeOwner,
-  /** Bounds one native drain; a negative value drains without a bound. */
-  private val pumpBudgetMillis: Long,
-  private val host: Host,
+/** Bounds native draining below a 120 Hz frame so queued input can run between pumps. */
+private const val PUMP_BUDGET_MILLIS = 4L
+
+/** One native runtime, owner thread, command queue and failure domain for a public MapRuntime. */
+internal class MlnFfiRuntime(
+  val options: MlnFfiRuntimeOptions,
+  private val resourceConfig: MapResourceConfig =
+    MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
 ) {
-  /**
-   * What the owner of the runtime does at each step. Everything here runs on the owner thread,
-   * except [stopReason] for a thread stopped before it started.
-   */
-  interface Host {
-    /** Runs once, before any task. Throwing ends the thread as a failure. */
-    fun onStarted(runtime: RuntimeHandle) {}
+  interface MapChild {
+    fun onEvent(event: RuntimeEvent)
 
-    /** Runs after every pump. Throwing ends the thread as a failure. */
-    fun afterPump(runtime: RuntimeHandle)
+    fun onEventsDrained()
 
-    /**
-     * Runs once when opening the runtime, [onStarted], the pump, or [afterPump] threw. [runtime] is
-     * null when opening failed. Returns the error queued tasks are rejected with.
-     */
-    fun onLoopFailure(error: Throwable, runtime: RuntimeHandle?): Throwable
+    fun onFailure(error: Throwable)
 
-    /** The error queued tasks are rejected with when the thread stops normally or unstarted. */
-    fun stopReason(): Throwable
+    /** Waits for renderer release, then destroys the map on its owner thread. */
+    fun onStopping()
+  }
 
-    /**
-     * Runs once, after queued tasks were rejected and before the runtime closes. [runtime] is null
-     * when opening failed. Release failures go into [failures].
-     */
-    fun onStopping(runtime: RuntimeHandle?, failures: MutableList<Throwable>) {}
+  // Owner-thread registry. Retaining the map wrapper keeps event.mapSource resolvable.
+  private val maps = mutableMapOf<MapHandle, MapChild>()
+  var onFailure: (Throwable) -> Unit = {}
+  var onOfflineEvent: (RuntimeHandle, RuntimeEvent) -> Unit = { _, _ -> }
+  var onOfflineClosing: (Throwable) -> Unit = {}
+  private val ready = CompletableDeferred<Result<Unit>>()
+  @Volatile
+  var failure: Throwable? = null
+    private set
 
-    /** Reports every release failure, by throwing, once everything was released. */
-    fun reportCleanup(failures: List<Throwable>)
+  fun initialized(result: Result<Unit>) {
+    ready.complete(result)
+  }
+
+  suspend fun awaitReady() {
+    ready.await().getOrThrow()
+    failure?.let { throw it }
+  }
+
+  fun register(map: MapHandle, child: MapChild) {
+    maps[map] = child
+  }
+
+  fun unregister(map: MapHandle) {
+    maps.remove(map)
   }
 
   /**
@@ -70,7 +73,8 @@ internal class MlnFfiRuntimeThread(
   )
 
   private val completion = CompletableDeferred<Result<Unit>>()
-  private val thread = MlnFfiOwnerThread(name) { completion.complete(runCatching { runBody() }) }
+  private val thread =
+    MlnFfiOwnerThread("maplibre-compose-runtime") { completion.complete(runCatching { runBody() }) }
 
   /**
    * Guards [tasks], [accepting], [started], and [wake] together: nothing may be queued after the
@@ -80,9 +84,7 @@ internal class MlnFfiRuntimeThread(
   private val tasks = ArrayDeque<Task>()
   private var accepting = true
 
-  /**
-   * Set by [start]. Until then [stop] or [rejectQueuedTasksBeforeStart], not the owner, rejects.
-   */
+  /** Set by [start]. Until then [close], not the owner, rejects. */
   private var started = false
 
   /**
@@ -98,28 +100,26 @@ internal class MlnFfiRuntimeThread(
 
   /**
    * Starts the thread, which runs the tasks queued so far before any queued later. Called at most
-   * once, and not after [stop]. When [startThread] throws, queued tasks are rejected with its
-   * error, [stop] and [awaitStopped] have nothing to wait for, and the error is rethrown.
+   * once, and not after [close]. When [startThread] throws, queued tasks are rejected with its
+   * error, [close] and [awaitClosed] have nothing to wait for, and the error is rethrown.
    */
   fun start(startThread: (MlnFfiOwnerThread) -> Unit = MlnFfiOwnerThread::start) {
     acceptLock.withLock {
-      check(!started) { "$name was already started" }
-      check(accepting) { "$name was stopped" }
+      check(!started) { "MapLibre runtime was already started" }
+      check(accepting) { "MapLibre runtime was stopped" }
       started = true
     }
     try {
       startThread(thread)
     } catch (error: Throwable) {
       // No owner body will run to reject queued work. There are no native resources to release.
+      fail(error)
       rejectQueuedTasks(error, mutableListOf())
+      onOfflineClosing(error)
       completion.complete(Result.success(Unit))
       throw error
     }
   }
-
-  /** Whether [start] has been called, whether or not the thread then started. */
-  val isStarted: Boolean
-    get() = acceptLock.withLock { started }
 
   /** Whether the calling thread is the owner thread. */
   fun isCurrent(): Boolean = thread.isCurrent()
@@ -145,23 +145,11 @@ internal class MlnFfiRuntimeThread(
   }
 
   /**
-   * Rejects every queued task with [reason] and keeps accepting work, so a host that is not ready
-   * to start yet can still start later. Only before [start]: afterwards the owner owns the queue.
+   * Refuses new work and releases a parked pump. Returns at once; see [awaitClosed]. A thread that
+   * never started has no runtime to release: this rejects its queued tasks with the closure error
+   * instead, and [awaitClosed] returns at once.
    */
-  fun rejectQueuedTasksBeforeStart(reason: Throwable) {
-    val rejected = acceptLock.withLock {
-      check(!started) { "The owner of $name owns its queue" }
-      tasks.toList().also { tasks.clear() }
-    }
-    rejected.forEach { runCatching { it.reject(reason) } }
-  }
-
-  /**
-   * Refuses new work and releases a parked pump. Returns at once; see [awaitStopped]. A thread that
-   * never started has no runtime to release: this rejects its queued tasks with [Host.stopReason]
-   * instead, and [awaitStopped] returns at once.
-   */
-  fun stop() {
+  fun close() {
     stopRequested = true
     // A signal, not a queued task: it still works after the accept gate closes; post would not.
     val unstarted = acceptLock.withLock {
@@ -170,29 +158,37 @@ internal class MlnFfiRuntimeThread(
       !started
     }
     if (unstarted) {
-      rejectQueuedTasks(host.stopReason(), mutableListOf())
+      val reason = stopReason()
+      initialized(Result.failure(reason))
+      rejectQueuedTasks(reason, mutableListOf())
+      onOfflineClosing(reason)
       completion.complete(Result.success(Unit))
     }
   }
 
   /** Completes after the owner thread released the runtime, throwing what cleanup reported. */
-  suspend fun awaitStopped() = completion.await().getOrThrow()
+  suspend fun awaitClosed() = completion.await().getOrThrow()
 
   private fun runBody() {
     val failures = mutableListOf<Throwable>()
     val owner =
       try {
-        openRuntime()
+        MlnFfiRuntimeOwner.open(
+          options.cacheFile,
+          { options.logger },
+          "MapLibre runtime",
+          options.resourceProviderFactory,
+          resourceConfig,
+        )
       } catch (error: Throwable) {
-        rejectQueuedTasks(host.onLoopFailure(error, null), failures)
-        host.onStopping(null, failures)
-        host.reportCleanup(failures)
+        fail(error)
+        rejectQueuedTasks(error, failures)
+        stopChildren(failures)
+        failures.throwCleanupFailures()
         return
       }
     val runtime = owner.runtime
-    var failure: Throwable? = null
     try {
-      host.onStarted(runtime)
       // Owner-thread affine (validated natively), so this cannot be hoisted into start().
       val source = runtime.acquireWakeSource()
       acceptLock.withLock { wake = source }
@@ -202,18 +198,43 @@ internal class MlnFfiRuntimeThread(
         if (stopRequested) break
         // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
         // Never pump holding acceptLock: a parked pump would block the post that could wake it.
-        runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, pumpBudgetMillis)
-        host.afterPump(runtime)
+        runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, PUMP_BUDGET_MILLIS)
+        for (event in runtime.drainEvents().events) {
+          if (event.sourceType == RuntimeEventSourceType.MAP) {
+            maps[event.mapSource]?.onEvent(event)
+          } else onOfflineEvent(runtime, event)
+        }
+        maps.values.toList().forEach { it.onEventsDrained() }
       }
     } catch (error: Throwable) {
-      failure = host.onLoopFailure(error, runtime)
+      fail(error)
     } finally {
-      rejectQueuedTasks(failure ?: host.stopReason(), failures)
-      host.onStopping(runtime, failures)
+      rejectQueuedTasks(failure ?: stopReason(), failures)
+      stopChildren(failures)
       // Last, and only after its children: the provider retires before the runtime.
       runCatching { owner.close() }.exceptionOrNull()?.let(failures::add)
-      host.reportCleanup(failures)
+      failures.throwCleanupFailures()
     }
+  }
+
+  private fun stopReason(): Throwable = IllegalStateException("The map runtime is closed")
+
+  private fun fail(error: Throwable) {
+    failure = error
+    initialized(Result.failure(error))
+    options.logger?.e(error) { "The MapLibre runtime failed" }
+    runCatching { onFailure(error) }
+    maps.values.toList().forEach { it.onFailure(error) }
+  }
+
+  private fun stopChildren(failures: MutableList<Throwable>) {
+    val reason = failure ?: stopReason()
+    initialized(Result.failure(reason))
+    runCatching { onOfflineClosing(reason) }.exceptionOrNull()?.let(failures::add)
+    maps.values.toList().forEach { child ->
+      runCatching { child.onStopping() }.exceptionOrNull()?.let(failures::add)
+    }
+    maps.clear()
   }
 
   /** Runs everything queued, up to a task that ends its batch, reporting whether anything ran. */
@@ -227,7 +248,7 @@ internal class MlnFfiRuntimeThread(
       try {
         task.run(runtime)
       } catch (error: Throwable) {
-        getLogger()?.e(error) { "A task on $name failed" }
+        options.logger?.e(error) { "A task on MapLibre runtime failed" }
         // The task may have failed before reporting anything; a caller that already heard ignores
         // this.
         runCatching { task.reject(error) }
