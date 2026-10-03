@@ -2,9 +2,7 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
@@ -14,6 +12,7 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -82,10 +81,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param outlineColorTransition Timing for changes to [outlineColor]. Defaults to
  *   [colorTransition], whether or not [outlineColor] is set. Null uses the style's global
  *   transition.
- * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
- * @param onDoubleClick Called for a double tap or double click on this layer.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Feature click handlers and hit padding for this layer.
  */
 @Composable
 @MaplibreComposable
@@ -112,10 +108,7 @@ public fun FillLayer(
   antialias: Expression<BooleanValue> = const(true),
   outlineColor: Expression<ColorValue> = color,
   outlineColorTransition: TransitionOptions? = colorTransition,
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
 
   Layer(
@@ -123,10 +116,7 @@ public fun FillLayer(
     source = source,
     type = "fill",
     filterUnsupportedProperties = true,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   ) {
     root("source-layer", JsonPrimitive(sourceLayer))
     root("minzoom", JsonPrimitive(minZoom))

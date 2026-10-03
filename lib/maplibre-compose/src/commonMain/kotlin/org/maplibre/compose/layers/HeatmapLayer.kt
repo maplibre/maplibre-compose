@@ -1,7 +1,6 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
@@ -10,6 +9,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -47,10 +47,7 @@ import org.maplibre.compose.util.MaplibreComposable
  *   Primarily used for adjusting the heatmap based on zoom level.
  * @param intensityTransition Timing for changes to [intensity]. Null uses the style's global
  *   transition.
- * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
- * @param onDoubleClick Called for a double tap or double click on this layer.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Feature click handlers and hit padding for this layer.
  */
 @Composable
 @MaplibreComposable
@@ -70,10 +67,7 @@ public fun HeatmapLayer(
   weight: Expression<FloatValue> = const(1f),
   intensity: Expression<FloatValue> = const(1f),
   intensityTransition: TransitionOptions? = null,
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
 
   Layer(
@@ -81,10 +75,7 @@ public fun HeatmapLayer(
     source = source,
     type = "heatmap",
     filterUnsupportedProperties = true,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   ) {
     root("source-layer", JsonPrimitive(sourceLayer))
     root("minzoom", JsonPrimitive(minZoom))

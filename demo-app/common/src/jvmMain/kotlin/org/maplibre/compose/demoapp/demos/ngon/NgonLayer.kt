@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp.demos.ngon
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,7 +15,7 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.layers.FeaturesClickHandler
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.TransitionOptions
@@ -48,10 +47,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param translateAnchor Frame of reference for [translate].
  * @param pitchAlignment Whether polygons lie on the map or face the viewport when the map tilts.
  * @param pitchScale Whether polygons shrink with distance when the map tilts.
- * @param onClick Called when a polygon is clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click on a polygon.
- * @param onDoubleClick Called for a double tap or double click on a polygon.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Feature click handlers and hit padding for this layer.
  */
 @Composable
 @MaplibreComposable
@@ -86,19 +82,13 @@ fun NgonLayer(
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   pitchAlignment: Expression<CirclePitchAlignment> = const(CirclePitchAlignment.Viewport),
   pitchScale: Expression<CirclePitchScale> = const(CirclePitchScale.Map),
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   Layer(
     id = id,
     type = "ngon",
     source = source,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   ) {
     if (sourceLayer.isNotEmpty()) root("source-layer", JsonPrimitive(sourceLayer))
     root("minzoom", JsonPrimitive(minZoom))

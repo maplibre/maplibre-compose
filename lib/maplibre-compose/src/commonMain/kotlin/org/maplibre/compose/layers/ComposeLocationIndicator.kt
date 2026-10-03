@@ -63,10 +63,7 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
     id = id,
     type = "location-indicator",
     filterUnsupportedProperties = true,
-    onClick = properties.onClick?.asFeaturesClickHandler(),
-    onLongClick = properties.onLongClick?.asFeaturesClickHandler(),
-    onDoubleClick = properties.onDoubleClick?.asFeaturesClickHandler(),
-    hitPadding = properties.hitPadding,
+    interactions = properties.interactions,
   ) {
     paintTransition("location", locationTransition)
     paintTransition("bearing", bearingTiming)

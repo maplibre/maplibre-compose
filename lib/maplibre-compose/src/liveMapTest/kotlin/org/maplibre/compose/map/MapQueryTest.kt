@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -24,9 +26,17 @@ import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.interaction.ClickEvent
+import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureHit
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
+import org.maplibre.compose.interaction.internal.GesturePointerSample
+import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
@@ -223,12 +233,67 @@ class MapQueryTest {
         assertNotNull(it.state.currentMapAttachment)
           .queryRenderedFeaturesByLayer(
             CENTER,
-            mapOf("front-fill" to 0.dp, "back-fill" to 4.dp, "no-such-layer" to 0.dp),
+            setOf(
+              FeatureQuery("front-fill", 0.dp),
+              FeatureQuery("back-fill", 4.dp),
+              FeatureQuery("no-such-layer", 0.dp),
+            ),
           )
 
-      assertEquals(setOf("front"), hits.getValue("front-fill").names())
-      assertEquals(setOf("back"), hits.getValue("back-fill").names())
-      assertTrue(hits.getValue("no-such-layer").isEmpty())
+      assertEquals(setOf("front"), hits.getValue(FeatureQuery("front-fill", 0.dp)).names())
+      assertEquals(setOf("back"), hits.getValue(FeatureQuery("back-fill", 4.dp)).names())
+      assertTrue(hits.getValue(FeatureQuery("no-such-layer", 0.dp)).isEmpty())
+    }
+  }
+
+  @Test
+  fun map_feature_rows_pool_base_layers_in_layer_stack_order(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+      fixture.awaitMapReady()
+      fixture.pumpUntil("both layers to become queryable") {
+        fixture.state.queryRenderedFeatures(CENTER).names() == setOf("front", "back")
+      }
+      val expected =
+        listOf("front-fill", "back-fill").flatMap { id ->
+          fixture.state.queryRenderedFeatures(CENTER, setOf(id)).map { FeatureHit(id, it) }
+        }
+      val delivered = mutableListOf<FeatureHit>()
+      val interactions = MapInteractions {
+        callbacks {
+          features {
+            on("back-fill", "missing", "front-fill") {
+              hitPadding = 0.dp
+              click { hits ->
+                delivered += hits
+                ClickResult.Consume
+              }
+            }
+          }
+        }
+      }
+      val dispatcher =
+        FeatureClickDispatcher(
+          fixture.state,
+          mutableStateOf<State<StyleSnapshot?>>(mutableStateOf(null)),
+          mutableStateOf(fixture.style),
+          mutableStateOf(interactions),
+        )
+      val event =
+        ClickEvent(
+          GesturePointerSample(
+            10,
+            CENTER,
+            Position(0.0, 0.0),
+            emptySet(),
+            emptySet(),
+            emptySet(),
+          )
+        )
+      assertTrue(dispatcher.capture(TapFamily.Tap)!!.deliver(event).consumed)
+      assertEquals(expected, delivered)
+      assertEquals(listOf("front-fill", "back-fill"), delivered.map { it.layerId })
+      assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }
   }
 
@@ -244,11 +309,13 @@ class MapQueryTest {
       }
       val attachment = assertNotNull(it.state.currentMapAttachment)
 
-      val point = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 0.dp))
-      val padded = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 20.dp))
+      val point =
+        attachment.queryRenderedFeaturesByLayer(CENTER, setOf(FeatureQuery("test-fill", 0.dp)))
+      val padded =
+        attachment.queryRenderedFeaturesByLayer(CENTER, setOf(FeatureQuery("test-fill", 20.dp)))
 
-      assertTrue(point.getValue("test-fill").isEmpty())
-      assertEquals(setOf("west", "east"), padded.getValue("test-fill").names())
+      assertTrue(point.getValue(FeatureQuery("test-fill", 0.dp)).isEmpty())
+      assertEquals(setOf("west", "east"), padded.getValue(FeatureQuery("test-fill", 20.dp)).names())
     }
   }
 

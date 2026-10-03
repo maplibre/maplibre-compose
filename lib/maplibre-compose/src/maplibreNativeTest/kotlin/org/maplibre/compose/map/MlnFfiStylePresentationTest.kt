@@ -42,8 +42,6 @@ class MlnFfiStylePresentationTest {
                   .apply { paint("background-opacity", JsonPrimitive(0.25)) }
                   .definition(),
                 Anchor.Above { it.id == "initial" },
-                null,
-                null,
               )
             )
         )
@@ -121,8 +119,6 @@ class MlnFfiStylePresentationTest {
                 }
                 .definition(),
               Anchor.Top,
-              null,
-              null,
             )
           ),
           emptyList(),
@@ -222,8 +218,6 @@ class MlnFfiStylePresentationTest {
                   }
                   .definition(),
               anchor = Anchor.Top,
-              onClick = null,
-              onLongClick = null,
             )
           ),
         images = emptyList(),

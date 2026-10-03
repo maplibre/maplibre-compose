@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -677,9 +676,9 @@ internal constructor(
 
   suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
-    hitPadding: Map<String, Dp>,
-  ): Map<String, List<Feature<Geometry, JsonObject?>>> = afterViewport {
-    adapter.queryRenderedFeaturesByLayer(offset, hitPadding)
+    queries: Set<FeatureQuery>,
+  ): Map<FeatureQuery, List<Feature<Geometry, JsonObject?>>> = afterViewport {
+    adapter.queryRenderedFeaturesByLayer(offset, queries)
   }
 
   internal fun updateViewport(value: Viewport?) {
