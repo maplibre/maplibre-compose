@@ -305,6 +305,40 @@ class BenchmarkCoreTest {
   }
 
   @Test
+  fun uiCollectorSetupDoesNotConsumeTheMapDrawingWindow() = runTest {
+    var stats: FrameStats? = null
+    val frames =
+      object : BenchmarkUiFrames {
+        override fun start(durationMillis: Long?) {
+          testScheduler.advanceTimeBy(2000)
+        }
+
+        override suspend fun stop() {}
+      }
+    val failure =
+      measured(
+        BenchmarkHost(cpu = {}, collectGarbage = {}, uiFrames = frames),
+        frameDurationMillis = 3000,
+        timeSource = testScheduler.timeSource,
+        measure = { recorder, start ->
+          start()
+          val clock =
+            BenchmarkWorkload(3000, { error("No frame expected") }, testScheduler.timeSource)
+          recorder.record(FrameSample())
+          delay(2000)
+          recorder.record(FrameSample())
+          delay(1000)
+          stats = recorder.stop()
+          clock.report()
+        },
+        cleanup = {},
+      )
+    assertNull(failure)
+    assertEquals(2, assertNotNull(stats).frames)
+    assertEquals(3000.0, assertNotNull(stats).durationMs)
+  }
+
+  @Test
   fun delayedCallbacksKeepTheConfiguredFrameWindow() = runTest {
     var collectedDuration: Long? = null
     val frames =
