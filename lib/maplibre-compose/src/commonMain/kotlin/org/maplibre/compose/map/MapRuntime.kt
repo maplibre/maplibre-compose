@@ -444,11 +444,10 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   /** Captures engine metadata in one owner visit, without touching published handles. */
   internal fun readResources(current: StyleBinding): LoadedStyleResources {
     val ids = current.sourceIds()
-    val sources = current.getSources().associateBy { it.id }
     current.identity.sources.retain(ids.toSet())
     val sourceMetadata = ids.associateWith { id ->
       val definition = desiredSourceDefinition(id)
-      val source = sources[id]
+      val source = current.getSource(id)
       LoadedSourceMetadata(
         identity = current.identity.sources.get(id),
         kind = sourceKind(definition, source),

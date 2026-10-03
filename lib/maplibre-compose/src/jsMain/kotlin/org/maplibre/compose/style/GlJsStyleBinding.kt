@@ -286,14 +286,9 @@ internal class GlJsStyleBinding(
     return reconstructSource(id)
   }
 
-  override fun getSources(): List<Source> {
-    requireCurrent()
-    return map.getStyle().sources.keys().mapNotNull(::reconstructSource)
-  }
-
   override fun sourceIds(): List<String> {
     requireCurrent()
-    return map.getStyle().sources.keys().toList()
+    return map.style.tileManagers.keys().toList()
   }
 
   override fun layerSummaries(): List<LayerSummary> {
