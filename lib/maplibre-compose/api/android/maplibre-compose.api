@@ -2339,20 +2339,6 @@ public final class org/maplibre/compose/map/CameraProjection$Perspective : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/map/ComposableSingletons$MapRuntimeKt {
-	public static final field INSTANCE Lorg/maplibre/compose/map/ComposableSingletons$MapRuntimeKt;
-	public fun <init> ()V
-	public final fun getLambda$-2128261858$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$32047179$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$573334754$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function2;
-}
-
-public final class org/maplibre/compose/map/ComposableSingletons$MaplibreMapKt {
-	public static final field INSTANCE Lorg/maplibre/compose/map/ComposableSingletons$MaplibreMapKt;
-	public fun <init> ()V
-	public final fun getLambda$-461712885$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-}
-
 public final class org/maplibre/compose/map/DebugOverlays {
 	public static final field $stable I
 	public fun equals (Ljava/lang/Object;)Z
@@ -3213,24 +3199,6 @@ public final class org/maplibre/compose/overlay/CompassDefaults {
 	public final fun getShadowElevation-D9Ej5fM ()F
 	public final fun needlePainter (Landroidx/compose/runtime/Composer;I)Landroidx/compose/ui/graphics/painter/Painter;
 	public final fun style ()Lorg/maplibre/compose/overlay/CompassButtonStyle;
-}
-
-public final class org/maplibre/compose/overlay/ComposableSingletons$AttributionKt {
-	public static final field INSTANCE Lorg/maplibre/compose/overlay/ComposableSingletons$AttributionKt;
-	public fun <init> ()V
-	public final fun getLambda$-466168945$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function4;
-	public final fun getLambda$-62184788$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-}
-
-public final class org/maplibre/compose/overlay/ComposableSingletons$MapOverlayKt {
-	public static final field INSTANCE Lorg/maplibre/compose/overlay/ComposableSingletons$MapOverlayKt;
-	public fun <init> ()V
-	public final fun getLambda$-140011237$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1965929679$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-429717815$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-702286400$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$599962087$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$657840213$org_maplibre_compose_maplibre_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class org/maplibre/compose/overlay/DisappearingScaleBarKt {
