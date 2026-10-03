@@ -191,7 +191,10 @@ export async function start() {
     for (const section of sections) {
       const charts: HTMLElement[] = [];
       for (const item of section.items) {
-        for (const [id, c] of Object.entries(index.cases)) {
+        for (const [id, c] of Object.entries({
+          "animation-basemap": { title: "Map animation", workload: "animation", classic: true },
+          ...index.cases,
+        })) {
           if (!item.workloads.includes(c.workload)) continue;
           const metric = item.metric;
 
