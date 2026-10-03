@@ -7,23 +7,75 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MissingIconId
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.missingIconStyle
+import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
 
 /** Both engines ask [MapState.missingImageResolver] for an image that the style draws and lacks. */
 class MissingImageResolverTest {
+
+  @Test
+  fun a_delayed_resolved_image_is_drawn(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      val requested = CompletableDeferred<Unit>()
+      val release = CompletableDeferred<Unit>()
+      fixture.state.missingImageResolver = {
+        requested.complete(Unit)
+        release.await()
+        ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
+      }
+      fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
+      fixture.pumpUntil("the missing image request") { requested.isCompleted }
+      fixture.settle()
+      assertFalse(fixture.readPixel(256, 256).isNear(RgbaPixel(255, 0, 0, 255)))
+      release.complete(Unit)
+      val style = assertNotNull(fixture.style)
+      fixture.pumpUntil("the delayed image to reach the style") {
+        style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
+      }
+      fixture.pumpUntilPixel("the delayed icon to be drawn", 256, 256, RgbaPixel(255, 0, 0, 255))
+    }
+  }
+
+  @Test
+  fun an_image_registered_after_missing_layout_is_drawn(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      val requested = CompletableDeferred<Unit>()
+      fixture.state.missingImageResolver = {
+        requested.complete(Unit)
+        null
+      }
+      fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
+      fixture.pumpUntil("the declined missing image request") { requested.isCompleted }
+      fixture.settle()
+      assertFalse(fixture.readPixel(256, 256).isNear(RgbaPixel(255, 0, 0, 255)))
+      val image =
+        ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
+      fixture.state.style.images.set(MISSING_ICON_ID, image)
+      fixture.state.style.awaitCommands()
+      fixture.pumpUntilPixel(
+        "the late registered icon to be drawn",
+        256,
+        256,
+        RgbaPixel(255, 0, 0, 255),
+      )
+    }
+  }
 
   @Test
   fun a_resolved_image_reaches_the_style(): MapTestResult = runMapTest {
