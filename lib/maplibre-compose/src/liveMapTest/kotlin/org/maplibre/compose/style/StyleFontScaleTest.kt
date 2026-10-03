@@ -64,16 +64,18 @@ class StyleFontScaleTest {
         fixture.loadStyle(BLACK_STYLE)
         declare(1f)
         val binding = assertNotNull(fixture.style)
-        val expression = binding.layerProperty("circle", "circle-radius")
+        val expression = binding.awaitOwner { binding.layerProperty("circle", "circle-radius") }
         fixture.pumpUntilPixel("initial circle", 256, 256, RED)
         fixture.pumpUntilPixel("outside the initial radius", 292, 256, BLACK)
         fixture.state.style.globalState.setProperty("theme", JsonPrimitive("dark"))
         declare(2f)
-        assertEquals(expression, binding.layerProperty("circle", "circle-radius"))
-        assertEquals(
-          2.0,
-          binding.globalState()?.get(FONT_SCALE_GLOBAL_STATE)?.jsonPrimitive?.double,
-        )
+        binding.onOwner {
+          assertEquals(expression, binding.layerProperty("circle", "circle-radius"))
+          assertEquals(
+            2.0,
+            binding.globalState()?.get(FONT_SCALE_GLOBAL_STATE)?.jsonPrimitive?.double,
+          )
+        }
         fixture.pumpUntilPixel("scaled circle", 292, 256, RED)
         assertEquals(
           JsonObject(mapOf("theme" to JsonPrimitive("dark"))),
@@ -87,7 +89,9 @@ class StyleFontScaleTest {
         }
 
         fixture.loadStyle(BaseStyle.Empty)
-        assertNull(fixture.style?.globalState()?.get(FONT_SCALE_GLOBAL_STATE))
+        assertNull(
+          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FONT_SCALE_GLOBAL_STATE)
+        )
         fixture.loadStyle(BLACK_STYLE)
         declare(2f)
         fixture.pumpUntilPixel("scale restored on the new style", 292, 256, RED)

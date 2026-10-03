@@ -32,13 +32,12 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * A property write, such as [setLayerProperties], does not wait for the engine, and its rejection
- * is logged through [reportRejectedWrite]. Imperative handles queue source definition updates with
- * [postSourceUpdate].
+ * Engine reads and mutations run inline inside [awaitOwner] or [postOwner]. Handles and commands
+ * choose the visit, check resource identity, and report posted refusals. Mutations throw
+ * [StyleMutationException] on engine refusal; layer batches log each refusal and continue.
  *
- * Structural commands, such as adding a layer, and source definition updates throw
- * [StyleMutationException] on refusal. They and synchronous reads call the engine directly, which
- * MapLibre Native allows only on the map's owner thread, inside [awaitOwner].
+ * Suspending feature queries use the renderer or the browser's worker API. GeoJSON submission
+ * starts worker preparation without waiting; prepared data returns to the owner for installation.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -81,6 +80,16 @@ internal interface StyleBinding {
   suspend fun <T> awaitOwner(action: () -> T): T? = if (isLoaded) action() else null
 
   /**
+   * Runs [action] on the engine owner without waiting. It runs inline during an owner visit and is
+   * dropped if this style unloads before it starts. Callers capture and check resource identity
+   * inside [action].
+   */
+  fun postOwner(action: () -> Unit) {
+    requireCurrent()
+    action()
+  }
+
+  /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
    * two.
@@ -90,7 +99,7 @@ internal interface StyleBinding {
   /** @return whether [id] was in the style. */
   fun removeImage(id: String): Boolean
 
-  /** @return whether [id] exists, or null when the loaded style became unavailable. */
+  /** @return whether [id] exists, or null when the implementation cannot determine the result. */
   fun imageExists(id: String): Boolean?
 
   fun getSource(id: String): Source?
@@ -136,9 +145,8 @@ internal interface StyleBinding {
   /**
    * Applies a batch of layer property writes together.
    *
-   * The default applies them one by one; an engine with per-call overhead can override this to
-   * apply them in one pass, possibly after this function returns. A write the engine rejects is
-   * logged and skipped: it does not fail the batch, the remaining writes, or the revision.
+   * A write the engine rejects is logged and skipped: it does not fail the batch, the remaining
+   * writes, or the revision.
    */
   fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     writes.forEach { write ->
@@ -172,8 +180,8 @@ internal interface StyleBinding {
     }
   }
 
-  /** @return null if the style has unloaded or the layer has no value for [name]. */
-  suspend fun layerProperty(layerId: String, name: String): JsonElement?
+  /** @return null if the layer has no value for [name]. */
+  fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
    * Checks whether the style contains a live layer with [layerId]. Callers use the result to report
@@ -191,44 +199,39 @@ internal interface StyleBinding {
    */
   val animatorDurationScale: Float
 
-  /** @return the loaded style's global transition, or null if the style has unloaded. */
-  suspend fun transition(): TransitionOptions?
+  /** @return the loaded style's global transition. */
+  fun transition(): TransitionOptions?
 
-  /**
-   * Replaces the loaded style's global transition. The write runs on the engine's thread, possibly
-   * after this function returns.
-   */
+  /** Replaces the loaded style's global transition. */
   fun setTransition(options: TransitionOptions)
 
   /** Returns true if this engine can switch the symbol placement cross-fade at runtime. */
   val supportsPlacementTransitions: Boolean
 
   /**
-   * @return whether symbol placement changes cross-fade, or null if the style has unloaded. An
-   *   engine without [supportsPlacementTransitions] reports true.
+   * @return whether symbol placement changes cross-fade. An engine without
+   *   [supportsPlacementTransitions] reports true.
    */
-  suspend fun placementTransitions(): Boolean?
+  fun placementTransitions(): Boolean?
 
   /**
-   * Sets whether symbol placement changes cross-fade. The write runs on the engine's thread,
-   * possibly after this function returns. An engine without [supportsPlacementTransitions] logs a
-   * warning and keeps the cross-fade.
+   * Sets whether symbol placement changes cross-fade. An engine without
+   * [supportsPlacementTransitions] logs a warning and keeps the cross-fade.
    */
   fun setPlacementTransitions(enabled: Boolean)
 
-  /** Reads effective global values, or null when the style has unloaded. */
-  suspend fun globalState(): JsonObject?
+  /** Reads effective global values. */
+  fun globalState(): JsonObject?
 
-  /** Posts a global-state write. JSON null restores the root default, or null if absent. */
+  /** Writes global state. JSON null restores the root default, or null if absent. */
   fun setGlobalStateProperty(name: String, value: JsonElement)
 
-  /** @return null if the style has unloaded or the style light sets no value for [name]. */
-  suspend fun lightProperty(name: String): JsonElement?
+  /** @return null if the style light sets no value for [name]. */
+  fun lightProperty(name: String): JsonElement?
 
   /**
-   * Replaces the style light. A property absent from [light] returns to its spec default. The write
-   * runs on the engine's thread, possibly after this function returns. A light the engine rejects
-   * is reported through [reportRejectedWrite] and leaves the previous light in place.
+   * Replaces the style light. A property absent from [light] returns to its spec default. An engine
+   * refusal leaves the previous light in place.
    */
   fun setLight(light: JsonObject)
 
@@ -236,16 +239,15 @@ internal interface StyleBinding {
   val supportsSky: Boolean
 
   /**
-   * @return null if the style has unloaded or the style sky sets no value for [name]. An engine
-   *   without [supportsSky] reports null.
+   * @return null if the style sky sets no value for [name]. An engine without [supportsSky] reports
+   *   null.
    */
-  suspend fun skyProperty(name: String): JsonElement?
+  fun skyProperty(name: String): JsonElement?
 
   /**
    * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
-   * removes the sky. The write runs on the engine's thread, possibly after this function returns. A
-   * sky the engine rejects is reported through [reportRejectedWrite] and leaves the previous sky in
-   * place. An engine without [supportsSky] logs a warning.
+   * removes the sky. An engine refusal leaves the previous sky in place. An engine without
+   * [supportsSky] logs a warning.
    */
   fun setSky(sky: JsonObject?)
 
@@ -253,16 +255,15 @@ internal interface StyleBinding {
   val supportsProjection: Boolean
 
   /**
-   * @return null if the style has unloaded or the style projection sets no value for [name]. An
-   *   engine without [supportsProjection] reports null.
+   * @return null if the style projection sets no value for [name]. An engine without
+   *   [supportsProjection] reports null.
    */
-  suspend fun projectionProperty(name: String): JsonElement?
+  fun projectionProperty(name: String): JsonElement?
 
   /**
    * Replaces the style projection. A property absent from [projection] returns to its spec default.
-   * The write runs on the engine's thread, possibly after this function returns. A projection the
-   * engine rejects is reported through [reportRejectedWrite] and leaves the previous projection in
-   * place. An engine without [supportsProjection] logs a warning and keeps Mercator.
+   * An engine refusal leaves the previous projection in place. An engine without
+   * [supportsProjection] logs a warning and keeps Mercator.
    */
   fun setProjection(projection: JsonObject)
 
@@ -347,11 +348,6 @@ internal interface StyleBinding {
     coordinates: List<Position>,
     image: PreparedImage,
   ): Boolean
-
-  /** Queues an imperative write for the installation captured by the source handle. */
-  fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
-    if (identity.sources.isCurrent(sourceId, resourceIdentity)) action()
-  }
 
   /** Replaces an image source's content with prepared pixels. */
   fun setImageSourceImage(sourceId: String, image: PreparedImage)
@@ -462,8 +458,8 @@ internal interface StyleBinding {
 
   /**
    * Captures [state] on the caller; the returned command merges it into one feature's state. A null
-   * value drops that key. Submit the command through [postSourceUpdate] to preserve the source
-   * installation's identity and report an engine rejection.
+   * value drops that key. Run it inside an owner visit after checking the source installation
+   * identity. Preparation does not call the engine.
    */
   fun prepareFeatureStateUpdate(
     sourceId: String,
@@ -472,13 +468,10 @@ internal interface StyleBinding {
     state: JsonObject,
   ): () -> Unit
 
-  /** @return an empty object when the feature has no state, or the style has unloaded. */
-  suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
+  /** @return an empty object when the feature has no state. */
+  fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
 
-  /**
-   * Removes one key of a feature's state, or the whole state when [stateKey] is null. The write
-   * runs on the engine's thread, possibly after this function returns.
-   */
+  /** Removes one key of a feature's state, or the whole state when [stateKey] is null. */
   fun removeFeatureState(
     sourceId: String,
     sourceLayerId: String?,
@@ -486,10 +479,7 @@ internal interface StyleBinding {
     stateKey: String?,
   )
 
-  /**
-   * Removes the state of every feature in a source, or in one of its source layers. The write runs
-   * on the engine's thread, possibly after this function returns.
-   */
+  /** Removes the state of every feature in a source, or in one of its source layers. */
   fun resetFeatureStates(sourceId: String, sourceLayerId: String?)
 
   /**
@@ -503,6 +493,21 @@ internal interface StyleBinding {
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>>
+}
+
+/** Posts an admitted write; [action] rechecks any resource identity before touching the engine. */
+internal fun StyleBinding.postWrite(
+  target: String,
+  value: JsonElement? = null,
+  action: () -> Unit,
+) {
+  postOwner {
+    try {
+      action()
+    } catch (error: StyleMutationException) {
+      reportRejectedWrite(target, value, error)
+    }
+  }
 }
 
 internal fun LayerDefinition.summary(): LayerSummary =

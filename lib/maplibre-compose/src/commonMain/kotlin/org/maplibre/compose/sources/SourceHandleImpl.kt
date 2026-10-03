@@ -6,11 +6,10 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
-import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.checkStyleHandle
+import org.maplibre.compose.style.postWrite
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -67,7 +66,10 @@ protected constructor(
   }
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
-    return suspendingOperation { style.featureState(id, sourceLayerId, featureId) }
+    return suspendingOperation {
+      style.awaitOwner { style.featureState(id, sourceLayerId, featureId) }
+        ?: JsonObject(emptyMap())
+    }
   }
 
   protected fun clearFeatureState(
@@ -95,10 +97,8 @@ protected constructor(
   protected fun mutationOperation(action: () -> Unit): Unit = operation { postMutation(action) }
 
   private fun postMutation(action: () -> Unit) {
-    try {
-      style.postSourceUpdate(id, resourceIdentity, action)
-    } catch (error: StyleMutationException) {
-      throw StyleHandleException("Could not update source '$id': ${error.message}", error)
+    style.postWrite("Source '$id'") {
+      if (identity.sources.isCurrent(id, resourceIdentity)) action()
     }
   }
 

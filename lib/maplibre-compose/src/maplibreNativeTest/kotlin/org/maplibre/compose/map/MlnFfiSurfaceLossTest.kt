@@ -187,7 +187,7 @@ class MlnFfiSurfaceLossTest {
 
       it.loseSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      style.resetFeatureStates(source.id, null)
+      style.postOwner { style.resetFeatureStates(source.id, null) }
       assertEquals(
         JsonObject(emptyMap()),
         style.featureStateOnOwnerThread(source.id, "1"),

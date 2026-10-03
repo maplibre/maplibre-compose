@@ -29,7 +29,7 @@ internal constructor(
   private val identity: StyleIdentity = style.identity
 
   override suspend fun getProperty(name: String): JsonElement? {
-    return suspendingOperation { style.layerProperty(id, name) }
+    return suspendingOperation { style.awaitOwner { style.layerProperty(id, name) } }
   }
 
   internal fun setLayoutProperty(name: String, value: JsonElement) {
@@ -64,7 +64,10 @@ internal constructor(
   private fun setProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
     operation {
       operations.requireLayerWritable(id)
-      style.setLayerProperties(listOf(LayerPropertyWrite(id, type, name, value, kind)))
+      val writes = listOf(LayerPropertyWrite(id, type, name, value, kind))
+      style.postOwner {
+        if (isCurrentResource()) style.setLayerProperties(writes)
+      }
     }
   }
 
