@@ -16,8 +16,6 @@ import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.Foundation.*
 import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAFrameRateRangeMake
-import platform.QuartzCore.CALayer
-import platform.QuartzCore.CAMetalLayer
 import platform.UIKit.*
 import platform.darwin.NSObject
 import platform.objc.sel_registerName
@@ -65,12 +63,6 @@ private class BenchmarkController : UIViewController(nibName = null, bundle = nu
               else println("MAP_BENCHMARK CPU ${cpuMillis() - start}")
             },
             collectGarbage = { kotlin.native.runtime.GC.collect() },
-            uiFrames =
-              if (config.scenario == BenchmarkScenario.Animation)
-                AppleMapFrames {
-                  checkNotNull(driver).presentationLayer() to checkNotNull(view.window).screen
-                }
-              else BenchmarkUiFrames.None,
           )
         if (config.scenario == BenchmarkScenario.MapReturn) {
           val cover = UIView(frame = view.bounds)
@@ -180,13 +172,6 @@ private class IosDriver(
   nextFrame: suspend () -> Long,
 ) : BenchmarkDriver(fixture, nextFrame) {
   private val map = MLNMapView(frame = container.bounds, styleJSON = fixture.baseStyles[0])
-
-  fun presentationLayer(): CAMetalLayer = metalLayers(map.layer).single()
-
-  private fun metalLayers(layer: CALayer): List<CAMetalLayer> =
-    if (layer is CAMetalLayer) listOf(layer)
-    else layer.sublayers.orEmpty().filterIsInstance<CALayer>().flatMap(::metalLayers)
-
   private var ready = CompletableDeferred<Unit>()
   private var idle: CompletableDeferred<Unit>? = null
   private var styleReadyMs: Double? = null
@@ -258,6 +243,7 @@ private class IosDriver(
             encodingMs = renderingStats.encodingTime * 1000,
             renderingMs = renderingStats.renderingTime * 1000,
             drawCalls = renderingStats.numDrawCalls.toLong(),
+            frameCount = renderingStats.numFrames.toLong(),
             mode = if (fullyRendered) "full" else "partial",
           )
         )

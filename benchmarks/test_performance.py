@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from config import canonical_config
-from performance import late_frames, map_presentation, read_run
+from performance import late_frames, read_run
 
 # What the app prints for a run: START carries the full configuration with defaults.
 APP_DEFAULTS = {
@@ -206,91 +206,40 @@ class PerformanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Incomplete UI"):
                 read_run(root)
 
-    def test_displayed_map_frames_use_fixed_target_and_exact_window(self):
+    def test_map_drawing_fps_is_independent_of_ui_callback_rate(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "presentation.json").write_text(
-                json.dumps(
-                    {
-                        "source": "surfaceflinger",
-                        "layer": "map",
-                        "gaps_ns": [[0, 100]],
-                        "refresh_periods_ns": [[1_000_000_000, 16_666_667]],
-                        # A steady 30 FPS map must not be judged against its own slow median.
-                        "presented_ns": [
-                            0,
-                            1_000_000_000,
-                            1_033_333_333,
-                            1_066_666_666,
-                            1_100_000_000,
-                            2_000_000_000,
-                        ],
-                    }
+            for interval in (8, 33):
+                root = Path(directory) / str(interval)
+                log = write_run(
+                    root, workload="animation", intervals=(interval, interval)
                 )
+                report = read_run(root)
+                self.assertEqual(report["map_drawing"]["frames"], 1)
+                self.assertAlmostEqual(report["map_drawing"]["fps"], 1 / 12.002)
+                self.assertEqual(
+                    report["workload"]["frame_interval_ms"]["p50"], interval
+                )
+            (root / "app.log").write_text(
+                log.replace('"duration_ms":12002', '"duration_ms":0')
             )
-            logs = 'MAP_BENCHMARK PRESENTATION_WINDOW {"start_ns":1000000000,"end_ns":1133333333}'
-            report = map_presentation(root, logs, {"maximumFps": 60})
-            self.assertEqual(report["frames"], 4)
-            self.assertAlmostEqual(report["fps"], 30, places=6)
-            self.assertEqual(report["late_percent"], 100)
-            self.assertAlmostEqual(report["interval_ms"]["p95"], 33.3333339)
-            self.assertAlmostEqual(
-                map_presentation(root, logs, {})["target_fps"], 60, places=5
-            )
-            self.assertIsNone(map_presentation(root / "missing", logs, {}))
-            capture = json.loads((root / "presentation.json").read_text())
-            capture["gaps_ns"] = [[1_010_000_000, 1_060_000_000]]
-            (root / "presentation.json").write_text(json.dumps(capture))
-            with self.assertRaisesRegex(ValueError, "history lost"):
-                map_presentation(root, logs, {"maximumFps": 60})
+            with self.assertRaisesRegex(ValueError, "Invalid map drawing duration"):
+                read_run(root)
 
-    def test_inline_presentations_use_the_capture_window(self):
-        capture = {
-            "source": "metal-presented",
-            "layer": "map",
-            "gaps_ns": [],
-            "window": {"start_ns": 1_000_000_000, "end_ns": 1_100_000_000},
-            "refresh_periods_ns": [[1_000_000_001, 8_333_333]],
-            "presented_ns": [
-                900_000_000,
-                1_000_000_000,
-                1_033_333_333,
-                1_066_666_666,
-                1_100_000_000,
-            ],
-        }
+    def test_map_drawing_rejects_lost_native_render_events(self):
         with tempfile.TemporaryDirectory() as directory:
-            logs = "MAP_BENCHMARK PRESENTATION " + json.dumps(capture)
-            report = map_presentation(directory, logs, {"maximumFps": 30})
-            self.assertEqual(report["frames"], 3)
-            self.assertEqual(report["fps"], 30)
-            self.assertEqual(report["target_fps"], 30)
-            self.assertEqual(report["late_percent"], 0)
-            self.assertAlmostEqual(report["refresh_hz"], 120, places=4)
-            self.assertGreater(map_presentation(directory, logs, {})["late_percent"], 0)
-
-    def test_map_frame_gaps_include_initial_and_terminal_stalls(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            logs = (
-                'MAP_BENCHMARK PRESENTATION_WINDOW {"start_ns":0,"end_ns":1000000000}'
+            root = Path(directory) / "run"
+            log = write_run(root, workload="animation")
+            log = log.replace('"frames":1', '"frames":2').replace(
+                'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]',
+                'MAP_BENCHMARK FRAMETIMES [{"frame_count":10},{"frame_count":12}]',
             )
-            for times in ([100_000_000, 116_000_000], [884_000_000, 900_000_000]):
-                with self.subTest(times=times):
-                    (root / "presentation.json").write_text(
-                        json.dumps(
-                            {
-                                "source": "surfaceflinger",
-                                "layer": "map",
-                                "gaps_ns": [],
-                                "refresh_periods_ns": [[times[-1], 16_666_667]],
-                                "presented_ns": times,
-                            }
-                        )
-                    )
-                    report = map_presentation(root, logs, {})
-                    self.assertEqual(report["interval_ms"]["max"], 884)
-                    self.assertAlmostEqual(report["late_percent"], 200 / 3)
+            (root / "app.log").write_text(log)
+            with self.assertRaisesRegex(ValueError, "Map drawing events were lost"):
+                read_run(root)
+            (root / "app.log").write_text(
+                log.replace('"frame_count":12', '"frame_count":11')
+            )
+            self.assertEqual(read_run(root)["map_drawing"]["frames"], 2)
 
     def test_completion_timings(self):
         with tempfile.TemporaryDirectory() as directory:

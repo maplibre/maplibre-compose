@@ -30,43 +30,9 @@ kotlin {
   jvmToolchain(libs.versions.java.toolchain.get().toInt())
   android { namespace = "org.maplibre.compose.benchmark" }
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
-  listOf(iosArm64(), iosSimulatorArm64(), macosArm64()).forEach { target ->
-    val sdk =
-      when (target.name) {
-        "iosArm64" -> "iphoneos"
-        "iosSimulatorArm64" -> "iphonesimulator"
-        else -> "macosx"
-      }
-    val platform =
-      when (target.name) {
-        "iosArm64" -> "ios${libs.versions.apple.benchmarkIosMinimum.get()}"
-        "iosSimulatorArm64" -> "ios${libs.versions.apple.benchmarkIosMinimum.get()}-simulator"
-        else -> "macos${libs.versions.apple.benchmarkMacosMinimum.get()}"
-      }
-    val archive = layout.buildDirectory.file("metal-frames/${target.name}/libMetalFrames.a")
-    val compile =
-      tasks.register<Exec>("compileMetalFrames${target.name.replaceFirstChar(Char::uppercase)}") {
-        inputs.files(
-          "compile_metal_frames.py",
-          "src/nativeInterop/cinterop/MetalFrames.m",
-          "src/nativeInterop/cinterop/MetalFrames.h",
-        )
-        outputs.file(archive)
-        commandLine(
-          "python3",
-          project.file("compile_metal_frames.py"),
-          sdk,
-          "arm64-apple-$platform",
-          archive.get().asFile,
-        )
-      }
-    target.compilations.getByName("main").cinterops.create("MetalFrames") {
-      definitionFile.set(project.file("src/nativeInterop/cinterop/MetalFrames.def"))
-      includeDirs(project.file("src/nativeInterop/cinterop"))
-      extraOpts("-libraryPath", archive.get().asFile.parent)
-      tasks.named(interopProcessingTaskName).configure { dependsOn(compile) }
-    }
-  }
+  iosArm64()
+  iosSimulatorArm64()
+  macosArm64()
   js {
     useEsModules()
     browser {

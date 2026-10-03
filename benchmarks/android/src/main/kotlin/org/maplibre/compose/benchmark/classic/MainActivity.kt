@@ -68,8 +68,7 @@ class MainActivity : ComponentActivity() {
               else println("MAP_BENCHMARK CPU ${Process.getElapsedCpuTime() - startCpu}")
             },
             collectGarbage = System::gc,
-            uiFrames =
-              AndroidUiFrames(window, intent.getBooleanExtra("capturePresentation", false)),
+            uiFrames = AndroidUiFrames(window),
           )
         if (config.scenario == BenchmarkScenario.MapReturn) {
           val cover = View(this@MainActivity).apply { setBackgroundColor(0xff303030.toInt()) }

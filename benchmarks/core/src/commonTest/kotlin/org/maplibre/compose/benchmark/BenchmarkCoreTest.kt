@@ -11,6 +11,22 @@ import kotlinx.serialization.json.*
 
 class BenchmarkCoreTest {
   @Test
+  fun mapDrawingCountsExcludeFramesAfterTheDeadlineAndDelayedStop() = runTest {
+    val recorder = BenchmarkFrameRecorder(testScheduler.timeSource)
+    recorder.start(3000)
+    recorder.record(FrameSample())
+    testScheduler.advanceTimeBy(2999)
+    recorder.record(FrameSample())
+    testScheduler.advanceTimeBy(1)
+    recorder.record(FrameSample())
+    testScheduler.advanceTimeBy(2000)
+    val stats = assertNotNull(recorder.stop())
+    assertEquals(2, stats.frames)
+    assertEquals(3000.0, stats.durationMs)
+    assertNull(recorder.stop())
+  }
+
+  @Test
   fun missedMutationSlotsDoNotCreateCatchUpBursts() = runTest {
     val times = mutableListOf<Long>()
     val clock =

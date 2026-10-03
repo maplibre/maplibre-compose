@@ -18,7 +18,7 @@ import org.maplibre.compose.map.RenderOptions
 internal fun BenchmarkReturn(fixture: BenchmarkFixture, onStatus: (String, Boolean) -> Unit) {
   var request by remember { mutableStateOf<ComposeBenchmarkDriver?>(null) }
   var cover by remember { mutableDoubleStateOf(0.0) }
-  val uiFrames = rememberBenchmarkUiFrames(fixture.config)
+  val uiFrames = rememberBenchmarkUiFrames()
   LaunchedEffect(fixture) {
     onStatus("Starting", true)
     val host =

@@ -534,16 +534,11 @@ def capture(device, config, output, log_file):
                 stdout=log,
                 stderr=log,
             )
-            presentation = runner.android_presentation(device.adb, config)
 
             def poll():
                 (output / "app.log").write_bytes(device.bytes(log_file))
-                if presentation:
-                    presentation.poll_log(output / "app.log")
 
             runner.wait_for(output / "app.log", poll=poll)
-            if presentation:
-                presentation.save(output)
     finally:
         if logger:
             runner.stop(logger)

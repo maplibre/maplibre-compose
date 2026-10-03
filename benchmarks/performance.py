@@ -4,7 +4,6 @@ import itertools
 import json
 import math
 import re
-import statistics
 from pathlib import Path
 
 from config import parse_config
@@ -73,52 +72,6 @@ def ui_frames(logs):
     return ui
 
 
-def map_presentation(directory, logs, config):
-    """Actual displayed map buffers; never substitute UI callbacks or engine work timings."""
-    path = Path(directory) / "presentation.json"
-    if "MAP_BENCHMARK PRESENTATION " in logs:
-        capture = record(logs, "PRESENTATION")
-        window = capture["window"]
-    elif path.exists():
-        capture = json.loads(path.read_text())
-        window = record(logs, "PRESENTATION_WINDOW")
-    else:
-        return None
-    start, end = window["start_ns"], window["end_ns"]
-    if end <= start:
-        raise ValueError("Invalid presentation window")
-    if any(a < end and b >= start for a, b in capture["gaps_ns"]):
-        raise ValueError("Presentation history lost during measurement")
-    times = capture["presented_ns"]
-    if times != sorted(set(times)):
-        raise ValueError("Presentation timestamps must be unique and ordered")
-    times = [t for t in times if start <= t < end]
-    if not capture["layer"] or len(times) < 2:
-        raise ValueError("Map surface presentation timestamps are unavailable")
-    intervals = [
-        (b - a) / 1e6 for a, b in itertools.pairwise([start, *times, end]) if b > a
-    ]
-    periods = [
-        period for at, period in capture["refresh_periods_ns"] if start <= at < end
-    ]
-    if not periods or any(period <= 0 for period in periods):
-        raise ValueError("Display refresh period is unavailable")
-    refresh = 1e9 / statistics.median(periods)
-    target = min(config.get("maximumFps") or refresh, refresh)
-    return {
-        "source": capture["source"],
-        "frames": len(times),
-        "duration_ms": (end - start) / 1e6,
-        "fps": len(times) * 1e9 / (end - start),
-        "interval_ms": distribution(intervals),
-        "target_fps": target,
-        "refresh_hz": refresh,
-        "late_percent": 100 * sum(i > 1500 / target for i in intervals) / len(intervals)
-        if target
-        else None,
-    }
-
-
 def read_run(directory):
     directory = Path(directory)
     logs = (directory / "app.log").read_text()
@@ -173,6 +126,14 @@ def read_run(directory):
         summary[key] = distribution(
             [frame[key] for frame in frames if frame.get(key) is not None]
         )
+    if config["workload"] == "animation":
+        if summary["duration_ms"] <= 0:
+            raise ValueError("Invalid map drawing duration")
+        counters = [frame.get("frame_count") for frame in frames]
+        if all(counter is not None for counter in counters) and any(
+            b != a + 1 for a, b in itertools.pairwise(counters)
+        ):
+            raise ValueError("Map drawing events were lost or the renderer restarted")
     cpu = re.findall(r"MAP_BENCHMARK CPU (\S+)", logs)
     if len(cpu) > 1:
         raise ValueError("Multiple CPU measurements in one run")
@@ -181,7 +142,13 @@ def read_run(directory):
         distribution([cpu])
     return {
         "ui_frames": ui_frames(logs),
-        "map_presentation": map_presentation(directory, logs, config),
+        "map_drawing": {
+            "frames": summary["frames"],
+            "duration_ms": summary["duration_ms"],
+            "fps": summary["frames"] / (summary["duration_ms"] / 1000),
+        }
+        if config["workload"] == "animation"
+        else None,
         "config": config,
         "build": record(logs, "BUILD") if "MAP_BENCHMARK BUILD " in logs else None,
         "cpu_ms": cpu,

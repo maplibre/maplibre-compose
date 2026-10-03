@@ -21,7 +21,7 @@ internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String,
   val directory = benchmarkCacheDirectory()
   val density = LocalDensity.current.density
   val window = LocalWindowInfo.current
-  val uiFrames = rememberBenchmarkUiFrames(config)
+  val uiFrames = rememberBenchmarkUiFrames()
   LaunchedEffect(config, directory) {
     onStatus("Starting", true)
     try {

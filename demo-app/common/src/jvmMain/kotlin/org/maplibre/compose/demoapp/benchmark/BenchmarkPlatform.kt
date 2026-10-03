@@ -25,8 +25,7 @@ internal actual fun benchmarkCollectGarbage() {
 }
 
 @Composable
-internal actual fun rememberBenchmarkUiFrames(config: BenchmarkConfig): BenchmarkUiFrames =
-  BenchmarkUiFrames.None
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
 
 @Composable
 internal actual fun benchmarkCacheDirectory(): String = System.getProperty("java.io.tmpdir")

@@ -264,7 +264,7 @@ internal suspend fun measured(
           host.collectGarbage()
           host.cpu(true)
           measuring = true
-          recorder.start()
+          recorder.start(frameDurationMillis)
           host.uiFrames.start(frameDurationMillis)
           println("MAP_BENCHMARK MEASURE")
         }

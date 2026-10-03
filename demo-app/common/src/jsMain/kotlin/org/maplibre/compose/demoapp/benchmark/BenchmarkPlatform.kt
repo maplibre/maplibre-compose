@@ -20,8 +20,7 @@ internal actual fun benchmarkCpu(active: Boolean) {}
 internal actual fun benchmarkCollectGarbage() {}
 
 @Composable
-internal actual fun rememberBenchmarkUiFrames(config: BenchmarkConfig): BenchmarkUiFrames =
-  BenchmarkUiFrames.None
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
 
 @Composable
 internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String, Boolean) -> Unit) {

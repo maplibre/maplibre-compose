@@ -1,7 +1,0 @@
-language = Objective-C
-headers = MetalFrames.h
-package = org.maplibre.compose.benchmark.metal
-staticLibraries = libMetalFrames.a
-linkerOpts = -framework Foundation -framework QuartzCore -framework Metal
-linkerOpts.macos = -framework AppKit -framework CoreVideo
-linkerOpts.ios = -framework UIKit
