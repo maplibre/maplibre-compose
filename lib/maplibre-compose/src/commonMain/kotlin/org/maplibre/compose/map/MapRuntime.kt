@@ -88,6 +88,7 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.postWrite
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
@@ -306,19 +307,21 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal suspend fun globalStateValues(): JsonObject? = readStyle { it.globalState() }
 
   internal fun setGlobalStateProperty(name: String, value: JsonElement) {
-    mutateStyle { it.setGlobalStateProperty(name, value) }
+    mutateStyle("Global state '$name'", value) { it.setGlobalStateProperty(name, value) }
   }
 
   internal suspend fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
+    mutateStyle("The style transition") {
+      it.setTransition(options.scaledBy(it.animatorDurationScale))
+    }
   }
 
   internal suspend fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
 
   internal fun setPlacementTransitions(enabled: Boolean) {
-    mutateStyle { it.setPlacementTransitions(enabled) }
+    mutateStyle("The placement transition setting") { it.setPlacementTransitions(enabled) }
   }
 
   internal suspend fun lightProperty(name: String): JsonElement? = readStyle {
@@ -326,13 +329,19 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun setLight(light: Light) {
-    mutateStyle { it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale)) }
+    val value = light.toJson()
+    mutateStyle("The light", value) {
+      it.setLight(value.withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal suspend fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle { it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale)) }
+    val value = sky?.toJson()
+    mutateStyle("The sky", value) {
+      it.setSky(value?.withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal suspend fun projectionProperty(name: String): JsonElement? = readStyle {
@@ -340,24 +349,29 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun setProjection(projection: Projection) {
-    mutateStyle { it.setProjection(projection.toJson()) }
+    val value = projection.toJson()
+    mutateStyle("The projection", value) { it.setProjection(value) }
   }
 
   /**
    * Reads from the ready loaded style, or returns null without one. A style that stops being ready
    * while the engine answers also reads as null: the value belongs to a generation that is gone.
    */
-  private suspend fun <T> readStyle(read: suspend (StyleBinding) -> T?): T? {
+  private suspend fun <T> readStyle(read: (StyleBinding) -> T?): T? {
     val current = readyLoadedStyle() ?: return null
     operationGuard(current).run {}
-    val result = read(current)
+    val result = current.awaitOwner { read(current) }
     return result.takeIf { readyLoadedStyle() === current }
   }
 
   /** Posts a write to the ready loaded style. The engine reports a rejection through the logger. */
-  private fun mutateStyle(mutate: (StyleBinding) -> Unit) {
+  private fun mutateStyle(
+    target: String,
+    value: JsonElement? = null,
+    mutate: (StyleBinding) -> Unit,
+  ) {
     val current = readyLoadedStyle() ?: throw StyleHandleException("No ready loaded style")
-    operationGuard(current).run { mutate(current) }
+    operationGuard(current).run { current.postWrite(target, value) { mutate(current) } }
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {

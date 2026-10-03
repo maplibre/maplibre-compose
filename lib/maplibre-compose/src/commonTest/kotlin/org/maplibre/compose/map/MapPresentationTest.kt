@@ -31,6 +31,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -1855,6 +1856,45 @@ class MapPresentationTest {
     val handle = assertNotNull(fixture.state.style.layers["background"])
     handle.asMutable!!.setPaintTransition("background-color", options)
     assertEquals(scaled, handle.getPaintTransition("background-color"))
+    fixture.close()
+  }
+
+  @Test
+  fun global_reads_drop_stale_results_and_preserve_cancellation() = runTest {
+    val fixture = presentationFixture()
+    val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    binding.ownerBusy = true
+    val cancelled =
+      async(start = CoroutineStart.UNDISPATCHED) { fixture.state.style.globalState.get() }
+    assertFalse(cancelled.isCompleted)
+    cancelled.cancel()
+    assertFailsWith<CancellationException> { cancelled.await() }
+    val stale = async(start = CoroutineStart.UNDISPATCHED) { fixture.state.style.globalState.get() }
+    assertFalse(stale.isCompleted)
+    fixture.state.style.asMutable!!.baseStyle = BaseStyle.Json("replacement")
+    binding.runOwnerTasks()
+    assertNull(stale.await())
+    fixture.close()
+  }
+
+  @Test
+  fun global_reads_preserve_argument_errors() = runTest {
+    val fixture = presentationFixture()
+    val recorded = RecordingStyleBinding()
+    val binding =
+      object : StyleBinding by recorded {
+        override fun lightProperty(name: String): JsonElement? =
+          throw IllegalArgumentException(name)
+      }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    assertEquals(
+      "invalid",
+      assertFailsWith<IllegalArgumentException> { fixture.state.style.light.getProperty("invalid") }
+        .message,
+    )
     fixture.close()
   }
 

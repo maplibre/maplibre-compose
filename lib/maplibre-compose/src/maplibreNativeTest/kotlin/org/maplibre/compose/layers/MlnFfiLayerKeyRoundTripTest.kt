@@ -18,6 +18,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.style.StyleLayerVisibility
@@ -64,7 +65,7 @@ class MlnFfiLayerKeyRoundTripTest {
         ((Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      afterHandle.update(afterAttach.definition())
+      runBlocking { style.onOwner { afterHandle.update(afterAttach.definition()) } }
 
       style.onMap { map ->
         assertEquals("places", map.layerSourceLayer("before"))

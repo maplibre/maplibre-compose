@@ -92,9 +92,9 @@ internal interface MlnFfiRenderSessions {
  * [StyleBinding] for one loaded style in a MapLibre Native map. Construction runs on [loop]'s owner
  * thread while [map] is alive; initial metadata is captured before publication.
  *
- * Methods that return a value or throw [StyleMutationException] call the map directly and throw
- * [IllegalStateException] on any other thread; other threads run them inside [awaitOwner]. Writes
- * whose refusal is only logged, such as [setLayerProperties], queue themselves and work anywhere.
+ * Engine reads and mutations call the map directly on the shared runtime owner thread. Handles and
+ * commands use [awaitOwner] or [postOwner]; accepted visits apply their operations inline. Feature
+ * queries stay on the renderer, and data preparation stays on workers.
  */
 internal open class MlnFfiStyleBinding(
   map: MapHandle,
@@ -135,14 +135,22 @@ internal open class MlnFfiStyleBinding(
   override val baseSources: Map<String, Source?> =
     map.styleSourceIds().associateWith { reconstructSource(map, it) }
 
-  override fun setImage(definition: StyleImageDefinition) {
-    withMap { applyImage(it, definition) }
-  }
-
   /** Runs [action] through [MlnFfiMapRuntimeLoop.await]. */
   override suspend fun <T> awaitOwner(action: () -> T): T? {
     if (!isLoaded) return null
     return loop.await { if (isLoaded) action() else null }
+  }
+
+  override fun postOwner(action: () -> Unit) {
+    requireCurrent()
+    submit {
+      try {
+        action()
+      } catch (error: StyleHandleException) {
+        // A style unloaded during this accepted visit has nothing left to update.
+        if (isLoaded) throw error
+      }
+    }
   }
 
   /**
@@ -153,49 +161,41 @@ internal open class MlnFfiStyleBinding(
    */
   internal fun <T> withMap(action: (MapHandle) -> T): T {
     check(loop.isOwnerThread()) {
-      "A MapLibre Native style call ran off the map's owner thread; use awaitOwner or submitWrite"
+      "A MapLibre Native style call ran off the map's owner thread; use awaitOwner or postOwner"
     }
-    requireLoadedStyle()
+    requireCurrent()
     return action(checkNotNull(loop.map) { "The map owner loop has no map" })
   }
 
-  private fun applyImage(map: MapHandle, definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition) = mutateMap { map ->
     val (id, image, sdf, stretch) = definition
     val scale = getScale()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
     // The engine replaces an existing image in place, so no existence read is needed.
-    try {
-      map.setStyleImage(
-        imageId = id,
-        image = image.pixels.ffi,
-        options =
-          StyleImageOptions().also { options ->
-            options.sdf = sdf
-            options.pixelRatio = scale
-            stretchPx?.let { px ->
-              if (px.stretchX.isNotEmpty()) {
-                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
-              }
-              if (px.stretchY.isNotEmpty()) {
-                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
-              }
-              px.content?.let { box ->
-                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
-              }
+    map.setStyleImage(
+      imageId = id,
+      image = image.pixels.ffi,
+      options =
+        StyleImageOptions().also { options ->
+          options.sdf = sdf
+          options.pixelRatio = scale
+          stretchPx?.let { px ->
+            if (px.stretchX.isNotEmpty()) {
+              options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
             }
-          },
-      )
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
+            if (px.stretchY.isNotEmpty()) {
+              options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+            }
+            px.content?.let { box ->
+              options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+            }
+          }
+        },
+    )
   }
 
-  override fun removeImage(id: String): Boolean = withMap {
-    try {
-      it.removeStyleImage(id)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
+  override fun removeImage(id: String): Boolean = mutateMap {
+    it.removeStyleImage(id)
   }
 
   override fun imageExists(id: String): Boolean? = withMap { it.styleImageInfo(id) != null }
@@ -293,8 +293,6 @@ internal open class MlnFfiStyleBinding(
     sourceChanged(sourceId)
   }
 
-  private fun requireLoadedStyle() = requireCurrent()
-
   /**
    * Runs [action] through [MlnFfiMapRuntimeLoop.submit] and returns at once. [onDropped] runs
    * instead when the style has unloaded or the loop stops first, and after [action] when it throws.
@@ -304,55 +302,22 @@ internal open class MlnFfiStyleBinding(
     loop.submit(onDropped = onDropped) { map -> if (isLoaded) action(map) else onDropped() }
   }
 
-  /**
-   * Submits a write and returns at once. An engine refusal is reported through
-   * [reportRejectedWrite] with [target] and [value]; a style that unloads first skips the write.
-   *
-   * @throws StyleHandleException when the style has already unloaded.
-   */
-  fun submitWrite(target: String, value: JsonElement? = null, action: (MapHandle) -> Unit) {
-    requireLoadedStyle()
-    submit { map ->
-      try {
-        action(map)
-      } catch (error: MaplibreException) {
-        reportRejectedWrite(target, value, StyleMutationException(error.message, error))
-      } catch (error: StyleMutationException) {
-        reportRejectedWrite(target, value, error)
-      }
-    }
-  }
-
-  override fun postSourceUpdate(sourceId: String, resourceIdentity: Any, action: () -> Unit) {
-    submitWrite("source '$sourceId'") {
-      if (!identity.sources.isCurrent(sourceId, resourceIdentity)) return@submitWrite
-      try {
-        action()
-      } catch (error: IllegalStateException) {
-        // The style unloaded after this task was admitted: the write is stale, as if dropped.
-        if (isLoaded) throw error
-      }
-    }
-  }
-
   /** Owner thread only. Reports an engine refusal as a [StyleMutationException]. */
-  private fun updateSource(action: (MapHandle) -> Unit) {
-    withMap { map ->
-      try {
-        action(map)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
+  private fun <T> mutateMap(action: (MapHandle) -> T): T = withMap { map ->
+    try {
+      action(map)
+    } catch (error: MaplibreException) {
+      throw StyleMutationException(error.message, error)
     }
   }
 
   fun setSourceVolatile(sourceId: String, value: Boolean) {
-    submitWrite("source '$sourceId'") { it.setStyleSourceVolatile(sourceId, value) }
+    mutateMap { it.setStyleSourceVolatile(sourceId, value) }
   }
 
   /** Delegates to the map's [MlnFfiRenderSessions]. */
   suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? {
-    requireLoadedStyle()
+    requireCurrent()
     return renderSessions.awaitRenderSession(action).also {
       if (it == null) logger?.d { "Ignoring a render session call: no session is ready yet" }
     }
@@ -377,23 +342,15 @@ internal open class MlnFfiStyleBinding(
    *
    * @return false if the style has unloaded, in which case [add] did not run.
    */
-  fun addSourceWith(sourceId: String, add: (MapHandle) -> Unit): Boolean = withMap { map ->
-    try {
-      add(map)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
+  fun addSourceWith(sourceId: String, add: (MapHandle) -> Unit): Boolean = mutateMap { map ->
+    add(map)
     reportSourceChanged(sourceId)
     true
   }
 
   override fun removeSource(sourceId: String) {
-    withMap { map ->
-      try {
-        map.removeStyleSource(sourceId)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
+    mutateMap { map ->
+      map.removeStyleSource(sourceId)
       identity.sources.remove(sourceId)
       geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
       reportSourceChanged(sourceId)
@@ -445,13 +402,13 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
-    submitWrite("source '$sourceId'") { map ->
+    mutateMap { map ->
       map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds())
     }
   }
 
   override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
-    submitWrite("source '$sourceId'") { map ->
+    mutateMap { map ->
       map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId())
     }
   }
@@ -497,7 +454,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    submitWrite("source '$sourceId'") { map ->
+    mutateMap { map ->
       map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId())
     }
   }
@@ -548,16 +505,16 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
-    updateSource { map -> map.setImageSourceImage(sourceId, image.pixels.ffi) }
+    mutateMap { map -> map.setImageSourceImage(sourceId, image.pixels.ffi) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    updateSource { map -> map.setImageSourceUrl(sourceId, url) }
+    mutateMap { map -> map.setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     val corners = coordinates.map { it.toLatLng() }
-    updateSource { map -> map.setImageSourceCoordinates(sourceId, corners) }
+    mutateMap { map -> map.setImageSourceCoordinates(sourceId, corners) }
   }
 
   override fun addGeoJsonSource(
@@ -660,7 +617,7 @@ internal open class MlnFfiStyleBinding(
     // The owner barrier includes accepted URL updates and newly created coordinators.
     val coordinators = awaitOwner { geoJsonLock.withLock { geoJsonCoordinators.values.toList() } }
     coordinators?.forEach { it.awaitLatest() }
-    requireLoadedStyle()
+    requireCurrent()
   }
 
   private fun loadedGeoJsonOptions(map: MapHandle, sourceId: String): GeoJsonSourceOptions? {
@@ -776,24 +733,21 @@ internal open class MlnFfiStyleBinding(
   ): () -> Unit {
     val bytes = state.toJsonBytes()
     val selector = featureStateSelector(sourceId, sourceLayerId, featureId)
-    return { updateSource { map -> map.setFeatureState(selector, bytes) } }
+    return { mutateMap { map -> map.setFeatureState(selector, bytes) } }
   }
 
-  override suspend fun featureState(
+  override fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
-  ): JsonObject =
-    awaitOwner {
-      withMap { map ->
-        Json.parseToJsonElement(
-            map
-              .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
-              .decodeToString()
-          )
-          .jsonObject
-      }
-    } ?: JsonObject(emptyMap())
+  ): JsonObject = withMap { map ->
+    Json.parseToJsonElement(
+        map
+          .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
+          .decodeToString()
+      )
+      .jsonObject
+  }
 
   override fun removeFeatureState(
     sourceId: String,
@@ -801,13 +755,13 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     stateKey: String?,
   ) {
-    submitWrite("Feature '$featureId' in source '$sourceId'") { map ->
+    mutateMap { map ->
       map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
     }
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    submitWrite("Source '$sourceId'") { map ->
+    mutateMap { map ->
       map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
     }
   }
@@ -829,21 +783,17 @@ internal open class MlnFfiStyleBinding(
       .orEmpty()
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = withMap { map ->
-    try {
-      map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = mutateMap { map ->
+    map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
     true
   }
 
   override fun removeLayer(layerId: String) {
-    withMap { map -> map.removeStyleLayer(layerId) }
+    mutateMap { map -> map.removeStyleLayer(layerId) }
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String) {
-    withMap { map -> map.moveStyleLayer(layerId, beforeLayerId) }
+    mutateMap { map -> map.moveStyleLayer(layerId, beforeLayerId) }
   }
 
   override fun setLayerProperty(
@@ -852,97 +802,53 @@ internal open class MlnFfiStyleBinding(
     value: JsonElement,
     kind: LayerPropertyKind,
   ) {
-    withMap { map ->
-      try {
-        applyLayerWrite(map, layerId, name, value, kind)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
+    mutateMap { map ->
+      when {
+        kind == LayerPropertyKind.ROOT && name == "filter" ->
+          map.setLayerFilter(layerId, value.toJsonBytes())
+        kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+        name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
+        name == "source-layer" ->
+          map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
+        name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
+        name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
+        else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
       }
     }
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    withMap { map ->
-      try {
-        map.setLayerFilter(layerId, filter.toJsonBytes())
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
+    mutateMap { map ->
+      map.setLayerFilter(layerId, filter.toJsonBytes())
     }
   }
 
-  /**
-   * The batch runs as one owner operation, inline within a commit or submitted by other callers. A
-   * rejected write is non-fatal — the engine keeps the previous value and the reconciler's
-   * bookkeeping already accounts for that — so the caller does not wait for the result.
-   */
-  override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
-    if (writes.isEmpty()) return
-    requireLoadedStyle()
-    submit { map ->
-      writes.forEach { write ->
-        try {
-          applyLayerWrite(map, write.layerId, write.name, write.value, write.kind)
-        } catch (error: MaplibreException) {
-          reportRejectedWrite(write, StyleMutationException(error.message, error))
-        } catch (error: StyleMutationException) {
-          // A root value of the wrong type is refused before it reaches the engine.
-          reportRejectedWrite(write, error)
-        }
-      }
-    }
-  }
-
-  private fun applyLayerWrite(
-    map: MapHandle,
-    layerId: String,
-    name: String,
-    value: JsonElement,
-    kind: LayerPropertyKind,
-  ) {
-    when {
-      kind == LayerPropertyKind.ROOT && name == "filter" ->
-        map.setLayerFilter(layerId, value.toJsonBytes())
-      kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-      name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
-      name == "source-layer" ->
-        map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
-      name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
-      name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
-      else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-    }
-  }
-
-  override suspend fun layerProperty(layerId: String, name: String): JsonElement? = awaitOwner {
-    withMap { map ->
-      when (name) {
-        "id" -> JsonPrimitive(layerId)
-        "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
-        "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-        "source-layer" ->
-          map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-        "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-        "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-        "filter" -> map.layerFilter(layerId)?.toJsonElement()
-        else -> map.layerProperty(layerId, name)?.toJsonElement()
-      }
+  override fun layerProperty(layerId: String, name: String): JsonElement? = withMap { map ->
+    when (name) {
+      "id" -> JsonPrimitive(layerId)
+      "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
+      "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+      "source-layer" ->
+        map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+      "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+      "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+      "filter" -> map.layerFilter(layerId)?.toJsonElement()
+      else -> map.layerProperty(layerId, name)?.toJsonElement()
     }
   }
 
   /** An unset native duration applies paint changes instantly, so it reads as zero. */
-  override suspend fun transition(): TransitionOptions? = awaitOwner {
-    withMap { map ->
-      val options = map.styleTransitionOptions()
-      TransitionOptions(
-        duration = options.durationMs?.milliseconds ?: Duration.ZERO,
-        delay = options.delayMs?.milliseconds ?: Duration.ZERO,
-      )
-    }
+  override fun transition(): TransitionOptions? = withMap { map ->
+    val options = map.styleTransitionOptions()
+    TransitionOptions(
+      duration = options.durationMs?.milliseconds ?: Duration.ZERO,
+      delay = options.delayMs?.milliseconds ?: Duration.ZERO,
+    )
   }
 
   /** Native replaces every field on write, so the placement flag is read back first. */
   override fun setTransition(options: TransitionOptions) {
-    submitWrite("The style transition") { map ->
+    mutateMap { map ->
       map.setStyleTransitionOptions(
         map.styleTransitionOptions().copy {
           durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS)
@@ -954,57 +860,57 @@ internal open class MlnFfiStyleBinding(
 
   override val supportsPlacementTransitions: Boolean = true
 
-  override suspend fun placementTransitions(): Boolean? = awaitOwner {
-    withMap { map -> map.styleTransitionOptions().enablePlacementTransitions ?: true }
+  override fun placementTransitions(): Boolean? = withMap { map ->
+    map.styleTransitionOptions().enablePlacementTransitions ?: true
   }
 
   override fun setPlacementTransitions(enabled: Boolean) {
-    submitWrite("The placement transition setting") { map ->
+    mutateMap { map ->
       map.setStyleTransitionOptions(
         map.styleTransitionOptions().copy { enablePlacementTransitions = enabled }
       )
     }
   }
 
-  override suspend fun globalState(): JsonObject? = awaitOwner {
-    withMap { map -> Json.parseToJsonElement(map.getGlobalState().decodeToString()).jsonObject }
+  override fun globalState(): JsonObject? = withMap { map ->
+    Json.parseToJsonElement(map.getGlobalState().decodeToString()).jsonObject
   }
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     val bytes = value.toJsonBytes()
-    submitWrite("Global state '$name'", value) { map -> map.setGlobalStateProperty(name, bytes) }
+    mutateMap { map -> map.setGlobalStateProperty(name, bytes) }
   }
 
-  override suspend fun lightProperty(name: String): JsonElement? = awaitOwner {
-    withMap { map -> map.styleLightProperty(name)?.toJsonElement() }
+  override fun lightProperty(name: String): JsonElement? = withMap { map ->
+    map.styleLightProperty(name)?.toJsonElement()
   }
 
   override fun setLight(light: JsonObject) {
     val bytes = light.toJsonBytes()
-    submitWrite("The light", light) { map -> map.setStyleLightJson(bytes) }
+    mutateMap { map -> map.setStyleLightJson(bytes) }
   }
 
   override val supportsSky: Boolean = false
 
-  override suspend fun skyProperty(name: String): JsonElement? {
-    requireLoadedStyle()
+  override fun skyProperty(name: String): JsonElement? {
+    requireCurrent()
     return null
   }
 
   override fun setSky(sky: JsonObject?) {
-    requireLoadedStyle()
+    requireCurrent()
     if (sky != null) logger?.w { "MapLibre Native does not support the sky" }
   }
 
   override val supportsProjection: Boolean = false
 
-  override suspend fun projectionProperty(name: String): JsonElement? {
-    requireLoadedStyle()
+  override fun projectionProperty(name: String): JsonElement? {
+    requireCurrent()
     return null
   }
 
   override fun setProjection(projection: JsonObject) {
-    requireLoadedStyle()
+    requireCurrent()
     if (projection["type"] != JsonPrimitive("mercator")) {
       logger?.w { "MapLibre Native supports only the Mercator projection" }
     }

@@ -127,51 +127,9 @@ class SourceVolatilityTest {
         }
       }
       oldFeatureHandle.setFeatureState("layer", "1", buildJsonObject { put("selected", true) })
-      assertEquals(buildJsonObject {}, binding.featureState(source.id, "layer", "1"))
-    }
-  }
-
-  @Test
-  fun a_queued_write_cannot_create_an_identity_for_an_absent_source() = runBlocking {
-    BridgeMapFixture.create().use { fixture ->
-      fixture.loadStyle(BaseStyle.Empty)
-      val binding = fixture.style as MlnFfiStyleBinding
-      val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
-      binding.readMap { binding.addSource(source.definition()) }
-      val oldIdentity = binding.identity.sources.get(source.id)
-      binding.readMap { binding.removeSource(source.id) }
-      val parked = TestLatch(1)
-      val release = TestLatch(1)
-      val released = CompletableDeferred<Boolean>()
-      val added = CompletableDeferred<Result<Unit>>()
-      try {
-        fixture.session.loop.submit {
-          parked.countDown()
-          released.complete(release.await(5_000L))
-        }
-
-        assertTrue(parked.await(5_000L))
-        fixture.session.loop.submit {
-          added.complete(
-            runCatching {
-              binding.addSource(source.definition())
-              Unit
-            }
-          )
-        }
-
-        // The source is absent when this write is submitted, but installed before it executes.
-        binding.postSourceUpdate(source.id, oldIdentity) {
-          binding.setSourceVolatile(source.id, true)
-        }
-      } finally {
-        release.countDown()
-      }
-      assertTrue(released.await(), "native owner gate timed out")
-      added.await().getOrThrow()
       assertEquals(
-        false,
-        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+        buildJsonObject {},
+        binding.awaitOwner { binding.featureState(source.id, "layer", "1") },
       )
     }
   }

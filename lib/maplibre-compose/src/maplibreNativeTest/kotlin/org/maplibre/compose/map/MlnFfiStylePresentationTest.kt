@@ -81,7 +81,9 @@ class MlnFfiStylePresentationTest {
         assertTrue(ownerReleased.await(), "composition or reconciliation blocked its caller")
         assertEquals(
           JsonPrimitive(0.25),
-          assertNotNull(fixture.style).layerProperty("application", "background-opacity"),
+          assertNotNull(fixture.style).let {
+            it.awaitOwner { it.layerProperty("application", "background-opacity") }
+          },
         )
       } finally {
         release.countDown()

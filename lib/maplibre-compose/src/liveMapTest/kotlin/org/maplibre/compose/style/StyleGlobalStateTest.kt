@@ -58,7 +58,7 @@ class StyleGlobalStateTest {
       fixture.loadStyle(EMPTY_STYLE)
       assertEquals(JsonObject(emptyMap()), state.get())
       assertFailsWith<StyleHandleException> {
-        oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true))
+        oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
       }
       fixture.loadStyle(STYLE)
       assertEquals(defaults, state.get())

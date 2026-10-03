@@ -28,6 +28,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
@@ -116,7 +117,7 @@ class UnsupportedLayerPropertyTest {
         "icon-overlap",
         (const("never").compile(ExpressionContext.None)).asLayerProperty(),
       )
-      handle.update(layer.definition())
+      runBlocking { style.onOwner { handle.update(layer.definition()) } }
       style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
@@ -152,7 +153,7 @@ class UnsupportedLayerPropertyTest {
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
       for (value in listOf("cooperative", "never")) {
         layer.layout("icon-overlap", const(value).compile(ExpressionContext.None).asLayerProperty())
-        installation.update(layer.definition())
+        runBlocking { style.onOwner { installation.update(layer.definition()) } }
       }
       assertEquals(
         1,
@@ -163,7 +164,7 @@ class UnsupportedLayerPropertyTest {
   }
 
   @Test
-  fun a_value_maplibre_rejects_on_a_live_layer_is_reported_rather_than_thrown() {
+  fun a_refused_value_keeps_the_previous_value_and_later_batch_writes_finish_inline() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -184,7 +185,13 @@ class UnsupportedLayerPropertyTest {
         (const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      handle.update(layer.definition())
+      layer.paint("text-opacity", JsonPrimitive(0.75))
+      runBlocking {
+        style.onOwner {
+          handle.update(layer.definition())
+          assertEquals(JsonPrimitive(0.75), style.layerProperty("labels", "text-opacity"))
+        }
+      }
 
       style.onMap { map ->
         assertEquals(

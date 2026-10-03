@@ -16,6 +16,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogRecord
 import org.maplibre.compose.logging.MapLogSource
@@ -28,6 +30,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
+import org.maplibre.compose.sources.implementation
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.readMap
@@ -40,6 +43,45 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.spatialk.geojson.Position
 
 class StyleResourceCommandTest {
+  @Test
+  fun layer_and_global_writes_return_while_the_owner_is_busy_and_reads_follow_them() = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(
+        BaseStyle.Json(
+          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
+        )
+      )
+      val layer = assertNotNull(fixture.state.style.layers["background"])
+      val mutable = assertNotNull(layer.asMutable)
+      val state = fixture.state.style.globalState
+      val parked = TestLatch(1)
+      val release = TestLatch(1)
+      try {
+        (fixture.session as MlnFfiMapSession).loop.submit {
+          parked.countDown()
+          check(release.await(5_000)) { "style write blocked its caller" }
+        }
+        assertTrue(parked.await(5_000))
+        mutable.setPaintProperty("background-opacity", JsonPrimitive(0.25))
+        mutable.setPaintProperty("background-opacity", JsonPrimitive(0.75))
+        state.setProperty("value", JsonPrimitive(1))
+        state.setProperty("value", JsonPrimitive(2))
+        val read =
+          async(start = CoroutineStart.UNDISPATCHED) {
+            layer.getProperty("background-opacity")
+          }
+        val globalRead = async(start = CoroutineStart.UNDISPATCHED) { state.get() }
+        assertFalse(read.isCompleted)
+        assertFalse(globalRead.isCompleted)
+        release.countDown()
+        assertEquals(JsonPrimitive(0.75), read.await())
+        assertEquals(JsonObject(mapOf("value" to JsonPrimitive(2))), globalRead.await())
+      } finally {
+        release.countDown()
+      }
+    }
+  }
+
   @Test
   fun prepared_commands_return_while_the_owner_is_busy_and_queries_observe_submission_order() =
     runMapTest {
@@ -189,12 +231,11 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
-      val identity = binding.identity.sources.get("image")
+      val handle = fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
       val ran = TestLatch(1)
       recordingLogs { records ->
         // The unload lands after the task passed its loaded and identity checks.
-        binding.postSourceUpdate("image", identity) {
+        handle.implementation.definitionOperation {
           binding.invalidate()
           try {
             binding.setImageSourceImage("image", image(OPAQUE_GREEN))
@@ -278,6 +319,14 @@ class StyleResourceCommandTest {
       val offOwner = assertFailsWith<IllegalStateException> { actual.imageExists("retained") }
       assertTrue("owner thread" in offOwner.message.orEmpty(), offOwner.message)
       assertFailsWith<IllegalStateException> { actual.removeImage("retained") }
+      assertFailsWith<IllegalStateException> { actual.globalState() }
+      assertFailsWith<IllegalStateException> {
+        actual.setGlobalStateProperty("value", JsonPrimitive(1))
+      }
+      assertFailsWith<IllegalStateException> {
+        actual.layerProperty("missing", "background-opacity")
+      }
+      assertFailsWith<IllegalStateException> { actual.featureState("missing", null, "1") }
       assertEquals(true, actual.awaitOwner { actual.imageExists("retained") })
 
       for (mutating in listOf(false, true)) {
