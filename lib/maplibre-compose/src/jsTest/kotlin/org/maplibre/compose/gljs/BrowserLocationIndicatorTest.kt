@@ -149,13 +149,13 @@ class BrowserLocationIndicatorTest {
               put("duration", 100)
               put("delay", 20)
             },
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           style.setLayerProperty(
             "indicator",
             "location",
             JsonArray(listOf(JsonPrimitive(0), JsonPrimitive(1), JsonPrimitive(0))),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           for (name in
             listOf("bearing-accuracy", "bearing-accuracy-radius", "bearing-accuracy-color")) {
@@ -166,26 +166,26 @@ class BrowserLocationIndicatorTest {
                 put("duration", 100)
                 put("delay", 20)
               },
-              LayerPropertyKind.PAINT,
+              LayerPropertyKind.Paint,
             )
           }
           style.setLayerProperty(
             "indicator",
             "bearing-accuracy",
             JsonPrimitive(60),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           style.setLayerProperty(
             "indicator",
             "bearing-accuracy-radius",
             JsonPrimitive(72),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           style.setLayerProperty(
             "indicator",
             "bearing-accuracy-color",
             JsonPrimitive("lime"),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           fixture.settle()
           val sectorPixel = fixture.readPixel(128, 98)
@@ -292,7 +292,7 @@ class BrowserLocationIndicatorTest {
             "indicator",
             "bearing-image",
             JsonPrimitive(""),
-            LayerPropertyKind.LAYOUT,
+            LayerPropertyKind.Layout,
           )
           host.drawOnce(target)
           assertTrue(indicator.hitTest(128.0, 138.0, 128.0, 138.0))
@@ -519,7 +519,7 @@ class BrowserLocationIndicatorTest {
             "indicator",
             "image-tilt-displacement",
             JsonPrimitive(8),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           host.drawOnce(target)
           assertEquals(
@@ -566,13 +566,13 @@ class BrowserLocationIndicatorTest {
             "indicator",
             "image-tilt-displacement",
             JsonPrimitive(0),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           style.setLayerProperty(
             "indicator",
             "visibility",
             JsonPrimitive("none"),
-            LayerPropertyKind.LAYOUT,
+            LayerPropertyKind.Layout,
           )
           assertFalse(indicator.hitTest(128.0, 128.0, 128.0, 128.0))
           host.drawOnce(target)
@@ -580,7 +580,7 @@ class BrowserLocationIndicatorTest {
             "indicator",
             "visibility",
             JsonPrimitive("visible"),
-            LayerPropertyKind.LAYOUT,
+            LayerPropertyKind.Layout,
           )
           style.setProjection(buildJsonObject { put("type", "globe") })
           repeat(5) {
@@ -635,13 +635,13 @@ class BrowserLocationIndicatorTest {
             "indicator",
             "accuracy-radius-transition",
             buildJsonObject { put("duration", 0) },
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           style.setLayerProperty(
             "indicator",
             "accuracy-radius",
             JsonPrimitive(500000),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
           host.drawOnce(target)
           assertEquals(

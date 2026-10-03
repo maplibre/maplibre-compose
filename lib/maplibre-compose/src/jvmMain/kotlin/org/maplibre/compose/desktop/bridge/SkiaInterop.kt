@@ -5,6 +5,6 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 
 internal fun TextureOrigin.toSkiaOrigin(): SurfaceOrigin =
   when (this) {
-    TextureOrigin.TOP_LEFT -> SurfaceOrigin.TOP_LEFT
-    TextureOrigin.BOTTOM_LEFT -> SurfaceOrigin.BOTTOM_LEFT
+    TextureOrigin.TopLeft -> SurfaceOrigin.TOP_LEFT
+    TextureOrigin.BottomLeft -> SurfaceOrigin.BOTTOM_LEFT
   }

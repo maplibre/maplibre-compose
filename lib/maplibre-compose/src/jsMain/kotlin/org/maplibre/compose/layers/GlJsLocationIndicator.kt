@@ -185,9 +185,9 @@ internal class GlJsLocationIndicator(
     if (value != old) sectorPaint[name]?.retarget(value, now, delay, duration)
     val section =
       when (kind) {
-        LayerPropertyKind.ROOT -> null
-        LayerPropertyKind.PAINT -> "paint"
-        LayerPropertyKind.LAYOUT -> "layout"
+        LayerPropertyKind.Root -> null
+        LayerPropertyKind.Paint -> "paint"
+        LayerPropertyKind.Layout -> "layout"
       }
     definition =
       if (section == null) JsonObject(definition + (name to value))

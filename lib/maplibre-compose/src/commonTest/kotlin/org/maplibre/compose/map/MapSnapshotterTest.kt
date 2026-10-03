@@ -265,7 +265,7 @@ class MapSnapshotterTest {
         },
         cancel = {
           cancellationRequests++
-          SnapshotterEngineDisposition.RETAINED
+          SnapshotterEngineDisposition.Retained
         },
       )
     val runtime = runtimeWith(adapter)
@@ -315,7 +315,7 @@ class MapSnapshotterTest {
           cancel = {
             cleanupStarted.complete(Unit)
             releaseCleanup.await()
-            SnapshotterEngineDisposition.RETAINED
+            SnapshotterEngineDisposition.Retained
           },
         )
       val runtime =
@@ -366,7 +366,7 @@ class MapSnapshotterTest {
           image
         },
         cancel = {
-          SnapshotterEngineDisposition.RETAINED
+          SnapshotterEngineDisposition.Retained
         },
       )
     val runtime =
@@ -413,7 +413,7 @@ class MapSnapshotterTest {
         },
         cancel = {
           allowCaptureReturn.complete(Unit)
-          SnapshotterEngineDisposition.RETAINED
+          SnapshotterEngineDisposition.Retained
         },
       )
     val runtime =
@@ -599,7 +599,7 @@ class MapSnapshotterTest {
           },
           cancel = {
             releaseCleanup.await()
-            SnapshotterEngineDisposition.RETAINED
+            SnapshotterEngineDisposition.Retained
           },
         )
       val runtime = runtimeWith(adapter)

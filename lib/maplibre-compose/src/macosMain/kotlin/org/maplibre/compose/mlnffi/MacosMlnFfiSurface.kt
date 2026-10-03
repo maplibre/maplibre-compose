@@ -37,7 +37,7 @@ internal fun MacosMlnFfiSurface(
   logger: MapLog?,
   presentWindow: Boolean,
 ) {
-  check(MapRenderBackend.METAL in runtimeBackends) { "macOS Native requires the Metal FFI runtime" }
+  check(MapRenderBackend.Metal in runtimeBackends) { "macOS Native requires the Metal FFI runtime" }
   val host = LocalAppKitMapHost.current
   val lifecycle = LocalLifecycleOwner.current.lifecycle
   val controller =

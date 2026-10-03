@@ -237,7 +237,7 @@ class MlnFfiEngineStartupTest {
       lifecycleAuthority = state.lifecycle,
       callbacks = state.durableStyleCallbacks(),
       logger = null,
-      renderBackend = MapRenderBackend.OPENGL,
+      renderBackend = MapRenderBackend.OpenGl,
       layoutDirection = LayoutDirection.Ltr,
       owner = runtime.nativeOwner,
     )

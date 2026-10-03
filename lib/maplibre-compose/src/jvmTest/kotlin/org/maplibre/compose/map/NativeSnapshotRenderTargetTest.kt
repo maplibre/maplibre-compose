@@ -9,7 +9,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 class NativeSnapshotRenderTargetTest {
   @Test
   fun openGl_is_selected_only_where_an_offscreen_context_provider_exists() {
-    val openGl = setOf(MapRenderBackend.OPENGL)
+    val openGl = setOf(MapRenderBackend.OpenGl)
 
     assertNotNull(NativeSnapshotRenderTarget.select("linux", openGl))
     assertNotNull(NativeSnapshotRenderTarget.select("windows", openGl))

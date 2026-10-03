@@ -34,7 +34,7 @@ class MapStateEventReactionTest {
     state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
 
     assertTrue(state.isCameraMoving)
-    assertEquals(CameraMoveReason.PROGRAMMATIC, state.cameraMoveReason)
+    assertEquals(CameraMoveReason.Programmatic, state.cameraMoveReason)
 
     state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
 
@@ -56,7 +56,7 @@ class MapStateEventReactionTest {
     state.attachmentAuthority.setGestureActive(other, true)
 
     assertFalse(state.isCameraMoving)
-    assertEquals(CameraMoveReason.NONE, state.cameraMoveReason)
+    assertEquals(CameraMoveReason.None, state.cameraMoveReason)
 
     state.close()
     state.awaitClosed()

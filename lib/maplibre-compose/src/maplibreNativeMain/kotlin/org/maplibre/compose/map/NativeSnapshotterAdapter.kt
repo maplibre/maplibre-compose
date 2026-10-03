@@ -81,7 +81,7 @@ private class NativeSnapshotterAdapter(
     current?.invalidate()
     styleBinding = null
     loadedBaseStyleRevision = null
-    val loading = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STYLE)
+    val loading = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.Style)
     terminalOperation = loading
     submitStyle(loading, baseStyle)
     val loadResult = loading.completion.await()
@@ -106,7 +106,7 @@ private class NativeSnapshotterAdapter(
     binding.awaitGeoJsonUpdates()
     configureRequest(request)
     // The owner thread renders the still image from its update events; see handleEvent.
-    val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.STILL_IMAGE)
+    val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.StillImage)
     terminalOperation = rendering
     submitOperation(rendering) { map -> map.requestStillImage() }
     val renderResult = rendering.completion.await()
@@ -121,7 +121,7 @@ private class NativeSnapshotterAdapter(
    */
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
     terminalOperation?.completion?.await()
-    return SnapshotterEngineDisposition.RETAINED
+    return SnapshotterEngineDisposition.Retained
   }
 
   override suspend fun close() {
@@ -155,7 +155,7 @@ private class NativeSnapshotterAdapter(
       releaseEngine(failures)
       failures.cleanupResult("Native snapshotter").getOrThrow()
     }
-    val created = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.OWNER)
+    val created = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.Owner)
     val resources = NativeSnapshotRenderResources(extent, targetPlan)
     lateinit var candidate: NativeSnapshotEngine
     val candidateLoop =
@@ -197,7 +197,7 @@ private class NativeSnapshotterAdapter(
     val currentEngine = checkNotNull(engine)
     val currentLoop = currentEngine.loop
     val extent = request.extent()
-    val resized = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.OWNER)
+    val resized = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.Owner)
     terminalOperation = resized
     try {
       checkNotNull(
@@ -293,31 +293,31 @@ private class NativeSnapshotterAdapter(
     val operation = terminalOperation
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        if (operation?.awaits != NativeSnapshotOperation.Awaits.STYLE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.Style) return
         val binding = createStyleBinding(source, map)
         styleBinding?.invalidate()
         styleBinding = binding
         operation.completion.complete(Result.success(Unit))
       }
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        if (operation?.awaits != NativeSnapshotOperation.Awaits.STYLE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.Style) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(Result.failure(IllegalStateException(message)))
       }
       RuntimeEventType.MAP_STILL_IMAGE_FAILED,
       RuntimeEventType.MAP_RENDER_ERROR -> {
-        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(Result.failure(IllegalStateException(message)))
       }
       // A still image progresses only inside renderUpdate, and NO_UPDATE and SIZE_PENDING wait for
       // the next MAP_RENDER_UPDATE_AVAILABLE, so each update event gets one render.
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> {
-        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         renderStillImage(source, operation)
       }
       RuntimeEventType.MAP_STILL_IMAGE_FINISHED -> {
-        if (operation?.awaits != NativeSnapshotOperation.Awaits.STILL_IMAGE) return
+        if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         operation.finished = true
         // The texture needs one rendered frame to read back.
         if (operation.rendered) operation.completeStillImage()
@@ -451,11 +451,11 @@ private class NativeSnapshotterAdapter(
 
     enum class Awaits {
       /** Owner-thread work: engine creation or a resize. */
-      OWNER,
+      Owner,
       /** A style load event. */
-      STYLE,
+      Style,
       /** Still image events. */
-      STILL_IMAGE,
+      StillImage,
     }
   }
 }

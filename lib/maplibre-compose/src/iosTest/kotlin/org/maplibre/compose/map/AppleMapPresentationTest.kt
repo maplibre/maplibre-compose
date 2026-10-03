@@ -147,7 +147,7 @@ class AppleMapPresentationTest {
       AppleMlnFfiSurfaceController(
         renderer =
           object : MlnFfiMapRenderer {
-            override val backend = MapRenderBackend.METAL
+            override val backend = MapRenderBackend.Metal
 
             override fun onSurfaceLost(session: MlnFfiMapHostSession) = onLost()
 

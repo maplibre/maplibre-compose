@@ -45,7 +45,7 @@ internal data class Direct3DTextureTarget(
   /** How Skia should interpret [format]. */
   val colorFormat: SurfaceColorFormat = SurfaceColorFormat.BGRA_8888,
   /** Row order of [texture]. */
-  val origin: TextureOrigin = TextureOrigin.TOP_LEFT,
+  val origin: TextureOrigin = TextureOrigin.TopLeft,
   /** The size [texture] was allocated at. */
   val extent: MapExtent,
   /**
@@ -62,11 +62,11 @@ internal data class Direct3DTextureTarget(
  */
 internal class Direct3D12MapHost(
   presentationHost: ComposeMapPresentationHost,
-  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+  producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<Direct3D12ComposeGpuContext, Direct3D12MapHost.SharedTexture>(
     presentationHost,
-    RenderBackendPair(producer, ComposeRenderBackend.DIRECT3D12),
+    RenderBackendPair(producer, ComposeRenderBackend.Direct3D12),
     "maplibre-windows-map-renderer",
   ) {
   private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
@@ -78,7 +78,7 @@ internal class Direct3D12MapHost(
   private var wgl: WindowsWglContext? = null
 
   private val dxgiFormat =
-    if (producer == MapRenderBackend.OPENGL) DXGI_FORMAT_R8G8B8A8_UNORM
+    if (producer == MapRenderBackend.OpenGl) DXGI_FORMAT_R8G8B8A8_UNORM
     else DXGI_FORMAT_B8G8R8A8_UNORM
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
@@ -140,7 +140,7 @@ internal class Direct3D12MapHost(
       sharedHandle = WindowsDirect3DInterop.createSharedHandle(texture)
       // The shared handle doubles as the probe for picking an importing Vulkan device, so the
       // context cannot be created before there is a texture to share.
-      return if (producer == MapRenderBackend.OPENGL) {
+      return if (producer == MapRenderBackend.OpenGl) {
         val context = wgl ?: WindowsWglContext.create().also { wgl = it }
         context.importTexture(
           sharedHandle,
@@ -164,11 +164,11 @@ internal class Direct3D12MapHost(
       texture = texture,
       format = dxgiFormat,
       colorFormat =
-        if (producer == MapRenderBackend.OPENGL) SurfaceColorFormat.RGBA_8888
+        if (producer == MapRenderBackend.OpenGl) SurfaceColorFormat.RGBA_8888
         else SurfaceColorFormat.BGRA_8888,
       origin =
-        if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
-        else TextureOrigin.TOP_LEFT,
+        if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft
+        else TextureOrigin.TopLeft,
       extent = extent,
       generation = generation,
     )

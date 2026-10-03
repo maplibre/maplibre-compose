@@ -17,15 +17,15 @@ import org.maplibre.spatialk.units.extensions.inDegrees
 public suspend fun LocationChangeScope.updateCamera(
   mapState: MapState,
   animation: CameraAnimation? = CameraAnimation.Ease(),
-  updateBearing: BearingUpdate = BearingUpdate.TRACK_AUTOMATIC,
+  updateBearing: BearingUpdate = BearingUpdate.TrackAutomatic,
 ) {
   val selectedBearing =
     when (updateBearing) {
-      BearingUpdate.IGNORE -> null
-      BearingUpdate.ALWAYS_NORTH -> Bearing.North
-      BearingUpdate.TRACK_COURSE -> currentLocation.course
-      BearingUpdate.TRACK_HEADING -> currentHeading?.bearing
-      BearingUpdate.TRACK_AUTOMATIC -> mostAccurateBearing()
+      BearingUpdate.Ignore -> null
+      BearingUpdate.AlwaysNorth -> Bearing.North
+      BearingUpdate.TrackCourse -> currentLocation.course
+      BearingUpdate.TrackHeading -> currentHeading?.bearing
+      BearingUpdate.TrackAutomatic -> mostAccurateBearing()
     }
 
   val newPosition =
@@ -33,7 +33,7 @@ public suspend fun LocationChangeScope.updateCamera(
       target = currentLocation.position,
       bearing =
         when (updateBearing) {
-          BearingUpdate.IGNORE -> mapState.cameraPosition.bearing
+          BearingUpdate.Ignore -> mapState.cameraPosition.bearing
           else ->
             selectedBearing?.let { (it - Bearing.North).inDegrees }
               ?: mapState.cameraPosition.bearing
@@ -54,22 +54,22 @@ public suspend fun LocationChangeScope.updateCamera(
 /** How [updateCamera] updates camera bearing. */
 public enum class BearingUpdate {
   /** Ignore changes in bearing and keep the current orientation. */
-  IGNORE,
+  Ignore,
 
   /** Ignore changes in bearing and reset the orientation to point north. */
-  ALWAYS_NORTH,
+  AlwaysNorth,
 
   /** Update camera rotation based on location course (direction of movement). */
-  TRACK_COURSE,
+  TrackCourse,
 
   /** Update camera rotation based on the device heading. */
-  TRACK_HEADING,
+  TrackHeading,
 
   /**
    * Update the camera's bearing based on the more accurate of two sources: course (direction of
    * movement) or heading (the direction that the device faces).
    */
-  TRACK_AUTOMATIC,
+  TrackAutomatic,
 }
 
 private fun LocationChangeScope.mostAccurateBearing(): Bearing? =

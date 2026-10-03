@@ -29,8 +29,8 @@ public class TaoComposeMapPresentationHost(private val renderContext: TaoGpuRend
   override val backend: ComposeRenderBackend
     get() =
       when (renderContext.backend) {
-        TaoRenderBackend.METAL -> ComposeRenderBackend.METAL
-        TaoRenderBackend.OPENGL -> ComposeRenderBackend.OPENGL
+        TaoRenderBackend.METAL -> ComposeRenderBackend.Metal
+        TaoRenderBackend.OPENGL -> ComposeRenderBackend.OpenGl
       }
 
   override val openGlInterop: OpenGlInterop
@@ -39,9 +39,9 @@ public class TaoComposeMapPresentationHost(private val renderContext: TaoGpuRend
         renderContext.backend == TaoRenderBackend.OPENGL &&
           System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
       ) {
-        OpenGlInterop.ANGLE_D3D11
+        OpenGlInterop.AngleD3D11
       } else {
-        OpenGlInterop.NATIVE
+        OpenGlInterop.Native
       }
 
   override fun gpuContext(): ComposeGpuContext =

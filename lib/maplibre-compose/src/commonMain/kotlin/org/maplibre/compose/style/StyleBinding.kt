@@ -153,7 +153,7 @@ internal interface StyleBinding {
   fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     writes.forEach { write ->
       try {
-        if (write.kind == LayerPropertyKind.ROOT && write.name == "filter") {
+        if (write.kind == LayerPropertyKind.Root && write.name == "filter") {
           setLayerFilter(write.layerId, write.value)
         } else {
           setLayerProperty(write.layerId, write.name, write.value, write.kind)
@@ -518,11 +518,11 @@ private fun Map<String, JsonElement>.rootString(name: String): String? =
 
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {
-  LAYOUT,
-  PAINT,
+  Layout,
+  Paint,
 
   /** Identifies a key on the layer object, such as `minzoom`, outside `layout` and `paint`. */
-  ROOT,
+  Root,
 }
 
 /**

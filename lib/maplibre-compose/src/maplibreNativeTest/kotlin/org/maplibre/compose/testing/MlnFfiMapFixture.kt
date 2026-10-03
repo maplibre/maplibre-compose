@@ -109,7 +109,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
 internal actual fun createMapFixture(extent: MapExtent): MapFixture =
   MlnFfiMapFixture(BridgeMapFixture.create(extent), extent)
 
-internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.NATIVE
+internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.Native
 
 actual typealias MapTestResult = Unit
 

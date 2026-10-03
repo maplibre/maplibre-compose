@@ -17,38 +17,38 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
   @Test
   fun native_opengl_selects_the_linux_bridge() {
     assertEquals(
-      OpenGlBridge.NATIVE,
-      selectOpenGlBridge(OpenGlInterop.NATIVE, windows = false, linux = true),
+      OpenGlBridge.Native,
+      selectOpenGlBridge(OpenGlInterop.Native, windows = false, linux = true),
     )
   }
 
   @Test
   fun native_opengl_reports_an_unsupported_platform() {
     assertFailsWith<MlnFfiHostException> {
-      selectOpenGlBridge(OpenGlInterop.NATIVE, windows = true, linux = false)
+      selectOpenGlBridge(OpenGlInterop.Native, windows = true, linux = false)
     }
   }
 
   @Test
   fun angle_d3d11_selects_the_windows_bridge() {
     assertEquals(
-      OpenGlBridge.ANGLE_D3D11,
-      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = true, linux = false),
+      OpenGlBridge.AngleD3D11,
+      selectOpenGlBridge(OpenGlInterop.AngleD3D11, windows = true, linux = false),
     )
   }
 
   @Test
   fun angle_d3d11_reports_an_unsupported_platform() {
     assertFailsWith<MlnFfiHostException> {
-      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = false, linux = true)
+      selectOpenGlBridge(OpenGlInterop.AngleD3D11, windows = false, linux = true)
     }
   }
 
   @Test
   fun acquiring_a_frame_waits_for_the_consumer_context_without_loading_native_libraries() {
-    val metal = ContextlessPresentationHost(ComposeRenderBackend.METAL)
-    val gl = ContextlessPresentationHost(ComposeRenderBackend.OPENGL)
-    val d3d = ContextlessPresentationHost(ComposeRenderBackend.DIRECT3D12)
+    val metal = ContextlessPresentationHost(ComposeRenderBackend.Metal)
+    val gl = ContextlessPresentationHost(ComposeRenderBackend.OpenGl)
+    val d3d = ContextlessPresentationHost(ComposeRenderBackend.Direct3D12)
     for (producer in MapRenderBackend.entries) {
       MetalMapHost(metal, producer).use { host ->
         assertEquals(
@@ -56,7 +56,7 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
           host.acquireFrame(EXTENT),
         )
       }
-      if (producer == MapRenderBackend.METAL) continue
+      if (producer == MapRenderBackend.Metal) continue
       for (host in
         listOf(
           LinuxOpenGlMapHost(gl, producer),

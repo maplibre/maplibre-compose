@@ -126,9 +126,9 @@ private constructor(
           )
       val producer =
         when (runtimeBackend) {
-          RenderBackend.METAL -> MapRenderBackend.METAL
-          RenderBackend.VULKAN -> MapRenderBackend.VULKAN
-          RenderBackend.OPENGL -> MapRenderBackend.OPENGL
+          RenderBackend.METAL -> MapRenderBackend.Metal
+          RenderBackend.VULKAN -> MapRenderBackend.Vulkan
+          RenderBackend.OPENGL -> MapRenderBackend.OpenGl
           else -> error("No production Desktop bridge for packaged runtime $runtimeBackend")
         }
       val environment = DesktopTestGpuEnvironment.create()
@@ -269,7 +269,7 @@ private constructor(
   override val presentationHost =
     object : ComposeMapPresentationHost {
       override val description = "the test Metal context"
-      override val backend = ComposeRenderBackend.METAL
+      override val backend = ComposeRenderBackend.Metal
 
       override fun gpuContext(): ComposeGpuContext = composeContext
 
@@ -354,7 +354,7 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
   override val presentationHost =
     object : ComposeMapPresentationHost {
       override val description = "the test EGL OpenGL context"
-      override val backend = ComposeRenderBackend.OPENGL
+      override val backend = ComposeRenderBackend.OpenGl
 
       override fun gpuContext(): ComposeGpuContext = composeContext
 

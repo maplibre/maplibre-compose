@@ -52,8 +52,8 @@ class EngineEventTest {
       val frames = fixture.engineEvents.filterIsInstance<MapEvent.FrameRendered>()
       assertTrue(frames.isNotEmpty(), "no frame was reported")
       when (mapLibreFlavor) {
-        MapLibreFlavor.NATIVE -> assertNotNull(frames.first().stats)
-        MapLibreFlavor.GL_JS -> assertNull(frames.first().stats)
+        MapLibreFlavor.Native -> assertNotNull(frames.first().stats)
+        MapLibreFlavor.GlJs -> assertNull(frames.first().stats)
       }
       assertTrue(fixture.engineEvents.any { it is MapEvent.Idle }, "no idle was reported")
     }
@@ -85,8 +85,8 @@ class EngineEventTest {
 
       val animated = (fixture.engineEvents[started] as MapEvent.CameraMoveStarted).animated
       when (mapLibreFlavor) {
-        MapLibreFlavor.NATIVE -> assertEquals(true, animated)
-        MapLibreFlavor.GL_JS -> assertNull(animated)
+        MapLibreFlavor.Native -> assertEquals(true, animated)
+        MapLibreFlavor.GlJs -> assertNull(animated)
       }
     }
   }
@@ -95,8 +95,8 @@ class EngineEventTest {
     val UNREACHABLE_STYLE_URI: String =
       when (mapLibreFlavor) {
         // The browser resolves a relative path against the test server, which answers 404.
-        MapLibreFlavor.GL_JS -> "/missing-maplibre-compose-style.json"
-        MapLibreFlavor.NATIVE -> "https://example.invalid/style.json"
+        MapLibreFlavor.GlJs -> "/missing-maplibre-compose-style.json"
+        MapLibreFlavor.Native -> "https://example.invalid/style.json"
       }
 
     val DESTINATION = CameraPosition(target = Position(10.0, 10.0), zoom = 4.0)

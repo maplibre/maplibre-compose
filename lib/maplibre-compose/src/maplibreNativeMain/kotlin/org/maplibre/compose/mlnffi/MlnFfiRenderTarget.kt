@@ -20,8 +20,8 @@ public value class NativeHandle(public val address: Long) {
 
 /** Whether a texture's first row is its top or its bottom. */
 internal enum class TextureOrigin {
-  TOP_LEFT,
-  BOTTOM_LEFT,
+  TopLeft,
+  BottomLeft,
 }
 
 /**
@@ -81,7 +81,7 @@ internal data class VulkanImageTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.VULKAN
+    get() = MapRenderBackend.Vulkan
 }
 
 /** A `VkSurfaceKHR` MapLibre renders into and presents directly. */
@@ -95,7 +95,7 @@ internal data class VulkanSurfaceTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.VULKAN
+    get() = MapRenderBackend.Vulkan
 }
 
 /** An `id<MTLTexture>` MapLibre renders into. */
@@ -111,7 +111,7 @@ internal data class MetalTextureTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.METAL
+    get() = MapRenderBackend.Metal
 }
 
 /**
@@ -130,7 +130,7 @@ internal data class MetalSurfaceTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.METAL
+    get() = MapRenderBackend.Metal
 }
 
 /** Platform context handles MapLibre needs to render into an OpenGL target. */
@@ -201,7 +201,7 @@ internal data class OpenGlTextureTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.OPENGL
+    get() = MapRenderBackend.OpenGl
 }
 
 /** A platform-native OpenGL surface MapLibre renders into and presents directly. */
@@ -215,5 +215,5 @@ internal data class OpenGlSurfaceTarget(
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
-    get() = MapRenderBackend.OPENGL
+    get() = MapRenderBackend.OpenGl
 }

@@ -9,9 +9,9 @@ import androidx.compose.runtime.Immutable
  * available depends on the MapLibre Native FFI runtime the application packaged.
  */
 internal enum class MapRenderBackend {
-  METAL,
-  VULKAN,
-  OPENGL,
+  Metal,
+  Vulkan,
+  OpenGl,
 }
 
 /**
@@ -21,9 +21,9 @@ internal enum class MapRenderBackend {
  * the rest of the UI. Which backend is in use depends on the Compose host and operating system.
  */
 public enum class ComposeRenderBackend {
-  METAL,
-  DIRECT3D12,
-  OPENGL,
+  Metal,
+  Direct3D12,
+  OpenGl,
 }
 
 /**

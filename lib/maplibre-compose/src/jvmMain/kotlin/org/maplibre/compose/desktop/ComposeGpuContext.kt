@@ -33,7 +33,7 @@ public class MetalComposeGpuContext(
   public val device: NativeHandle,
 ) : ComposeGpuContext {
   override val backend: ComposeRenderBackend
-    get() = ComposeRenderBackend.METAL
+    get() = ComposeRenderBackend.Metal
 }
 
 /**
@@ -54,16 +54,16 @@ public class OpenGlComposeGpuContext(
   public val withContextCurrent: (Runnable) -> Unit,
 ) : ComposeGpuContext {
   override val backend: ComposeRenderBackend
-    get() = ComposeRenderBackend.OPENGL
+    get() = ComposeRenderBackend.OpenGl
 }
 
 /** How an OpenGL Compose host exposes textures to the map bridge. */
 public enum class OpenGlInterop {
   /** A native desktop OpenGL context, supported on Linux. */
-  NATIVE,
+  Native,
 
   /** An ANGLE context backed by Direct3D 11 textures, supported on Windows. */
-  ANGLE_D3D11,
+  AngleD3D11,
 }
 
 /** A Direct3D 12 context, used by Compose on Windows. */
@@ -74,7 +74,7 @@ public class Direct3D12ComposeGpuContext(
   public val device: NativeHandle,
 ) : ComposeGpuContext {
   override val backend: ComposeRenderBackend
-    get() = ComposeRenderBackend.DIRECT3D12
+    get() = ComposeRenderBackend.Direct3D12
 }
 
 /**
@@ -101,13 +101,13 @@ public interface ComposeMapPresentationHost {
   public val backend: ComposeRenderBackend
 
   /**
-   * How this host shares textures when [backend] is [ComposeRenderBackend.OPENGL].
+   * How this host shares textures when [backend] is [ComposeRenderBackend.OpenGl].
    *
    * The value is available before [gpuContext], so the map can select a compatible bridge before
    * the host creates its graphics context.
    */
   public val openGlInterop: OpenGlInterop
-    get() = OpenGlInterop.NATIVE
+    get() = OpenGlInterop.Native
 
   /**
    * The context Compose is drawing with, or null before it is available. The map skips frames while

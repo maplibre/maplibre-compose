@@ -34,7 +34,7 @@ internal class AndroidMlnFfiSurfaceController(
   override val isClosed: Boolean
     get() = closed
 
-  override val backends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)
+  override val backends = RenderBackendPair(backend, ComposeRenderBackend.OpenGl)
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
@@ -51,7 +51,7 @@ internal class AndroidMlnFfiSurfaceController(
     renderHandler.post {
       resizeSurface(
         MapExtent.fromPhysical(width, height, scaleFactor),
-        reallocates = backend == MapRenderBackend.OPENGL,
+        reallocates = backend == MapRenderBackend.OpenGl,
       )
     }
   }

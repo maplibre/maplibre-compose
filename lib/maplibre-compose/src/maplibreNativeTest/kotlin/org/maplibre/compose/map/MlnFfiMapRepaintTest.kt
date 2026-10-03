@@ -61,7 +61,7 @@ class MlnFfiMapRepaintTest {
             "background",
             "background-color",
             JsonPrimitive("#00ff00"),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
         }
       }
@@ -84,7 +84,7 @@ class MlnFfiMapRepaintTest {
             "background",
             "background-color",
             JsonPrimitive("#00ff00"),
-            LayerPropertyKind.PAINT,
+            LayerPropertyKind.Paint,
           )
         }
       }

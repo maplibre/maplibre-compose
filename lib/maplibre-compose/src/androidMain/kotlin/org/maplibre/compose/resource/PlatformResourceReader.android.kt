@@ -23,7 +23,7 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray =
 
 private fun classify(error: Throwable): MlnFfiResourceReadFailure =
   when (error) {
-    is FileNotFoundException -> MlnFfiResourceReadFailure.NOT_FOUND
-    is URISyntaxException -> MlnFfiResourceReadFailure.INVALID_URL
-    else -> MlnFfiResourceReadFailure.UNREADABLE
+    is FileNotFoundException -> MlnFfiResourceReadFailure.NotFound
+    is URISyntaxException -> MlnFfiResourceReadFailure.InvalidUrl
+    else -> MlnFfiResourceReadFailure.Unreadable
   }

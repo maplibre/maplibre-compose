@@ -26,8 +26,8 @@ internal fun JsonObjectBuilder.putTileSetOptions(
     put(
       "scheme",
       when (options.tileCoordinateSystem) {
-        TileCoordinateSystem.XYZ -> "xyz"
-        TileCoordinateSystem.TMS -> "tms"
+        TileCoordinateSystem.Xyz -> "xyz"
+        TileCoordinateSystem.Tms -> "tms"
       },
     )
   }

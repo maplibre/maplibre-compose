@@ -248,7 +248,7 @@ internal constructor(
     content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
   ): T? {
     if (isClosed || state.isClosed) return null
-    val available = remember { MapRenderBackend.METAL in loadRuntimeBackends(logger) }
+    val available = remember { MapRenderBackend.Metal in loadRuntimeBackends(logger) }
     DisposableEffect(available) {
       if (!available)
         postAppleMain {
@@ -256,7 +256,7 @@ internal constructor(
         }
       onDispose {}
     }
-    return MlnFfiMapPresentation(MapRenderBackend.METAL, state, owner, options) { session, clicks ->
+    return MlnFfiMapPresentation(MapRenderBackend.Metal, state, owner, options) { session, clicks ->
       val controller =
         remember(session) {
           AppleMlnFfiSurfaceController(session, logger, options.renderOptions.maximumFps) { error ->

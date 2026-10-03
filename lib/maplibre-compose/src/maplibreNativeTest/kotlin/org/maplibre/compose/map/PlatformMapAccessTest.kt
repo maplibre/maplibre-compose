@@ -42,7 +42,7 @@ class PlatformMapAccessTest {
           lifecycleAuthority = state.lifecycle,
           callbacks = state.durableStyleCallbacks(),
           logger = null,
-          renderBackend = MapRenderBackend.OPENGL,
+          renderBackend = MapRenderBackend.OpenGl,
           layoutDirection = LayoutDirection.Ltr,
           owner = runtime.nativeOwner,
         )
@@ -50,7 +50,7 @@ class PlatformMapAccessTest {
         object : MlnFfiMapHostSession {
           override val isClosed = false
           override val backends =
-            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+            RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
           override fun requestFrame() = Unit
 
@@ -96,7 +96,7 @@ class PlatformMapAccessTest {
               }
             },
           logger = null,
-          renderBackend = MapRenderBackend.OPENGL,
+          renderBackend = MapRenderBackend.OpenGl,
           layoutDirection = LayoutDirection.Ltr,
           owner = runtime.nativeOwner,
         )
@@ -244,7 +244,7 @@ class PlatformMapAccessTest {
             lifecycleAuthority = state.lifecycle,
             callbacks = state.durableStyleCallbacks(),
             logger = runtime.logger,
-            renderBackend = MapRenderBackend.OPENGL,
+            renderBackend = MapRenderBackend.OpenGl,
             scaleFactor = 2.0,
             layoutDirection = LayoutDirection.Ltr,
             owner = runtime.nativeOwner,
@@ -308,7 +308,7 @@ class PlatformMapAccessTest {
         object : MlnFfiMapHostSession {
           override val isClosed = false
           override val backends =
-            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+            RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
           override fun requestFrame() = Unit
 
@@ -346,7 +346,7 @@ class PlatformMapAccessTest {
         object : MlnFfiMapHostSession {
           @Volatile override var isClosed = false
           override val backends =
-            RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+            RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
           override fun requestFrame() = Unit
 

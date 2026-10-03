@@ -33,7 +33,7 @@ class AndroidSurfaceDetachmentTest {
         lifecycleAuthority = state.lifecycle,
         callbacks = RecordingMapCallbacks(),
         logger = null,
-        renderBackend = MapRenderBackend.OPENGL,
+        renderBackend = MapRenderBackend.OpenGl,
         layoutDirection = LayoutDirection.Ltr,
         owner = state.runtime.nativeOwner,
       )

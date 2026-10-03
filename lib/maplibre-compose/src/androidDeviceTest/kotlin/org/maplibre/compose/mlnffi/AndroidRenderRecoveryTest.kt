@@ -205,7 +205,7 @@ class AndroidRenderRecoveryTest {
   }
 
   private class ScriptedRenderer(private val reader: ImageReader) : MlnFfiMapRenderer {
-    override val backend = MapRenderBackend.OPENGL
+    override val backend = MapRenderBackend.OpenGl
     var nextError: Throwable? = null
     var lossError: Throwable? = null
     var losses = 0

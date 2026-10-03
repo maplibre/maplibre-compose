@@ -40,16 +40,16 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
       backends: Set<MapRenderBackend>,
     ): NativeSnapshotRenderTargetPlan? =
       when {
-        os.contains("mac") && MapRenderBackend.METAL in backends ->
+        os.contains("mac") && MapRenderBackend.Metal in backends ->
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(MetalDelegate.create())
           }
-        MapRenderBackend.VULKAN in backends ->
+        MapRenderBackend.Vulkan in backends ->
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(VulkanDelegate(VulkanDevice.create()))
           }
         (os.contains("linux") || os.contains("windows") || os.contains("mac")) &&
-          MapRenderBackend.OPENGL in backends ->
+          MapRenderBackend.OpenGl in backends ->
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(OpenGlDelegate(DesktopOpenGlSnapshotContext.create(os)))
           }

@@ -123,7 +123,7 @@ public class AndroidMapPresentation(
     check(lifecycle.currentState != Lifecycle.State.DESTROYED) { "The lifecycle is destroyed" }
     check(!state.isClosed) { "The map state is closed" }
     val runtimeBackends = loadRuntimeBackends(logger)
-    val backend = runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL
+    val backend = runtimeBackends.firstOrNull() ?: MapRenderBackend.OpenGl
     val owner = MapPresentationOwnerToken()
     try {
       composition =

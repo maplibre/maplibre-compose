@@ -414,7 +414,7 @@ private constructor(
       textureTarget = GL_TEXTURE_2D,
       format = GL_BGRA8_EXT,
       makeContextCurrent = { context.makeCurrent() },
-      origin = TextureOrigin.BOTTOM_LEFT,
+      origin = TextureOrigin.BottomLeft,
       extent = extent,
       generation = generation,
     )

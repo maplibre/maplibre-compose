@@ -22,17 +22,17 @@ internal class ComposeMapPresentationHostFactory(
 
   override val bridges: List<RenderBackendPair> =
     when (presentationHost.backend) {
-      ComposeRenderBackend.METAL ->
-        listOf(MapRenderBackend.METAL, MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
-          RenderBackendPair(it, ComposeRenderBackend.METAL)
+      ComposeRenderBackend.Metal ->
+        listOf(MapRenderBackend.Metal, MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
+          RenderBackendPair(it, ComposeRenderBackend.Metal)
         }
-      ComposeRenderBackend.OPENGL ->
-        listOf(MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
-          RenderBackendPair(it, ComposeRenderBackend.OPENGL)
+      ComposeRenderBackend.OpenGl ->
+        listOf(MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
+          RenderBackendPair(it, ComposeRenderBackend.OpenGl)
         }
-      ComposeRenderBackend.DIRECT3D12 ->
-        listOf(MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
-          RenderBackendPair(it, ComposeRenderBackend.DIRECT3D12)
+      ComposeRenderBackend.Direct3D12 ->
+        listOf(MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
+          RenderBackendPair(it, ComposeRenderBackend.Direct3D12)
         }
     }
 
@@ -40,18 +40,18 @@ internal class ComposeMapPresentationHostFactory(
     try {
       val host =
         when (backends) {
-          RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL),
-          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.METAL),
-          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.METAL) ->
+          RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal),
+          RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Metal),
+          RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.Metal) ->
             MetalMapHost(presentationHost, backends.producer)
-          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL),
-          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
+          RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl),
+          RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl) ->
             when (selectOpenGlBridge(presentationHost.openGlInterop)) {
-              OpenGlBridge.NATIVE -> LinuxOpenGlMapHost(presentationHost, backends.producer)
-              OpenGlBridge.ANGLE_D3D11 -> WindowsAngleMapHost(presentationHost, backends.producer)
+              OpenGlBridge.Native -> LinuxOpenGlMapHost(presentationHost, backends.producer)
+              OpenGlBridge.AngleD3D11 -> WindowsAngleMapHost(presentationHost, backends.producer)
             }
-          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.DIRECT3D12),
-          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
+          RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.Direct3D12),
+          RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Direct3D12) ->
             Direct3D12MapHost(presentationHost, backends.producer)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
@@ -66,8 +66,8 @@ internal class ComposeMapPresentationHostFactory(
 }
 
 internal enum class OpenGlBridge {
-  NATIVE,
-  ANGLE_D3D11,
+  Native,
+  AngleD3D11,
 }
 
 /** Selects the OpenGL bridge from the host capability instead of inferring it from the OS. */
@@ -77,15 +77,15 @@ internal fun selectOpenGlBridge(
   linux: Boolean = isLinuxDesktop(),
 ): OpenGlBridge =
   when (interop) {
-    OpenGlInterop.NATIVE -> {
-      if (!linux) throw MlnFfiHostException("NATIVE OpenGL interop requires Linux")
-      OpenGlBridge.NATIVE
+    OpenGlInterop.Native -> {
+      if (!linux) throw MlnFfiHostException("Native OpenGL interop requires Linux")
+      OpenGlBridge.Native
     }
-    OpenGlInterop.ANGLE_D3D11 -> {
+    OpenGlInterop.AngleD3D11 -> {
       if (!windows) {
-        throw MlnFfiHostException("ANGLE_D3D11 OpenGL interop requires Windows")
+        throw MlnFfiHostException("AngleD3D11 OpenGL interop requires Windows")
       }
-      OpenGlBridge.ANGLE_D3D11
+      OpenGlBridge.AngleD3D11
     }
   }
 
@@ -127,8 +127,8 @@ internal fun <T> ComposeMapPresentationHost.withOpenGlContextOrNull(
   context.withContextCurrent {
     result = runCatching {
       when (openGlInterop) {
-        OpenGlInterop.NATIVE -> ensureCapabilities()
-        OpenGlInterop.ANGLE_D3D11 ->
+        OpenGlInterop.Native -> ensureCapabilities()
+        OpenGlInterop.AngleD3D11 ->
           check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
       }
       action(context)

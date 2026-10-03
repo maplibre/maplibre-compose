@@ -17,7 +17,7 @@ internal actual fun rememberComposeMapPresentation(
 ): ComposeMapPresentation? {
   val runtimeBackends = remember { loadRuntimeBackends(state.runtime.logger) }
   return rememberMlnFfiComposeMapPresentation(
-    renderBackend = MapRenderBackend.METAL,
+    renderBackend = MapRenderBackend.Metal,
     surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       MacosMlnFfiSurface(
         renderer = renderer,

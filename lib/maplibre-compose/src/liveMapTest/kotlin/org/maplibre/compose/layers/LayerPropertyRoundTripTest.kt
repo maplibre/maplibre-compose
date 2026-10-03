@@ -132,7 +132,7 @@ class LayerPropertyRoundTripTest {
       style.onOwner { installation.update(layer.definition()) }
       val cleared = style.awaitOwner { style.layerProperty(layer.id, "filter") }
       // Native represents the default as an always-true filter; GL JS removes the expression.
-      if (mapLibreFlavor == MapLibreFlavor.GL_JS) {
+      if (mapLibreFlavor == MapLibreFlavor.GlJs) {
         assertTrue(cleared == null || cleared == JsonNull, "cleared filter: $cleared")
       } else {
         assertEquals(JsonPrimitive(true), cleared)
@@ -212,7 +212,7 @@ class LayerPropertyRoundTripTest {
     val apply: (TestLayer) -> Unit,
   ) {
     val expectedHere: String
-      get() = if (mapLibreFlavor == MapLibreFlavor.GL_JS) glJs ?: expected else expected
+      get() = if (mapLibreFlavor == MapLibreFlavor.GlJs) glJs ?: expected else expected
   }
 
   private companion object {

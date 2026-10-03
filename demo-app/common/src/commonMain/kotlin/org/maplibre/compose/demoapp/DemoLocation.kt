@@ -132,7 +132,7 @@ internal fun DemoLocationMapContent(
     var previous = mapState.cameraMoveReason
     snapshotFlow { mapState.cameraMoveReason }
       .collect { reason ->
-        if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
+        if (previous != CameraMoveReason.Gesture && reason == CameraMoveReason.Gesture) {
           location.followMode = DemoFollowMode.Off
         }
         previous = reason
@@ -147,12 +147,12 @@ internal fun DemoLocationMapContent(
     val bearingUpdate =
       when (location.followMode) {
         DemoFollowMode.Off -> return@LocationTrackingEffect
-        DemoFollowMode.Location -> BearingUpdate.IGNORE
-        DemoFollowMode.Heading -> BearingUpdate.TRACK_AUTOMATIC
+        DemoFollowMode.Location -> BearingUpdate.Ignore
+        DemoFollowMode.Heading -> BearingUpdate.TrackAutomatic
       }
     if (previousLocation == null) {
       val followBearing =
-        if (bearingUpdate == BearingUpdate.IGNORE) null
+        if (bearingUpdate == BearingUpdate.Ignore) null
         else
           currentHeading?.bearing?.let { (it - Bearing.North).inDegrees }
             ?: currentLocation.course?.let { (it - Bearing.North).inDegrees }

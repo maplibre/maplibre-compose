@@ -23,7 +23,7 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   private var extent = MapExtent.Empty
   private var generation = 0L
 
-  override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+  override val backends = RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
   override fun <T> withRendererAccess(action: () -> T): T = action()
 

@@ -139,8 +139,8 @@ class ReusableSurfaceActivity : ComponentActivity() {
         DisposableEffect(Unit) { onDispose { surfaceDisposed.countDown() } }
         AndroidMlnFfiSurface(
           renderer = renderer,
-          runtimeBackends = setOf(MapRenderBackend.OPENGL),
-          backend = MapRenderBackend.OPENGL,
+          runtimeBackends = setOf(MapRenderBackend.OpenGl),
+          backend = MapRenderBackend.OpenGl,
           renderMode = AndroidRenderMode.Surface,
           modifier = Modifier.fillMaxSize(),
           logger = null,
@@ -168,7 +168,7 @@ class ReusableSurfaceActivity : ComponentActivity() {
 }
 
 private class ReusableTestRenderer(private val onSurfaceAvailable: () -> Unit) : MlnFfiMapRenderer {
-  override val backend = MapRenderBackend.OPENGL
+  override val backend = MapRenderBackend.OpenGl
 
   override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
     onSurfaceAvailable()

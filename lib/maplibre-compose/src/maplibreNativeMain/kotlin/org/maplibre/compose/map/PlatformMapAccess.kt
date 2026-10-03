@@ -20,7 +20,7 @@ public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.(
               callbacks = durableStyleCallbacks(),
               logger = runtime.logger,
               renderBackend =
-                loadRuntimeBackends(runtime.logger).firstOrNull() ?: MapRenderBackend.OPENGL,
+                loadRuntimeBackends(runtime.logger).firstOrNull() ?: MapRenderBackend.OpenGl,
               layoutDirection = LayoutDirection.Ltr,
               owner = runtime.nativeOwner,
             )

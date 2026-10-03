@@ -36,7 +36,7 @@ private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
 
   actual companion object {
     actual fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan? =
-      if (MapRenderBackend.METAL in backends) {
+      if (MapRenderBackend.Metal in backends) {
         NativeSnapshotRenderTargetPlan {
           NativeSnapshotRenderTarget(
             checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" }

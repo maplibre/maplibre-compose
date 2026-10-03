@@ -63,7 +63,7 @@ internal fun AndroidMlnFfiSurface(
         val diagnostic =
           backendDiagnostic(
             runtimeBackends = runtimeBackends,
-            hostBridges = listOf(RenderBackendPair(backend, ComposeRenderBackend.OPENGL)),
+            hostBridges = listOf(RenderBackendPair(backend, ComposeRenderBackend.OpenGl)),
             hostDescription = "the Android $backend surface host",
             operatingSystem = mlnFfiOperatingSystem,
             architecture = mlnFfiArchitecture,

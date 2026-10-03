@@ -26,14 +26,14 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray = autorele
     val nsUrl =
       NSURL.URLWithString(url)
         ?: throw MlnFfiResourceReadException(
-          MlnFfiResourceReadFailure.INVALID_URL,
+          MlnFfiResourceReadFailure.InvalidUrl,
           IllegalArgumentException("NSURL rejected '$url'"),
         )
     if (nsUrl.scheme == "file") {
       val path = nsUrl.path
       if (path == null || !NSFileManager.defaultManager.fileExistsAtPath(path)) {
         throw MlnFfiResourceReadException(
-          MlnFfiResourceReadFailure.NOT_FOUND,
+          MlnFfiResourceReadFailure.NotFound,
           NoSuchFileException(path ?: url),
         )
       }
@@ -41,7 +41,7 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray = autorele
     val data =
       NSData.dataWithContentsOfURL(nsUrl)
         ?: throw MlnFfiResourceReadException(
-          MlnFfiResourceReadFailure.UNREADABLE,
+          MlnFfiResourceReadFailure.Unreadable,
           IllegalStateException("NSData could not read '$url'"),
         )
     data.toByteArray()
@@ -49,7 +49,7 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray = autorele
     throw error
   } catch (error: Throwable) {
     rethrowIfFatal(error)
-    throw MlnFfiResourceReadException(MlnFfiResourceReadFailure.UNREADABLE, error)
+    throw MlnFfiResourceReadException(MlnFfiResourceReadFailure.Unreadable, error)
   }
 }
 

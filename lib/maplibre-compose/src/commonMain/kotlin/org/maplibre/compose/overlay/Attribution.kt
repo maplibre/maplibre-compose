@@ -109,7 +109,7 @@ public fun ExpandingAttributionButton(
   // stays expanded.
   LaunchedEffect(currentMapState) {
     snapshotFlow {
-      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
+      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.Gesture
     }
       .filter { it }
       .collect { expanded = false }

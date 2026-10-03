@@ -7,7 +7,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 public data class TileSetOptions(
   val minZoom: Int = SourceDefaults.MIN_ZOOM,
   val maxZoom: Int = SourceDefaults.MAX_ZOOM,
-  val tileCoordinateSystem: TileCoordinateSystem = TileCoordinateSystem.XYZ,
+  val tileCoordinateSystem: TileCoordinateSystem = TileCoordinateSystem.Xyz,
   val boundingBox: BoundingBox? = null,
   val attributionHtml: String? = null,
 )

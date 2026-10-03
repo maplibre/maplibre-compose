@@ -156,7 +156,7 @@ internal class GlJsSnapshotterAdapter(
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
     releaseEngine(CancellationException("The Web snapshot capture was cancelled"))
-    return SnapshotterEngineDisposition.RELEASED
+    return SnapshotterEngineDisposition.Released
   }
 
   override suspend fun close() {

@@ -20,11 +20,11 @@ import org.maplibre.compose.mlnffi.TextureOrigin
  */
 internal class WindowsAngleMapHost(
   presentationHost: ComposeMapPresentationHost,
-  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+  producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<OpenGlComposeGpuContext, WindowsAngleMapHost.WindowsOpenGlSharedTexture>(
     presentationHost,
-    RenderBackendPair(producer, ComposeRenderBackend.OPENGL),
+    RenderBackendPair(producer, ComposeRenderBackend.OpenGl),
     "maplibre-windows-vulkan-gl-renderer",
   ) {
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Angle)
@@ -70,8 +70,8 @@ internal class WindowsAngleMapHost(
         .target(generation)
         .copy(
           origin =
-            if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
-            else TextureOrigin.TOP_LEFT
+            if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft
+            else TextureOrigin.TopLeft
         ),
       destination,
       frameCompletion,
@@ -137,7 +137,7 @@ internal class WindowsAngleMapHost(
     try {
       val exported = rendererThread.run {
         val imported =
-          if (producer == MapRenderBackend.OPENGL) {
+          if (producer == MapRenderBackend.OpenGl) {
             val context = wgl ?: WindowsWglContext.create().also { wgl = it }
             context.importTexture(d3d11.sharedHandle, extent, "ANGLE", adapterLuid, d3d11 = true)
           } else {

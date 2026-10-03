@@ -447,7 +447,7 @@ class MlnFfiMapCompositionTest {
             abs(camera.target.latitude) < 1e-8 &&
               abs(camera.target.longitude) < 1e-8 &&
               !state.isCameraMoving &&
-              state.cameraMoveReason == CameraMoveReason.PROGRAMMATIC
+              state.cameraMoveReason == CameraMoveReason.Programmatic
           }
           performTouchInputOnUiThread(map) {
             down(center)
@@ -455,7 +455,7 @@ class MlnFfiMapCompositionTest {
             up()
           }
           waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-            state.cameraMoveReason == CameraMoveReason.GESTURE && !state.isCameraMoving
+            state.cameraMoveReason == CameraMoveReason.Gesture && !state.isCameraMoving
           }
           val camera = state.cameraPosition
           assertEquals(start.zoom, camera.zoom, 1e-6)

@@ -48,7 +48,7 @@ private constructor(private val extent: MapExtent, private var binding: AngleBou
       textureName = textureName,
       textureTarget = GL_TEXTURE_2D,
       format = GL_RGBA8,
-      origin = TextureOrigin.TOP_LEFT,
+      origin = TextureOrigin.TopLeft,
       makeContextCurrent = {},
       extent = extent,
       generation = generation,

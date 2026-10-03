@@ -172,7 +172,7 @@ class AndroidMapPresentationTest {
         // The world is 512 * 2^zoom dp wide.
         val expectedLongitude = initial.target.longitude - 32.0 / (512.0 * 8.0) * 360.0
         assertEquals(expectedLongitude, afterPan.target.longitude, 0.01)
-        fixture.onMain { assertEquals(CameraMoveReason.GESTURE, state.cameraMoveReason) }
+        fixture.onMain { assertEquals(CameraMoveReason.Gesture, state.cameraMoveReason) }
 
         fixture.onMain { state.scaleBy(2.0, DpOffset(80.dp, 60.dp)) }
         fixture.await("anchored scale to reach its zoom and finish") {
@@ -196,7 +196,7 @@ class AndroidMapPresentationTest {
           state.cameraPosition.target.longitude < beforeFling - 0.1 && !state.isCameraMoving
         }
         fixture.onMain {
-          assertEquals(CameraMoveReason.GESTURE, state.cameraMoveReason)
+          assertEquals(CameraMoveReason.Gesture, state.cameraMoveReason)
           state.fling(DpOffset(2100.dp, 0.dp))
           presenter.close()
           assertFalse(state.isCameraMoving)

@@ -276,9 +276,9 @@ internal enum class MlnFfiResourceReadFailure(
   /** Completes the sentence "Resource <url> …". */
   val description: String,
 ) {
-  NOT_FOUND(ResourceErrorReason.NOT_FOUND, "not found"),
-  INVALID_URL(ResourceErrorReason.OTHER, "is not a valid URI"),
-  UNREADABLE(ResourceErrorReason.OTHER, "could not be read"),
+  NotFound(ResourceErrorReason.NOT_FOUND, "not found"),
+  InvalidUrl(ResourceErrorReason.OTHER, "is not a valid URI"),
+  Unreadable(ResourceErrorReason.OTHER, "could not be read"),
 }
 
 /** The classified failure of one [readPlatformResourceBytes] call. */

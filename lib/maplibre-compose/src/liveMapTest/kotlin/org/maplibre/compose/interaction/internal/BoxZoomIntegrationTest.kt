@@ -60,7 +60,7 @@ class BoxZoomIntegrationTest {
             assertTrue(actual.zoom > initial.zoom)
             assertEquals(25.0, actual.bearing, 1e-5)
             assertEquals(20.0, actual.tilt, 1e-5)
-            assertEquals(CameraMoveReason.GESTURE, fixture.state.cameraMoveReason)
+            assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
             assertFalse(fixture.state.isCameraMoving)
 
             val target = assertNotNull(fixture.state.screenLocationFromPosition(actual.target))
@@ -110,7 +110,7 @@ class BoxZoomIntegrationTest {
             fixture.state.cameraPosition.target.longitude,
             1e-5,
           )
-          assertEquals(CameraMoveReason.PROGRAMMATIC, fixture.state.cameraMoveReason)
+          assertEquals(CameraMoveReason.Programmatic, fixture.state.cameraMoveReason)
         } finally {
           input.cancel()
         }

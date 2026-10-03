@@ -152,12 +152,12 @@ internal class LayerInstallation(
       collectProperties(
         current["layout"] as? JsonObject,
         next["layout"] as? JsonObject,
-        LayerPropertyKind.LAYOUT,
+        LayerPropertyKind.Layout,
       )
       collectProperties(
         current["paint"] as? JsonObject,
         next["paint"] as? JsonObject,
-        LayerPropertyKind.PAINT,
+        LayerPropertyKind.Paint,
       )
       ROOT_PROPERTY_NAMES.forEach { name ->
         val previous = current[name]
@@ -168,8 +168,8 @@ internal class LayerInstallation(
             id,
             this@LayerInstallation.definition.type,
             name,
-            value ?: clearingValue(LayerPropertyKind.ROOT, name),
-            LayerPropertyKind.ROOT,
+            value ?: clearingValue(LayerPropertyKind.Root, name),
+            LayerPropertyKind.Root,
           )
         )
       }
@@ -264,9 +264,9 @@ internal class LayerInstallation(
  */
 private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
   when {
-    kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX) -> CLEARED_TRANSITION
-    kind == LayerPropertyKind.ROOT && name == "minzoom" -> JsonPrimitive(0)
-    kind == LayerPropertyKind.ROOT && name == "maxzoom" -> JsonPrimitive(24)
+    kind == LayerPropertyKind.Paint && name.endsWith(TRANSITION_SUFFIX) -> CLEARED_TRANSITION
+    kind == LayerPropertyKind.Root && name == "minzoom" -> JsonPrimitive(0)
+    kind == LayerPropertyKind.Root && name == "maxzoom" -> JsonPrimitive(24)
     else -> JsonNull
   }
 

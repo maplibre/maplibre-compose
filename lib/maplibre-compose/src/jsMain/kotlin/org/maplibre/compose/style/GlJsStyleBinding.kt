@@ -740,9 +740,9 @@ internal class GlJsStyleBinding(
     val js = value.toJsValue<Any?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
-        LayerPropertyKind.LAYOUT -> map.setLayoutProperty(layerId, name, js)
-        LayerPropertyKind.PAINT -> map.setPaintProperty(layerId, name, js)
-        LayerPropertyKind.ROOT -> setRootProperty(layerId, name, value)
+        LayerPropertyKind.Layout -> map.setLayoutProperty(layerId, name, js)
+        LayerPropertyKind.Paint -> map.setPaintProperty(layerId, name, js)
+        LayerPropertyKind.Root -> setRootProperty(layerId, name, value)
       }
     }
   }

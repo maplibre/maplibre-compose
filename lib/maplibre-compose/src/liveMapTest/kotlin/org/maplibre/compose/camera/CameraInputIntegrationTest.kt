@@ -258,7 +258,7 @@ class CameraInputIntegrationTest {
         assertTrue(ease.isCancelled)
         fixture.settle()
         assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
-        assertEquals(CameraMoveReason.PROGRAMMATIC, fixture.state.cameraMoveReason)
+        assertEquals(CameraMoveReason.Programmatic, fixture.state.cameraMoveReason)
       }
     }
   }

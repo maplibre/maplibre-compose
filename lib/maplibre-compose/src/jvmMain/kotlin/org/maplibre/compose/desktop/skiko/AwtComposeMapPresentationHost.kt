@@ -17,29 +17,29 @@ import org.maplibre.compose.mlnffi.NativeHandle
 
 /** Operating systems the AWT host distinguishes between. */
 internal enum class HostOperatingSystem {
-  LINUX,
-  MACOS,
-  WINDOWS,
-  UNSUPPORTED;
+  Linux,
+  Macos,
+  Windows,
+  Unsupported;
 
   /** The backend Compose Desktop draws with here. */
   val composeBackend: ComposeRenderBackend?
     get() =
       when (this) {
-        LINUX -> ComposeRenderBackend.OPENGL
-        MACOS -> ComposeRenderBackend.METAL
-        WINDOWS -> ComposeRenderBackend.DIRECT3D12
-        UNSUPPORTED -> null
+        Linux -> ComposeRenderBackend.OpenGl
+        Macos -> ComposeRenderBackend.Metal
+        Windows -> ComposeRenderBackend.Direct3D12
+        Unsupported -> null
       }
 
   companion object {
     fun current(): HostOperatingSystem {
       val os = System.getProperty("os.name")?.lowercase().orEmpty()
       return when {
-        os.contains("linux") -> LINUX
-        os.contains("mac") -> MACOS
-        os.contains("windows") -> WINDOWS
-        else -> UNSUPPORTED
+        os.contains("linux") -> Linux
+        os.contains("mac") -> Macos
+        os.contains("windows") -> Windows
+        else -> Unsupported
       }
     }
   }
@@ -62,7 +62,7 @@ internal class AwtComposeMapPresentationHost(private val window: Window) :
 
   override val xdgPortalWindow: XdgPortalWindow?
     get() {
-      if (operatingSystem != HostOperatingSystem.LINUX) return null
+      if (operatingSystem != HostOperatingSystem.Linux) return null
       val windowId = SkikoReflection.findNativeWindowHandle(window) ?: return null
       return XdgPortalWindow.X11(windowId)
     }
@@ -87,16 +87,16 @@ internal class AwtComposeMapPresentationHost(private val window: Window) :
       val layer = SkikoReflection.findSkiaLayer(window)
       val renderLock =
         when (operatingSystem) {
-          HostOperatingSystem.MACOS ->
+          HostOperatingSystem.Macos ->
             layer?.let {
               SkikoReflection.requireRenderLock(it, SkikoReflection.METAL_REDRAWER_CLASS)
             }
-          HostOperatingSystem.WINDOWS ->
+          HostOperatingSystem.Windows ->
             layer?.let {
               SkikoReflection.requireRenderLock(it, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
             }
-          HostOperatingSystem.LINUX,
-          HostOperatingSystem.UNSUPPORTED -> null
+          HostOperatingSystem.Linux,
+          HostOperatingSystem.Unsupported -> null
         }
       if (renderLock == null) action.run() else synchronized(renderLock) { action.run() }
     }
@@ -110,10 +110,10 @@ internal class AwtComposeMapPresentationHost(private val window: Window) :
   override fun gpuContext(): ComposeGpuContext? {
     val layer = SkikoReflection.findSkiaLayer(window) ?: return null
     return when (operatingSystem) {
-      HostOperatingSystem.MACOS -> metalContext(layer)
-      HostOperatingSystem.LINUX -> openGlContext(layer)
-      HostOperatingSystem.WINDOWS -> direct3D12Context(layer)
-      HostOperatingSystem.UNSUPPORTED -> null
+      HostOperatingSystem.Macos -> metalContext(layer)
+      HostOperatingSystem.Linux -> openGlContext(layer)
+      HostOperatingSystem.Windows -> direct3D12Context(layer)
+      HostOperatingSystem.Unsupported -> null
     }
   }
 
