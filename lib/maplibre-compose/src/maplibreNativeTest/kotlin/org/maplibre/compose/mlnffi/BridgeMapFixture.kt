@@ -106,6 +106,9 @@ private constructor(
   /** The thread [whileRenderingOnRendererThread] drives frames from, while one is running. */
   @Volatile private var rendererThread: RendererThread? = null
 
+  /** Simulates the host failing to dispatch renderer cleanup before it reaches the GPU context. */
+  @Volatile var rendererEnqueueFailure: Throwable? = null
+
   private val hostSession =
     object : MlnFfiMapHostSession {
       override val isClosed = false
@@ -121,6 +124,7 @@ private constructor(
       }
 
       override fun enqueueRenderer(action: () -> Unit): Boolean {
+        rendererEnqueueFailure?.let { throw it }
         withRendererAccess(action)
         return true
       }
@@ -152,7 +156,7 @@ private constructor(
   }
 
   val attachCount: Int
-    get() = session.attachCount
+    get() = session.presentation.attachCount
 
   /**
    * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is

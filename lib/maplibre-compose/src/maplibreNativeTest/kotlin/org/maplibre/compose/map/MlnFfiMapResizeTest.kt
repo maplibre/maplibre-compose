@@ -21,7 +21,7 @@ class MlnFfiMapResizeTest {
     fixture.use {
       fixture.loadStyle(BaseStyle.Json(EMPTY_STYLE))
       fixture.pumpUntilRendered()
-      val attaches = fixture.session.attachCount
+      val attaches = fixture.session.presentation.attachCount
 
       // Every step is a new host target: a borrowed texture cannot be resized, only reallocated.
       listOf(WIDER_EXTENT, TALLER_EXTENT, BridgeMapFixture.DEFAULT_EXTENT).forEach { extent ->
@@ -29,10 +29,14 @@ class MlnFfiMapResizeTest {
         fixture.pumpUntil("the resized map to render", extent = extent) { fixture.hasRendered }
       }
 
-      assertEquals(attaches, fixture.session.attachCount, "no resize should have re-attached")
+      assertEquals(
+        attaches,
+        fixture.session.presentation.attachCount,
+        "no resize should have re-attached",
+      )
       assertTrue(
-        fixture.session.retargetCount >= 3,
-        "each of the three sizes should have retargeted, got ${fixture.session.retargetCount}",
+        fixture.session.presentation.retargetCount >= 3,
+        "each of the three sizes should have retargeted, got ${fixture.session.presentation.retargetCount}",
       )
     }
   }

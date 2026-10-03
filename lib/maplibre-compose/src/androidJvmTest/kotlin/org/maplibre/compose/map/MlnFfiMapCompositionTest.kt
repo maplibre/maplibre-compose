@@ -1000,7 +1000,7 @@ class MlnFfiMapCompositionTest {
     // The session, because an event collector misses a frame that renders before it subscribes.
     val session = mapState.currentMapAttachment?.adapter as? MlnFfiMapSession
     assertFalse(
-      session?.hasRenderedAFrame == true,
+      session?.presentation?.hasRenderedAFrame == true,
       "A frame was rendered before the style loaded: $errors",
     )
     assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
