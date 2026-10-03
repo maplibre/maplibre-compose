@@ -22,7 +22,7 @@ on:
 jobs:
   hygiene:
     timeout-minutes: 25
-    runs-on: macos-26
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,10 +41,20 @@ jobs:
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
-      - run: mise run api:check
       - run: mise run ci:test-scripts
       - run: mise run benchmark:test
       - run: mise run style-spec:parity -- --check
+  abi:
+    timeout-minutes: 20
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "true"
+      - run: mise run api:check
   android:
     uses: ./.github/workflows/job-android.yml
     with:
@@ -127,7 +137,6 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           pnpm-cache: "true"
-          save-toolchains: "true"
           maplibre-gl-js-cache: "true"
       - run: mise run test:pages
         env:
