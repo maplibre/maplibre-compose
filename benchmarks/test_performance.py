@@ -225,6 +225,23 @@ class PerformanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Invalid map drawing duration"):
                 read_run(root)
 
+    def test_map_drawing_gaps_include_the_end_of_the_window(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="animation")
+            log = log.replace('"frames":1', '"frames":2').replace(
+                'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]',
+                'MAP_BENCHMARK FRAMETIMES [{"elapsed_ms":20},{"elapsed_ms":40}]',
+            )
+            (root / "app.log").write_text(log)
+            result = read_run(root)["map_drawing"]
+            self.assertEqual(result["interval_ms"]["max"], 11962)
+            (root / "app.log").write_text(
+                log.replace('"elapsed_ms":40', '"elapsed_ms":12002')
+            )
+            with self.assertRaisesRegex(ValueError, "outside the measurement window"):
+                read_run(root)
+
     def test_map_drawing_rejects_lost_native_render_events(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"

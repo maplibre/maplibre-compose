@@ -126,9 +126,24 @@ def read_run(directory):
         summary[key] = distribution(
             [frame[key] for frame in frames if frame.get(key) is not None]
         )
+    map_intervals = None
     if config["workload"] == "animation":
         if summary["duration_ms"] <= 0:
             raise ValueError("Invalid map drawing duration")
+        times = [frame.get("elapsed_ms") for frame in frames]
+        if all(t is not None for t in times):
+            distribution(times)
+            if times != sorted(times) or times[-1] >= summary["duration_ms"]:
+                raise ValueError(
+                    "Map draw timestamps are outside the measurement window"
+                )
+            map_intervals = distribution(
+                [
+                    b - a
+                    for a, b in itertools.pairwise([0, *times, summary["duration_ms"]])
+                    if b > a
+                ]
+            )
         counters = [frame.get("frame_count") for frame in frames]
         if all(counter is not None for counter in counters) and any(
             b != a + 1 for a, b in itertools.pairwise(counters)
@@ -146,6 +161,7 @@ def read_run(directory):
             "frames": summary["frames"],
             "duration_ms": summary["duration_ms"],
             "fps": summary["frames"] / (summary["duration_ms"] / 1000),
+            "interval_ms": map_intervals,
         }
         if config["workload"] == "animation"
         else None,

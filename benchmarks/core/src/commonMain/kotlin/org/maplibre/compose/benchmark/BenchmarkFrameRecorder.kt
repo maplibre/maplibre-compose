@@ -14,6 +14,7 @@ data class FrameSample(
   @SerialName("draw_calls") val drawCalls: Long? = null,
   @SerialName("mode") val mode: String? = null,
   @SerialName("frame_count") val frameCount: Long? = null,
+  @SerialName("elapsed_ms") val elapsedMs: Double? = null,
 )
 
 /** Integrity report for the batched [FrameSample] lines. */
@@ -41,8 +42,9 @@ class BenchmarkFrameRecorder(private val timeSource: TimeSource = TimeSource.Mon
   }
 
   fun record(sample: FrameSample) {
-    if (durationMillis?.let { start.elapsedNow().inWholeNanoseconds >= it * 1_000_000 } != true)
-      samples?.trySend(sample)
+    val elapsed = start.elapsedNow().inWholeNanoseconds / 1e6
+    if (durationMillis?.let { elapsed >= it } != true)
+      samples?.trySend(sample.copy(elapsedMs = elapsed))
   }
 
   /** Stops collection and prints the frame statistics. Does nothing when never started. */

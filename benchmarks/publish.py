@@ -40,6 +40,8 @@ HEADLINE = [
     "frame_interval_p95_ms",
     "frame_interval_max_ms",
     "map_draw_fps",
+    "map_draw_p95_ms",
+    "map_draw_max_ms",
     "ui_missed_percent",
     "ui_frame_p95_ms",
     "ui_frame_max_ms",
