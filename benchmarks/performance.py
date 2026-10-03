@@ -72,6 +72,18 @@ def ui_frames(logs):
     return ui
 
 
+def app_draws(logs):
+    if "MAP_BENCHMARK APPDRAWSTATS " not in logs:
+        return None
+    stats = record(logs, "APPDRAWSTATS")
+    values = samples(logs, "APPDRAW")
+    if len(values) != stats["frames"]:
+        raise ValueError("Incomplete app drawing statistics")
+    return (
+        {"frames": len(values), "duration_ms": distribution(values)} if values else None
+    )
+
+
 def read_run(directory):
     directory = Path(directory)
     logs = (directory / "app.log").read_text()
@@ -157,6 +169,7 @@ def read_run(directory):
         distribution([cpu])
     return {
         "ui_frames": ui_frames(logs),
+        "app_draws": app_draws(logs),
         "map_drawing": {
             "frames": summary["frames"],
             "duration_ms": summary["duration_ms"],
