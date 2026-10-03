@@ -1,0 +1,23 @@
+public final class org/maplibre/compose/location/desktop/macos/MacosLocationBackend : org/maplibre/compose/location/DesktopLocationBackend {
+	public fun <init> ()V
+	public fun createProvider (Lorg/maplibre/compose/location/XdgPortalWindow;)Lorg/maplibre/compose/location/LocationProvider;
+	public fun getId ()Ljava/lang/String;
+	public fun isAvailable ()Z
+}
+
+public final class org/maplibre/compose/location/desktop/macos/MacosLocationPermissionRequester : java/lang/AutoCloseable {
+	public fun close ()V
+	public final fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public final fun getStatus ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun requestForegroundPermission ()V
+}
+
+public final class org/maplibre/compose/location/desktop/macos/MacosLocationProvider : org/maplibre/compose/location/LocationProvider {
+	public fun close ()V
+	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public fun getBackendId ()Ljava/lang/String;
+	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public fun requestPermission ()V
+	public fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+}
+

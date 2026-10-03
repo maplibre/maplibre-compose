@@ -32,8 +32,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
         with:
-          # One job per runner label saves the toolchains; see setup-ci-deps.
-          save-toolchains: ${{ matrix.ios-version == '' }}
+          save-toolchains: "false"
           native-cache-scope: ios-simulator
       # The oldest supported iOS, which the pbxproj deployment targets and
       # getting-started page name. The runner image ships only current runtimes.
@@ -49,7 +48,7 @@ jobs:
           junit-paths: "**/build/test-results/iosSimulatorArm64Test/TEST-*.xml"
           org-slug: sargunv
           token: ${{ secrets.TRUNK_API_TOKEN }}
-          variant: ios-simulator-${{ matrix.variant }}
+          variant: ios-simulator-${{ matrix.ios-version || 'arm64' }}
           previous-step-outcome: ${{ steps.ios-tests.outcome }}
           allow-missing-junit-files: "false"
         env:

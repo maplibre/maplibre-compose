@@ -36,12 +36,8 @@ jobs:
       restate: ${{ steps.plan.outputs.restate }}
       check: ${{ steps.plan.outputs.check }}
       secrets: ${{ steps.plan.outputs.secrets }}
-      hygiene: ${{ steps.plan.outputs.hygiene }}
       android: ${{ steps.plan.outputs.android }}
-      ios-device: ${{ steps.plan.outputs.ios-device }}
-      js: ${{ steps.plan.outputs.js }}
       desktop: ${{ steps.plan.outputs.desktop }}
-      docs: ${{ steps.plan.outputs.docs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,12 +55,8 @@ jobs:
     uses: ./.github/workflows/tier-draft.yml
     with:
       secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
-      hygiene: ${{ needs.plan.outputs.hygiene }}
       android: ${{ needs.plan.outputs.android }}
-      ios-device: ${{ needs.plan.outputs.ios-device }}
-      js: ${{ needs.plan.outputs.js }}
       desktop: ${{ needs.plan.outputs.desktop }}
-      docs: ${{ needs.plan.outputs.docs }}
     secrets: inherit
 
   all-good:

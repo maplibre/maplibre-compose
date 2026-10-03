@@ -1,18 +1,23 @@
+import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+
 plugins {
   id("module-conventions")
-  id("org.jetbrains.kotlin.multiplatform")
-  id("org.jetbrains.kotlin.plugin.serialization")
   id("org.jetbrains.dokka")
   id("maven-publish")
 }
 
-kotlin {
-  explicitApi()
+listOf("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.multiplatform").forEach { pluginId ->
+  pluginManager.withPlugin(pluginId) {
+    extensions.configure<KotlinBaseExtension> {
+      explicitApi()
+      jvmToolchain(catalogVersionInt("java-toolchain"))
 
-  jvmToolchain(catalogVersionInt("java-toolchain"))
-
-  compilerOptions {
-    freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xconsistent-data-class-copy-visibility")
+      @OptIn(ExperimentalAbiValidation::class)
+      abiValidation {
+        keepLocallyUnsupportedTargets.set(false)
+      }
+    }
   }
 }
 

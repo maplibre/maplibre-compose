@@ -1,6 +1,6 @@
 name: full tier
 
-# The jobs whose variants the full tier introduces, per ci/jobs.json. The
+# The jobs assigned to the full tier, per ci/jobs.json. The
 # caller skips this workflow as a unit when the tier is not required, so a
 # pull request never shows individual jobs skipped.
 on:

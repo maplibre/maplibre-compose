@@ -1,0 +1,20 @@
+public final class org/maplibre/compose/hms/FusedLocationProvider : org/maplibre/compose/location/LocationProvider {
+	public fun <init> (Landroid/content/Context;)V
+	public fun <init> (Lcom/huawei/hms/location/FusedLocationProviderClient;)V
+	public fun close ()V
+	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public fun getBackendId ()Ljava/lang/String;
+	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public fun requestPermission ()V
+	public fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/hms/HmsLocationBackend : org/maplibre/compose/location/AndroidLocationBackend {
+	public fun <init> ()V
+	public fun createHeadingProvider (Landroid/content/Context;)Lorg/maplibre/compose/location/HeadingProvider;
+	public fun createLocationProvider (Landroid/content/Context;)Lorg/maplibre/compose/location/LocationProvider;
+	public fun getId ()Ljava/lang/String;
+	public fun getPriority ()I
+	public fun isAvailable (Landroid/content/Context;)Z
+}
+

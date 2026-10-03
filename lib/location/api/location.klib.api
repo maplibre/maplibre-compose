@@ -1,0 +1,410 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64]
+// Alias: apple => [iosArm64, iosSimulatorArm64, macosArm64]
+// Alias: ios => [iosArm64, iosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <org.maplibre.compose:location>
+final enum class org.maplibre.compose.location/HeadingReference : kotlin/Enum<org.maplibre.compose.location/HeadingReference> { // org.maplibre.compose.location/HeadingReference|null[0]
+    enum entry MagneticNorth // org.maplibre.compose.location/HeadingReference.MagneticNorth|null[0]
+    enum entry TrueNorth // org.maplibre.compose.location/HeadingReference.TrueNorth|null[0]
+    enum entry TrueOrMagneticNorth // org.maplibre.compose.location/HeadingReference.TrueOrMagneticNorth|null[0]
+
+    final val entries // org.maplibre.compose.location/HeadingReference.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/HeadingReference> // org.maplibre.compose.location/HeadingReference.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.maplibre.compose.location/HeadingReference> // org.maplibre.compose.location/HeadingReference.values|values#static(){}[0]
+}
+
+final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
+    enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
+    enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]
+    enum entry High // org.maplibre.compose.location/LocationAccuracy.High|null[0]
+    enum entry Low // org.maplibre.compose.location/LocationAccuracy.Low|null[0]
+    enum entry Lowest // org.maplibre.compose.location/LocationAccuracy.Lowest|null[0]
+
+    final val entries // org.maplibre.compose.location/LocationAccuracy.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/LocationAccuracy> // org.maplibre.compose.location/LocationAccuracy.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationAccuracy.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.maplibre.compose.location/LocationAccuracy> // org.maplibre.compose.location/LocationAccuracy.values|values#static(){}[0]
+}
+
+final enum class org.maplibre.compose.location/LocationAccuracyAuthorization : kotlin/Enum<org.maplibre.compose.location/LocationAccuracyAuthorization> { // org.maplibre.compose.location/LocationAccuracyAuthorization|null[0]
+    enum entry Approximate // org.maplibre.compose.location/LocationAccuracyAuthorization.Approximate|null[0]
+    enum entry Precise // org.maplibre.compose.location/LocationAccuracyAuthorization.Precise|null[0]
+    enum entry Unknown // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown|null[0]
+
+    final val entries // org.maplibre.compose.location/LocationAccuracyAuthorization.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/LocationAccuracyAuthorization> // org.maplibre.compose.location/LocationAccuracyAuthorization.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationAccuracyAuthorization.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.maplibre.compose.location/LocationAccuracyAuthorization> // org.maplibre.compose.location/LocationAccuracyAuthorization.values|values#static(){}[0]
+}
+
+final enum class org.maplibre.compose.location/LocationUnavailableReason : kotlin/Enum<org.maplibre.compose.location/LocationUnavailableReason> { // org.maplibre.compose.location/LocationUnavailableReason|null[0]
+    enum entry PermissionDenied // org.maplibre.compose.location/LocationUnavailableReason.PermissionDenied|null[0]
+    enum entry ServicesDisabled // org.maplibre.compose.location/LocationUnavailableReason.ServicesDisabled|null[0]
+    enum entry TemporarilyUnavailable // org.maplibre.compose.location/LocationUnavailableReason.TemporarilyUnavailable|null[0]
+    enum entry UnexpectedFailure // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure|null[0]
+    enum entry Unsupported // org.maplibre.compose.location/LocationUnavailableReason.Unsupported|null[0]
+
+    final val entries // org.maplibre.compose.location/LocationUnavailableReason.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/LocationUnavailableReason> // org.maplibre.compose.location/LocationUnavailableReason.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.maplibre.compose.location/LocationUnavailableReason> // org.maplibre.compose.location/LocationUnavailableReason.values|values#static(){}[0]
+}
+
+abstract interface org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/HeadingProvider|null[0]
+    abstract fun updates(org.maplibre.compose.location/HeadingRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/HeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
+}
+
+abstract interface org.maplibre.compose.location/LocationProvider : kotlin/AutoCloseable { // org.maplibre.compose.location/LocationProvider|null[0]
+    open val backendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability|{}backendAvailability[0]
+        open fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    open val backendId // org.maplibre.compose.location/LocationProvider.backendId|{}backendId[0]
+        open fun <get-backendId>(): kotlin/String? // org.maplibre.compose.location/LocationProvider.backendId.<get-backendId>|<get-backendId>(){}[0]
+    open val permission // org.maplibre.compose.location/LocationProvider.permission|{}permission[0]
+        open fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/LocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    abstract fun updates(org.maplibre.compose.location/LocationRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/LocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+    open fun close() // org.maplibre.compose.location/LocationProvider.close|close(){}[0]
+    open fun requestPermission() // org.maplibre.compose.location/LocationProvider.requestPermission|requestPermission(){}[0]
+}
+
+abstract interface org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/SystemSettingsLauncher|null[0]
+    abstract val canOpenApplicationSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
+        abstract fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
+    abstract val canOpenLocationServicesSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
+        abstract fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
+
+    abstract fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
+    abstract fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
+
+sealed interface org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability|null[0]
+    final class Misconfigured : org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured|null[0]
+        constructor <init>(kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.<init>|<init>(kotlin.Throwable?){}[0]
+
+        final val cause // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.cause|{}cause[0]
+            final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.cause.<get-cause>|<get-cause>(){}[0]
+
+        final fun component1(): kotlin/Throwable? // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.component1|component1(){}[0]
+        final fun copy(kotlin/Throwable? = ...): org.maplibre.compose.location/LocationBackendAvailability.Misconfigured // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.copy|copy(kotlin.Throwable?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.toString|toString(){}[0]
+    }
+
+    final object Available : org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability.Available|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationBackendAvailability.Available.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationBackendAvailability.Available.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationBackendAvailability.Available.toString|toString(){}[0]
+    }
+
+    final object Unsupported : org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability.Unsupported|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationBackendAvailability.Unsupported.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationBackendAvailability.Unsupported.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationBackendAvailability.Unsupported.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.location/LocationEvent { // org.maplibre.compose.location/LocationEvent|null[0]
+    final class Unavailable : org.maplibre.compose.location/LocationEvent { // org.maplibre.compose.location/LocationEvent.Unavailable|null[0]
+        constructor <init>(org.maplibre.compose.location/LocationUnavailableReason, kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationEvent.Unavailable.<init>|<init>(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
+
+        final val cause // org.maplibre.compose.location/LocationEvent.Unavailable.cause|{}cause[0]
+            final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/LocationEvent.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
+        final val reason // org.maplibre.compose.location/LocationEvent.Unavailable.reason|{}reason[0]
+            final fun <get-reason>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationEvent.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
+
+        final fun component1(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationEvent.Unavailable.component1|component1(){}[0]
+        final fun component2(): kotlin/Throwable? // org.maplibre.compose.location/LocationEvent.Unavailable.component2|component2(){}[0]
+        final fun copy(org.maplibre.compose.location/LocationUnavailableReason = ..., kotlin/Throwable? = ...): org.maplibre.compose.location/LocationEvent.Unavailable // org.maplibre.compose.location/LocationEvent.Unavailable.copy|copy(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationEvent.Unavailable.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationEvent.Unavailable.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationEvent.Unavailable.toString|toString(){}[0]
+    }
+
+    final class Update : org.maplibre.compose.location/LocationEvent { // org.maplibre.compose.location/LocationEvent.Update|null[0]
+        constructor <init>(org.maplibre.compose.location/LocationMeasurement, kotlin.time/TimeMark) // org.maplibre.compose.location/LocationEvent.Update.<init>|<init>(org.maplibre.compose.location.LocationMeasurement;kotlin.time.TimeMark){}[0]
+
+        final val measurement // org.maplibre.compose.location/LocationEvent.Update.measurement|{}measurement[0]
+            final fun <get-measurement>(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/LocationEvent.Update.measurement.<get-measurement>|<get-measurement>(){}[0]
+        final val measurementMark // org.maplibre.compose.location/LocationEvent.Update.measurementMark|{}measurementMark[0]
+            final fun <get-measurementMark>(): kotlin.time/TimeMark // org.maplibre.compose.location/LocationEvent.Update.measurementMark.<get-measurementMark>|<get-measurementMark>(){}[0]
+
+        final fun component1(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/LocationEvent.Update.component1|component1(){}[0]
+        final fun component2(): kotlin.time/TimeMark // org.maplibre.compose.location/LocationEvent.Update.component2|component2(){}[0]
+        final fun copy(org.maplibre.compose.location/LocationMeasurement = ..., kotlin.time/TimeMark = ...): org.maplibre.compose.location/LocationEvent.Update // org.maplibre.compose.location/LocationEvent.Update.copy|copy(org.maplibre.compose.location.LocationMeasurement;kotlin.time.TimeMark){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationEvent.Update.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationEvent.Update.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationEvent.Update.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission|null[0]
+    final class Granted : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.Granted|null[0]
+        constructor <init>(org.maplibre.compose.location/LocationAccuracyAuthorization) // org.maplibre.compose.location/LocationPermission.Granted.<init>|<init>(org.maplibre.compose.location.LocationAccuracyAuthorization){}[0]
+
+        final val accuracy // org.maplibre.compose.location/LocationPermission.Granted.accuracy|{}accuracy[0]
+            final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationPermission.Granted.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
+
+        final fun component1(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationPermission.Granted.component1|component1(){}[0]
+        final fun copy(org.maplibre.compose.location/LocationAccuracyAuthorization = ...): org.maplibre.compose.location/LocationPermission.Granted // org.maplibre.compose.location/LocationPermission.Granted.copy|copy(org.maplibre.compose.location.LocationAccuracyAuthorization){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.Granted.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.Granted.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.Granted.toString|toString(){}[0]
+    }
+
+    final class NotGranted : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.NotGranted|null[0]
+        constructor <init>(kotlin/Boolean?, kotlin/Boolean = ...) // org.maplibre.compose.location/LocationPermission.NotGranted.<init>|<init>(kotlin.Boolean?;kotlin.Boolean){}[0]
+
+        final val canRequest // org.maplibre.compose.location/LocationPermission.NotGranted.canRequest|{}canRequest[0]
+            final fun <get-canRequest>(): kotlin/Boolean? // org.maplibre.compose.location/LocationPermission.NotGranted.canRequest.<get-canRequest>|<get-canRequest>(){}[0]
+        final val shouldShowRationale // org.maplibre.compose.location/LocationPermission.NotGranted.shouldShowRationale|{}shouldShowRationale[0]
+            final fun <get-shouldShowRationale>(): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.NotGranted.shouldShowRationale.<get-shouldShowRationale>|<get-shouldShowRationale>(){}[0]
+
+        final fun component1(): kotlin/Boolean? // org.maplibre.compose.location/LocationPermission.NotGranted.component1|component1(){}[0]
+        final fun component2(): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.NotGranted.component2|component2(){}[0]
+        final fun copy(kotlin/Boolean? = ..., kotlin/Boolean = ...): org.maplibre.compose.location/LocationPermission.NotGranted // org.maplibre.compose.location/LocationPermission.NotGranted.copy|copy(kotlin.Boolean?;kotlin.Boolean){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.NotGranted.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.NotGranted.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.NotGranted.toString|toString(){}[0]
+    }
+
+    final object Unknown : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.Unknown|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.Unknown.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.Unknown.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.Unknown.toString|toString(){}[0]
+    }
+}
+
+final class org.maplibre.compose.location/HeadingMeasurement { // org.maplibre.compose.location/HeadingMeasurement|null[0]
+    constructor <init>(org.maplibre.spatialk.units/Bearing, org.maplibre.compose.location/HeadingReference, org.maplibre.spatialk.units/Rotation? = ..., kotlin.time/Instant) // org.maplibre.compose.location/HeadingMeasurement.<init>|<init>(org.maplibre.spatialk.units.Bearing;org.maplibre.compose.location.HeadingReference;org.maplibre.spatialk.units.Rotation?;kotlin.time.Instant){}[0]
+
+    final val accuracy // org.maplibre.compose.location/HeadingMeasurement.accuracy|{}accuracy[0]
+        final fun <get-accuracy>(): org.maplibre.spatialk.units/Rotation? // org.maplibre.compose.location/HeadingMeasurement.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
+    final val bearing // org.maplibre.compose.location/HeadingMeasurement.bearing|{}bearing[0]
+        final fun <get-bearing>(): org.maplibre.spatialk.units/Bearing // org.maplibre.compose.location/HeadingMeasurement.bearing.<get-bearing>|<get-bearing>(){}[0]
+    final val measuredAt // org.maplibre.compose.location/HeadingMeasurement.measuredAt|{}measuredAt[0]
+        final fun <get-measuredAt>(): kotlin.time/Instant // org.maplibre.compose.location/HeadingMeasurement.measuredAt.<get-measuredAt>|<get-measuredAt>(){}[0]
+    final val reference // org.maplibre.compose.location/HeadingMeasurement.reference|{}reference[0]
+        final fun <get-reference>(): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingMeasurement.reference.<get-reference>|<get-reference>(){}[0]
+
+    final fun component1(): org.maplibre.spatialk.units/Bearing // org.maplibre.compose.location/HeadingMeasurement.component1|component1(){}[0]
+    final fun component2(): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingMeasurement.component2|component2(){}[0]
+    final fun component3(): org.maplibre.spatialk.units/Rotation? // org.maplibre.compose.location/HeadingMeasurement.component3|component3(){}[0]
+    final fun component4(): kotlin.time/Instant // org.maplibre.compose.location/HeadingMeasurement.component4|component4(){}[0]
+    final fun copy(org.maplibre.spatialk.units/Bearing = ..., org.maplibre.compose.location/HeadingReference = ..., org.maplibre.spatialk.units/Rotation? = ..., kotlin.time/Instant = ...): org.maplibre.compose.location/HeadingMeasurement // org.maplibre.compose.location/HeadingMeasurement.copy|copy(org.maplibre.spatialk.units.Bearing;org.maplibre.compose.location.HeadingReference;org.maplibre.spatialk.units.Rotation?;kotlin.time.Instant){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingMeasurement.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingMeasurement.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingMeasurement.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<org.maplibre.compose.location/HeadingMeasurement> { // org.maplibre.compose.location/HeadingMeasurement.$serializer|null[0]
+        final val descriptor // org.maplibre.compose.location/HeadingMeasurement.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // org.maplibre.compose.location/HeadingMeasurement.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // org.maplibre.compose.location/HeadingMeasurement.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): org.maplibre.compose.location/HeadingMeasurement // org.maplibre.compose.location/HeadingMeasurement.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, org.maplibre.compose.location/HeadingMeasurement) // org.maplibre.compose.location/HeadingMeasurement.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;org.maplibre.compose.location.HeadingMeasurement){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.location/HeadingMeasurement.Companion|null[0]
+        final val $childSerializers // org.maplibre.compose.location/HeadingMeasurement.Companion.$childSerializers|{}$childSerializers[0]
+
+        final fun serializer(): kotlinx.serialization/KSerializer<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/HeadingMeasurement.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final class org.maplibre.compose.location/HeadingRequest { // org.maplibre.compose.location/HeadingRequest|null[0]
+    constructor <init>(kotlin.time/Duration = ...) // org.maplibre.compose.location/HeadingRequest.<init>|<init>(kotlin.time.Duration){}[0]
+
+    final val minimumInterval // org.maplibre.compose.location/HeadingRequest.minimumInterval|{}minimumInterval[0]
+        final fun <get-minimumInterval>(): kotlin.time/Duration // org.maplibre.compose.location/HeadingRequest.minimumInterval.<get-minimumInterval>|<get-minimumInterval>(){}[0]
+
+    final fun component1(): kotlin.time/Duration // org.maplibre.compose.location/HeadingRequest.component1|component1(){}[0]
+    final fun copy(kotlin.time/Duration = ...): org.maplibre.compose.location/HeadingRequest // org.maplibre.compose.location/HeadingRequest.copy|copy(kotlin.time.Duration){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingRequest.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingRequest.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingRequest.toString|toString(){}[0]
+}
+
+final class org.maplibre.compose.location/LocationMeasurement { // org.maplibre.compose.location/LocationMeasurement|null[0]
+    constructor <init>(org.maplibre.spatialk.geojson/Position, org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Bearing? = ..., org.maplibre.spatialk.units/Rotation? = ..., kotlin.time/Instant) // org.maplibre.compose.location/LocationMeasurement.<init>|<init>(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Bearing?;org.maplibre.spatialk.units.Rotation?;kotlin.time.Instant){}[0]
+
+    final val altitudeAccuracy // org.maplibre.compose.location/LocationMeasurement.altitudeAccuracy|{}altitudeAccuracy[0]
+        final fun <get-altitudeAccuracy>(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.altitudeAccuracy.<get-altitudeAccuracy>|<get-altitudeAccuracy>(){}[0]
+    final val course // org.maplibre.compose.location/LocationMeasurement.course|{}course[0]
+        final fun <get-course>(): org.maplibre.spatialk.units/Bearing? // org.maplibre.compose.location/LocationMeasurement.course.<get-course>|<get-course>(){}[0]
+    final val courseAccuracy // org.maplibre.compose.location/LocationMeasurement.courseAccuracy|{}courseAccuracy[0]
+        final fun <get-courseAccuracy>(): org.maplibre.spatialk.units/Rotation? // org.maplibre.compose.location/LocationMeasurement.courseAccuracy.<get-courseAccuracy>|<get-courseAccuracy>(){}[0]
+    final val distancePerSecond // org.maplibre.compose.location/LocationMeasurement.distancePerSecond|{}distancePerSecond[0]
+        final fun <get-distancePerSecond>(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.distancePerSecond.<get-distancePerSecond>|<get-distancePerSecond>(){}[0]
+    final val distancePerSecondAccuracy // org.maplibre.compose.location/LocationMeasurement.distancePerSecondAccuracy|{}distancePerSecondAccuracy[0]
+        final fun <get-distancePerSecondAccuracy>(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.distancePerSecondAccuracy.<get-distancePerSecondAccuracy>|<get-distancePerSecondAccuracy>(){}[0]
+    final val horizontalAccuracy // org.maplibre.compose.location/LocationMeasurement.horizontalAccuracy|{}horizontalAccuracy[0]
+        final fun <get-horizontalAccuracy>(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.horizontalAccuracy.<get-horizontalAccuracy>|<get-horizontalAccuracy>(){}[0]
+    final val measuredAt // org.maplibre.compose.location/LocationMeasurement.measuredAt|{}measuredAt[0]
+        final fun <get-measuredAt>(): kotlin.time/Instant // org.maplibre.compose.location/LocationMeasurement.measuredAt.<get-measuredAt>|<get-measuredAt>(){}[0]
+    final val position // org.maplibre.compose.location/LocationMeasurement.position|{}position[0]
+        final fun <get-position>(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.location/LocationMeasurement.position.<get-position>|<get-position>(){}[0]
+
+    final fun component1(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.location/LocationMeasurement.component1|component1(){}[0]
+    final fun component2(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.component2|component2(){}[0]
+    final fun component3(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.component3|component3(){}[0]
+    final fun component4(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.component4|component4(){}[0]
+    final fun component5(): org.maplibre.spatialk.units/Length? // org.maplibre.compose.location/LocationMeasurement.component5|component5(){}[0]
+    final fun component6(): org.maplibre.spatialk.units/Bearing? // org.maplibre.compose.location/LocationMeasurement.component6|component6(){}[0]
+    final fun component7(): org.maplibre.spatialk.units/Rotation? // org.maplibre.compose.location/LocationMeasurement.component7|component7(){}[0]
+    final fun component8(): kotlin.time/Instant // org.maplibre.compose.location/LocationMeasurement.component8|component8(){}[0]
+    final fun copy(org.maplibre.spatialk.geojson/Position = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Length? = ..., org.maplibre.spatialk.units/Bearing? = ..., org.maplibre.spatialk.units/Rotation? = ..., kotlin.time/Instant = ...): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/LocationMeasurement.copy|copy(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Length?;org.maplibre.spatialk.units.Bearing?;org.maplibre.spatialk.units.Rotation?;kotlin.time.Instant){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationMeasurement.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationMeasurement.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/LocationMeasurement.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<org.maplibre.compose.location/LocationMeasurement> { // org.maplibre.compose.location/LocationMeasurement.$serializer|null[0]
+        final val descriptor // org.maplibre.compose.location/LocationMeasurement.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // org.maplibre.compose.location/LocationMeasurement.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // org.maplibre.compose.location/LocationMeasurement.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/LocationMeasurement.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, org.maplibre.compose.location/LocationMeasurement) // org.maplibre.compose.location/LocationMeasurement.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;org.maplibre.compose.location.LocationMeasurement){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.location/LocationMeasurement.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<org.maplibre.compose.location/LocationMeasurement> // org.maplibre.compose.location/LocationMeasurement.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final class org.maplibre.compose.location/LocationRequest { // org.maplibre.compose.location/LocationRequest|null[0]
+    constructor <init>(org.maplibre.compose.location/LocationAccuracy = ..., kotlin.time/Duration = ..., org.maplibre.spatialk.units/Length = ...) // org.maplibre.compose.location/LocationRequest.<init>|<init>(org.maplibre.compose.location.LocationAccuracy;kotlin.time.Duration;org.maplibre.spatialk.units.Length){}[0]
+
+    final val accuracy // org.maplibre.compose.location/LocationRequest.accuracy|{}accuracy[0]
+        final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationRequest.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
+    final val minimumDistance // org.maplibre.compose.location/LocationRequest.minimumDistance|{}minimumDistance[0]
+        final fun <get-minimumDistance>(): org.maplibre.spatialk.units/Length // org.maplibre.compose.location/LocationRequest.minimumDistance.<get-minimumDistance>|<get-minimumDistance>(){}[0]
+    final val minimumInterval // org.maplibre.compose.location/LocationRequest.minimumInterval|{}minimumInterval[0]
+        final fun <get-minimumInterval>(): kotlin.time/Duration // org.maplibre.compose.location/LocationRequest.minimumInterval.<get-minimumInterval>|<get-minimumInterval>(){}[0]
+
+    final fun component1(): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationRequest.component1|component1(){}[0]
+    final fun component2(): kotlin.time/Duration // org.maplibre.compose.location/LocationRequest.component2|component2(){}[0]
+    final fun component3(): org.maplibre.spatialk.units/Length // org.maplibre.compose.location/LocationRequest.component3|component3(){}[0]
+    final fun copy(org.maplibre.compose.location/LocationAccuracy = ..., kotlin.time/Duration = ..., org.maplibre.spatialk.units/Length = ...): org.maplibre.compose.location/LocationRequest // org.maplibre.compose.location/LocationRequest.copy|copy(org.maplibre.compose.location.LocationAccuracy;kotlin.time.Duration;org.maplibre.spatialk.units.Length){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationRequest.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationRequest.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/LocationRequest.toString|toString(){}[0]
+}
+
+final object org.maplibre.compose.location/UnsupportedLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/UnsupportedLocationProvider|null[0]
+    final val backendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val backendId // org.maplibre.compose.location/UnsupportedLocationProvider.backendId|{}backendId[0]
+        final fun <get-backendId>(): kotlin/String? // org.maplibre.compose.location/UnsupportedLocationProvider.backendId.<get-backendId>|<get-backendId>(){}[0]
+    final val permission // org.maplibre.compose.location/UnsupportedLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/UnsupportedLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun close() // org.maplibre.compose.location/UnsupportedLocationProvider.close|close(){}[0]
+    final fun requestPermission() // org.maplibre.compose.location/UnsupportedLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/UnsupportedLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}
+
+// Targets: [apple]
+final class org.maplibre.compose.location/AppleLocationPermissionRequester : kotlin/AutoCloseable { // org.maplibre.compose.location/AppleLocationPermissionRequester|null[0]
+    constructor <init>() // org.maplibre.compose.location/AppleLocationPermissionRequester.<init>|<init>(){}[0]
+
+    final val status // org.maplibre.compose.location/AppleLocationPermissionRequester.status|{}status[0]
+        final fun <get-status>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/AppleLocationPermissionRequester.status.<get-status>|<get-status>(){}[0]
+
+    final fun close() // org.maplibre.compose.location/AppleLocationPermissionRequester.close|close(){}[0]
+    final fun requestForegroundPermission() // org.maplibre.compose.location/AppleLocationPermissionRequester.requestForegroundPermission|requestForegroundPermission(){}[0]
+}
+
+// Targets: [apple]
+final class org.maplibre.compose.location/AppleLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/AppleLocationProvider|null[0]
+    constructor <init>() // org.maplibre.compose.location/AppleLocationProvider.<init>|<init>(){}[0]
+
+    final val permission // org.maplibre.compose.location/AppleLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/AppleLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun close() // org.maplibre.compose.location/AppleLocationProvider.close|close(){}[0]
+    final fun requestPermission() // org.maplibre.compose.location/AppleLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/AppleLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}
+
+// Targets: [apple]
+final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMapLibreLocationMeasurement(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/asMapLibreLocationMeasurement|asMapLibreLocationMeasurement@platform.CoreLocation.CLLocation(){}[0]
+
+// Targets: [ios]
+final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/IosHeadingProvider|null[0]
+    constructor <init>() // org.maplibre.compose.location/IosHeadingProvider.<init>|<init>(){}[0]
+
+    final fun updates(org.maplibre.compose.location/HeadingRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/IosHeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
+}
+
+// Targets: [ios]
+final class org.maplibre.compose.location/IosSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/IosSystemSettingsLauncher|null[0]
+    constructor <init>() // org.maplibre.compose.location/IosSystemSettingsLauncher.<init>|<init>(){}[0]
+
+    final val canOpenApplicationSettings // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
+        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
+    final val canOpenLocationServicesSettings // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
+        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
+
+    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
+    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
+
+// Targets: [js]
+final class org.maplibre.compose.location/BrowserLocationPermissionRequester { // org.maplibre.compose.location/BrowserLocationPermissionRequester|null[0]
+    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/BrowserLocationPermissionRequester.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
+
+    final val backendAvailability // org.maplibre.compose.location/BrowserLocationPermissionRequester.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/BrowserLocationPermissionRequester.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val status // org.maplibre.compose.location/BrowserLocationPermissionRequester.status|{}status[0]
+        final fun <get-status>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/BrowserLocationPermissionRequester.status.<get-status>|<get-status>(){}[0]
+
+    final fun requestForegroundPermission() // org.maplibre.compose.location/BrowserLocationPermissionRequester.requestForegroundPermission|requestForegroundPermission(){}[0]
+}
+
+// Targets: [js]
+final class org.maplibre.compose.location/BrowserLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/BrowserLocationProvider|null[0]
+    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/BrowserLocationProvider.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
+
+    final val backendAvailability // org.maplibre.compose.location/BrowserLocationProvider.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/BrowserLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val permission // org.maplibre.compose.location/BrowserLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/BrowserLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun requestPermission() // org.maplibre.compose.location/BrowserLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/BrowserLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}
+
+// Targets: [js]
+final object org.maplibre.compose.location/BrowserSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/BrowserSystemSettingsLauncher|null[0]
+    final val canOpenApplicationSettings // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
+        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
+    final val canOpenLocationServicesSettings // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
+        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
+
+    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
+    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
+
+// Targets: [macosArm64]
+final class org.maplibre.compose.location/MacosSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/MacosSystemSettingsLauncher|null[0]
+    constructor <init>() // org.maplibre.compose.location/MacosSystemSettingsLauncher.<init>|<init>(){}[0]
+
+    final val canOpenApplicationSettings // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
+        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
+    final val canOpenLocationServicesSettings // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
+        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
+
+    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
+    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
