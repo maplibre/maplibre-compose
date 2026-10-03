@@ -1006,21 +1006,25 @@ class MlnFfiMapCompositionTest {
     assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
 
     val before = mapState.cameraPosition.target
+    val dragStep = Offset(30f * density.density, 0f)
     performTouchInputOnUiThread(onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG)) { down(center) }
     runOnUiThread { baseStyle = BaseStyle.Empty }
+    // Android creates its surface after revealing the map; style readiness alone is not enough.
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       mapState.style.loadState == StyleLoadState.Ready &&
+        mapState.currentMapAttachment?.viewport != null &&
         onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
     }
     performTouchInputOnUiThread(onNodeWithContentDescription("Map")) {
-      moveBy(Offset(60f, 0f))
+      // A handler that wrongly admits the first move could pan on the second one.
+      repeat(2) { moveBy(dragStep) }
       up()
     }
     waitForIdle()
     assertEquals(before, mapState.cameraPosition.target, "a loading contact became a map drag")
     performTouchInputOnUiThread(onNodeWithContentDescription("Map")) {
       down(center)
-      moveBy(Offset(60f, 0f))
+      repeat(2) { moveBy(dragStep) }
       up()
     }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { mapState.cameraPosition.target != before }

@@ -368,7 +368,7 @@ class PointerInputTest {
       map.performTouchInput { moveBy(Offset(30f, 0f)) }
       runOnIdle { intercept = false }
       map.performTouchInput {
-        moveBy(Offset(30f, 0f))
+        repeat(2) { moveBy(Offset(30f, 0f)) }
         up()
       }
       mainClock.advanceTimeBy(1_000)
