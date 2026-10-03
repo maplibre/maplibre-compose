@@ -12,8 +12,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -193,6 +195,72 @@ class BrowserCameraTransitionLifecycleTest {
 
       runtime.close()
       runtime.awaitClosed()
+    }
+
+  @Test
+  fun an_immediate_anchor_is_retired_before_a_later_viewport_change(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitMapReady()
+      fixture.awaitWhileRendering("the immediate anchored movement") {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Geographic(Position(0.0, 0.0)),
+          zoom = 4.0,
+          animation = CameraAnimation.Ease(0.milliseconds),
+        )
+      }
+      val bearing = launch {
+        fixture.state.animateCamera(CameraUpdate(bearing = 90.0), CameraAnimation.Ease(1.seconds))
+      }
+      fixture.pumpUntil("bearing to start") { fixture.state.cameraPosition.bearing > 1.0 }
+      fixture.resize(MapExtent.fromLogical(width = 600, height = 400, scaleFactor = 1.0))
+      fixture.pumpUntil("bearing to finish after the resize") { bearing.isCompleted }
+      assertFalse(bearing.isCancelled)
+      assertEquals(90.0, fixture.state.cameraPosition.bearing, 0.001)
+    }
+  }
+
+  @Test
+  fun a_moveend_callback_can_start_a_movement_that_waits_for_its_own_end(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        val session = fixture.session as GlJsMapSession
+        val callbacks = session.callbacks
+        var replacement: Job? = null
+        session.callbacks =
+          object : MapAdapter.Callbacks by callbacks {
+            override fun onEvent(map: MapAdapter, event: MapEvent) {
+              callbacks.onEvent(map, event)
+              if (event is MapEvent.CameraMoveEnded && replacement == null) {
+                replacement =
+                  launch(start = CoroutineStart.UNDISPATCHED) {
+                    fixture.state.animateCamera(
+                      CameraUpdate(bearing = 90.0),
+                      CameraAnimation.Ease(1.seconds),
+                    )
+                  }
+              }
+            }
+          }
+        val first = launch {
+          fixture.state.animateCamera(
+            CameraUpdate(zoom = 4.0),
+            CameraAnimation.Ease(100.milliseconds),
+          )
+        }
+        fixture.pumpUntil("the callback movement to start") {
+          first.isCompleted && replacement != null
+        }
+        assertFalse(requireNotNull(replacement).isCompleted)
+        fixture.pumpUntil("the callback movement to finish") {
+          requireNotNull(replacement).isCompleted
+        }
+        assertFalse(requireNotNull(replacement).isCancelled)
+        assertEquals(90.0, fixture.state.cameraPosition.bearing, 0.001)
+        session.callbacks = callbacks
+      }
     }
 
   private companion object {

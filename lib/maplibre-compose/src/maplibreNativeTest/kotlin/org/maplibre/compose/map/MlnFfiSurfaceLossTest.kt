@@ -6,7 +6,6 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -14,7 +13,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -132,7 +131,7 @@ class MlnFfiSurfaceLossTest {
   }
 
   @Test
-  fun failed_renderer_release_keeps_camera_waiters_with_the_live_map_owner() = runBlocking {
+  fun failed_renderer_release_finishes_camera_waiters_but_keeps_the_live_map() = runBlocking {
     val fixture = BridgeMapFixture.create()
     var closureFailure: Throwable? = null
     try {
@@ -157,16 +156,14 @@ class MlnFfiSurfaceLossTest {
       try {
         session.close()
         closureFailure = assertFailsWith<MapCleanupException> { session.awaitClosed() }
-        yield()
+        withTimeout(5.seconds) { animation.await() }
         assertSame(map, session.loop.map, "renderer failure must retain its map")
-        assertFalse(animation.isCompleted, "cleanup cannot retire a live owner's camera waiter")
       } finally {
         fixture.rendererEnqueueFailure = null
         ownerHeld.open()
         // Recover the deliberately failed handoff so this test releases its real GPU resources.
         session.destroyEngine(engine)
       }
-      animation.await()
     } finally {
       val cleanup = runCatching { fixture.close() }
       if (closureFailure == null) cleanup.getOrThrow()
