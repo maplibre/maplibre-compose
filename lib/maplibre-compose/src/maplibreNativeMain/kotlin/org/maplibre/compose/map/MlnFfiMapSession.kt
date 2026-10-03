@@ -239,6 +239,7 @@ internal class MlnFfiMapSession(
    */
   private fun reportNewlyArrivedAttribution() {
     val map = loop.map ?: return
+    var changed = false
     for (id in map.styleSourceIds()) {
       val info = map.styleSourceInfo(id) ?: continue
       if (
@@ -246,9 +247,10 @@ internal class MlnFfiMapSession(
           !info.attribution.isNullOrEmpty() &&
           reportedUrlAttribution.add(id)
       ) {
-        styleBinding?.identity?.let { events.styleSourcesChanged(it) }
+        changed = true
       }
     }
+    if (changed) styleBinding?.identity?.let { events.styleSourcesChanged(it) }
   }
 
   private fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =

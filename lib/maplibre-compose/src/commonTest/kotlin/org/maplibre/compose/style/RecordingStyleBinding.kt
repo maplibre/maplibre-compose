@@ -134,8 +134,6 @@ internal class RecordingStyleBinding(
   override fun getSource(id: String): Source? =
     sourceObjects[id] ?: sources[id]?.let { reconstructedSource(id, it) }
 
-  override fun getSources(): List<Source> = sources.keys.mapNotNull(::getSource)
-
   override fun sourceIds(): List<String> = sources.keys.toList()
 
   override fun getLayer(id: String): LayerDefinition? =

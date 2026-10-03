@@ -51,7 +51,8 @@ class BaseSourceRestoreTest {
 
       assertEquals(
         mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
-        checkNotNull(style.readMap { style.getSources() }).associate { source ->
+        checkNotNull(style.readMap { style.sourceIds().mapNotNull(style::getSource) }).associate {
+          source ->
           source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
         },
       )

@@ -204,10 +204,6 @@ internal open class MlnFfiStyleBinding(
     if (!map.styleSourceExists(id)) null else reconstructSource(map, id)
   }
 
-  override fun getSources(): List<Source> = withMap { map ->
-    map.styleSourceIds().mapNotNull { id -> reconstructSource(map, id) }
-  }
-
   override fun sourceIds(): List<String> = withMap { it.styleSourceIds() }
 
   override fun getLayer(id: String): LayerDefinition? = withMap { map ->

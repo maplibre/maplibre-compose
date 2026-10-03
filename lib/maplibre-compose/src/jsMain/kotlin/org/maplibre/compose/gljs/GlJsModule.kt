@@ -206,6 +206,8 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
 internal external class Style {
   var stylesheet: StyleSpecification
 
+  val tileManagers: JsRecord<Any>
+
   val light: Light
 
   val sky: Sky

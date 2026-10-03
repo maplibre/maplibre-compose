@@ -41,7 +41,7 @@ class MlnFfiMapIdleTest {
       requireNotNull(fixture.style).also { style ->
         runBlocking {
           style.onOwner {
-            style.getSources()
+            style.sourceIds().mapNotNull(style::getSource)
             style.layerIds()
             style.getSource("missing")
             style.getLayer("missing")

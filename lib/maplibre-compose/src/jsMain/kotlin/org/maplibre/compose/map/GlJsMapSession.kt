@@ -589,6 +589,7 @@ internal class GlJsMapSession(
   private fun reportBaseStyleReady(binding: GlJsStyleBinding) {
     if (map?.isStyleLoaded() == true && styleLoadTracker.baseStyleReady(binding.identity)) {
       try {
+        events.styleSourcesChanged(binding.identity)
         events.styleReady(binding.identity)
       } catch (error: Throwable) {
         styleLoadTracker.failed(binding.identity)
@@ -694,7 +695,7 @@ internal class GlJsMapSession(
                   map.subscribe("sourcedata") { event ->
                     if (event.sourceDataType == "metadata") {
                       applyTileLod(map)
-                      events.styleSourcesChanged(binding.identity)
+                      if (styleLoadTracker.isReady) events.styleSourcesChanged(binding.identity)
                     }
                     reportBaseStyleReady(binding)
                   }
