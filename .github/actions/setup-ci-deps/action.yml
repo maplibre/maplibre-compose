@@ -79,7 +79,7 @@ runs:
     # hold Windows locks on files the archive step cannot read.
     - name: Cache Gradle User Home
       if: ${{ inputs.gradle == 'true' }}
-      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       with:
         # nodejs and yarn are Kotlin/JS downloads outside the action's defaults.
         gradle-home-cache-includes: |
@@ -153,7 +153,7 @@ runs:
         xcodebuild -version
 
     - name: Install toolchains
-      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
       env:
         # The postinstall hook installs Git hooks, which no CI job commits
         # through.
