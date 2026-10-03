@@ -74,7 +74,8 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.UnconfinedMain
-import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.map.createNativeMapRuntime
+import org.maplibre.compose.map.nativeOwner
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
@@ -82,6 +83,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
@@ -268,7 +270,13 @@ class LinuxOpenGlInteropTest {
       }
 
     // The pump loop on the test thread never drains a queued main dispatcher; run inline instead.
-    private val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedMain)
+    private val runtime =
+      createNativeMapRuntime(
+        MlnFfiRuntimeOptions(
+          cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
+          mainDispatcher = UnconfinedMain,
+        )
+      )
     private val state = runtime.createMapState(BaseStyle.Demo)
     private val renderer =
       MlnFfiMapSession(
@@ -277,7 +285,7 @@ class LinuxOpenGlInteropTest {
         logger = null,
         renderBackend = host.backends.producer,
         layoutDirection = LayoutDirection.Ltr,
-        cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
+        owner = runtime.nativeOwner,
       )
 
     private val hostSession =

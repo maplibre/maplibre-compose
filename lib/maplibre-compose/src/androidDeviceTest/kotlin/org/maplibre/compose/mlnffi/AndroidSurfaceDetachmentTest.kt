@@ -17,6 +17,7 @@ import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.map.nativeOwner
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingMapCallbacks
 
@@ -34,7 +35,7 @@ class AndroidSurfaceDetachmentTest {
         logger = null,
         renderBackend = MapRenderBackend.OPENGL,
         layoutDirection = LayoutDirection.Ltr,
-        cacheFile = cacheFile,
+        owner = state.runtime.nativeOwner,
       )
     val rendered = CountDownLatch(1)
     val closeRequested = CountDownLatch(1)

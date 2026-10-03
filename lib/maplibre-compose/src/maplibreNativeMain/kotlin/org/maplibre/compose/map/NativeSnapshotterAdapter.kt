@@ -10,8 +10,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.resource.MapResourceConfig
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -41,25 +40,21 @@ private val SNAPSHOT_EVENTS =
     RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE
 
 internal fun createNativeSnapshotterAdapter(
-  options: MlnFfiRuntimeOptions,
-  resourceConfig: MapResourceConfig,
-  backends: Set<MapRenderBackend> = loadRuntimeBackends(options.logger),
-  awaitRuntimeReady: suspend () -> Unit = {},
+  owner: MlnFfiRuntime,
+  backends: Set<MapRenderBackend> = loadRuntimeBackends(owner.options.logger),
 ): SnapshotterAdapter {
   val targetPlan =
     NativeSnapshotRenderTarget.select(backends)
       ?: throw UnsupportedOperationException(
         "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
       )
-  return NativeSnapshotterAdapter(options, resourceConfig, targetPlan, awaitRuntimeReady)
+  return NativeSnapshotterAdapter(owner, targetPlan)
 }
 
 /** One private map, offscreen render session, and retained reconciler for a native snapshotter. */
 private class NativeSnapshotterAdapter(
-  private val options: MlnFfiRuntimeOptions,
-  private val resourceConfig: MapResourceConfig,
+  private val owner: MlnFfiRuntime,
   private val targetPlan: NativeSnapshotRenderTargetPlan,
-  private val awaitRuntimeReady: suspend () -> Unit,
 ) : SnapshotterAdapter {
   @Volatile private var open = true
   @Volatile private var engine: NativeSnapshotEngine? = null
@@ -74,7 +69,7 @@ private class NativeSnapshotterAdapter(
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
   ): SnapshotPreparation = runNativeRequest {
-    awaitRuntimeReady()
+    owner.awaitReady()
     ensureEngine(request)
     currentDensity = request.density
     configureRequest(request)
@@ -166,10 +161,8 @@ private class NativeSnapshotterAdapter(
     val candidateLoop =
       MlnFfiMapRuntimeLoop(
         extent = extent,
-        cacheFile = options.cacheFile,
-        getLogger = { options.logger },
-        resourceProviderFactory = options.resourceProviderFactory,
-        resourceConfig = resourceConfig,
+        owner = owner,
+        getLogger = { owner.options.logger },
         onMapCreated = resources::attach,
         onMapPublished = { created.completion.complete(Result.success(Unit)) },
         onMapClosing = { resources.close() },
@@ -358,7 +351,7 @@ private class NativeSnapshotterAdapter(
   private fun createStyleBinding(source: NativeSnapshotEngine, map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = map,
-      loggerProvider = { options.logger },
+      loggerProvider = { owner.options.logger },
       sessionOpen = { open },
       loop = source.loop,
       // A snapshot renders on the owner thread, so the render session is reached from there.

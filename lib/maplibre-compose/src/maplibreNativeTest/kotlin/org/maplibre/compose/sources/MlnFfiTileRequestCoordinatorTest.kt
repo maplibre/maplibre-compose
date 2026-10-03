@@ -11,6 +11,8 @@ import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapRuntimeLoop
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.geo.CanonicalTileId
@@ -133,12 +135,13 @@ class MlnFfiTileRequestCoordinatorTest {
   private fun withDroppingBinding(action: suspend (DroppingBinding) -> Unit) = runBlocking {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
+    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
     val binding = CompletableDeferred<DroppingBinding>()
     lateinit var loop: MlnFfiMapRuntimeLoop
     loop =
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
-        cacheFile = cacheFile,
+        owner = owner,
         getLogger = { null },
         onMapCreated = {},
         onMapPublished = { binding.complete(DroppingBinding(it, loop)) },
@@ -153,6 +156,8 @@ class MlnFfiTileRequestCoordinatorTest {
     } finally {
       loop.close()
       loop.awaitClosed()
+      owner.close()
+      owner.awaitClosed()
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }

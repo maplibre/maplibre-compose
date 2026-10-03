@@ -18,8 +18,8 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -41,8 +41,7 @@ class NativeMapSnapshotterTest {
   fun snapshotter_rejects_a_runtime_without_an_offscreen_backend() {
     assertFailsWith<UnsupportedOperationException> {
       createNativeSnapshotterAdapter(
-        options = MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null),
-        resourceConfig = MapResourceConfig(),
+        owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null)),
         backends = emptySet(),
       )
     }

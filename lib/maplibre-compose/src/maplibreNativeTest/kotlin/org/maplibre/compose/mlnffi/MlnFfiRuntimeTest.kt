@@ -10,11 +10,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.resource.MlnFfiRuntimeOwner
-import org.maplibre.nativeffi.runtime.RuntimeHandle
 
-class MlnFfiRuntimeThreadTest {
+class MlnFfiRuntimeTest {
 
   init {
     FfiTestPlatform.initialize()
@@ -22,18 +19,16 @@ class MlnFfiRuntimeThreadTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val threads = mutableListOf<MlnFfiRuntimeThread>()
+  private val threads = mutableListOf<MlnFfiRuntime>()
 
   /** Owner-thread events in order. Guarded by [lock]. */
   private val lock = MlnFfiLock()
   private val events = mutableListOf<String>()
 
-  private val stopReason = IllegalStateException("stopped")
-
   @AfterTest
   fun cleanUp() = runBlocking {
-    threads.forEach { it.stop() }
-    threads.forEach { withTimeout(TIMEOUT_MILLIS) { it.awaitStopped() } }
+    threads.forEach { it.close() }
+    threads.forEach { withTimeout(TIMEOUT_MILLIS) { it.awaitClosed() } }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -41,48 +36,25 @@ class MlnFfiRuntimeThreadTest {
 
   private fun recorded(): List<String> = lock.withLock { events.toList() }
 
-  private fun thread(): MlnFfiRuntimeThread =
-    MlnFfiRuntimeThread(
-        name = "test-runtime-thread",
-        getLogger = { MapLog },
-        openRuntime = { MlnFfiRuntimeOwner.open(cacheFile, { MapLog }, "test runtime") },
-        pumpBudgetMillis = -1L,
-        host =
-          object : MlnFfiRuntimeThread.Host {
-            override fun onStarted(runtime: RuntimeHandle) = record("started")
-
-            override fun afterPump(runtime: RuntimeHandle) {}
-
-            override fun onLoopFailure(error: Throwable, runtime: RuntimeHandle?): Throwable = error
-
-            override fun stopReason(): Throwable = stopReason
-
-            override fun onStopping(runtime: RuntimeHandle?, failures: MutableList<Throwable>) =
-              record("stopping")
-
-            override fun reportCleanup(failures: List<Throwable>) {
-              failures.firstOrNull()?.let { throw it }
-            }
-          },
-      )
-      .also { threads += it }
+  private fun thread(): MlnFfiRuntime =
+    MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile, logger = null)).also { threads += it }
 
   private fun task(
     name: String,
     endsBatch: Boolean = false,
     onRun: () -> Unit = {},
-  ): MlnFfiRuntimeThread.Task =
-    MlnFfiRuntimeThread.Task(
+  ): MlnFfiRuntime.Task =
+    MlnFfiRuntime.Task(
       run = {
         record(name)
         onRun()
       },
-      reject = { record("$name rejected: ${it.message}") },
+      reject = { record("$name rejected") },
       endsBatch = endsBatch,
     )
 
   @Test
-  fun tasks_posted_before_start_run_in_order_after_the_host_starts() {
+  fun tasks_posted_before_start_run_in_order() {
     val thread = thread()
     val done = TestLatch(1)
     assertTrue(thread.post(task("first")))
@@ -92,7 +64,7 @@ class MlnFfiRuntimeThreadTest {
     thread.start()
 
     assertTrue(done.await(TIMEOUT_MILLIS), "the queued tasks did not run")
-    assertEquals(listOf("started", "first", "second", "third"), recorded())
+    assertEquals(listOf("first", "second", "third"), recorded())
   }
 
   /**
@@ -110,11 +82,11 @@ class MlnFfiRuntimeThreadTest {
     thread.start()
 
     assertTrue(done.await(TIMEOUT_MILLIS), "the task after the batch waited for another wake")
-    assertEquals(listOf("started", "ends batch", "next"), recorded())
+    assertEquals(listOf("ends batch", "next"), recorded())
   }
 
   @Test
-  fun stop_rejects_queued_work_once_with_the_stop_reason_and_refuses_new_work() = runBlocking {
+  fun close_rejects_queued_work_once_and_refuses_new_work() = runBlocking {
     val thread = thread()
     val entered = TestLatch(1)
     val release = TestLatch(1)
@@ -132,20 +104,18 @@ class MlnFfiRuntimeThreadTest {
     assertTrue(thread.post(task("queued one")))
     assertTrue(thread.post(task("queued two")))
 
-    thread.stop()
+    thread.close()
     assertFalse(thread.post(task("refused")))
-    val stopped = async(start = CoroutineStart.UNDISPATCHED) { thread.awaitStopped() }
+    val stopped = async(start = CoroutineStart.UNDISPATCHED) { thread.awaitClosed() }
     assertFalse(stopped.isCompleted, "the owner still holds the runtime")
     release.countDown()
     withTimeout(TIMEOUT_MILLIS) { stopped.await() }
 
     assertEquals(
       listOf(
-        "started",
         "blocking",
-        "queued one rejected: stopped",
-        "queued two rejected: stopped",
-        "stopping",
+        "queued one rejected",
+        "queued two rejected",
       ),
       recorded(),
     )
@@ -154,17 +124,15 @@ class MlnFfiRuntimeThreadTest {
   @Test
   fun stopping_before_start_rejects_queued_work_and_refuses_to_start() = runBlocking {
     val thread = thread()
-    assertTrue(thread.post(task("released before start")))
-    thread.rejectQueuedTasksBeforeStart(IllegalStateException("not ready"))
     assertTrue(thread.post(task("queued")))
 
-    thread.stop()
-    withTimeout(TIMEOUT_MILLIS) { thread.awaitStopped() }
+    thread.close()
+    withTimeout(TIMEOUT_MILLIS) { thread.awaitClosed() }
 
     assertFalse(thread.post(task("refused")))
     assertFailsWith<IllegalStateException> { thread.start() }
     assertEquals(
-      listOf("released before start rejected: not ready", "queued rejected: stopped"),
+      listOf("queued rejected"),
       recorded(),
     )
   }

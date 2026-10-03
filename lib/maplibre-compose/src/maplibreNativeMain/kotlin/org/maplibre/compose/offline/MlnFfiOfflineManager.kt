@@ -11,9 +11,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
-import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -26,12 +25,10 @@ import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
 /** The MapLibre Native FFI offline manager that belongs to one map runtime. */
-internal class MlnFfiOfflineManager(
-  private val options: MlnFfiRuntimeOptions,
-  resourceConfig: MapResourceConfig =
-    MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
-) : OfflineManagerBackend, OfflinePackOwner {
+internal class MlnFfiOfflineManager(private val owner: MlnFfiRuntime) :
+  OfflineManagerBackend, OfflinePackOwner {
 
+  private val options = owner.options
   private val logger = options.logger
 
   /**
@@ -42,8 +39,7 @@ internal class MlnFfiOfflineManager(
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  private val runtime =
-    MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent, resourceConfig)
+  private val operations = MlnFfiOfflineOperations(owner, logger, ::handleEvent)
 
   /** One manager applies one cache-budget change at a time. */
   private val cacheBudgetMutex = Mutex()
@@ -53,7 +49,6 @@ internal class MlnFfiOfflineManager(
   override val state: StateFlow<OfflineManagerState> = managerState.asStateFlow()
 
   init {
-    runtime.start()
     val accepted = configureCacheBudget { configured ->
       configured.fold(
         onSuccess = {
@@ -70,6 +65,7 @@ internal class MlnFfiOfflineManager(
               onResult = { listed ->
                 listed.fold(
                   onSuccess = {
+                    owner.initialized(Result.success(Unit))
                     managerState.compareAndSet(
                       OfflineManagerState.Loading,
                       OfflineManagerState.Ready(packsById.values.toSet()),
@@ -84,7 +80,7 @@ internal class MlnFfiOfflineManager(
         onFailure = ::failStartup,
       )
     }
-    if (!accepted) failStartup(OfflineManagerException("The offline runtime could not start"))
+    if (!accepted) failStartup(OfflineManagerException("The offline manager could not initialize"))
   }
 
   @OptIn(ExperimentalAtomicApi::class)
@@ -101,7 +97,7 @@ internal class MlnFfiOfflineManager(
   private fun configureCacheBudget(complete: (Result<Unit>) -> Unit): Boolean {
     val initialSize = options.maximumCacheSizeBytes
     if (initialSize == null) {
-      return runtime.post(
+      return operations.post(
         task = { complete(Result.success(Unit)) },
         reject = { complete(Result.failure(it)) },
       )
@@ -115,8 +111,9 @@ internal class MlnFfiOfflineManager(
   }
 
   private fun failStartup(error: Throwable) {
+    owner.initialized(Result.failure(error))
     managerState.compareAndSet(OfflineManagerState.Loading, OfflineManagerState.Failed(error))
-    runtime.shutdown()
+    operations.shutdown()
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
@@ -204,14 +201,12 @@ internal class MlnFfiOfflineManager(
 
   /** Rejects further work immediately and asks the owner to release its resources. */
   override fun close() {
-    runtime.shutdown()
+    operations.shutdown()
     managerState.compareAndSet(
       OfflineManagerState.Loading,
       OfflineManagerState.Failed(OfflineManagerException("The offline manager is closed")),
     )
   }
-
-  internal suspend fun awaitClosed() = runtime.awaitClosed()
 
   private fun requireOwned(pack: OfflinePack) {
     require(pack.owner === this) { "The offline pack belongs to a different manager" }
@@ -331,7 +326,7 @@ internal class MlnFfiOfflineManager(
       else ->
         // Event types are value classes over Int, so an FFI upgrade can deliver a type this build
         // has never seen.
-        logger?.d { "Ignoring MapLibre event ${event.type} on the offline runtime" }
+        logger?.d { "Ignoring MapLibre event ${event.type} in the offline manager" }
     }
   }
 
@@ -372,11 +367,11 @@ internal class MlnFfiOfflineManager(
       result.onFailure { logger?.e(it) { "Failed to $description" } }
     },
   ): Boolean {
-    return runtime.post(
+    return operations.post(
       task = { nativeRuntime ->
         val handle = start(nativeRuntime)
         // Operation id is the only thing correlating a completion event with its in-flight handle.
-        runtime.register(
+        operations.register(
           description = description,
           handle = handle,
           complete = { completedRuntime, event ->
@@ -415,7 +410,7 @@ internal class MlnFfiOfflineManager(
           onStarted = { handle ->
             // Cancelling must leave nothing registered; discard drops and closes on the owner
             // thread.
-            continuation.invokeOnCancellation { runtime.discard(handle) }
+            continuation.invokeOnCancellation { operations.discard(handle) }
           },
           // Resuming an already-cancelled continuation would report the failure to the caller's
           // exception handler instead of dropping it.

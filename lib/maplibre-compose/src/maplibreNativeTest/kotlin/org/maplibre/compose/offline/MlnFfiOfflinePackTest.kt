@@ -19,6 +19,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.mlnffi.unusedLoopbackPort
@@ -37,13 +38,14 @@ class MlnFfiOfflinePackTest {
   private val directory = requireNotNull(cacheFile.parent)
 
   private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-  private val managers = mutableListOf<MlnFfiOfflineManager>()
+  private val managers = mutableMapOf<MlnFfiOfflineManager, MlnFfiRuntime>()
 
   @AfterTest
   fun cleanUp() = runBlocking {
     // Close the runtime before deleting its database.
-    managers.forEach { it.close() }
-    managers.forEach { it.awaitClosed() }
+    managers.keys.forEach { it.close() }
+    managers.values.forEach { it.close() }
+    managers.values.forEach { it.awaitClosed() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -98,8 +100,7 @@ class MlnFfiOfflinePackTest {
     updated[0] = '!'.code.toByte()
     assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata.value)
 
-    manager.close()
-    manager.awaitClosed()
+    close(manager)
     val reopened = manager()
     assertContentEquals(
       "after, and longer than before".encodeToByteArray(),
@@ -137,8 +138,7 @@ class MlnFfiOfflinePackTest {
     val first = manager()
     val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
 
-    first.close()
-    first.awaitClosed()
+    close(first)
 
     val second = manager()
     assertNotSame(first, second)
@@ -177,8 +177,7 @@ class MlnFfiOfflinePackTest {
 
     val first = manager()
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
-    first.close()
-    first.awaitClosed()
+    close(first)
 
     val second = manager()
     assertEquals(
@@ -199,12 +198,10 @@ class MlnFfiOfflinePackTest {
       }
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
 
-    first.close()
-    first.awaitClosed()
+    close(first)
 
     val second = manager()
-    second.close()
-    second.awaitClosed()
+    close(second)
 
     assertEquals(
       listOf(kept.regionId),
@@ -223,8 +220,7 @@ class MlnFfiOfflinePackTest {
     withTimeout(OPERATION_TIMEOUT_MILLIS) {
       source.create(definition, "source-only pack".encodeToByteArray())
     }
-    source.close()
-    source.awaitClosed()
+    close(source)
 
     val destination = manager()
     val existing =
@@ -312,8 +308,7 @@ class MlnFfiOfflinePackTest {
       it.status == DownloadStatus.Complete
     }
 
-    first.close()
-    first.awaitClosed()
+    close(first)
 
     val second = manager()
     val restored = (second.state.value as OfflineManagerState.Ready).packs.single()
@@ -325,11 +320,21 @@ class MlnFfiOfflinePackTest {
 
   // region fixtures
 
-  private suspend fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
-    MlnFfiOfflineManager(options).also {
-      managers += it
-      it.awaitReady()
-    }
+  private suspend fun close(manager: MlnFfiOfflineManager) {
+    manager.close()
+    val owner = managers.getValue(manager)
+    owner.close()
+    owner.awaitClosed()
+  }
+
+  private suspend fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager {
+    val owner = MlnFfiRuntime(options)
+    val manager = MlnFfiOfflineManager(owner)
+    managers[manager] = owner
+    owner.start()
+    manager.awaitReady()
+    return manager
+  }
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(
