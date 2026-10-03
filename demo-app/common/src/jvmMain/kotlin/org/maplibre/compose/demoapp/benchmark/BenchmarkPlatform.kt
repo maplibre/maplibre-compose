@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.MapUiOptions
 
@@ -25,7 +26,7 @@ internal actual fun benchmarkCollectGarbage() {
 }
 
 @Composable
-internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
+internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = remember { DesktopAppFrames() }
 
 @Composable
 internal actual fun benchmarkCacheDirectory(): String = System.getProperty("java.io.tmpdir")

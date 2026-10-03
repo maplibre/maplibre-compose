@@ -32,6 +32,7 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 - First close-call return and adapter cleanup completion for lifecycle
   workloads.
 - UI-thread callback intervals, and actual window frame timings on Android.
+- App drawing time on AWT desktop.
 - Map drawing FPS during the engine animation.
 - Engine encoding and rendering time per frame.
 

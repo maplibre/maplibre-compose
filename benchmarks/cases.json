@@ -18,7 +18,7 @@
     "description": "Time to create a map with 256 declared layers and 64 images during a 300 ms transition, and the worst UI frame meanwhile.",
     "tracked": true,
     "classic": true,
-    "platforms": ["android", "ios"],
+    "platforms": ["android", "ios", "desktop"],
     "config": {
       "workload": "map-return",
       "scene": "points-1000",
