@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.MapUiOptions
 
