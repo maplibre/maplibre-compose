@@ -14,6 +14,8 @@ METRICS = {
     "close_p50_ms": ("workload", "close_ms", "p50"),
     "close_completion_p50_ms": ("workload", "close_completion_ms", "p50"),
     "completion_p95_ms": ("workload", "completion_ms", "p95"),
+    "app_fps": ("app_presentation", "fps"),
+    "app_frame_max_ms": ("app_presentation", "interval_ms", "max"),
     "map_fps": ("map_presentation", "fps"),
     "map_frame_p95_ms": ("map_presentation", "interval_ms", "p95"),
     "map_frame_max_ms": ("map_presentation", "interval_ms", "max"),

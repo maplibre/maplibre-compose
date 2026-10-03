@@ -39,6 +39,8 @@ HEADLINE = [
     "late_frames",
     "frame_interval_p95_ms",
     "frame_interval_max_ms",
+    "app_fps",
+    "app_frame_max_ms",
     "map_fps",
     "map_frame_p95_ms",
     "map_frame_max_ms",

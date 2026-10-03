@@ -7,6 +7,7 @@ import re
 import statistics
 from pathlib import Path
 
+from browser_presentation import capture as browser_capture
 from config import parse_config
 
 
@@ -96,6 +97,10 @@ def map_presentation(directory, logs, config):
         window = record(logs, "PRESENTATION_WINDOW")
     else:
         return None
+    return presentation_metrics(capture, window, config)
+
+
+def presentation_metrics(capture, window, config):
     start, end = window["start_ns"], window["end_ns"]
     if end <= start:
         raise ValueError("Invalid presentation window")
@@ -106,7 +111,7 @@ def map_presentation(directory, logs, config):
         raise ValueError("Presentation timestamps must be unique and ordered")
     times = [t for t in times if start <= t < end]
     if not capture["layer"] or len(times) < 2:
-        raise ValueError("Map surface presentation timestamps are unavailable")
+        raise ValueError("Surface presentation timestamps are unavailable")
     intervals = [
         (b - a) / 1e6 for a, b in itertools.pairwise([start, *times, end]) if b > a
     ]
@@ -191,7 +196,11 @@ def read_run(directory):
     cpu = float(cpu[0]) if cpu else None
     if cpu is not None:
         distribution([cpu])
+    browser = browser_capture(directory, config)
     return {
+        "app_presentation": presentation_metrics(browser, browser["window"], {})
+        if browser
+        else None,
         "ui_frames": ui_frames(logs),
         "app_draws": app_draws(logs),
         "map_presentation": map_presentation(directory, logs, config),

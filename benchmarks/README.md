@@ -33,6 +33,7 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
   workloads.
 - UI-thread callback intervals, actual window frame timings on Android, and app
   drawing time on AWT desktop.
+- Displayed app FPS and frame gaps in Chromium during the engine animation.
 - Displayed map FPS and frame gaps during the engine animation on Android,
   physical iOS devices, and native macOS.
 - Engine encoding and rendering time per frame.
