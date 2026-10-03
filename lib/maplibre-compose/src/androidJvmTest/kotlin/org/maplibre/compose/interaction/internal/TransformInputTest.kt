@@ -161,6 +161,45 @@ class TransformInputTest {
   }
 
   @Test
+  fun lifting_the_second_admitted_finger_rebases_the_remaining_drag() =
+    fixture.runRecognitionTest(
+      options =
+        InputConfiguration {
+          camera { pan { momentum { enabled = false } } }
+          bindings { drag { pan { startSlop = 50.dp } } }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(10, center - Offset(80f, 0f))
+        down(0, center + Offset(80f, 0f))
+        updatePointerBy(10, Offset(40f, 0f))
+        updatePointerBy(0, Offset(40f, 0f))
+        move()
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.isNotEmpty())
+      val displacement = target.moveCalls.fold(Offset.Zero, Offset::plus)
+      map.performTouchInput { up(0) }
+      waitForIdle()
+      assertEquals(
+        displacement,
+        target.moveCalls.fold(Offset.Zero, Offset::plus),
+        "the lift jumped the camera",
+      )
+      map.performTouchInput {
+        updatePointerBy(10, Offset(80f, 0f))
+        move()
+        up(10)
+      }
+      waitForIdle()
+      assertEquals(
+        displacement + Offset(30f, 0f),
+        target.moveCalls.fold(Offset.Zero, Offset::plus),
+      )
+    }
+
+  @Test
   fun a_shove_cancels_the_started_pair_pan_before_tilt() {
     val order = mutableListOf<String>()
     fixture.runRecognitionTest(
