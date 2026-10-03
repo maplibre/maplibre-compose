@@ -75,11 +75,7 @@ class PublishTest(unittest.TestCase):
         # Map return is only hosted on the phones.
         self.assertEqual(
             [name for name, _, _ in desktop],
-            [
-                name
-                for name in cases_meta()
-                if name not in {"map-return", "animation-basemap"}
-            ],
+            [name for name in cases_meta() if name != "map-return"],
         )
         self.assertIn("map-return", [name for name, _, _ in android])
         tracked = {
