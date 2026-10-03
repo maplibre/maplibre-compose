@@ -206,11 +206,7 @@ internal class StyleResourceCommands(
 
   /** A missing image may be needed before the loaded style can become ready. */
   suspend fun supply(binding: StyleBinding, id: String, image: ResolvedStyleImage) = withCommit {
-    if (
-      !style.isCurrentLoadedStyle(binding) ||
-        !style.owner.isImageWritable(id) ||
-        isExplicitImage(id)
-    )
+    if (!style.isCurrentLoadedStyle(binding) || !style.isImageWritable(id) || isExplicitImage(id))
       return@withCommit
     val definition = StyleImageDefinition(id, image.image, image.sdf, image.stretch)
     withContext(NonCancellable) {
@@ -361,13 +357,12 @@ internal class StyleResourceCommands(
 
   private fun requireSourceWritable(id: String) {
     require(id.isNotBlank()) { "Source ID must not be blank" }
-    style.owner.requireSourceWritable(id)
+    style.requireSourceWritable(id)
   }
 
   private fun requireImageWritable(id: String) {
     require(id.isNotBlank()) { "Image ID must not be blank" }
-    if (!style.owner.isImageWritable(id))
-      throw StyleHandleException("Image ID '$id' is declared by the style content")
+    style.requireImageWritable(id)
   }
 
   private fun validateSource(id: String, binding: StyleBinding, identity: Any) =

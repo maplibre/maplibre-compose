@@ -80,10 +80,9 @@ internal fun <T> MapPresentationContent(
     rememberStyleComposition(
       content = state.styleContent,
       maybeStyle = rememberedStyle,
-      replaceableSourceIds =
-        state.styleAuthority.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
+      replaceableSourceIds = state.style.declaredRevision.sources.mapTo(mutableSetOf()) { it.id },
       replaceableLayerIds =
-        state.styleAuthority.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
+        state.style.declaredRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
         },
       applyRevision = { style, revision ->

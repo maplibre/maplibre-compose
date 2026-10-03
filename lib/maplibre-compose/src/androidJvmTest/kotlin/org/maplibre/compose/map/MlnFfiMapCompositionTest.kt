@@ -589,7 +589,7 @@ class MlnFfiMapCompositionTest {
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         first.currentMapAttachment != null &&
           evaluatorIdentities.size == 1 &&
-          first.styleAuthority.desiredStyleRevision.layers.any {
+          first.style.declaredRevision.layers.any {
             it.definition.id == "shared-layer"
           }
       }
@@ -688,7 +688,7 @@ class MlnFfiMapCompositionTest {
         presented = true
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           state.currentMapAttachment != null &&
-            state.styleAuthority.desiredStyleRevision.layers.any {
+            state.style.declaredRevision.layers.any {
               it.definition.id == "latest-background"
             }
         }

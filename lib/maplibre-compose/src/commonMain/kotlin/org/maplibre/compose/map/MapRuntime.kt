@@ -88,9 +88,12 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.postWrite
 import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.DpPadding
@@ -209,21 +212,6 @@ public sealed interface StyleLoadState {
 internal interface MapStyleStateOwner {
   fun setBaseStyle(value: BaseStyle)
 
-  fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
-
-  /** The summary of a layer the style content declares, or null for any other layer. */
-  fun desiredLayerSummary(id: String): LayerSummary?
-
-  fun isSourceWritable(id: String): Boolean
-
-  fun isLayerWritable(id: String): Boolean
-
-  fun isImageWritable(id: String): Boolean
-
-  fun requireSourceWritable(id: String)
-
-  fun requireLayerWritable(id: String)
-
   val resourceCommands: StyleResourceCommands
 
   fun readyLoadedStyle(): StyleBinding?
@@ -244,6 +232,39 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   /** The map or snapshotter that owns this state, attached right after construction. */
   internal lateinit var owner: MapStyleStateOwner
     private set
+
+  // Owner-side commits publish one immutable index for readers on the engine thread too.
+  private val declarations = AtomicReference(StyleDeclarations(StyleSnapshot.Empty))
+
+  internal var declaredRevision: StyleSnapshot
+    get() = declarations.load().revision
+    set(value) = declarations.store(StyleDeclarations(value))
+
+  internal fun desiredSourceDefinition(id: String): SourceDefinition? =
+    declarations.load().sources[id] ?: owner.resourceCommands.sourceDefinition(id)
+
+  internal fun isSourceWritable(id: String): Boolean = id !in declarations.load().sources
+
+  internal fun isLayerWritable(id: String): Boolean = id !in declarations.load().layers
+
+  internal fun isImageWritable(id: String): Boolean = id !in declarations.load().images
+
+  internal fun requireSourceWritable(id: String) =
+    requireWritable("Source", id, isSourceWritable(id))
+
+  internal fun requireLayerWritable(id: String) = requireWritable("Layer", id, isLayerWritable(id))
+
+  internal fun requireImageWritable(id: String) = requireWritable("Image", id, isImageWritable(id))
+
+  private fun requireWritable(kind: String, id: String, writable: Boolean) {
+    if (!writable) throw StyleHandleException("$kind ID '$id' is declared by the style content")
+  }
+
+  internal fun requireReadyBinding(binding: StyleBinding) {
+    checkStyleHandle(loadState == StyleLoadState.Ready && isCurrentLoadedStyle(binding)) {
+      "Style operation belongs to a stale or unready loaded-style identity"
+    }
+  }
 
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
@@ -401,6 +422,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
+    declaredRevision = StyleSnapshot.Empty
     publishedResources = null
     loadedStyle.store(style)
     sourcesState = emptyMap()
@@ -408,6 +430,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun invalidateLoadedStyle() {
+    declaredRevision = StyleSnapshot.Empty
     publishedResources = null
     loadedStyle.exchange(null)?.invalidate()
     sourcesState = emptyMap()
@@ -424,7 +447,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     val sources = current.getSources().associateBy { it.id }
     current.identity.sources.retain(ids.toSet())
     val sourceMetadata = ids.associateWith { id ->
-      val definition = owner.desiredSourceDefinition(id)
+      val definition = desiredSourceDefinition(id)
       val source = sources[id]
       LoadedSourceMetadata(
         identity = current.identity.sources.get(id),
@@ -440,7 +463,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     val layers = order.associateWith { id ->
       LoadedLayerMetadata(
         current.identity.layers.get(id),
-        summaries[id] ?: owner.desiredLayerSummary(id),
+        summaries[id] ?: declarations.load().layers[id],
       )
     }
     return LoadedStyleResources(current, sourceMetadata, layers)
@@ -469,7 +492,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
                 currentKind = {
                   if (!current.identity.sources.isCurrent(id, metadata.identity)) null
                   else if (metadata.composed)
-                    owner.desiredSourceDefinition(id)?.let { sourceKind(it, null) } ?: kind
+                    desiredSourceDefinition(id)?.let { sourceKind(it, null) } ?: kind
                   else kind
                 },
                 operations = operationGuard(current),
@@ -507,17 +530,23 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     object : StyleHandleOperationGuard {
       override fun <T> run(action: () -> T): T = owner.runStyleHandleOperation(style, action)
 
-      override fun isSourceWritable(id: String): Boolean = owner.isSourceWritable(id)
+      override fun isSourceWritable(id: String): Boolean = this@MapStyleState.isSourceWritable(id)
 
-      override fun isLayerWritable(id: String): Boolean = owner.isLayerWritable(id)
+      override fun isLayerWritable(id: String): Boolean = this@MapStyleState.isLayerWritable(id)
 
       override fun removeSource(id: String, identity: Any) =
         owner.resourceCommands.removeSource(id, style, identity)
 
-      override fun requireSourceWritable(id: String) = owner.requireSourceWritable(id)
+      override fun requireSourceWritable(id: String) = this@MapStyleState.requireSourceWritable(id)
 
-      override fun requireLayerWritable(id: String) = owner.requireLayerWritable(id)
+      override fun requireLayerWritable(id: String) = this@MapStyleState.requireLayerWritable(id)
     }
+}
+
+private class StyleDeclarations(val revision: StyleSnapshot) {
+  val sources = revision.sources.associateBy { it.id }
+  val layers = revision.layers.associate { it.definition.id to it.definition.summary() }
+  val images = revision.images.mapTo(mutableSetOf()) { it.id }
 }
 
 internal data class LoadedStyleResources(
