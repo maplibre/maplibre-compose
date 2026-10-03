@@ -7,17 +7,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.QueuedOwnerStyleBinding
-import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleSnapshot
 
 /** Runs map state through a main dispatcher that queues, as production does off the main thread. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -118,38 +113,6 @@ class MainConfinementTest {
     runtime.close()
   }
 
-  @Test
-  fun a_style_ready_read_repeats_when_a_revision_lands_during_the_read() = runTest {
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val adapter = PresentationTestAdapter()
-    state.publishPresentation(state.reservePresentation(), adapter)
-    val binding = CountingStyleBinding(RecordingStyleBinding())
-    binding.ownerBusy = true
-    assertTrue(state.styleAuthority.updateLoadedStyle(adapter, binding))
-
-    val ready =
-      async(start = CoroutineStart.UNDISPATCHED) { state.styleAuthority.markStyleReady(adapter) }
-    assertEquals(0, binding.sourceReads)
-    assertEquals(1, binding.ownerTasks, "the ready read must be one queued owner task")
-    // A desired revision moves the handle epoch while the first read is still queued.
-    state.styleAuthority.beginStyleRevision(adapter, StyleSnapshot.Empty)
-    binding.runOwnerTasks()
-    testScheduler.runCurrent()
-    assertEquals(1, binding.sourceReads)
-    assertFalse(ready.isCompleted, "the stale read must not publish")
-    assertEquals(1, binding.ownerTasks, "the read repeats as one more owner task")
-    binding.runOwnerTasks()
-    testScheduler.runCurrent()
-
-    assertTrue(ready.await())
-    assertEquals(StyleLoadState.Ready, state.style.loadState)
-    assertEquals(2, binding.sourceReads)
-    state.close()
-    state.awaitClosed()
-    runtime.close()
-  }
-
   private class ClosableRetainedAdapter(private val compatibilityKey: Any) :
     PresentationTestAdapter() {
     var closeCalled = false
@@ -167,17 +130,6 @@ class MainConfinementTest {
   private class RejectingStyleAdapter : PresentationTestAdapter() {
     override fun setBaseStyle(style: BaseStyle) {
       error("style rejected")
-    }
-  }
-
-  private class CountingStyleBinding(private val inner: StyleBinding) :
-    QueuedOwnerStyleBinding(inner) {
-    var sourceReads = 0
-      private set
-
-    override fun sourceIds(): List<String> {
-      sourceReads++
-      return inner.sourceIds()
     }
   }
 }

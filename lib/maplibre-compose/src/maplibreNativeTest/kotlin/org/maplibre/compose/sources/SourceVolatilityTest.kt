@@ -170,12 +170,13 @@ class SourceVolatilityTest {
       readMap {
         sourceHandle(
           id = source.id,
-          definition = null,
-          currentDefinition = { null },
-          isCurrentResource = {
+          kind = "vector",
+          attributionHtml = source.attributionHtml,
+          options = GeoJsonOptions(),
+          currentKind = {
             val current = identity.sources.isCurrent(source.id, resource)
             if (current) afterValidation()
-            current
+            if (current) "vector" else null
           },
           operations = ImmediateOperations,
         )

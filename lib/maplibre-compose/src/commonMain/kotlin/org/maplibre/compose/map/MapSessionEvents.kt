@@ -55,9 +55,9 @@ internal class MapSessionEvents(
   fun styleFailed(request: StyleRequestId, reason: String?) =
     deliver({ stamps.isCurrentStyleRequest(request) }) { callbacks().onStyleFailed(map, reason) }
 
-  fun styleSourcesChanged(style: StyleIdentity, sourceId: String?) =
+  fun styleSourcesChanged(style: StyleIdentity) =
     deliver({ stamps.isCurrentStyle(style) }) {
-      callbacks().onStyleSourcesChanged(map, sourceId)
+      callbacks().onStyleSourcesChanged(map)
     }
 
   fun engineEvent(engine: EngineMapIdentity, event: MapEvent) =

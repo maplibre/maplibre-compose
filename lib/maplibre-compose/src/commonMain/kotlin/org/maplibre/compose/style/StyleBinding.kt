@@ -112,6 +112,8 @@ internal interface StyleBinding {
 
   fun layerIds(): List<String>
 
+  fun layerSummaries(): List<LayerSummary> = layerIds().mapNotNull { getLayer(it)?.summary() }
+
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
    *
@@ -448,13 +450,6 @@ internal interface StyleBinding {
     limit: Long,
     offset: Long,
   ): FeatureCollection<Geometry, JsonObject?>?
-
-  /**
-   * Reports the addition or removal of [sourceId] without waiting for an idle event.
-   *
-   * An asynchronous implementation calls this function after it completes the addition or removal.
-   */
-  fun reportSourceChanged(sourceId: String) {}
 
   /**
    * Captures [state] on the caller; the returned command merges it into one feature's state. A null

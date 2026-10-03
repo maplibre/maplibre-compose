@@ -210,7 +210,7 @@ class SharedMapRuntimeTest {
                 first.loadStyle(BaseStyle.Empty)
                 second.loadStyle(BaseStyle.Empty)
                 for (fixture in listOf(first, second)) {
-                  fixture.session.reconcileStyleRevision(StyleSnapshot.Empty)
+                  fixture.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
                 }
                 assertSame(
                   first.session.loop.await { it.runtime() },

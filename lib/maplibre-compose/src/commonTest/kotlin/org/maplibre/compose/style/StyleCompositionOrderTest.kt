@@ -2,7 +2,6 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -61,10 +60,9 @@ class StyleCompositionOrderTest {
         afterFirst.filter { it == "first-layer" || it == "second-layer" },
         "anchor $anchor",
       )
-      val changes = reconciler.apply(style, revision)
+      reconciler.apply(style, revision)
 
       assertEquals(afterFirst, style.layerIds(), "anchor $anchor")
-      assertNull(changes.layerOrder, "an unchanged anchor $anchor must not move layers")
     }
   }
 
@@ -156,9 +154,8 @@ class StyleCompositionOrderTest {
     reconciler.apply(style, revision())
     assertEquals(listOf("back", "over-nothing", "front", "under-nothing"), style.layerIds())
 
-    val changes = reconciler.apply(style, revision())
+    reconciler.apply(style, revision())
     assertEquals(listOf("back", "over-nothing", "front", "under-nothing"), style.layerIds())
-    assertNull(changes.layerOrder)
   }
 
   /** Layers outside the declared base style can sit above it. */
@@ -175,9 +172,8 @@ class StyleCompositionOrderTest {
     reconciler.apply(base, revision)
     assertEquals(listOf("back", "engine-owned", "front"), style.layerIds())
 
-    val changes = reconciler.apply(base, revision)
+    reconciler.apply(base, revision)
     assertEquals(listOf("back", "engine-owned", "front"), style.layerIds())
-    assertNull(changes.layerOrder)
   }
 
   @Test
@@ -236,11 +232,10 @@ class StyleCompositionOrderTest {
     reconciler.apply(style, revisionWithFreshPredicates())
     val afterFirst = backing.layerIds()
     mutations.clear()
-    val changes = reconciler.apply(style, revisionWithFreshPredicates())
+    reconciler.apply(style, revisionWithFreshPredicates())
 
     assertEquals(emptyList(), mutations)
     assertEquals(afterFirst, backing.layerIds())
-    assertNull(changes.layerOrder)
   }
 
   private fun labelledBase(): List<TestLayer> =

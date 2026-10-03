@@ -11,6 +11,7 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 
@@ -23,8 +24,13 @@ class StyleBeforePresentationTest {
       val reconciler = StyleReconciler()
       val adapter =
         object : PresentationTestAdapter() {
-          override suspend fun reconcileStyleRevision(revision: StyleSnapshot) =
+          override suspend fun <T> reconcileStyleRevision(
+            revision: StyleSnapshot,
+            capture: (StyleBinding) -> T,
+          ): T {
             reconciler.apply(style, revision)
+            return capture(style)
+          }
         }
       lateinit var state: MapState
       lateinit var presentation: MapPresentationBinding

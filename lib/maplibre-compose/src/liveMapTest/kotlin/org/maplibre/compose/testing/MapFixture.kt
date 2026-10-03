@@ -42,8 +42,6 @@ internal interface MapFixture : AutoCloseable {
   /** Every [MapEvent] the session posted through the adapter callbacks. */
   val engineEvents: RecordingList<MapEvent>
 
-  val sourceChanges: RecordingList<String?>
-
   val errors: RecordingList<String>
 
   suspend fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds)
@@ -174,8 +172,6 @@ internal class RecordingMapCallbacks(
 
   val engineEvents: RecordingList<MapEvent> = RecordingList()
 
-  val sourceChanges: RecordingList<String?> = RecordingList()
-
   val errors: RecordingList<String> = RecordingList()
 
   var style: StyleBinding? = null
@@ -199,9 +195,7 @@ internal class RecordingMapCallbacks(
     errors += "styleFailed: $reason"
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    sourceChanges += sourceId
-  }
+  override fun onStyleSourcesChanged(map: MapAdapter) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     engineEvents += event

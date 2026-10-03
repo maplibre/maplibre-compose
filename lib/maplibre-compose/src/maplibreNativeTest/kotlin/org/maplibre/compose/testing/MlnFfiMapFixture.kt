@@ -45,9 +45,6 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   override val engineEvents: RecordingList<MapEvent>
     get() = bridge.engineEvents
 
-  override val sourceChanges: RecordingList<String?>
-    get() = bridge.sourceChanges
-
   override val errors: RecordingList<String>
     get() = bridge.errors
 
@@ -55,7 +52,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.styleAuthority.updateLoadedStyle(bridge.session, null)
     bridge.awaitStyle(style, timeout, extent)
-    bridge.session.reconcileStyleRevision(StyleSnapshot.Empty)
+    bridge.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
     state.styleAuthority.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
     check(state.styleAuthority.markStyleReady(bridge.session))
   }
