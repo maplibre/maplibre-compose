@@ -16,6 +16,7 @@ listOf("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.multiplatform").forEach
       @OptIn(ExperimentalAbiValidation::class)
       abiValidation {
         keepLocallyUnsupportedTargets.set(false)
+        filters { exclude { byNames.add("**.ComposableSingletons**") } }
       }
     }
   }
