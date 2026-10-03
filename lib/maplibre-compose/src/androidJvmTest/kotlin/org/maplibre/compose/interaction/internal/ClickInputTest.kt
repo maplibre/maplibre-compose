@@ -561,6 +561,35 @@ class ClickInputTest {
   }
 
   @Test
+  fun a_long_press_timeout_cannot_follow_a_single_into_a_pair_and_back() =
+    fixture.runRecognitionTest { target ->
+      mainClock.autoAdvance = false
+      val map = mapNode()
+      map.performTouchInput { down(10, center - Offset(40f, 0f)) }
+      mainClock.advanceTimeBy(200)
+      map.performTouchInput {
+        down(0, center + Offset(40f, 0f))
+        up(10)
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, target.longClicks)
+      map.performTouchInput { up(0) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, target.clicks)
+      // A new independent press still owns its own timeout, and cannot tap after it fires.
+      map.performTouchInput { down(center) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, target.longClicks)
+      map.performTouchInput { up() }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, target.clicks)
+    }
+
+  @Test
   fun two_finger_tap_requests_a_zoom_out() = fixture.runRecognitionTest { target ->
     mapNode().performTouchInput {
       down(0, center - Offset(40f, 0f))

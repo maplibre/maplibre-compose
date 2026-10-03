@@ -387,6 +387,43 @@ class PointerInputTest {
   }
 
   @Test
+  fun revoking_a_pair_suppresses_replacement_contacts_until_the_last_lift() =
+    fixture.runRecognitionTest { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(10, center - Offset(80f, 0f))
+        down(0, center + Offset(80f, 0f))
+        updatePointerBy(10, Offset(40f, 0f))
+        updatePointerBy(0, Offset(40f, 0f))
+        move()
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.isNotEmpty())
+      runOnIdle { target.interruptCamera() }
+      waitForIdle()
+      val displacement = target.moveCalls.fold(Offset.Zero, Offset::plus)
+      map.performTouchInput {
+        down(2, center)
+        up(10)
+        up(0)
+        updatePointerBy(2, Offset(40f, 0f))
+        move()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(displacement, target.moveCalls.fold(Offset.Zero, Offset::plus))
+      assertEquals(0, target.longClicks)
+      map.performTouchInput { up(2) }
+      map.performTouchInput {
+        down(center)
+        moveBy(Offset(40f, 0f))
+        up()
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.fold(Offset.Zero, Offset::plus).x > displacement.x)
+    }
+
+  @Test
   fun the_arenas_own_consumption_does_not_cancel_its_drag_in_final() =
     fixture.runRecognitionTest { target ->
       mapNode().performTouchInput {

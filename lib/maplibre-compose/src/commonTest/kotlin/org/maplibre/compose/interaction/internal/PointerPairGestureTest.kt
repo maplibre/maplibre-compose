@@ -440,7 +440,7 @@ class PointerPairGestureTest {
           target,
           options,
           Density(1f),
-          event,
+          event.gestureSample(null, Density(1f), center, setOf(PointerType.Touch, secondType)),
           event.changes[0],
           event.changes[1],
           { token },
@@ -453,7 +453,7 @@ class PointerPairGestureTest {
     fun move(at: Long, first: Offset, second: Offset) {
       val next = listOf(first, second)
       val event = event(at, next)
-      pair.move(event, event.changes[0], event.changes[1])
+      pair.move(event.changes[0], event.changes[1])
       time = at
       positions = next
     }

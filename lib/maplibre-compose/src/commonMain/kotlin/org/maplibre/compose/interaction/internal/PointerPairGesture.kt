@@ -1,6 +1,5 @@
 package org.maplibre.compose.interaction.internal
 
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
@@ -19,7 +18,7 @@ internal class PointerPairGesture(
   private val target: CameraInputTarget,
   options: InputConfiguration,
   private val density: Density,
-  event: PointerEvent,
+  initialInput: GesturePointerSample,
   first: PointerInputChange,
   second: PointerInputChange,
   private val begin: () -> CameraInputToken?,
@@ -28,13 +27,6 @@ internal class PointerPairGesture(
   maximumFlingVelocity: Float = Float.MAX_VALUE,
   touchSlopPx: Float,
 ) {
-  private val initialInput =
-    event.gestureSample(
-      null,
-      density,
-      (first.position + second.position) / 2f,
-      setOf(first.type, second.type),
-    )
   private val settings = options.bindings.transform
   private val camera = options.camera
   private val pan =
@@ -75,10 +67,12 @@ internal class PointerPairGesture(
     recognition.rebase(first, second)
   }
 
-  fun move(event: PointerEvent, first: PointerInputChange, second: PointerInputChange) {
+  fun move(first: PointerInputChange, second: PointerInputChange) {
     centroid = ((first.position + second.position) / 2f).toLogicalDpOffset(density)
-    if (recognition.move(first, second))
-      event.changes.filter { it.id == firstId || it.id == secondId }.forEach { it.consume() }
+    if (recognition.move(first, second)) {
+      first.consume()
+      second.consume()
+    }
   }
 
   private fun start(kind: CameraComponent): Boolean {
