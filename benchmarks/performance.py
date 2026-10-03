@@ -76,15 +76,19 @@ def ui_frames(logs):
 def map_presentation(directory, logs, config):
     """Actual displayed map buffers; never substitute UI callbacks or engine work timings."""
     path = Path(directory) / "presentation.json"
-    if not path.exists():
+    if "MAP_BENCHMARK PRESENTATION " in logs:
+        capture = record(logs, "PRESENTATION")
+        window = capture["window"]
+    elif path.exists():
+        capture = json.loads(path.read_text())
+        window = record(logs, "PRESENTATION_WINDOW")
+    else:
         return None
-    capture = json.loads(path.read_text())
-    window = record(logs, "PRESENTATION_WINDOW")
     start, end = window["start_ns"], window["end_ns"]
     if end <= start:
         raise ValueError("Invalid presentation window")
     if any(a < end and b >= start for a, b in capture["gaps_ns"]):
-        raise ValueError("SurfaceFlinger frame history lost during measurement")
+        raise ValueError("Presentation history lost during measurement")
     times = capture["presented_ns"]
     if times != sorted(set(times)):
         raise ValueError("Presentation timestamps must be unique and ordered")

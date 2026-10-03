@@ -23,6 +23,10 @@ java-androidTarget = "11"
 # the FFM API, so desktop cannot go below 24.
 java-desktopTarget = "25"
 
+# Benchmark-only Metal presentation observer.
+apple-benchmarkIosMinimum = "15.5"
+apple-benchmarkMacosMinimum = "12.0"
+
 # Regular libraries: keep as up to date as possible.
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"

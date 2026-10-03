@@ -42,7 +42,11 @@ internal actual fun benchmarkCollectGarbage() {
 }
 
 @Composable
-internal actual fun rememberBenchmarkUiFrames(): BenchmarkUiFrames = BenchmarkUiFrames.None
+internal actual fun rememberBenchmarkUiFrames(config: BenchmarkConfig): BenchmarkUiFrames =
+  if (config.scenario == BenchmarkScenario.Animation) rememberAppleMapFrames()
+  else BenchmarkUiFrames.None
+
+@Composable internal expect fun rememberAppleMapFrames(): BenchmarkUiFrames
 
 @Composable
 internal actual fun benchmarkCacheDirectory(): String = platform.Foundation.NSTemporaryDirectory()

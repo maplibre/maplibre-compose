@@ -79,7 +79,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       }
   driver.state = state
   driver.density = LocalDensity.current.density
-  val uiFrames = rememberBenchmarkUiFrames()
+  val uiFrames = rememberBenchmarkUiFrames(config)
   DisposableEffect(state) { onDispose { state.close() } }
   LaunchedEffect(state, config) {
     onStatus("Starting", true)

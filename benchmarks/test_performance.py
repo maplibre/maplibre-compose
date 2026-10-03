@@ -244,6 +244,31 @@ class PerformanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "history lost"):
                 map_presentation(root, logs, {"maximumFps": 60})
 
+    def test_inline_presentations_use_the_capture_window(self):
+        capture = {
+            "source": "metal-presented",
+            "layer": "map",
+            "gaps_ns": [],
+            "window": {"start_ns": 1_000_000_000, "end_ns": 1_100_000_000},
+            "refresh_periods_ns": [[1_000_000_001, 8_333_333]],
+            "presented_ns": [
+                900_000_000,
+                1_000_000_000,
+                1_033_333_333,
+                1_066_666_666,
+                1_100_000_000,
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            logs = "MAP_BENCHMARK PRESENTATION " + json.dumps(capture)
+            report = map_presentation(directory, logs, {"maximumFps": 30})
+            self.assertEqual(report["frames"], 3)
+            self.assertEqual(report["fps"], 30)
+            self.assertEqual(report["target_fps"], 30)
+            self.assertEqual(report["late_percent"], 0)
+            self.assertAlmostEqual(report["refresh_hz"], 120, places=4)
+            self.assertGreater(map_presentation(directory, logs, {})["late_percent"], 0)
+
     def test_map_frame_gaps_include_initial_and_terminal_stalls(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

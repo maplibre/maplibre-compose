@@ -119,7 +119,7 @@
     "description": "Displayed map frames during an engine-driven basemap flight, with independent UI callback timing.",
     "tracked": true,
     "classic": true,
-    "platforms": ["android"],
+    "platforms": ["android", "ios", "desktop"],
     "config": { "workload": "animation", "scene": "basemap-sf" }
   },
   "paint-points": {

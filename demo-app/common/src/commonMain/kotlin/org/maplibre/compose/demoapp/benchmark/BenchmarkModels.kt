@@ -18,7 +18,8 @@ internal expect fun benchmarkCpu(active: Boolean)
 internal expect fun benchmarkCollectGarbage()
 
 /** Window frame timings for the platform, or [BenchmarkUiFrames.None]. */
-@Composable internal expect fun rememberBenchmarkUiFrames(): BenchmarkUiFrames
+@Composable
+internal expect fun rememberBenchmarkUiFrames(config: BenchmarkConfig): BenchmarkUiFrames
 
 /** Native-only runtime benchmark; no map or fixture is loaded. */
 @Composable
