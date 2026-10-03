@@ -404,7 +404,6 @@ class PlatformMapAccessTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMainDispatcher()))
-        as RuntimeImplementation
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {
       block(state, runtime)

@@ -73,7 +73,6 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.RuntimeImplementation
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
@@ -278,7 +277,6 @@ class LinuxOpenGlInteropTest {
           mainDispatcher = UnconfinedMain,
         )
       )
-        as RuntimeImplementation
     private val state = runtime.createMapState(BaseStyle.Demo)
     private val renderer =
       MlnFfiMapSession(

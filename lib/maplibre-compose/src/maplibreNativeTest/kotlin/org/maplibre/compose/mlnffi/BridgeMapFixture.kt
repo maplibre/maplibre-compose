@@ -76,7 +76,7 @@ private constructor(
     sharedRuntime?.mainDispatcher as? TestMainDispatcher ?: TestMainDispatcher()
   private val runtime =
     sharedRuntime
-      ?: (createNativeMapRuntime(
+      ?: createNativeMapRuntime(
         MlnFfiRuntimeOptions(
           cacheFile = cacheFile,
           mainDispatcher = testMain,
@@ -85,7 +85,6 @@ private constructor(
           logger = MapLog,
         )
       )
-        as RuntimeImplementation)
   val state = runtime.createMapState(BaseStyle.Demo)
 
   val session: MlnFfiMapSession =

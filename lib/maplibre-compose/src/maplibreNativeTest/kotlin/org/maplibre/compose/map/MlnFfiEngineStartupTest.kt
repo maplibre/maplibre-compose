@@ -158,7 +158,6 @@ class MlnFfiEngineStartupTest {
       createNativeMapRuntime(
         configure(MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMainDispatcher()))
       )
-        as RuntimeImplementation
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {
       block(state, runtime)

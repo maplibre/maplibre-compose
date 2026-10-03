@@ -6,7 +6,7 @@ import org.maplibre.compose.mlnffi.normalized
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 import org.maplibre.compose.resource.MapResourceConfig
 
-internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
+internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): RuntimeImplementation {
   val normalizedOptions = options.normalized()
   val resourceConfig =
     MapResourceConfig(

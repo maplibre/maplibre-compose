@@ -50,7 +50,7 @@ class SharedMapRuntimeTest {
       FfiTestPlatform.initialize()
       val cacheFile = FfiTestPlatform.createCacheFile()
       val options = MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMainDispatcher())
-      val runtime = createNativeMapRuntime(options) as RuntimeImplementation
+      val runtime = createNativeMapRuntime(options)
       val owner = runtime.nativeOwner
       val entered = CompletableDeferred<Unit>()
       val release = MlnFfiGate()
@@ -99,7 +99,7 @@ class SharedMapRuntimeTest {
       }
       // Read the database through a fresh runtime: an abandoned native create could be absent from
       // the old manager's in-memory catalog but still leave a persisted region.
-      val reopened = createNativeMapRuntime(options) as RuntimeImplementation
+      val reopened = createNativeMapRuntime(options)
       try {
         val state =
           withTimeout(5_000) {
@@ -127,7 +127,6 @@ class SharedMapRuntimeTest {
             ),
         )
       )
-        as RuntimeImplementation
     val owner = runtime.nativeOwner
     owner.awaitReady()
     val retained = runtime.createMapState(BaseStyle.Empty)
@@ -195,7 +194,6 @@ class SharedMapRuntimeTest {
           mainDispatcher = TestMainDispatcher(),
         )
       )
-        as RuntimeImplementation
     try {
       BridgeMapFixture.create(runtime = runtime).use { first ->
         BridgeMapFixture.create(runtime = runtime).use { second ->

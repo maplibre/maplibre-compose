@@ -137,11 +137,11 @@ internal fun platformMainDispatcher(): CoroutineDispatcher =
 /**
  * Creates maps and snapshotters that share configuration and resources.
  *
- * On MapLibre Native platforms, maps, snapshotters, and offline operations use one native runtime
- * and owner thread. A long native call or [MapState.withPlatformMap] callback delays other work on
- * that runtime; a fatal native runtime failure closes the runtime and all its children. Create
- * separate runtimes when children need independent execution or failure domains. Closing a child
- * leaves its runtime and other children open.
+ * Closing a map or snapshotter leaves this runtime and its other children open.
+ *
+ * On MapLibre Native platforms, a long operation can delay other work on this runtime. A fatal
+ * runtime failure closes all its maps and snapshotters. Use separate runtimes when their work must
+ * run independently.
  */
 public interface MapRuntime {
   /** The offline packs and ambient cache managed by this runtime. */
