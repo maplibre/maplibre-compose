@@ -78,8 +78,9 @@ internal class GlJsLocationIndicator(
   }
 
   private var appearance = Appearance()
-  private val imageVertices: dynamic = js("new Float32Array(24)")
-  private val imageUvs = doubleArrayOf(0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0)
+  private val quadVertices: dynamic = js("new Float32Array(24)")
+  private val quadUvs = doubleArrayOf(0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0)
+  private val sectorUvs = DoubleArray(12) { quadUvs[it] * 2 - 1 }
 
   private val initialLocation = property("location")!!.jsonArray
   private val latitude = IndicatorAnimation(initialLocation[0].jsonPrimitive.double)
@@ -107,7 +108,7 @@ internal class GlJsLocationIndicator(
     )
   private var gl: dynamic = null
   private var vao: dynamic = null
-  private var buffer: dynamic = null
+  private var quadBuffer: dynamic = null
   private var accuracyBuffer: dynamic = null
   private var meshLatitude = Double.NaN
   private var meshRadius = Double.NaN
@@ -276,7 +277,7 @@ internal class GlJsLocationIndicator(
       programs.values.forEach { gl.deleteProgram(it.handle) }
       textures.values.forEach { gl.deleteTexture(it.handle) }
       gl.deleteTexture(emptyTexture)
-      gl.deleteBuffer(buffer)
+      gl.deleteBuffer(quadBuffer)
       gl.deleteBuffer(accuracyBuffer)
       gl.deleteBuffer(feedbackBuffer)
       gl.deleteTransformFeedback(feedback)
@@ -286,7 +287,7 @@ internal class GlJsLocationIndicator(
     textures.clear()
     emptyTexture = null
     vao = null
-    buffer = null
+    quadBuffer = null
     accuracyBuffer = null
     meshLatitude = Double.NaN
     meshRadius = Double.NaN
@@ -298,25 +299,134 @@ internal class GlJsLocationIndicator(
     renderedPosition = null
   }
 
+  /** Measurements are sampled once per frame; distances below use meters or CSS pixels. */
+  private inner class Measurements(input: CustomRenderMethodInput) {
+    private val time = now()
+    val zoom = map.getZoom()
+    val globe = input.defaultProjectionData.projectionTransition > 0.0
+    private val latitudeLimit = if (globe) 89.999999 else 85.0511287798066
+    val lat = latitude.value(time).coerceIn(-latitudeLimit, latitudeLimit)
+    val lng = longitude.value(time)
+    val accuracyMeters = accuracy.value(time).coerceAtLeast(0.0)
+    val bearingRadians = bearing.value(time) * PI / 180
+    val sectorHalfAngle = sectorAngle.value(zoom, time)[0].coerceIn(0.0, 180.0) * PI / 180
+    val sectorPixels = sectorRadius.value(zoom, time)[0].coerceAtLeast(0.0)
+    val sectorRgba = sectorColor.value(zoom, time)
+    val centerX = (lng + 180) / 360
+    val centerY = mercatorY(lat)
+    val worldPixels = 512 * 2.0.pow(zoom)
+    val width = map.getCanvas().clientWidth.toDouble()
+    val height = map.getCanvas().clientHeight.toDouble()
+
+    init {
+      renderedPosition = Position(lng, lat)
+      if (
+        listOf(latitude, longitude, bearing, accuracy).any { it.active(time) } ||
+          sectorPaint.values.any { it.active(time) }
+      )
+        map.triggerRepaint()
+    }
+  }
+
+  private fun worldCopies(frame: Measurements): IntRange {
+    val nearest = round((map.getCenter().lng - frame.lng) / 360).toInt()
+    return when {
+      frame.globe -> nearest..nearest
+      !map.getRenderWorldCopies() -> {
+        val canonical = -floor(frame.centerX).toInt()
+        canonical..canonical
+      }
+      else -> {
+        val count = ceil(frame.width / frame.worldPixels).toInt() + 1
+        (nearest - count)..(nearest + count)
+      }
+    }
+  }
+
+  /** World coordinates are Mercator fractions; vertices are in this copy's 8192-unit tile. */
+  private inner class TileFrame(frame: Measurements, copy: Int, input: CustomRenderMethodInput) {
+    val x = frame.centerX + copy
+    val y = frame.centerY
+    private val tileZoom = floor(frame.zoom).toInt().coerceIn(0, 22)
+    private val tiles = 2.0.pow(tileZoom)
+    private val tileX = floor(x * tiles)
+    private val tileY = floor(y * tiles).coerceIn(0.0, tiles - 1)
+    val tileUnitsPerWorld = tiles * 8192
+    val projection =
+      input.getProjectionData(
+        unsafeJso<CustomProjectionOptions> {
+          tileID = unsafeJso {
+            wrap = floor(tileX / tiles).toInt()
+            canonical = unsafeJso {
+              this.x = ((tileX % tiles + tiles) % tiles).toInt()
+              y = tileY.toInt()
+              z = tileZoom
+            }
+          }
+          applyGlobeMatrix = true
+        }
+      )
+    val center = local(x, y)
+    val sine = sin(frame.bearingRadians)
+    val cosine = cos(frame.bearingRadians)
+    val worldPerPixel: Double
+    val displacementX: Double
+    val displacementY: Double
+
+    init {
+      val location = LngLat(frame.lng + copy * 360, frame.lat)
+      val screen = map.project(location)
+      val left =
+        map.unproject(
+          unsafeJso {
+            x = screen.x - 1
+            y = screen.y
+          }
+        )
+      val longitudeDelta = ((left.lng - location.lng + 180) % 360 + 360) % 360 - 180
+      val mapPixelsPerScreenPixel =
+        hypot(longitudeDelta / 360, mercatorY(left.lat) - y) * frame.worldPixels
+      // Compensated Mercator world fractions per CSS pixel.
+      worldPerPixel =
+        ((1 - appearance.compensation) +
+          mapPixelsPerScreenPixel.coerceIn(0.8, 10.1) * appearance.compensation) / frame.worldPixels
+      // Native chooses the direction at the viewport bottom to avoid horizon convergence.
+      val bottom =
+        map.unproject(
+          unsafeJso {
+            x = screen.x
+            y = frame.height - 1
+          }
+        )
+      val above =
+        map.unproject(
+          unsafeJso {
+            x = screen.x
+            y = frame.height - 2
+          }
+        )
+      val shiftX = (above.lng - bottom.lng) / 360
+      val shiftY = mercatorY(above.lat) - mercatorY(bottom.lat)
+      val shiftLength = hypot(shiftX, shiftY)
+      val displacement = map.getPitch() * PI / 180 * appearance.displacement * worldPerPixel
+      displacementX = if (shiftLength > 0) shiftX / shiftLength * displacement else 0.0
+      displacementY = if (shiftLength > 0) shiftY / shiftLength * displacement else 0.0
+    }
+
+    fun local(mx: Double, my: Double) =
+      Pair((mx * tiles - tileX) * 8192, (my * tiles - tileY) * 8192)
+  }
+
   private fun render(input: CustomRenderMethodInput) {
     renderCount++
     polygons = null
     hitCount = 0
     if (!visible()) return
-    val now = now()
-    val globe = input.defaultProjectionData.projectionTransition > 0.0
-    val latitudeLimit = if (globe) 89.999999 else 85.0511287798066
-    val lat = latitude.value(now).coerceIn(-latitudeLimit, latitudeLimit)
-    val lng = longitude.value(now)
-    renderedPosition = Position(lng, lat)
-    if (listOf(latitude, longitude, bearing, accuracy).any { it.active(now) }) map.triggerRepaint()
-    if (sectorPaint.values.any { it.active(now) }) map.triggerRepaint()
-    val sectorHalfAngle = sectorAngle.value(map.getZoom(), now)[0].coerceIn(0.0, 180.0)
-    val sectorSize = sectorRadius.value(map.getZoom(), now)[0].coerceAtLeast(0.0)
-    val sectorRgba = sectorColor.value(map.getZoom(), now)
+    val frame = Measurements(input)
+    val copies = worldCopies(frame)
     if (vao == null) {
       vao = gl.createVertexArray()
-      buffer = gl.createBuffer()
+      quadBuffer = gl.createBuffer()
       accuracyBuffer = gl.createBuffer()
       feedback = gl.createTransformFeedback()
       feedbackBuffer = gl.createBuffer()
@@ -341,201 +451,23 @@ internal class GlJsLocationIndicator(
       gl.blendEquation(gl.FUNC_ADD)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       gl.bindSampler(0, null)
-      if (emptyTexture == null) {
-        emptyTexture = gl.createTexture()
-        gl.bindTexture(gl.TEXTURE_2D, emptyTexture)
-        gl.texImage2D(
-          gl.TEXTURE_2D,
-          0,
-          gl.RGBA,
-          1,
-          1,
-          0,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          js("new Uint8Array([0,0,0,0])"),
-        )
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-      }
-      gl.bindTexture(gl.TEXTURE_2D, emptyTexture)
+      bindEmptyTexture()
       gl.uniform1i(program.uniform("u_image"), 0)
-      val centerX = (lng + 180) / 360
-      val centerY = mercatorY(lat)
-      val nearest = round((map.getCenter().lng - lng) / 360).toInt()
-      val worldSize = 512 * 2.0.pow(map.getZoom())
-      val canvas = map.getCanvas()
-      val width = canvas.clientWidth.toDouble()
-      val height = canvas.clientHeight.toDouble()
-      val copies =
-        if (globe) nearest..nearest
-        else if (!map.getRenderWorldCopies()) {
-          val canonical = -floor(centerX).toInt()
-          canonical..canonical
-        } else {
-          val count = ceil(width / worldSize).toInt() + 1
-          (nearest - count)..(nearest + count)
-        }
-      hitWidth = width
-      hitHeight = height
+      hitWidth = frame.width
+      hitHeight = frame.height
       gl.uniform1f(
         program.uniform("u_pixel_ratio"),
-        (gl.getParameter(gl.VIEWPORT)[2] as Double) / width,
+        (gl.getParameter(gl.VIEWPORT)[2] as Double) / frame.width,
       )
-      val capacity = copies.count() * 2 * 96
-      if (capacity > feedbackCapacity) {
-        gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, feedbackBuffer)
-        gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, capacity, gl.DYNAMIC_READ)
-        gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null)
-        feedbackCapacity = capacity
-      }
+      reservePickFeedback(copies.count())
       for (copy in copies) {
-        val x = centerX + copy
-        // Tile-local vertices retain subpixel precision at high zoom.
-        val tileZoom = floor(map.getZoom()).toInt().coerceIn(0, 22)
-        val tiles = 2.0.pow(tileZoom)
-        val tileX = floor(x * tiles)
-        val tileY = floor(centerY * tiles).coerceIn(0.0, tiles - 1)
-        val options =
-          unsafeJso<CustomProjectionOptions> {
-            tileID = unsafeJso {
-              wrap = floor(tileX / tiles).toInt()
-              canonical = unsafeJso {
-                this.x = ((tileX % tiles + tiles) % tiles).toInt()
-                y = tileY.toInt()
-                z = tileZoom
-              }
-            }
-            applyGlobeMatrix = true
-          }
-        val projection = input.getProjectionData(options)
-        uniforms(program, projection)
-        fun local(mx: Double, my: Double) =
-          Pair((mx * tiles - tileX) * 8192, (my * tiles - tileY) * 8192)
-        val radius = accuracy.value(now).coerceAtLeast(0.0)
-        if (radius > 0) {
-          drawAccuracy(program, lat, radius, local(x, centerY), tiles * 8192)
-        }
-        val location = LngLat(lng + copy * 360, lat)
-        val screen = map.project(location)
-        val left =
-          map.unproject(
-            unsafeJso {
-              this.x = screen.x - 1
-              y = screen.y
-            }
-          )
-        val longitudeDelta = ((left.lng - location.lng + 180) % 360 + 360) % 360 - 180
-        val mapPixelsPerScreenPixel =
-          hypot(longitudeDelta / 360, mercatorY(left.lat) - centerY) * worldSize
-        val compensation = appearance.compensation
-        val scale = (1 - compensation) + mapPixelsPerScreenPixel.coerceIn(0.8, 10.1) * compensation
-        if (sectorHalfAngle > 0 && sectorSize > 0 && sectorRgba[3] > 0) {
-          val radius = sectorSize * scale / worldSize
-          val angle = bearing.value(now) * PI / 180
-          val sine = sin(angle)
-          val cosine = cos(angle)
-          for (i in 0 until 6) {
-            val ox = imageUvs[i * 2] * 2 - 1
-            val oy = imageUvs[i * 2 + 1] * 2 - 1
-            val point =
-              local(
-                x + radius * (ox * cosine - oy * sine),
-                centerY + radius * (ox * sine + oy * cosine),
-              )
-            imageVertices[i * 4] = point.first
-            imageVertices[i * 4 + 1] = point.second
-            imageVertices[i * 4 + 2] = ox
-            imageVertices[i * 4 + 3] = oy
-          }
-          bindVertices(buffer)
-          gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
-          gl.uniform1i(program.uniform("u_mode"), 2)
-          gl.uniform1f(program.uniform("u_sector_angle"), sectorHalfAngle * PI / 180)
-          gl.uniform4f(
-            program.uniform("u_fill"),
-            sectorRgba[0],
-            sectorRgba[1],
-            sectorRgba[2],
-            sectorRgba[3],
-          )
-          gl.bufferData(gl.ARRAY_BUFFER, imageVertices, gl.DYNAMIC_DRAW)
-          gl.drawArrays(gl.TRIANGLES, 0, 6)
-        }
-        // Native chooses the shift direction at the bottom of the viewport to avoid exaggerated
-        // perspective convergence near the horizon.
-        val bottom =
-          map.unproject(
-            unsafeJso {
-              this.x = screen.x
-              y = height - 1
-            }
-          )
-        val above =
-          map.unproject(
-            unsafeJso {
-              this.x = screen.x
-              y = height - 2
-            }
-          )
-        val shiftX = (above.lng - bottom.lng) / 360
-        val shiftY = mercatorY(above.lat) - mercatorY(bottom.lat)
-        val shiftLength = hypot(shiftX, shiftY)
-        val displacement = map.getPitch() * PI / 180 * appearance.displacement * scale / worldSize
-        val dx = if (shiftLength > 0) shiftX / shiftLength * displacement else 0.0
-        val dy = if (shiftLength > 0) shiftY / shiftLength * displacement else 0.0
-        bindVertices(buffer)
-        gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
-        for (layer in appearance.images) {
-          val imageId = layer.id ?: continue
-          val data = image(imageId) ?: continue
-          val texture = texture(imageId, data)
-          val size = layer.size * scale / worldSize / data.pixelRatio
-          val halfWidth = data.pixels.width * size / 2
-          val halfHeight = data.pixels.height * size / 2
-          if (halfWidth <= 0 || halfHeight <= 0) continue
-          val angle = bearing.value(now) * PI / 180
-          val sine = sin(angle)
-          val cosine = cos(angle)
-          for (i in 0 until 6) {
-            val u = imageUvs[i * 2]
-            val v = imageUvs[i * 2 + 1]
-            val ox = (u * 2 - 1) * halfWidth
-            val oy = (v * 2 - 1) * halfHeight
-            val point =
-              local(
-                x + ox * cosine - oy * sine + dx * layer.shift,
-                centerY + ox * sine + oy * cosine + dy * layer.shift,
-              )
-            imageVertices[i * 4] = point.first
-            imageVertices[i * 4 + 1] = point.second
-            imageVertices[i * 4 + 2] = u
-            imageVertices[i * 4 + 3] = v
-          }
-          gl.uniform1i(program.uniform("u_mode"), 0)
-          gl.bindTexture(gl.TEXTURE_2D, texture)
-          gl.bufferData(gl.ARRAY_BUFFER, imageVertices, gl.DYNAMIC_DRAW)
-          // Capture the shader's actual clip-space corners. This keeps picking identical to the
-          // public projection prelude, including globe transitions and horizon clipping.
-          if (layer.shift == -1) {
-            gl.drawArrays(gl.TRIANGLES, 0, 6)
-          } else {
-            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, feedback)
-            gl.bindBufferRange(gl.TRANSFORM_FEEDBACK_BUFFER, 0, feedbackBuffer, hitCount * 96, 96)
-            gl.beginTransformFeedback(gl.TRIANGLES)
-            gl.drawArrays(gl.TRIANGLES, 0, 6)
-            gl.endTransformFeedback()
-            hitCount++
-            gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null)
-            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, oldFeedback)
-          }
-        }
+        val tile = TileFrame(frame, copy, input)
+        uniforms(program, tile.projection)
+        drawAccuracy(program, frame, tile)
+        drawSector(program, frame, tile)
+        drawImages(program, tile)
       }
-      // Images no longer referenced by the layer need no GPU storage.
-      val used = appearance.images.mapNotNull { it.id }.toSet()
-      for (key in textures.keys.toList()) if (key !in used || image(key) !== textures[key]?.image) {
-        gl.deleteTexture(textures.remove(key)!!.handle)
-      }
+      retireTextures()
     } finally {
       gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, oldFeedback)
       gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null)
@@ -547,19 +479,130 @@ internal class GlJsLocationIndicator(
     }
   }
 
+  private fun bindEmptyTexture() {
+    if (emptyTexture == null) {
+      emptyTexture = gl.createTexture()
+      gl.bindTexture(gl.TEXTURE_2D, emptyTexture)
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        js("new Uint8Array([0,0,0,0])"),
+      )
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    }
+    gl.bindTexture(gl.TEXTURE_2D, emptyTexture)
+  }
+
+  private fun reservePickFeedback(copies: Int) {
+    // Two pickable image passes per copy, six vec4 clip-space corners per pass.
+    val capacity = copies * 2 * 96
+    if (capacity <= feedbackCapacity) return
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, feedbackBuffer)
+    gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, capacity, gl.DYNAMIC_READ)
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null)
+    feedbackCapacity = capacity
+  }
+
+  /** Half extents and shifts are Mercator world fractions; UVs retain their pass's units. */
+  private fun writeQuad(
+    tile: TileFrame,
+    halfWidth: Double,
+    halfHeight: Double,
+    shiftX: Double = 0.0,
+    shiftY: Double = 0.0,
+    uvs: DoubleArray = quadUvs,
+  ) {
+    for (i in 0 until 6) {
+      val u = quadUvs[i * 2]
+      val v = quadUvs[i * 2 + 1]
+      val ox = (u * 2 - 1) * halfWidth
+      val oy = (v * 2 - 1) * halfHeight
+      val point =
+        tile.local(
+          tile.x + ox * tile.cosine - oy * tile.sine + shiftX,
+          tile.y + ox * tile.sine + oy * tile.cosine + shiftY,
+        )
+      quadVertices[i * 4] = point.first
+      quadVertices[i * 4 + 1] = point.second
+      quadVertices[i * 4 + 2] = uvs[i * 2]
+      quadVertices[i * 4 + 3] = uvs[i * 2 + 1]
+    }
+    bindVertices(quadBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.DYNAMIC_DRAW)
+  }
+
+  private fun drawSector(program: Program, frame: Measurements, tile: TileFrame) {
+    if (!(frame.sectorHalfAngle > 0 && frame.sectorPixels > 0 && frame.sectorRgba[3] > 0)) return
+    val radius = frame.sectorPixels * tile.worldPerPixel
+    writeQuad(tile, radius, radius, uvs = sectorUvs)
+    gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
+    gl.uniform1i(program.uniform("u_mode"), 2)
+    gl.uniform1f(program.uniform("u_sector_angle"), frame.sectorHalfAngle)
+    val rgba = frame.sectorRgba
+    gl.uniform4f(program.uniform("u_fill"), rgba[0], rgba[1], rgba[2], rgba[3])
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+  }
+
+  private fun drawImages(program: Program, tile: TileFrame) {
+    gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
+    gl.uniform1i(program.uniform("u_mode"), 0)
+    for (layer in appearance.images) {
+      val imageId = layer.id ?: continue
+      val data = image(imageId) ?: continue
+      val texture = texture(imageId, data)
+      val size = layer.size * tile.worldPerPixel / data.pixelRatio
+      val halfWidth = data.pixels.width * size / 2
+      val halfHeight = data.pixels.height * size / 2
+      if (halfWidth <= 0 || halfHeight <= 0) continue
+      writeQuad(
+        tile,
+        halfWidth,
+        halfHeight,
+        tile.displacementX * layer.shift,
+        tile.displacementY * layer.shift,
+      )
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      // Capture shader clip-space corners for globe transitions and horizon clipping.
+      // Shadow is drawn first but does not participate in picking.
+      if (layer.shift == -1) {
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+      } else {
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, feedback)
+        gl.bindBufferRange(gl.TRANSFORM_FEEDBACK_BUFFER, 0, feedbackBuffer, hitCount * 96, 96)
+        gl.beginTransformFeedback(gl.TRIANGLES)
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+        gl.endTransformFeedback()
+        hitCount++
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null)
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
+      }
+    }
+  }
+
+  private fun retireTextures() {
+    val used = appearance.images.mapNotNull { it.id }.toSet()
+    for (key in textures.keys.toList()) if (key !in used || image(key) !== textures[key]?.image) {
+      gl.deleteTexture(textures.remove(key)!!.handle)
+    }
+  }
+
   private fun bindVertices(buffer: dynamic) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0)
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8)
   }
 
-  private fun drawAccuracy(
-    program: Program,
-    lat: Double,
-    radius: Double,
-    center: Pair<Double, Double>,
-    scale: Double,
-  ) {
+  private fun drawAccuracy(program: Program, frame: Measurements, tile: TileFrame) {
+    val radius = frame.accuracyMeters
+    if (!(radius > 0)) return
+    val lat = frame.lat
     bindVertices(accuracyBuffer)
     // Store offsets from the measurement. Camera movement, world copies and longitude changes
     // only change the projection/translation uniforms, not the spherical mesh or its GPU buffer.
@@ -602,7 +645,8 @@ internal class GlJsLocationIndicator(
       meshRadius = radius
       accuracyUploadCount++
     }
-    gl.uniform3f(program.uniform("u_geometry"), center.first, center.second, scale)
+    val (centerX, centerY) = tile.center
+    gl.uniform3f(program.uniform("u_geometry"), centerX, centerY, tile.tileUnitsPerWorld)
     gl.uniform1i(program.uniform("u_mode"), 1)
     color(program, "u_fill", appearance.fill)
     color(program, "u_border", appearance.border)
