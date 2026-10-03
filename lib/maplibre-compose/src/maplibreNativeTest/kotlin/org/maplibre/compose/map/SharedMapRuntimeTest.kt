@@ -7,6 +7,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -100,10 +101,11 @@ class SharedMapRuntimeTest {
       // the old manager's in-memory catalog but still leave a persisted region.
       val reopened = createNativeMapRuntime(options) as RuntimeImplementation
       try {
-        withTimeout(5_000) { reopened.nativeOwner.awaitReady() }
-        assertTrue(
-          (reopened.offlineManager.state.value as OfflineManagerState.Ready).packs.isEmpty()
-        )
+        val state =
+          withTimeout(5_000) {
+            reopened.offlineManager.state.first { it !is OfflineManagerState.Loading }
+          }
+        assertTrue(assertIs<OfflineManagerState.Ready>(state).packs.isEmpty())
       } finally {
         reopened.close()
         withTimeout(5_000) { reopened.awaitClosed() }
