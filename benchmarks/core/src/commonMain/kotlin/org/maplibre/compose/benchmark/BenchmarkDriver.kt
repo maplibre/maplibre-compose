@@ -111,13 +111,17 @@ abstract class BenchmarkDriver(
       BenchmarkScenario.Camera,
       BenchmarkScenario.Overlays -> clock.frames { camera(tourCamera(it)) }
       BenchmarkScenario.Animation -> {
-        repeat(4) { index ->
-          withTimeout(clock.durationMillis + 10000) {
-            animate(benchmarkCamera(if (index % 2 == 0) 1.0 else -1.0), clock.durationMillis / 4)
+        coroutineScope {
+          val animation = launch {
+            animate(benchmarkCamera(1.0), clock.durationMillis)
           }
-          clock.submitted()
+          // Observe UI scheduling independently; the engine drives the camera and map frames.
+          try {
+            clock.frames {}
+          } finally {
+            animation.cancelAndJoin()
+          }
         }
-        clock.idle()
       }
       BenchmarkScenario.Resize -> clock.frames { height(0.75 + 0.25 * cos(it * 4 * PI)) }
       BenchmarkScenario.Padding -> clock.frames { padding((1 - cos(it * 4 * PI)) * 100) }
@@ -246,6 +250,7 @@ internal fun printRunHeader(
  */
 internal suspend fun measured(
   host: BenchmarkHost,
+  frameDurationMillis: Long? = null,
   measure: suspend (BenchmarkFrameRecorder, start: () -> Unit) -> WorkloadReport,
   cleanup: suspend () -> Unit,
 ): String? {
@@ -260,7 +265,7 @@ internal suspend fun measured(
           host.cpu(true)
           measuring = true
           recorder.start()
-          host.uiFrames.start()
+          host.uiFrames.start(frameDurationMillis)
           println("MAP_BENCHMARK MEASURE")
         }
       host.cpu(false)
@@ -276,6 +281,7 @@ internal suspend fun measured(
       // Closing is part of a completed run; cancellation must also release the map.
       withContext(NonCancellable) {
         // Engine samples end with the window; frames drawn while UI metrics drain are not counted.
+        host.uiFrames.end()
         recorder.stop()
         host.uiFrames.stop()
         report?.printResult()
@@ -295,6 +301,8 @@ suspend fun runBenchmark(driver: BenchmarkDriver, host: BenchmarkHost): String? 
   val helpers = helperScope(coroutineContext)
   return measured(
     host,
+    frameDurationMillis =
+      config.durationMs.takeIf { config.scenario == BenchmarkScenario.Animation },
     measure = { recorder, start ->
       host.status("Loading")
       val startup = driver.prepare(helpers)

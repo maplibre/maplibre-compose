@@ -19,7 +19,7 @@ data class WorkloadReport(
   @SerialName("duration_ms") val durationMs: Double,
   @SerialName("submission_ms") val submissionMs: List<Double>,
   @SerialName("completion_ms") val completionMs: List<Double>,
-  /** Milliseconds between consecutive frame callbacks of a frame-driven workload. */
+  /** Milliseconds between callback arrivals, including the waits at the measurement boundaries. */
   @SerialName("frame_interval_ms") val frameIntervalMs: List<Double>,
   @SerialName("completion_signal") val completionSignal: String?,
 )
@@ -90,13 +90,16 @@ class BenchmarkWorkload(
    * thread's frame pacing: a starved frame callback shows up as a long interval.
    */
   suspend fun frames(block: (Double) -> Unit) {
+    val deadlineNs = durationMillis * 1_000_000
     val first = nextFrame()
-    var previous = first
-    while (start.elapsedNow().inWholeMilliseconds < durationMillis) {
+    var previousElapsed = start.elapsedNow().inWholeNanoseconds.coerceAtMost(deadlineNs)
+    frameIntervals += previousElapsed / 1e6
+    while (previousElapsed < deadlineNs) {
       val now = nextFrame()
-      if (start.elapsedNow().inWholeMilliseconds >= durationMillis) break
-      frameIntervals += (now - previous) / 1e6
-      previous = now
+      val elapsed = start.elapsedNow().inWholeNanoseconds.coerceAtMost(deadlineNs)
+      frameIntervals += (elapsed - previousElapsed) / 1e6
+      previousElapsed = elapsed
+      if (elapsed >= deadlineNs) break
       block(((now - first) / 1e6 / durationMillis).coerceIn(0.0, 1.0))
       submitted()
     }

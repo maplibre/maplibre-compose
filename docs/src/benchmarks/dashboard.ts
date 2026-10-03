@@ -2,59 +2,61 @@ import { TrendChart, type Band, type ChartSpec } from "../metrics/chart";
 import type { Commit } from "../metrics/model";
 import { $, el, fetchJson, setSearchParams, showBody } from "../metrics/page";
 import { CommitSelection } from "../metrics/selection";
-import { installTooltips, term } from "../metrics/terms";
-import { formatPercent, formatValue, type Index, type Kind, type Scope, type Series } from "./model";
+import { installTooltips } from "../metrics/terms";
+import { formatValue, type Index, type Kind, type Scope, type Series } from "./model";
 
 const platformNames: Record<Scope["platform"], string> = { android: "Android", ios: "iOS", desktop: "Desktop", web: "Web" };
 
 const definitions = {
-  cpuPerOperation:
-    "Process CPU time in the measured window, on every thread, divided by the operations the workload " +
-    "submitted: per frame for frame-driven workloads, per update otherwise.",
-  cpuPerSecond: "Process CPU time per second of the measured window, on every thread.",
-  completion:
-    "Time from starting an update until the case's completion signal: style readiness, a rendered-feature query, or map settlement. This does not confirm screen presentation.",
-  submission:
-    "Elapsed time to prepare and submit an update. This includes suspending preparation and is not UI-thread blocking time.",
-  runtimeConstruction: "Time for the runtime constructor to return, reopening a primed empty local database in a warm process.",
-  runtimeReadiness: "Time from starting runtime construction until offline readiness is observed on the main dispatcher. No map is created.",
-  close: "Time for the first close call to return while the map is still presented, or while the runtime is open.",
-  cleanup:
-    "Time from starting close until presentation detachment and cleanup complete. Compose awaits native release; classic iOS observes view removal, not native destruction.",
-  frameInterval: "Time between consecutive frame callbacks in the measured window.",
-  startup:
-    "Time from creating the map until its first fully rendered frame. The style, tiles, and glyphs " +
-    "are packaged with the app.",
-  classic:
-    "The platform's classic MapLibre SDK running the same workload on the same device, back to back " +
-    "with MapLibre Compose.",
-  spread: "The band spans the lowest and highest repetition; the line is the median.",
-  uiFrame: "Duration of the app window's frames in the measured window, from the platform's frame timing.",
-  mapReturn:
-    "Time from creating a map with 256 declared layers and 64 images until its content renders and " +
-    "settles, with a 300 ms panel transition running at the same time.",
+  cpuPerOperation: "Processor time used for each app update, including work in the background.",
+  cpuPerSecond: "Processor time used in one second while the map is idle, including work in the background.",
+  completion: "Time from starting a change until the map confirms it is ready. Half the updates finish within this time. It may still need to appear on screen.",
+  submission: "Time spent preparing and sending a change to the map. Half the updates take this long or less. Preparation can run in the background.",
+  runtimeConstruction: "Time spent creating the shared services maps use. This test reopens an empty cache that has already been used once.",
+  runtimeReadiness: "Time until the shared map services are ready to use offline data. This test creates no map.",
+  close: "Time for close() to return control to the app. Resources may still be releasing in the background.",
+  cleanup: "Time until closing has finished and resources are released. The classic iOS test only waits for the map view to be removed.",
+  frameInterval: "How long the app waits between opportunities to update its camera or controls. 95% of these waits are this short or shorter.",
+  frameIntervalMax: "The longest wait before the app could run its next update.",
+  mapFps: "New map frames shown on screen each second during a camera animation. Higher is smoother.",
+  mapInterval: "The wait between new map frames on screen. 95% of these waits are this short or shorter.",
+  mapIntervalMax: "The longest wait for a new map frame on screen.",
+  mapLate: "Percentage of gaps between map frames long enough to miss a screen refresh. Lower is better.",
+  startup: "Time from creating a map until it draws its first complete frame. Map data and fonts are already downloaded.",
+  classic: "The same test on the same device, using the classic MapLibre SDK instead of MapLibre Compose.",
+  spread: "The line is the middle result from repeated runs. The shaded band spans the lowest and highest results.",
+  uiFrame: "Time to draw the app around the map, such as buttons and panels. 95% of these frames finish within this time.",
+  uiFrameMax: "The longest time taken to draw the app around the map, such as buttons and panels.",
+  uiMissed: "Percentage of app frames that finished late. Lower is better.",
+  mapReturn: "Time to open a populated map while a panel animates over it. Half the openings finish within this time.",
 };
 
 interface Metric {
   key: string;
   title: string;
   definition: string;
+  unit?: string;
 }
 
 const metrics = {
-  cpuPerFrame: { key: "cpu_ms_per_operation", title: "CPU per frame", definition: definitions.cpuPerOperation },
   cpuPerUpdate: { key: "cpu_ms_per_operation", title: "CPU per update", definition: definitions.cpuPerOperation },
   cpuPerSecond: { key: "cpu_ms_per_second", title: "Idle CPU per second", definition: definitions.cpuPerSecond },
-  completion: { key: "completion_p50_ms", title: "Completion, median", definition: definitions.completion },
-  submission: { key: "submission_p50_ms", title: "Submission, median", definition: definitions.submission },
-  runtimeConstruction: { key: "submission_p50_ms", title: "Constructor return, median", definition: definitions.runtimeConstruction },
-  runtimeReadiness: { key: "completion_p50_ms", title: "Readiness, median", definition: definitions.runtimeReadiness },
-  close: { key: "close_p50_ms", title: "Close return, median", definition: definitions.close },
-  cleanup: { key: "close_completion_p50_ms", title: "Cleanup completion, median", definition: definitions.cleanup },
-  frameInterval: { key: "frame_interval_p95_ms", title: "Frame interval p95", definition: definitions.frameInterval },
+  completion: { key: "completion_p50_ms", title: "Time until an update is ready", definition: definitions.completion },
+  submission: { key: "submission_p50_ms", title: "Time to send an update", definition: definitions.submission },
+  runtimeConstruction: { key: "submission_p50_ms", title: "Time to create shared map services", definition: definitions.runtimeConstruction },
+  runtimeReadiness: { key: "completion_p50_ms", title: "Time until shared map services are ready", definition: definitions.runtimeReadiness },
+  close: { key: "close_p50_ms", title: "Time to call close", definition: definitions.close },
+  cleanup: { key: "close_completion_p50_ms", title: "Time to finish closing", definition: definitions.cleanup },
+  frameInterval: { key: "frame_interval_p95_ms", title: "App update interval, p95", definition: definitions.frameInterval },
+  frameIntervalMax: { key: "frame_interval_max_ms", title: "Longest app update interval", definition: definitions.frameIntervalMax },
+  mapFps: { key: "map_fps", title: "Displayed map FPS", definition: definitions.mapFps, unit: "FPS" },
+  mapInterval: { key: "map_frame_p95_ms", title: "Map frame interval, p95", definition: definitions.mapInterval },
+  mapIntervalMax: { key: "map_frame_max_ms", title: "Longest map frame interval", definition: definitions.mapIntervalMax },
+  mapLate: { key: "map_late_percent", title: "Late map frames", definition: definitions.mapLate, unit: "%" },
+  uiMissed: { key: "ui_missed_percent", title: "Late app frames", definition: definitions.uiMissed, unit: "%" },
   startup: { key: "startup_first_frame_ms", title: "Time to first frame", definition: definitions.startup },
-  uiFrameP95: { key: "ui_frame_p95_ms", title: "Window frame p95", definition: definitions.uiFrame },
-  uiFrameMax: { key: "ui_frame_max_ms", title: "Worst window frame", definition: definitions.uiFrame },
+  uiFrameP95: { key: "ui_frame_p95_ms", title: "App frame time, p95", definition: definitions.uiFrame },
+  uiFrameMax: { key: "ui_frame_max_ms", title: "Longest app frame time", definition: definitions.uiFrameMax },
   returnTime: { key: "completion_p50_ms", title: "Map return time, median", definition: definitions.mapReturn },
 } satisfies Record<string, Metric>;
 
@@ -62,27 +64,41 @@ const frameDriven = ["camera", "overlays", "padding", "resize", "recompose"];
 const updates = ["source", "source-latency", "layers", "layout", "paint", "sparse-paint", "style", "style-overlay", "overlay-update", "images", "image-cycle", "image-preparation"];
 const completedUpdates = ["source-latency", "layers", "layout", "style", "style-overlay", "overlay-update", "images", "image-cycle", "image-preparation"];
 
-/**
- * Sections group charts by metric, so every chart in a section shares a unit and a meaning and
- * the case is the chart's title. An item's metric can list alternatives: the first one the device
- * reports is charted, so Android shows window frames where others show the frame interval.
- */
-const sections: { title: string; items: { workloads: string[]; metric: Metric | Metric[] }[] }[] = [
-  { title: "CPU per frame", items: [{ workloads: frameDriven, metric: metrics.cpuPerFrame }] },
+/** Every chart has one signal and one unit across its history and SDK comparisons. */
+const sections: { title: string; items: { workloads: string[]; metric: Metric }[] }[] = [
   {
-    title: "Frame pacing",
-    items: [{ workloads: [...frameDriven, "sparse-paint"], metric: [metrics.uiFrameP95, metrics.frameInterval] }],
+    title: "Map smoothness",
+    items: [
+      { workloads: ["animation"], metric: metrics.mapFps },
+      { workloads: ["animation"], metric: metrics.mapInterval },
+      { workloads: ["animation"], metric: metrics.mapIntervalMax },
+      { workloads: ["animation"], metric: metrics.mapLate },
+    ],
   },
-  { title: "CPU per update", items: [{ workloads: updates, metric: metrics.cpuPerUpdate }] },
-  { title: "Submission latency", items: [{ workloads: updates, metric: metrics.submission }] },
-  { title: "Completion latency", items: [{ workloads: completedUpdates, metric: metrics.completion }] },
   {
-    title: "Lifecycle",
+    title: "App responsiveness",
+    items: [
+      { workloads: [...frameDriven, "animation"], metric: metrics.frameInterval },
+      { workloads: ["animation"], metric: metrics.frameIntervalMax },
+      { workloads: ["map-return", "overlays"], metric: metrics.uiFrameP95 },
+      { workloads: ["map-return", "overlays"], metric: metrics.uiFrameMax },
+      { workloads: ["map-return", "overlays"], metric: metrics.uiMissed },
+    ],
+  },
+  { title: "CPU use", items: [{ workloads: [...frameDriven, ...updates], metric: metrics.cpuPerUpdate }] },
+  {
+    title: "Map updates",
+    items: [
+      { workloads: updates, metric: metrics.submission },
+      { workloads: completedUpdates, metric: metrics.completion },
+    ],
+  },
+  {
+    title: "Opening and closing",
     items: [
       { workloads: ["runtime-startup"], metric: metrics.runtimeConstruction },
       { workloads: ["runtime-startup"], metric: metrics.runtimeReadiness },
       { workloads: ["map-return"], metric: metrics.returnTime },
-      { workloads: ["map-return"], metric: metrics.uiFrameMax },
       { workloads: ["map-return", "runtime-startup"], metric: metrics.close },
       { workloads: ["map-return", "runtime-startup"], metric: metrics.cleanup },
     ],
@@ -105,31 +121,16 @@ const banded = new Set([
   "close_p50_ms",
   "close_completion_p50_ms",
   "frame_interval_p95_ms",
+  "frame_interval_max_ms",
+  "map_fps",
+  "map_frame_p95_ms",
+  "map_frame_max_ms",
+  "map_late_percent",
+  "ui_missed_percent",
   "ui_frame_p95_ms",
   "ui_frame_max_ms",
   "startup_first_frame_ms",
 ]);
-
-interface Tile {
-  label: string;
-  definition: string;
-  /** Alternatives; the first column the device reports is shown. */
-  columns: string[];
-  note: string;
-}
-
-const tiles: Tile[] = [
-  { label: "Idle CPU", definition: definitions.cpuPerSecond, columns: ["idle-basemap.compose.cpu_ms_per_second"], note: "ms per second" },
-  { label: "Camera frame", definition: definitions.cpuPerOperation, columns: ["camera-basemap.compose.cpu_ms_per_operation"], note: "ms of CPU per frame" },
-  {
-    label: "Map return",
-    definition: definitions.mapReturn,
-    columns: ["map-return.compose.ui_frame_max_ms", "map-return.compose.completion_p50_ms"],
-    note: "ms, worst window frame",
-  },
-  { label: "Update latency", definition: definitions.completion, columns: ["source-completion.compose.completion_p50_ms"], note: "ms, median" },
-  { label: "Startup", definition: definitions.startup, columns: ["idle-basemap.compose.startup_first_frame_ms"], note: "ms to first frame" },
-];
 
 /**
  * One device's measurements: the commits it measured, in order, and its series restricted to them.
@@ -176,7 +177,7 @@ export async function start() {
   let scope: Scope = index.scopes.find((s) => s.id === new URLSearchParams(location.search).get("device")) ?? index.scopes[0];
   let current: View = { commits: [], series: {} };
   let scopeLoad = 0;
-  const selection = new CommitSelection("measurement", showTiles);
+  const selection = new CommitSelection("measurement", () => {});
 
   const scopeSelect = $<HTMLSelectElement>("benchmarks-scope");
   const platforms = [...new Set(index.scopes.map((s) => s.platform))];
@@ -197,7 +198,6 @@ export async function start() {
 
   function buildCharts() {
     const { series } = current;
-    const hasData = (key: string) => series[key]?.some((v) => v != null) ?? false;
     selection.charts = [];
     const blocks: Node[] = [];
     for (const section of sections) {
@@ -205,15 +205,16 @@ export async function start() {
       for (const item of section.items) {
         for (const [id, c] of Object.entries(index.cases)) {
           if (!item.workloads.includes(c.workload)) continue;
-          const metric = (Array.isArray(item.metric) ? item.metric : [item.metric]).find((m) => hasData(`${id}.compose.${m.key}`));
-          if (!metric) continue;
-          const kinds: Kind[] = hasData(`${id}.classic.${metric.key}`) ? ["compose", "classic"] : ["compose"];
+          const metric = item.metric;
+
+          const unit = metric.unit ?? "ms";
+          const kinds: Kind[] = c.classic && (scope.platform === "android" || scope.platform === "ios") ? ["compose", "classic"] : ["compose"];
           const spec: ChartSpec = {
             title: section.items.length > 1 ? `${c.title}: ${metric.title.toLowerCase()}` : c.title,
-            unit: "ms",
-            definition: `${c.description} ${metric.definition}`,
+            unit,
+            definition: metric.definition,
             integer: false,
-            format: (value) => (value == null ? "–" : `${formatValue(value)} ms`),
+            format: (value) => (value == null ? "–" : `${formatValue(value)} ${unit}`),
             series: kinds.map((kind) => ({
               key: `${id}.${kind}.${metric.key}`,
               label: kind === "compose" ? "MapLibre Compose" : "Classic SDK",
@@ -233,32 +234,13 @@ export async function start() {
       }
       if (!charts.length) continue;
       blocks.push(
-        el("section", { className: "benchmarks-section" }, el("h2", { textContent: section.title }), el("div", { className: "metrics-charts" }, ...charts)),
+        el("section", { className: "benchmarks-section" },
+          el("h2", { textContent: section.title }),
+          el("div", { className: "metrics-charts" }, ...charts),
+        ),
       );
     }
     $("metrics-charts").replaceChildren(...blocks);
-  }
-
-  function showTiles() {
-    const { series } = current;
-    const { selected } = selection;
-    const { index: before, label } = selection.baseline();
-    $("metrics-tiles").replaceChildren(
-      ...tiles.map((tile) => {
-        const column = tile.columns.map((key) => series[key] ?? []).find((c) => c.some((v) => v != null)) ?? [];
-        const value = column[selected];
-        const previous = column[before];
-        const delta = value != null && previous != null && previous !== 0 && selected > 0 ? `${formatPercent((value / previous - 1) * 100)} ${label}` : " ";
-        return el(
-          "div",
-          { className: "metrics-tile" },
-          el("div", { className: "metrics-tile-label" }, term(tile.label, tile.definition)),
-          el("div", { className: "metrics-tile-value", textContent: formatValue(value) }),
-          el("div", { className: "metrics-muted", textContent: column === series[tile.columns[0]] ? tile.note : "ms to settle, median" }),
-          el("div", { className: "metrics-tile-delta", textContent: delta }),
-        );
-      }),
-    );
   }
 
   async function loadScope() {
@@ -278,7 +260,6 @@ export async function start() {
       showBody(null);
       buildCharts();
       selection.show();
-      showTiles();
     } catch {
       if (load !== scopeLoad) return;
       showBody("Couldn't load benchmark data.");

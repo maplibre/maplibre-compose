@@ -115,7 +115,11 @@
     "config": { "workload": "camera", "scene": "points-1000" }
   },
   "animation-basemap": {
-    "title": "Camera animation",
+    "title": "Map animation",
+    "description": "Displayed map frames during an engine-driven basemap flight, with independent UI callback timing.",
+    "tracked": true,
+    "classic": true,
+    "platforms": ["android"],
     "config": { "workload": "animation", "scene": "basemap-sf" }
   },
   "paint-points": {

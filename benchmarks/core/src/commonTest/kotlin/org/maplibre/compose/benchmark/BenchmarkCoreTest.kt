@@ -243,8 +243,110 @@ class BenchmarkCoreTest {
     assertEquals(listOf(1.0 / 3.0), progress)
     assertEquals(1, clock.report().operations)
     assertEquals(3000.0, clock.report().durationMs)
-    // The interval between the first and second frame callbacks is the UI thread's pacing.
-    assertEquals(listOf(1000.0), clock.report().frameIntervalMs)
+    assertEquals(listOf(1000.0, 1000.0, 1000.0), clock.report().frameIntervalMs)
+  }
+
+  @Test
+  fun engineAnimationDoesNotDependOnUiCallbackFrequency() = runTest {
+    val config = BenchmarkConfig(scenario = BenchmarkScenario.Animation, durationMs = 3000)
+    val animations = mutableListOf<Long>()
+    val driver =
+      TimingDriver(
+        config,
+        nextFrame = {
+          delay(1000)
+          testScheduler.currentTime * 1_000_000
+        },
+        animation = { duration ->
+          animations += duration
+          delay(duration)
+        },
+      )
+    val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
+    driver.run(clock)
+    assertEquals(listOf(3000L), animations)
+    assertEquals(3, clock.report().frameIntervalMs.size)
+    assertEquals(3000.0, clock.report().durationMs)
+  }
+
+  @Test
+  fun callbackIntervalsIncludeInitialAndDeadlineCrossingWaits() = runTest {
+    for (waits in listOf(listOf(2000L, 500L, 500L), listOf(500L, 500L, 5000L))) {
+      var frame = 0
+      val clock =
+        BenchmarkWorkload(
+          3000,
+          {
+            delay(waits[frame++])
+            testScheduler.currentTime * 1_000_000
+          },
+          testScheduler.timeSource,
+        )
+      clock.frames {}
+      assertEquals(2000.0, clock.report().frameIntervalMs.max())
+      assertEquals(3000.0, clock.report().frameIntervalMs.sum())
+    }
+  }
+
+  @Test
+  fun delayedCallbacksKeepTheConfiguredFrameWindow() = runTest {
+    var collectedDuration: Long? = null
+    val frames =
+      object : BenchmarkUiFrames {
+        override fun start(durationMillis: Long?) {
+          collectedDuration = durationMillis
+        }
+
+        override suspend fun stop() {}
+      }
+    val failure =
+      measured(
+        BenchmarkHost(cpu = {}, collectGarbage = {}, uiFrames = frames),
+        frameDurationMillis = 3000,
+        measure = { _, start ->
+          start()
+          val clock =
+            BenchmarkWorkload(
+              3000,
+              {
+                delay(6000)
+                testScheduler.currentTime * 1_000_000
+              },
+              testScheduler.timeSource,
+            )
+          clock.frames {}
+          clock.report()
+        },
+        cleanup = {},
+      )
+    assertNull(failure)
+    assertEquals(6000L, testScheduler.currentTime)
+    assertEquals(3000L, collectedDuration)
+  }
+
+  @Test
+  fun animationCompletionDoesNotExtendTheMeasurement() = runTest {
+    val config = BenchmarkConfig(scenario = BenchmarkScenario.Animation, durationMs = 3000)
+    var stopped = false
+    val driver =
+      TimingDriver(
+        config,
+        nextFrame = {
+          delay(1000)
+          testScheduler.currentTime * 1_000_000
+        },
+        animation = { duration ->
+          try {
+            delay(duration * 3)
+          } finally {
+            stopped = true
+          }
+        },
+      )
+    val clock = BenchmarkWorkload(config.durationMs, driver.nextFrame, testScheduler.timeSource)
+    driver.run(clock)
+    assertTrue(stopped)
+    assertEquals(3000.0, clock.report().durationMs)
   }
 
   @Test
@@ -310,6 +412,7 @@ private class TimingDriver(
   private val action: (String) -> Unit = {},
   private val settle: suspend () -> Unit = {},
   private val awaitClose: suspend () -> Unit = {},
+  private val animation: suspend (Long) -> Unit = { error("Unused") },
 ) : BenchmarkDriver(PreparedBenchmarkFixture(config, emptyList(), emptyList()), nextFrame) {
   override suspend fun prepare(scope: CoroutineScope) = StartupReport(0.0, 0.0)
 
@@ -332,7 +435,7 @@ private class TimingDriver(
 
   override fun camera(value: BenchmarkCamera): Unit = error("Unused")
 
-  override suspend fun animate(value: BenchmarkCamera, durationMs: Long): Unit = error("Unused")
+  override suspend fun animate(value: BenchmarkCamera, durationMs: Long) = animation(durationMs)
 
   override fun style(index: Int): Deferred<Unit> = error("Unused")
 

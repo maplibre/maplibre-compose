@@ -15,6 +15,7 @@ from pathlib import Path
 
 from config import CASES, canonical_config
 from performance import analyze
+from presentation import MapPresentation
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
@@ -84,9 +85,11 @@ def call(*command):
     return subprocess.check_output(command, text=True).strip()
 
 
-def wait_for(path, process=None):
+def wait_for(path, process=None, poll=None):
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
+        if poll is not None:
+            poll()
         logs = path.read_text(errors="replace")
         if "MAP_BENCHMARK ERROR" in logs or "FATAL EXCEPTION" in logs:
             raise RuntimeError(f"Benchmark failed; inspect {path}")
@@ -110,6 +113,14 @@ def stop(process):
             process.wait()
 
 
+def captures_presentation(config):
+    parsed = json.loads(config)
+    return (
+        parsed.get("workload") == "animation"
+        and parsed.get("surface", "surface") == "surface"
+    )
+
+
 def android_launch_args(adb, config):
     # adb joins argv into a remote shell command, so JSON needs shell quoting.
     return [
@@ -121,10 +132,21 @@ def android_launch_args(adb, config):
         "--activity-clear-task",
         "-n",
         app_package(config) + "/.MainActivity",
+        "--ez",
+        "capturePresentation",
+        "true" if captures_presentation(config) else "false",
         "--es",
         "benchmark",
         shlex.quote(config),
     ]
+
+
+def android_presentation(adb, config):
+    return (
+        MapPresentation(adb, app_package(config))
+        if captures_presentation(config)
+        else None
+    )
 
 
 def android(args, output):
@@ -139,7 +161,15 @@ def android(args, output):
             logger = subprocess.Popen(
                 [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
             )
-            wait_for(output / "app.log")
+            presentation = android_presentation(adb, args.config)
+            wait_for(
+                output / "app.log",
+                poll=(lambda: presentation.poll_log(output / "app.log"))
+                if presentation
+                else None,
+            )
+            if presentation:
+                presentation.save(output)
     finally:
         if logger:
             stop(logger)

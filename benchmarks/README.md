@@ -31,7 +31,8 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 - Submission and completion latency, for workloads with a completion signal.
 - First close-call return and adapter cleanup completion for lifecycle
   workloads.
-- Frame intervals, and window frame timings on Android.
+- UI-thread callback intervals, and actual window frame timings on Android.
+- Displayed map FPS and frame gaps on Android during the engine animation.
 - Engine encoding and rendering time per frame.
 
 Use one device, viewport, and data set per comparison, keep the device idle and

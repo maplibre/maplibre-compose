@@ -75,7 +75,11 @@ class PublishTest(unittest.TestCase):
         # Map return is only hosted on the phones.
         self.assertEqual(
             [name for name, _, _ in desktop],
-            [name for name in cases_meta() if name != "map-return"],
+            [
+                name
+                for name in cases_meta()
+                if name not in {"map-return", "animation-basemap"}
+            ],
         )
         self.assertIn("map-return", [name for name, _, _ in android])
         tracked = {
@@ -131,6 +135,21 @@ class PublishTest(unittest.TestCase):
         self.assertIn("submit p50 ms", output)
         self.assertIn("close p50 ms", output)
         self.assertIn("cleanup p50 ms", output)
+
+    def test_summary_shows_displayed_map_measurements(self):
+        entry = {
+            "metrics": {
+                "map_fps": {"median": 120},
+                "map_frame_p95_ms": {"median": 8.4},
+                "map_frame_max_ms": {"median": 20},
+                "map_late_percent": {"median": 5},
+            }
+        }
+        output = table({"animation-basemap": {"compose": entry}})
+        for label in ("map FPS", "map p95 ms", "map max ms", "map late %"):
+            self.assertIn(label, output)
+        for value in ("120.00", "8.40", "20.00", "5.00"):
+            self.assertIn(value, output)
 
     def test_results_stay_local_unless_the_checkout_is_clean_and_on_main(self):
         cases = snapshot("c" * 40, "pixel", 100)["cases"]
