@@ -315,7 +315,7 @@ class MapQueryTest {
             "indicator",
             "visibility",
             JsonPrimitive("none"),
-            LayerPropertyKind.LAYOUT,
+            LayerPropertyKind.Layout,
           )
         }
         fixture.pumpUntil("hidden indicator") { indicatorHits().isEmpty() }
@@ -324,7 +324,7 @@ class MapQueryTest {
             "indicator",
             "visibility",
             JsonPrimitive("visible"),
-            LayerPropertyKind.LAYOUT,
+            LayerPropertyKind.Layout,
           )
         }
         fixture.pumpUntil("visible indicator") { indicatorHits().size == 1 }

@@ -280,9 +280,9 @@ internal class RecordingStyleBinding(
     layerPropertyWrites += layerId to name
     val section =
       when (kind) {
-        LayerPropertyKind.LAYOUT -> "layout"
-        LayerPropertyKind.PAINT -> "paint"
-        LayerPropertyKind.ROOT -> null
+        LayerPropertyKind.Layout -> "layout"
+        LayerPropertyKind.Paint -> "paint"
+        LayerPropertyKind.Root -> null
       }
     layers[layerId] =
       if (section == null) JsonObject(layer + (name to value))

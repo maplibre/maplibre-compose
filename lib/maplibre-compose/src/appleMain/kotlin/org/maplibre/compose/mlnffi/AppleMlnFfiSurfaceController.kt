@@ -39,7 +39,7 @@ internal class AppleMlnFfiSurfaceController(
   override val isClosed: Boolean
     get() = closeRequested
 
-  override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+  override val backends = RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
 
   private inner class QueuedAction(val runAtUptimeSeconds: Double, val action: () -> Unit) :
     ScheduledAction {

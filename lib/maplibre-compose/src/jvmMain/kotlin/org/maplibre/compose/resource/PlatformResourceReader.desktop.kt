@@ -18,7 +18,7 @@ private fun classify(error: Throwable): MlnFfiResourceReadFailure =
     // A jar whose backing file is missing arrives as `NoSuchFileException` rather than
     // `FileNotFoundException`.
     is FileNotFoundException,
-    is NoSuchFileException -> MlnFfiResourceReadFailure.NOT_FOUND
-    is URISyntaxException -> MlnFfiResourceReadFailure.INVALID_URL
-    else -> MlnFfiResourceReadFailure.UNREADABLE
+    is NoSuchFileException -> MlnFfiResourceReadFailure.NotFound
+    is URISyntaxException -> MlnFfiResourceReadFailure.InvalidUrl
+    else -> MlnFfiResourceReadFailure.Unreadable
   }

@@ -101,7 +101,7 @@ public fun ZoomButtons(
   var inFlight by remember { mutableStateOf<InFlightZoom?>(null) }
   LaunchedEffect(currentMapState.isCameraMoving, currentMapState.cameraMoveReason) {
     if (
-      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
+      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.Gesture
     ) {
       inFlight = null
     }

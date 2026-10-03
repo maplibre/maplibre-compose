@@ -32,18 +32,18 @@ public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.(
 
 /** Arbitrates cancellation against the start of one queued platform-map action. */
 internal class PlatformMapInvocation<T>(private val continuation: CancellableContinuation<T>) {
-  private val state = AtomicReference(PlatformMapInvocationState.QUEUED)
+  private val state = AtomicReference(PlatformMapInvocationState.Queued)
 
   val isQueued: Boolean
-    get() = state.load() == PlatformMapInvocationState.QUEUED
+    get() = state.load() == PlatformMapInvocationState.Queued
 
   fun cancel() {
-    state.compareAndSet(PlatformMapInvocationState.QUEUED, PlatformMapInvocationState.CANCELLED)
+    state.compareAndSet(PlatformMapInvocationState.Queued, PlatformMapInvocationState.Cancelled)
   }
 
   fun execute(block: () -> T) {
     if (
-      !state.compareAndSet(PlatformMapInvocationState.QUEUED, PlatformMapInvocationState.RUNNING)
+      !state.compareAndSet(PlatformMapInvocationState.Queued, PlatformMapInvocationState.Running)
     ) {
       return
     }
@@ -78,7 +78,7 @@ internal class PlatformMapInvocation<T>(private val continuation: CancellableCon
 }
 
 private enum class PlatformMapInvocationState {
-  QUEUED,
-  RUNNING,
-  CANCELLED,
+  Queued,
+  Running,
+  Cancelled,
 }

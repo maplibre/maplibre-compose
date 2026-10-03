@@ -554,7 +554,7 @@ internal constructor(
   private var viewportState: Viewport? by mutableStateOf(null)
   private var gestureActiveState: Boolean by mutableStateOf(false)
   private var activeCameraChanges: Int by mutableIntStateOf(0)
-  private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
+  private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.None)
   private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
     get() = validState
@@ -703,7 +703,7 @@ internal constructor(
    */
   internal fun setGestureActive(active: Boolean) {
     gestureActiveState = active
-    if (active) moveReasonState = CameraMoveReason.GESTURE
+    if (active) moveReasonState = CameraMoveReason.Gesture
   }
 
   internal fun setEngaged(engaged: Boolean) {
@@ -712,7 +712,7 @@ internal constructor(
 
   internal fun cameraChangeStarted() {
     activeCameraChanges++
-    if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
+    if (!gestureActiveState) moveReasonState = CameraMoveReason.Programmatic
   }
 
   internal fun cameraChangeEnded() {
@@ -865,11 +865,11 @@ internal constructor(
     get() = currentMapAttachment?.isCameraMoving == true
 
   /**
-   * Contains what started the most recent camera movement, or [CameraMoveReason.NONE] while
+   * Contains what started the most recent camera movement, or [CameraMoveReason.None] while
    * detached and before the first movement. The value stays after the movement ends.
    */
   public val cameraMoveReason: CameraMoveReason
-    get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
+    get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.None
 
   /**
    * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
@@ -1160,7 +1160,7 @@ internal constructor(
    *
    * [panBy], [scaleBy], [fling], and [click] pass gestures that your code recognized. They follow
    * the camera permissions and callbacks in [org.maplibre.compose.interaction.MapInteractions],
-   * interrupt a camera animation in progress, and report [CameraMoveReason.GESTURE]. They do
+   * interrupt a camera animation in progress, and report [CameraMoveReason.Gesture]. They do
    * nothing while no map is presented.
    */
   public fun panBy(delta: DpOffset) {

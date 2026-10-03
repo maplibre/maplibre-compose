@@ -8,8 +8,8 @@ import kotlin.test.assertNull
 class RenderBackendNegotiationTest {
   private val openGlPresentationHostBridges =
     listOf(
-      RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL),
-      RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
+      RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl),
+      RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl),
     )
 
   private fun selected(runtimeBackends: Set<MapRenderBackend>): RenderBackendPair? =
@@ -26,31 +26,31 @@ class RenderBackendNegotiationTest {
 
   @Test
   fun selects_the_first_bridge_the_runtime_drives() {
-    assertEquals(openGlPresentationHostBridges[0], selected(setOf(MapRenderBackend.OPENGL)))
+    assertEquals(openGlPresentationHostBridges[0], selected(setOf(MapRenderBackend.OpenGl)))
   }
 
   @Test
   fun falls_back_to_a_later_bridge_when_the_runtime_does_not_drive_the_first() {
-    assertEquals(openGlPresentationHostBridges[1], selected(setOf(MapRenderBackend.VULKAN)))
+    assertEquals(openGlPresentationHostBridges[1], selected(setOf(MapRenderBackend.Vulkan)))
   }
 
   @Test
   fun selects_among_extra_backends_the_runtime_provides() {
     assertEquals(
       openGlPresentationHostBridges[1],
-      selected(setOf(MapRenderBackend.VULKAN, MapRenderBackend.METAL)),
+      selected(setOf(MapRenderBackend.Vulkan, MapRenderBackend.Metal)),
     )
   }
 
   @Test
   fun selects_nothing_when_the_runtime_drives_no_bridge() {
-    assertNull(selected(setOf(MapRenderBackend.METAL)))
+    assertNull(selected(setOf(MapRenderBackend.Metal)))
     assertNull(selected(emptySet()))
   }
 
   @Test
   fun accepts_a_presentation_host_bridge_whose_producer_is_packaged() {
-    assertNull(diagnostic(setOf(MapRenderBackend.VULKAN)))
+    assertNull(diagnostic(setOf(MapRenderBackend.Vulkan)))
   }
 
   @Test
@@ -62,10 +62,10 @@ class RenderBackendNegotiationTest {
 
   @Test
   fun reports_an_unbridgeable_runtime_backend() {
-    val message = checkNotNull(diagnostic(setOf(MapRenderBackend.METAL)))
-    assertContains(message, "METAL")
-    assertContains(message, "OPENGL -> OPENGL")
-    assertContains(message, "VULKAN -> OPENGL")
+    val message = checkNotNull(diagnostic(setOf(MapRenderBackend.Metal)))
+    assertContains(message, "Metal")
+    assertContains(message, "OpenGl -> OpenGl")
+    assertContains(message, "Vulkan -> OpenGl")
     assertContains(message, "operating system: Linux (amd64)")
     assertContains(message, "Compose host: fake presentation host")
     assertContains(

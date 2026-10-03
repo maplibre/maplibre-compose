@@ -17,7 +17,7 @@ internal class FakeSnapshotterAdapter(
     FakeImageBitmap(request.width, request.height)
   },
   private val cancel: suspend () -> SnapshotterEngineDisposition = {
-    SnapshotterEngineDisposition.RETAINED
+    SnapshotterEngineDisposition.Retained
   },
   private val close: suspend () -> Unit = {},
 ) : SnapshotterAdapter {

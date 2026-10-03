@@ -68,7 +68,7 @@ class MlnFfiGestureTokenOrderingTest {
               abs(camera.target.latitude - start.target.latitude) > MIN_DELTA_DEGREES,
             "only the current owner's delta should reach the camera: $start then $camera",
           )
-          assertEquals(CameraMoveReason.GESTURE, fixture.state.cameraMoveReason)
+          assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
           assertFalse(fixture.state.isCameraMoving)
 
           val gestures = fixture.events.filter { it.startsWith("gesture(") }

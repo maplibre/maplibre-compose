@@ -26,14 +26,14 @@ class CameraMoveReportingTest {
         it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
         it.pump(FRAMES_PER_SAMPLE)
         assertTrue(it.state.isCameraMoving, "the drag ended at sample $sample")
-        assertEquals(CameraMoveReason.GESTURE, it.state.cameraMoveReason)
+        assertEquals(CameraMoveReason.Gesture, it.state.cameraMoveReason)
       }
       it.settle()
       it.gestures.onGestureEnded(token)
       it.pump(FRAMES_PER_SAMPLE)
 
       assertFalse(it.state.isCameraMoving)
-      assertEquals(CameraMoveReason.GESTURE, it.state.cameraMoveReason)
+      assertEquals(CameraMoveReason.Gesture, it.state.cameraMoveReason)
     }
   }
 
@@ -46,7 +46,7 @@ class CameraMoveReportingTest {
       it.pump(FRAMES_PER_SAMPLE)
 
       assertFalse(it.state.isCameraMoving)
-      assertEquals(CameraMoveReason.PROGRAMMATIC, it.state.cameraMoveReason)
+      assertEquals(CameraMoveReason.Programmatic, it.state.cameraMoveReason)
     }
   }
 

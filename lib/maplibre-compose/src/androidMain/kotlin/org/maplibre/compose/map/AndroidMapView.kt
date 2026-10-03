@@ -17,7 +17,7 @@ internal actual fun rememberComposeMapPresentation(
   val logger = state.runtime.logger
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val renderBackend =
-    remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
+    remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OpenGl }
   val renderMode = options.uiOptions.renderMode
   return key(renderMode, renderBackend) {
     rememberMlnFfiComposeMapPresentation(

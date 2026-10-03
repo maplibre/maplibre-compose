@@ -42,7 +42,7 @@ class AppleMlnFfiSurfaceControllerTest {
     var failure: Throwable? = null
     val renderer =
       object : MlnFfiMapRenderer {
-        override val backend = MapRenderBackend.METAL
+        override val backend = MapRenderBackend.Metal
 
         override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
           throw expected
@@ -80,7 +80,7 @@ class AppleMlnFfiSurfaceControllerTest {
     var releases = 0
     val renderer =
       object : MlnFfiMapRenderer {
-        override val backend = MapRenderBackend.METAL
+        override val backend = MapRenderBackend.Metal
 
         override fun render(
           host: MlnFfiMapHostSession,
@@ -126,7 +126,7 @@ class AppleMlnFfiSurfaceControllerTest {
     val expected = IllegalStateException("renderer release failed")
     val renderer =
       object : MlnFfiMapRenderer {
-        override val backend = MapRenderBackend.METAL
+        override val backend = MapRenderBackend.Metal
 
         override fun render(
           host: MlnFfiMapHostSession,
@@ -233,7 +233,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
   /** Renders successfully unless a test queued [nextError]; never touches the layer. */
   private class ScriptedRenderer : MlnFfiMapRenderer {
-    override val backend = MapRenderBackend.METAL
+    override val backend = MapRenderBackend.Metal
     var layer: CAMetalLayer? = null
     var nextError: Throwable? = null
     var attachments = 0
@@ -265,7 +265,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
   private class RecordingRenderer : MlnFfiMapRenderer {
     val events = mutableListOf<String>()
-    override val backend = MapRenderBackend.METAL
+    override val backend = MapRenderBackend.Metal
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       events += "available"

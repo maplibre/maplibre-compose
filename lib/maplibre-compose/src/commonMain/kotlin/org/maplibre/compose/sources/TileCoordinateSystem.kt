@@ -6,7 +6,7 @@ public enum class TileCoordinateSystem {
    *
    * This tile coordinate system is used by Mapbox and OpenStreetMap tile servers.
    */
-  XYZ,
+  Xyz,
 
   /**
    * The origin is at the bottom-left (southwest), and y values increase northwards.
@@ -14,5 +14,5 @@ public enum class TileCoordinateSystem {
    * This tile coordinate system is used by tile servers that conform to the Tile Map Service
    * Specification.
    */
-  TMS,
+  Tms,
 }

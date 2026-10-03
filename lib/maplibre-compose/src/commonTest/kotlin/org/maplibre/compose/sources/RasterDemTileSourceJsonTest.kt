@@ -20,7 +20,7 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
           id = "dem",
           tiles = listOf(TILE_TEMPLATE),
-          options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
+          options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.Tms),
           demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
         )
         .toJson()
@@ -86,7 +86,7 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
-        options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.XYZ),
+        options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.Xyz),
       )
 
     SourceInstallation(binding, source.definition())
@@ -101,13 +101,13 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
-        options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
+        options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.Tms),
       )
 
     val error =
       assertFailsWith<IllegalStateException> { SourceInstallation(binding, source.definition()) }
 
-    assertContains(error.message.orEmpty(), "TileCoordinateSystem.XYZ")
+    assertContains(error.message.orEmpty(), "TileCoordinateSystem.Xyz")
     assertFalse("dem" in binding.sources)
   }
 

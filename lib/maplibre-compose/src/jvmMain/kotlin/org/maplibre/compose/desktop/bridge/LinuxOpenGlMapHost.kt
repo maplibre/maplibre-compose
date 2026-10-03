@@ -57,11 +57,11 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 /** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
 internal class LinuxOpenGlMapHost(
   presentationHost: ComposeMapPresentationHost,
-  producer: MapRenderBackend = MapRenderBackend.VULKAN,
+  producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<OpenGlComposeGpuContext, LinuxOpenGlMapHost.LinuxSharedTexture>(
     presentationHost,
-    RenderBackendPair(producer, ComposeRenderBackend.OPENGL),
+    RenderBackendPair(producer, ComposeRenderBackend.OpenGl),
     "maplibre-linux-map-renderer",
   ) {
   private val presenter = SkiaTexturePresenter(OpenGlTextureWrapper.Native)
@@ -87,7 +87,7 @@ internal class LinuxOpenGlMapHost(
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
   override fun waitForProducers() {
-    if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
+    if (producer == MapRenderBackend.OpenGl) egl?.waitIdle() else vulkan?.waitIdle()
   }
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
@@ -167,7 +167,7 @@ internal class LinuxOpenGlMapHost(
     val context =
       vulkan ?: VulkanDevice.forOpenGlDevices(currentOpenGlDeviceUuids()).also { vulkan = it }
     val producerContext =
-      if (producer == MapRenderBackend.OPENGL) {
+      if (producer == MapRenderBackend.OpenGl) {
         egl
           ?: run {
             val deviceUuid = vulkanDeviceUuid(context.physicalDevice)
@@ -187,7 +187,7 @@ internal class LinuxOpenGlMapHost(
             newExported.exportFd(),
             newExported.memorySize,
             extent,
-            TextureOrigin.BOTTOM_LEFT,
+            TextureOrigin.BottomLeft,
           )
         }
       }
@@ -196,7 +196,7 @@ internal class LinuxOpenGlMapHost(
           newExported.exportFd(),
           newExported.memorySize,
           extent,
-          if (producerContext != null) TextureOrigin.BOTTOM_LEFT else TextureOrigin.TOP_LEFT,
+          if (producerContext != null) TextureOrigin.BottomLeft else TextureOrigin.TopLeft,
         )
       textures.replaceCurrent(LinuxSharedTexture(extent, newExported, newImported, producerImport))
     } catch (error: RuntimeException) {
@@ -401,7 +401,7 @@ private constructor(
       fd: Int,
       memorySize: Long,
       extent: MapExtent,
-      origin: TextureOrigin = TextureOrigin.TOP_LEFT,
+      origin: TextureOrigin = TextureOrigin.TopLeft,
     ): LinuxOpenGlImportedTexture {
       val imported = LinuxOpenGlImportedTexture(fd, memorySize, extent, origin)
       try {

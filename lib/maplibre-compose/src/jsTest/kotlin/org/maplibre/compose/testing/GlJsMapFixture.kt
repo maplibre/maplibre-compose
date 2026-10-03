@@ -195,7 +195,7 @@ internal actual fun createMapFixture(extent: MapExtent): MapFixture {
   return GlJsMapFixture(extent)
 }
 
-internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS
+internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GlJs
 
 /**
  * `Promise` without its parameter: an `expect class` cannot be actualized by a parameterized one.

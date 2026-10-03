@@ -25,10 +25,9 @@ open annotation class org.maplibre.compose.util/MaplibreComposable : kotlin/Anno
 }
 
 final enum class org.maplibre.compose.camera/CameraMoveReason : kotlin/Enum<org.maplibre.compose.camera/CameraMoveReason> { // org.maplibre.compose.camera/CameraMoveReason|null[0]
-    enum entry GESTURE // org.maplibre.compose.camera/CameraMoveReason.GESTURE|null[0]
-    enum entry NONE // org.maplibre.compose.camera/CameraMoveReason.NONE|null[0]
-    enum entry PROGRAMMATIC // org.maplibre.compose.camera/CameraMoveReason.PROGRAMMATIC|null[0]
-    enum entry UNKNOWN // org.maplibre.compose.camera/CameraMoveReason.UNKNOWN|null[0]
+    enum entry Gesture // org.maplibre.compose.camera/CameraMoveReason.Gesture|null[0]
+    enum entry None // org.maplibre.compose.camera/CameraMoveReason.None|null[0]
+    enum entry Programmatic // org.maplibre.compose.camera/CameraMoveReason.Programmatic|null[0]
 
     final val entries // org.maplibre.compose.camera/CameraMoveReason.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.camera/CameraMoveReason> // org.maplibre.compose.camera/CameraMoveReason.entries.<get-entries>|<get-entries>#static(){}[0]
@@ -516,11 +515,11 @@ final enum class org.maplibre.compose.interaction/TapResponse : kotlin/Enum<org.
 }
 
 final enum class org.maplibre.compose.location/BearingUpdate : kotlin/Enum<org.maplibre.compose.location/BearingUpdate> { // org.maplibre.compose.location/BearingUpdate|null[0]
-    enum entry ALWAYS_NORTH // org.maplibre.compose.location/BearingUpdate.ALWAYS_NORTH|null[0]
-    enum entry IGNORE // org.maplibre.compose.location/BearingUpdate.IGNORE|null[0]
-    enum entry TRACK_AUTOMATIC // org.maplibre.compose.location/BearingUpdate.TRACK_AUTOMATIC|null[0]
-    enum entry TRACK_COURSE // org.maplibre.compose.location/BearingUpdate.TRACK_COURSE|null[0]
-    enum entry TRACK_HEADING // org.maplibre.compose.location/BearingUpdate.TRACK_HEADING|null[0]
+    enum entry AlwaysNorth // org.maplibre.compose.location/BearingUpdate.AlwaysNorth|null[0]
+    enum entry Ignore // org.maplibre.compose.location/BearingUpdate.Ignore|null[0]
+    enum entry TrackAutomatic // org.maplibre.compose.location/BearingUpdate.TrackAutomatic|null[0]
+    enum entry TrackCourse // org.maplibre.compose.location/BearingUpdate.TrackCourse|null[0]
+    enum entry TrackHeading // org.maplibre.compose.location/BearingUpdate.TrackHeading|null[0]
 
     final val entries // org.maplibre.compose.location/BearingUpdate.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/BearingUpdate> // org.maplibre.compose.location/BearingUpdate.entries.<get-entries>|<get-entries>#static(){}[0]
@@ -598,8 +597,8 @@ final enum class org.maplibre.compose.resource/MapResourceKind : kotlin/Enum<org
 }
 
 final enum class org.maplibre.compose.sources/TileCoordinateSystem : kotlin/Enum<org.maplibre.compose.sources/TileCoordinateSystem> { // org.maplibre.compose.sources/TileCoordinateSystem|null[0]
-    enum entry TMS // org.maplibre.compose.sources/TileCoordinateSystem.TMS|null[0]
-    enum entry XYZ // org.maplibre.compose.sources/TileCoordinateSystem.XYZ|null[0]
+    enum entry Tms // org.maplibre.compose.sources/TileCoordinateSystem.Tms|null[0]
+    enum entry Xyz // org.maplibre.compose.sources/TileCoordinateSystem.Xyz|null[0]
 
     final val entries // org.maplibre.compose.sources/TileCoordinateSystem.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.sources/TileCoordinateSystem> // org.maplibre.compose.sources/TileCoordinateSystem.entries.<get-entries>|<get-entries>#static(){}[0]
@@ -4717,9 +4716,9 @@ final enum class org.maplibre.compose.map/TileLodMode : kotlin/Enum<org.maplibre
 
 // Targets: [apple]
 final enum class org.maplibre.compose.mlnffi/ComposeRenderBackend : kotlin/Enum<org.maplibre.compose.mlnffi/ComposeRenderBackend> { // org.maplibre.compose.mlnffi/ComposeRenderBackend|null[0]
-    enum entry DIRECT3D12 // org.maplibre.compose.mlnffi/ComposeRenderBackend.DIRECT3D12|null[0]
-    enum entry METAL // org.maplibre.compose.mlnffi/ComposeRenderBackend.METAL|null[0]
-    enum entry OPENGL // org.maplibre.compose.mlnffi/ComposeRenderBackend.OPENGL|null[0]
+    enum entry Direct3D12 // org.maplibre.compose.mlnffi/ComposeRenderBackend.Direct3D12|null[0]
+    enum entry Metal // org.maplibre.compose.mlnffi/ComposeRenderBackend.Metal|null[0]
+    enum entry OpenGl // org.maplibre.compose.mlnffi/ComposeRenderBackend.OpenGl|null[0]
 
     final val entries // org.maplibre.compose.mlnffi/ComposeRenderBackend.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.mlnffi/ComposeRenderBackend> // org.maplibre.compose.mlnffi/ComposeRenderBackend.entries.<get-entries>|<get-entries>#static(){}[0]

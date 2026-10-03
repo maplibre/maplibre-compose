@@ -38,7 +38,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
   private var extent = MapExtent.Empty
   private var generation = 0L
 
-  override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+  override val backends = RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
 
   override fun <T> withRendererAccess(action: () -> T): T = action()
 
@@ -54,7 +54,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
           MetalTextureTarget(
             texture = NativeHandle(texture.rawAddress()),
             pixelFormat = MTLPixelFormatBGRA8Unorm.toLong(),
-            origin = TextureOrigin.TOP_LEFT,
+            origin = TextureOrigin.TopLeft,
             extent = extent,
             generation = generation,
           )

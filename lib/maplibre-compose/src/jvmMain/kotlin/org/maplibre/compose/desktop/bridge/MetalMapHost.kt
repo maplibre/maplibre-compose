@@ -21,11 +21,11 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 /** All map producers share Metal allocation, presentation, and frame ownership. */
 internal class MetalMapHost(
   presentationHost: ComposeMapPresentationHost,
-  producer: MapRenderBackend = MapRenderBackend.METAL,
+  producer: MapRenderBackend = MapRenderBackend.Metal,
 ) :
   SharedTextureMapHost<MetalComposeGpuContext, MetalMapHost.SharedTexture>(
     presentationHost,
-    RenderBackendPair(producer, ComposeRenderBackend.METAL),
+    RenderBackendPair(producer, ComposeRenderBackend.Metal),
     "maplibre-metal-host-renderer",
   ) {
   private val presenter = SkiaTexturePresenter(MetalTextureWrapper)
@@ -63,20 +63,20 @@ internal class MetalMapHost(
       MetalTextureTarget(
         texture,
         MetalTexture.pixelFormat(texture.address),
-        if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
-        else TextureOrigin.TOP_LEFT,
+        if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft
+        else TextureOrigin.TopLeft,
         extent,
         generation,
       )
     try {
       return when (producer) {
-        MapRenderBackend.METAL -> SharedTexture(presentation, presentation) {}
-        MapRenderBackend.VULKAN -> {
+        MapRenderBackend.Metal -> SharedTexture(presentation, presentation) {}
+        MapRenderBackend.Vulkan -> {
           val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
           val imported = context.importMetalTexture(texture, extent)
           SharedTexture(imported.target(generation), presentation, imported::close)
         }
-        MapRenderBackend.OPENGL -> {
+        MapRenderBackend.OpenGl -> {
           val context = angle ?: DesktopEglContext.create(device.address).also { angle = it }
           val imported = context.createImportedTexture(texture, extent)
           SharedTexture(imported.target(generation), presentation, imported::close)

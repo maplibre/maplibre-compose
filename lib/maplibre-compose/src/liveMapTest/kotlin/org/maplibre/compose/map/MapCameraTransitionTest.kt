@@ -482,7 +482,7 @@ class MapCameraTransitionTest {
 
       // The engine uses wall time: a slow renderer can miss any intermediate camera position.
       // Native reports whether the move was animated; GL JS does not expose this distinction.
-      if (mapLibreFlavor == MapLibreFlavor.NATIVE) {
+      if (mapLibreFlavor == MapLibreFlavor.Native) {
         assertTrue(
           it.engineEvents.any { event -> event == MapEvent.CameraMoveStarted(animated = true) },
           "the speed-paced flight was not animated: ${it.engineEvents}",

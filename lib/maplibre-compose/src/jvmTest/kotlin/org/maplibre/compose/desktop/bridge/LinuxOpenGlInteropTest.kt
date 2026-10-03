@@ -204,8 +204,8 @@ class LinuxOpenGlInteropTest {
 
   private fun packagedProducer(): MapRenderBackend =
     when (val backend = Maplibre.supportedRenderBackends().single()) {
-      RenderBackend.OPENGL -> MapRenderBackend.OPENGL
-      RenderBackend.VULKAN -> MapRenderBackend.VULKAN
+      RenderBackend.OPENGL -> MapRenderBackend.OpenGl
+      RenderBackend.VULKAN -> MapRenderBackend.Vulkan
       else -> error("No Linux OpenGL bridge for $backend")
     }
 
@@ -221,7 +221,7 @@ class LinuxOpenGlInteropTest {
     private var context = egl.asComposeContext()
 
     override val description: String = "the test EGL OpenGL context"
-    override val backend: ComposeRenderBackend = ComposeRenderBackend.OPENGL
+    override val backend: ComposeRenderBackend = ComposeRenderBackend.OpenGl
 
     override fun gpuContext(): ComposeGpuContext = context
 

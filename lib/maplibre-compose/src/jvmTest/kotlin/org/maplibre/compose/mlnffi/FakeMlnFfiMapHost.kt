@@ -10,7 +10,7 @@ import org.maplibre.compose.map.MapExtent
  */
 internal class FakeMlnFfiMapHost(
   override val backends: RenderBackendPair =
-    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+    RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl)
 ) : MlnFfiMapHost {
 
   data class DrawRecord(
@@ -24,10 +24,10 @@ internal class FakeMlnFfiMapHost(
   )
 
   enum class AcquireOutcome {
-    ACQUIRED,
-    NOT_READY,
-    FAILURE,
-    UNEXPECTED_FAILURE,
+    Acquired,
+    NotReady,
+    Failure,
+    UnexpectedFailure,
   }
 
   /** Optional deterministic outcome script, consumed before the counter-based controls below. */
@@ -90,15 +90,15 @@ internal class FakeMlnFfiMapHost(
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
     acquireCount++
     when (acquireOutcomes.removeFirstOrNull()) {
-      AcquireOutcome.NOT_READY -> return MlnFfiMapFrameAcquisition.NotReady
-      AcquireOutcome.FAILURE ->
+      AcquireOutcome.NotReady -> return MlnFfiMapFrameAcquisition.NotReady
+      AcquireOutcome.Failure ->
         throw MlnFfiRecoverableFrameException(
           "fake host lost its device and cannot acquire frame $acquireCount",
           null,
         )
-      AcquireOutcome.UNEXPECTED_FAILURE ->
+      AcquireOutcome.UnexpectedFailure ->
         throw IllegalStateException("fake host has a programming error on frame $acquireCount")
-      AcquireOutcome.ACQUIRED,
+      AcquireOutcome.Acquired,
       null -> Unit
     }
     if (notReadyAcquires > 0) {
@@ -181,7 +181,7 @@ internal class FakeMlnFfiMapHost(
 /** A [MlnFfiMapHostFactory] producing [FakeMlnFfiMapHost]s. */
 internal class FakeMlnFfiMapHostFactory(
   private val bridge: RenderBackendPair =
-    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
+    RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl),
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> MlnFfiMapHostResult)? = null,
   /** Configures failures before the draw pass acquires the new host's first frame. */

@@ -23,7 +23,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
   private val cameraObserver = scope.launch {
     snapshotFlow { state.cameraMoveReason }
       .collect { reason ->
-        if (reason == CameraMoveReason.GESTURE) inFlightZoom = null
+        if (reason == CameraMoveReason.Gesture) inFlightZoom = null
       }
   }
 

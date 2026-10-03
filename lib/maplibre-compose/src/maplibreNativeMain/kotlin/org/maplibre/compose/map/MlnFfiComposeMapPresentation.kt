@@ -80,8 +80,8 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
  */
 private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   when (this) {
-    RenderBackend.METAL -> MapRenderBackend.METAL
-    RenderBackend.VULKAN -> MapRenderBackend.VULKAN
-    RenderBackend.OPENGL -> MapRenderBackend.OPENGL
+    RenderBackend.METAL -> MapRenderBackend.Metal
+    RenderBackend.VULKAN -> MapRenderBackend.Vulkan
+    RenderBackend.OPENGL -> MapRenderBackend.OpenGl
     RenderBackend.WEBGPU -> null
   }

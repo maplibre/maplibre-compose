@@ -523,10 +523,10 @@ class MlnFfiMapSurfaceRecoveryTest {
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
           repeat(MAX_RECOVERY_ATTEMPTS) {
-            host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.FAILURE
-            host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.NOT_READY
+            host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.Failure
+            host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.NotReady
           }
-          host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.FAILURE
+          host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.Failure
         }
       )
 
@@ -636,7 +636,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory =
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
-          host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.UNEXPECTED_FAILURE
+          host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.UnexpectedFailure
         }
       )
 
@@ -701,7 +701,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     private var additionalFrameRequests: Int = 0,
     private var failingSurfaceLosses: Int = 0,
   ) : MlnFfiMapRenderer {
-    override val backend: MapRenderBackend = MapRenderBackend.VULKAN
+    override val backend: MapRenderBackend = MapRenderBackend.Vulkan
     val lifecycle: MutableList<String> = mutableListOf()
     val renderTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
     val surfaceChanges: MutableList<MapExtent> = mutableListOf()

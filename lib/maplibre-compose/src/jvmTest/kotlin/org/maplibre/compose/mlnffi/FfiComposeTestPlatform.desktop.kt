@@ -100,9 +100,9 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   override val bridges: List<RenderBackendPair> =
     listOf(
       when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
-        RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
-        RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
-        RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OPENGL, composeBackend())
+        RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
+        RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.Vulkan, composeBackend())
+        RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OpenGl, composeBackend())
         else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
       }
     )

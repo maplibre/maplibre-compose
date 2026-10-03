@@ -146,8 +146,8 @@ internal suspend fun MapFixture.declare(
 }
 
 internal enum class MapLibreFlavor {
-  NATIVE,
-  GL_JS,
+  Native,
+  GlJs,
 }
 
 internal expect val mapLibreFlavor: MapLibreFlavor

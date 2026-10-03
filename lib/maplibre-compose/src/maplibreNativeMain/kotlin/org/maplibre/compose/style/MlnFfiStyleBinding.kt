@@ -804,9 +804,9 @@ internal open class MlnFfiStyleBinding(
   ) {
     mutateMap { map ->
       when {
-        kind == LayerPropertyKind.ROOT && name == "filter" ->
+        kind == LayerPropertyKind.Root && name == "filter" ->
           map.setLayerFilter(layerId, value.toJsonBytes())
-        kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+        kind != LayerPropertyKind.Root -> map.setLayerProperty(layerId, name, value.toJsonBytes())
         name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
         name == "source-layer" ->
           map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))

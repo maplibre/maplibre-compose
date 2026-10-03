@@ -14,9 +14,9 @@ internal interface AndroidMapGraphicsContext : AutoCloseable {
   companion object {
     fun create(backend: MapRenderBackend, surface: Surface): AndroidMapGraphicsContext =
       when (backend) {
-        MapRenderBackend.OPENGL -> AndroidEglContext.create(surface)
-        MapRenderBackend.VULKAN -> AndroidVulkanContext.create(surface)
-        MapRenderBackend.METAL -> error("Metal is not an Android render backend")
+        MapRenderBackend.OpenGl -> AndroidEglContext.create(surface)
+        MapRenderBackend.Vulkan -> AndroidVulkanContext.create(surface)
+        MapRenderBackend.Metal -> error("Metal is not an Android render backend")
       }
   }
 }

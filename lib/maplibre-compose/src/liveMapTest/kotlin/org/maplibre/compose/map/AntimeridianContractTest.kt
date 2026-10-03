@@ -72,8 +72,8 @@ class AntimeridianContractTest {
 
       val target = it.session.getCameraPosition().target
       when (mapLibreFlavor) {
-        MapLibreFlavor.NATIVE -> assertEquals(179.5, target.longitude, 0.01)
-        MapLibreFlavor.GL_JS -> assertEquals(539.5, target.longitude, 0.01)
+        MapLibreFlavor.Native -> assertEquals(179.5, target.longitude, 0.01)
+        MapLibreFlavor.GlJs -> assertEquals(539.5, target.longitude, 0.01)
       }
       // Either way, the visible bounds stay continuous around the camera's world copy.
       val bounds = assertNotNull(it.state.getVisibleBounds())

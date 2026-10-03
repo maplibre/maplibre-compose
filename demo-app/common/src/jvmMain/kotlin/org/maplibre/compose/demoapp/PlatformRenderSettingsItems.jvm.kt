@@ -31,12 +31,12 @@ actual fun PlatformRenderSettingsItems(settings: DemoSettings) {
   val host = LocalComposeMapPresentationHost.current
   val composeBackend =
     when (host.backend) {
-      ComposeRenderBackend.METAL -> "Metal"
-      ComposeRenderBackend.DIRECT3D12 -> "Direct3D 12"
-      ComposeRenderBackend.OPENGL ->
+      ComposeRenderBackend.Metal -> "Metal"
+      ComposeRenderBackend.Direct3D12 -> "Direct3D 12"
+      ComposeRenderBackend.OpenGl ->
         when (host.openGlInterop) {
-          OpenGlInterop.NATIVE -> "OpenGL"
-          OpenGlInterop.ANGLE_D3D11 -> "ANGLE / Direct3D 11"
+          OpenGlInterop.Native -> "OpenGL"
+          OpenGlInterop.AngleD3D11 -> "ANGLE / Direct3D 11"
         }
     }
   ListItem(

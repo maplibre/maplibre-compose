@@ -103,8 +103,8 @@ internal class SnapshotPreparation(val binding: StyleBinding, val viewport: View
 
 /** Whether cancellation left the snapshotter engine and its loaded style available for reuse. */
 internal enum class SnapshotterEngineDisposition {
-  RETAINED,
-  RELEASED,
+  Retained,
+  Released,
 }
 
 internal fun unsupportedSnapshots(): Nothing =

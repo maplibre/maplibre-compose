@@ -108,11 +108,11 @@ internal fun rasterDemSourceJson(
 ): JsonObject {
   if (
     !capabilities.supportsRasterDemScheme &&
-      options.tileCoordinateSystem != TileCoordinateSystem.XYZ
+      options.tileCoordinateSystem != TileCoordinateSystem.Xyz
   ) {
     throw StyleMutationException(
       "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
-        "TileCoordinateSystem.XYZ",
+        "TileCoordinateSystem.Xyz",
       null,
     )
   }

@@ -32,11 +32,11 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   actual companion object {
     actual fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan? =
       when {
-        MapRenderBackend.VULKAN in backends ->
+        MapRenderBackend.Vulkan in backends ->
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(VulkanDelegate(AndroidVulkanOffscreenContext.create()))
           }
-        MapRenderBackend.OPENGL in backends ->
+        MapRenderBackend.OpenGl in backends ->
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(OpenGlDelegate.create())
           }
