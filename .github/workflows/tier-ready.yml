@@ -1,6 +1,6 @@
 name: ready tier
 
-# The jobs whose variants the ready tier introduces, per ci/jobs.json. The
+# The jobs assigned to the ready tier, per ci/jobs.json. The
 # caller skips this workflow as a unit when the tier is not required, so a
 # pull request never shows individual jobs skipped.
 on:
@@ -16,10 +16,6 @@ on:
         required: true
       ios:
         description: The ios job's matrix.
-        type: string
-        required: true
-      macos-native:
-        description: The macOS Native job matrix.
         type: string
         required: true
       desktop:
@@ -41,11 +37,48 @@ jobs:
       secrets-available: ${{ inputs.secrets-available }}
     secrets: inherit
   macos-native:
-    uses: ./.github/workflows/job-macos-native.yml
-    with:
-      matrix: ${{ inputs.macos-native }}
-      secrets-available: ${{ inputs.secrets-available }}
-    secrets: inherit
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "false"
+          native-cache-scope: macos-native
+      - id: macos-native-tests
+        run: mise run test:macos
+      - name: Upload macOS Native test results to Trunk
+        if: ${{ !cancelled() && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
+        with:
+          junit-paths: "**/build/test-results/macosArm64Test/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: macos-native-arm64
+          previous-step-outcome: ${{ steps.macos-native-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload macOS Native test reports
+        if: ${{ failure() && steps.macos-native-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: macos-native-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
+      - run: mise run build:macos-app
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          name: demo-app-macos-native-arm64
+          path: demo-app/macos/build/MapLibreCompose-macos-arm64.tar.gz
   desktop:
     uses: ./.github/workflows/job-desktop.yml
     with:

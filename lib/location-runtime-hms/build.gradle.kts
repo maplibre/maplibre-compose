@@ -1,5 +1,5 @@
 plugins {
-  id("library-conventions")
+  id("multiplatform-library-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)

@@ -91,6 +91,11 @@ of the next patch; `mise run version` prints what this checkout builds as.
 pre-commit hook that mise installs runs them on staged files.
 `mise run lint:android` runs Android Lint, which CI runs in the same job.
 
+On macOS with Xcode, `mise run api:check` compares the published Kotlin APIs
+with the committed dumps in each module's `api/` directory. After an intentional
+API change, run `mise run api:update`, review the diff, and include it in the
+same pull request.
+
 ## Pull requests
 
 Prefer Conventional Commits for PR titles, which become the squash-merge commit

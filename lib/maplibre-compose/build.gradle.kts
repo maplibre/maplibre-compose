@@ -5,7 +5,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
-  id("library-conventions")
+  id("multiplatform-library-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)

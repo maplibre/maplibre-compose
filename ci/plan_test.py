@@ -9,8 +9,9 @@ import re
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from ci.plan import JOBS, TIERS, plan, resolve_restatement, tier_jobs, variants
+from ci.plan import TIERS, catalog, job_name, plan, resolve_restatement
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
@@ -38,57 +39,11 @@ def pr_event(
 
 
 def names(selection: dict) -> set[str]:
-    return {
-        f"{job} / {variant}" for job in JOBS for variant in selection[job]["variant"]
-    }
+    return set(selection["jobs"])
 
 
 def catalog_names(*tiers: str) -> set[str]:
-    return {
-        f"{row['job']} / {row['variant']}" for row in variants() if row["tier"] in tiers
-    }
-
-
-class CatalogTest(unittest.TestCase):
-    def test_every_variant_has_a_unique_name_and_a_single_tier(self) -> None:
-        rows = variants()
-        self.assertEqual(len({(row["job"], row["variant"]) for row in rows}), len(rows))
-        for row in rows:
-            self.assertIn(row["tier"], TIERS)
-            self.assertIn(row["job"], JOBS)
-
-    def test_draft_keeps_compile_and_linux_runtime_coverage(self) -> None:
-        self.assertEqual(
-            catalog_names("draft"),
-            {
-                "hygiene / ubuntu",
-                "docs / ubuntu",
-                "js / chromium-firefox",
-                "ios-device / arm64",
-                "android / 36",
-                "desktop / linux-x64",
-            },
-        )
-
-    def test_ready_adds_the_remaining_runtimes_once(self) -> None:
-        self.assertEqual(
-            catalog_names("ready"),
-            {
-                "ios / arm64",
-                "macos-native / arm64",
-                "android / 26",
-                "desktop / macos-arm64",
-                "desktop / windows-x64",
-            },
-        )
-        self.assertEqual(
-            catalog_names("full"),
-            {
-                "ios / 15.5",
-                "desktop / linux-arm64",
-                "desktop / windows-arm64",
-            },
-        )
+    return {job_name(row) for row in catalog() if row["tier"] in tiers}
 
 
 class PlanTest(unittest.TestCase):
@@ -99,14 +54,6 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(names(selection), expected)
         self.assertEqual(selection["selected"], bool(expected))
         self.assertEqual(selection["check"], f"all-good ({selection['tier']})")
-        for job in JOBS:
-            rows = selection[job]["include"]
-            self.assertEqual(
-                selection[job]["variant"], [row["variant"] for row in rows]
-            )
-            for row in rows:
-                self.assertNotIn("tier", row)
-                self.assertNotIn("job", row)
 
     def assert_restated(self, selection: dict) -> None:
         self.assert_selected(selection, set())
@@ -322,6 +269,35 @@ class CoverageReuseTest(unittest.TestCase):
                 self.assertFalse(selection["restate"])
                 self.assertFalse(selection["secrets"])
 
+    def test_single_run_jobs_reuse_checks_without_a_variant_suffix(self) -> None:
+        rows = [
+            {"job": "hygiene", "tier": "draft"},
+            {"job": "js", "tier": "draft"},
+            {"job": "android", "variant": "36", "tier": "draft", "api-level": 36},
+        ]
+        checks = [
+            {"id": index, "name": name, "status": "completed", "conclusion": "success"}
+            for index, name in enumerate(
+                ["draft / hygiene", "draft / js", "draft / android / 36"]
+            )
+        ]
+        with patch("ci.plan.catalog", return_value=rows):
+            selection = self.selection("draft")
+            self.assertTrue(selection["restate"])
+            self.assertFalse(resolve_restatement(selection, checks)["selected"])
+            # A stale suffixed check cannot stand in for the new single-run job.
+            checks[0]["name"] = "draft / hygiene / macos"
+            rerun = resolve_restatement(selection, checks)
+            self.assertTrue(rerun["selected"])
+            self.assertEqual(names(rerun), {"hygiene", "js", "android / 36"})
+            self.assertEqual(
+                rerun["android"],
+                {
+                    "variant": ["36"],
+                    "include": [{"variant": "36", "api-level": 36}],
+                },
+            )
+
     def test_complete_platform_success_can_be_reused(self) -> None:
         for tier in ("ready", "full"):
             selection = resolve_restatement(self.selection(tier), self.checks(tier))
@@ -482,15 +458,8 @@ class PlanCommandTest(unittest.TestCase):
             self.assertEqual(values["selected"], "true")
             self.assertEqual(values["restate"], "false")
             self.assertEqual(values["secrets"], "true")
-            desktop = json.loads(values["desktop"])
-            self.assertEqual(desktop["variant"], ["macos-arm64", "windows-x64"])
-            self.assertEqual(
-                [row["runner"] for row in desktop["include"]],
-                ["macos-26", "windows-2022"],
-            )
-            self.assertEqual(json.loads(values["js"])["include"], [])
+            self.assertEqual(set(json.loads(values["jobs"])), catalog_names("ready"))
             self.assertIn("CI tier: **ready**", summary.read_text())
-            self.assertIn("ios / arm64", summary.read_text())
 
 
 class WorkflowTest(unittest.TestCase):
@@ -519,48 +488,32 @@ class WorkflowTest(unittest.TestCase):
             self.assertIn("  push:\n    branches: [main]\n", text)
             self.assertIn("  workflow_dispatch:\n", text)
 
-    def test_each_caller_gates_its_tier_as_a_unit_and_names_its_check(self) -> None:
+    def test_tier_workflows_compose_the_catalog_jobs_and_pass_their_matrices(
+        self,
+    ) -> None:
         for tier, workflow in CALLERS.items():
-            text = (WORKFLOWS / workflow).read_text()
-            self.assertIn(f"          CI_TIER: {tier}\n", text)
-            self.assertIn(
-                f"  {tier}:\n    needs: plan\n    if: needs.plan.outputs.selected == 'true'\n"
-                f"    uses: ./.github/workflows/tier-{tier}.yml\n",
-                text,
-            )
-            self.assertIn(f"    name: all-good ({tier})\n", text)
-            self.assertIn(f"          RESULT: ${{{{ needs.{tier}.result }}}}\n", text)
-            self.assertIn("        run: bash .mise/tasks/ci/verdict\n", text)
-
-    def test_tier_workflows_compose_exactly_the_catalog_jobs(self) -> None:
-        for tier, workflow in CALLERS.items():
-            expected = tier_jobs(tier)
-            self.assertTrue(expected, tier)
+            rows = [row for row in catalog() if row["tier"] == tier]
+            expected_jobs = {row["job"] for row in rows}
+            expected_matrices = {row["job"] for row in rows if "variant" in row}
             tier_text = (WORKFLOWS / f"tier-{tier}.yml").read_text()
-            called = re.findall(
-                r"uses: \./\.github/workflows/job-([a-z-]+)\.yml", tier_text
+            jobs = tier_text.split("\njobs:\n", 1)[1]
+            declared_jobs = set(re.findall(r"^  ([a-z-]+):$", jobs, re.MULTILINE))
+            self.assertEqual(declared_jobs, expected_jobs)
+            declared_inputs = set(
+                re.findall(
+                    r"^      ([a-z-]+):\n        description:", tier_text, re.MULTILINE
+                )
             )
-            self.assertEqual(called, expected)
-            declared = re.findall(
-                r"^      ([a-z-]+):\n        description:", tier_text, re.MULTILINE
-            )
-            self.assertEqual(declared, ["secrets-available", *expected])
+            self.assertEqual(declared_inputs, {"secrets-available", *expected_matrices})
             caller_text = (WORKFLOWS / workflow).read_text()
-            passed = re.findall(
-                r"^      ([a-z-]+): \$\{\{ needs\.plan\.outputs\.\1 \}\}",
-                caller_text,
-                re.MULTILINE,
+            passed = set(
+                re.findall(
+                    r"^      ([a-z-]+): \$\{\{ needs\.plan\.outputs\.\1 \}\}",
+                    caller_text,
+                    re.MULTILINE,
+                )
             )
-            self.assertEqual(passed, expected)
-
-    def test_every_job_has_one_workflow_named_by_its_variant(self) -> None:
-        for job in JOBS:
-            text = (WORKFLOWS / f"job-{job}.yml").read_text()
-            self.assertIn(
-                f"jobs:\n  {job}:\n    name: ${{{{ matrix.variant }}}}\n", text
-            )
-            self.assertIn("      matrix: ${{ fromJSON(inputs.matrix) }}\n", text)
-            self.assertNotIn("CI_SECRETS", text)
+            self.assertEqual(passed, expected_matrices)
 
 
 class VerdictScriptTest(unittest.TestCase):

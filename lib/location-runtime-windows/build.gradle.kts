@@ -1,7 +1,6 @@
 plugins {
-  id("module-conventions")
+  id("library-conventions")
   id(libs.plugins.kotlin.jvm.get().pluginId)
-  id(libs.plugins.dokka.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
@@ -14,8 +13,6 @@ mavenPublishing {
 }
 
 kotlin {
-  explicitApi()
-  jvmToolchain(libs.versions.java.toolchain.get().toInt())
   compilerOptions { jvmTarget = project.getDesktopJvmTarget() }
 }
 

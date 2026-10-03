@@ -1,0 +1,323 @@
+public abstract interface class org/maplibre/compose/location/DesktopLocationBackend {
+	public abstract fun createProvider (Lorg/maplibre/compose/location/XdgPortalWindow;)Lorg/maplibre/compose/location/LocationProvider;
+	public abstract fun getId ()Ljava/lang/String;
+	public abstract fun isAvailable ()Z
+}
+
+public final class org/maplibre/compose/location/DesktopLocationProviderKt {
+	public static final fun createDefaultLocationProvider (Lorg/maplibre/compose/location/XdgPortalWindow;)Lorg/maplibre/compose/location/LocationProvider;
+	public static synthetic fun createDefaultLocationProvider$default (Lorg/maplibre/compose/location/XdgPortalWindow;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationProvider;
+}
+
+public final class org/maplibre/compose/location/DesktopSystemSettingsLauncher : org/maplibre/compose/location/SystemSettingsLauncher {
+	public fun <init> ()V
+	public fun getCanOpenApplicationSettings ()Z
+	public fun getCanOpenLocationServicesSettings ()Z
+	public fun openApplicationSettings ()Z
+	public fun openLocationServicesSettings ()Z
+}
+
+public final class org/maplibre/compose/location/HeadingMeasurement {
+	public static final field Companion Lorg/maplibre/compose/location/HeadingMeasurement$Companion;
+	public synthetic fun <init> (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-lyDGrjM ()D
+	public final fun component2 ()Lorg/maplibre/compose/location/HeadingReference;
+	public final fun component3-ZwuAUdw ()Lorg/maplibre/spatialk/units/Rotation;
+	public final fun component4 ()Lkotlin/time/Instant;
+	public final fun copy-eX08z2U (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;)Lorg/maplibre/compose/location/HeadingMeasurement;
+	public static synthetic fun copy-eX08z2U$default (Lorg/maplibre/compose/location/HeadingMeasurement;DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingMeasurement;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAccuracy-ZwuAUdw ()Lorg/maplibre/spatialk/units/Rotation;
+	public final fun getBearing-lyDGrjM ()D
+	public final fun getMeasuredAt ()Lkotlin/time/Instant;
+	public final fun getReference ()Lorg/maplibre/compose/location/HeadingReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class org/maplibre/compose/location/HeadingMeasurement$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingMeasurement$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lorg/maplibre/compose/location/HeadingMeasurement;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lorg/maplibre/compose/location/HeadingMeasurement;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class org/maplibre/compose/location/HeadingMeasurement$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class org/maplibre/compose/location/HeadingProvider {
+	public abstract fun updates (Lorg/maplibre/compose/location/HeadingRequest;)Lkotlinx/coroutines/flow/Flow;
+	public static synthetic fun updates$default (Lorg/maplibre/compose/location/HeadingProvider;Lorg/maplibre/compose/location/HeadingRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/HeadingProvider$DefaultImpls {
+	public static synthetic fun updates$default (Lorg/maplibre/compose/location/HeadingProvider;Lorg/maplibre/compose/location/HeadingRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/HeadingReference : java/lang/Enum {
+	public static final field MagneticNorth Lorg/maplibre/compose/location/HeadingReference;
+	public static final field TrueNorth Lorg/maplibre/compose/location/HeadingReference;
+	public static final field TrueOrMagneticNorth Lorg/maplibre/compose/location/HeadingReference;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/HeadingReference;
+	public static fun values ()[Lorg/maplibre/compose/location/HeadingReference;
+}
+
+public final class org/maplibre/compose/location/HeadingRequest {
+	public fun <init> ()V
+	public synthetic fun <init> (JILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-UwyO8pc ()J
+	public final fun copy-LRDsOJo (J)Lorg/maplibre/compose/location/HeadingRequest;
+	public static synthetic fun copy-LRDsOJo$default (Lorg/maplibre/compose/location/HeadingRequest;JILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMinimumInterval-UwyO8pc ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationAccuracy : java/lang/Enum {
+	public static final field Balanced Lorg/maplibre/compose/location/LocationAccuracy;
+	public static final field BestForNavigation Lorg/maplibre/compose/location/LocationAccuracy;
+	public static final field High Lorg/maplibre/compose/location/LocationAccuracy;
+	public static final field Low Lorg/maplibre/compose/location/LocationAccuracy;
+	public static final field Lowest Lorg/maplibre/compose/location/LocationAccuracy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/LocationAccuracy;
+	public static fun values ()[Lorg/maplibre/compose/location/LocationAccuracy;
+}
+
+public final class org/maplibre/compose/location/LocationAccuracyAuthorization : java/lang/Enum {
+	public static final field Approximate Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public static final field Precise Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public static final field Unknown Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public static fun values ()[Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+}
+
+public abstract interface class org/maplibre/compose/location/LocationBackendAvailability {
+}
+
+public final class org/maplibre/compose/location/LocationBackendAvailability$Available : org/maplibre/compose/location/LocationBackendAvailability {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationBackendAvailability$Available;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationBackendAvailability$Misconfigured : org/maplibre/compose/location/LocationBackendAvailability {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Throwable;
+	public final fun copy (Ljava/lang/Throwable;)Lorg/maplibre/compose/location/LocationBackendAvailability$Misconfigured;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationBackendAvailability$Misconfigured;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationBackendAvailability$Misconfigured;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCause ()Ljava/lang/Throwable;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationBackendAvailability$Unsupported : org/maplibre/compose/location/LocationBackendAvailability {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationBackendAvailability$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/location/LocationEvent {
+}
+
+public final class org/maplibre/compose/location/LocationEvent$Unavailable : org/maplibre/compose/location/LocationEvent {
+	public fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public final fun component2 ()Ljava/lang/Throwable;
+	public final fun copy (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)Lorg/maplibre/compose/location/LocationEvent$Unavailable;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationEvent$Unavailable;Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationEvent$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCause ()Ljava/lang/Throwable;
+	public final fun getReason ()Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationEvent$Update : org/maplibre/compose/location/LocationEvent {
+	public fun <init> (Lorg/maplibre/compose/location/LocationMeasurement;Lkotlin/time/TimeMark;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationMeasurement;
+	public final fun component2 ()Lkotlin/time/TimeMark;
+	public final fun copy (Lorg/maplibre/compose/location/LocationMeasurement;Lkotlin/time/TimeMark;)Lorg/maplibre/compose/location/LocationEvent$Update;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationEvent$Update;Lorg/maplibre/compose/location/LocationMeasurement;Lkotlin/time/TimeMark;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationEvent$Update;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMeasurement ()Lorg/maplibre/compose/location/LocationMeasurement;
+	public final fun getMeasurementMark ()Lkotlin/time/TimeMark;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationMeasurement {
+	public static final field Companion Lorg/maplibre/compose/location/LocationMeasurement$Companion;
+	public synthetic fun <init> (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/spatialk/geojson/Position;
+	public final fun component2-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun component3-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun component4-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun component5-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun component6-8h_8pAc ()Lorg/maplibre/spatialk/units/Bearing;
+	public final fun component7-ZwuAUdw ()Lorg/maplibre/spatialk/units/Rotation;
+	public final fun component8 ()Lkotlin/time/Instant;
+	public final fun copy-j5uARBs (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;)Lorg/maplibre/compose/location/LocationMeasurement;
+	public static synthetic fun copy-j5uARBs$default (Lorg/maplibre/compose/location/LocationMeasurement;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationMeasurement;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAltitudeAccuracy-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun getCourse-8h_8pAc ()Lorg/maplibre/spatialk/units/Bearing;
+	public final fun getCourseAccuracy-ZwuAUdw ()Lorg/maplibre/spatialk/units/Rotation;
+	public final fun getDistancePerSecond-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun getDistancePerSecondAccuracy-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun getHorizontalAccuracy-nrnUyRc ()Lorg/maplibre/spatialk/units/Length;
+	public final fun getMeasuredAt ()Lkotlin/time/Instant;
+	public final fun getPosition ()Lorg/maplibre/spatialk/geojson/Position;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class org/maplibre/compose/location/LocationMeasurement$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationMeasurement$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lorg/maplibre/compose/location/LocationMeasurement;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lorg/maplibre/compose/location/LocationMeasurement;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class org/maplibre/compose/location/LocationMeasurement$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class org/maplibre/compose/location/LocationPermission {
+}
+
+public final class org/maplibre/compose/location/LocationPermission$Granted : org/maplibre/compose/location/LocationPermission {
+	public fun <init> (Lorg/maplibre/compose/location/LocationAccuracyAuthorization;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public final fun copy (Lorg/maplibre/compose/location/LocationAccuracyAuthorization;)Lorg/maplibre/compose/location/LocationPermission$Granted;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationPermission$Granted;Lorg/maplibre/compose/location/LocationAccuracyAuthorization;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationPermission$Granted;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAccuracy ()Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationPermission$NotGranted : org/maplibre/compose/location/LocationPermission {
+	public fun <init> (Ljava/lang/Boolean;Z)V
+	public synthetic fun <init> (Ljava/lang/Boolean;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Boolean;
+	public final fun component2 ()Z
+	public final fun copy (Ljava/lang/Boolean;Z)Lorg/maplibre/compose/location/LocationPermission$NotGranted;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationPermission$NotGranted;Ljava/lang/Boolean;ZILjava/lang/Object;)Lorg/maplibre/compose/location/LocationPermission$NotGranted;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCanRequest ()Ljava/lang/Boolean;
+	public final fun getShouldShowRationale ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationPermission$Unknown : org/maplibre/compose/location/LocationPermission {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationPermission$Unknown;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/location/LocationProvider : java/lang/AutoCloseable {
+	public fun close ()V
+	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public fun getBackendId ()Ljava/lang/String;
+	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public fun requestPermission ()V
+	public abstract fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+	public static synthetic fun updates$default (Lorg/maplibre/compose/location/LocationProvider;Lorg/maplibre/compose/location/LocationRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/LocationProvider$DefaultImpls {
+	public static fun close (Lorg/maplibre/compose/location/LocationProvider;)V
+	public static fun getBackendAvailability (Lorg/maplibre/compose/location/LocationProvider;)Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public static fun getBackendId (Lorg/maplibre/compose/location/LocationProvider;)Ljava/lang/String;
+	public static fun getPermission (Lorg/maplibre/compose/location/LocationProvider;)Lkotlinx/coroutines/flow/StateFlow;
+	public static fun requestPermission (Lorg/maplibre/compose/location/LocationProvider;)V
+	public static synthetic fun updates$default (Lorg/maplibre/compose/location/LocationProvider;Lorg/maplibre/compose/location/LocationRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/LocationRequest {
+	public fun <init> ()V
+	public synthetic fun <init> (Lorg/maplibre/compose/location/LocationAccuracy;JDILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/location/LocationAccuracy;JDLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationAccuracy;
+	public final fun component2-UwyO8pc ()J
+	public final fun component3-_8uq4Z0 ()D
+	public final fun copy-a2gyCH4 (Lorg/maplibre/compose/location/LocationAccuracy;JD)Lorg/maplibre/compose/location/LocationRequest;
+	public static synthetic fun copy-a2gyCH4$default (Lorg/maplibre/compose/location/LocationRequest;Lorg/maplibre/compose/location/LocationAccuracy;JDILjava/lang/Object;)Lorg/maplibre/compose/location/LocationRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAccuracy ()Lorg/maplibre/compose/location/LocationAccuracy;
+	public final fun getMinimumDistance-_8uq4Z0 ()D
+	public final fun getMinimumInterval-UwyO8pc ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationUnavailableReason : java/lang/Enum {
+	public static final field PermissionDenied Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static final field ServicesDisabled Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static final field TemporarilyUnavailable Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static final field UnexpectedFailure Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static final field Unsupported Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public static fun values ()[Lorg/maplibre/compose/location/LocationUnavailableReason;
+}
+
+public abstract interface class org/maplibre/compose/location/SystemSettingsLauncher {
+	public abstract fun getCanOpenApplicationSettings ()Z
+	public abstract fun getCanOpenLocationServicesSettings ()Z
+	public abstract fun openApplicationSettings ()Z
+	public abstract fun openLocationServicesSettings ()Z
+}
+
+public final class org/maplibre/compose/location/UnsupportedLocationProvider : org/maplibre/compose/location/LocationProvider {
+	public static final field INSTANCE Lorg/maplibre/compose/location/UnsupportedLocationProvider;
+	public fun close ()V
+	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public fun getBackendId ()Ljava/lang/String;
+	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public fun requestPermission ()V
+	public fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public abstract interface class org/maplibre/compose/location/XdgPortalWindow {
+}
+
+public abstract interface class org/maplibre/compose/location/XdgPortalWindow$Wayland : org/maplibre/compose/location/XdgPortalWindow {
+	public abstract fun withXdgForeignHandle (Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class org/maplibre/compose/location/XdgPortalWindow$X11 : org/maplibre/compose/location/XdgPortalWindow {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/maplibre/compose/location/XdgPortalWindow$X11;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/XdgPortalWindow$X11;JILjava/lang/Object;)Lorg/maplibre/compose/location/XdgPortalWindow$X11;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getWindowId ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+

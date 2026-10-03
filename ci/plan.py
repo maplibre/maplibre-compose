@@ -1,4 +1,4 @@
-"""Select the job variants one CI tier runs from the GitHub event."""
+"""Select the jobs one CI tier runs from the GitHub event."""
 
 from __future__ import annotations
 
@@ -9,35 +9,16 @@ import subprocess
 
 FULL_LABEL = "ci:full"
 TIERS = ("draft", "ready", "full")
-JOBS = (
-    "hygiene",
-    "android",
-    "ios",
-    "ios-device",
-    "macos-native",
-    "js",
-    "desktop",
-    "docs",
-)
 CATALOG = pathlib.Path(__file__).with_name("jobs.json")
 
 
-def variants() -> list[dict]:
-    """Every job variant, each tagged with the tier that introduces it."""
-    rows = json.loads(CATALOG.read_text())
-    for row in rows:
-        if row["job"] not in JOBS or row["tier"] not in TIERS:
-            raise ValueError(f"unknown job or tier in {row['job']} {row['variant']}")
-    return rows
+def catalog() -> list[dict]:
+    """Every job, with a variant only when it runs in multiple configurations."""
+    return json.loads(CATALOG.read_text())
 
 
-def tier_jobs(tier: str) -> list[str]:
-    """The jobs with at least one variant in the tier, in workflow order."""
-    return [
-        job
-        for job in JOBS
-        if any(r["job"] == job and r["tier"] == tier for r in variants())
-    ]
+def job_name(row: dict) -> str:
+    return row["job"] + (f" / {row['variant']}" if "variant" in row else "")
 
 
 def required(tier: str, pr: dict) -> bool:
@@ -100,11 +81,17 @@ def plan(tier: str, event_name: str, event: dict, repository: str) -> dict:
     else:
         # Main and manual runs trigger every tier's workflow.
         selected = True
-    # `variant` is the only matrix dimension, so GitHub names each job after it
-    # and leaves the row's other fields out of the name.
-    matrices: dict[str, dict] = {job: {"variant": [], "include": []} for job in JOBS}
-    for row in variants():
-        if selected and row["tier"] == tier:
+    all_rows = catalog()
+    rows = [row for row in all_rows if selected and row["tier"] == tier]
+    # Only jobs with multiple configurations need a matrix. The single-run
+    # jobs live directly in their tier workflow.
+    matrices = {
+        row["job"]: {"variant": [], "include": []}
+        for row in all_rows
+        if "variant" in row
+    }
+    for row in rows:
+        if "variant" in row:
             matrix = matrices[row["job"]]
             matrix["variant"].append(row["variant"])
             matrix["include"].append(
@@ -116,6 +103,7 @@ def plan(tier: str, event_name: str, event: dict, repository: str) -> dict:
         "selected": selected,
         "restate": restate,
         "secrets": secrets_available(event_name, event, repository),
+        "jobs": [job_name(row) for row in rows],
         **matrices,
     }
 
@@ -125,8 +113,8 @@ def resolve_restatement(selection: dict, check_runs: list[dict]) -> dict:
     if not selection["restate"]:
         return selection
     expected = {
-        f"{selection['tier']} / {row['job']} / {row['variant']}"
-        for row in variants()
+        f"{selection['tier']} / {job_name(row)}"
+        for row in catalog()
         if row["tier"] == selection["tier"]
     }
     # Different workflow runs have different check suites. Keep the newest
@@ -195,15 +183,12 @@ def main() -> None:
             else:
                 encoded = json.dumps(value, separators=(",", ":"))
             print(f"{key}={encoded}", file=output)
-    names = [
-        f"{job} / {variant}" for job in JOBS for variant in selection[job]["variant"]
-    ]
     with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
         print(f"CI tier: **{selection['tier']}**", file=summary)
         if selection["restate"]:
             jobs = "none; every platform job already succeeded on this commit"
         else:
-            jobs = ", ".join(names) if names else "none required"
+            jobs = ", ".join(selection["jobs"]) or "none required"
         print(f"\nJobs: {jobs}", file=summary)
         print(
             "\nAdd `ci:full` to a pull request to run every platform, including on drafts.",

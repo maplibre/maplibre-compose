@@ -1,0 +1,105 @@
+public final class org/maplibre/compose/material3/AttributionButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/material3/AttributionButtonDefaults;
+	public final fun collapsedStyle-ixp7dh8 (FFLandroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/overlay/AttributionStyle;
+	public final fun expandedStyle-ixp7dh8 (FFLandroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/overlay/AttributionStyle;
+	public final fun getButton ()Lkotlin/jvm/functions/Function3;
+	public final fun getContent ()Lkotlin/jvm/functions/Function4;
+	public final fun linkStyles (Landroidx/compose/runtime/Composer;I)Landroidx/compose/ui/text/TextLinkStyles;
+}
+
+public final class org/maplibre/compose/material3/AttributionButtonKt {
+	public static final fun AttributionLinks-WH-ejsw (Ljava/util/List;Landroidx/compose/ui/Modifier;Landroidx/compose/ui/text/TextStyle;Landroidx/compose/ui/text/TextLinkStyles;FZLandroidx/compose/runtime/Composer;II)V
+	public static final fun ExpandingAttributionButton (Landroidx/compose/ui/Modifier;Landroidx/compose/ui/Alignment;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function4;Lorg/maplibre/compose/overlay/AttributionStyle;Lorg/maplibre/compose/overlay/AttributionStyle;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class org/maplibre/compose/material3/CompassButtonKt {
+	public static final fun CompassButton-gNPyAyM (Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Landroidx/compose/material3/ButtonColors;Ljava/lang/String;FLandroidx/compose/foundation/layout/PaddingValues;Landroidx/compose/ui/graphics/Shape;Landroidx/compose/ui/graphics/painter/Painter;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+	public static final fun DisappearingCompassButton-5fnP_Ac (Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Landroidx/compose/material3/ButtonColors;Ljava/lang/String;FLandroidx/compose/foundation/layout/PaddingValues;Landroidx/compose/ui/graphics/Shape;Landroidx/compose/ui/graphics/painter/Painter;JLandroidx/compose/animation/EnterTransition;Landroidx/compose/animation/ExitTransition;Lkotlin/jvm/functions/Function1;DLandroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class org/maplibre/compose/material3/ComposableSingletons$AttributionButtonKt {
+	public static final field INSTANCE Lorg/maplibre/compose/material3/ComposableSingletons$AttributionButtonKt;
+	public fun <init> ()V
+	public final fun getLambda$-686715897$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function4;
+	public final fun getLambda$1894419718$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$533374052$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class org/maplibre/compose/material3/ComposableSingletons$MapOverlayKt {
+	public static final field INSTANCE Lorg/maplibre/compose/material3/ComposableSingletons$MapOverlayKt;
+	public fun <init> ()V
+	public final fun getLambda$-124024698$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1251828206$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1656165725$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1661514267$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$43925159$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class org/maplibre/compose/material3/ComposableSingletons$OfflinePackListItemKt {
+	public static final field INSTANCE Lorg/maplibre/compose/material3/ComposableSingletons$OfflinePackListItemKt;
+	public fun <init> ()V
+	public final fun getLambda$-1095862963$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1231098540$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1371507232$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1445091810$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1876047386$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function4;
+	public final fun getLambda$-739720647$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-790522502$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function5;
+	public final fun getLambda$-813103056$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-851914813$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-936016599$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-990633961$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1365608126$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1880325684$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$2119450089$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$271716504$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function4;
+	public final fun getLambda$485733399$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$537981744$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$993361136$org_maplibre_compose_maplibre_compose_material3 ()Lkotlin/jvm/functions/Function3;
+}
+
+public final class org/maplibre/compose/material3/LocationIndicatorDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/material3/LocationIndicatorDefaults;
+	public final fun bearingImage (Landroidx/compose/runtime/Composer;I)Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun shadowImage (Landroidx/compose/runtime/Composer;I)Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun topImage (Landroidx/compose/runtime/Composer;I)Lorg/maplibre/compose/expressions/ast/Expression;
+}
+
+public final class org/maplibre/compose/material3/LocationIndicatorLayerKt {
+	public static final fun LocationIndicatorLayer-Ni5awnM (Ljava/lang/String;Lorg/maplibre/compose/location/LocationState;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;FLandroidx/compose/runtime/Composer;IIII)V
+	public static final fun LocationIndicatorLayer-Y1F1E78 (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Rotation;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;FLandroidx/compose/runtime/Composer;IIII)V
+}
+
+public final class org/maplibre/compose/material3/MapOverlayKt {
+	public static final fun getMaterial3 (Lorg/maplibre/compose/overlay/MapOverlay$Companion;)Lorg/maplibre/compose/overlay/MapOverlay;
+	public static final fun getMaterial3AttributionOnly (Lorg/maplibre/compose/overlay/MapOverlay$Companion;)Lorg/maplibre/compose/overlay/MapOverlay;
+	public static final fun getMaterial3Full (Lorg/maplibre/compose/overlay/MapOverlay$Companion;)Lorg/maplibre/compose/overlay/MapOverlay;
+}
+
+public final class org/maplibre/compose/material3/OfflinePackListItemDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/material3/OfflinePackListItemDefaults;
+	public final fun LeadingContent (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public final fun SupportingContent (Lorg/maplibre/compose/offline/DownloadProgress;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public final fun TrailingContent (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineManager;Landroidx/compose/runtime/Composer;I)V
+}
+
+public final class org/maplibre/compose/material3/OfflinePackListItemKt {
+	public static final fun OfflinePackListItem (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineManager;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class org/maplibre/compose/material3/PointerPinButtonKt {
+	public static final fun PointerPinButton (Lorg/maplibre/compose/overlay/MapOverlayScope;Lorg/maplibre/spatialk/geojson/Position;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Landroidx/compose/material3/ButtonColors;Landroidx/compose/foundation/layout/PaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class org/maplibre/compose/material3/ScaleBarKt {
+	public static final fun DisappearingScaleBar-MMyjPws (Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/overlay/ScaleBarMeasures;JJFFLandroidx/compose/ui/text/TextStyle;Landroidx/compose/ui/Alignment$Horizontal;JLandroidx/compose/animation/EnterTransition;Landroidx/compose/animation/ExitTransition;Landroidx/compose/runtime/Composer;III)V
+	public static final fun ScaleBar-7aFWWLU (Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/overlay/ScaleBarMeasures;JJFFLandroidx/compose/ui/text/TextStyle;Landroidx/compose/ui/Alignment$Horizontal;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class org/maplibre/compose/material3/ZoomButtonsKt {
+	public static final fun ZoomButtons-YbEsjlo (Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/material3/ButtonColors;JLjava/lang/String;Ljava/lang/String;FLandroidx/compose/foundation/layout/PaddingValues;Landroidx/compose/ui/graphics/Shape;Landroidx/compose/ui/graphics/painter/Painter;Landroidx/compose/ui/graphics/painter/Painter;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;III)V
+}
+

@@ -1,6 +1,6 @@
 name: draft tier
 
-# The jobs whose variants the draft tier introduces, per ci/jobs.json. The
+# The jobs assigned to the draft tier, per ci/jobs.json. The
 # caller skips this workflow as a unit when the tier is not required, so a
 # pull request never shows individual jobs skipped.
 on:
@@ -10,38 +10,51 @@ on:
         description: Whether repository secrets are available to this run.
         type: boolean
         required: true
-      hygiene:
-        description: The hygiene job's matrix.
-        type: string
-        required: true
       android:
         description: The android job's matrix.
-        type: string
-        required: true
-      ios-device:
-        description: The ios-device job's matrix.
-        type: string
-        required: true
-      js:
-        description: The js job's matrix.
         type: string
         required: true
       desktop:
         description: The desktop job's matrix.
         type: string
         required: true
-      docs:
-        description: The docs job's matrix.
-        type: string
-        required: true
 
 jobs:
   hygiene:
-    uses: ./.github/workflows/job-hygiene.yml
-    with:
-      matrix: ${{ inputs.hygiene }}
-      secrets-available: ${{ inputs.secrets-available }}
-    secrets: inherit
+    timeout-minutes: 25
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The docs versions file is generated from the release tags.
+          fetch-tags: true
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          dprint-cache: "true"
+          pnpm-cache: "true"
+          save-toolchains: "true"
+      - run: mise run fix
+      - name: Check formatted files
+        run: |
+          git update-index -q --refresh
+          git diff --exit-code
+          git diff --cached --exit-code
+      - run: mise run lint:android
+      - run: mise run ci:test-scripts
+      - run: mise run benchmark:test
+      - run: mise run style-spec:parity -- --check
+  abi:
+    timeout-minutes: 20
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "true"
+      - run: mise run api:check
   android:
     uses: ./.github/workflows/job-android.yml
     with:
@@ -49,17 +62,52 @@ jobs:
       secrets-available: ${{ inputs.secrets-available }}
     secrets: inherit
   ios-device:
-    uses: ./.github/workflows/job-ios-device.yml
-    with:
-      matrix: ${{ inputs.ios-device }}
-      secrets-available: ${{ inputs.secrets-available }}
-    secrets: inherit
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "false"
+          native-cache-scope: ios-device
+      - run: mise run build:ios:device
   js:
-    uses: ./.github/workflows/job-js.yml
-    with:
-      matrix: ${{ inputs.js }}
-      secrets-available: ${{ inputs.secrets-available }}
-    secrets: inherit
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          maplibre-gl-js-cache: "true"
+      - id: js-tests
+        run: mise run test:js
+      - name: Upload JS test results to Trunk
+        if: ${{ !cancelled() && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
+        with:
+          junit-paths: "**/build/test-results/jsBrowserTest/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: js-browser-linux-x64
+          previous-step-outcome: ${{ steps.js-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload JS test reports
+        if: ${{ failure() && steps.js-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: js-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
   desktop:
     uses: ./.github/workflows/job-desktop.yml
     with:
@@ -67,8 +115,69 @@ jobs:
       secrets-available: ${{ inputs.secrets-available }}
     secrets: inherit
   docs:
-    uses: ./.github/workflows/job-docs.yml
-    with:
-      matrix: ${{ inputs.docs }}
-      secrets-available: ${{ inputs.secrets-available }}
-    secrets: inherit
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+      deployment: >-
+        ${{
+          github.event_name == 'push'
+          || (github.event_name == 'pull_request'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+          || (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.secrets != 'false')
+        }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          pnpm-cache: "true"
+          maplibre-gl-js-cache: "true"
+      - run: mise run test:pages
+        env:
+          DOCS_BANNER: >-
+            ${{ github.event_name == 'pull_request'
+            && format(
+              'This site is a preview of <a href="{0}">pull request #{1}</a>.',
+              github.event.pull_request.html_url,
+              github.event.number)
+            || 'This site is a preview of the main branch. The published
+            documentation is at <a
+            href="https://maplibre.org/maplibre-compose/">maplibre.org</a>.' }}
+      - name: Measure the head commit for the code metrics page
+        if: github.event_name == 'pull_request'
+        run: mise run metrics:check
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/dist
+      - name: Deploy the Cloudflare Pages preview
+        id: deploy-cloudflare
+        if: ${{ inputs.secrets-available }}
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        env:
+          CLOUDFLARE_BRANCH: >-
+            ${{ github.event_name == 'pull_request'
+            && format('pr-{0}', github.event.number)
+            || 'main' }}
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: >-
+            pages deploy build/cloudflare-pages
+            --project-name=maplibre-compose
+            --branch=${{ env.CLOUDFLARE_BRANCH }}
+          packageManager: pnpm
+          wranglerVersion: "4.125.0"
+      - name: Report the Cloudflare Pages preview
+        if: steps.deploy-cloudflare.outcome == 'success'
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy-cloudflare.outputs.deployment-url }}
+          PREVIEW_URL: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+        run: |
+          url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
+          echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"

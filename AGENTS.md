@@ -160,13 +160,14 @@ UI changes. Name any affected behavior that went unverified.
 
 ### CI tiers
 
-`ci/plan.py` selects job variants from `ci/jobs.json` for each event. Each tier
-has a caller workflow with its own required check and a tier workflow listing
-its jobs; each job's body is a reusable workflow. Draft PRs run Android API 36,
-JS, Linux x64 desktop, docs, hygiene, and iOS device compilation. Ready PRs add
-Android API 26, the iOS simulator on the runner's newest runtime, macOS desktop,
-macOS Native ARM64, and Windows x64. Dependabot PRs, main, and manual runs
-include every variant.
+`ci/plan.py` selects jobs from `ci/jobs.json` for each event. Each tier has a
+caller workflow with its own required check and a tier workflow containing its
+jobs. Single-run jobs live in the tier workflow; jobs with multiple
+configurations use a reusable workflow. Draft PRs run Android API 36, JS, Linux
+x64 desktop, docs, hygiene, ABI validation, and iOS device compilation. Ready
+PRs add Android API 26, the iOS simulator on the runner's newest runtime, macOS
+desktop, macOS Native ARM64, and Windows x64. Dependabot PRs, main, and manual
+runs include every variant.
 
 The `ci:full` label adds the Linux and Windows ARM64 variants and the iOS 15.5
 simulator. The ARM64 jobs catch architecture-specific failures, so request the

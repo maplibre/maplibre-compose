@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# [MISE] description="Select the job variants one CI tier runs."
+# [MISE] description="Select the jobs one CI tier runs."
 set -euo pipefail
 cd "${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 exec python3 -m ci.plan
