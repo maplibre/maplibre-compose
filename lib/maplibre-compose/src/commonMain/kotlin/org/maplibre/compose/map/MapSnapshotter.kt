@@ -31,14 +31,12 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.checkStyleHandle
-import org.maplibre.compose.style.summary
 import org.maplibre.compose.util.MaplibreComposable
 
 /** Immutable inputs for one snapshot capture. */
@@ -227,7 +225,7 @@ internal class MapSnapshotterImplementation(
   private val runtime: RuntimeImplementation,
   baseStyle: BaseStyle,
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
-) : MapSnapshotter {
+) : MapSnapshotter, MapStyleStateOwner {
   private val lock = reentrantLock()
   private val queue = ArrayDeque<Capture>()
   private val closure = CompletableDeferred<Result<Unit>>()
@@ -241,7 +239,7 @@ internal class MapSnapshotterImplementation(
   private var ownedBaseStyleRevision: Long? = null
   private val ownedSourceIds = mutableSetOf<String>()
   private val ownedLayerIds = mutableSetOf<String>()
-  private val resourceCommands by lazy {
+  override val resourceCommands by lazy {
     StyleResourceCommands(
       style,
       runtime.physicalScope,
@@ -250,56 +248,7 @@ internal class MapSnapshotterImplementation(
     )
   }
   private var activeStyleClaim: StyleClaim? = null
-  private var desiredRevision = StyleSnapshot.Empty
-
-  override val style: MapStyleState =
-    MapStyleState(baseStyle).also {
-      it.attach(
-        object : MapStyleStateOwner {
-          override fun setBaseStyle(value: BaseStyle) =
-            this@MapSnapshotterImplementation.setBaseStyle(value)
-
-          override fun desiredSourceDefinition(id: String) =
-            this@MapSnapshotterImplementation.desiredSourceDefinition(id)
-
-          override fun desiredLayerSummary(id: String) = lock.withLock {
-            desiredRevision.layers.firstOrNull { it.definition.id == id }?.definition?.summary()
-          }
-
-          override fun isSourceWritable(id: String): Boolean = lock.withLock {
-            desiredRevision.sources.none { it.id == id }
-          }
-
-          override fun isLayerWritable(id: String): Boolean = lock.withLock {
-            desiredRevision.layers.none { it.definition.id == id }
-          }
-
-          override fun isImageWritable(id: String): Boolean = lock.withLock {
-            desiredRevision.images.none { it.id == id }
-          }
-
-          override fun requireSourceWritable(id: String) = lock.withLock {
-            requireNoDesiredSource(id)
-          }
-
-          override fun requireLayerWritable(id: String) = lock.withLock {
-            if (desiredRevision.layers.any { it.definition.id == id }) {
-              throw StyleHandleException("Layer ID '$id' is declared by the style content")
-            }
-          }
-
-          override val resourceCommands: StyleResourceCommands
-            get() = this@MapSnapshotterImplementation.resourceCommands
-
-          override fun readyLoadedStyle() = this@MapSnapshotterImplementation.readyLoadedStyle()
-
-          override fun <T> runStyleHandleOperation(
-            binding: StyleBinding,
-            action: () -> T,
-          ): T = this@MapSnapshotterImplementation.runStyleHandleOperation(binding, action)
-        }
-      )
-    }
+  override val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
 
   // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
   // once while runQueue() holds the next capture until cleanup ends.
@@ -408,7 +357,8 @@ internal class MapSnapshotterImplementation(
                 evaluationOwnership,
               )
             resourceCommands.withCommit {
-              requireNoImperativeResourceConflicts(currentBinding, revision)
+              if (style.currentLoadedStyle() === currentBinding)
+                resourceCommands.requireNoConflicts(revision)
               recordStyleOwnership(currentClaim, revision)
             }
             val image = platform.capture(request, revision)
@@ -510,7 +460,7 @@ internal class MapSnapshotterImplementation(
     check(closure.complete(result)) { "Snapshotter closure completed more than once" }
   }
 
-  internal fun setBaseStyle(value: BaseStyle) {
+  override fun setBaseStyle(value: BaseStyle) {
     lock.withLock {
       checkStyleHandle(!closed) { "The map snapshotter is closed" }
       if (style.baseStyle == value) return
@@ -520,10 +470,6 @@ internal class MapSnapshotterImplementation(
       style.invalidateLoadedStyle()
       style.loadState = StyleLoadState.Pending
     }
-  }
-
-  internal fun desiredSourceDefinition(id: String): SourceDefinition? = lock.withLock {
-    desiredRevision.sources.firstOrNull { it.id == id } ?: resourceCommands.sourceDefinition(id)
   }
 
   /** Runs [mutate] on the map owner and reads the sources it leaves behind in the same task. */
@@ -539,27 +485,11 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  private fun requireNoDesiredSource(id: String) {
-    if (desiredRevision.sources.any { it.id == id }) {
-      throw StyleHandleException("Source ID '$id' is declared by the style content")
-    }
-  }
-
-  private fun requireNoDesiredImage(id: String) {
-    if (desiredRevision.images.any { it.id == id }) {
-      throw StyleHandleException("Image ID '$id' is declared by the style content")
-    }
-  }
-
-  private fun requireNoImperativeResourceConflicts(binding: StyleBinding, revision: StyleSnapshot) {
-    if (style.currentLoadedStyle() === binding) resourceCommands.requireNoConflicts(revision)
-  }
-
-  internal fun readyLoadedStyle(): StyleBinding? = lock.withLock {
+  override fun readyLoadedStyle(): StyleBinding? = lock.withLock {
     style.currentLoadedStyle()?.takeIf { style.loadState == StyleLoadState.Ready }
   }
 
-  internal fun <T> runStyleHandleOperation(
+  override fun <T> runStyleHandleOperation(
     binding: StyleBinding,
     action: () -> T,
   ): T {
@@ -570,7 +500,7 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun claimStyle(): StyleClaim = lock.withLock {
-    requireOpenLocked()
+    check(!closed) { "The map snapshotter is closed" }
     StyleClaim(
         baseStyle = style.baseStyle,
         revision = baseStyleRevision,
@@ -624,11 +554,11 @@ internal class MapSnapshotterImplementation(
       if (closed || capture.abandoned || claim.revision != baseStyleRevision) {
         return@withLock false
       }
-      desiredRevision = revision
       if (style.currentLoadedStyle() !== binding) {
         resourceCommands.clear()
         style.updateLoadedStyle(binding)
       }
+      style.declaredRevision = revision
       true
     }
     if (!accepted) return false
@@ -664,15 +594,7 @@ internal class MapSnapshotterImplementation(
 
   private fun requireStyleHandleLocked(binding: StyleBinding) {
     checkStyleHandle(!closed) { "The map snapshotter is closed" }
-    checkStyleHandle(
-      style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)
-    ) {
-      "Style operation belongs to a stale or unready loaded-style identity"
-    }
-  }
-
-  private fun requireOpenLocked() {
-    check(!closed) { "The map snapshotter is closed" }
+    style.requireReadyBinding(binding)
   }
 
   private data class StyleClaim(

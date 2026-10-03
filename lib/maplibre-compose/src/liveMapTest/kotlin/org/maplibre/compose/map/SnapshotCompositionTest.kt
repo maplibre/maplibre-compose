@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -16,6 +17,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
@@ -33,9 +38,78 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.testing.setImage
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SnapshotCompositionTest {
+  @Test
+  fun repeated_captures_update_declared_content_and_release_its_ids() = runTest {
+    val binding = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ -> binding },
+            capture = { request, revision ->
+              reconciler.apply(binding, revision)
+              FakeImageBitmap(request.width, request.height)
+            },
+          )
+        }
+      )
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val bitmap = ImageBitmap(1, 1)
+    var declared by mutableStateOf(true)
+    var visible by mutableStateOf(true)
+    try {
+      val snapshotter =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          if (declared) SymbolLayer("pin", source, visible = visible, iconImage = image(bitmap))
+        }
+      val request = MapSnapshotRequest(4, 4)
+      snapshotter.capture(request)
+      val sourceHandle = assertNotNull(snapshotter.style.sources[source])
+      val layerHandle = assertNotNull(snapshotter.style.layers["pin"])
+      val imageId = binding.imageIds.single()
+      val imageHandle = assertNotNull(snapshotter.style.images[imageId])
+      assertNull(sourceHandle.asMutable)
+      assertNull(layerHandle.asMutable)
+      assertNull(imageHandle.asMutable)
+      assertFailsWith<StyleHandleException> { snapshotter.style.sources.add(source) }
+      assertFailsWith<StyleHandleException> { snapshotter.style.images.remove(imageId) }
+      assertFailsWith<StyleHandleException> { snapshotter.style.setImage(imageId, bitmap) }
+
+      snapshotter.capture(request)
+      assertSame(sourceHandle, snapshotter.style.sources[source])
+      assertSame(layerHandle, snapshotter.style.layers["pin"])
+      visible = false
+      snapshotter.capture(request)
+      assertEquals(
+        JsonPrimitive("none"),
+        snapshotter.style.layers["pin"]?.getProperty("visibility"),
+      )
+
+      declared = false
+      snapshotter.capture(request)
+      assertNull(snapshotter.style.sources[source])
+      assertNull(snapshotter.style.layers["pin"])
+      assertNull(snapshotter.style.images[imageId])
+      assertFailsWith<StyleHandleException> { sourceHandle.resetFeatureStates() }
+      assertFailsWith<StyleHandleException> { layerHandle.getProperty("visibility") }
+      assertFailsWith<StyleHandleException> { imageHandle.asMutable }
+      snapshotter.style.sources.add(source)
+      snapshotter.style.setImage(imageId, bitmap)
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
   @Test
   fun snapshot_disposes_style_effects_without_holding_resource_commands() = runTest {
     val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })

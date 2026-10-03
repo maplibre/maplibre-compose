@@ -218,7 +218,7 @@ class MapPresentationTest {
       accepted.join()
       stale.join()
       assertEquals(1, commits, "cancelled or stale waiting revisions must not reach the engine")
-      assertEquals(StyleSnapshot.Empty, authority.desiredStyleRevision)
+      assertEquals(StyleSnapshot.Empty, fixture.state.style.declaredRevision)
       assertTrue(replacement.sourceIds().isEmpty())
     } finally {
       finishCommit.complete(Unit)
@@ -289,7 +289,7 @@ class MapPresentationTest {
       }
 
       fixture.state.styleAuthority.markStyleFailed(fixture.adapter, "revision failed")
-      fixture.applyRevision(binding, fixture.state.styleAuthority.desiredStyleRevision)
+      fixture.applyRevision(binding, fixture.state.style.declaredRevision)
       assertEquals(StyleLoadState.Loading, fixture.state.style.loadState)
       assertNull(fixture.state.style.layers["animated"])
       fixture.state.styleAuthority.markStyleReady(fixture.adapter)
@@ -1496,7 +1496,7 @@ class MapPresentationTest {
     assertNull(style.owner.resourceCommands.sourceDefinition("shared"))
     assertTrue(style.owner.resourceCommands.sourceIds().isEmpty())
     assertTrue("shared" in replacement.sources)
-    assertEquals(declared, fixture.state.styleAuthority.desiredStyleRevision)
+    assertEquals(declared, fixture.state.style.declaredRevision)
     fixture.close()
   }
 

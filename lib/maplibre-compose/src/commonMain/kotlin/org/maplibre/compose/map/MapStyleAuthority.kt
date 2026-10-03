@@ -1,12 +1,8 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -15,14 +11,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.checkStyleHandle
-import org.maplibre.compose.style.summary
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
@@ -48,13 +41,6 @@ internal class MapStyleAuthority(
   private var missingImageResolverState: MissingImageResolver? by mutableStateOf(null)
   /** Resolutions started for the loaded style, by image id. */
   private val missingImageResolutions = mutableMapOf<String, MissingImageResolution>()
-  private val desiredStyleRevisionState = AtomicReference(StyleSnapshot.Empty)
-
-  /** Read from the map owner thread too. Written on the main thread only. */
-  internal var desiredStyleRevision: StyleSnapshot
-    get() = desiredStyleRevisionState.load()
-    private set(value) = desiredStyleRevisionState.store(value)
-
   internal var missingImageResolver: MissingImageResolver?
     get() = missingImageResolverState
     set(value) {
@@ -65,23 +51,6 @@ internal class MapStyleAuthority(
       // outstanding, and the engine waits on that resolution rather than asking the new resolver.
       missingImageResolutions.clear()
     }
-
-  override fun isSourceWritable(id: String): Boolean =
-    desiredStyleRevision.sources.none { it.id == id }
-
-  override fun isLayerWritable(id: String): Boolean =
-    desiredStyleRevision.layers.none { it.definition.id == id }
-
-  override fun isImageWritable(id: String): Boolean =
-    desiredStyleRevision.images.none { it.id == id }
-
-  override fun requireSourceWritable(id: String) = requireNoDesiredSource(id)
-
-  override fun requireLayerWritable(id: String) {
-    if (desiredStyleRevision.layers.any { it.definition.id == id }) {
-      throw StyleHandleException("Layer ID '$id' is declared by the style content")
-    }
-  }
 
   internal suspend fun markStyleReady(adapter: MapAdapter): Boolean =
     refreshStyleResources(adapter, ready = true)
@@ -133,9 +102,6 @@ internal class MapStyleAuthority(
     lifecycle.requireMain()
     if (!lifecycle.acceptsAdapter(adapter)) return false
     if (style.currentLoadedStyle() === loadedStyle) return true
-    // Declarations belong to the evaluated generation. A new style is evaluated afresh, and
-    // may legitimately contain a base resource with an ID used by the previous composition.
-    desiredStyleRevision = StyleSnapshot.Empty
     resourceCommands.clear()
     cancelMissingImageResolutions()
     style.loadState = StyleLoadState.Loading
@@ -189,7 +155,7 @@ internal class MapStyleAuthority(
       return false
     resourceCommands.requireNoConflicts(revision)
     if (style.loadState is StyleLoadState.Failed) style.loadState = StyleLoadState.Loading
-    desiredStyleRevision = revision
+    style.declaredRevision = revision
     return true
   }
 
@@ -211,15 +177,6 @@ internal class MapStyleAuthority(
     applyBaseStyleCommand(BaseStyleCommand(adapter, value, ++baseStyleCommandRevision))
   }
 
-  /** Answers from any thread: source reads call it from the map owner thread. */
-  override fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
-    desiredStyleRevision.sources.firstOrNull { it.id == id }
-      ?: resourceCommands.sourceDefinition(id)
-
-  /** Answers from any thread: layer reads call it from the map owner thread. */
-  override fun desiredLayerSummary(id: String): LayerSummary? =
-    desiredStyleRevision.layers.firstOrNull { it.definition.id == id }?.definition?.summary()
-
   /**
    * Starts resolution of a missing style image and returns the resolution, or null when no resolver
    * is set, no style is loaded, or this state no longer accepts [adapter].
@@ -234,7 +191,7 @@ internal class MapStyleAuthority(
     if (lifecycle.isClosed || !lifecycle.acceptsAdapter(adapter)) return null
     val resolver = missingImageResolverState ?: return null
     val binding = style.currentLoadedStyle() ?: return null
-    if (hasDesiredImage(imageId) || resourceCommands.isExplicitImage(imageId)) return null
+    if (!style.isImageWritable(imageId) || resourceCommands.isExplicitImage(imageId)) return null
     missingImageResolutions[imageId]?.let {
       return it.work
     }
@@ -306,13 +263,6 @@ internal class MapStyleAuthority(
     checkStyleHandle(publishResources(resources)) { "The loaded style changed before publication" }
   }
 
-  private fun requireNoDesiredSource(id: String) {
-    if (desiredStyleRevision.sources.any { it.id == id })
-      throw StyleHandleException("Source ID '$id' is declared by the style content")
-  }
-
-  private fun hasDesiredImage(id: String): Boolean = desiredStyleRevision.images.any { it.id == id }
-
   override fun <T> runStyleHandleOperation(
     binding: StyleBinding,
     action: () -> T,
@@ -326,11 +276,7 @@ internal class MapStyleAuthority(
 
   private fun requireStyleHandle(binding: StyleBinding) {
     requireOpen()
-    checkStyleHandle(
-      style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)
-    ) {
-      "Style operation belongs to a stale or unready loaded-style identity"
-    }
+    style.requireReadyBinding(binding)
   }
 
   /** Invalidates the loaded style when the map closes. */

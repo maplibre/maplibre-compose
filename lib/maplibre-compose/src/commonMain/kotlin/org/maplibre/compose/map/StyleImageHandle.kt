@@ -29,13 +29,11 @@ internal class StyleImageHandleImpl(
 
   override val asMutable: MutableStyleImageHandle?
     get() = operation {
-      if (style.owner.isImageWritable(id)) MutableStyleImageHandleImpl(this) else null
+      if (style.isImageWritable(id)) MutableStyleImageHandleImpl(this) else null
     }
 
   fun remove() = operation {
-    if (!style.owner.isImageWritable(id)) {
-      throw StyleHandleException("Image ID '$id' is declared by the style content")
-    }
+    style.requireImageWritable(id)
     style.owner.resourceCommands.removeImage(id, binding, identity)
   }
 
