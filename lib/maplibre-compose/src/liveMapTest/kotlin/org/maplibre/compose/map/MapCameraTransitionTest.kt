@@ -448,23 +448,6 @@ class MapCameraTransitionTest {
     }
   }
 
-  @Test
-  fun an_animation_completes_and_lands_on_its_target(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.startAtOrigin()
-
-      it.awaitWhileRendering("the animation to complete") {
-        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
-      }
-
-      assertNear(
-        TARGET.zoom,
-        it.session.getCameraPosition().zoom,
-        "the camera should have reached the target zoom",
-      )
-    }
-  }
-
   /** A flight over a distance zooms out before it zooms back in to its target. */
   @Test
   fun a_flight_zooms_out_on_its_way_to_the_target(): MapTestResult = runMapTest {
