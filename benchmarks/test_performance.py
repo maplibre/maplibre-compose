@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from config import canonical_config
-from performance import late_frames, map_presentation, read_run
+from performance import app_draws, late_frames, map_presentation, read_run
 
 # What the app prints for a run: START carries the full configuration with defaults.
 APP_DEFAULTS = {
@@ -243,6 +243,13 @@ class PerformanceTest(unittest.TestCase):
             (root / "presentation.json").write_text(json.dumps(capture))
             with self.assertRaisesRegex(ValueError, "history lost"):
                 map_presentation(root, logs, {"maximumFps": 60})
+
+    def test_app_draw_times_allow_idle_windows_and_reject_missing_samples(self):
+        self.assertIsNone(app_draws('MAP_BENCHMARK APPDRAWSTATS {"frames":0}'))
+        log = 'MAP_BENCHMARK APPDRAWSTATS {"frames":3}\nMAP_BENCHMARK APPDRAW [2,4,80]'
+        self.assertEqual(app_draws(log)["duration_ms"]["max"], 80)
+        with self.assertRaisesRegex(ValueError, "Incomplete app drawing"):
+            app_draws(log.replace('"frames":3', '"frames":4'))
 
     def test_inline_presentations_use_the_capture_window(self):
         capture = {

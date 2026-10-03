@@ -57,6 +57,8 @@ const metrics = {
   startup: { key: "startup_first_frame_ms", title: "Time to first frame", definition: definitions.startup },
   uiFrameP95: { key: "ui_frame_p95_ms", title: "App frame time, p95", definition: definitions.uiFrame },
   uiFrameMax: { key: "ui_frame_max_ms", title: "Longest app frame time", definition: definitions.uiFrameMax },
+  appDrawP95: { key: "app_draw_p95_ms", title: "App drawing time, p95", definition: "Time the app spends preparing a drawing of its content. 95% of drawings take this long or less. This does not include the graphics processor or the wait for the screen." },
+  appDrawMax: { key: "app_draw_max_ms", title: "Longest app drawing time", definition: "The longest time the app spends preparing a drawing of its content. This does not include the graphics processor or the wait for the screen." },
   returnTime: { key: "completion_p50_ms", title: "Map return time, median", definition: definitions.mapReturn },
 } satisfies Record<string, Metric>;
 
@@ -83,6 +85,8 @@ const sections: { title: string; items: { workloads: string[]; metric: Metric }[
       { workloads: ["map-return", "overlays"], metric: metrics.uiFrameP95 },
       { workloads: ["map-return", "overlays"], metric: metrics.uiFrameMax },
       { workloads: ["map-return", "overlays"], metric: metrics.uiMissed },
+      { workloads: ["map-return", "overlays"], metric: metrics.appDrawP95 },
+      { workloads: ["map-return", "overlays"], metric: metrics.appDrawMax },
     ],
   },
   { title: "CPU use", items: [{ workloads: [...frameDriven, ...updates], metric: metrics.cpuPerUpdate }] },
@@ -127,6 +131,8 @@ const banded = new Set([
   "map_frame_max_ms",
   "map_late_percent",
   "ui_missed_percent",
+  "app_draw_p95_ms",
+  "app_draw_max_ms",
   "ui_frame_p95_ms",
   "ui_frame_max_ms",
   "startup_first_frame_ms",

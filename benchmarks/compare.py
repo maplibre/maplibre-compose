@@ -18,6 +18,8 @@ METRICS = {
     "map_frame_p95_ms": ("map_presentation", "interval_ms", "p95"),
     "map_frame_max_ms": ("map_presentation", "interval_ms", "max"),
     "map_late_percent": ("map_presentation", "late_percent"),
+    "app_draw_p95_ms": ("app_draws", "duration_ms", "p95"),
+    "app_draw_max_ms": ("app_draws", "duration_ms", "max"),
     "ui_missed_percent": ("ui_frames", "missed_percent"),
     "ui_frame_p95_ms": ("ui_frames", "total_ms", "p95"),
     "ui_frame_max_ms": ("ui_frames", "total_ms", "max"),

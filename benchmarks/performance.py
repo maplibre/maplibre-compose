@@ -73,6 +73,18 @@ def ui_frames(logs):
     return ui
 
 
+def app_draws(logs):
+    if "MAP_BENCHMARK APPDRAWSTATS " not in logs:
+        return None
+    stats = record(logs, "APPDRAWSTATS")
+    values = samples(logs, "APPDRAW")
+    if len(values) != stats["frames"]:
+        raise ValueError("Incomplete app drawing statistics")
+    return (
+        {"frames": len(values), "duration_ms": distribution(values)} if values else None
+    )
+
+
 def map_presentation(directory, logs, config):
     """Actual displayed map buffers; never substitute UI callbacks or engine work timings."""
     path = Path(directory) / "presentation.json"
@@ -181,6 +193,7 @@ def read_run(directory):
         distribution([cpu])
     return {
         "ui_frames": ui_frames(logs),
+        "app_draws": app_draws(logs),
         "map_presentation": map_presentation(directory, logs, config),
         "config": config,
         "build": record(logs, "BUILD") if "MAP_BENCHMARK BUILD " in logs else None,

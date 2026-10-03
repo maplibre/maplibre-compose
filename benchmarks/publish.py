@@ -44,6 +44,8 @@ HEADLINE = [
     "map_frame_max_ms",
     "map_late_percent",
     "ui_missed_percent",
+    "app_draw_p95_ms",
+    "app_draw_max_ms",
     "ui_frame_p95_ms",
     "ui_frame_max_ms",
     "startup_first_frame_ms",
