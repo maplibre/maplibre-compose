@@ -4821,7 +4821,7 @@ final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrame
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop[0]
 
 // Targets: [apple]
-final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop[0]
+final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop|#static{}org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop[0]
@@ -4900,7 +4900,7 @@ final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrame
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(){}[0]
 
 // Targets: [apple]
-final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiRuntimeThread_Task$stableprop_getter(){}[0]
+final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.offline/rememberOfflinePacksSource(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack>, org.maplibre.compose.sources/GeoJsonOptions?, kotlin/Function3<kotlinx.serialization.json/JsonObjectBuilder, org.maplibre.compose.offline/OfflinePack, kotlin/ByteArray?, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/GeoJsonSource // org.maplibre.compose.offline/rememberOfflinePacksSource|rememberOfflinePacksSource(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>;org.maplibre.compose.sources.GeoJsonOptions?;kotlin.Function3<kotlinx.serialization.json.JsonObjectBuilder,org.maplibre.compose.offline.OfflinePack,kotlin.ByteArray?,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
