@@ -4,7 +4,8 @@ import androidx.compose.runtime.Immutable
 
 /** Metadata fixed for a layer in one loaded style, without access to the engine. */
 @Immutable
-public data class LayerSummary(
+public data class LayerSummary
+internal constructor(
   /** The layer ID. */
   public val id: String,
   /** The style-spec layer type. */

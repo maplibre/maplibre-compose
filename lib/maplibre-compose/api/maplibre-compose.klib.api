@@ -1040,47 +1040,36 @@ sealed interface org.maplibre.compose.location/LocationTrackingStatus { // org.m
 
 sealed interface org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent|null[0]
     final class CameraMoveEnded : org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent.CameraMoveEnded|null[0]
-        constructor <init>(kotlin/Boolean?) // org.maplibre.compose.map/MapEvent.CameraMoveEnded.<init>|<init>(kotlin.Boolean?){}[0]
-
         final val animated // org.maplibre.compose.map/MapEvent.CameraMoveEnded.animated|{}animated[0]
             final fun <get-animated>(): kotlin/Boolean? // org.maplibre.compose.map/MapEvent.CameraMoveEnded.animated.<get-animated>|<get-animated>(){}[0]
 
         final fun component1(): kotlin/Boolean? // org.maplibre.compose.map/MapEvent.CameraMoveEnded.component1|component1(){}[0]
-        final fun copy(kotlin/Boolean? = ...): org.maplibre.compose.map/MapEvent.CameraMoveEnded // org.maplibre.compose.map/MapEvent.CameraMoveEnded.copy|copy(kotlin.Boolean?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapEvent.CameraMoveEnded.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapEvent.CameraMoveEnded.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/MapEvent.CameraMoveEnded.toString|toString(){}[0]
     }
 
     final class CameraMoveStarted : org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent.CameraMoveStarted|null[0]
-        constructor <init>(kotlin/Boolean?) // org.maplibre.compose.map/MapEvent.CameraMoveStarted.<init>|<init>(kotlin.Boolean?){}[0]
-
         final val animated // org.maplibre.compose.map/MapEvent.CameraMoveStarted.animated|{}animated[0]
             final fun <get-animated>(): kotlin/Boolean? // org.maplibre.compose.map/MapEvent.CameraMoveStarted.animated.<get-animated>|<get-animated>(){}[0]
 
         final fun component1(): kotlin/Boolean? // org.maplibre.compose.map/MapEvent.CameraMoveStarted.component1|component1(){}[0]
-        final fun copy(kotlin/Boolean? = ...): org.maplibre.compose.map/MapEvent.CameraMoveStarted // org.maplibre.compose.map/MapEvent.CameraMoveStarted.copy|copy(kotlin.Boolean?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapEvent.CameraMoveStarted.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapEvent.CameraMoveStarted.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/MapEvent.CameraMoveStarted.toString|toString(){}[0]
     }
 
     final class FrameRendered : org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent.FrameRendered|null[0]
-        constructor <init>(org.maplibre.compose.map/RenderStats?) // org.maplibre.compose.map/MapEvent.FrameRendered.<init>|<init>(org.maplibre.compose.map.RenderStats?){}[0]
-
         final val stats // org.maplibre.compose.map/MapEvent.FrameRendered.stats|{}stats[0]
             final fun <get-stats>(): org.maplibre.compose.map/RenderStats? // org.maplibre.compose.map/MapEvent.FrameRendered.stats.<get-stats>|<get-stats>(){}[0]
 
         final fun component1(): org.maplibre.compose.map/RenderStats? // org.maplibre.compose.map/MapEvent.FrameRendered.component1|component1(){}[0]
-        final fun copy(org.maplibre.compose.map/RenderStats? = ...): org.maplibre.compose.map/MapEvent.FrameRendered // org.maplibre.compose.map/MapEvent.FrameRendered.copy|copy(org.maplibre.compose.map.RenderStats?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapEvent.FrameRendered.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapEvent.FrameRendered.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/MapEvent.FrameRendered.toString|toString(){}[0]
     }
 
     final class SourceDataFailed : org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent.SourceDataFailed|null[0]
-        constructor <init>(kotlin/String, kotlin/Throwable) // org.maplibre.compose.map/MapEvent.SourceDataFailed.<init>|<init>(kotlin.String;kotlin.Throwable){}[0]
-
         final val cause // org.maplibre.compose.map/MapEvent.SourceDataFailed.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable // org.maplibre.compose.map/MapEvent.SourceDataFailed.cause.<get-cause>|<get-cause>(){}[0]
         final val sourceId // org.maplibre.compose.map/MapEvent.SourceDataFailed.sourceId|{}sourceId[0]
@@ -1088,20 +1077,16 @@ sealed interface org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map
 
         final fun component1(): kotlin/String // org.maplibre.compose.map/MapEvent.SourceDataFailed.component1|component1(){}[0]
         final fun component2(): kotlin/Throwable // org.maplibre.compose.map/MapEvent.SourceDataFailed.component2|component2(){}[0]
-        final fun copy(kotlin/String = ..., kotlin/Throwable = ...): org.maplibre.compose.map/MapEvent.SourceDataFailed // org.maplibre.compose.map/MapEvent.SourceDataFailed.copy|copy(kotlin.String;kotlin.Throwable){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapEvent.SourceDataFailed.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapEvent.SourceDataFailed.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/MapEvent.SourceDataFailed.toString|toString(){}[0]
     }
 
     final class StyleLoadFailed : org.maplibre.compose.map/MapEvent { // org.maplibre.compose.map/MapEvent.StyleLoadFailed|null[0]
-        constructor <init>(kotlin/String) // org.maplibre.compose.map/MapEvent.StyleLoadFailed.<init>|<init>(kotlin.String){}[0]
-
         final val reason // org.maplibre.compose.map/MapEvent.StyleLoadFailed.reason|{}reason[0]
             final fun <get-reason>(): kotlin/String // org.maplibre.compose.map/MapEvent.StyleLoadFailed.reason.<get-reason>|<get-reason>(){}[0]
 
         final fun component1(): kotlin/String // org.maplibre.compose.map/MapEvent.StyleLoadFailed.component1|component1(){}[0]
-        final fun copy(kotlin/String = ...): org.maplibre.compose.map/MapEvent.StyleLoadFailed // org.maplibre.compose.map/MapEvent.StyleLoadFailed.copy|copy(kotlin.String){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapEvent.StyleLoadFailed.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapEvent.StyleLoadFailed.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/MapEvent.StyleLoadFailed.toString|toString(){}[0]
@@ -2545,8 +2530,6 @@ final class org.maplibre.compose.layers/LayerProperties { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.layers/LayerSummary { // org.maplibre.compose.layers/LayerSummary|null[0]
-    constructor <init>(kotlin/String, kotlin/String, kotlin/String?, kotlin/String?) // org.maplibre.compose.layers/LayerSummary.<init>|<init>(kotlin.String;kotlin.String;kotlin.String?;kotlin.String?){}[0]
-
     final val id // org.maplibre.compose.layers/LayerSummary.id|{}id[0]
         final fun <get-id>(): kotlin/String // org.maplibre.compose.layers/LayerSummary.id.<get-id>|<get-id>(){}[0]
     final val source // org.maplibre.compose.layers/LayerSummary.source|{}source[0]
@@ -2560,7 +2543,6 @@ final class org.maplibre.compose.layers/LayerSummary { // org.maplibre.compose.l
     final fun component2(): kotlin/String // org.maplibre.compose.layers/LayerSummary.component2|component2(){}[0]
     final fun component3(): kotlin/String? // org.maplibre.compose.layers/LayerSummary.component3|component3(){}[0]
     final fun component4(): kotlin/String? // org.maplibre.compose.layers/LayerSummary.component4|component4(){}[0]
-    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/String? = ..., kotlin/String? = ...): org.maplibre.compose.layers/LayerSummary // org.maplibre.compose.layers/LayerSummary.copy|copy(kotlin.String;kotlin.String;kotlin.String?;kotlin.String?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.layers/LayerSummary.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.layers/LayerSummary.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.layers/LayerSummary.toString|toString(){}[0]
@@ -2889,8 +2871,6 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
 }
 
 final class org.maplibre.compose.map/RenderStats { // org.maplibre.compose.map/RenderStats|null[0]
-    constructor <init>(org.maplibre.compose.map/RenderStats.Mode?, kotlin/Boolean, kotlin/Boolean, kotlin.time/Duration, kotlin.time/Duration, kotlin/Long, kotlin/Long, kotlin/Long) // org.maplibre.compose.map/RenderStats.<init>|<init>(org.maplibre.compose.map.RenderStats.Mode?;kotlin.Boolean;kotlin.Boolean;kotlin.time.Duration;kotlin.time.Duration;kotlin.Long;kotlin.Long;kotlin.Long){}[0]
-
     final val drawCallCount // org.maplibre.compose.map/RenderStats.drawCallCount|{}drawCallCount[0]
         final fun <get-drawCallCount>(): kotlin/Long // org.maplibre.compose.map/RenderStats.drawCallCount.<get-drawCallCount>|<get-drawCallCount>(){}[0]
     final val encodingTime // org.maplibre.compose.map/RenderStats.encodingTime|{}encodingTime[0]
@@ -2916,7 +2896,6 @@ final class org.maplibre.compose.map/RenderStats { // org.maplibre.compose.map/R
     final fun component6(): kotlin/Long // org.maplibre.compose.map/RenderStats.component6|component6(){}[0]
     final fun component7(): kotlin/Long // org.maplibre.compose.map/RenderStats.component7|component7(){}[0]
     final fun component8(): kotlin/Long // org.maplibre.compose.map/RenderStats.component8|component8(){}[0]
-    final fun copy(org.maplibre.compose.map/RenderStats.Mode? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin.time/Duration = ..., kotlin.time/Duration = ..., kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ...): org.maplibre.compose.map/RenderStats // org.maplibre.compose.map/RenderStats.copy|copy(org.maplibre.compose.map.RenderStats.Mode?;kotlin.Boolean;kotlin.Boolean;kotlin.time.Duration;kotlin.time.Duration;kotlin.Long;kotlin.Long;kotlin.Long){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/RenderStats.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/RenderStats.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/RenderStats.toString|toString(){}[0]
@@ -3192,8 +3171,6 @@ final class org.maplibre.compose.overlay/ZoomButtonsStyle { // org.maplibre.comp
 }
 
 final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplibre.compose.resource/MapResourceLoadRequest|null[0]
-    constructor <init>(kotlin/String, org.maplibre.compose.resource/MapResourceKind, kotlin/String = ..., org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod = ..., org.maplibre.compose.resource/MapResourceLoadRequest.Priority = ..., org.maplibre.compose.resource/MapResourceLoadRequest.Usage = ..., org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy = ..., kotlin.ranges/LongRange? = ..., kotlin/String? = ..., kotlin.time/Instant? = ..., kotlin.time/Instant? = ..., kotlin/ByteArray? = ...) // org.maplibre.compose.resource/MapResourceLoadRequest.<init>|<init>(kotlin.String;org.maplibre.compose.resource.MapResourceKind;kotlin.String;org.maplibre.compose.resource.MapResourceLoadRequest.LoadingMethod;org.maplibre.compose.resource.MapResourceLoadRequest.Priority;org.maplibre.compose.resource.MapResourceLoadRequest.Usage;org.maplibre.compose.resource.MapResourceLoadRequest.StoragePolicy;kotlin.ranges.LongRange?;kotlin.String?;kotlin.time.Instant?;kotlin.time.Instant?;kotlin.ByteArray?){}[0]
-
     final val kind // org.maplibre.compose.resource/MapResourceLoadRequest.kind|{}kind[0]
         final fun <get-kind>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceLoadRequest.kind.<get-kind>|<get-kind>(){}[0]
     final val loadingMethod // org.maplibre.compose.resource/MapResourceLoadRequest.loadingMethod|{}loadingMethod[0]
@@ -3268,8 +3245,6 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 }
 
 final class org.maplibre.compose.resource/MapResourceRequest { // org.maplibre.compose.resource/MapResourceRequest|null[0]
-    constructor <init>(kotlin/String, org.maplibre.compose.resource/MapResourceKind) // org.maplibre.compose.resource/MapResourceRequest.<init>|<init>(kotlin.String;org.maplibre.compose.resource.MapResourceKind){}[0]
-
     final val kind // org.maplibre.compose.resource/MapResourceRequest.kind|{}kind[0]
         final fun <get-kind>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceRequest.kind.<get-kind>|<get-kind>(){}[0]
     final val url // org.maplibre.compose.resource/MapResourceRequest.url|{}url[0]
@@ -3277,7 +3252,6 @@ final class org.maplibre.compose.resource/MapResourceRequest { // org.maplibre.c
 
     final fun component1(): kotlin/String // org.maplibre.compose.resource/MapResourceRequest.component1|component1(){}[0]
     final fun component2(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceRequest.component2|component2(){}[0]
-    final fun copy(kotlin/String = ..., org.maplibre.compose.resource/MapResourceKind = ...): org.maplibre.compose.resource/MapResourceRequest // org.maplibre.compose.resource/MapResourceRequest.copy|copy(kotlin.String;org.maplibre.compose.resource.MapResourceKind){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceRequest.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceRequest.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceRequest.toString|toString(){}[0]
