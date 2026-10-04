@@ -24,12 +24,12 @@ public class RasterDemTileSource : Source {
    * @param uri URI pointing to a JSON file that conforms to the
    *   [TileJSON specification](https://github.com/mapbox/tilejson-spec/)
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
-   *   source
+   *   source. Defaults to 512, the style spec default.
    */
   public constructor(
     id: String,
     uri: String,
-    tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+    tileSize: Int = 512,
   ) : super(id) {
     tileSet = null
     json = buildJsonObject {
@@ -47,14 +47,14 @@ public class RasterDemTileSource : Source {
    *   raster key; a raster-dem source has no `scheme` in the style spec. MapLibre Native still
    *   honours TMS; adding such a source to a MapLibre GL JS map fails.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
-   *   source
+   *   source. Defaults to 512, the style spec default.
    * @param demEncoding The encoding used by this source. Mapbox Terrain RGB is used by default.
    */
   public constructor(
     id: String,
     tiles: List<String>,
     options: TileSetOptions = TileSetOptions(),
-    tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+    tileSize: Int = 512,
     demEncoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
   ) : super(id) {
     val tileSet = TileSet(tiles.toList(), options, tileSize, demEncoding)
@@ -174,7 +174,7 @@ public sealed class RasterDemEncoding(internal val value: String) {
 @Composable
 public fun rememberRasterDemTileSource(
   uri: String,
-  tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+  tileSize: Int = 512,
 ): RasterDemTileSource =
   key(uri, tileSize) {
     rememberUserSource { RasterDemTileSource(id = it, uri = uri, tileSize = tileSize) }
@@ -184,7 +184,7 @@ public fun rememberRasterDemTileSource(
 public fun rememberRasterDemTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
-  tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+  tileSize: Int = 512,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
 ): RasterDemTileSource =
   key(tiles, options, tileSize, encoding) {

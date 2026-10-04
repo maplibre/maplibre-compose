@@ -3904,14 +3904,6 @@ public abstract class org/maplibre/compose/sources/Source {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/sources/SourceDefaults {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/sources/SourceDefaults;
-	public static final field MAX_ZOOM I
-	public static final field MIN_ZOOM I
-	public static final field RASTER_TILE_SIZE I
-}
-
 public abstract interface class org/maplibre/compose/sources/SourceHandle {
 	public abstract fun getAsMutable ()Lorg/maplibre/compose/sources/MutableSourceHandle;
 	public abstract fun getAttributionHtml ()Ljava/lang/String;
