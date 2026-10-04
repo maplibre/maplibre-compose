@@ -3,8 +3,9 @@ package org.maplibre.compose.expressions.ast
 import kotlinx.serialization.json.JsonElement
 
 /**
- * An argument to [call][org.maplibre.compose.expressions.dsl.call]: an [Expression], or JSON from
- * [verbatim][org.maplibre.compose.expressions.dsl.verbatim].
+ * An argument to [call][org.maplibre.compose.expressions.dsl.call]: an [Expression], or a value
+ * from [verbatim][org.maplibre.compose.expressions.dsl.verbatim] or
+ * [options][org.maplibre.compose.expressions.dsl.options].
  */
 public sealed interface CallArgument
 
@@ -17,9 +18,15 @@ internal data class Verbatim(val json: JsonElement) : CompiledCallArgument
 internal fun CallArgument.compileArgument(context: ExpressionContext): CompiledCallArgument =
   when (this) {
     is Expression<*> -> compile(context)
-    is Verbatim -> this
+    is Options -> CompiledOptions(entries.mapValues { it.value.compile(context) })
+    is CompiledCallArgument -> this
   }
 
 internal fun CallArgument.visitArgument(block: (Expression<*>) -> Unit) {
-  if (this is Expression<*>) visit(block)
+  when (this) {
+    is Expression<*> -> visit(block)
+    is Options -> entries.values.forEach { it.visit(block) }
+    is CompiledOptions -> entries.values.forEach { it.visit(block) }
+    is Verbatim -> {}
+  }
 }

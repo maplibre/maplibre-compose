@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.StringValue
@@ -26,8 +25,7 @@ import org.maplibre.compose.util.ImageStretch
  * currently in the style. This validation process is synchronous and requires the image to have
  * been added to the style before requesting it in the image argument.
  */
-public fun image(value: Expression<StringValue>): Expression<ImageValue?> =
-  FunctionCall.of("image", value).cast()
+public fun image(value: Expression<StringValue>): Expression<ImageValue?> = call("image", value)
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -68,7 +66,7 @@ public fun image(
   value: ImageBitmap,
   isSdf: Boolean = false,
   stretch: ImageStretch? = null,
-): Expression<ImageValue> = FunctionCall.of("image", BitmapLiteral.of(value, isSdf, stretch)).cast()
+): Expression<ImageValue> = call("image", BitmapLiteral.of(value, isSdf, stretch))
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -107,8 +105,7 @@ public fun image(
   alpha: Float = DefaultAlpha,
   colorFilter: ColorFilter? = null,
 ): Expression<ImageValue> =
-  FunctionCall.of(
-      "image",
-      PainterLiteral.of(value, size, drawAsSdf, stretch, alpha, colorFilter),
-    )
-    .cast()
+  call(
+    "image",
+    PainterLiteral.of(value, size, drawAsSdf, stretch, alpha, colorFilter),
+  )

@@ -19,7 +19,5 @@ private constructor(val name: String, val args: List<CallArgument>) :
      * Creates a call with a snapshot of [args]. Later changes to the list do not affect the call.
      */
     fun of(name: String, args: List<CallArgument>): FunctionCall = FunctionCall(name, args.toList())
-
-    fun of(name: String, vararg args: CallArgument): FunctionCall = of(name, args.asList())
   }
 }

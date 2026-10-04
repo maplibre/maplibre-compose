@@ -126,15 +126,8 @@ public fun const(list: List<Number>): Expression<VectorValue<Number>> =
  */
 public fun textVariableAnchorOffset(
   vararg pairs: Pair<SymbolAnchor, Expression<TextUnitOffsetValue>>
-): Expression<TextVariableAnchorOffsetValue> {
-  val elements = buildList {
-    pairs.forEach { (anchor, offset) ->
-      add(anchor.literal)
-      add(offset)
-    }
-  }
-  return list(elements).cast()
-}
+): Expression<TextVariableAnchorOffsetValue> =
+  list(pairs.flatMap { (anchor, offset) -> listOf(const(anchor), offset) }).cast()
 
 /** Creates a literal expression for a 2D [Offset]. */
 public fun offset(x: Float, y: Float): Expression<FloatOffsetValue> = OffsetLiteral.of(Offset(x, y))

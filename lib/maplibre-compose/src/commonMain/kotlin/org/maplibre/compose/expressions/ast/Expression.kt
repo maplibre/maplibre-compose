@@ -159,7 +159,8 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *
  * ### Other operators
  * - [call][org.maplibre.compose.expressions.dsl.call] - call an operator that the DSL does not
- *   provide
+ *   provide, with [verbatim][org.maplibre.compose.expressions.dsl.verbatim] and
+ *   [options][org.maplibre.compose.expressions.dsl.options] arguments
  */
 public sealed interface Expression<out T : ExpressionValue?> : CallArgument {
   @Suppress("UNCHECKED_CAST")

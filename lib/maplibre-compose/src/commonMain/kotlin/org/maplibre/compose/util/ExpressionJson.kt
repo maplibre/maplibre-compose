@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.ColorLiteral
+import org.maplibre.compose.expressions.ast.CompiledCallArgument
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
@@ -69,19 +70,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
       )
 
     is CompiledFunctionCall ->
-      JsonArray(
-        buildList {
-          add(JsonPrimitive(name))
-          args.forEach { arg ->
-            add(
-              when (arg) {
-                is Verbatim -> arg.json
-                is CompiledExpression<*> -> arg.normalizeJsonLike(inLiteral = false)
-              }
-            )
-          }
-        }
-      )
+      JsonArray(listOf(JsonPrimitive(name)) + args.map { it.toArgumentJson() })
 
     is CompiledSemiliteral<*> -> {
       val array =
@@ -107,10 +96,13 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
 
     is CompiledListLiteral<*> ->
       literalArray(inLiteral, value.map { it.normalizeJsonLike(inLiteral = true) })
+  }
 
-    // Not wrapped: an object is a function call's named arguments, never a readable expression.
-    is CompiledOptions<*> ->
-      JsonObject(value.mapValues { (_, v) -> v.normalizeJsonLike(inLiteral) })
+private fun CompiledCallArgument.toArgumentJson(): JsonElement =
+  when (this) {
+    is CompiledExpression<*> -> toStyleJson()
+    is Verbatim -> json
+    is CompiledOptions -> JsonObject(entries.mapValues { it.value.toStyleJson() })
   }
 
 private fun literalArray(inLiteral: Boolean, values: List<JsonElement>): JsonElement =

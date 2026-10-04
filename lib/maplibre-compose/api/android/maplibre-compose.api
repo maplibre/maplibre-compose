@@ -211,7 +211,9 @@ public final class org/maplibre/compose/expressions/ast/Expression$DefaultImpls 
 }
 
 public final class org/maplibre/compose/expressions/dsl/CallKt {
+	public static final fun call (Ljava/lang/String;Ljava/util/List;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun call (Ljava/lang/String;[Lorg/maplibre/compose/expressions/ast/CallArgument;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun options ([Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/CallArgument;
 	public static final fun verbatim (Lkotlinx/serialization/json/JsonElement;)Lorg/maplibre/compose/expressions/ast/CallArgument;
 }
 

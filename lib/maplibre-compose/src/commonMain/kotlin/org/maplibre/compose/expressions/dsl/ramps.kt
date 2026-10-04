@@ -1,7 +1,6 @@
 package org.maplibre.compose.expressions.dsl
 
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
@@ -25,40 +24,14 @@ public fun <T : ExpressionValue?> step(
   input: Expression<FloatValue>,
   fallback: Expression<T>,
   vararg stops: Pair<Number, Expression<T>>,
-): Expression<T> {
-  val args =
-    buildList(stops.size * 2 + 2) {
-      add(input)
-      add(fallback)
-      stops
-        .sortedBy { it.first.toFloat() }
-        .forEach {
-          add(const(it.first.toFloat()))
-          add(it.second)
-        }
-    }
-  return FunctionCall.of("step", args).cast()
-}
+): Expression<T> = call("step", listOf(input, fallback) + stopArguments(stops))
 
-private fun <T, V : InterpolatableValue<T>> interpolateImpl(
-  name: String,
-  type: Expression<InterpolationValue>,
-  input: Expression<FloatValue>,
-  vararg stops: Pair<Number, Expression<V>>,
-): Expression<V> {
-  val args =
-    buildList(stops.size * 2 + 2) {
-      add(type)
-      add(input)
-      stops
-        .sortedBy { it.first.toDouble() }
-        .forEach {
-          add(const(it.first.toFloat()))
-          add(it.second)
-        }
-    }
-  return FunctionCall.of(name, args).cast()
-}
+/** Returns the [stops] as alternating input and output arguments, in increasing input order. */
+private fun stopArguments(stops: Array<out Pair<Number, Expression<*>>>): List<Expression<*>> =
+  stops
+    .map { (input, output) -> input.toFloat() to output }
+    .sortedBy { it.first }
+    .flatMap { (input, output) -> listOf(const(input), output) }
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values
@@ -83,7 +56,7 @@ public fun <T, V : InterpolatableValue<T>> interpolate(
   type: Expression<InterpolationValue>,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<V>>,
-): Expression<V> = interpolateImpl("interpolate", type, input, *stops)
+): Expression<V> = call("interpolate", listOf(type, input) + stopArguments(stops))
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values
@@ -110,7 +83,7 @@ public fun interpolateHcl(
   type: Expression<InterpolationValue>,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<ColorValue>>,
-): Expression<ColorValue> = interpolateImpl("interpolate-hcl", type, input, *stops)
+): Expression<ColorValue> = call("interpolate-hcl", listOf(type, input) + stopArguments(stops))
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values
@@ -123,10 +96,10 @@ public fun interpolateLab(
   type: Expression<InterpolationValue>,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<ColorValue>>,
-): Expression<ColorValue> = interpolateImpl("interpolate-lab", type, input, *stops)
+): Expression<ColorValue> = call("interpolate-lab", listOf(type, input) + stopArguments(stops))
 
 /** Interpolates linearly between the pairs of stops. */
-public fun linear(): Expression<InterpolationValue> = FunctionCall.of("linear").cast()
+public fun linear(): Expression<InterpolationValue> = call("linear")
 
 /**
  * Interpolates exponentially between the stops.
@@ -136,7 +109,7 @@ public fun linear(): Expression<InterpolationValue> = FunctionCall.of("linear").
  *   linearly.
  */
 public fun exponential(base: Expression<FloatValue>): Expression<InterpolationValue> =
-  FunctionCall.of("exponential", base).cast()
+  call("exponential", base)
 
 /**
  * Interpolates exponentially between the stops.
@@ -156,7 +129,7 @@ public fun cubicBezier(
   y1: Expression<FloatValue>,
   x2: Expression<FloatValue>,
   y2: Expression<FloatValue>,
-): Expression<InterpolationValue> = FunctionCall.of("cubic-bezier", x1, y1, x2, y2).cast()
+): Expression<InterpolationValue> = call("cubic-bezier", x1, y1, x2, y2)
 
 /**
  * Interpolates using the cubic bezier curve defined by the given control points between the pairs

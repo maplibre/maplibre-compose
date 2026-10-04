@@ -17,7 +17,6 @@ import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.FloatLiteral
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
@@ -25,9 +24,11 @@ import org.maplibre.compose.expressions.ast.Verbatim
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.ast.visit
 import org.maplibre.compose.expressions.dsl.asBoolean
+import org.maplibre.compose.expressions.dsl.call
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.dsl.padding
+import org.maplibre.compose.expressions.value.StringValue
 
 /**
  * Written against values, not rendered text, wherever a whole number is involved: Kotlin renders
@@ -102,7 +103,7 @@ class ExpressionJsonTest {
   @Test
   fun a_function_call_snapshots_caller_arguments() {
     val args = mutableListOf<Expression<*>>(const("park"))
-    val expression = FunctionCall.of("concat", args)
+    val expression = call<StringValue>("concat", args)
     val initialHash = expression.hashCode()
     args[0] = const("forest")
     args.add(const("trail"))

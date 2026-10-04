@@ -8,6 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.StringValue
 
 class CallTest {
   @Test
@@ -40,6 +41,20 @@ class CallTest {
       styleJson(
         call<FloatValue>("custom-op", feature["kind"], verbatim(labels), verbatim(options))
       ),
+    )
+  }
+
+  @Test
+  fun options_are_written_as_an_object_of_expressions_without_null_entries() {
+    val formatted =
+      call<StringValue>(
+        "number-format",
+        feature["price"].asNumber(),
+        options("locale" to feature["locale"].asString(), "currency" to null),
+      )
+    assertEquals(
+      """["number-format",["number",["get","price"]],{"locale":["string",["get","locale"]]}]""",
+      styleJson(formatted),
     )
   }
 }

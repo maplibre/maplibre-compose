@@ -2,7 +2,6 @@ package org.maplibre.compose.expressions.dsl
 
 import kotlin.jvm.JvmInline
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.ExpressionValue
 
 /**
@@ -18,11 +17,10 @@ public fun <V : ExpressionValue?, R : ExpressionValue?> withVariable(
   name: String,
   value: Expression<V>,
   block: (Variable<V>) -> Expression<R>,
-): Expression<R> = FunctionCall.of("let", const(name), value, block(Variable(name))).cast()
+): Expression<R> = call("let", const(name), value, block(Variable(name)))
 
 /** References a [Variable] bound in [withVariable]. */
-public fun <T : ExpressionValue?> Variable<T>.use(): Expression<T> =
-  FunctionCall.of("var", const(name)).cast()
+public fun <T : ExpressionValue?> Variable<T>.use(): Expression<T> = call("var", const(name))
 
 /** Represents a variable bound with [withVariable]. Reference the bound expression with [use]. */
 @JvmInline
