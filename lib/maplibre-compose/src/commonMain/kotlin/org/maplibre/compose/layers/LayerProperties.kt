@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.StyleProperty

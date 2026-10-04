@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Orientation of text when map is pitched. */
-public enum class TextPitchAlignment(override val literal: StringLiteral) :
+public enum class TextPitchAlignment(internal val literal: StringLiteral) :
   EnumValue<TextPitchAlignment> {
   /** The text is aligned to the plane of the map. */
   Map(StringLiteral.of("map")),

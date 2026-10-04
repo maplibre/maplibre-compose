@@ -6,7 +6,7 @@ import org.maplibre.compose.expressions.ast.StringLiteral
  * The resampling/interpolation method to use for overscaling, also known as texture magnification
  * filter
  */
-public enum class RasterResampling(override val literal: StringLiteral) :
+public enum class RasterResampling(internal val literal: StringLiteral) :
   EnumValue<RasterResampling> {
   /**
    * (Bi)linear filtering interpolates pixel values using the weighted average of the four closest

@@ -116,7 +116,7 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
  */
 public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
   where T : Enum<T>, T : EnumValue<T> {
-  val entries = const(enumEntries<T>().map { it.literal })
+  val entries = const(enumEntries<T>())
   val conditions =
     buildList(fallbacks.size + 1) {
       add(condition(entries.contains(this@asEnum), this@asEnum))

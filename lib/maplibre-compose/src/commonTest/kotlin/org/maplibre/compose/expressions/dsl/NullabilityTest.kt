@@ -3,6 +3,8 @@ package org.maplibre.compose.expressions.dsl
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.NullLiteral
+import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.EquatableValue
 import org.maplibre.compose.expressions.value.FloatValue
@@ -59,7 +61,10 @@ class NullabilityTest {
       """["!=",null,["feature-state","hover"]]""",
       styleJson(nil() neq feature.state("hover")),
     )
-    assertEquals("""["literal",["a",null]]""", styleJson(const(listOf(const("a"), nil()))))
+    assertEquals(
+      """["literal",["a",null]]""",
+      styleJson(const(listOf(StringLiteral.of("a"), NullLiteral))),
+    )
     assertEquals(
       """["let","n",null,["==",["var","n"],["get","x"]]]""",
       styleJson(withVariable("n", nil()) { n -> n.use() eq feature["x"] }),

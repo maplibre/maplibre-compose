@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Direction of light source when map is rotated. */
-public enum class IlluminationAnchor(override val literal: StringLiteral) :
+public enum class IlluminationAnchor(internal val literal: StringLiteral) :
   EnumValue<IlluminationAnchor> {
 
   /** The hillshade illumination is relative to the north direction. */

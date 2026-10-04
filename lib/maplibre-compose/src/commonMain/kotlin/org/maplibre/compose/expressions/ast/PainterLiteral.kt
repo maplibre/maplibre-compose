@@ -12,7 +12,7 @@ import org.maplibre.compose.util.ImageStretch
  * A [Literal] representing a [Painter] value, which will be drawn to a bitmap and loaded as an
  * image into the style upon compilation.
  */
-public data class PainterLiteral
+internal data class PainterLiteral
 private constructor(
   override val value: Painter,
   val size: DpSize?,
@@ -26,8 +26,8 @@ private constructor(
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
-  public companion object {
-    public fun of(
+  companion object {
+    fun of(
       value: Painter,
       size: DpSize?,
       drawAsSdf: Boolean,

@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.ast
 import org.maplibre.compose.expressions.value.ExpressionValue
 
 /** A function call with compiled arguments. */
-public data class CompiledFunctionCall
+internal data class CompiledFunctionCall
 private constructor(
   val name: String,
   val args: List<CompiledExpression<*>>,
@@ -15,8 +15,8 @@ private constructor(
     args.forEach { it.visit(block) }
   }
 
-  public companion object {
-    public fun of(
+  companion object {
+    fun of(
       name: String,
       args: List<CompiledExpression<*>>,
       literalArgs: Set<Int> = emptySet(),

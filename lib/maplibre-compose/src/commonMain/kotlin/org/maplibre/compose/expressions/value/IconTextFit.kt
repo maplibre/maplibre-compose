@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Scales the icon to fit around the associated text. */
-public enum class IconTextFit(override val literal: StringLiteral) : EnumValue<IconTextFit> {
+public enum class IconTextFit(internal val literal: StringLiteral) : EnumValue<IconTextFit> {
   /** The icon is displayed at its intrinsic aspect ratio. */
   None(StringLiteral.of("none")),
 

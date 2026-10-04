@@ -4,7 +4,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.ListValue
 
 /** A [Literal] representing a JSON array. */
-public data class ListLiteral<T : ExpressionValue?>
+internal data class ListLiteral<T : ExpressionValue?>
 private constructor(override val value: List<Literal<T, *>>) :
   Literal<ListValue<T>, List<Literal<T, *>>> {
 
@@ -16,8 +16,7 @@ private constructor(override val value: List<Literal<T, *>>) :
     value.forEach { it.visit(block) }
   }
 
-  public companion object {
-    internal fun <T : ExpressionValue?> of(value: List<Literal<T, *>>): ListLiteral<T> =
-      ListLiteral(value)
+  companion object {
+    fun <T : ExpressionValue?> of(value: List<Literal<T, *>>): ListLiteral<T> = ListLiteral(value)
   }
 }

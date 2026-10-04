@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.PainterLiteral
+import org.maplibre.compose.expressions.ast.visit
 import org.maplibre.compose.style.StyleImageRequest
 
 internal data class LayerPropertyImages(

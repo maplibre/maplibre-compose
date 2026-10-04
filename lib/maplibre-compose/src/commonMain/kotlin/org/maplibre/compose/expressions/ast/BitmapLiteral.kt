@@ -8,7 +8,7 @@ import org.maplibre.compose.util.ImageStretch
  * A [Literal] representing an [ImageBitmap] value, which will be loaded as an image into the style
  * upon compilation.
  */
-public data class BitmapLiteral
+internal data class BitmapLiteral
 private constructor(
   override val value: ImageBitmap,
   val sdf: Boolean,
@@ -19,8 +19,8 @@ private constructor(
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
-  public companion object {
-    public fun of(value: ImageBitmap, isSdf: Boolean, stretch: ImageStretch?): BitmapLiteral {
+  companion object {
+    fun of(value: ImageBitmap, isSdf: Boolean, stretch: ImageStretch?): BitmapLiteral {
       require(value.width > 0 && value.height > 0) {
         "Bitmap image size must have positive width and height, but was " +
           "${value.width}x${value.height}."

@@ -4,8 +4,8 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.MapValue
 
 /** An [Expression] representing a JSON object with values all [Expression]. */
-public data class Options<T : ExpressionValue?>
-private constructor(val value: Map<String, Expression<T>>) : Expression<MapValue<T>> {
+internal data class Options<T : ExpressionValue?>
+private constructor(val value: Map<String, Expression<T>>) : ExpressionNode<MapValue<T>> {
 
   override fun compile(context: ExpressionContext): CompiledOptions<T> =
     CompiledOptions.of(value.mapValues { it.value.compile(context) })
@@ -15,8 +15,7 @@ private constructor(val value: Map<String, Expression<T>>) : Expression<MapValue
     value.values.forEach { it.visit(block) }
   }
 
-  public companion object {
-    internal fun build(block: MutableMap<String, Expression<*>>.() -> Unit) =
-      Options(buildMap(block))
+  companion object {
+    fun build(block: MutableMap<String, Expression<*>>.() -> Unit) = Options(buildMap(block))
   }
 }

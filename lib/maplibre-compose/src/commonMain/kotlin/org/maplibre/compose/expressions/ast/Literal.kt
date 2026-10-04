@@ -3,9 +3,9 @@ package org.maplibre.compose.expressions.ast
 import org.maplibre.compose.expressions.value.ExpressionValue
 
 /** An [Expression] representing a constant literal value. */
-public sealed interface Literal<out T : ExpressionValue?, out L : Any?> : Expression<T> {
+internal sealed interface Literal<out T : ExpressionValue?, out L : Any?> : ExpressionNode<T> {
 
-  public val value: L
+  val value: L
 
   override fun compile(context: ExpressionContext): CompiledLiteral<T, *>
 

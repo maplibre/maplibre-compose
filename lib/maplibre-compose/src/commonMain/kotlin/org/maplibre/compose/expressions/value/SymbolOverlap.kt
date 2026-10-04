@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Controls whether to show an icon/text when it overlaps other symbols on the map. */
-public enum class SymbolOverlap(override val literal: StringLiteral) : EnumValue<SymbolOverlap> {
+public enum class SymbolOverlap(internal val literal: StringLiteral) : EnumValue<SymbolOverlap> {
   /** The icon/text will be hidden if it collides with any other previously drawn symbol. */
   Never(StringLiteral.of("never")),
 

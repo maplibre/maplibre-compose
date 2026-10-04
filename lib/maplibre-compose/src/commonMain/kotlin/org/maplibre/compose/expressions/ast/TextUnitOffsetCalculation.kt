@@ -12,8 +12,8 @@ import org.maplibre.compose.expressions.value.TextUnitOffsetValue
  * An [Expression] representing a [TextUnitOffsetValue] in EM or SP, converted component by
  * component to the needed units upon compilation.
  */
-public data class TextUnitOffsetCalculation private constructor(val x: TextUnit, val y: TextUnit) :
-  Expression<TextUnitOffsetValue> {
+internal data class TextUnitOffsetCalculation
+private constructor(val x: TextUnit, val y: TextUnit) : ExpressionNode<TextUnitOffsetValue> {
   override fun compile(context: ExpressionContext): CompiledExpression<TextUnitOffsetValue> {
     val scale =
       when (x.type) {
@@ -27,8 +27,8 @@ public data class TextUnitOffsetCalculation private constructor(val x: TextUnit,
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
-  public companion object {
-    public fun of(x: TextUnit, y: TextUnit): TextUnitOffsetCalculation {
+  companion object {
+    fun of(x: TextUnit, y: TextUnit): TextUnitOffsetCalculation {
       require(x.isSpecified && y.isSpecified) { "TextUnit type must be specified" }
       require(x.type == y.type) { "X and Y text units must have the same type" }
       return TextUnitOffsetCalculation(x, y)

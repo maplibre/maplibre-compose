@@ -7,7 +7,7 @@ import org.maplibre.compose.expressions.ast.StringLiteral
  * appear in the data source or by their y-position relative to the viewport. To control the order
  * and prioritization of symbols otherwise, use `sortKey`.
  */
-public enum class SymbolZOrder(override val literal: StringLiteral) : EnumValue<SymbolZOrder> {
+public enum class SymbolZOrder(internal val literal: StringLiteral) : EnumValue<SymbolZOrder> {
   /**
    * Sorts symbols by `sortKey` if set. Otherwise, sorts symbols by their y-position relative to the
    * viewport if `iconAllowOverlap` or `textAllowOverlap` is set to `true` or `iconIgnorePlacement`

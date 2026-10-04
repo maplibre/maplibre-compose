@@ -6,7 +6,7 @@ import org.maplibre.compose.expressions.ast.StringLiteral
  * In combination with [SymbolPlacement], determines the rotation behavior of the individual glyphs
  * forming the text.
  */
-public enum class TextRotationAlignment(override val literal: StringLiteral) :
+public enum class TextRotationAlignment(internal val literal: StringLiteral) :
   EnumValue<TextRotationAlignment> {
   /**
    * For [SymbolPlacement.Point], aligns text east-west. Otherwise, aligns text x-axes with the

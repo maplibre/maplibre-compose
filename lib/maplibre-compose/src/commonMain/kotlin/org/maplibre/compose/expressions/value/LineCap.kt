@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Display of line endings */
-public enum class LineCap(override val literal: StringLiteral) : EnumValue<LineCap> {
+public enum class LineCap(internal val literal: StringLiteral) : EnumValue<LineCap> {
   /** A cap with a squared-off end which is drawn to the exact endpoint of the line. */
   Butt(StringLiteral.of("butt")),
 

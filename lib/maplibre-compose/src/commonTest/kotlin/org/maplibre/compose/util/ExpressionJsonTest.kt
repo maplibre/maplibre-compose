@@ -20,6 +20,8 @@ import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.ast.compile
+import org.maplibre.compose.expressions.ast.visit
 import org.maplibre.compose.expressions.dsl.asBoolean
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.globalState

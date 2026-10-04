@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Scaling behavior of circles when the map is pitched. */
-public enum class CirclePitchScale(override val literal: StringLiteral) :
+public enum class CirclePitchScale(internal val literal: StringLiteral) :
   EnumValue<CirclePitchScale> {
   /**
    * Circles are scaled according to their apparent distance to the camera, i.e. as if they are on

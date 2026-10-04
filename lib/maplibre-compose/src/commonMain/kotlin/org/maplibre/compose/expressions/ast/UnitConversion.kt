@@ -7,7 +7,7 @@ internal data class UnitConversion(
   val value: Expression<FloatValue>,
   val scale: Expression<FloatValue>,
   val divide: Boolean = false,
-) : Expression<FloatValue> {
+) : ExpressionNode<FloatValue> {
   override fun compile(context: ExpressionContext): CompiledExpression<FloatValue> {
     val left = value.compile(context)
     val right = scale.compile(context)

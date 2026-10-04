@@ -158,11 +158,6 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *   expression
  */
 public sealed interface Expression<out T : ExpressionValue?> {
-  /** Transform this expression into the equivalent [CompiledExpression]. */
-  public fun compile(context: ExpressionContext): CompiledExpression<T>
-
-  public fun visit(block: (Expression<*>) -> Unit)
-
   @Suppress("UNCHECKED_CAST")
   public fun <X : ExpressionValue?> cast(): Expression<X> = this as Expression<X>
 }

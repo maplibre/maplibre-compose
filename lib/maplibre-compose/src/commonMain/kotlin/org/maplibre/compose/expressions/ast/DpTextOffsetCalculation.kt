@@ -5,7 +5,7 @@ import androidx.compose.ui.unit.isSpecified
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 
 internal data class DpTextOffsetCalculation(val x: Dp, val y: Dp) :
-  Expression<TextUnitOffsetValue> {
+  ExpressionNode<TextUnitOffsetValue> {
   init {
     require(x.isSpecified && y.isSpecified) { "DP text offset must be specified" }
   }

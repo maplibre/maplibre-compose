@@ -9,9 +9,9 @@ import org.maplibre.compose.expressions.value.TextUnitValue
  * An [Expression] representing a [TextUnit] value in EM or SP, which may be transformed into
  * multiplication function call to convert to the needed units upon compilation.
  */
-public data class TextUnitCalculation
+internal data class TextUnitCalculation
 private constructor(val value: Expression<FloatValue>, val type: TextUnitType) :
-  Expression<TextUnitValue> {
+  ExpressionNode<TextUnitValue> {
   override fun compile(context: ExpressionContext): CompiledExpression<TextUnitValue> {
     val scale =
       when (type) {
@@ -27,13 +27,13 @@ private constructor(val value: Expression<FloatValue>, val type: TextUnitType) :
     value.visit(block)
   }
 
-  public companion object {
-    public fun of(value: TextUnit): TextUnitCalculation {
+  companion object {
+    fun of(value: TextUnit): TextUnitCalculation {
       require(value.type != TextUnitType.Unspecified) { "TextUnit type must be specified" }
       return TextUnitCalculation(FloatLiteral.of(value.value), value.type)
     }
 
-    public fun of(value: Expression<FloatValue>, type: TextUnitType): TextUnitCalculation {
+    fun of(value: Expression<FloatValue>, type: TextUnitType): TextUnitCalculation {
       require(type != TextUnitType.Unspecified) { "TextUnit type must be specified" }
       return TextUnitCalculation(value, type)
     }
