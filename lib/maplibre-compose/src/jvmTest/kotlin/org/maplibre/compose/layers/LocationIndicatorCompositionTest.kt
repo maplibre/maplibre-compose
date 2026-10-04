@@ -18,6 +18,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.testClickEvent
 import org.maplibre.compose.location.HeadingMeasurement
@@ -195,7 +196,7 @@ class LocationIndicatorCompositionTest {
           LocationMeasurement(position = Position(0.0, 0.0), measuredAt = Clock.System.now())
       }
     var enabled by mutableStateOf(true)
-    val calls = mutableListOf<String>()
+    val calls = mutableListOf<Pair<String, ClickEvent>>()
     var latest: StyleSnapshot? = null
     setContent {
       val revision by
@@ -208,16 +209,16 @@ class LocationIndicatorCompositionTest {
               onClick =
                 if (enabled)
                   ({
-                    calls += "click"
+                    calls += "click" to this
                     ClickResult.Pass
                   })
                 else null,
               onLongClick = {
-                calls += "long"
+                calls += "long" to this
                 ClickResult.Consume
               },
               onDoubleClick = {
-                calls += "double"
+                calls += "double" to this
                 ClickResult.Consume
               },
               hitPadding = 12.dp,
@@ -229,10 +230,13 @@ class LocationIndicatorCompositionTest {
     waitForIdle()
     val node = checkNotNull(latest).layers.single()
     assertEquals(12.dp, node.hitPadding)
-    assertEquals(ClickResult.Pass, node.onClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, node.onLongClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, node.onDoubleClick!!(testClickEvent(), emptyList()))
-    assertEquals(listOf("click", "long", "double"), calls)
+    val click = testClickEvent()
+    val longClick = testClickEvent()
+    val doubleClick = testClickEvent()
+    assertEquals(ClickResult.Pass, node.onClick!!(click, emptyList()))
+    assertEquals(ClickResult.Consume, node.onLongClick!!(longClick, emptyList()))
+    assertEquals(ClickResult.Consume, node.onDoubleClick!!(doubleClick, emptyList()))
+    assertEquals(listOf("click" to click, "long" to longClick, "double" to doubleClick), calls)
     runOnIdle { enabled = false }
     waitForIdle()
     assertEquals(null, checkNotNull(latest).layers.single().onClick)
