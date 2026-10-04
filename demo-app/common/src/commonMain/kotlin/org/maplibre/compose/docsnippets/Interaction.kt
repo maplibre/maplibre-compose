@@ -22,7 +22,7 @@ fun Interaction() {
       MapInteractions {
         camera {
           rotate { enabled = false }
-          tilt { enabled = false }
+          pitch { enabled = false }
         }
       }
   )

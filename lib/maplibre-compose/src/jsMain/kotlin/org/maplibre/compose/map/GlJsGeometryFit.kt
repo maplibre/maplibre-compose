@@ -22,14 +22,14 @@ import org.maplibre.spatialk.geojson.Position
 // GL JS fits bounding boxes, but has no equivalent for an arbitrary set of positions.
 // Keep the geometry fit aligned with the engine's Mercator bounds fit.
 
-/** A fitted center and zoom; bearing and tilt come from the request. */
+/** A fitted center and zoom; bearing and pitch come from the request. */
 internal class GeometryFit(val target: Position, val zoom: Double)
 
 /**
  * Fits [positions] the way GL JS `cameraForBoxAndBearing` fits the corners of a box: project to
  * Mercator, rotate by [bearing], and scale the rotated extent into the viewport left after
- * [edgePadding] and [fitPadding]. Pitch is not part of the calculation; [refineFitForTilt] adds it.
- * Returns null when the padding leaves no room.
+ * [edgePadding] and [fitPadding]. Pitch is not part of the calculation; [refineFitForPitch] adds
+ * it. Returns null when the padding leaves no room.
  *
  * Longitudes are used as given, so a route across the antimeridian needs continuous longitudes. The
  * result depends on [zoom] only through the pixel offset that uneven fit padding adds.
@@ -83,21 +83,21 @@ internal fun fitPositions(
 }
 
 /**
- * Adjusts [fit] so that [positions] fill the padded viewport once the camera is tilted. Each pass
+ * Adjusts [fit] so that [positions] fill the padded viewport once the camera is pitched. Each pass
  * projects the positions through a copy of [transform] at the current candidate, then rescales the
  * screen extent into the room left by [edgePadding] and [fitPadding] and moves its midpoint to the
  * middle of that room. Perspective changes the extent as the camera moves, so the passes repeat
- * until the candidate stops changing. A tilt of zero returns [fit] unchanged.
+ * until the candidate stops changing. A pitch of zero returns [fit] unchanged.
  *
  * The projection ignores terrain. A candidate that puts a position behind the camera or past the
  * horizon ends the refinement with the last candidate that showed every position.
  */
-internal fun refineFitForTilt(
+internal fun refineFitForPitch(
   transform: GlJsTransform,
   fit: GeometryFit,
   positions: Sequence<Position>,
   bearing: Double,
-  tilt: Double,
+  pitch: Double,
   width: Double,
   height: Double,
   edgePadding: PaddingOptions,
@@ -105,7 +105,7 @@ internal fun refineFitForTilt(
   minZoom: Double,
   maxZoom: Double,
 ): GeometryFit {
-  if (tilt == 0.0) return fit
+  if (pitch == 0.0) return fit
   val availableWidth =
     width - (edgePadding.left + edgePadding.right + fitPadding.left + fitPadding.right)
   val availableHeight =
@@ -119,12 +119,12 @@ internal fun refineFitForTilt(
   val candidate = transform.clone()
   candidate.setPadding(edgePadding)
   candidate.setBearing(bearing)
-  candidate.setPitch(tilt)
+  candidate.setPitch(pitch)
 
-  // The flat fit shows every position at tilt zero; it stands in until a tilted candidate does.
+  // The flat fit shows every position at pitch zero; it stands in until a pitched candidate does.
   var shown = fit
   var next = fit
-  repeat(MAX_TILT_PASSES) {
+  repeat(MAX_PITCH_PASSES) {
     candidate.setCenter(next.target.toLngLat())
     candidate.setZoom(next.zoom)
     // The map's constraints may have moved the candidate.
@@ -166,7 +166,7 @@ internal fun refineFitForTilt(
 }
 
 private const val TILE_SIZE = 512.0
-private const val MAX_TILT_PASSES = 12
+private const val MAX_PITCH_PASSES = 12
 private const val ZOOM_TOLERANCE = 1e-4
 private const val PIXEL_TOLERANCE = 0.05
 

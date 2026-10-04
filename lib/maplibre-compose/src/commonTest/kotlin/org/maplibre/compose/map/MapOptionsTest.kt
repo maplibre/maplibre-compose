@@ -49,7 +49,7 @@ class MapOptionsTest {
       settings.pan.enabled ||
         settings.zoom.enabled ||
         settings.rotate.enabled ||
-        settings.tilt.enabled
+        settings.pitch.enabled
     )
     val panOnly = MapInteractions(MapInteractions.None) { camera { pan { enabled = true } } }
     assertTrue(panOnly.camera.settings.pan.enabled)

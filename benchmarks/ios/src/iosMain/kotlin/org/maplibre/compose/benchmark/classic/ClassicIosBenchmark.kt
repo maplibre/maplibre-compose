@@ -286,11 +286,11 @@ private class IosDriver(
       altitude =
         MLNAltitudeForZoomLevel(
           value.zoom,
-          value.tilt,
+          value.pitch,
           value.latitude,
           map.bounds.useContents { size.readValue() },
         ),
-      pitch = value.tilt,
+      pitch = value.pitch,
       heading = value.bearing,
     )
 

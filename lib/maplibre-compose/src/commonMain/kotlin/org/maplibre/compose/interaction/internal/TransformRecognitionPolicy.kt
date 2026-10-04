@@ -11,7 +11,7 @@ internal class TransformRecognitionPolicy(
   private val pan: TransformPanBinding?,
   private val pinch: TransformZoomBinding?,
   private val rotate: TransformRotateBinding?,
-  private val shove: TransformTiltBinding?,
+  private val shove: TransformPitchBinding?,
 ) {
   private var rotationSpan = 0.0
   private var minimumRotationSpan = 0.0
@@ -42,7 +42,7 @@ internal class TransformRecognitionPolicy(
     val rotationFromStart =
       PairMotion(rotationOrigin ?: motion.origin, motion.previous, motion.current).rotationFromStart
     val rotating = CameraComponent.Rotate in active
-    val shoving = CameraComponent.Tilt in active
+    val shoving = CameraComponent.Pitch in active
     val current = motion.current
     val spanFromStartDp = (current.distance - motion.origin.distance) * 2 / density.density
     val spanDeltaDp = (current.distance - motion.previous.distance) * 2 / density.density
@@ -117,14 +117,14 @@ internal class TransformRecognitionPolicy(
       rotationOrigin = current
     }
 
-    // Tilt wins simultaneous recognition, but cannot interrupt established rotation or zoom.
+    // Pitch wins simultaneous recognition, but cannot interrupt established rotation or zoom.
     // Each first delta excludes the recognition threshold to avoid a visible camera jump.
     if (startShove) {
       cancels += CameraComponent.Pan
       vertical =
         motion.displacement.y -
           sign(motion.displacement.y) * checkNotNull(shove).startSlop.value * density.density
-      starts += CameraComponent.Tilt
+      starts += CameraComponent.Pitch
     } else if (startRotate) {
       cancels += CameraComponent.Zoom
       rotationSpan = current.distance
@@ -136,9 +136,9 @@ internal class TransformRecognitionPolicy(
       starts += CameraComponent.Zoom
     }
 
-    // Pan can accompany scale and rotation. Two-finger tilt owns the pair exclusively.
+    // Pan can accompany scale and rotation. Two-finger pitch owns the pair exclusively.
     if (
-      !shoving && CameraComponent.Tilt !in starts && pan != null && CameraComponent.Pan !in active
+      !shoving && CameraComponent.Pitch !in starts && pan != null && CameraComponent.Pan !in active
     ) {
       val slop = pan.startSlop.value * density.density
       val distance = motion.displacement.getDistance()

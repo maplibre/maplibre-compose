@@ -51,7 +51,7 @@ object MapSnapshotterDemo : Demo {
   override val destination = DemoDestination.None
 
   override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
-    MapInteractions(settings) { camera { tilt { enabled = false } } }
+    MapInteractions(settings) { camera { pitch { enabled = false } } }
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
@@ -85,7 +85,7 @@ object MapSnapshotterDemo : Demo {
 
     fun capture() {
       val rect = frame?.takeIf { it.width > 0 && it.height > 0 } ?: return
-      if (state.status is CaptureStatus.Capturing || mapState.cameraPosition.tilt != 0.0) return
+      if (state.status is CaptureStatus.Capturing || mapState.cameraPosition.pitch != 0.0) return
       val center =
         mapState.positionFromScreenLocation(
           with(density) { DpOffset(rect.center.x.toDp(), rect.center.y.toDp()) }
@@ -146,7 +146,7 @@ object MapSnapshotterDemo : Demo {
             SnapshotControls(
               state,
               canCapture =
-                mapState.cameraPosition.tilt == 0.0 &&
+                mapState.cameraPosition.pitch == 0.0 &&
                   frame?.let { it.width > 0 && it.height > 0 } == true,
               modifier =
                 Modifier.heightIn(max = controlsMaxHeight).verticalScroll(rememberScrollState()),

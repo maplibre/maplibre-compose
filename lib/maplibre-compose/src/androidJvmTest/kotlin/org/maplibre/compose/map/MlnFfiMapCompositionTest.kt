@@ -399,7 +399,7 @@ class MlnFfiMapCompositionTest {
   fun a_pitched_pan_continues_in_its_release_direction_without_changing_the_camera_pose() =
     runFfiComposeUiTest {
       withTestRuntime(runtimeOptions) { runtime ->
-        val start = CameraPosition(target = Position(0.0, 0.0), zoom = 12.0, tilt = 60.0)
+        val start = CameraPosition(target = Position(0.0, 0.0), zoom = 12.0, pitch = 60.0)
         val state = runtime.createMapState(baseStyle = BaseStyle.Empty, cameraPosition = start)
         var configuration by mutableStateOf(MapInteractions.Standard)
         var uiOptions by mutableStateOf(MapUiOptions.None)
@@ -460,7 +460,7 @@ class MlnFfiMapCompositionTest {
           val camera = state.cameraPosition
           assertEquals(start.zoom, camera.zoom, 1e-6)
           assertEquals(start.bearing, camera.bearing, 1e-6)
-          assertEquals(start.tilt, camera.tilt, 1e-6)
+          assertEquals(start.pitch, camera.pitch, 1e-6)
           return checkNotNull(state.screenLocationFromPosition(start.target)).y.value
         }
 
@@ -917,7 +917,7 @@ class MlnFfiMapCompositionTest {
       "longitude",
     )
     assertEquals(expected.target.latitude, actual.target.latitude, POSITION_TOLERANCE, "latitude")
-    assertEquals(expected.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
+    assertEquals(expected.pitch, actual.pitch, POSITION_TOLERANCE, "pitch")
     assertEquals(expected.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
   }
 
@@ -1064,7 +1064,7 @@ class MlnFfiMapCompositionTest {
       CameraPosition(
         target = Position(longitude = -122.4194, latitude = 37.7749),
         zoom = 11.0,
-        tilt = 35.0,
+        pitch = 35.0,
       )
     lateinit var mapState: MapState
 
@@ -1086,7 +1086,7 @@ class MlnFfiMapCompositionTest {
           "latitude",
         )
         assertEquals(firstPosition.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
-        assertEquals(firstPosition.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
+        assertEquals(firstPosition.pitch, actual.pitch, POSITION_TOLERANCE, "pitch")
       }
     ) { errors, onFrame ->
       mapState =

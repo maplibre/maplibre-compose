@@ -720,13 +720,13 @@ internal class MlnFfiMapSession(
   override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
       loop.await { map ->
-        cameraForBounds(map, boundingBox, bearing, tilt, cameraPadding, fitPadding)
+        cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
           .toCameraPosition(viewport.appliedViewportInsets)
       }
     ) {
@@ -736,14 +736,14 @@ internal class MlnFfiMapSession(
   override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition {
     val geoJson = geometry.toJson().encodeToByteArray()
     return checkNotNull(
       loop.await { map ->
-        fitCamera(map, bearing, tilt, cameraPadding, fitPadding) {
+        fitCamera(map, bearing, pitch, cameraPadding, fitPadding) {
             map.cameraForGeometry(geoJson, it)
           }
           .toCameraPosition(viewport.appliedViewportInsets)
@@ -756,7 +756,7 @@ internal class MlnFfiMapSession(
   override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
@@ -764,7 +764,7 @@ internal class MlnFfiMapSession(
     if (guard?.isValid() == false) return
     val fit: (MapHandle) -> Unit = fit@{ map ->
       if (guard?.isValid() == false) return@fit
-      map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, cameraPadding, fitPadding))
+      map.jumpTo(cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding))
       viewport.snapshot(map)
     }
     // MapState waits for the current attachment's viewport before it calls this adapter.
@@ -778,18 +778,18 @@ internal class MlnFfiMapSession(
     map: MapHandle,
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraOptions =
-    fitCamera(map, bearing, tilt, cameraPadding, fitPadding) {
+    fitCamera(map, bearing, pitch, cameraPadding, fitPadding) {
       map.cameraForLatLngBounds(bounds = boundingBox.toLatLngBounds(), fitOptions = it)
     }
 
   private inline fun fitCamera(
     map: MapHandle,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     fit: (CameraFitOptions) -> CameraOptions,
@@ -804,7 +804,7 @@ internal class MlnFfiMapSession(
         CameraFitOptions().also {
           it.padding = total
           it.bearing = bearing
-          it.pitch = tilt
+          it.pitch = pitch
         }
       )
 
@@ -847,7 +847,7 @@ internal class MlnFfiMapSession(
     anchor: CameraAnchor,
     zoom: Double?,
     bearing: Double?,
-    tilt: Double?,
+    pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard?,
   ) {
@@ -871,7 +871,7 @@ internal class MlnFfiMapSession(
           it.anchor = point.toScreenPoint()
           it.zoom = zoom
           it.bearing = bearing
-          it.pitch = tilt
+          it.pitch = pitch
         },
         options,
       )
@@ -881,7 +881,7 @@ internal class MlnFfiMapSession(
   override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     animation: CameraAnimation,
@@ -892,7 +892,7 @@ internal class MlnFfiMapSession(
     }
     startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { map, options ->
       map.animateTo(
-        cameraForBounds(map, boundingBox, bearing, tilt, cameraPadding, fitPadding),
+        cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding),
         animation,
         options,
       )
@@ -1091,7 +1091,7 @@ internal class MlnFfiMapSession(
     startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
       map,
       animation ->
-      val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.tilt, null, DpPadding.Zero)
+      val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.pitch, null, DpPadding.Zero)
       map.easeTo(camera, animation)
     }
   }

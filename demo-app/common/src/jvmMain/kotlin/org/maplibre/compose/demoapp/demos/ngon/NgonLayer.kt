@@ -46,8 +46,9 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param strokeOpacity Outline opacity in `[0..1]`.
  * @param translate Offset relative to [translateAnchor]; negative values move left and up.
  * @param translateAnchor Frame of reference for [translate].
- * @param pitchAlignment Whether polygons lie on the map or face the viewport when the map tilts.
- * @param pitchScale Whether polygons shrink with distance when the map tilts.
+ * @param pitchAlignment Whether polygons lie on the map or face the viewport when the map is
+ *   pitched.
+ * @param pitchScale Whether polygons shrink with distance when the map is pitched.
  * @param onClick Called when a polygon is clicked.
  * @param onLongClick Called for a touch long press or secondary mouse click on a polygon.
  * @param onDoubleClick Called for a double tap or double click on a polygon.

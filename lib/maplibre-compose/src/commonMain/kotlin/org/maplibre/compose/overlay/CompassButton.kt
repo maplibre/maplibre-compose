@@ -78,7 +78,7 @@ public fun CompassButton(
   size: Dp = 48.dp,
   contentPadding: PaddingValues = PaddingValues(size / 6),
   needlePainter: Painter = CompassDefaults.needlePainter(),
-  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, pitch = 0.0) },
 ) {
   val currentMapState = checkNotNull(LocalMapState.current)
   val coroutineScope = rememberCoroutineScope()
@@ -116,7 +116,7 @@ public fun CompassButton(
       modifier =
         Modifier.fillMaxSize().graphicsLayer {
           rotationZ = -currentMapState.cameraPosition.bearing.toFloat()
-          rotationX = currentMapState.cameraPosition.tilt.toFloat()
+          rotationX = currentMapState.cameraPosition.pitch.toFloat()
         },
     )
   }
@@ -147,7 +147,7 @@ public fun DisappearingCompassButton(
   visibilityDuration: Duration = 1.seconds,
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
-  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, pitch = 0.0) },
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {
@@ -162,15 +162,15 @@ public fun DisappearingCompassButton(
       derivedStateOf {
         val home = currentGetHomeUpdate(mapState.cameraPosition)
         with(AngleMath) {
-          val tiltDiff =
-            mapState.cameraPosition.tilt
-              .diff(home.tilt ?: mapState.cameraPosition.tilt)
+          val pitchDiff =
+            mapState.cameraPosition.pitch
+              .diff(home.pitch ?: mapState.cameraPosition.pitch)
               .absoluteValue
           val bearingDiff =
             mapState.cameraPosition.bearing
               .diff(home.bearing ?: mapState.cameraPosition.bearing)
               .absoluteValue
-          tiltDiff > currentSlop || bearingDiff > currentSlop
+          pitchDiff > currentSlop || bearingDiff > currentSlop
         }
       }
     }

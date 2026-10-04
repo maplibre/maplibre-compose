@@ -36,7 +36,7 @@ internal class PointerPairGesture(
   private val rotate =
     settings.rotate.takeIf { options.camera.settings.rotate.enabled && it.matches(initialInput) }
   private val shove =
-    settings.tilt.takeIf { options.camera.settings.tilt.enabled && it.matches(initialInput) }
+    settings.pitch.takeIf { options.camera.settings.pitch.enabled && it.matches(initialInput) }
   val hasDemand: Boolean
     get() = pan != null || pinch != null || rotate != null || shove != null
 
@@ -109,10 +109,10 @@ internal class PointerPairGesture(
           gestureToken = token,
         )
       }
-      CameraComponent.Tilt -> {
+      CameraComponent.Pitch -> {
         target.inputRotateAndPitchBy(
           0.0,
-          delta.verticalDrag / density.density * settings.tilt.pitchDegreesPerDp,
+          delta.verticalDrag / density.density * settings.pitch.pitchDegreesPerDp,
           gestureToken = token,
         )
       }
@@ -168,23 +168,23 @@ internal class PointerPairGesture(
           )
         }
 
-    val tilt =
+    val pitch =
       shove
-        ?.takeIf { CameraComponent.Tilt in recognition.active }
-        ?.let { camera.settings.tilt.momentum.takeIf { it.enabled } }
+        ?.takeIf { CameraComponent.Pitch in recognition.active }
+        ?.let { camera.settings.pitch.momentum.takeIf { it.enabled } }
         ?.let {
-          GestureMath.tiltVelocity(
-            panVelocity.y / density.density * settings.tilt.pitchDegreesPerDp,
+          GestureMath.pitchVelocity(
+            panVelocity.y / density.density * settings.pitch.pitchDegreesPerDp,
             it,
           )
         }
 
-    if (panFling == null && scale == null && rotation == null && tilt == null) return null
+    if (panFling == null && scale == null && rotation == null && pitch == null) return null
     return PointerContinuation(
       panFling,
       scale,
       rotation,
-      tilt,
+      pitch,
       centroid.takeIf { settings.zoom.anchor == GestureAnchor.Input },
       centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
     )

@@ -168,19 +168,19 @@ class GestureMathTest {
   }
 
   @Test
-  fun tilt_momentum_preserves_direction_and_obeys_configured_threshold_and_duration() {
-    val settings = TiltMomentum(minimumSpeed = 8.0, duration = 200.milliseconds)
-    assertNull(GestureMath.tiltVelocity(7.0, settings))
-    val forward = assertNotNull(GestureMath.tiltVelocity(10.0, settings))
-    val backward = assertNotNull(GestureMath.tiltVelocity(-10.0, settings))
+  fun pitch_momentum_preserves_direction_and_obeys_configured_threshold_and_duration() {
+    val settings = PitchMomentum(minimumSpeed = 8.0, duration = 200.milliseconds)
+    assertNull(GestureMath.pitchVelocity(7.0, settings))
+    val forward = assertNotNull(GestureMath.pitchVelocity(10.0, settings))
+    val backward = assertNotNull(GestureMath.pitchVelocity(-10.0, settings))
     val longer =
-      assertNotNull(GestureMath.tiltVelocity(10.0, settings.copy(duration = 400.milliseconds)))
+      assertNotNull(GestureMath.pitchVelocity(10.0, settings.copy(duration = 400.milliseconds)))
     assertTrue(forward.pitchDelta > 0.0)
     assertEquals(-forward.pitchDelta, backward.pitchDelta, 1e-12)
     assertEquals(forward.duration, backward.duration)
     assertTrue(longer.pitchDelta > forward.pitchDelta)
     assertEquals(400.milliseconds, longer.duration)
-    assertNull(GestureMath.tiltVelocity(10.0, settings.copy(duration = Duration.ZERO)))
-    assertNull(GestureMath.tiltVelocity(0.0, settings.copy(minimumSpeed = 0.0)))
+    assertNull(GestureMath.pitchVelocity(10.0, settings.copy(duration = Duration.ZERO)))
+    assertNull(GestureMath.pitchVelocity(0.0, settings.copy(minimumSpeed = 0.0)))
   }
 }

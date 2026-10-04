@@ -440,7 +440,7 @@ class PointerInputTest {
     }
 
   @Test
-  fun secondary_mouse_drag_requests_rotate_and_tilt() = fixture.runRecognitionTest { target ->
+  fun secondary_mouse_drag_requests_rotate_and_pitch() = fixture.runRecognitionTest { target ->
     mapNode().performMouseInput {
       moveTo(center)
       press(MouseButton.Secondary)
@@ -449,7 +449,7 @@ class PointerInputTest {
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.isNotEmpty() }
     assertTrue(target.rotateCalls.any { it.bearingDelta != 0.0 }, "a secondary drag did not rotate")
-    assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 }, "a secondary drag did not tilt")
+    assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 }, "a secondary drag did not pitch")
     assertEquals(0, target.moveCalls.size, "a secondary drag panned")
     assertTrue(
       target.rotateCalls.all { it.anchor == null },

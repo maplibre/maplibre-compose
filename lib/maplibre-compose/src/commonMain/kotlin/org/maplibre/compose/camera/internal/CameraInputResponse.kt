@@ -35,7 +35,7 @@ internal fun CameraInputTarget.inputRotateAndPitchBy(
   val token = gestureToken ?: return
   val bearing =
     if (bearingDelta != 0.0 && token.prepare(CameraComponent.Rotate)) bearingDelta else 0.0
-  val pitch = if (pitchDelta != 0.0 && token.prepare(CameraComponent.Tilt)) pitchDelta else 0.0
+  val pitch = if (pitchDelta != 0.0 && token.prepare(CameraComponent.Pitch)) pitchDelta else 0.0
   if (token.acceptsCommands && (bearing != 0.0 || pitch != 0.0))
     rotateAndPitchBy(
       bearing,
@@ -81,7 +81,7 @@ internal suspend fun CameraInputTarget.inputRotateAndPitchByAwaitingTransition(
   val bearing =
     if (bearingDelta != 0.0 && gestureToken.prepare(CameraComponent.Rotate)) bearingDelta else 0.0
   val pitch =
-    if (pitchDelta != 0.0 && gestureToken.prepare(CameraComponent.Tilt)) pitchDelta else 0.0
+    if (pitchDelta != 0.0 && gestureToken.prepare(CameraComponent.Pitch)) pitchDelta else 0.0
   if (gestureToken.acceptsCommands && (bearing != 0.0 || pitch != 0.0))
     rotateAndPitchByAwaitingTransition(
       bearing,

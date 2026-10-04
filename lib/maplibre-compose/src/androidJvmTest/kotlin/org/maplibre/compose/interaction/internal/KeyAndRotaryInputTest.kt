@@ -167,7 +167,7 @@ class KeyAndRotaryInputTest {
     }
 
   @Test
-  fun shift_and_arrow_keys_request_rotate_and_tilt() = fixture.runRecognitionTest { target ->
+  fun shift_and_arrow_keys_request_rotate_and_pitch() = fixture.runRecognitionTest { target ->
     val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
     map.performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionRight) } }

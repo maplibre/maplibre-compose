@@ -32,7 +32,7 @@ class BoxZoomIntegrationTest {
             PaddingValues(start = 50.dp, top = 20.dp, end = 10.dp, bottom = 30.dp)
           )
           val initial =
-            CameraPosition(target = Position(179.0, 0.0), zoom = 4.0, bearing = 25.0, tilt = 20.0)
+            CameraPosition(target = Position(179.0, 0.0), zoom = 4.0, bearing = 25.0, pitch = 20.0)
           fixture.state.setCameraPosition(initial)
           fixture.awaitMapReady()
           fixture.settle()
@@ -59,7 +59,7 @@ class BoxZoomIntegrationTest {
             val actual = fixture.state.cameraPosition
             assertTrue(actual.zoom > initial.zoom)
             assertEquals(25.0, actual.bearing, 1e-5)
-            assertEquals(20.0, actual.tilt, 1e-5)
+            assertEquals(20.0, actual.pitch, 1e-5)
             assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
             assertFalse(fixture.state.isCameraMoving)
 

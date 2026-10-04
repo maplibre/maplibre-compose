@@ -84,7 +84,7 @@ class DemoSettings {
 
   var panEnabled by mutableStateOf(true)
   var rotateEnabled by mutableStateOf(true)
-  var tiltEnabled by mutableStateOf(true)
+  var pitchEnabled by mutableStateOf(true)
 
   /** A wheel or trackpad pans instead of zooming; Ctrl while scrolling zooms. */
   var scrollPans by mutableStateOf(false)
@@ -103,7 +103,7 @@ class DemoSettings {
       camera {
         pan { enabled = panEnabled }
         rotate { enabled = rotateEnabled }
-        tilt { enabled = tiltEnabled }
+        pitch { enabled = pitchEnabled }
       }
     }
 

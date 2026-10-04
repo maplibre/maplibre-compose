@@ -88,7 +88,7 @@ class DesktopDensityPresentationTest {
           firstEngine.awaitClosed()
           val retainedCamera = state.cameraPosition
           assertEquals(camera.bearing, retainedCamera.bearing, 1e-4)
-          assertEquals(camera.tilt, retainedCamera.tilt, 1e-4)
+          assertEquals(camera.pitch, retainedCamera.pitch, 1e-4)
           assertEquals(camera.zoom, retainedCamera.zoom, 1e-4)
           assertEquals(camera.target.longitude, retainedCamera.target.longitude, 1e-4)
           assertEquals(camera.target.latitude, retainedCamera.target.latitude, 1e-4)

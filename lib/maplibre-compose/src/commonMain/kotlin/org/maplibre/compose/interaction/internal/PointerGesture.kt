@@ -667,10 +667,10 @@ internal class PointerGesture(
           }
         }
       }
-      velocity.tilt?.let { tilt ->
+      velocity.pitch?.let { pitch ->
         session.scope.launch {
-          animateDecelerating(tilt.duration) { fraction ->
-            target.inputRotateAndPitchBy(0.0, tilt.pitchDelta * fraction, gestureToken = token)
+          animateDecelerating(pitch.duration) { fraction ->
+            target.inputRotateAndPitchBy(0.0, pitch.pitchDelta * fraction, gestureToken = token)
           }
         }
       }

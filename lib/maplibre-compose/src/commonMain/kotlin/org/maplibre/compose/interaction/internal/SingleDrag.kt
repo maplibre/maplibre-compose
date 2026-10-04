@@ -40,7 +40,7 @@ internal class DragContext(
   ): SingleDrag? =
     when (options.bindings.drag.select(sample, options.camera.settings)) {
       DragResponse.Pan -> SingleDrag.Pan(this, first, afterContactChange)
-      DragResponse.RotateTilt -> SingleDrag.RotateTilt(this, first, afterContactChange)
+      DragResponse.RotatePitch -> SingleDrag.RotatePitch(this, first, afterContactChange)
       DragResponse.FitBounds -> SingleDrag.FitBounds(this, first, afterContactChange)
       DragResponse.None,
       null -> null
@@ -149,17 +149,17 @@ internal sealed class SingleDrag(
     }
   }
 
-  class RotateTilt(context: DragContext, first: PointerInputChange, afterContactChange: Boolean) :
+  class RotatePitch(context: DragContext, first: PointerInputChange, afterContactChange: Boolean) :
     SingleDrag(
       context,
       first,
-      context.options.bindings.drag.rotateTilt.startSlop,
-      context.options.bindings.drag.rotateTilt.mouseStartSlop,
+      context.options.bindings.drag.rotatePitch.startSlop,
+      context.options.bindings.drag.rotatePitch.mouseStartSlop,
       afterContactChange,
     ) {
-    private val settings = context.options.bindings.drag.rotateTilt
-    override val response = DragResponse.RotateTilt
-    override val components = setOf(CameraComponent.Rotate, CameraComponent.Tilt)
+    private val settings = context.options.bindings.drag.rotatePitch
+    override val response = DragResponse.RotatePitch
+    override val components = setOf(CameraComponent.Rotate, CameraComponent.Pitch)
 
     override fun update(
       delta: Offset,
@@ -175,12 +175,13 @@ internal sealed class SingleDrag(
       )
 
     override fun momentum(sample: GesturePointerSample): PointerContinuation? {
-      if (!cameraSettings.tilt.enabled) return null
-      val tuning = cameraSettings.tilt.momentum.takeIf { it.enabled } ?: return null
+      if (!cameraSettings.pitch.enabled) return null
+      val tuning = cameraSettings.pitch.momentum.takeIf { it.enabled } ?: return null
       val velocity = releaseVelocity()
-      val tilt =
-        GestureMath.tiltVelocity(dp(velocity.y) * settings.pitchDegreesPerDp, tuning) ?: return null
-      return PointerContinuation(tilt = tilt)
+      val pitch =
+        GestureMath.pitchVelocity(dp(velocity.y) * settings.pitchDegreesPerDp, tuning)
+          ?: return null
+      return PointerContinuation(pitch = pitch)
     }
   }
 

@@ -7,7 +7,7 @@ internal data class PointerContinuation(
   val pan: GestureMath.Fling? = null,
   val scale: GestureMath.ScaleVelocity? = null,
   val rotation: GestureMath.RotationVelocity? = null,
-  val tilt: GestureMath.TiltVelocity? = null,
+  val pitch: GestureMath.PitchVelocity? = null,
   val scaleAnchor: DpOffset? = null,
   val rotationAnchor: DpOffset? = null,
 ) {
@@ -19,7 +19,7 @@ internal data class PointerContinuation(
       CameraComponent.Pan -> copy(pan = null)
       CameraComponent.Zoom -> copy(scale = null)
       CameraComponent.Rotate -> copy(rotation = null)
-      CameraComponent.Tilt -> copy(tilt = null)
+      CameraComponent.Pitch -> copy(pitch = null)
     }
 
   fun without(components: Set<CameraComponent>): PointerContinuation =
@@ -30,7 +30,7 @@ internal data class PointerContinuation(
       pan = pan ?: previous?.pan,
       scale = scale ?: previous?.scale,
       rotation = rotation ?: previous?.rotation,
-      tilt = tilt ?: previous?.tilt,
+      pitch = pitch ?: previous?.pitch,
       scaleAnchor = if (scale != null) scaleAnchor else previous?.scaleAnchor,
       rotationAnchor = if (rotation != null) rotationAnchor else previous?.rotationAnchor,
     )

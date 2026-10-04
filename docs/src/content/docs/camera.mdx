@@ -10,7 +10,7 @@ import { region } from "../../snippets";
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
 
 The camera defines the visible part of the map: a target position, a zoom
-level, a bearing, and a tilt. <Api of="rememberMapState" /> creates a
+level, a bearing, and a pitch. <Api of="rememberMapState" /> creates a
 <Api of="MapState" /> with a read-only camera position. Pass an
 initial <Api of="CameraPosition" /> to set the camera at startup:
 
@@ -55,7 +55,7 @@ either transition. A scale of zero jumps to the target.
 
 ### Keep a point fixed on screen
 
-<Api of="MapState.animateCameraAround" /> changes zoom, bearing, or tilt while
+<Api of="MapState.animateCameraAround" /> changes zoom, bearing, or pitch while
 keeping a point at its screen location. Use <Api of="CameraAnchor.Screen" /> for
 coordinates in dp from the full map's top-left corner:
 
@@ -71,7 +71,7 @@ Persistent camera padding participates in projection. Changing viewport insets,
 resizing the logical viewport, or losing the attachment cancels the animation.
 Camera constraints
 take precedence over anchor preservation. The preservation guarantee applies to
-flat Mercator maps, including tilted cameras; it does not extend to globe or
+flat Mercator maps, including pitched cameras; it does not extend to globe or
 terrain.
 
 ## Fit a bounding box

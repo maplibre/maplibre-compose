@@ -37,7 +37,7 @@ internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
 internal fun CameraSettings.permits(response: DragResponse): Boolean =
   when (response) {
     DragResponse.Pan -> pan.enabled
-    DragResponse.RotateTilt -> rotate.enabled || tilt.enabled
+    DragResponse.RotatePitch -> rotate.enabled || pitch.enabled
     DragResponse.FitBounds -> pan.enabled && zoom.enabled
     DragResponse.None -> true
   }
@@ -62,8 +62,8 @@ internal fun CameraSettings.permits(response: KeyResponse): Boolean =
     KeyResponse.ZoomOut -> zoom.enabled
     KeyResponse.RotateLeft,
     KeyResponse.RotateRight -> rotate.enabled
-    KeyResponse.TiltUp,
-    KeyResponse.TiltDown -> tilt.enabled
+    KeyResponse.PitchUp,
+    KeyResponse.PitchDown -> pitch.enabled
     KeyResponse.Engage,
     KeyResponse.Disengage,
     KeyResponse.Back,
@@ -147,7 +147,7 @@ internal fun TransformZoomBinding.matches(sample: GesturePointerSample): Boolean
 internal fun TransformRotateBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
-internal fun TransformTiltBinding.matches(sample: GesturePointerSample): Boolean =
+internal fun TransformPitchBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
 internal fun TransformBinding.hasDemand(
@@ -157,4 +157,4 @@ internal fun TransformBinding.hasDemand(
   (camera.pan.enabled && pan.matches(sample)) ||
     (camera.zoom.enabled && zoom.matches(sample)) ||
     (camera.rotate.enabled && rotate.matches(sample)) ||
-    (camera.tilt.enabled && tilt.matches(sample))
+    (camera.pitch.enabled && pitch.matches(sample))

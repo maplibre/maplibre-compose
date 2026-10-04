@@ -55,7 +55,7 @@ data class DemoLaunch(
         zoom = numbers[0],
         target = Position(latitude = numbers[1], longitude = numbers[2]),
         bearing = numbers.getOrElse(3) { 0.0 },
-        tilt = numbers.getOrElse(4) { 0.0 },
+        pitch = numbers.getOrElse(4) { 0.0 },
       )
     }
 

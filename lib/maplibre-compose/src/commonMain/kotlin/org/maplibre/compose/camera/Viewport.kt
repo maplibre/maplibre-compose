@@ -25,12 +25,12 @@ internal constructor(
    * The smallest bounds that contain the currently visible area.
    *
    * These north-aligned bounds can include areas outside [visibleRegion] when the map is rotated or
-   * tilted.
+   * pitched.
    */
   public val visibleBounds: VisibleBounds,
 
   /**
-   * The polygon formed by the map composable's four corners. Camera tilt makes it a trapezoid
+   * The polygon formed by the map composable's four corners. Camera pitch makes it a trapezoid
    * instead of a rectangle.
    */
   public val visibleRegion: VisibleRegion,

@@ -86,7 +86,7 @@ class AndroidMapStateRecreationTest {
       CameraPosition(
         bearing = 37.0,
         target = Position(longitude = 11.5761, latitude = 48.1371),
-        tilt = 42.0,
+        pitch = 42.0,
         zoom = 8.5,
         padding = DpPadding(left = 12.dp, top = 24.dp, right = 36.dp, bottom = 48.dp),
       )
@@ -105,7 +105,7 @@ class AndroidMapStateRecreationTest {
       near(expected.bearing, actual.bearing) &&
         near(expected.target.longitude, actual.target.longitude) &&
         near(expected.target.latitude, actual.target.latitude) &&
-        near(expected.tilt, actual.tilt) &&
+        near(expected.pitch, actual.pitch) &&
         near(expected.zoom, actual.zoom) &&
         expected.padding == actual.padding
 

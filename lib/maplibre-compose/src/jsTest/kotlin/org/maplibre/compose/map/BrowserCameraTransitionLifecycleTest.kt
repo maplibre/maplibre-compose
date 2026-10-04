@@ -75,9 +75,9 @@ class BrowserCameraTransitionLifecycleTest {
         fixture.loadStyle(BaseStyle.Empty)
         fixture.awaitMapReady()
         fixture.session.setCameraConstraints(CameraConstraints(maxPitch = 85.0))
-        fixture.state.setCameraPosition(CameraPosition(zoom = 1.0, tilt = 80.0))
+        fixture.state.setCameraPosition(CameraPosition(zoom = 1.0, pitch = 80.0))
         fixture.pumpUntil("the pitched camera to apply") {
-          abs(fixture.session.getCameraPosition().tilt - 80.0) < 0.01
+          abs(fixture.session.getCameraPosition().pitch - 80.0) < 0.01
         }
         val point = DpOffset(50.dp, 0.dp)
         val map = requireNotNull((fixture.session as GlJsMapSession).engineMapForTest())

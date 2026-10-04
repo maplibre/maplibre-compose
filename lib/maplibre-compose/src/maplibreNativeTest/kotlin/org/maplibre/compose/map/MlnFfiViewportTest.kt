@@ -145,12 +145,12 @@ class MlnFfiViewportTest {
 
   @Test
   fun padding_changes_before_the_first_frame_preserve_the_requested_camera() {
-    checkInitialPadding(tilt = 0.0, cameraAfterPadding = false)
+    checkInitialPadding(pitch = 0.0, cameraAfterPadding = false)
   }
 
   @Test
   fun a_camera_set_before_the_first_frame_does_not_apply_pending_padding_to_the_bootstrap_size() {
-    checkInitialPadding(tilt = 30.0, cameraAfterPadding = true)
+    checkInitialPadding(pitch = 30.0, cameraAfterPadding = true)
   }
 
   @Test
@@ -181,7 +181,7 @@ class MlnFfiViewportTest {
       state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
-      val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.0, tilt = 45.0)
+      val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.0, pitch = 45.0)
       state.setCameraPosition(camera)
       fixture.pumpUntil("the starting viewport") {
         fixture.session.getCameraPosition().zoom == camera.zoom &&
@@ -224,14 +224,14 @@ class MlnFfiViewportTest {
     return VisibleRegion(corners[0], corners[1], corners[2], corners[3])
   }
 
-  private fun checkInitialPadding(tilt: Double, cameraAfterPadding: Boolean) {
+  private fun checkInitialPadding(pitch: Double, cameraAfterPadding: Boolean) {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       val camera =
         CameraPosition(
           target = Position(-74.006, 40.7128),
           zoom = 9.5,
-          tilt = tilt,
+          pitch = pitch,
           padding = DpPadding(top = 20.dp),
         )
       if (!cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
@@ -245,7 +245,7 @@ class MlnFfiViewportTest {
       fixture.pumpUntil("the initial padding to reach the real viewport") {
         fixture.hasRendered && fixture.session.readMap { it.camera.padding } == padding
       }
-      assertEquals(tilt, fixture.session.getCameraPosition().tilt, 0.0001)
+      assertEquals(pitch, fixture.session.getCameraPosition().pitch, 0.0001)
       assertEquals(camera.padding, fixture.session.getCameraPosition().padding)
     }
   }

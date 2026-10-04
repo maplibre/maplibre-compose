@@ -18,7 +18,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * The visible bounding box must cover the whole viewport, which means covering all four corners of
- * the visible region even when a bearing or tilt moves them off the axis-aligned diagonal.
+ * the visible region even when a bearing or pitch moves them off the axis-aligned diagonal.
  */
 class MapVisibleAreaTest {
 
@@ -38,7 +38,7 @@ class MapVisibleAreaTest {
   }
 
   @Test
-  fun the_bounding_box_covers_a_proper_rotated_and_tilted_region(): MapTestResult = runMapTest {
+  fun the_bounding_box_covers_a_proper_rotated_and_pitched_region(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
@@ -56,7 +56,7 @@ class MapVisibleAreaTest {
         corners.distinct().size == 4,
         "the corners should be distinct, was $region",
       )
-      // Tilt widens the far edge relative to the near edge.
+      // Pitch widens the far edge relative to the near edge.
       assertTrue(
         span(region.farLeft, region.farRight) > span(region.nearLeft, region.nearRight),
         "the far edge should be wider than the near edge, was $region",
@@ -118,7 +118,7 @@ class MapVisibleAreaTest {
     val CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
     val ANTIMERIDIAN_CAMERA = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
     val ROTATED_CAMERA =
-      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, tilt = 40.0)
+      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
 
     const val TOLERANCE = 1e-6
 

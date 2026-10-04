@@ -123,7 +123,7 @@ public fun LocationIndicatorLayer(
  * @param bearingAccuracyRadius Visual sector radius in dp before perspective compensation,
  *   independent of [accuracyRadius]. Zero hides it. Supports constant and zoom expressions.
  * @param bearingAccuracyColor Sector color at the center, fading smoothly to transparent at the
- *   outer edge. Supports constant and zoom expressions. Drawn below all images, without their tilt
+ *   outer edge. Supports constant and zoom expressions. Drawn below all images, without their pitch
  *   displacement. The sector does not affect hit testing.
  * @param bearingAccuracyTransition Timing for changes to sector angle, radius, and color. Defaults
  *   to [bearingTransition]. Zoom expression evaluation follows the camera without a transition.

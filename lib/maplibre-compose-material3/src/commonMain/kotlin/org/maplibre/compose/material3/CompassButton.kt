@@ -49,7 +49,7 @@ public fun CompassButton(
   contentPadding: PaddingValues = PaddingValues(size / 6),
   shape: Shape = CircleShape,
   needlePainter: Painter = CompassDefaults.needlePainter(),
-  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, pitch = 0.0) },
 ) {
   BaseCompassButton(
     modifier = modifier,
@@ -89,7 +89,7 @@ public fun DisappearingCompassButton(
   visibilityDuration: Duration = 1.seconds,
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
-  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, pitch = 0.0) },
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {

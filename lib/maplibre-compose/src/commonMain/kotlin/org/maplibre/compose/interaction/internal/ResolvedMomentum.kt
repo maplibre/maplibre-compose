@@ -16,7 +16,7 @@ internal data class VelocityMomentum(
   val maximumDuration: Duration = 600.milliseconds,
 )
 
-internal data class TiltMomentum(
+internal data class PitchMomentum(
   val enabled: Boolean = true,
   val minimumSpeed: Double = 5.0,
   val duration: Duration = 300.milliseconds,

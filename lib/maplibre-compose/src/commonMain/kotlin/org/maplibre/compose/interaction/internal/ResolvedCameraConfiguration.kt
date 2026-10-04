@@ -9,7 +9,7 @@ internal enum class CameraComponent {
   Pan,
   Zoom,
   Rotate,
-  Tilt,
+  Pitch,
 }
 
 internal data class CameraConfiguration(
@@ -21,14 +21,14 @@ internal data class CameraSettings(
   val pan: PanCameraConfiguration = PanCameraConfiguration(),
   val zoom: VelocityCameraConfiguration = VelocityCameraConfiguration(),
   val rotate: RotateCameraConfiguration = RotateCameraConfiguration(),
-  val tilt: TiltCameraConfiguration = TiltCameraConfiguration(),
+  val pitch: PitchCameraConfiguration = PitchCameraConfiguration(),
 ) {
   fun enabled(component: CameraComponent): Boolean =
     when (component) {
       CameraComponent.Pan -> pan.enabled
       CameraComponent.Zoom -> zoom.enabled
       CameraComponent.Rotate -> rotate.enabled
-      CameraComponent.Tilt -> tilt.enabled
+      CameraComponent.Pitch -> pitch.enabled
     }
 }
 
@@ -42,9 +42,9 @@ internal data class VelocityCameraConfiguration(
   val momentum: VelocityMomentum = VelocityMomentum(),
 )
 
-internal data class TiltCameraConfiguration(
+internal data class PitchCameraConfiguration(
   val enabled: Boolean = true,
-  val momentum: TiltMomentum = TiltMomentum(),
+  val momentum: PitchMomentum = PitchMomentum(),
 )
 
 internal data class RotateCameraConfiguration(

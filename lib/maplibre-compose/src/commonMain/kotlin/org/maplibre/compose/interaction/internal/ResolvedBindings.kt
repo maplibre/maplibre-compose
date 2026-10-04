@@ -25,7 +25,7 @@ internal data class DragPanSettings(
   val mouseStartSlop: Dp = 3.dp,
 )
 
-internal data class DragRotateTiltSettings(
+internal data class DragRotatePitchSettings(
   val startSlop: Dp = 3.dp,
   val mouseStartSlop: Dp = 3.dp,
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
@@ -43,7 +43,7 @@ internal data class DragBinding(
   val pointerTypes: Set<PointerType>? = null,
   val mappings: List<DragMapping> = emptyList(),
   val pan: DragPanSettings = DragPanSettings(),
-  val rotateTilt: DragRotateTiltSettings = DragRotateTiltSettings(),
+  val rotatePitch: DragRotatePitchSettings = DragRotatePitchSettings(),
   val fitBounds: DragFitBoundsSettings = DragFitBoundsSettings(),
 )
 
@@ -73,7 +73,7 @@ internal data class TransformRotateBinding(
   val allowDuringZoom: Boolean = true,
 )
 
-internal data class TransformTiltBinding(
+internal data class TransformPitchBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
   val modifiers: ModifierMatch? = null,
@@ -95,7 +95,7 @@ internal data class TransformBinding(
   val pan: TransformPanBinding = TransformPanBinding(),
   val zoom: TransformZoomBinding = TransformZoomBinding(),
   val rotate: TransformRotateBinding = TransformRotateBinding(),
-  val tilt: TransformTiltBinding = TransformTiltBinding(),
+  val pitch: TransformPitchBinding = TransformPitchBinding(),
 )
 
 internal data class ScrollBinding(
@@ -157,13 +157,13 @@ internal data class InteractionBindings(
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Secondary,
-                    response = DragResponse.RotateTilt,
+                    response = DragResponse.RotatePitch,
                   )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
                     modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
-                    response = DragResponse.RotateTilt,
+                    response = DragResponse.RotatePitch,
                   )
                   on(
                     pointerTypes = mouse,
@@ -199,7 +199,7 @@ internal data class InteractionBindings(
                 .build()
           ),
         secondaryClick = TapBinding(pointerTypes = mouse),
-        // Modifier drags (box zoom, rotate/tilt) keep priority over a paired mouse press.
+        // Modifier drags (box zoom, rotate/pitch) keep priority over a paired mouse press.
         tapDrag = TapDragBinding(modifiers = ModifierMatch.Exactly()),
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
@@ -228,12 +228,12 @@ internal data class InteractionBindings(
                   on(
                     Key.DirectionUp,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.TiltUp,
+                    response = KeyResponse.PitchUp,
                   )
                   on(
                     Key.DirectionDown,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.TiltDown,
+                    response = KeyResponse.PitchDown,
                   )
                   for (key in listOf(Key.Plus, Key.Equals)) {
                     on(key, response = KeyResponse.ZoomIn)
@@ -259,7 +259,7 @@ internal data class InteractionBindings(
             pan = TransformPanBinding(enabled = false),
             zoom = TransformZoomBinding(enabled = false),
             rotate = TransformRotateBinding(enabled = false),
-            tilt = TransformTiltBinding(enabled = false),
+            pitch = TransformPitchBinding(enabled = false),
           ),
         scroll = ScrollBinding(enabled = false),
         tap = TapBinding(enabled = false),

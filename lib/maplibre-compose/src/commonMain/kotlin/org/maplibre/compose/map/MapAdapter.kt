@@ -66,7 +66,7 @@ internal interface MapAdapter {
     anchor: CameraAnchor,
     zoom: Double?,
     bearing: Double?,
-    tilt: Double?,
+    pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
   )
@@ -74,7 +74,7 @@ internal interface MapAdapter {
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     animation: CameraAnimation,
@@ -100,7 +100,7 @@ internal interface MapAdapter {
   suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition
@@ -109,7 +109,7 @@ internal interface MapAdapter {
   suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition
@@ -117,7 +117,7 @@ internal interface MapAdapter {
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
