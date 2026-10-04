@@ -23,7 +23,8 @@ public enum class MapResourceKind {
  *
  * [url] is the URL after the engine resolves tile-server aliases.
  */
-public data class MapResourceRequest(
+public data class MapResourceRequest
+internal constructor(
   public val url: String,
   public val kind: MapResourceKind,
 )
@@ -75,7 +76,8 @@ public fun MapRequestInterceptor(
  * fields are the validators and the body of the cached copy. A provider uses them to revalidate.
  * The browser has no ambient cache, so it passes the default for every field after [kind].
  */
-public class MapResourceLoadRequest(
+public class MapResourceLoadRequest
+internal constructor(
   public val url: String,
   public val kind: MapResourceKind,
   public val requestedUrl: String = url,

@@ -17,7 +17,7 @@ public sealed interface MapEvent {
    * [reason] is the engine's failure text, or a message from this library when the engine reports
    * none.
    */
-  public data class StyleLoadFailed(val reason: String) : MapEvent
+  public data class StyleLoadFailed internal constructor(val reason: String) : MapEvent
 
   /**
    * Native could not asynchronously serialize, prepare, or install GeoJSON data on [sourceId].
@@ -26,7 +26,8 @@ public sealed interface MapEvent {
    * Superseded submissions and removed sources do not report failures. This event belongs to the
    * loaded base style that accepted the submission. URL loading errors are not reported here.
    */
-  public data class SourceDataFailed(val sourceId: String, val cause: Throwable) : MapEvent
+  public data class SourceDataFailed
+  internal constructor(val sourceId: String, val cause: Throwable) : MapEvent
 
   /** The engine finished every pending load and render, and has nothing more to draw. */
   public data object Idle : MapEvent
@@ -37,7 +38,7 @@ public sealed interface MapEvent {
    * [animated] is true for an animated transition and false for an immediate change. On the browser
    * it is null, because MapLibre GL JS reports no such distinction.
    */
-  public data class CameraMoveStarted(val animated: Boolean?) : MapEvent
+  public data class CameraMoveStarted internal constructor(val animated: Boolean?) : MapEvent
 
   /** The camera reached a new value inside a change that [CameraMoveStarted] began. */
   public data object CameraMoved : MapEvent
@@ -48,7 +49,7 @@ public sealed interface MapEvent {
    * [animated] is true for an animated transition and false for an immediate change. On the browser
    * it is null, because MapLibre GL JS reports no such distinction.
    */
-  public data class CameraMoveEnded(val animated: Boolean?) : MapEvent
+  public data class CameraMoveEnded internal constructor(val animated: Boolean?) : MapEvent
 
   /**
    * The engine finished rendering one frame.
@@ -56,11 +57,12 @@ public sealed interface MapEvent {
    * [stats] holds the engine's measurements on native platforms. On the browser it is null, because
    * MapLibre GL JS reports no measurements with its render event.
    */
-  public data class FrameRendered(val stats: RenderStats?) : MapEvent
+  public data class FrameRendered internal constructor(val stats: RenderStats?) : MapEvent
 }
 
 /** The engine's measurements of one rendered frame. */
-public data class RenderStats(
+public data class RenderStats
+internal constructor(
   /** Null for a render mode this version of the library does not name. */
   public val mode: Mode?,
   /** Whether the engine needs another frame to finish work this one started. */
