@@ -149,9 +149,37 @@ internal fun platformMainDispatcher(): CoroutineDispatcher =
  * runtime failure closes all its maps and snapshotters. Use separate runtimes when their work must
  * run independently.
  */
-public interface MapRuntime {
+@Stable
+public class MapRuntime
+internal constructor(
+  internal val platformContext: Any?,
+  private val closeResources: suspend () -> Unit,
+  internal val logger: MapLog?,
+  private val offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
+  internal val physicalScope: CoroutineScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  /** The one thread that uses map states. Engine callbacks are posted to it. */
+  internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
+  /** Runs map-state work that resumes after an engine read. */
+  internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
+  /** Pins map state to the main dispatcher's thread. */
+  internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
+  internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
+  internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
+  internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
+) {
   /** The offline packs and ambient cache managed by this runtime. */
-  public val offlineManager: OfflineManager
+  public val offlineManager: OfflineManager =
+    RuntimeBoundOfflineManager(
+      delegate = offlineManagerBackend,
+      requireRuntimeOpen = ::requireOpen,
+    )
+  private val lock = reentrantLock()
+  private val children = linkedSetOf<MapState>()
+  private val snapshotters = linkedSetOf<MapSnapshotterImplementation>()
+  private val closure = CompletableDeferred<Result<Unit>>()
+  private var closed = false
+  private var closedState: Boolean by mutableStateOf(false)
 
   /**
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
@@ -164,7 +192,10 @@ public interface MapRuntime {
     baseStyle: BaseStyle,
     cameraPosition: CameraPosition = CameraPosition(),
     content: @Composable @MaplibreComposable () -> Unit = {},
-  ): MapState
+  ): MapState = lock.withLock {
+    requireOpenLocked()
+    MapState(this, cameraPosition, baseStyle, content).also(children::add)
+  }
 
   /**
    * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
@@ -176,20 +207,66 @@ public interface MapRuntime {
   public fun createSnapshotter(
     baseStyle: BaseStyle,
     content: @Composable @MaplibreComposable () -> Unit = {},
-  ): MapSnapshotter
+  ): MapSnapshotter = lock.withLock {
+    requireOpenLocked()
+    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
+  }
+
+  private fun requireOpen() {
+    lock.withLock { requireOpenLocked() }
+  }
+
+  private fun requireOpenLocked() {
+    check(!closed) { "The map runtime is closed" }
+  }
+
+  /** Marks this runtime as closed and starts child and shared-resource cleanup. */
+  public fun close() {
+    val closingChildren = lock.withLock {
+      if (closed) return
+      closed = true
+      Snapshot.withMutableSnapshot { closedState = true }
+      children.toList() to snapshotters.toList()
+    }
+    val (closingStates, closingSnapshotters) = closingChildren
+    val offlineCloseFailure = runCatching { offlineManagerBackend.close() }.exceptionOrNull()
+    closingStates.forEach(MapState::close)
+    closingSnapshotters.forEach(MapSnapshotterImplementation::close)
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      val failures = mutableListOf<Throwable>()
+      offlineCloseFailure?.let(failures::addCleanupFailure)
+      closingStates.forEach { child ->
+        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      }
+      closingSnapshotters.forEach { child ->
+        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      }
+      runCatching { closeResources() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      mainScope.cancel()
+      closure.complete(failures.cleanupResult("Map runtime"))
+    }
+  }
 
   /** Returns true after [close] marks this runtime as closed. */
   public val isClosed: Boolean
-
-  /** Marks this runtime as closed and starts child and shared-resource cleanup. */
-  public fun close()
+    get() = closedState
 
   /**
    * Waits until every child and shared resource has finished cleanup.
    *
    * @throws MapCleanupException if cleanup fails.
    */
-  public suspend fun awaitClosed()
+  public suspend fun awaitClosed() {
+    closure.await().getOrThrow()
+  }
+
+  internal fun childClosed(child: MapState) {
+    lock.withLock { children.remove(child) }
+  }
+
+  internal fun childClosed(child: MapSnapshotterImplementation) {
+    lock.withLock { snapshotters.remove(child) }
+  }
 }
 
 /** Reports the load state for the desired base style of one logical map. */
@@ -845,7 +922,7 @@ internal class MapAttachmentChangedException :
 @Stable
 public class MapState
 internal constructor(
-  internal val runtime: RuntimeImplementation,
+  internal val runtime: MapRuntime,
   cameraPosition: CameraPosition,
   baseStyle: BaseStyle,
   content: @Composable @MaplibreComposable () -> Unit,
@@ -1362,7 +1439,7 @@ public fun rememberMapState(
 private fun defaultMapRuntime(): MapRuntime {
   if (!LocalInspectionMode.current) return DefaultMapRuntime.instance
   val runtime = remember {
-    RuntimeImplementation(
+    MapRuntime(
       platformContext = null,
       closeResources = {},
       logger = null,
@@ -1418,99 +1495,3 @@ private fun mapStateSaver(
         .also { it.style.baseStyleDeclared = true }
     },
   )
-
-internal class RuntimeImplementation(
-  internal val platformContext: Any?,
-  private val closeResources: suspend () -> Unit,
-  internal val logger: MapLog?,
-  private val offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
-  internal val physicalScope: CoroutineScope =
-    CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  /** The one thread that uses map states. Engine callbacks are posted to it. */
-  internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
-  /** Runs map-state work that resumes after an engine read. */
-  internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
-  /** Pins map state to the main dispatcher's thread. */
-  internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
-  internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
-  internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
-  internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
-) : MapRuntime {
-  override val offlineManager: OfflineManager =
-    RuntimeBoundOfflineManager(
-      delegate = offlineManagerBackend,
-      requireRuntimeOpen = ::requireOpen,
-    )
-  private val lock = reentrantLock()
-  private val children = linkedSetOf<MapState>()
-  private val snapshotters = linkedSetOf<MapSnapshotterImplementation>()
-  private val closure = CompletableDeferred<Result<Unit>>()
-  private var closed = false
-  private var closedState: Boolean by mutableStateOf(false)
-
-  final override fun createMapState(
-    baseStyle: BaseStyle,
-    cameraPosition: CameraPosition,
-    content: @Composable @MaplibreComposable () -> Unit,
-  ): MapState = lock.withLock {
-    requireOpenLocked()
-    MapState(this, cameraPosition, baseStyle, content).also(children::add)
-  }
-
-  final override fun createSnapshotter(
-    baseStyle: BaseStyle,
-    content: @Composable @MaplibreComposable () -> Unit,
-  ): MapSnapshotter = lock.withLock {
-    requireOpenLocked()
-    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
-  }
-
-  private fun requireOpen() {
-    lock.withLock { requireOpenLocked() }
-  }
-
-  private fun requireOpenLocked() {
-    check(!closed) { "The map runtime is closed" }
-  }
-
-  override fun close() {
-    val closingChildren = lock.withLock {
-      if (closed) return
-      closed = true
-      Snapshot.withMutableSnapshot { closedState = true }
-      children.toList() to snapshotters.toList()
-    }
-    val (closingStates, closingSnapshotters) = closingChildren
-    val offlineCloseFailure = runCatching { offlineManagerBackend.close() }.exceptionOrNull()
-    closingStates.forEach(MapState::close)
-    closingSnapshotters.forEach(MapSnapshotterImplementation::close)
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      val failures = mutableListOf<Throwable>()
-      offlineCloseFailure?.let(failures::addCleanupFailure)
-      closingStates.forEach { child ->
-        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
-      }
-      closingSnapshotters.forEach { child ->
-        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
-      }
-      runCatching { closeResources() }.exceptionOrNull()?.let(failures::addCleanupFailure)
-      mainScope.cancel()
-      closure.complete(failures.cleanupResult("Map runtime"))
-    }
-  }
-
-  override val isClosed: Boolean
-    get() = closedState
-
-  override suspend fun awaitClosed() {
-    closure.await().getOrThrow()
-  }
-
-  internal fun childClosed(child: MapState) {
-    lock.withLock { children.remove(child) }
-  }
-
-  internal fun childClosed(child: MapSnapshotterImplementation) {
-    lock.withLock { snapshotters.remove(child) }
-  }
-}

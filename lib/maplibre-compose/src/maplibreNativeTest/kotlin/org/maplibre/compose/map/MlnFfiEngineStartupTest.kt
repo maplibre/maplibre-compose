@@ -231,7 +231,7 @@ class MlnFfiEngineStartupTest {
 
   private fun newSession(
     state: MapState,
-    runtime: RuntimeImplementation,
+    runtime: MapRuntime,
   ) =
     MlnFfiMapSession(
       lifecycleAuthority = state.lifecycle,
@@ -244,7 +244,7 @@ class MlnFfiEngineStartupTest {
 
   private suspend fun withNativeMapState(
     configure: (MlnFfiRuntimeOptions) -> MlnFfiRuntimeOptions = { it },
-    block: suspend (MapState, RuntimeImplementation) -> Unit,
+    block: suspend (MapState, MapRuntime) -> Unit,
   ) {
     FfiTestPlatform.initialize()
     TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher

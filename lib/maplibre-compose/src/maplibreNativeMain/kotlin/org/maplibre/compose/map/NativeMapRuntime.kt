@@ -6,7 +6,7 @@ import org.maplibre.compose.mlnffi.normalized
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 import org.maplibre.compose.resource.MapResourceConfig
 
-internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): RuntimeImplementation {
+internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
   val normalizedOptions = options.normalized()
   val resourceConfig =
     MapResourceConfig(
@@ -18,7 +18,7 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): RuntimeImple
   val owner = MlnFfiRuntime(normalizedOptions, resourceConfig)
   val offlineManager = MlnFfiOfflineManager(owner)
   val runtime =
-    RuntimeImplementation(
+    MapRuntime(
       platformContext = owner,
       closeResources = {
         owner.close()
@@ -35,5 +35,5 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): RuntimeImple
   return runtime
 }
 
-internal val RuntimeImplementation.nativeOwner: MlnFfiRuntime
+internal val MapRuntime.nativeOwner: MlnFfiRuntime
   get() = platformContext as MlnFfiRuntime

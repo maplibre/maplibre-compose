@@ -3,7 +3,7 @@ package org.maplibre.compose.location
 import java.io.IOException
 
 /** Opens the desktop settings screen related to location. */
-public class DesktopSystemSettingsLauncher : SystemSettingsLauncher {
+public actual class SystemSettingsLauncher {
 
   private val command: List<String>? =
     with(System.getProperty("os.name").orEmpty().lowercase()) {
@@ -18,7 +18,7 @@ public class DesktopSystemSettingsLauncher : SystemSettingsLauncher {
       }
     }
 
-  override val canOpenApplicationSettings: Boolean = command != null
+  public actual val canOpenApplicationSettings: Boolean = command != null
 
   /**
    * Opens the screen that holds the services toggle and the per-application location permissions:
@@ -26,12 +26,12 @@ public class DesktopSystemSettingsLauncher : SystemSettingsLauncher {
    * Settings on Windows. Linux exposes no desktop-neutral settings screen, so the call returns
    * `false`.
    */
-  override fun openApplicationSettings(): Boolean = openLocationScreen()
+  public actual fun openApplicationSettings(): Boolean = openLocationScreen()
 
-  override val canOpenLocationServicesSettings: Boolean = command != null
+  public actual val canOpenLocationServicesSettings: Boolean = command != null
 
   /** Opens the same screen as [openApplicationSettings], which also holds the services toggle. */
-  override fun openLocationServicesSettings(): Boolean = openLocationScreen()
+  public actual fun openLocationServicesSettings(): Boolean = openLocationScreen()
 
   private fun openLocationScreen(): Boolean {
     val command = command ?: return false

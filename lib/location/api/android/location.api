@@ -42,14 +42,6 @@ public final class org/maplibre/compose/location/AndroidLocationProviderKt {
 	public static final fun createDefaultLocationProvider (Landroid/content/Context;)Lorg/maplibre/compose/location/LocationProvider;
 }
 
-public final class org/maplibre/compose/location/AndroidSystemSettingsLauncher : org/maplibre/compose/location/SystemSettingsLauncher {
-	public fun <init> (Landroid/content/Context;)V
-	public fun getCanOpenApplicationSettings ()Z
-	public fun getCanOpenLocationServicesSettings ()Z
-	public fun openApplicationSettings ()Z
-	public fun openLocationServicesSettings ()Z
-}
-
 public final class org/maplibre/compose/location/HeadingMeasurement {
 	public static final field Companion Lorg/maplibre/compose/location/HeadingMeasurement$Companion;
 	public synthetic fun <init> (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -324,11 +316,12 @@ public final class org/maplibre/compose/location/LocationUnavailableReason : jav
 	public static fun values ()[Lorg/maplibre/compose/location/LocationUnavailableReason;
 }
 
-public abstract interface class org/maplibre/compose/location/SystemSettingsLauncher {
-	public abstract fun getCanOpenApplicationSettings ()Z
-	public abstract fun getCanOpenLocationServicesSettings ()Z
-	public abstract fun openApplicationSettings ()Z
-	public abstract fun openLocationServicesSettings ()Z
+public final class org/maplibre/compose/location/SystemSettingsLauncher {
+	public fun <init> (Landroid/content/Context;)V
+	public final fun getCanOpenApplicationSettings ()Z
+	public final fun getCanOpenLocationServicesSettings ()Z
+	public final fun openApplicationSettings ()Z
+	public final fun openLocationServicesSettings ()Z
 }
 
 public final class org/maplibre/compose/location/UnsupportedLocationProvider : org/maplibre/compose/location/LocationProvider {

@@ -33,7 +33,7 @@ internal fun mapRuntimeForTest(
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   closeResources: suspend () -> Unit = {},
 ): MapRuntime =
-  RuntimeImplementation(
+  MapRuntime(
     platformContext = null,
     closeResources = closeResources,
     logger = null,

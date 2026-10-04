@@ -16,5 +16,5 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider {
 
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {
-  DesktopSystemSettingsLauncher()
+  SystemSettingsLauncher()
 }

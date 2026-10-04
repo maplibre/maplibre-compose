@@ -26,7 +26,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /** Layout operations for direct children of a map overlay or [GeographicLayout]. */
 @Stable
-public interface MapOverlayScope : BoxScope {
+public sealed interface MapOverlayScope : BoxScope {
   /**
    * Places this child at [position]. [alignment] selects the child's anchor point. The child is
    * hidden before a viewport exists or when entirely outside the layout. Apply this modifier to a

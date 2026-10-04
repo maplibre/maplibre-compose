@@ -28,7 +28,7 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
   val resourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, logger)
   val requests = GlJsRequestController(resourceConfig)
-  return RuntimeImplementation(
+  return MapRuntime(
     platformContext = requests,
     closeResources = { requests.close() },
     logger = logger,
@@ -39,5 +39,5 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
   )
 }
 
-internal val RuntimeImplementation.jsRequests: GlJsRequestController?
+internal val MapRuntime.jsRequests: GlJsRequestController?
   get() = platformContext as? GlJsRequestController
