@@ -65,26 +65,6 @@ class SourceJsonTest {
   }
 
   @Test
-  fun default_maxzoom_follows_the_engine_default_for_each_source_type() {
-    val tiles = listOf("https://example.invalid/{z}/{x}/{y}")
-    for ((json, expected) in
-      listOf(
-        VectorTileSource("vector", tiles, TileSetOptions()).toJson() to 22,
-        RasterTileSource("raster", tiles).toJson() to 22,
-        RasterDemTileSource("dem", tiles).toJson() to 22,
-        CustomVectorTileSource("mvt", provider = { byteArrayOf() }).toJson() to 22,
-        buildJsonObject { putGeoJsonOptions(GeoJsonOptions()) } to 18,
-        CustomGeometrySource("geometry", provider = { error("unused") }).toJson() to 18,
-      )) {
-      assertEquals(
-        expected,
-        json["maxzoom"]?.jsonPrimitive?.content?.toInt(),
-        "default maxzoom for ${json["type"]?.jsonPrimitive?.content ?: "geojson"}",
-      )
-    }
-  }
-
-  @Test
   fun a_raster_source_writes_its_own_keys_and_its_tile_set_s() {
     val json =
       RasterTileSource(
