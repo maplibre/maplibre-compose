@@ -2651,6 +2651,12 @@ public final class org/maplibre/compose/map/MaplibreMapKt {
 	public static final fun MaplibreMap (Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/map/MapState;Landroidx/compose/foundation/layout/PaddingValues;Lorg/maplibre/compose/map/CameraConstraints;Lorg/maplibre/compose/map/RenderOptions;Lorg/maplibre/compose/interaction/MapInteractions;Lorg/maplibre/compose/map/MapUiOptions;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 }
 
+public final class org/maplibre/compose/map/MissingImageRequest {
+	public static final field $stable I
+	public final fun getId ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/map/MutableMapStyleState {
 	public static final field $stable I
 	public final fun getBaseStyle ()Lorg/maplibre/compose/style/BaseStyle;

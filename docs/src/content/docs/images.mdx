@@ -38,8 +38,8 @@ coordinates. A <Api of="RasterLayer" /> draws it:
 
 A style can reference an icon that its sprite does not contain. Set
 <Api of="MapState.missingImageResolver" /> to supply one. The map calls the
-resolver with the icon's ID and adds the <Api of="ResolvedStyleImage" /> that
-it returns:
+resolver with a <Api of="MissingImageRequest" /> that holds the icon's ID, and
+adds the <Api of="ResolvedStyleImage" /> that it returns:
 
 <Code code={region(images, "missing-image")} lang="kotlin" title="App.kt" />
 
