@@ -6,11 +6,11 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 
 /**
  * Calls the MapLibre expression [operator] with [args]. Use it for an operator that this DSL does
- * not provide, such as one that a renderer plugin adds.
+ * not provide.
  *
  * The result has the type [T] that the caller chooses; the library does not check it against the
- * operator. Each argument is encoded as an expression, so a list argument such as `const(listOf(1,
- * 2))` is encoded as `["literal", [1, 2]]`.
+ * operator. Each argument is encoded as an expression, so `const(listOf(1, 2))` is encoded as
+ * `["literal", [1, 2]]`.
  *
  * The renderer must support the operator.
  */

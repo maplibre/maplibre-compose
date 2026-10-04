@@ -63,16 +63,6 @@ Use <Api of="nil" /> to compare an expression with null. To leave a layer
 property unset, pass Kotlin `null` to the layer. The API reference describes
 nullable expressions and type assertions in detail.
 
-## Use another operator
-
-Use <Api of="call" /> for an operator without a built-in function, such as one
-that a renderer plugin adds. You choose the result type, so wrap the call in a
-typed function to reuse in your app or publish in a plugin library:
-
-<Code code={region(expressions, "plugin-expression")} lang="kotlin" title="PluginNoise.kt" />
-
-The renderer must support the operator.
-
 ## Where the code runs
 
 Kotlin code outside an expression runs during composition and produces an

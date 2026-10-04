@@ -5,9 +5,7 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.asNumber
-import org.maplibre.compose.expressions.dsl.call
 import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
@@ -106,8 +104,3 @@ fun Expressions() {
   }
   MaplibreMap(state = state)
 }
-
-// #region plugin-expression
-fun pluginNoise(scale: Expression<FloatValue>): Expression<FloatValue> = call("plugin-noise", scale)
-
-// #endregion plugin-expression
