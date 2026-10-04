@@ -2762,8 +2762,8 @@ final class org.maplibre.compose.map/MapState { // org.maplibre.compose.map/MapS
         final fun <get-viewport>(): org.maplibre.compose.camera/Viewport? // org.maplibre.compose.map/MapState.viewport.<get-viewport>|<get-viewport>(){}[0]
 
     final var missingImageResolver // org.maplibre.compose.map/MapState.missingImageResolver|{}missingImageResolver[0]
-        final fun <get-missingImageResolver>(): kotlin.coroutines/SuspendFunction1<kotlin/String, org.maplibre.compose.map/ResolvedStyleImage?>? // org.maplibre.compose.map/MapState.missingImageResolver.<get-missingImageResolver>|<get-missingImageResolver>(){}[0]
-        final fun <set-missingImageResolver>(kotlin.coroutines/SuspendFunction1<kotlin/String, org.maplibre.compose.map/ResolvedStyleImage?>?) // org.maplibre.compose.map/MapState.missingImageResolver.<set-missingImageResolver>|<set-missingImageResolver>(kotlin.coroutines.SuspendFunction1<kotlin.String,org.maplibre.compose.map.ResolvedStyleImage?>?){}[0]
+        final fun <get-missingImageResolver>(): kotlin.coroutines/SuspendFunction1<org.maplibre.compose.map/MissingImageRequest, org.maplibre.compose.map/ResolvedStyleImage?>? // org.maplibre.compose.map/MapState.missingImageResolver.<get-missingImageResolver>|<get-missingImageResolver>(){}[0]
+        final fun <set-missingImageResolver>(kotlin.coroutines/SuspendFunction1<org.maplibre.compose.map/MissingImageRequest, org.maplibre.compose.map/ResolvedStyleImage?>?) // org.maplibre.compose.map/MapState.missingImageResolver.<set-missingImageResolver>|<set-missingImageResolver>(kotlin.coroutines.SuspendFunction1<org.maplibre.compose.map.MissingImageRequest,org.maplibre.compose.map.ResolvedStyleImage?>?){}[0]
 
     final fun click(androidx.compose.ui.unit/DpOffset) // org.maplibre.compose.map/MapState.click|click(androidx.compose.ui.unit.DpOffset){}[0]
     final fun close() // org.maplibre.compose.map/MapState.close|close(){}[0]
@@ -2839,6 +2839,13 @@ final class org.maplibre.compose.map/MapUiOptions { // org.maplibre.compose.map/
         final val Standard // org.maplibre.compose.map/MapUiOptions.Companion.Standard|{}Standard[0]
             final fun <get-Standard>(): org.maplibre.compose.map/MapUiOptions // org.maplibre.compose.map/MapUiOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
     }
+}
+
+final class org.maplibre.compose.map/MissingImageRequest { // org.maplibre.compose.map/MissingImageRequest|null[0]
+    final val id // org.maplibre.compose.map/MissingImageRequest.id|{}id[0]
+        final fun <get-id>(): kotlin/String // org.maplibre.compose.map/MissingImageRequest.id.<get-id>|<get-id>(){}[0]
+
+    final fun toString(): kotlin/String // org.maplibre.compose.map/MissingImageRequest.toString|toString(){}[0]
 }
 
 final class org.maplibre.compose.map/MutableMapStyleState { // org.maplibre.compose.map/MutableMapStyleState|null[0]
@@ -4109,6 +4116,7 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop 
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop|#static{}org_maplibre_compose_map_MapStyleState$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop|#static{}org_maplibre_compose_map_MapUiOptions$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions_Builder$stableprop|#static{}org_maplibre_compose_map_MapUiOptions_Builder$stableprop[0]
+final val org.maplibre.compose.map/org_maplibre_compose_map_MissingImageRequest$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MissingImageRequest$stableprop|#static{}org_maplibre_compose_map_MissingImageRequest$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MutableMapStyleState$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MutableMapStyleState$stableprop|#static{}org_maplibre_compose_map_MutableMapStyleState$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_PlatformMapScope$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_PlatformMapScope$stableprop|#static{}org_maplibre_compose_map_PlatformMapScope$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_RenderOptions$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_RenderOptions$stableprop|#static{}org_maplibre_compose_map_RenderOptions$stableprop[0]
@@ -4547,6 +4555,7 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop_
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop_getter|org_maplibre_compose_map_MapStyleState$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop_getter|org_maplibre_compose_map_MapUiOptions$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions_Builder$stableprop_getter|org_maplibre_compose_map_MapUiOptions_Builder$stableprop_getter(){}[0]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_MissingImageRequest$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MissingImageRequest$stableprop_getter|org_maplibre_compose_map_MissingImageRequest$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MutableMapStyleState$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MutableMapStyleState$stableprop_getter|org_maplibre_compose_map_MutableMapStyleState$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_PlatformMapScope$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_PlatformMapScope$stableprop_getter|org_maplibre_compose_map_PlatformMapScope$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_RenderOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_RenderOptions$stableprop_getter|org_maplibre_compose_map_RenderOptions$stableprop_getter(){}[0]
