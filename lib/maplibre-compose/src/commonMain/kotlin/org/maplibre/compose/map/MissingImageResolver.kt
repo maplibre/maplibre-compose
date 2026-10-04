@@ -14,11 +14,22 @@ import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.prepareInEngineContext
 
 /**
- * Supplies the image that the engine asks for by id, or null when the resolver has none.
+ * Supplies the image that the engine asks for in a [MissingImageRequest], or null when the resolver
+ * has none.
  *
  * See [MapState.missingImageResolver].
  */
-public typealias MissingImageResolver = suspend (id: String) -> ResolvedStyleImage?
+public typealias MissingImageResolver =
+  suspend (request: MissingImageRequest) -> ResolvedStyleImage?
+
+/** An image that the loaded style uses but does not contain, passed to a [MissingImageResolver]. */
+public class MissingImageRequest
+internal constructor(
+  /** The image ID that the style references, such as the value of a symbol layer's `icon-image`. */
+  public val id: String
+) {
+  override fun toString(): String = "MissingImageRequest(id=$id)"
+}
 
 /**
  * A [PreparedImage] with style-image options. It belongs to no map; each command targets the style
