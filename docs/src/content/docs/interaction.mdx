@@ -10,14 +10,14 @@ import { region, rememberedMapStyle } from "../../snippets";
 import interaction from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-Users can pan, zoom, rotate, and tilt the map by default. Two builders configure
+Users can pan, zoom, rotate, and pitch the map by default. Two builders configure
 input. <Api of="MapInteractions" /> sets which camera movements are allowed and
 how your app responds to clicks. <Api of="MapUiOptions" /> sets what gestures,
 scrolling, and keys do.
 
 ## Restrict camera movement
 
-For a map that users can pan and zoom but cannot rotate or tilt, disable those
+For a map that users can pan and zoom but cannot rotate or pitch, disable those
 camera movements:
 
 <Code code={region(interaction, "camera-movement")} lang="kotlin" title="App.kt" />

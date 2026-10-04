@@ -200,7 +200,7 @@ class TransformInputTest {
     }
 
   @Test
-  fun a_shove_cancels_the_started_pair_pan_before_tilt() {
+  fun a_shove_cancels_the_started_pair_pan_before_pitch() {
     val order = mutableListOf<String>()
     fixture.runRecognitionTest(
       options =
@@ -210,9 +210,9 @@ class TransformInputTest {
               momentum { enabled = false }
               onStart { order += "pan" }
             }
-            tilt {
+            pitch {
               momentum { enabled = false }
-              onStart { order += "tilt" }
+              onStart { order += "pitch" }
             }
           }
         }
@@ -238,8 +238,8 @@ class TransformInputTest {
         up(1)
       }
       waitForIdle()
-      assertEquals(panMoves, target.moveCalls.size, "tilt also panned the map")
-      assertEquals(listOf("pan", "tilt"), order)
+      assertEquals(panMoves, target.moveCalls.size, "pitch also panned the map")
+      assertEquals(listOf("pan", "pitch"), order)
       assertEquals(1, target.startedCount)
       assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 })
       assertTrue(target.rotateCalls.all { it.bearingDelta == 0.0 }, "a shove also rotated")
@@ -263,7 +263,7 @@ class TransformInputTest {
               }
             }
           }
-          bindings { transform { tilt { enabled = false } } }
+          bindings { transform { pitch { enabled = false } } }
           camera {
             zoom { momentum { enabled = false } }
             rotate { momentum { enabled = false } }
@@ -630,7 +630,7 @@ class TransformInputTest {
         InputConfiguration {
           bindings { transform { zoom { enabled = false } } }
           bindings { transform { rotate { enabled = false } } }
-          bindings { transform { tilt { enabled = false } } }
+          bindings { transform { pitch { enabled = false } } }
           bindings { twoFingerTap { enabled = false } }
         }
     ) { target ->
@@ -667,7 +667,7 @@ class TransformInputTest {
             transform {
               zoom { enabled = false }
               rotate { enabled = false }
-              tilt { enabled = false }
+              pitch { enabled = false }
             }
           }
         }

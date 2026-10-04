@@ -17,11 +17,11 @@ public data class CameraUpdate(
   public val target: Position? = null,
   public val zoom: Double? = null,
   public val bearing: Double? = null,
-  public val tilt: Double? = null,
+  public val pitch: Double? = null,
   public val padding: DpPadding? = null,
 ) {
   init {
-    require(target != null || zoom != null || bearing != null || tilt != null || padding != null) {
+    require(target != null || zoom != null || bearing != null || pitch != null || padding != null) {
       "A camera update must specify at least one property"
     }
     require(target == null || target.longitude.isFinite() && target.latitude.isFinite()) {
@@ -29,7 +29,7 @@ public data class CameraUpdate(
     }
     require(zoom == null || zoom.isFinite()) { "Zoom must be finite" }
     require(bearing == null || bearing.isFinite()) { "Bearing must be finite" }
-    require(tilt == null || tilt.isFinite()) { "Tilt must be finite" }
+    require(pitch == null || pitch.isFinite()) { "Pitch must be finite" }
     require(
       padding == null ||
         listOf(padding.left, padding.top, padding.right, padding.bottom).all {
@@ -45,7 +45,7 @@ public data class CameraUpdate(
       target = target ?: position.target,
       zoom = zoom ?: position.zoom,
       bearing = bearing ?: position.bearing,
-      tilt = tilt ?: position.tilt,
+      pitch = pitch ?: position.pitch,
       padding = padding ?: position.padding,
     )
 }

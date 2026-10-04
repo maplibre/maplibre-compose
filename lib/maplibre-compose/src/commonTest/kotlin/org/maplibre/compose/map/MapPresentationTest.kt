@@ -2389,7 +2389,7 @@ class MapPresentationTest {
           override suspend fun cameraForBounds(
             boundingBox: BoundingBox,
             bearing: Double,
-            tilt: Double,
+            pitch: Double,
             cameraPadding: DpPadding?,
             fitPadding: DpPadding,
           ): CameraPosition {
@@ -2400,7 +2400,7 @@ class MapPresentationTest {
           override suspend fun cameraForGeometry(
             geometry: Geometry,
             bearing: Double,
-            tilt: Double,
+            pitch: Double,
             cameraPadding: DpPadding?,
             fitPadding: DpPadding,
           ): CameraPosition {
@@ -2738,7 +2738,7 @@ class MapPresentationTest {
         val middle =
           if (cancelMiddle)
             async(newerDispatcher, start = CoroutineStart.UNDISPATCHED) {
-              state.animateCamera(CameraUpdate(tilt = 30.0))
+              state.animateCamera(CameraUpdate(pitch = 30.0))
             }
           else null
         val newer =
@@ -3082,7 +3082,7 @@ internal open class PresentationTestAdapter(
     anchor: CameraAnchor,
     zoom: Double?,
     bearing: Double?,
-    tilt: Double?,
+    pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard?,
   ) {
@@ -3094,7 +3094,7 @@ internal open class PresentationTestAdapter(
   override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     animation: CameraAnimation,
@@ -3140,7 +3140,7 @@ internal open class PresentationTestAdapter(
   override suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
@@ -3148,7 +3148,7 @@ internal open class PresentationTestAdapter(
   override suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
@@ -3156,7 +3156,7 @@ internal open class PresentationTestAdapter(
   override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,

@@ -78,7 +78,7 @@ class BrowserMapLifecycleTest {
         CameraPosition(
           bearing = 20.0,
           target = Position(longitude = -122.4, latitude = 37.8),
-          tilt = 30.0,
+          pitch = 30.0,
           zoom = 10.0,
         )
       val state =

@@ -606,33 +606,33 @@ internal constructor(
   suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition = afterViewport {
-    adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
+    adapter.cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
   }
 
   suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition = afterViewport {
-    adapter.cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
+    adapter.cameraForGeometry(geometry, bearing, pitch, cameraPadding, fitPadding)
   }
 
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ): Unit =
     afterCameraTurn(guard) { boundGuard ->
-      adapter.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, boundGuard)
+      adapter.fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, boundGuard)
     }
 
   suspend fun animateCamera(
@@ -648,18 +648,18 @@ internal constructor(
     anchor: CameraAnchor,
     zoom: Double?,
     bearing: Double?,
-    tilt: Double?,
+    pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
   ): Unit =
     afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCameraAround(anchor, zoom, bearing, tilt, animation, boundGuard)
+      adapter.animateCameraAround(anchor, zoom, bearing, pitch, animation, boundGuard)
     }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
-    tilt: Double,
+    pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     animation: CameraAnimation,
@@ -669,7 +669,7 @@ internal constructor(
       adapter.animateCameraToBounds(
         boundingBox,
         bearing,
-        tilt,
+        pitch,
         cameraPadding,
         fitPadding,
         animation,
@@ -900,7 +900,7 @@ internal constructor(
     get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.None
 
   /**
-   * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
+   * Returns true while the focused map consumes the keys that pan, zoom, rotate, and pitch. Enter,
    * numpad Enter, D-pad center, and a recognized map pointer gesture engage the map. Escape
    * disengages it, and Back disengages it when a key engaged it. Focus loss disengages it. A
    * focused map that is not engaged passes direction keys to focus traversal. The value is false
@@ -997,13 +997,13 @@ internal constructor(
   public suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
-    tilt: Double = 0.0,
+    pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition =
     attachmentAuthority
       .awaitAttachment()
-      .cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
+      .cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
 
   /**
    * Waits for a viewport, then calculates a camera that fits every position of [geometry] without
@@ -1012,7 +1012,7 @@ internal constructor(
    *
    * Unlike [cameraForBounds], the fit follows the positions themselves rather than their bounding
    * box, so a rotated camera leaves no extra space around a diagonal route. With a bearing of zero
-   * and a tilt of zero, both queries produce the same camera.
+   * and a pitch of zero, both queries produce the same camera.
    *
    * Positions are used as given. Express a route that crosses the antimeridian with continuous
    * longitudes, such as 179 followed by 181; the query does not unwrap longitudes itself.
@@ -1025,14 +1025,14 @@ internal constructor(
   public suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double = 0.0,
-    tilt: Double = 0.0,
+    pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
     require(geometry.positions().any()) { "The geometry contains no positions" }
     return attachmentAuthority
       .awaitAttachment()
-      .cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
+      .cameraForGeometry(geometry, bearing, pitch, cameraPadding, fitPadding)
   }
 
   /**
@@ -1045,7 +1045,7 @@ internal constructor(
   public suspend fun cameraForCoordinates(
     coordinates: Collection<Position>,
     bearing: Double = 0.0,
-    tilt: Double = 0.0,
+    pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
@@ -1053,7 +1053,7 @@ internal constructor(
     return cameraForGeometry(
       MultiPoint(coordinates.toList()),
       bearing,
-      tilt,
+      pitch,
       cameraPadding,
       fitPadding,
     )
@@ -1067,14 +1067,14 @@ internal constructor(
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
-    tilt: Double = 0.0,
+    pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     attachmentAuthority
       .awaitAttachment()
-      .fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
+      .fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, guard)
   }
 
   /**
@@ -1104,7 +1104,7 @@ internal constructor(
   }
 
   /**
-   * Changes zoom, bearing, or tilt while keeping [anchor] at its screen location at animation
+   * Changes zoom, bearing, or pitch while keeping [anchor] at its screen location at animation
    * start. Null camera components are omitted and can animate independently on native platforms.
    * The camera target moves to preserve the anchor; this operation does not accept a destination
    * target or a flight animation.
@@ -1119,21 +1119,21 @@ internal constructor(
    * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Until selective
    * cancellation is available, anchor geometry changes stop all camera animations.
    *
-   * Anchor preservation applies to flat Mercator maps, including tilted cameras. Camera constraints
-   * take precedence and can move the anchor. Globe and terrain do not have this guarantee. On
-   * Android, the system animator duration scale multiplies the duration. Zero duration applies the
-   * anchored endpoint immediately.
+   * Anchor preservation applies to flat Mercator maps, including pitched cameras. Camera
+   * constraints take precedence and can move the anchor. Globe and terrain do not have this
+   * guarantee. On Android, the system animator duration scale multiplies the duration. Zero
+   * duration applies the anchored endpoint immediately.
    */
   public suspend fun animateCameraAround(
     anchor: CameraAnchor,
     zoom: Double? = null,
     bearing: Double? = null,
-    tilt: Double? = null,
+    pitch: Double? = null,
     animation: CameraAnimation.Ease = CameraAnimation.Ease(),
   ): Unit = coroutineScope {
     require(zoom == null || zoom.isFinite()) { "Zoom must be finite" }
     require(bearing == null || bearing.isFinite()) { "Bearing must be finite" }
-    require(tilt == null || tilt.isFinite()) { "Tilt must be finite" }
+    require(pitch == null || pitch.isFinite()) { "Pitch must be finite" }
     require(animation.duration.isFinite() && animation.duration >= Duration.ZERO) {
       "Duration must be finite and nonnegative"
     }
@@ -1145,7 +1145,7 @@ internal constructor(
         anchor,
         zoom,
         bearing,
-        tilt,
+        pitch,
         animation.copy(duration = animation.duration.scaledBy(systemAnimatorDurationScale())),
         guard,
       )
@@ -1163,7 +1163,7 @@ internal constructor(
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
-    tilt: Double = 0.0,
+    pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
     animation: CameraAnimation = CameraAnimation.Fly(),
@@ -1174,7 +1174,7 @@ internal constructor(
       .animateCameraToBounds(
         boundingBox,
         bearing,
-        tilt,
+        pitch,
         cameraPadding,
         fitPadding,
         animation.scaledBy(systemAnimatorDurationScale()),
@@ -1384,7 +1384,7 @@ private fun mapStateSaver(
           bearing,
           target.longitude,
           target.latitude,
-          tilt,
+          pitch,
           zoom,
           padding.left.value.toDouble(),
           padding.top.value.toDouble(),
@@ -1402,7 +1402,7 @@ private fun mapStateSaver(
             CameraPosition(
               bearing = values[0],
               target = Position(longitude = values[1], latitude = values[2]),
-              tilt = values[3],
+              pitch = values[3],
               zoom = values[4],
               padding =
                 DpPadding(

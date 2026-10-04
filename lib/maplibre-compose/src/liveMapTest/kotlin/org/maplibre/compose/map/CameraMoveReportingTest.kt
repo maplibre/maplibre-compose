@@ -76,9 +76,9 @@ class CameraMoveReportingTest {
       }
 
       it.gestures.rotateAndPitchBy(30.0, 15.0)
-      it.pumpUntil("the native camera to rotate and tilt") {
+      it.pumpUntil("the native camera to rotate and pitch") {
         val camera = it.session.getCameraPosition()
-        abs(camera.bearing - 30.0) < ANGLE_TOLERANCE && abs(camera.tilt - 15.0) < ANGLE_TOLERANCE
+        abs(camera.bearing - 30.0) < ANGLE_TOLERANCE && abs(camera.pitch - 15.0) < ANGLE_TOLERANCE
       }
     }
   }

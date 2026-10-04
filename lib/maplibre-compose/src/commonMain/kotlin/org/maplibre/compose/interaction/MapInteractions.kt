@@ -79,7 +79,7 @@ private constructor(
           pan { enabled = false }
           zoom { enabled = false }
           rotate { enabled = false }
-          tilt { enabled = false }
+          pitch { enabled = false }
         }
       }
   }

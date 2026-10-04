@@ -12,7 +12,7 @@ data class BenchmarkCamera(
   val longitude: Double,
   val zoom: Double,
   val bearing: Double = 0.0,
-  val tilt: Double = 0.0,
+  val pitch: Double = 0.0,
 )
 
 fun benchmarkCamera(x: Double) =
@@ -23,7 +23,7 @@ fun tourCamera(progress: Double) =
     .copy(
       zoom = 15.0 + 0.4 * sin(progress * 2 * PI),
       bearing = 30 * sin(progress * 2 * PI),
-      tilt = 30 * (0.5 - 0.5 * cos(progress * 2 * PI)),
+      pitch = 30 * (0.5 - 0.5 * cos(progress * 2 * PI)),
     )
 
 class PreparedBenchmarkFixture(

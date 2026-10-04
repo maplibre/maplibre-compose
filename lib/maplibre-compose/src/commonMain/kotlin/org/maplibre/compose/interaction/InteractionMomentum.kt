@@ -2,7 +2,7 @@ package org.maplibre.compose.interaction
 
 import kotlin.time.Duration
 import org.maplibre.compose.interaction.internal.PanMomentum
-import org.maplibre.compose.interaction.internal.TiltMomentum
+import org.maplibre.compose.interaction.internal.PitchMomentum
 import org.maplibre.compose.interaction.internal.VelocityMomentum
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 
@@ -43,15 +43,15 @@ public class VelocityMomentumBuilder internal constructor(from: VelocityMomentum
 
 /** Pitch momentum after normal release. Speeds are degrees/second. */
 @MapInteractionDsl
-public class TiltMomentumBuilder internal constructor(from: TiltMomentum) {
+public class PitchMomentumBuilder internal constructor(from: PitchMomentum) {
   public var enabled: Boolean = from.enabled
 
   public var minimumSpeed: Double = from.minimumSpeed
 
   public var duration: Duration = from.duration
 
-  internal fun build(): TiltMomentum =
-    TiltMomentum(enabled, minimumSpeed, duration).also { value ->
+  internal fun build(): PitchMomentum =
+    PitchMomentum(enabled, minimumSpeed, duration).also { value ->
       requireNonnegativeFinite(value.minimumSpeed, "minimumSpeed")
       requireNonnegativeFinite(value.duration, "duration")
     }

@@ -82,7 +82,7 @@ object EditableMarkersDemo : Demo {
               pressed = pressedId == marker.id,
               dragging = draggingId == marker.id,
               overTrash = overTrash,
-              dragTilt = dragTilt,
+              dragLean = dragLean,
               onRemoved = { markers.remove(marker) },
             )
           MarkerLayers(marker, motion, style, onSelect = { select(marker) })

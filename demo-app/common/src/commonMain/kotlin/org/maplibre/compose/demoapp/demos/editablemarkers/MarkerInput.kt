@@ -64,7 +64,7 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
           anchor?.let { start ->
             mapState.positionFromScreenLocation(start + distance)?.let { marker.position = it }
           }
-          dragTilt = (delta.x * 0.7f).coerceIn(-18f, 18f)
+          dragLean = (delta.x * 0.7f).coerceIn(-18f, 18f)
         },
         onTap = { select(marker) },
         onDragEnd = { if (overTrash) remove(marker) else marker.bounce++ },

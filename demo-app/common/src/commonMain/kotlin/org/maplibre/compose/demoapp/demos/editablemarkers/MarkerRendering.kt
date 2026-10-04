@@ -190,7 +190,7 @@ internal fun rememberMarkerMotion(
   pressed: Boolean,
   dragging: Boolean,
   overTrash: Boolean,
-  dragTilt: Float,
+  dragLean: Float,
   onRemoved: () -> Unit,
 ): MarkerMotion {
   // Keep the source alive until the exit animation finishes.
@@ -235,7 +235,7 @@ internal fun rememberMarkerMotion(
       },
       spring(dampingRatio = 0.45f, stiffness = 500f),
     )
-  val tilt by animateFloatAsState(if (dragging) dragTilt else 0f, spring(stiffness = 450f))
+  val lean by animateFloatAsState(if (dragging) dragLean else 0f, spring(stiffness = 450f))
   val highlight by
     animateFloatAsState(if (selected || hovered) 1f else 0f, spring(stiffness = 350f))
 
@@ -243,7 +243,7 @@ internal fun rememberMarkerMotion(
   return MarkerMotion(
     alpha = alpha,
     scale = (presence.value * scale).coerceAtLeast(0.01f),
-    rotation = rock.value + tilt,
+    rotation = rock.value + lean,
     offsetY = -lift - (1f - alpha) * 32f,
     shadowRadius = 7f + lift.coerceAtLeast(0f) * 0.15f,
     highlight = highlight,

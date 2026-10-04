@@ -56,7 +56,7 @@ internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraP
     target = center?.toPosition() ?: Position(0.0, 0.0),
     zoom = zoom ?: 0.0,
     bearing = bearing ?: 0.0,
-    tilt = pitch ?: 0.0,
+    pitch = pitch ?: 0.0,
     padding = (padding ?: EdgeInsets.ZERO).relativeTo(viewportInsets),
   )
 
@@ -65,7 +65,7 @@ internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraO
     it.center = target.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
-    it.pitch = tilt
+    it.pitch = pitch
     it.padding =
       EdgeInsets(
         viewportInsets.top + padding.top.value,
@@ -80,7 +80,7 @@ internal fun CameraUpdate.toCameraOptions(viewportInsets: EdgeInsets): CameraOpt
     it.center = target?.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
-    it.pitch = tilt
+    it.pitch = pitch
     it.padding = padding?.let { padding ->
       EdgeInsets(
         viewportInsets.top + padding.top.value,

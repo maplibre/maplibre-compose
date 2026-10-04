@@ -271,7 +271,7 @@ class CameraInputTest {
               enabled = false
               onStart { starts += "rotate" }
             }
-            tilt { onStart { starts += "tilt" } }
+            pitch { onStart { starts += "pitch" } }
           }
           .build()
       )
@@ -289,7 +289,7 @@ class CameraInputTest {
       target.drain()
       runCurrent()
       assertTrue(target.moveCalls.isEmpty())
-      assertEquals(listOf("zoom", "tilt"), starts)
+      assertEquals(listOf("zoom", "pitch"), starts)
       assertEquals(listOf(2.0, 2.0), target.scaleCalls.map { it.scale })
       assertEquals(listOf(null, null), target.scaleCalls.map { it.anchor })
       assertEquals(RecordingGestureTarget.RotateCall(0.0, 5.0, null), target.rotateCalls.single())

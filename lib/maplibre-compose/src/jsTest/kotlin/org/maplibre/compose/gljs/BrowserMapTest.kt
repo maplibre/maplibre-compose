@@ -67,7 +67,7 @@ internal fun CameraPosition.isNear(other: CameraPosition): Boolean =
     target.latitude.isNear(other.target.latitude) &&
     zoom.isNear(other.zoom) &&
     bearing.isNear(other.bearing) &&
-    tilt.isNear(other.tilt)
+    pitch.isNear(other.pitch)
 
 private fun Double.isNear(other: Double): Boolean = kotlin.math.abs(this - other) < 0.001
 

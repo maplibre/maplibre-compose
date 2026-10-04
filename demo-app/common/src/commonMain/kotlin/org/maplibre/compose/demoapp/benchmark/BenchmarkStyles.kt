@@ -22,7 +22,7 @@ internal fun BenchmarkCamera.toCompose() =
     target = Position(longitude, latitude),
     zoom = zoom,
     bearing = bearing,
-    tilt = tilt,
+    pitch = pitch,
   )
 
 internal fun benchmarkCamera(x: Double) =

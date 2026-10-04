@@ -633,7 +633,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
             "lng ${position.target.longitude.format(4)} " +
             "zoom ${position.zoom.format(1)} " +
             "bearing ${position.bearing.format(0)} " +
-            "tilt ${position.tilt.format(0)}",
+            "pitch ${position.pitch.format(0)}",
         style = MaterialTheme.typography.labelMedium,
       )
     }

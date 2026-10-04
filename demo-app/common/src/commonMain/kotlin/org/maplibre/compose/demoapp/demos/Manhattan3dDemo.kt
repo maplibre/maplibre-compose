@@ -25,7 +25,7 @@ object Manhattan3dDemo : Demo {
         target = Position(longitude = -74.0109, latitude = 40.7085),
         zoom = 14.2,
         bearing = 2.0,
-        tilt = 60.0,
+        pitch = 60.0,
       )
     )
   override val pointerPin = DemoPointerPin(offlineRegion.center, destination)

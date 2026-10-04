@@ -8,7 +8,7 @@ public enum class CameraMoveReason {
   /** The map is detached or the camera has not moved yet. */
   None,
 
-  /** A gesture on the map moved the camera: a pan, a zoom, a rotation, or a tilt. */
+  /** A gesture on the map moved the camera: a pan, a zoom, a rotation, or a pitch. */
   Gesture,
 
   /** A call to the map's API moved the camera, such as one an overlay control made. */

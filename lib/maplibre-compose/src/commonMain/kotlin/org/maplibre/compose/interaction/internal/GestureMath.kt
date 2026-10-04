@@ -198,13 +198,13 @@ internal object GestureMath {
     )
   }
 
-  data class TiltVelocity(val pitchDelta: Double, val duration: Duration)
+  data class PitchVelocity(val pitchDelta: Double, val duration: Duration)
 
   /** Integrates a pitch speed that decays cubically to zero over the configured duration. */
-  fun tiltVelocity(
+  fun pitchVelocity(
     degreesPerSecond: Double,
-    continuation: TiltMomentum = TiltMomentum(),
-  ): TiltVelocity? {
+    continuation: PitchMomentum = PitchMomentum(),
+  ): PitchVelocity? {
     if (
       !continuation.enabled ||
         !degreesPerSecond.isFinite() ||
@@ -213,7 +213,7 @@ internal object GestureMath {
         continuation.duration == Duration.ZERO
     )
       return null
-    return TiltVelocity(
+    return PitchVelocity(
       degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER),
       continuation.duration,
     )

@@ -206,7 +206,7 @@ internal class GlJsSnapshotterAdapter(
         center = camera.target.toLngLat()
         zoom = camera.zoom
         bearing = camera.bearing
-        pitch = camera.tilt
+        pitch = camera.pitch
         padding = camera.padding.toPaddingOptions()
       }
     )

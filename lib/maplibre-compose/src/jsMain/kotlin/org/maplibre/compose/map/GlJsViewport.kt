@@ -37,7 +37,7 @@ internal fun MaplibreMap.readCameraPosition(viewportInsets: PaddingOptions): Cam
   CameraPosition(
     bearing = getBearing(),
     target = getCenter().toPosition(),
-    tilt = getPitch(),
+    pitch = getPitch(),
     padding =
       getPadding().let {
         DpPadding(

@@ -3,8 +3,8 @@ package org.maplibre.compose.util
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Four-sided polygon representing the visible area of the map composable. If the camera has tilt
- * (pitch), this polygon is a trapezoid instead of a rectangle.
+ * Four-sided polygon representing the visible area of the map composable. If the camera is pitched,
+ * this polygon is a trapezoid instead of a rectangle.
  *
  * Longitudes preserve the visible world copy and may extend past ±180°. A viewport wider than one
  * world can span more than 360° of longitude.

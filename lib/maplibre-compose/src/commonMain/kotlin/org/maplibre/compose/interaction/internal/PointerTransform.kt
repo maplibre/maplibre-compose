@@ -175,7 +175,7 @@ internal class PointerTransform(
           CameraComponent.Zoom -> scaleVelocity.resetTracking()
           CameraComponent.Rotate -> rotationVelocity.resetTracking()
           CameraComponent.Pan,
-          CameraComponent.Tilt -> centroidVelocity.resetTracking()
+          CameraComponent.Pitch -> centroidVelocity.resetTracking()
         }
         record(current)
         if (!onStart(component)) return false
@@ -190,7 +190,7 @@ internal class PointerTransform(
           CameraComponent.Zoom ->
             decision.scale.isFinite() && decision.scale > 0 && abs(decision.scale - 1) >= 1e-6
           CameraComponent.Rotate -> abs(decision.rotation) >= 1e-6
-          CameraComponent.Tilt -> decision.verticalDrag != 0f
+          CameraComponent.Pitch -> decision.verticalDrag != 0f
         }
 
       if (moved && !onDelta(component, decision)) return false

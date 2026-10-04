@@ -417,7 +417,7 @@ private fun contextNightMode(context: Context): Int =
 
 private fun CameraPosition.isCloseTo(other: CameraPosition): Boolean =
   abs(bearing - other.bearing) < 0.000001 &&
-    abs(tilt - other.tilt) < 0.000001 &&
+    abs(pitch - other.pitch) < 0.000001 &&
     abs(zoom - other.zoom) < 0.000001 &&
     abs(target.longitude - other.target.longitude) < 0.000001 &&
     abs(target.latitude - other.target.latitude) < 0.000001

@@ -143,7 +143,7 @@ class ClassicAndroidDriver(
       .target(LatLng(value.latitude, value.longitude))
       .zoom(value.zoom)
       .bearing(value.bearing)
-      .tilt(value.tilt)
+      .tilt(value.pitch)
       .build()
 
   override fun image(index: Int) {

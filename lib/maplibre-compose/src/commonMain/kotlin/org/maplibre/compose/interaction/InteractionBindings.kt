@@ -7,7 +7,7 @@ import kotlin.time.Duration
 import org.maplibre.compose.interaction.internal.DragBinding
 import org.maplibre.compose.interaction.internal.DragFitBoundsSettings
 import org.maplibre.compose.interaction.internal.DragPanSettings
-import org.maplibre.compose.interaction.internal.DragRotateTiltSettings
+import org.maplibre.compose.interaction.internal.DragRotatePitchSettings
 import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.KeyBinding
 import org.maplibre.compose.interaction.internal.RotaryBinding
@@ -16,8 +16,8 @@ import org.maplibre.compose.interaction.internal.TapBinding
 import org.maplibre.compose.interaction.internal.TapDragBinding
 import org.maplibre.compose.interaction.internal.TransformBinding
 import org.maplibre.compose.interaction.internal.TransformPanBinding
+import org.maplibre.compose.interaction.internal.TransformPitchBinding
 import org.maplibre.compose.interaction.internal.TransformRotateBinding
-import org.maplibre.compose.interaction.internal.TransformTiltBinding
 import org.maplibre.compose.interaction.internal.TransformZoomBinding
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 
@@ -40,24 +40,24 @@ public class DragPanBuilder internal constructor(from: DragPanSettings) {
 }
 
 @MapInteractionDsl
-public class DragRotateTiltBuilder internal constructor(from: DragRotateTiltSettings) {
+public class DragRotatePitchBuilder internal constructor(from: DragRotatePitchSettings) {
   /** Recognition distance for non-mouse pointers, in dp. */
   public var startSlop: Dp = from.startSlop
 
   /** Recognition distance for mouse pointers, in dp; independent of [startSlop]. */
   public var mouseStartSlop: Dp = from.mouseStartSlop
 
-  /** Point held fixed while rotating and tilting. Defaults to the camera target. */
+  /** Point held fixed while rotating and pitching. Defaults to the camera target. */
   public var anchor: GestureAnchor = from.anchor
   public var bearingDegreesPerDp: Double = from.bearingDegreesPerDp
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
 
-  internal fun build(): DragRotateTiltSettings {
+  internal fun build(): DragRotatePitchSettings {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     requireNonnegativeFinite(mouseStartSlop.value.toDouble(), "mouseStartSlop")
     require(bearingDegreesPerDp.isFinite()) { "bearingDegreesPerDp must be finite" }
     require(pitchDegreesPerDp.isFinite()) { "pitchDegreesPerDp must be finite" }
-    return DragRotateTiltSettings(
+    return DragRotatePitchSettings(
       startSlop,
       mouseStartSlop,
       anchor,
@@ -89,7 +89,7 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   private var rows = from.mappings
   private val panBuilder = DragPanBuilder(from.pan)
-  private val rotateTiltBuilder = DragRotateTiltBuilder(from.rotateTilt)
+  private val rotatePitchBuilder = DragRotatePitchBuilder(from.rotatePitch)
   private val fitBoundsBuilder = DragFitBoundsBuilder(from.fitBounds)
 
   public fun mappings(block: DragMappingsBuilder.() -> Unit) {
@@ -100,8 +100,8 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
     panBuilder.apply(block)
   }
 
-  public fun rotateTilt(block: DragRotateTiltBuilder.() -> Unit) {
-    rotateTiltBuilder.apply(block)
+  public fun rotatePitch(block: DragRotatePitchBuilder.() -> Unit) {
+    rotatePitchBuilder.apply(block)
   }
 
   public fun fitBounds(block: DragFitBoundsBuilder.() -> Unit) {
@@ -114,7 +114,7 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
       pointerTypes?.toSet(),
       rows,
       panBuilder.build(),
-      rotateTiltBuilder.build(),
+      rotatePitchBuilder.build(),
       fitBoundsBuilder.build(),
     )
 }
@@ -191,7 +191,7 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
 }
 
 @MapInteractionDsl
-public class TransformTiltBuilder internal constructor(from: TransformTiltBinding) {
+public class TransformPitchBuilder internal constructor(from: TransformPitchBinding) {
   public var enabled: Boolean = from.enabled
   /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
@@ -199,10 +199,10 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
   public var startSlop: Dp = from.startSlop
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
 
-  internal fun build(): TransformTiltBinding {
+  internal fun build(): TransformPitchBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     require(pitchDegreesPerDp.isFinite()) { "pitchDegreesPerDp must be finite" }
-    return TransformTiltBinding(
+    return TransformPitchBinding(
       enabled,
       pointerTypes?.toSet(),
       modifiers,
@@ -248,7 +248,7 @@ public class TransformBuilder internal constructor(from: TransformBinding) {
   private val panBuilder = TransformPanBuilder(from.pan)
   private val zoomBuilder = TransformZoomBuilder(from.zoom)
   private val rotateBuilder = TransformRotateBuilder(from.rotate)
-  private val tiltBuilder = TransformTiltBuilder(from.tilt)
+  private val pitchBuilder = TransformPitchBuilder(from.pitch)
 
   public fun pan(block: TransformPanBuilder.() -> Unit) {
     panBuilder.apply(block)
@@ -262,8 +262,8 @@ public class TransformBuilder internal constructor(from: TransformBinding) {
     rotateBuilder.apply(block)
   }
 
-  public fun tilt(block: TransformTiltBuilder.() -> Unit) {
-    tiltBuilder.apply(block)
+  public fun pitch(block: TransformPitchBuilder.() -> Unit) {
+    pitchBuilder.apply(block)
   }
 
   internal fun build(): TransformBinding =
@@ -271,7 +271,7 @@ public class TransformBuilder internal constructor(from: TransformBinding) {
       panBuilder.build(),
       zoomBuilder.build(),
       rotateBuilder.build(),
-      tiltBuilder.build(),
+      pitchBuilder.build(),
     )
 }
 

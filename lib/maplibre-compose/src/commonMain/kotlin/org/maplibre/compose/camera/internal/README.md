@@ -3,7 +3,7 @@
 Built-in controls use `GestureInputSession` to group contact movement and
 release momentum. A session starts when input is recognized and holds one camera
 token. A pointer held below drag slop does not reserve the camera; crossing slop
-interrupts the then-current camera motion. Pan, zoom, rotation, and tilt can
+interrupts the then-current camera motion. Pan, zoom, rotation, and pitch can
 share that token, but each reports its own semantic `onStart` before its first
 effective command. A replacement contact can restart a component without
 replacing the whole session.

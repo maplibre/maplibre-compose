@@ -356,9 +356,9 @@ private fun InputSettingsItems(settings: DemoSettings) {
   SectionHeader("Gestures")
   SwitchRow("Pan", settings.panEnabled) { settings.panEnabled = it }
   SwitchRow("Rotate", settings.rotateEnabled) { settings.rotateEnabled = it }
-  SwitchRow("Tilt", settings.tiltEnabled) { settings.tiltEnabled = it }
+  SwitchRow("Pitch", settings.pitchEnabled) { settings.pitchEnabled = it }
   Text(
-    "Off, the map keeps its heading or tilt across every input method. Demos that need a " +
+    "Off, the map keeps its heading or pitch across every input method. Demos that need a " +
       "movement keep it on.",
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     style = MaterialTheme.typography.bodyMedium,

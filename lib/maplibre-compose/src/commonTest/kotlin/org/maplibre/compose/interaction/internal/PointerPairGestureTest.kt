@@ -39,7 +39,7 @@ class PointerPairGestureTest {
             pan { onStart { starts++ } }
             zoom { onStart { starts++ } }
             rotate { onStart { starts++ } }
-            tilt { onStart { starts++ } }
+            pitch { onStart { starts++ } }
           }
           bindings {
             transform {
@@ -52,7 +52,7 @@ class PointerPairGestureTest {
               rotate {
                 startAngle = 0.0
               }
-              tilt {
+              pitch {
                 startSlop = 0.dp
               }
             }
@@ -297,7 +297,7 @@ class PointerPairGestureTest {
     val radius = Offset(80f, 60f)
     val input = PairInput(InputConfiguration.Standard, radius = radius)
     input.move(20, -radius + Offset(2f, 12f), radius + Offset(2f, 12f))
-    assertTrue(input.target.rotateCalls.isEmpty(), "tilt started below slop")
+    assertTrue(input.target.rotateCalls.isEmpty(), "pitch started below slop")
     input.move(40, -radius + Offset(4f, 24f), radius + Offset(4f, 24f))
     assertTrue(input.target.rotateCalls.any { it.pitchDelta != 0.0 }, "staggered shove rejected")
     assertTrue(input.target.rotateCalls.all { it.bearingDelta == 0.0 })
@@ -331,7 +331,7 @@ class PointerPairGestureTest {
   }
 
   @Test
-  fun vertical_drift_during_rotation_does_not_start_tilt() {
+  fun vertical_drift_during_rotation_does_not_start_pitch() {
     val input = PairInput(InputConfiguration.Standard)
     fun move(at: Long, degrees: Double, vertical: Float) {
       val angle = degrees * PI / 180.0
@@ -345,11 +345,11 @@ class PointerPairGestureTest {
     move(40, 18.0, 24f)
     move(60, 20.0, 32f)
     assertTrue(input.target.rotateCalls.size > rotations, "rotation stopped during vertical drift")
-    assertTrue(input.target.rotateCalls.all { it.pitchDelta == 0.0 }, "rotation became tilt")
+    assertTrue(input.target.rotateCalls.all { it.pitchDelta == 0.0 }, "rotation became pitch")
   }
 
   @Test
-  fun vertical_drift_during_pinch_does_not_start_tilt() {
+  fun vertical_drift_during_pinch_does_not_start_pitch() {
     val input = PairInput(InputConfiguration.Standard)
     input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
     assertTrue(input.target.scaleCalls.isNotEmpty())
@@ -357,7 +357,7 @@ class PointerPairGestureTest {
     input.move(40, Offset(-120f, 24f), Offset(120f, 24f))
     input.move(60, Offset(-140f, 32f), Offset(140f, 32f))
     assertTrue(input.target.scaleCalls.size > scales, "pinch stopped during vertical drift")
-    assertTrue(input.target.rotateCalls.isEmpty(), "horizontal pinch became tilt")
+    assertTrue(input.target.rotateCalls.isEmpty(), "horizontal pinch became pitch")
   }
 
   @Test

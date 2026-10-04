@@ -47,7 +47,7 @@ class MapInteractionsTest {
     val standard = InputConfiguration.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))
     assertEquals(
-      DragResponse.RotateTilt,
+      DragResponse.RotatePitch,
       standard.bindings.drag.select(ctrlShift, standard.camera.settings),
     )
     val panLocked = InputConfiguration {
@@ -116,7 +116,7 @@ class MapInteractionsTest {
       bindings {
         drag {
           pan { mouseStartSlop = 9.dp }
-          rotateTilt { mouseStartSlop = 9.dp }
+          rotatePitch { mouseStartSlop = 9.dp }
           fitBounds { mouseStartSlop = 9.dp }
         }
       }
@@ -126,7 +126,7 @@ class MapInteractionsTest {
           bindings {
             drag {
               pan { startSlop = 12.dp }
-              rotateTilt { startSlop = 12.dp }
+              rotatePitch { startSlop = 12.dp }
               fitBounds { startSlop = 12.dp }
             }
           }
@@ -136,7 +136,7 @@ class MapInteractionsTest {
     for ((start, mouse) in
       listOf(
         edited.pan.startSlop to edited.pan.mouseStartSlop,
-        edited.rotateTilt.startSlop to edited.rotateTilt.mouseStartSlop,
+        edited.rotatePitch.startSlop to edited.rotatePitch.mouseStartSlop,
         edited.fitBounds.startSlop to edited.fitBounds.mouseStartSlop,
       )) {
       assertEquals(12.dp, start)
@@ -176,7 +176,7 @@ class MapInteractionsTest {
       none.camera.settings.pan.enabled &&
         none.camera.settings.zoom.enabled &&
         none.camera.settings.rotate.enabled &&
-        none.camera.settings.tilt.enabled
+        none.camera.settings.pitch.enabled
     )
     val appOnly =
       InputConfiguration(from = none) {

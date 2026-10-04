@@ -95,8 +95,8 @@ public final class org/maplibre/compose/camera/CameraPosition {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBearing ()D
 	public final fun getPadding ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun getPitch ()D
 	public final fun getTarget ()Lorg/maplibre/spatialk/geojson/Position;
-	public final fun getTilt ()D
 	public final fun getZoom ()D
 	public fun hashCode ()I
 	public final fun toCameraUpdate ()Lorg/maplibre/compose/camera/CameraUpdate;
@@ -135,8 +135,8 @@ public final class org/maplibre/compose/camera/CameraUpdate {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBearing ()Ljava/lang/Double;
 	public final fun getPadding ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun getPitch ()Ljava/lang/Double;
 	public final fun getTarget ()Lorg/maplibre/spatialk/geojson/Position;
-	public final fun getTilt ()Ljava/lang/Double;
 	public final fun getZoom ()Ljava/lang/Double;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -1469,8 +1469,8 @@ public final class org/maplibre/compose/interaction/BearingTargets$Companion {
 public final class org/maplibre/compose/interaction/CameraBuilder {
 	public static final field $stable I
 	public final fun pan (Lkotlin/jvm/functions/Function1;)V
+	public final fun pitch (Lkotlin/jvm/functions/Function1;)V
 	public final fun rotate (Lkotlin/jvm/functions/Function1;)V
-	public final fun tilt (Lkotlin/jvm/functions/Function1;)V
 	public final fun zoom (Lkotlin/jvm/functions/Function1;)V
 }
 
@@ -1510,7 +1510,7 @@ public final class org/maplibre/compose/interaction/DragBindingBuilder {
 	public final fun getPointerTypes ()Ljava/util/Set;
 	public final fun mappings (Lkotlin/jvm/functions/Function1;)V
 	public final fun pan (Lkotlin/jvm/functions/Function1;)V
-	public final fun rotateTilt (Lkotlin/jvm/functions/Function1;)V
+	public final fun rotatePitch (Lkotlin/jvm/functions/Function1;)V
 	public final fun setEnabled (Z)V
 	public final fun setPointerTypes (Ljava/util/Set;)V
 }
@@ -1542,13 +1542,13 @@ public final class org/maplibre/compose/interaction/DragResponse : java/lang/Enu
 	public static final field FitBounds Lorg/maplibre/compose/interaction/DragResponse;
 	public static final field None Lorg/maplibre/compose/interaction/DragResponse;
 	public static final field Pan Lorg/maplibre/compose/interaction/DragResponse;
-	public static final field RotateTilt Lorg/maplibre/compose/interaction/DragResponse;
+	public static final field RotatePitch Lorg/maplibre/compose/interaction/DragResponse;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/interaction/DragResponse;
 	public static fun values ()[Lorg/maplibre/compose/interaction/DragResponse;
 }
 
-public final class org/maplibre/compose/interaction/DragRotateTiltBuilder {
+public final class org/maplibre/compose/interaction/DragRotatePitchBuilder {
 	public static final field $stable I
 	public final fun getAnchor ()Lorg/maplibre/compose/interaction/GestureAnchor;
 	public final fun getBearingDegreesPerDp ()D
@@ -1642,10 +1642,10 @@ public final class org/maplibre/compose/interaction/KeyResponse : java/lang/Enum
 	public static final field PanLeft Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field PanRight Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field PanUp Lorg/maplibre/compose/interaction/KeyResponse;
+	public static final field PitchDown Lorg/maplibre/compose/interaction/KeyResponse;
+	public static final field PitchUp Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field RotateLeft Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field RotateRight Lorg/maplibre/compose/interaction/KeyResponse;
-	public static final field TiltDown Lorg/maplibre/compose/interaction/KeyResponse;
-	public static final field TiltUp Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field ZoomIn Lorg/maplibre/compose/interaction/KeyResponse;
 	public static final field ZoomOut Lorg/maplibre/compose/interaction/KeyResponse;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
@@ -1720,6 +1720,24 @@ public final class org/maplibre/compose/interaction/PanMomentumBuilder {
 	public final fun getMinimumSpeed ()D
 	public final fun setBaseTime-LRDsOJo (J)V
 	public final fun setDurationScale (D)V
+	public final fun setEnabled (Z)V
+	public final fun setMinimumSpeed (D)V
+}
+
+public final class org/maplibre/compose/interaction/PitchCameraBuilder {
+	public static final field $stable I
+	public final fun getEnabled ()Z
+	public final fun momentum (Lkotlin/jvm/functions/Function1;)V
+	public final fun onStart (Lkotlin/jvm/functions/Function0;)V
+	public final fun setEnabled (Z)V
+}
+
+public final class org/maplibre/compose/interaction/PitchMomentumBuilder {
+	public static final field $stable I
+	public final fun getDuration-UwyO8pc ()J
+	public final fun getEnabled ()Z
+	public final fun getMinimumSpeed ()D
+	public final fun setDuration-LRDsOJo (J)V
 	public final fun setEnabled (Z)V
 	public final fun setMinimumSpeed (D)V
 }
@@ -1842,29 +1860,11 @@ public final class org/maplibre/compose/interaction/TapResponse : java/lang/Enum
 	public static fun values ()[Lorg/maplibre/compose/interaction/TapResponse;
 }
 
-public final class org/maplibre/compose/interaction/TiltCameraBuilder {
-	public static final field $stable I
-	public final fun getEnabled ()Z
-	public final fun momentum (Lkotlin/jvm/functions/Function1;)V
-	public final fun onStart (Lkotlin/jvm/functions/Function0;)V
-	public final fun setEnabled (Z)V
-}
-
-public final class org/maplibre/compose/interaction/TiltMomentumBuilder {
-	public static final field $stable I
-	public final fun getDuration-UwyO8pc ()J
-	public final fun getEnabled ()Z
-	public final fun getMinimumSpeed ()D
-	public final fun setDuration-LRDsOJo (J)V
-	public final fun setEnabled (Z)V
-	public final fun setMinimumSpeed (D)V
-}
-
 public final class org/maplibre/compose/interaction/TransformBuilder {
 	public static final field $stable I
 	public final fun pan (Lkotlin/jvm/functions/Function1;)V
+	public final fun pitch (Lkotlin/jvm/functions/Function1;)V
 	public final fun rotate (Lkotlin/jvm/functions/Function1;)V
-	public final fun tilt (Lkotlin/jvm/functions/Function1;)V
 	public final fun zoom (Lkotlin/jvm/functions/Function1;)V
 }
 
@@ -1876,6 +1876,20 @@ public final class org/maplibre/compose/interaction/TransformPanBuilder {
 	public final fun getStartSlop-D9Ej5fM ()F
 	public final fun setEnabled (Z)V
 	public final fun setModifiers (Lorg/maplibre/compose/interaction/ModifierMatch;)V
+	public final fun setPointerTypes (Ljava/util/Set;)V
+	public final fun setStartSlop-0680j_4 (F)V
+}
+
+public final class org/maplibre/compose/interaction/TransformPitchBuilder {
+	public static final field $stable I
+	public final fun getEnabled ()Z
+	public final fun getModifiers ()Lorg/maplibre/compose/interaction/ModifierMatch;
+	public final fun getPitchDegreesPerDp ()D
+	public final fun getPointerTypes ()Ljava/util/Set;
+	public final fun getStartSlop-D9Ej5fM ()F
+	public final fun setEnabled (Z)V
+	public final fun setModifiers (Lorg/maplibre/compose/interaction/ModifierMatch;)V
+	public final fun setPitchDegreesPerDp (D)V
 	public final fun setPointerTypes (Ljava/util/Set;)V
 	public final fun setStartSlop-0680j_4 (F)V
 }
@@ -1896,20 +1910,6 @@ public final class org/maplibre/compose/interaction/TransformRotateBuilder {
 	public final fun setPointerTypes (Ljava/util/Set;)V
 	public final fun setRotationScale (D)V
 	public final fun setStartAngle (D)V
-}
-
-public final class org/maplibre/compose/interaction/TransformTiltBuilder {
-	public static final field $stable I
-	public final fun getEnabled ()Z
-	public final fun getModifiers ()Lorg/maplibre/compose/interaction/ModifierMatch;
-	public final fun getPitchDegreesPerDp ()D
-	public final fun getPointerTypes ()Ljava/util/Set;
-	public final fun getStartSlop-D9Ej5fM ()F
-	public final fun setEnabled (Z)V
-	public final fun setModifiers (Lorg/maplibre/compose/interaction/ModifierMatch;)V
-	public final fun setPitchDegreesPerDp (D)V
-	public final fun setPointerTypes (Ljava/util/Set;)V
-	public final fun setStartSlop-0680j_4 (F)V
 }
 
 public final class org/maplibre/compose/interaction/TransformZoomBuilder {

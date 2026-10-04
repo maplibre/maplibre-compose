@@ -12,7 +12,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-internal data class BoxZoomFit(val bounds: BoundingBox, val bearing: Double, val tilt: Double)
+internal data class BoxZoomFit(val bounds: BoundingBox, val bearing: Double, val pitch: Double)
 
 /** All corners must come from the same presentation snapshot. */
 internal fun boxZoomFit(
@@ -46,6 +46,6 @@ internal fun boxZoomFit(
   return BoxZoomFit(
     BoundingBox(Position(west, south), Position(east, north)),
     camera.bearing,
-    camera.tilt,
+    camera.pitch,
   )
 }

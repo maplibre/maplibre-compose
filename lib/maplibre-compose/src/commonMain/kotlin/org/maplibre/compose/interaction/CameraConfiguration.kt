@@ -4,8 +4,8 @@ import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.CameraSettings
 import org.maplibre.compose.interaction.internal.PanCameraConfiguration
+import org.maplibre.compose.interaction.internal.PitchCameraConfiguration
 import org.maplibre.compose.interaction.internal.RotateCameraConfiguration
-import org.maplibre.compose.interaction.internal.TiltCameraConfiguration
 import org.maplibre.compose.interaction.internal.VelocityCameraConfiguration
 
 /** Permissions, release momentum, and semantic start callbacks for camera input. */
@@ -15,7 +15,7 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
   private val zoom = VelocityCameraBuilder(from.settings.zoom, from.onStart[CameraComponent.Zoom])
   private val rotate =
     RotateCameraBuilder(from.settings.rotate, from.onStart[CameraComponent.Rotate])
-  private val tilt = TiltCameraBuilder(from.settings.tilt, from.onStart[CameraComponent.Tilt])
+  private val pitch = PitchCameraBuilder(from.settings.pitch, from.onStart[CameraComponent.Pitch])
 
   public fun pan(block: PanCameraBuilder.() -> Unit) {
     pan.apply(block)
@@ -27,24 +27,24 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
 
   /**
    * Configures bearing input. Release momentum applies to recognized two-pointer rotation;
-   * single-pointer rotate/tilt drags and keys add no rotation momentum.
+   * single-pointer rotate/pitch drags and keys add no rotation momentum.
    */
   public fun rotate(block: RotateCameraBuilder.() -> Unit) {
     rotate.apply(block)
   }
 
-  public fun tilt(block: TiltCameraBuilder.() -> Unit) {
-    tilt.apply(block)
+  public fun pitch(block: PitchCameraBuilder.() -> Unit) {
+    pitch.apply(block)
   }
 
   internal fun build(): CameraConfiguration =
     CameraConfiguration(
-      CameraSettings(pan.build(), zoom.build(), rotate.build(), tilt.build()),
+      CameraSettings(pan.build(), zoom.build(), rotate.build(), pitch.build()),
       buildMap {
         pan.start?.let { put(CameraComponent.Pan, it) }
         zoom.start?.let { put(CameraComponent.Zoom, it) }
         rotate.start?.let { put(CameraComponent.Rotate, it) }
-        tilt.start?.let { put(CameraComponent.Tilt, it) }
+        pitch.start?.let { put(CameraComponent.Pitch, it) }
       },
     )
 }
@@ -96,24 +96,25 @@ internal constructor(
 
 /** Camera permission and release momentum for this component. */
 @MapInteractionDsl
-public class TiltCameraBuilder
+public class PitchCameraBuilder
 internal constructor(
-  from: TiltCameraConfiguration,
+  from: PitchCameraConfiguration,
   internal var start: (() -> Unit)?,
 ) {
   public var enabled: Boolean = from.enabled
-  private val momentum = TiltMomentumBuilder(from.momentum)
+  private val momentum = PitchMomentumBuilder(from.momentum)
 
   /** Runs before this component begins responding to input, including restarts within a gesture. */
   public fun onStart(block: (() -> Unit)?) {
     start = block
   }
 
-  public fun momentum(block: TiltMomentumBuilder.() -> Unit) {
+  public fun momentum(block: PitchMomentumBuilder.() -> Unit) {
     momentum.apply(block)
   }
 
-  internal fun build(): TiltCameraConfiguration = TiltCameraConfiguration(enabled, momentum.build())
+  internal fun build(): PitchCameraConfiguration =
+    PitchCameraConfiguration(enabled, momentum.build())
 }
 
 /** Bearing permission, release momentum, and optional settlement after user input. */
@@ -138,7 +139,7 @@ internal constructor(
 
   /**
    * Enables settlement after rotation input and momentum end. Uses the interaction animation
-   * duration and preserves center, zoom, and tilt. Programmatic camera movement is unaffected. New
+   * duration and preserves center, zoom, and pitch. Programmatic camera movement is unaffected. New
    * input or camera control cancels settlement. Set `enabled = false` to disable inherited
    * snapping.
    */

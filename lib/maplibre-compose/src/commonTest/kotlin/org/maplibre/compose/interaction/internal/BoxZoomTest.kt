@@ -38,7 +38,7 @@ class BoxZoomTest {
       assertNotNull(
         boxZoomFit(
           DpRect(10.dp, 20.dp, 18.dp, 28.dp),
-          CameraPosition(bearing = 25.0, tilt = 40.0),
+          CameraPosition(bearing = 25.0, pitch = 40.0),
           positions::get,
         )
       )
@@ -47,7 +47,7 @@ class BoxZoomTest {
     assertEquals(-3.0, fit.bounds.south)
     assertEquals(9.0, fit.bounds.north)
     assertEquals(25.0, fit.bearing)
-    assertEquals(40.0, fit.tilt)
+    assertEquals(40.0, fit.pitch)
   }
 
   @Test

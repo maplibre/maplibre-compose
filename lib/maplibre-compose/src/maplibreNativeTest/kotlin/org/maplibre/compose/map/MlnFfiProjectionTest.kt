@@ -20,7 +20,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * Off the owner thread, coordinate conversion uses the snapshot's frozen projection, including
- * under tilt and bearing, so overlays land where the map draws them.
+ * under pitch and bearing, so overlays land where the map draws them.
  */
 class MlnFfiProjectionTest {
 
@@ -79,7 +79,7 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun an_off_thread_projection_round_trips_under_tilt_and_bearing() {
+  fun an_off_thread_projection_round_trips_under_pitch_and_bearing() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(ROTATED_CAMERA)
@@ -88,7 +88,7 @@ class MlnFfiProjectionTest {
         val projected = fixture.session.screenLocationFromPosition(camera.target)
         abs(camera.bearing - ROTATED_CAMERA.bearing) < 0.01 &&
           abs(camera.zoom - ROTATED_CAMERA.zoom) < 0.01 &&
-          abs(camera.tilt - ROTATED_CAMERA.tilt) < 0.01 &&
+          abs(camera.pitch - ROTATED_CAMERA.pitch) < 0.01 &&
           projected.isNear(SCREEN_CENTER)
       }
 
@@ -224,6 +224,6 @@ class MlnFfiProjectionTest {
     val START_CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 2.0)
 
     val ROTATED_CAMERA =
-      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, tilt = 40.0)
+      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
   }
 }

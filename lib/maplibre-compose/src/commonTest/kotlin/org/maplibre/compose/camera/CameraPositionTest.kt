@@ -27,7 +27,7 @@ class CameraPositionTest {
       CameraPosition(
         bearing = 42.5,
         target = Position(longitude = -122.675, latitude = 45.521, altitude = 12.0),
-        tilt = 30.0,
+        pitch = 30.0,
         zoom = 13.0,
         padding = DpPadding(left = 12.dp, top = 24.dp, right = 36.dp, bottom = 48.dp),
       )

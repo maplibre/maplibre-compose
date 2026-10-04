@@ -25,7 +25,7 @@ public var TileLodOptions.Builder.scale: Double
   }
 
 /**
- * Camera pitch in degrees from nadir, matching [org.maplibre.compose.camera.CameraPosition.tilt],
+ * Camera pitch in degrees from nadir, matching [org.maplibre.compose.camera.CameraPosition.pitch],
  * above which level-of-detail reduction runs. 0 always reduces; 180 never reduces.
  */
 public var TileLodOptions.Builder.pitchThreshold: Double

@@ -62,7 +62,7 @@ internal fun SnapshotFlight(
     )
   val progress = flight.value
   val rect = lerpRect(shot.frame, destination, progress)
-  // A parabolic tilt: level at takeoff and landing, a few degrees of bank mid-flight.
+  // A parabolic bank: level at takeoff and landing, a few degrees of rotation mid-flight.
   val rotation = -7f * 4f * progress * (1f - progress)
   val developed = develop.value
 

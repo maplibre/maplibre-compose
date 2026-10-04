@@ -123,7 +123,7 @@ class CameraInputIntegrationTest {
         )
         for (momentum in listOf(false, true)) {
           val before =
-            CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
+            CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0)
           fixture.state.setCameraPosition(before)
           fixture.settle()
           fixture.awaitWhileRendering("rotation settlement") {
@@ -146,7 +146,7 @@ class CameraInputIntegrationTest {
           assertEquals(before.target.longitude, after.target.longitude, 1e-6)
           assertEquals(before.target.latitude, after.target.latitude, 1e-6)
           assertEquals(before.zoom, after.zoom, 1e-6)
-          assertEquals(before.tilt, after.tilt, 1e-6)
+          assertEquals(before.pitch, after.pitch, 1e-6)
           assertFalse(fixture.state.isCameraMoving)
         }
       }
@@ -287,7 +287,7 @@ class CameraInputIntegrationTest {
       fixture.awaitMapReady()
       fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
       fixture.state.setCameraPosition(
-        CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
+        CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0)
       )
       fixture.settle()
       val before = fixture.state.cameraPosition
@@ -306,7 +306,7 @@ class CameraInputIntegrationTest {
       assertEquals(before.target.longitude, after.target.longitude, 1e-6)
       assertEquals(before.target.latitude, after.target.latitude, 1e-6)
       assertTrue(after.bearing > before.bearing)
-      assertTrue(after.tilt > before.tilt)
+      assertTrue(after.pitch > before.pitch)
     }
   }
 
@@ -319,7 +319,7 @@ class CameraInputIntegrationTest {
           fixture.awaitMapReady()
           fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
           fixture.state.setCameraPosition(
-            CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
+            CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0)
           )
           fixture.settle()
           val before = fixture.state.cameraPosition
@@ -354,7 +354,7 @@ class CameraInputIntegrationTest {
           assertEquals(before.target.latitude, after.target.latitude, 1e-6)
           assertEquals(before.zoom + 1.0, after.zoom, 1e-6)
           assertEquals(before.bearing + 15.0, after.bearing, 1e-6)
-          assertEquals(before.tilt, after.tilt, 1e-6)
+          assertEquals(before.pitch, after.pitch, 1e-6)
         }
       }
     }
@@ -386,7 +386,7 @@ class CameraInputIntegrationTest {
         )
         assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
         assertEquals(10.0, fixture.state.cameraPosition.bearing, 1e-6)
-        assertEquals(5.0, fixture.state.cameraPosition.tilt, 1e-6)
+        assertEquals(5.0, fixture.state.cameraPosition.pitch, 1e-6)
         assertFalse(fixture.state.isCameraMoving)
       }
     }

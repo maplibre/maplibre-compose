@@ -38,7 +38,7 @@ import org.maplibre.compose.interaction.KeyResponse
  * reports each engagement write.
  *
  * A focused node holds Compose focus. An engaged node consumes the keys that pan, zoom, rotate, and
- * tilt. A node that is focused and not engaged passes those keys through, so focus traversal
+ * pitch. A node that is focused and not engaged passes those keys through, so focus traversal
  * continues from the map.
  */
 internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
@@ -386,8 +386,8 @@ private val KeyResponse.motion: KeyMotion
       KeyResponse.ZoomOut -> KeyMotion(zoom = -1.0)
       KeyResponse.RotateLeft -> KeyMotion(bearing = -1.0)
       KeyResponse.RotateRight -> KeyMotion(bearing = 1.0)
-      KeyResponse.TiltUp -> KeyMotion(pitch = 1.0)
-      KeyResponse.TiltDown -> KeyMotion(pitch = -1.0)
+      KeyResponse.PitchUp -> KeyMotion(pitch = 1.0)
+      KeyResponse.PitchDown -> KeyMotion(pitch = -1.0)
       else -> KeyMotion.None
     }
 
@@ -402,7 +402,7 @@ private val KeyResponse.component: CameraComponent?
       KeyResponse.ZoomOut -> CameraComponent.Zoom
       KeyResponse.RotateLeft,
       KeyResponse.RotateRight -> CameraComponent.Rotate
-      KeyResponse.TiltUp,
-      KeyResponse.TiltDown -> CameraComponent.Tilt
+      KeyResponse.PitchUp,
+      KeyResponse.PitchDown -> CameraComponent.Pitch
       else -> null
     }

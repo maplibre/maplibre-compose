@@ -25,7 +25,7 @@ internal class EditableMarkersState {
   var draggingId by mutableStateOf<Int?>(null)
   var hoveredId by mutableStateOf<Int?>(null)
   var pressedId by mutableStateOf<Int?>(null)
-  var dragTilt by mutableStateOf(0f)
+  var dragLean by mutableStateOf(0f)
   var overTrash by mutableStateOf(false)
   var trashNeedsExit by mutableStateOf(false)
 
@@ -49,7 +49,7 @@ internal class EditableMarkersState {
     draggingId = null
     overTrash = false
     trashNeedsExit = false
-    dragTilt = 0f
+    dragLean = 0f
   }
 
   fun add(position: Position) {

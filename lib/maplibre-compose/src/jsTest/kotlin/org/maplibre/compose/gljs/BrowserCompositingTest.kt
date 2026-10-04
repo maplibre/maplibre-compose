@@ -414,7 +414,7 @@ class BrowserCompositingTest {
           val pixels = readFramebuffer(gl, target.framebuffer, FULL, FULL)
           map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
           map.session.setCameraPosition(
-            CameraPosition(target = Position(20.0, 10.0), zoom = 1.0, bearing = 30.0, tilt = 45.0)
+            CameraPosition(target = Position(20.0, 10.0), zoom = 1.0, bearing = 30.0, pitch = 45.0)
           )
           assertNotEquals(original, map.session.screenLocationFromPosition(position))
           assertFalse(map.drawOnce(target))
@@ -472,7 +472,7 @@ class BrowserCompositingTest {
             yieldToBrowser()
           }
           map.session.setCameraPosition(
-            CameraPosition(target = Position(0.0, 0.0), zoom = 4.0, tilt = 60.0)
+            CameraPosition(target = Position(0.0, 0.0), zoom = 4.0, pitch = 60.0)
           )
           assertTrue(map.drawOnce(target))
           val original = assertNotNull(map.session.overlayScreenLocationFromPosition(position))

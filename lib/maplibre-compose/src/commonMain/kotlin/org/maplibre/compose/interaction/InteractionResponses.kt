@@ -3,7 +3,7 @@ package org.maplibre.compose.interaction
 /** Camera response to a drag. [None] leaves matching input unclaimed. */
 public enum class DragResponse {
   Pan,
-  RotateTilt,
+  RotatePitch,
   FitBounds,
   None,
 }
@@ -33,8 +33,8 @@ public enum class KeyResponse {
   ZoomOut,
   RotateLeft,
   RotateRight,
-  TiltUp,
-  TiltDown,
+  PitchUp,
+  PitchDown,
   Engage,
   Disengage,
   Back,

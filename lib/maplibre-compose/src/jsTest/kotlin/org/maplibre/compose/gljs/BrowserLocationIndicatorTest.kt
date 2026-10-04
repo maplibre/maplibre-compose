@@ -527,14 +527,14 @@ class BrowserLocationIndicatorTest {
             indicator.accuracyUploadCount,
             "camera movement reuses accuracy geometry",
           )
-          val tilted = readFramebuffer(gl, target.framebuffer, 256, 256)
+          val pitched = readFramebuffer(gl, target.framebuffer, 256, 256)
           var redPixels = 0
           for (y in 90..160) for (x in 90..160) {
             val offset = ((255 - y) * 256 + x) * 4
             val red =
-              (tilted[offset].toInt() and 255) == 255 &&
-                (tilted[offset + 1].toInt() and 255) == 0 &&
-                (tilted[offset + 2].toInt() and 255) == 0
+              (pitched[offset].toInt() and 255) == 255 &&
+                (pitched[offset + 1].toInt() and 255) == 0 &&
+                (pitched[offset + 2].toInt() and 255) == 0
             if (red) {
               redPixels++
               assertTrue(
@@ -543,7 +543,7 @@ class BrowserLocationIndicatorTest {
               )
             }
           }
-          assertTrue(redPixels > 100, "tilted image remains visible")
+          assertTrue(redPixels > 100, "pitched image remains visible")
           assertEquals(
             1,
             host.session
