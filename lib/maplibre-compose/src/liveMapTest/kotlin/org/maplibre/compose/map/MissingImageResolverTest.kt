@@ -29,8 +29,8 @@ class MissingImageResolverTest {
   fun a_resolved_image_reaches_the_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val requests = RecordingList<String>()
-      fixture.state.missingImageResolver = { id ->
-        requests += id
+      fixture.state.missingImageResolver = { request ->
+        requests += request.id
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
       }
 
@@ -51,8 +51,8 @@ class MissingImageResolverTest {
   fun an_image_removed_by_the_engine_is_resolved_again(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val requests = RecordingList<String>()
-      fixture.state.missingImageResolver = { id ->
-        requests += id
+      fixture.state.missingImageResolver = { request ->
+        requests += request.id
         ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
@@ -77,8 +77,8 @@ class MissingImageResolverTest {
   fun a_reloaded_style_asks_the_resolver_again(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val requests = RecordingList<String>()
-      fixture.state.missingImageResolver = { id ->
-        requests += id
+      fixture.state.missingImageResolver = { request ->
+        requests += request.id
         ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
 
@@ -108,8 +108,8 @@ class MissingImageResolverTest {
     createMapFixture().use { fixture ->
       val declined = RecordingList<String>()
       val supplied = RecordingList<String>()
-      fixture.state.missingImageResolver = { id ->
-        declined += id
+      fixture.state.missingImageResolver = { request ->
+        declined += request.id
         null
       }
 
@@ -123,8 +123,8 @@ class MissingImageResolverTest {
         "a declined image reached the style",
       )
 
-      fixture.state.missingImageResolver = { id ->
-        supplied += id
+      fixture.state.missingImageResolver = { request ->
+        supplied += request.id
         ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
       // Each engine asks once per tile parse, so a new zoom is what puts the request in front of
