@@ -1,8 +1,13 @@
 package org.maplibre.compose.expressions.dsl
 
 import kotlin.jvm.JvmName
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.CallArgument
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.ast.Verbatim
 import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
@@ -13,6 +18,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MatchableValue
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.expressions.value.literal
 
 /**
  * Selects the first output from the given [conditions] whose corresponding test condition evaluates
@@ -179,21 +185,16 @@ private fun <O : ExpressionValue?> match(
     0 -> fallback
     else -> {
       val args =
-        buildList(cases.size * 2 + 2) {
+        buildList<CallArgument>(cases.size * 2 + 2) {
           add(input)
           for ((label, output) in cases) {
-            add(label)
+            // MapLibre reads labels as plain JSON, not as expressions.
+            add(Verbatim(label))
             add(output)
           }
           add(fallback)
         }
-      FunctionCall.of(
-          "match",
-          args,
-          // Label positions are odd, starting from 1 and excluding the fallback.
-          literalArgs = (1 until args.lastIndex step 2).toSet(),
-        )
-        .cast()
+      FunctionCall.of("match", args).cast()
     }
   }
 
@@ -232,42 +233,42 @@ public fun <I : MatchableValue, O : ExpressionValue?> switch(
 
 /** See [switch] */
 public data class Case<@Suppress("unused") in I : MatchableValue, out O : ExpressionValue?>
-internal constructor(internal val label: Expression<*>, internal val output: Expression<O>)
+internal constructor(internal val label: JsonElement, internal val output: Expression<O>)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?> case(label: String, output: Expression<O>): Case<StringValue, O> =
-  Case(const(label), output)
+  Case(JsonPrimitive(label), output)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: E,
   output: Expression<O>,
-): Case<E, O> = Case(const(label), output)
+): Case<E, O> = Case(JsonPrimitive(label.literal.value), output)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
-  Case(const(label.toFloat()), output)
+  Case(JsonPrimitive(label.toFloat()), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("stringsCase")
 public fun <O : ExpressionValue?> case(
   label: List<String>,
   output: Expression<O>,
-): Case<StringValue, O> = Case(const(label), output)
+): Case<StringValue, O> = Case(JsonArray(label.map { JsonPrimitive(it) }), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("enumsCase")
 public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: List<E>,
   output: Expression<O>,
-): Case<E, O> = Case(const(label), output)
+): Case<E, O> = Case(JsonArray(label.map { JsonPrimitive(it.literal.value) }), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("numbersCase")
 public fun <O : ExpressionValue?> case(
   label: List<Number>,
   output: Expression<O>,
-): Case<FloatValue, O> = Case(const(label), output)
+): Case<FloatValue, O> = Case(JsonArray(label.map { JsonPrimitive(it.toFloat()) }), output)
 
 /**
  * Evaluates each expression in [values] in turn until the first non-null value is obtained, and

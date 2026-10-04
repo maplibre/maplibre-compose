@@ -4,35 +4,22 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 
 /** An [Expression] representing a function call. */
 internal data class FunctionCall
-private constructor(
-  val name: String,
-  val args: List<Expression<*>>,
-  /** Argument indices encoded in literal context. */
-  val literalArgs: Set<Int>,
-) : ExpressionNode<ExpressionValue> {
+private constructor(val name: String, val args: List<CallArgument>) :
+  ExpressionNode<ExpressionValue> {
   override fun compile(context: ExpressionContext): CompiledExpression<ExpressionValue> =
-    CompiledFunctionCall.of(name, args.map { it.compile(context) }, literalArgs)
+    CompiledFunctionCall.of(name, args.map { it.compileArgument(context) })
 
   override fun visit(block: (Expression<*>) -> Unit) {
     block(this)
-    args.forEach { it.visit(block) }
+    args.forEach { it.visitArgument(block) }
   }
 
   companion object {
     /**
-     * Creates a call with snapshots of [args] and [literalArgs]. Later changes to the collections
-     * do not affect the call.
+     * Creates a call with a snapshot of [args]. Later changes to the list do not affect the call.
      */
-    fun of(
-      name: String,
-      args: List<Expression<*>>,
-      literalArgs: Set<Int> = emptySet(),
-    ): FunctionCall = FunctionCall(name, args.toList(), literalArgs.toSet())
+    fun of(name: String, args: List<CallArgument>): FunctionCall = FunctionCall(name, args.toList())
 
-    fun of(
-      name: String,
-      vararg args: Expression<*>,
-      literalArgs: Set<Int> = emptySet(),
-    ): FunctionCall = of(name, args.asList(), literalArgs)
+    fun of(name: String, vararg args: CallArgument): FunctionCall = of(name, args.asList())
   }
 }

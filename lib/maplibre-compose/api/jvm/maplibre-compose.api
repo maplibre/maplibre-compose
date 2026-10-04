@@ -256,7 +256,10 @@ public final class org/maplibre/compose/desktop/OpenGlInterop : java/lang/Enum {
 	public static fun values ()[Lorg/maplibre/compose/desktop/OpenGlInterop;
 }
 
-public abstract interface class org/maplibre/compose/expressions/ast/Expression {
+public abstract interface class org/maplibre/compose/expressions/ast/CallArgument {
+}
+
+public abstract interface class org/maplibre/compose/expressions/ast/Expression : org/maplibre/compose/expressions/ast/CallArgument {
 	public fun cast ()Lorg/maplibre/compose/expressions/ast/Expression;
 }
 
@@ -265,7 +268,8 @@ public final class org/maplibre/compose/expressions/ast/Expression$DefaultImpls 
 }
 
 public final class org/maplibre/compose/expressions/dsl/CallKt {
-	public static final fun call (Ljava/lang/String;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun call (Ljava/lang/String;[Lorg/maplibre/compose/expressions/ast/CallArgument;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun verbatim (Lkotlinx/serialization/json/JsonElement;)Lorg/maplibre/compose/expressions/ast/CallArgument;
 }
 
 public final class org/maplibre/compose/expressions/dsl/Case {

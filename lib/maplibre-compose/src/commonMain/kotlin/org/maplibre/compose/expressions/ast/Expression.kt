@@ -161,7 +161,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * - [call][org.maplibre.compose.expressions.dsl.call] - call an operator that the DSL does not
  *   provide
  */
-public sealed interface Expression<out T : ExpressionValue?> {
+public sealed interface Expression<out T : ExpressionValue?> : CallArgument {
   @Suppress("UNCHECKED_CAST")
   public fun <X : ExpressionValue?> cast(): Expression<X> = this as Expression<X>
 }

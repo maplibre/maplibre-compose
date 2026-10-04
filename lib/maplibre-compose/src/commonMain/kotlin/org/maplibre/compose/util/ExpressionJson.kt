@@ -19,6 +19,7 @@ import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.ProjectionTransitionLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.ast.Verbatim
 
 /** Encodes a compiled expression as MapLibre style JSON. */
 internal fun CompiledExpression<*>.toStyleJson(): JsonElement = normalizeJsonLike(inLiteral = false)
@@ -71,8 +72,13 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
       JsonArray(
         buildList {
           add(JsonPrimitive(name))
-          args.forEachIndexed { index, arg ->
-            add(arg.normalizeJsonLike(inLiteral || index in literalArgs))
+          args.forEach { arg ->
+            add(
+              when (arg) {
+                is Verbatim -> arg.json
+                is CompiledExpression<*> -> arg.normalizeJsonLike(inLiteral = false)
+              }
+            )
           }
         }
       )
