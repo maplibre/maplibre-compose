@@ -248,6 +248,36 @@ class MapCameraTransitionTest {
     }
 
   @Test
+  fun a_tilted_bounds_query_uses_destination_padding(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+      val destination = DpPadding(left = 30.dp, bottom = 60.dp)
+      it.session.setViewportInsets(VIEWPORT_INSETS)
+      val before = it.session.getCameraPosition()
+      val camera =
+        it.state.cameraForBounds(
+          boundingBox = BOUNDS,
+          bearing = 35.0,
+          tilt = 50.0,
+          cameraPadding = destination,
+          fitPadding = FIT_PADDING,
+        )
+      assertEquals(before, it.session.getCameraPosition(), "the query moved the live camera")
+      assertEquals(destination, camera.padding)
+      assertNear(50.0, camera.tilt, "the query tilt")
+
+      it.state.setCameraPosition(camera)
+      it.pumpUntil("the calculated camera to be applied") {
+        abs(it.session.getCameraPosition().tilt - 50.0) < 0.01
+      }
+      val corners = listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest)
+      val effective = VIEWPORT_INSETS + destination.asPaddingValues()
+      it.assertCameraTarget(camera, effective)
+      it.assertPositionsInside(corners, effective + FIT_PADDING)
+    }
+  }
+
+  @Test
   fun a_bounds_query_waits_for_the_first_viewport(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val query =

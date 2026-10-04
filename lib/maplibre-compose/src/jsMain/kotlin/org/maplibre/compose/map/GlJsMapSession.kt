@@ -912,19 +912,39 @@ internal class GlJsMapSession(
   ): CameraPosition? {
     val current = readCameraPosition(viewportInsets)
     val destination = current.copy(padding = cameraPadding ?: current.padding)
+    val persistentPadding = destination.effectivePadding()
+    val transientPadding = fitPadding.toPaddingOptions()
+    val combinedPadding =
+      unsafeJso<PaddingOptions> {
+        top = persistentPadding.top + transientPadding.top
+        right = persistentPadding.right + transientPadding.right
+        bottom = persistentPadding.bottom + transientPadding.bottom
+        left = persistentPadding.left + transientPadding.left
+      }
     val camera =
       cameraForBounds(
         boundingBox.toLngLatBounds(),
         unsafeJso<CameraForBoundsOptions> {
           this.bearing = bearing
           pitch = tilt
-          mapPadding = destination.effectivePadding()
-          padding = fitPadding.toPaddingOptions()
+          absolutePadding = true
+          padding = combinedPadding
           maxZoom = getMaxZoom()
         },
       ) ?: return null
+    // GL JS returns a camera whose persistent padding includes the space around the bounds.
+    // Keep that screen placement while restoring only the destination's persistent padding.
+    val fitted = _camera.transform.clone()
+    fitted.setPadding(combinedPadding)
+    fitted.setBearing(camera.bearing)
+    fitted.setPitch(camera.pitch)
+    fitted.setZoom(camera.zoom)
+    fitted.setCenter(camera.center)
+    val boundsCenterPoint = fitted.centerPoint
+    fitted.setPadding(persistentPadding)
+    fitted.setLocationAtPoint(camera.center, boundsCenterPoint)
     return destination.copy(
-      target = camera.center.toPosition(),
+      target = fitted.center.toPosition(),
       zoom = camera.zoom.coerceIn(getMinZoom(), getMaxZoom()),
       bearing = camera.bearing,
       tilt = camera.pitch,

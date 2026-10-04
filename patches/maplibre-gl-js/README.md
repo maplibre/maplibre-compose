@@ -4,10 +4,9 @@
 in `gradle/libs.versions.toml`. Numbered patches apply in filename order. Gradle
 builds the patched engine and packages it with its worker in the JS artifact.
 
-| Patch                                  | Upstream                                                      | Purpose                                     |
-| -------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- |
-| `0001-camera-bounds-map-padding.patch` | [#8482](https://github.com/maplibre/maplibre-gl-js/pull/8482) | Fit bounds with destination camera padding. |
-| `0002-camera-bounds-pitch.patch`       | [#8483](https://github.com/maplibre/maplibre-gl-js/pull/8483) | Account for pitch when fitting bounds.      |
+| Patch                            | Upstream                                                      | Purpose                                |
+| -------------------------------- | ------------------------------------------------------------- | -------------------------------------- |
+| `0002-camera-bounds-pitch.patch` | [#8483](https://github.com/maplibre/maplibre-gl-js/pull/8483) | Account for pitch when fitting bounds. |
 
 ## Maintenance
 

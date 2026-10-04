@@ -295,6 +295,8 @@ internal external interface GlJsTransform {
 
   val zoom: Double
 
+  val centerPoint: Point
+
   fun clone(): GlJsTransform
 
   fun setCenter(center: LngLat)
@@ -306,6 +308,8 @@ internal external interface GlJsTransform {
   fun setPitch(pitch: Double)
 
   fun setPadding(padding: PaddingOptions)
+
+  fun setLocationAtPoint(location: LngLat, point: Point)
 
   fun locationToScreenPoint(position: LngLat, terrain: GlJsTerrain? = definedExternally): Point
 
@@ -319,7 +323,7 @@ internal external interface GlJsTerrain
 internal external interface CameraForBoundsOptions {
   var bearing: Double
   var pitch: Double
-  var mapPadding: PaddingOptions
+  var absolutePadding: Boolean
   var padding: PaddingOptions
   var maxZoom: Double
 }
