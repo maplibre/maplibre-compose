@@ -26,10 +26,10 @@ internal object UnconfinedMain : CoroutineDispatcher() {
 
 /**
  * Pins map state to the thread [dispatcher] runs on. The pin comes from the dispatcher itself: at
- * construction when the caller is already on it, otherwise from a dispatched block, so a caller on
- * some other thread can never become the main thread by being first.
+ * construction or first access when the caller is already on it, otherwise from a dispatched block,
+ * so a caller on some other thread can never become the main thread by being first.
  */
-internal class MainThreadGuard(dispatcher: CoroutineDispatcher) {
+internal class MainThreadGuard(private val dispatcher: CoroutineDispatcher) {
   private val unconfined = dispatcher === UnconfinedMain
   private val thread = AtomicReference<Any?>(null)
 
@@ -48,7 +48,7 @@ internal class MainThreadGuard(dispatcher: CoroutineDispatcher) {
   }
 
   /**
-   * Records the calling thread as the main thread. Only the dispatcher's own execution calls it.
+   * Records the calling thread as the main thread. The dispatcher must have verified the caller.
    */
   fun pin() {
     if (unconfined) return
@@ -60,6 +60,8 @@ internal class MainThreadGuard(dispatcher: CoroutineDispatcher) {
   /** Fails unless the caller is on the main thread. */
   fun requireMain() {
     if (unconfined) return
+    // Main-thread access can precede the callback queued during background runtime creation.
+    if (thread.load() == null && !dispatcher.isDispatchNeeded(EmptyCoroutineContext)) pin()
     val known =
       checkNotNull(thread.load()) {
         "Map state was used before its main dispatcher ran. Let the dispatcher run first."
