@@ -1,11 +1,12 @@
 package org.maplibre.compose.expressions.dsl
 
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.InterpolatableValue
-import org.maplibre.compose.expressions.value.InterpolationValue
 
 /**
  * Produces discrete, stepped results by evaluating a piecewise-constant function defined by pairs
@@ -42,7 +43,7 @@ private fun stopArguments(stops: Array<out Pair<Number, Expression<*>>>): List<E
  * Example:
  * ```kt
  * interpolate(
- *   exponential(2), zoom(),
+ *   exponential(2f), zoom(),
  *   16 to const(1),
  *   24 to const(256),
  * )
@@ -53,10 +54,10 @@ private fun stopArguments(stops: Array<out Pair<Number, Expression<*>>>): List<E
  * stays the same width in meters on the map (rather than on the viewport).
  */
 public fun <T, V : InterpolatableValue<T>> interpolate(
-  type: Expression<InterpolationValue>,
+  type: Interpolation,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<V>>,
-): Expression<V> = call("interpolate", listOf(type, input) + stopArguments(stops))
+): Expression<V> = call("interpolate", listOf(verbatim(type.json), input) + stopArguments(stops))
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values
@@ -80,10 +81,11 @@ public fun <T, V : InterpolatableValue<T>> interpolate(
  * from blue to green in zoom levels 5 to 10, which it where it remains until maximum zoom.
  */
 public fun interpolateHcl(
-  type: Expression<InterpolationValue>,
+  type: Interpolation,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<ColorValue>>,
-): Expression<ColorValue> = call("interpolate-hcl", listOf(type, input) + stopArguments(stops))
+): Expression<ColorValue> =
+  call("interpolate-hcl", listOf(verbatim(type.json), input) + stopArguments(stops))
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values
@@ -93,13 +95,22 @@ public fun interpolateHcl(
  * Requires the [type] of interpolation to use. Use [linear], [exponential], or [cubicBezier].
  */
 public fun interpolateLab(
-  type: Expression<InterpolationValue>,
+  type: Interpolation,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<ColorValue>>,
-): Expression<ColorValue> = call("interpolate-lab", listOf(type, input) + stopArguments(stops))
+): Expression<ColorValue> =
+  call("interpolate-lab", listOf(verbatim(type.json), input) + stopArguments(stops))
+
+/**
+ * How [interpolate], [interpolateHcl], and [interpolateLab] compute values between stops. Create
+ * one with [linear], [exponential], or [cubicBezier].
+ *
+ * MapLibre reads the interpolation when the style loads, so it is a fixed value, not an expression.
+ */
+public data class Interpolation internal constructor(internal val json: JsonArray)
 
 /** Interpolates linearly between the pairs of stops. */
-public fun linear(): Expression<InterpolationValue> = call("linear")
+public fun linear(): Interpolation = Interpolation(JsonArray(listOf(JsonPrimitive("linear"))))
 
 /**
  * Interpolates exponentially between the stops.
@@ -108,32 +119,17 @@ public fun linear(): Expression<InterpolationValue> = call("linear")
  *   increase more towards the high end of the range. With values close to 1 the output increases
  *   linearly.
  */
-public fun exponential(base: Expression<FloatValue>): Expression<InterpolationValue> =
-  call("exponential", base)
+public fun exponential(base: Float): Interpolation =
+  Interpolation(JsonArray(listOf(JsonPrimitive("exponential"), JsonPrimitive(base))))
 
 /**
- * Interpolates exponentially between the stops.
- *
- * @param [base] controls the rate at which the output increases: higher values make the output
- *   increase more towards the high end of the range. With values close to 1 the output increases
- *   linearly.
+ * Interpolates using the cubic bezier curve defined by the control points ([x1], [y1]) and ([x2],
+ * [y2]) between the pairs of stops. Each coordinate must be between 0 and 1.
  */
-public fun exponential(base: Float): Expression<InterpolationValue> = exponential(const(base))
-
-/**
- * Interpolates using the cubic bezier curve defined by the given control points between the pairs
- * of stops.
- */
-public fun cubicBezier(
-  x1: Expression<FloatValue>,
-  y1: Expression<FloatValue>,
-  x2: Expression<FloatValue>,
-  y2: Expression<FloatValue>,
-): Expression<InterpolationValue> = call("cubic-bezier", x1, y1, x2, y2)
-
-/**
- * Interpolates using the cubic bezier curve defined by the given control points between the pairs
- * of stops.
- */
-public fun cubicBezier(x1: Float, y1: Float, x2: Float, y2: Float): Expression<InterpolationValue> =
-  cubicBezier(const(x1), const(y1), const(x2), const(y2))
+public fun cubicBezier(x1: Float, y1: Float, x2: Float, y2: Float): Interpolation {
+  val points = listOf(x1, y1, x2, y2)
+  require(points.all { it in 0f..1f }) { "Cubic bezier control points must be between 0 and 1" }
+  return Interpolation(
+    JsonArray(listOf(JsonPrimitive("cubic-bezier")) + points.map(::JsonPrimitive))
+  )
+}

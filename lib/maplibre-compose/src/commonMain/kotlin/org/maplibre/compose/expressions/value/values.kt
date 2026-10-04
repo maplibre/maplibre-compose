@@ -258,11 +258,3 @@ public sealed interface GeoJsonValue : ExpressionValue
  * [image][org.maplibre.compose.expressions.dsl.image].
  */
 public sealed interface ImageValue : ExpressionValue, FormattableValue
-
-/**
- * Represents an [ExpressionValue] that resolves to an interpolation type. See
- * [linear][org.maplibre.compose.expressions.dsl.linear],
- * [exponential][org.maplibre.compose.expressions.dsl.exponential], and
- * [cubicBezier][org.maplibre.compose.expressions.dsl.cubicBezier].
- */
-public sealed interface InterpolationValue : ExpressionValue

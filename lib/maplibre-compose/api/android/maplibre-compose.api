@@ -357,6 +357,13 @@ public final class org/maplibre/compose/expressions/dsl/InputsKt {
 	public static final fun zoom ()Lorg/maplibre/compose/expressions/ast/Expression;
 }
 
+public final class org/maplibre/compose/expressions/dsl/Interpolation {
+	public static final field $stable I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/expressions/dsl/LiteralsKt {
 	public static final fun const (F)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun const (I)Lorg/maplibre/compose/expressions/ast/Expression;
@@ -418,14 +425,12 @@ public final class org/maplibre/compose/expressions/dsl/MathKt {
 }
 
 public final class org/maplibre/compose/expressions/dsl/RampsKt {
-	public static final fun cubicBezier (FFFF)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun cubicBezier (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun exponential (F)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun exponential (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun interpolate (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun interpolateHcl (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun interpolateLab (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun linear ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun cubicBezier (FFFF)Lorg/maplibre/compose/expressions/dsl/Interpolation;
+	public static final fun exponential (F)Lorg/maplibre/compose/expressions/dsl/Interpolation;
+	public static final fun interpolate (Lorg/maplibre/compose/expressions/dsl/Interpolation;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun interpolateHcl (Lorg/maplibre/compose/expressions/dsl/Interpolation;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun interpolateLab (Lorg/maplibre/compose/expressions/dsl/Interpolation;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun linear ()Lorg/maplibre/compose/expressions/dsl/Interpolation;
 	public static final fun step (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;[Lkotlin/Pair;)Lorg/maplibre/compose/expressions/ast/Expression;
 }
 
@@ -642,9 +647,6 @@ public abstract interface class org/maplibre/compose/expressions/value/IntValue 
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/InterpolatableValue : org/maplibre/compose/expressions/value/ExpressionValue {
-}
-
-public abstract interface class org/maplibre/compose/expressions/value/InterpolationValue : org/maplibre/compose/expressions/value/ExpressionValue {
 }
 
 public final class org/maplibre/compose/expressions/value/LineCap : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
