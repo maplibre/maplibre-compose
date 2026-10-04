@@ -156,6 +156,10 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * ### Variable binding
  * - [withVariable][org.maplibre.compose.expressions.dsl.withVariable] - define variable within
  *   expression
+ *
+ * ### Other operators
+ * - [call][org.maplibre.compose.expressions.dsl.call] - call an operator that the DSL does not
+ *   provide
  */
 public sealed interface Expression<out T : ExpressionValue?> {
   @Suppress("UNCHECKED_CAST")

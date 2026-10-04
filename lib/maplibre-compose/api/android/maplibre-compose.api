@@ -207,6 +207,10 @@ public final class org/maplibre/compose/expressions/ast/Expression$DefaultImpls 
 	public static fun cast (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 }
 
+public final class org/maplibre/compose/expressions/dsl/CallKt {
+	public static final fun call (Ljava/lang/String;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
+}
+
 public final class org/maplibre/compose/expressions/dsl/Case {
 	public static final field $stable I
 	public fun equals (Ljava/lang/Object;)Z
@@ -480,7 +484,6 @@ public final class org/maplibre/compose/expressions/dsl/TypesKt {
 
 public final class org/maplibre/compose/expressions/dsl/Variable {
 	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/dsl/Variable;
-	public static fun constructor-impl (Ljava/lang/String;)Ljava/lang/String;
 	public fun equals (Ljava/lang/Object;)Z
 	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
 	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
@@ -493,7 +496,6 @@ public final class org/maplibre/compose/expressions/dsl/Variable {
 }
 
 public final class org/maplibre/compose/expressions/dsl/VariablesKt {
-	public static final fun bind-N797sxw (Ljava/lang/String;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun use-uxjxMFg (Ljava/lang/String;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun withVariable (Ljava/lang/String;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/expressions/ast/Expression;
 }
