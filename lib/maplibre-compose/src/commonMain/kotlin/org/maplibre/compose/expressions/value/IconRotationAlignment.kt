@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** In combination with [SymbolPlacement], determines the rotation behavior of icons. */
-public enum class IconRotationAlignment(override val literal: StringLiteral) :
+public enum class IconRotationAlignment(internal val literal: StringLiteral) :
   EnumValue<IconRotationAlignment> {
   /**
    * For [SymbolPlacement.Point], aligns icons east-west. Otherwise, aligns icon x-axes with the

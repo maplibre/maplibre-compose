@@ -16,8 +16,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import org.maplibre.compose.expressions.ast.ConstantImageExpression
 import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.PainterLiteral
+import org.maplibre.compose.expressions.ast.compile
+import org.maplibre.compose.expressions.ast.visit
+import org.maplibre.compose.expressions.dsl.call
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToString
 import org.maplibre.compose.expressions.dsl.image
@@ -50,7 +52,7 @@ class LocationIndicatorLayerTest {
       managed.compile(context).asLayerProperty().resolve(emptyMap()),
     )
 
-    val dynamic = image(FunctionCall.of("get", const("icon")).cast<StringValue>())
+    val dynamic = image(call<StringValue>("get", const("icon")))
     assertTrue(!ConstantImageExpression(image(const(12.sp).convertToString())).isSupported)
     val definition =
       testLayerPropertyCache().snapshot {

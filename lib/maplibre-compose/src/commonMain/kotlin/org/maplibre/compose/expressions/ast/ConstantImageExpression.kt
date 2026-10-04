@@ -8,7 +8,7 @@ import org.maplibre.compose.expressions.value.ImageValue
  * rendering. Resolve managed images normally, then expose only a constant image name.
  */
 internal data class ConstantImageExpression(val expression: Expression<ImageValue?>?) :
-  Expression<ImageValue?> {
+  ExpressionNode<ImageValue?> {
   // Image IDs do not change the expression's structure. Probe without registering resources so
   // unsupported expressions can be omitted and reported only after the layer is committed.
   val isSupported: Boolean
@@ -25,10 +25,8 @@ internal data class ConstantImageExpression(val expression: Expression<ImageValu
   private fun constant(compiled: CompiledExpression<*>): CompiledExpression<*>? =
     when {
       compiled is StringLiteral || compiled is NullLiteral -> compiled
-      compiled is CompiledFunctionCall &&
-        compiled.name == "image" &&
-        compiled.args.size == 1 &&
-        compiled.args[0] is StringLiteral -> compiled.args[0]
+      compiled is CompiledFunctionCall && compiled.name == "image" && compiled.args.size == 1 ->
+        compiled.args[0] as? StringLiteral
       else -> null
     }
 

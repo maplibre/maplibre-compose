@@ -17,9 +17,13 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.ast.CallArgument
+import org.maplibre.compose.expressions.ast.Verbatim
+import org.maplibre.compose.expressions.ast.compile
+import org.maplibre.compose.expressions.dsl.call
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.style.TransitionOptions
 
@@ -108,16 +112,11 @@ class LayerPropertiesTest {
   @Test
   fun equivalent_function_calls_reuse_compilation() {
     val cache = testLayerPropertyCache()
-    fun compile(literalArgs: Set<Int>) =
-      cache.compile(
-        "paint",
-        "color",
-        FunctionCall.of("get", listOf(const("color")), literalArgs),
-        DefaultLayerExpressionContext,
-      )
-    val first = compile(emptySet())
-    assertSame(first, compile(emptySet()))
-    assertTrue(first !== compile(setOf(0)))
+    fun compile(arg: CallArgument) =
+      cache.compile("paint", "color", call<ColorValue>("get", arg), DefaultLayerExpressionContext)
+    val first = compile(const("color"))
+    assertSame(first, compile(const("color")))
+    assertTrue(first !== compile(Verbatim(JsonPrimitive("color"))))
   }
 
   @Test

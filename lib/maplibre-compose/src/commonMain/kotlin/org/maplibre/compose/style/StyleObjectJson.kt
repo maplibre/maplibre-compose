@@ -13,6 +13,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.util.toStyleJson
 
 /** The style spec's suffix for a property's own transition. */

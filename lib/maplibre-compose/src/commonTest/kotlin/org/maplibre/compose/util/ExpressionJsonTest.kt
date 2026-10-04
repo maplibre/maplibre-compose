@@ -5,7 +5,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.BooleanLiteral
@@ -16,14 +17,18 @@ import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.FloatLiteral
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.ast.Verbatim
+import org.maplibre.compose.expressions.ast.compile
+import org.maplibre.compose.expressions.ast.visit
 import org.maplibre.compose.expressions.dsl.asBoolean
+import org.maplibre.compose.expressions.dsl.call
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.dsl.padding
+import org.maplibre.compose.expressions.value.StringValue
 
 /**
  * Written against values, not rendered text, wherever a whole number is involved: Kotlin renders
@@ -98,7 +103,7 @@ class ExpressionJsonTest {
   @Test
   fun a_function_call_snapshots_caller_arguments() {
     val args = mutableListOf<Expression<*>>(const("park"))
-    val expression = FunctionCall.of("concat", args)
+    val expression = call<StringValue>("concat", args)
     val initialHash = expression.hashCode()
     args[0] = const("forest")
     args.add(const("trail"))
@@ -111,45 +116,25 @@ class ExpressionJsonTest {
   }
 
   @Test
-  fun function_equality_uses_snapshots_of_literal_positions() {
-    val args = listOf(OffsetLiteral.of(Offset(1.5f, 2.5f)))
-    val literalArgs = mutableSetOf(0)
-    val first = FunctionCall.of("literal", args, literalArgs)
-    val second = FunctionCall.of("literal", args, setOf(0))
-    val ordinary = FunctionCall.of("literal", args)
-    literalArgs.clear()
-
-    assertEquals(first, second)
-    assertEquals(first.hashCode(), second.hashCode())
-    assertNotEquals(first, ordinary)
-    assertEquals(compiled(first), compiled(second))
-    assertEquals("""["literal",[1.5,2.5]]""", json(compiled(first)))
-
-    val compiledArgs = args.map { compiled(it) }.toMutableList()
-    literalArgs.add(0)
-    val compiledCall = CompiledFunctionCall.of("literal", compiledArgs, literalArgs)
-    compiledArgs.clear()
-    literalArgs.clear()
-    assertEquals(compiled(first), compiledCall)
-    assertNotEquals(compiledCall, CompiledFunctionCall.of("literal", args.map { compiled(it) }))
-  }
-
-  @Test
   fun wraps_a_bare_array_in_literal_so_it_is_not_read_as_an_operator() {
     // `[1.5, 2.5]` on its own would parse as a call to the operator named "1.5".
     assertEquals("""["literal",[1.5,2.5]]""", json(OffsetLiteral.of(Offset(1.5f, 2.5f))))
   }
 
   @Test
-  fun does_not_double_wrap_an_array_already_inside_a_literal() {
-    // literalArgs marks argument positions already in literal context.
+  fun writes_a_verbatim_argument_unchanged() {
+    // A bare array, which the encoder would otherwise wrap in a literal.
     val expression =
       CompiledFunctionCall.of(
-        "literal",
-        listOf(OffsetLiteral.of(Offset(1.5f, 2.5f)).compile(ExpressionContext.None)),
-        literalArgs = setOf(0),
+        "match",
+        listOf(
+          CompiledFunctionCall.of("get", listOf(StringLiteral.of("class"))),
+          Verbatim(JsonArray(listOf(JsonPrimitive("park"), JsonPrimitive("forest")))),
+          StringLiteral.of("green"),
+          StringLiteral.of("gray"),
+        ),
       )
-    assertEquals("""["literal",[1.5,2.5]]""", json(expression))
+    assertEquals("""["match",["get","class"],["park","forest"],"green","gray"]""", json(expression))
   }
 
   @Test

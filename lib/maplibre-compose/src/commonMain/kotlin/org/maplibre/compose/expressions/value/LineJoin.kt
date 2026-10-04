@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Display of joined lines */
-public enum class LineJoin(override val literal: StringLiteral) : EnumValue<LineJoin> {
+public enum class LineJoin(internal val literal: StringLiteral) : EnumValue<LineJoin> {
   /**
    * A join with a squared-off end which is drawn beyond the endpoint of the line at a distance of
    * one-half of the line's width.

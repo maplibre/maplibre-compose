@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Part of the icon/text placed closest to the anchor. */
-public enum class SymbolAnchor(override val literal: StringLiteral) : EnumValue<SymbolAnchor> {
+public enum class SymbolAnchor(internal val literal: StringLiteral) : EnumValue<SymbolAnchor> {
   /** The center of the icon is placed closest to the anchor. */
   Center(StringLiteral.of("center")),
 

@@ -1,8 +1,10 @@
 package org.maplibre.compose.expressions.dsl
 
 import kotlin.jvm.JvmName
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
@@ -13,6 +15,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MatchableValue
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.expressions.value.literal
 
 /**
  * Selects the first output from the given [conditions] whose corresponding test condition evaluates
@@ -46,20 +49,8 @@ public fun <T : ExpressionValue?> switch(
   conditions: List<Condition<T>>,
   fallback: Expression<T>,
 ): Expression<T> =
-  when (conditions.size) {
-    0 -> fallback
-    else -> {
-      val args =
-        buildList(conditions.size * 2 + 1) {
-          for ((test, output) in conditions) {
-            add(test)
-            add(output)
-          }
-          add(fallback)
-        }
-      FunctionCall.of("case", args).cast()
-    }
-  }
+  if (conditions.isEmpty()) fallback
+  else call("case", conditions.flatMap { listOf(it.test, it.output) } + fallback)
 
 /**
  * Selects the first output from the given [conditions] whose corresponding test condition evaluates
@@ -175,26 +166,11 @@ private fun <O : ExpressionValue?> match(
   cases: List<Case<*, O>>,
   fallback: Expression<O>,
 ): Expression<O> =
-  when (cases.size) {
-    0 -> fallback
-    else -> {
-      val args =
-        buildList(cases.size * 2 + 2) {
-          add(input)
-          for ((label, output) in cases) {
-            add(label)
-            add(output)
-          }
-          add(fallback)
-        }
-      FunctionCall.of(
-          "match",
-          args,
-          // Label positions are odd, starting from 1 and excluding the fallback.
-          literalArgs = (1 until args.lastIndex step 2).toSet(),
-        )
-        .cast()
-    }
+  if (cases.isEmpty()) fallback
+  else {
+    // MapLibre reads labels as plain JSON, not as expressions.
+    val labeledOutputs = cases.flatMap { listOf(verbatim(it.label), it.output) }
+    call("match", listOf(input) + labeledOutputs + fallback)
   }
 
 /**
@@ -232,42 +208,42 @@ public fun <I : MatchableValue, O : ExpressionValue?> switch(
 
 /** See [switch] */
 public data class Case<@Suppress("unused") in I : MatchableValue, out O : ExpressionValue?>
-internal constructor(internal val label: Expression<*>, internal val output: Expression<O>)
+internal constructor(internal val label: JsonElement, internal val output: Expression<O>)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?> case(label: String, output: Expression<O>): Case<StringValue, O> =
-  Case(const(label), output)
+  Case(JsonPrimitive(label), output)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: E,
   output: Expression<O>,
-): Case<E, O> = Case(const(label), output)
+): Case<E, O> = Case(JsonPrimitive(label.literal.value), output)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
-  Case(const(label.toFloat()), output)
+  Case(JsonPrimitive(label.toFloat()), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("stringsCase")
 public fun <O : ExpressionValue?> case(
   label: List<String>,
   output: Expression<O>,
-): Case<StringValue, O> = Case(const(label), output)
+): Case<StringValue, O> = Case(JsonArray(label.map { JsonPrimitive(it) }), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("enumsCase")
 public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: List<E>,
   output: Expression<O>,
-): Case<E, O> = Case(const(label), output)
+): Case<E, O> = Case(JsonArray(label.map { JsonPrimitive(it.literal.value) }), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("numbersCase")
 public fun <O : ExpressionValue?> case(
   label: List<Number>,
   output: Expression<O>,
-): Case<FloatValue, O> = Case(const(label), output)
+): Case<FloatValue, O> = Case(JsonArray(label.map { JsonPrimitive(it.toFloat()) }), output)
 
 /**
  * Evaluates each expression in [values] in turn until the first non-null value is obtained, and
@@ -279,7 +255,7 @@ public fun <O : ExpressionValue?> case(
  * convert the result.
  */
 public fun <T : ExpressionValue> coalesce(vararg values: Expression<T?>): Expression<T?> =
-  FunctionCall.of("coalesce", values.asList()).cast()
+  call("coalesce", values.asList())
 
 /**
  * Evaluates each expression in [values] in turn until the first non-null value is obtained, and
@@ -294,7 +270,7 @@ public fun <T : ExpressionValue> coalesce(vararg values: Expression<T?>): Expres
 public fun <T : ExpressionValue> coalesce(
   vararg values: Expression<T?>,
   fallback: Expression<T>,
-): Expression<T> = FunctionCall.of("coalesce", values.asList() + fallback).cast()
+): Expression<T> = call("coalesce", values.asList() + fallback)
 
 /**
  * Returns whether this expression is equal to [other].
@@ -304,7 +280,7 @@ public fun <T : ExpressionValue> coalesce(
  */
 public infix fun Expression<EquatableValue?>.eq(
   other: Expression<EquatableValue?>
-): Expression<BooleanValue> = FunctionCall.of("==", this, other).cast()
+): Expression<BooleanValue> = call("==", this, other)
 
 /**
  * Returns whether the [left] string expression is equal to the [right] string expression. An
@@ -315,7 +291,7 @@ public fun eq(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of("==", left, right, collator).cast()
+): Expression<BooleanValue> = call("==", left, right, collator)
 
 /**
  * Returns whether this expression is not equal to [other].
@@ -325,7 +301,7 @@ public fun eq(
  */
 public infix fun Expression<EquatableValue?>.neq(
   other: Expression<EquatableValue?>
-): Expression<BooleanValue> = FunctionCall.of("!=", this, other).cast()
+): Expression<BooleanValue> = call("!=", this, other)
 
 /**
  * Returns whether the [left] string expression is not equal to the [right] string expression. An
@@ -336,7 +312,7 @@ public fun neq(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of("!=", left, right, collator).cast()
+): Expression<BooleanValue> = call("!=", left, right, collator)
 
 /**
  * Returns whether this expression is strictly greater than [other].
@@ -345,7 +321,7 @@ public fun neq(
  */
 public infix fun <T> Expression<ComparableValue<T>>.gt(
   other: Expression<ComparableValue<T>>
-): Expression<BooleanValue> = FunctionCall.of(">", this, other).cast()
+): Expression<BooleanValue> = call(">", this, other)
 
 /**
  * Returns whether the [left] string expression is strictly greater than the [right] string
@@ -358,7 +334,7 @@ public fun gt(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of(">", left, right, collator).cast()
+): Expression<BooleanValue> = call(">", left, right, collator)
 
 /**
  * Returns whether this expression is strictly less than [other].
@@ -367,7 +343,7 @@ public fun gt(
  */
 public infix fun <T> Expression<ComparableValue<T>>.lt(
   other: Expression<ComparableValue<T>>
-): Expression<BooleanValue> = FunctionCall.of("<", this, other).cast()
+): Expression<BooleanValue> = call("<", this, other)
 
 /**
  * Returns whether the [left] string expression is strictly less than the [right] string expression.
@@ -380,7 +356,7 @@ public fun lt(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of("<", left, right, collator).cast()
+): Expression<BooleanValue> = call("<", left, right, collator)
 
 /**
  * Returns whether this expression is greater than or equal to [other].
@@ -389,7 +365,7 @@ public fun lt(
  */
 public infix fun <T> Expression<ComparableValue<T>>.gte(
   other: Expression<ComparableValue<T>>
-): Expression<BooleanValue> = FunctionCall.of(">=", this, other).cast()
+): Expression<BooleanValue> = call(">=", this, other)
 
 /**
  * Returns whether the [left] string expression is greater than or equal to the [right] string
@@ -402,7 +378,7 @@ public fun gte(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of(">=", left, right, collator).cast()
+): Expression<BooleanValue> = call(">=", left, right, collator)
 
 /**
  * Returns whether this string expression is less than or equal to [other].
@@ -411,7 +387,7 @@ public fun gte(
  */
 public infix fun <T> Expression<ComparableValue<T>>.lte(
   other: Expression<ComparableValue<T>>
-): Expression<BooleanValue> = FunctionCall.of("<=", this, other).cast()
+): Expression<BooleanValue> = call("<=", this, other)
 
 /**
  * Returns whether the [left] string expression is less than or equal to the [right] string
@@ -424,11 +400,11 @@ public fun lte(
   left: Expression<StringValue>,
   right: Expression<StringValue>,
   collator: Expression<CollatorValue>,
-): Expression<BooleanValue> = FunctionCall.of("<=", left, right, collator).cast()
+): Expression<BooleanValue> = call("<=", left, right, collator)
 
 /** Returns whether all [expressions] are `true`. */
 public fun all(vararg expressions: Expression<BooleanValue>): Expression<BooleanValue> =
-  FunctionCall.of("all", expressions.asList()).cast()
+  call("all", expressions.asList())
 
 /** Returns whether both this and [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.and(
@@ -437,7 +413,7 @@ public infix fun Expression<BooleanValue>.and(
 
 /** Returns whether any [expressions] are `true`. */
 public fun any(vararg expressions: Expression<BooleanValue>): Expression<BooleanValue> =
-  FunctionCall.of("any", expressions.asList()).cast()
+  call("any", expressions.asList())
 
 /** Returns whether any of this or the [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.or(
@@ -446,5 +422,4 @@ public infix fun Expression<BooleanValue>.or(
 
 /** Negates this expression. */
 @JvmName("notOperator")
-public operator fun Expression<BooleanValue>.not(): Expression<BooleanValue> =
-  FunctionCall.of("!", this).cast()
+public operator fun Expression<BooleanValue>.not(): Expression<BooleanValue> = call("!", this)

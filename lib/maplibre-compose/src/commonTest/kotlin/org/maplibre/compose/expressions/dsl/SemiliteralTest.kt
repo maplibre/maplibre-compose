@@ -8,6 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
+import org.maplibre.compose.expressions.ast.visit
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.SymbolAnchor
 

@@ -22,6 +22,7 @@ import kotlinx.io.writeString
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty

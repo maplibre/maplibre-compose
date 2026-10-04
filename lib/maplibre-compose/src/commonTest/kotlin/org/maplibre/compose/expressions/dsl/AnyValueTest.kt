@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.util.toStyleJson

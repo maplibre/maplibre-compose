@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** The hillshade algorithm used to shade a DEM. */
-public enum class HillshadeMethod(override val literal: StringLiteral) :
+public enum class HillshadeMethod(internal val literal: StringLiteral) :
   EnumValue<HillshadeMethod> {
 
   /** The legacy hillshade method. */

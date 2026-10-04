@@ -9,6 +9,7 @@ import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.PainterLiteral
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.util.toStyleJson
 

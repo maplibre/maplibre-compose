@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Orientation of icon when map is pitched. */
-public enum class IconPitchAlignment(override val literal: StringLiteral) :
+public enum class IconPitchAlignment(internal val literal: StringLiteral) :
   EnumValue<IconPitchAlignment> {
   /** The icon is aligned to the plane of the map. */
   Map(StringLiteral.of("map")),

@@ -8,7 +8,7 @@ internal data class TextUnitContextExpression<T : ExpressionValue?>(
   val expression: Expression<T>,
   val emScale: Expression<FloatValue>,
   val spScale: Expression<FloatValue>,
-) : Expression<T> {
+) : ExpressionNode<T> {
   override fun compile(context: ExpressionContext): CompiledExpression<T> =
     expression.compile(
       object : ExpressionContext by context {

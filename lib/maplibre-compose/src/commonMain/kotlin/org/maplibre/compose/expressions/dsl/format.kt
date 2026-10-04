@@ -3,8 +3,6 @@ package org.maplibre.compose.expressions.dsl
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.TextUnit
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
-import org.maplibre.compose.expressions.ast.Options
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FormattableValue
 import org.maplibre.compose.expressions.value.FormattedValue
@@ -31,16 +29,8 @@ import org.maplibre.compose.expressions.value.TextUnitValue
  * Capitalizes the first letter of the features' property "name" and formats it to be extra-large,
  * the rest of the name is written normally.
  */
-public fun format(vararg spans: FormatSpan): Expression<FormattedValue> {
-  val args =
-    buildList(spans.size * 2) {
-      for (span in spans) {
-        add(span.value)
-        add(span.options)
-      }
-    }
-  return FunctionCall.of("format", args).cast()
-}
+public fun format(vararg spans: FormatSpan): Expression<FormattedValue> =
+  call("format", spans.flatMap { listOf(it.value, it.options) })
 
 /** Configures a span of text in a [format] expression. */
 public fun span(
@@ -77,12 +67,5 @@ internal constructor(
   val textSize: Expression<TextUnitValue>? = null,
 ) {
   internal val options
-    get() =
-      Options.build(
-        fun MutableMap<String, Expression<*>>.() {
-          textFont?.let { put("text-font", it) }
-          textColor?.let { put("text-color", it) }
-          textSize?.let { put("font-scale", it) }
-        }
-      )
+    get() = options("text-font" to textFont, "text-color" to textColor, "font-scale" to textSize)
 }

@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Specifies how to capitalize text, similar to the CSS text-transform property. */
-public enum class TextTransform(override val literal: StringLiteral) : EnumValue<TextTransform> {
+public enum class TextTransform(internal val literal: StringLiteral) : EnumValue<TextTransform> {
   /** The text is not altered. */
   None(StringLiteral.of("none")),
 

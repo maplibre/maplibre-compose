@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq

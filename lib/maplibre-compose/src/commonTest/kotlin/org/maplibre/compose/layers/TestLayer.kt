@@ -4,7 +4,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerDefinition
@@ -84,7 +86,7 @@ internal class TestLayer(val id: String, private val type: String, source: Sourc
     )
 }
 
-internal fun <T : ExpressionValue?> CompiledExpression<T>.asLayerProperty(): LayerProperty<T> =
-  LayerProperty {
-    toStyleJson()
-  }
+internal fun <T : ExpressionValue?> Expression<T>.asLayerProperty(): LayerProperty<T> {
+  val json = compile(ExpressionContext.None).toStyleJson()
+  return LayerProperty { json }
+}

@@ -8,6 +8,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.FloatLiteral
+import org.maplibre.compose.expressions.ast.ListLiteral
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.ExpressionType
 import org.maplibre.compose.expressions.value.FormattedValue
@@ -158,7 +160,14 @@ class CollectionsAndStringsTest {
     )
     assertEquals(
       """["literal",[[1,2],[3,4]]]""",
-      styleJson(const(listOf(const(listOf(1f, 2f)), const(listOf(3f, 4f))))),
+      styleJson(
+        const(
+          listOf(
+            ListLiteral.of(listOf(FloatLiteral.of(1f), FloatLiteral.of(2f))),
+            ListLiteral.of(listOf(FloatLiteral.of(3f), FloatLiteral.of(4f))),
+          )
+        )
+      ),
     )
   }
 

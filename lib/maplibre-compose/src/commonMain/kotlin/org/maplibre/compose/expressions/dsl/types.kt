@@ -3,8 +3,6 @@ package org.maplibre.compose.expressions.dsl
 import androidx.compose.ui.unit.TextUnitType
 import kotlin.enums.enumEntries
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
-import org.maplibre.compose.expressions.ast.Options
 import org.maplibre.compose.expressions.ast.TextUnitCalculation
 import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -27,7 +25,7 @@ import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.VectorValue
 
 /** Returns a string describing the type of this expression. */
-public fun Expression<*>.type(): Expression<ExpressionType> = FunctionCall.of("typeof", this).cast()
+public fun Expression<*>.type(): Expression<ExpressionType> = call("typeof", this)
 
 /**
  * Asserts that this is a list, optionally of items of one [type] and of one [length].
@@ -51,12 +49,7 @@ public fun Expression<*>.asList(
     "The item type of a list assertion must be String, Number, or Boolean"
   }
   require(length == null || type != null) { "A list assertion with a length needs an item type" }
-  val args = buildList {
-    type?.let { add(const(it)) }
-    length?.let { add(const(it)) }
-    add(this@asList)
-  }
-  return FunctionCall.of("array", args).cast()
+  return call("array", listOfNotNull(type?.let { const(it) }, length?.let { const(it) }, this))
 }
 
 /**
@@ -106,7 +99,7 @@ public fun Expression<*>.asPadding(): Expression<DpPaddingValue> =
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<StringValue> =
-  FunctionCall.of("string", this, *fallbacks).cast()
+  call("string", this, *fallbacks)
 
 /**
  * Asserts that this value is an entry of the enum specified by [T].
@@ -116,7 +109,7 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
  */
 public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
   where T : Enum<T>, T : EnumValue<T> {
-  val entries = const(enumEntries<T>().map { it.literal })
+  val entries = const(enumEntries<T>())
   val conditions =
     buildList(fallbacks.size + 1) {
       add(condition(entries.contains(this@asEnum), this@asEnum))
@@ -139,7 +132,7 @@ public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<FloatValue> =
-  FunctionCall.of("number", this, *fallbacks).cast()
+  call("number", this, *fallbacks)
 
 /**
  * Asserts that this value is a boolean.
@@ -150,7 +143,7 @@ public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<F
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<BooleanValue> =
-  FunctionCall.of("boolean", this, *fallbacks).cast()
+  call("boolean", this, *fallbacks)
 
 /**
  * Asserts that this value is a map.
@@ -161,7 +154,7 @@ public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapValue<AnyValue>> =
-  FunctionCall.of("object", this, *fallbacks).cast()
+  call("object", this, *fallbacks)
 
 /**
  * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
@@ -175,24 +168,20 @@ public fun collator(
   diacriticSensitive: Expression<BooleanValue>? = null,
   locale: Expression<StringValue>? = null,
 ): Expression<CollatorValue> =
-  FunctionCall.of(
-      "collator",
-      Options.build(
-        fun MutableMap<String, Expression<*>>.() {
-          caseSensitive?.let { put("case-sensitive", it) }
-          diacriticSensitive?.let { put("diacritic-sensitive", it) }
-          locale?.let { put("locale", it) }
-        }
-      ),
-    )
-    .cast()
+  call(
+    "collator",
+    options(
+      "case-sensitive" to caseSensitive,
+      "diacritic-sensitive" to diacriticSensitive,
+      "locale" to locale,
+    ),
+  )
 
 /**
  * Returns a collator with MapLibre's defaults: case-insensitive, diacritic-insensitive, and the
  * default locale.
  */
-public fun collator(): Expression<CollatorValue> =
-  FunctionCall.of("collator", Options.build {}).cast()
+public fun collator(): Expression<CollatorValue> = call("collator", options())
 
 /**
  * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
@@ -226,23 +215,20 @@ public fun Expression<NumberValue<*>>.formatToString(
   minFractionDigits: Expression<IntValue>? = null,
   maxFractionDigits: Expression<IntValue>? = null,
 ): Expression<StringValue> =
-  FunctionCall.of(
-      "number-format",
-      this,
-      Options.build(
-        fun MutableMap<String, Expression<*>>.() {
-          locale?.let { put("locale", it) }
-          currency?.let { put("currency", it) }
-          minFractionDigits?.let { put("min-fraction-digits", it) }
-          maxFractionDigits?.let { put("max-fraction-digits", it) }
-        }
-      ),
-    )
-    .cast()
+  call(
+    "number-format",
+    this,
+    options(
+      "locale" to locale,
+      "currency" to currency,
+      "min-fraction-digits" to minFractionDigits,
+      "max-fraction-digits" to maxFractionDigits,
+    ),
+  )
 
 /** Converts this number to a string in the default locale. */
 public fun Expression<NumberValue<*>>.formatToString(): Expression<StringValue> =
-  FunctionCall.of("number-format", this, Options.build {}).cast()
+  call("number-format", this, options())
 
 /**
  * Converts this number into a string representation using the provided formatting rules.
@@ -279,8 +265,7 @@ public fun Expression<NumberValue<*>>.formatToString(
  * Otherwise, the input is converted to a string in the format specified by the JSON.stringify
  * function of the ECMAScript Language Specification. A null input becomes an empty string.
  */
-public fun Expression<*>.convertToString(): Expression<StringValue> =
-  FunctionCall.of("to-string", this).cast()
+public fun Expression<*>.convertToString(): Expression<StringValue> = call("to-string", this)
 
 /**
  * Converts this expression to a number.
@@ -294,7 +279,7 @@ public fun Expression<*>.convertToString(): Expression<StringValue> =
  * the expression is an error.
  */
 public fun Expression<*>.convertToNumber(vararg fallbacks: Expression<*>): Expression<FloatValue> =
-  FunctionCall.of("to-number", this, *fallbacks).cast()
+  call("to-number", this, *fallbacks)
 
 /**
  * Converts this expression to a boolean expression.
@@ -302,8 +287,7 @@ public fun Expression<*>.convertToNumber(vararg fallbacks: Expression<*>): Expre
  * The result is `false` when then this is an empty string, `0`, `false`,`null` or `NaN`; otherwise
  * it is `true`.
  */
-public fun Expression<*>.convertToBoolean(): Expression<BooleanValue> =
-  FunctionCall.of("to-boolean", this).cast()
+public fun Expression<*>.convertToBoolean(): Expression<BooleanValue> = call("to-boolean", this)
 
 /**
  * Converts this expression to a color expression.
@@ -313,7 +297,7 @@ public fun Expression<*>.convertToBoolean(): Expression<BooleanValue> =
  * the expression is an error.
  */
 public fun Expression<*>.convertToColor(vararg fallbacks: Expression<*>): Expression<ColorValue> =
-  FunctionCall.of("to-color", this, *fallbacks).cast()
+  call("to-color", this, *fallbacks)
 
 /** Converts a numeric [Expression] to a [DpValue] expression. */
 public val Expression<FloatValue>.dp: Expression<DpValue>

@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.compile
 
 class TextOffsetTest {
   @Test

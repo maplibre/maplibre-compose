@@ -120,10 +120,37 @@ public sealed interface StringValue :
  *
  * @param T The [EnumValue] descendent type that this value represents.
  */
-public sealed interface EnumValue<out T> : StringValue {
-  /** The string expression representing this enum value. */
-  public val literal: StringLiteral
-}
+public sealed interface EnumValue<out T> : StringValue
+
+/** The string expression representing this enum value. */
+internal val EnumValue<*>.literal: StringLiteral
+  get() =
+    when (this) {
+      is CirclePitchAlignment -> literal
+      is CirclePitchScale -> literal
+      is ExpressionType -> literal
+      is GeometryType -> literal
+      is HillshadeMethod -> literal
+      is IconPitchAlignment -> literal
+      is IconRotationAlignment -> literal
+      is IconTextFit -> literal
+      is IlluminationAnchor -> literal
+      is LineCap -> literal
+      is LineJoin -> literal
+      is ProjectionType -> literal
+      is RasterResampling -> literal
+      is SymbolAnchor -> literal
+      is SymbolHeightAnchor -> literal
+      is SymbolOverlap -> literal
+      is SymbolPlacement -> literal
+      is SymbolZOrder -> literal
+      is TextJustify -> literal
+      is TextPitchAlignment -> literal
+      is TextRotationAlignment -> literal
+      is TextTransform -> literal
+      is TextWritingMode -> literal
+      is TranslateAnchor -> literal
+    }
 
 /**
  * Represents an [ExpressionValue] that resolves to a [Color] value. See
@@ -231,11 +258,3 @@ public sealed interface GeoJsonValue : ExpressionValue
  * [image][org.maplibre.compose.expressions.dsl.image].
  */
 public sealed interface ImageValue : ExpressionValue, FormattableValue
-
-/**
- * Represents an [ExpressionValue] that resolves to an interpolation type. See
- * [linear][org.maplibre.compose.expressions.dsl.linear],
- * [exponential][org.maplibre.compose.expressions.dsl.exponential], and
- * [cubicBezier][org.maplibre.compose.expressions.dsl.cubicBezier].
- */
-public sealed interface InterpolationValue : ExpressionValue

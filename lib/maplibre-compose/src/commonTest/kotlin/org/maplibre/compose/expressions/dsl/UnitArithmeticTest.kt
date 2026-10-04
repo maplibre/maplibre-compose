@@ -132,6 +132,8 @@ class UnitArithmeticTest {
       """["interpolate",["cubic-bezier",0.4,0,0.6,1],["zoom"],0,0,22,1]""",
       styleJson(eased),
     )
+    // MapLibre rejects control points outside 0..1 when the style loads.
+    assertFailsWith<IllegalArgumentException> { cubicBezier(0.4f, 0f, 1.2f, 1f) }
   }
 
   @Test

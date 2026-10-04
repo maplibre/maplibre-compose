@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.value
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /** Symbol placement relative to its geometry. */
-public enum class SymbolPlacement(override val literal: StringLiteral) :
+public enum class SymbolPlacement(internal val literal: StringLiteral) :
   EnumValue<SymbolPlacement> {
   /** The label is placed at the point where the geometry is located. */
   Point(StringLiteral.of("point")),

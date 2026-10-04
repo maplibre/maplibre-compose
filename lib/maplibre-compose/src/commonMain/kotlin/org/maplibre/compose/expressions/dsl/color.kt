@@ -1,7 +1,6 @@
 package org.maplibre.compose.expressions.dsl
 
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.IntValue
@@ -12,7 +11,7 @@ import org.maplibre.compose.expressions.value.VectorValue
  * that order.
  */
 public fun Expression<ColorValue>.toRgbaComponents(): Expression<VectorValue<Number>> =
-  FunctionCall.of("to-rgba", this).cast()
+  call("to-rgba", this)
 
 /**
  * Creates a color value from [red], [green], and [blue] components, which must range between 0 and
@@ -26,9 +25,4 @@ public fun rgbColor(
   blue: Expression<IntValue>,
   alpha: Expression<FloatValue>? = null,
 ): Expression<ColorValue> =
-  if (alpha != null) {
-      FunctionCall.of("rgba", red, green, blue, alpha)
-    } else {
-      FunctionCall.of("rgb", red, green, blue)
-    }
-    .cast()
+  if (alpha != null) call("rgba", red, green, blue, alpha) else call("rgb", red, green, blue)

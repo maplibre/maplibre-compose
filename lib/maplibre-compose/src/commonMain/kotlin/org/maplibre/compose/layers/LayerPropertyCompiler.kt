@@ -10,6 +10,7 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.ast.UnitConversion
+import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue

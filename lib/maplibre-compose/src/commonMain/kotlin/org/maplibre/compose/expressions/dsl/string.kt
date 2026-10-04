@@ -2,7 +2,6 @@ package org.maplibre.compose.expressions.dsl
 
 import kotlin.jvm.JvmName
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
 import org.maplibre.compose.expressions.value.IntValue
@@ -13,7 +12,7 @@ import org.maplibre.compose.expressions.value.StringValue
 @JvmName("containsString")
 public fun Expression<StringValue>.contains(
   substring: Expression<StringValue>
-): Expression<BooleanValue> = FunctionCall.of("in", substring, this).cast()
+): Expression<BooleanValue> = call("in", substring, this)
 
 /** Returns whether this string contains the [substring]. */
 @JvmName("containsString")
@@ -33,14 +32,7 @@ public fun String.contains(substring: Expression<StringValue>): Expression<Boole
 public fun Expression<StringValue>.indexOf(
   substring: Expression<StringValue>,
   startIndex: Expression<IntValue>? = null,
-): Expression<IntValue> {
-  val args = buildList {
-    add(substring)
-    add(this@indexOf)
-    startIndex?.let { add(it) }
-  }
-  return FunctionCall.of("index-of", args).cast()
-}
+): Expression<IntValue> = call("index-of", listOfNotNull(substring, this, startIndex))
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
@@ -72,14 +64,7 @@ public fun Expression<StringValue>.indexOf(
 public fun Expression<StringValue>.substring(
   startIndex: Expression<IntValue>,
   endIndex: Expression<IntValue>? = null,
-): Expression<StringValue> {
-  val args = buildList {
-    add(this@substring)
-    add(startIndex)
-    endIndex?.let { add(it) }
-  }
-  return FunctionCall.of("slice", args).cast()
-}
+): Expression<StringValue> = call("slice", listOfNotNull(this, startIndex, endIndex))
 
 /**
  * Returns a substring from this string from the [startIndex] (inclusive) to the end of the string
@@ -99,8 +84,7 @@ public fun Expression<StringValue>.substring(
  * A UTF-16 surrogate pair counts as a single position.
  */
 @JvmName("lengthOfString")
-public fun Expression<StringValue>.length(): Expression<IntValue> =
-  FunctionCall.of("length", this).cast()
+public fun Expression<StringValue>.length(): Expression<IntValue> = call("length", this)
 
 /**
  * Returns `true` if this string is expected to render legibly. Returns `false` if this string
@@ -108,27 +92,25 @@ public fun Expression<StringValue>.length(): Expression<IntValue> =
  * that require complex text shaping).
  */
 public fun Expression<StringValue>.isScriptSupported(): Expression<BooleanValue> =
-  FunctionCall.of("is-supported-script", this).cast()
+  call("is-supported-script", this)
 
 /**
  * Returns this string converted to uppercase. Follows the Unicode Default Case Conversion algorithm
  * and the locale-insensitive case mappings in the Unicode Character Database.
  */
-public fun Expression<StringValue>.uppercase(): Expression<StringValue> =
-  FunctionCall.of("upcase", this).cast()
+public fun Expression<StringValue>.uppercase(): Expression<StringValue> = call("upcase", this)
 
 /**
  * Returns this string converted to lowercase. Follows the Unicode Default Case Conversion algorithm
  * and the locale-insensitive case mappings in the Unicode Character Database.
  */
-public fun Expression<StringValue>.lowercase(): Expression<StringValue> =
-  FunctionCall.of("downcase", this).cast()
+public fun Expression<StringValue>.lowercase(): Expression<StringValue> = call("downcase", this)
 
 /** Concatenates this string expression with [other]. */
 @JvmName("concat")
 public operator fun Expression<StringValue>.plus(
   other: Expression<StringValue>
-): Expression<StringValue> = FunctionCall.of("concat", this, other).cast()
+): Expression<StringValue> = call("concat", this, other)
 
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
@@ -138,7 +120,7 @@ public operator fun Expression<StringValue>.plus(
  */
 public fun Expression<StringValue>.split(
   separator: Expression<StringValue>
-): Expression<ListValue<StringValue>> = FunctionCall.of("split", this, separator).cast()
+): Expression<ListValue<StringValue>> = call("split", this, separator)
 
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
@@ -164,4 +146,4 @@ public fun String.split(separator: Expression<StringValue>): Expression<ListValu
  * successfully loaded.
  */
 public fun resolvedLocale(collator: Expression<CollatorValue>): Expression<StringValue> =
-  FunctionCall.of("resolved-locale", collator).cast()
+  call("resolved-locale", collator)
