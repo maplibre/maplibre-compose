@@ -10,6 +10,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.ImageValue
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.LocationIndicatorLayer as BaseLocationIndicatorLayer
 import org.maplibre.compose.location.LocationState
@@ -52,9 +53,9 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
+  onClick: (ClickEvent.() -> ClickResult)? = null,
+  onLongClick: (ClickEvent.() -> ClickResult)? = null,
+  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
   hitPadding: Dp = 0.dp,
 ) {
   BaseLocationIndicatorLayer(
@@ -118,9 +119,9 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
+  onClick: (ClickEvent.() -> ClickResult)? = null,
+  onLongClick: (ClickEvent.() -> ClickResult)? = null,
+  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
   hitPadding: Dp = 0.dp,
 ) {
   BaseLocationIndicatorLayer(

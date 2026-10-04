@@ -10,6 +10,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.ImageValue
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.mostAccurateBearingMeasurement
@@ -60,9 +61,9 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
+  onClick: (ClickEvent.() -> ClickResult)? = null,
+  onLongClick: (ClickEvent.() -> ClickResult)? = null,
+  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
   hitPadding: Dp = 0.dp,
 ) {
   val measurement = locationState.mostAccurateBearingMeasurement()
@@ -108,8 +109,9 @@ public fun LocationIndicatorLayer(
  *
  * Click handlers target the top and bearing image bounds, including transparent margins, but not
  * the shadow, accuracy circle, or bearing accuracy sector. Each gesture invokes its handler at most
- * once, even when the images overlap. Return [ClickResult.Pass] to continue to layers below or
- * [ClickResult.Consume] to stop dispatch.
+ * once, even when the images overlap. Handlers run with the [ClickEvent] as their receiver, so they
+ * can read where and how the click happened. Return [ClickResult.Pass] to continue to layers below
+ * or [ClickResult.Consume] to stop dispatch.
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
@@ -177,9 +179,9 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (() -> ClickResult)? = null,
-  onLongClick: (() -> ClickResult)? = null,
-  onDoubleClick: (() -> ClickResult)? = null,
+  onClick: (ClickEvent.() -> ClickResult)? = null,
+  onLongClick: (ClickEvent.() -> ClickResult)? = null,
+  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
   hitPadding: Dp = 0.dp,
 ) {
   require(
@@ -258,13 +260,13 @@ internal data class LocationIndicatorProperties(
   val locationTransition: TransitionOptions,
   val bearingTransition: TransitionOptions,
   val accuracyRadiusTransition: TransitionOptions,
-  val onClick: (() -> ClickResult)?,
-  val onLongClick: (() -> ClickResult)?,
-  val onDoubleClick: (() -> ClickResult)?,
+  val onClick: (ClickEvent.() -> ClickResult)?,
+  val onLongClick: (ClickEvent.() -> ClickResult)?,
+  val onDoubleClick: (ClickEvent.() -> ClickResult)?,
   val hitPadding: Dp,
 )
 
-internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler {
+internal fun (ClickEvent.() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler {
   val onClick = this
-  return { onClick() }
+  return { onClick(this) }
 }
