@@ -148,6 +148,7 @@ class BrowserMapSnapshotterTest {
           MapSnapshotRequest(width = 96, height = 64, density = 2f) to (192 to 128),
           MapSnapshotRequest(width = 1, height = 1, density = 3f) to (3 to 3),
           MapSnapshotRequest(width = 31, height = 23, density = 1.25f) to (39 to 29),
+          MapSnapshotRequest(width = 33, height = 25, density = 1.25f) to (42 to 32),
           MapSnapshotRequest(width = 1, height = 1, density = 0.5f) to (1 to 1),
         )) {
         val captured = snapshotter.capture(request)
