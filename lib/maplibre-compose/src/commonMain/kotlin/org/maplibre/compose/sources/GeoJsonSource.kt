@@ -89,9 +89,9 @@ public sealed interface GeoJsonData {
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
- *   detail at low zoom levels). Web ignores it.
+ *   detail at low zoom levels). Defaults to 0. Web ignores it.
  * @param maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail at
- *   high zoom levels).
+ *   high zoom levels). Defaults to 18, the style spec default for a GeoJSON source.
  * @param buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value of
  *   512 produces a buffer as wide as the tile itself. Larger values produce fewer rendering
  *   artifacts near tile edges at the cost of slower performance.
@@ -127,8 +127,8 @@ public sealed interface GeoJsonData {
  */
 @Immutable
 public data class GeoJsonOptions(
-  val minZoom: Int = SourceDefaults.MIN_ZOOM,
-  val maxZoom: Int = SourceDefaults.MAX_ZOOM,
+  val minZoom: Int = 0,
+  val maxZoom: Int = 18,
   val buffer: Int = 128,
   val tolerance: Float = 0.375f,
   val cluster: Boolean = false,

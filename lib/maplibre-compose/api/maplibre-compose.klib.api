@@ -3926,15 +3926,6 @@ final object org.maplibre.compose.overlay/ZoomButtonsDefaults { // org.maplibre.
     final fun zoomOutPainter(androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.ui.graphics.painter/Painter // org.maplibre.compose.overlay/ZoomButtonsDefaults.zoomOutPainter|zoomOutPainter(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 }
 
-final object org.maplibre.compose.sources/SourceDefaults { // org.maplibre.compose.sources/SourceDefaults|null[0]
-    final const val MAX_ZOOM // org.maplibre.compose.sources/SourceDefaults.MAX_ZOOM|{}MAX_ZOOM[0]
-        final fun <get-MAX_ZOOM>(): kotlin/Int // org.maplibre.compose.sources/SourceDefaults.MAX_ZOOM.<get-MAX_ZOOM>|<get-MAX_ZOOM>(){}[0]
-    final const val MIN_ZOOM // org.maplibre.compose.sources/SourceDefaults.MIN_ZOOM|{}MIN_ZOOM[0]
-        final fun <get-MIN_ZOOM>(): kotlin/Int // org.maplibre.compose.sources/SourceDefaults.MIN_ZOOM.<get-MIN_ZOOM>|<get-MIN_ZOOM>(){}[0]
-    final const val RASTER_TILE_SIZE // org.maplibre.compose.sources/SourceDefaults.RASTER_TILE_SIZE|{}RASTER_TILE_SIZE[0]
-        final fun <get-RASTER_TILE_SIZE>(): kotlin/Int // org.maplibre.compose.sources/SourceDefaults.RASTER_TILE_SIZE.<get-RASTER_TILE_SIZE>|<get-RASTER_TILE_SIZE>(){}[0]
-}
-
 final const val org.maplibre.compose.overlay/MaplibreWebsiteUrl // org.maplibre.compose.overlay/MaplibreWebsiteUrl|{}MaplibreWebsiteUrl[0]
     final fun <get-MaplibreWebsiteUrl>(): kotlin/String // org.maplibre.compose.overlay/MaplibreWebsiteUrl.<get-MaplibreWebsiteUrl>|<get-MaplibreWebsiteUrl>(){}[0]
 
@@ -4176,7 +4167,6 @@ final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTil
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop|#static{}org_maplibre_compose_sources_RasterSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop|#static{}org_maplibre_compose_sources_RasterTileSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop|#static{}org_maplibre_compose_sources_Source$stableprop[0]
-final val org.maplibre.compose.sources/org_maplibre_compose_sources_SourceDefaults$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_SourceDefaults$stableprop|#static{}org_maplibre_compose_sources_SourceDefaults$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop|#static{}org_maplibre_compose_sources_TileCoordinate$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop|#static{}org_maplibre_compose_sources_TileSetOptions$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop|#static{}org_maplibre_compose_sources_VectorSource$stableprop[0]
@@ -4631,7 +4621,6 @@ final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTil
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop_getter|org_maplibre_compose_sources_RasterSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop_getter|org_maplibre_compose_sources_RasterTileSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop_getter|org_maplibre_compose_sources_Source$stableprop_getter(){}[0]
-final fun org.maplibre.compose.sources/org_maplibre_compose_sources_SourceDefaults$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_SourceDefaults$stableprop_getter|org_maplibre_compose_sources_SourceDefaults$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop_getter|org_maplibre_compose_sources_TileCoordinate$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop_getter|org_maplibre_compose_sources_TileSetOptions$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop_getter|org_maplibre_compose_sources_VectorSource$stableprop_getter(){}[0]

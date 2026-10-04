@@ -62,9 +62,3 @@ internal fun <T : Source> rememberUserSource(factory: (String) -> T): T {
   // Build a fresh description. No committed object is mutated by speculative composition.
   return remember(node, factory) { factory(id) }
 }
-
-public object SourceDefaults {
-  public const val MIN_ZOOM: Int = 0
-  public const val MAX_ZOOM: Int = 18
-  public const val RASTER_TILE_SIZE: Int = 512
-}

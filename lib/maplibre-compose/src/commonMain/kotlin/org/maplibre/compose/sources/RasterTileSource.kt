@@ -18,12 +18,12 @@ public class RasterTileSource : RasterSource {
    * @param uri URI pointing to a JSON file that conforms to the
    *   [TileJSON specification](https://github.com/mapbox/tilejson-spec/)
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
-   *   source
+   *   source. Defaults to 512, the style spec default.
    */
   public constructor(
     id: String,
     uri: String,
-    tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+    tileSize: Int = 512,
   ) : super(id) {
     json = buildJsonObject {
       put("type", "raster")
@@ -38,13 +38,13 @@ public class RasterTileSource : RasterSource {
    * @param tiles List of URIs pointing to tile images
    * @param options see [TileSetOptions]
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
-   *   source
+   *   source. Defaults to 512, the style spec default.
    */
   public constructor(
     id: String,
     tiles: List<String>,
     options: TileSetOptions = TileSetOptions(),
-    tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+    tileSize: Int = 512,
   ) : super(id) {
     json = buildJsonObject {
       put("type", "raster")
@@ -65,7 +65,7 @@ public class RasterTileSource : RasterSource {
 @Composable
 public fun rememberRasterTileSource(
   uri: String,
-  tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+  tileSize: Int = 512,
 ): RasterTileSource =
   key(uri, tileSize) {
     rememberUserSource { RasterTileSource(id = it, uri = uri, tileSize = tileSize) }
@@ -75,7 +75,7 @@ public fun rememberRasterTileSource(
 public fun rememberRasterTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
-  tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
+  tileSize: Int = 512,
 ): RasterTileSource =
   key(tiles, options, tileSize) {
     rememberUserSource {

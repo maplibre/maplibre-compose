@@ -128,8 +128,9 @@ public class CustomVectorTileSource(
 /**
  * Controls the feature tiles that MapLibre creates.
  *
- * @param minZoom Minimum zoom level at which MapLibre creates tiles.
- * @param maxZoom Maximum zoom level at which MapLibre creates tiles.
+ * @param minZoom Minimum zoom level at which MapLibre creates tiles. Defaults to 0.
+ * @param maxZoom Maximum zoom level at which MapLibre creates tiles. Defaults to 18, the MapLibre
+ *   default for a custom geometry source. MapLibre overzooms the highest tiles beyond it.
  * @param buffer Tile buffer size on each side. Zero disables the buffer, and 512 adds a buffer as
  *   wide as the tile. Larger values reduce rendering artifacts near tile edges and increase
  *   processing time.
@@ -140,8 +141,8 @@ public class CustomVectorTileSource(
  */
 @Immutable
 public data class CustomGeometrySourceOptions(
-  val minZoom: Int = SourceDefaults.MIN_ZOOM,
-  val maxZoom: Int = SourceDefaults.MAX_ZOOM,
+  val minZoom: Int = 0,
+  val maxZoom: Int = 18,
   val buffer: Int = 128,
   val tolerance: Float = 0.375f,
   val clip: Boolean = false,
@@ -152,11 +153,17 @@ public data class CustomGeometrySourceOptions(
   }
 }
 
-/** Options for application-supplied MVT tiles. */
+/**
+ * Options for application-supplied MVT tiles.
+ *
+ * @param minZoom Minimum zoom level at which MapLibre requests tiles. Defaults to 0.
+ * @param maxZoom Maximum zoom level at which MapLibre requests tiles. Defaults to 22, the style
+ *   spec default for a vector source. MapLibre overzooms the highest tiles beyond it.
+ */
 @Immutable
 public data class CustomVectorTileSourceOptions(
-  val minZoom: Int = SourceDefaults.MIN_ZOOM,
-  val maxZoom: Int = SourceDefaults.MAX_ZOOM,
+  val minZoom: Int = 0,
+  val maxZoom: Int = 22,
 ) {
   init {
     validateZoomRange(minZoom, maxZoom)
