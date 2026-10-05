@@ -5,6 +5,7 @@ import js.objects.unsafeJso
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -546,34 +547,54 @@ internal class GlJsStyleBinding(
   override suspend fun clusterExpansionZoom(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-  ): Double? {
-    val query = clusterQuery(sourceId, feature) ?: return null
-    return query.source.getClusterExpansionZoom(query.clusterId).await()
-  }
+  ): Double? =
+    queryCluster(sourceId, feature) { query ->
+      query.source.getClusterExpansionZoom(query.clusterId).await()
+    }
 
   override suspend fun clusterChildren(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-  ): FeatureCollection<Geometry, JsonObject?>? {
-    val query = clusterQuery(sourceId, feature) ?: return null
-    return query.source.getClusterChildren(query.clusterId).await().toFeatureCollection()
-  }
+  ): FeatureCollection<Geometry, JsonObject?>? =
+    queryCluster(sourceId, feature) { query ->
+      query.source.getClusterChildren(query.clusterId).await().toFeatureCollection()
+    }
 
   override suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
-  ): FeatureCollection<Geometry, JsonObject?>? {
+  ): FeatureCollection<Geometry, JsonObject?>? =
+    queryCluster(sourceId, feature) { query ->
+      query.source
+        .getClusterLeaves(
+          query.clusterId,
+          limit.coerceAtLeast(0).toDouble(),
+          offset.coerceAtLeast(0).toDouble(),
+        )
+        .await()
+        .toFeatureCollection()
+    }
+
+  private suspend fun <T> queryCluster(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    action: suspend (ClusterQuery) -> T,
+  ): T? {
     val query = clusterQuery(sourceId, feature) ?: return null
-    return query.source
-      .getClusterLeaves(
-        query.clusterId,
-        limit.coerceAtLeast(0).toDouble(),
-        offset.coerceAtLeast(0).toDouble(),
+    return try {
+      action(query)
+    } catch (error: Throwable) {
+      // The worker transfers the missing-cluster error as an ordinary JavaScript Error.
+      if (
+        error is CancellationException ||
+          error.message != "No cluster with the specified id: ${query.clusterId}"
       )
-      .await()
-      .toFeatureCollection()
+        throw error
+      logger?.w { "Cluster query matched no cluster in source '$sourceId'" }
+      null
+    }
   }
 
   private class ClusterQuery(val source: GlJsGeoJsonSource, val clusterId: Double)

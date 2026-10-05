@@ -1050,7 +1050,7 @@ class MapPresentationTest {
         .single()
 
     assertFalse(handle.isCluster(point))
-    assertEquals(0.0, handle.getClusterExpansionZoom(point))
+    assertNull(handle.getClusterExpansionZoom(point))
     assertTrue(handle.getClusterChildren(point).features.isEmpty())
     assertTrue(handle.getClusterLeaves(point, limit = 1, offset = 0).features.isEmpty())
     fixture.close()
