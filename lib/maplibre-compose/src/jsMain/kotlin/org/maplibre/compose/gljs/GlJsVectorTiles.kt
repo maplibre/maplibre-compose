@@ -7,10 +7,10 @@ internal external fun geoJSONToTile(
   z: Int,
   x: Int,
   y: Int,
-  options: GeoJSONToTileOptions,
+  options: GeoJsonToTileOptions,
 ): dynamic
 
-internal external interface GeoJSONToTileOptions {
+internal external interface GeoJsonToTileOptions {
   var extent: Double
   var buffer: Double
   var tolerance: Double
