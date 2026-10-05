@@ -1,16 +1,20 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Orientation of text when map is pitched. */
-public enum class TextPitchAlignment(internal val literal: StringLiteral) :
-  EnumValue<TextPitchAlignment> {
-  /** The text is aligned to the plane of the map. */
-  Map(StringLiteral.of("map")),
+@JvmInline
+public value class TextPitchAlignment private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<TextPitchAlignment> {
+    /** The text is aligned to the plane of the map. */
+    public val Map: TextPitchAlignment = TextPitchAlignment("map")
 
-  /** The text is aligned to the plane of the viewport, i.e. as if glued to the screen */
-  Viewport(StringLiteral.of("viewport")),
+    /** The text is aligned to the plane of the viewport, i.e. as if glued to the screen */
+    public val Viewport: TextPitchAlignment = TextPitchAlignment("viewport")
 
-  /** Automatically matches the value of [TextRotationAlignment] */
-  Auto(StringLiteral.of("auto")),
+    /** Automatically matches the value of [TextRotationAlignment] */
+    public val Auto: TextPitchAlignment = TextPitchAlignment("auto")
+
+    public override val entries: List<TextPitchAlignment> = listOf(Map, Viewport, Auto)
+  }
 }

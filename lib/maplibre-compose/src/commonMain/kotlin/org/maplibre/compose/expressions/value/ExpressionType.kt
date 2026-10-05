@@ -1,14 +1,20 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 import org.maplibre.compose.expressions.dsl.type
 
 /** The type of value resolved from an expression, as returned by [type]. */
-public enum class ExpressionType(internal val literal: StringLiteral) : EnumValue<ExpressionType> {
-  Number(StringLiteral.of("number")),
-  String(StringLiteral.of("string")),
-  Object(StringLiteral.of("object")),
-  Boolean(StringLiteral.of("boolean")),
-  Color(StringLiteral.of("color")),
-  Array(StringLiteral.of("array")),
+@JvmInline
+public value class ExpressionType private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<ExpressionType> {
+    public val Number: ExpressionType = ExpressionType("number")
+    public val String: ExpressionType = ExpressionType("string")
+    public val Object: ExpressionType = ExpressionType("object")
+    public val Boolean: ExpressionType = ExpressionType("boolean")
+    public val Color: ExpressionType = ExpressionType("color")
+    public val Array: ExpressionType = ExpressionType("array")
+
+    public override val entries: List<ExpressionType> =
+      listOf(Number, String, Object, Boolean, Color, Array)
+  }
 }

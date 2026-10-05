@@ -1,14 +1,17 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Direction of light source when map is rotated. */
-public enum class IlluminationAnchor(internal val literal: StringLiteral) :
-  EnumValue<IlluminationAnchor> {
+@JvmInline
+public value class IlluminationAnchor private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<IlluminationAnchor> {
+    /** The hillshade illumination is relative to the north direction. */
+    public val Map: IlluminationAnchor = IlluminationAnchor("map")
 
-  /** The hillshade illumination is relative to the north direction. */
-  Map(StringLiteral.of("map")),
+    /** The hillshade illumination is relative to the top of the viewport. */
+    public val Viewport: IlluminationAnchor = IlluminationAnchor("viewport")
 
-  /** The hillshade illumination is relative to the top of the viewport. */
-  Viewport(StringLiteral.of("viewport")),
+    public override val entries: List<IlluminationAnchor> = listOf(Map, Viewport)
+  }
 }

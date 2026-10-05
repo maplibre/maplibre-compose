@@ -1,21 +1,26 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Display of line endings */
-public enum class LineCap(internal val literal: StringLiteral) : EnumValue<LineCap> {
-  /** A cap with a squared-off end which is drawn to the exact endpoint of the line. */
-  Butt(StringLiteral.of("butt")),
+@JvmInline
+public value class LineCap private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<LineCap> {
+    /** A cap with a squared-off end which is drawn to the exact endpoint of the line. */
+    public val Butt: LineCap = LineCap("butt")
 
-  /**
-   * A cap with a rounded end which is drawn beyond the endpoint of the line at a radius of one-half
-   * of the line's width and centered on the endpoint of the line.
-   */
-  Round(StringLiteral.of("round")),
+    /**
+     * A cap with a rounded end which is drawn beyond the endpoint of the line at a radius of
+     * one-half of the line's width and centered on the endpoint of the line.
+     */
+    public val Round: LineCap = LineCap("round")
 
-  /**
-   * A cap with a squared-off end which is drawn beyond the endpoint of the line at a distance of
-   * one-half of the line's width.
-   */
-  Square(StringLiteral.of("square")),
+    /**
+     * A cap with a squared-off end which is drawn beyond the endpoint of the line at a distance of
+     * one-half of the line's width.
+     */
+    public val Square: LineCap = LineCap("square")
+
+    public override val entries: List<LineCap> = listOf(Butt, Round, Square)
+  }
 }

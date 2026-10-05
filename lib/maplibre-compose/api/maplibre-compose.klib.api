@@ -36,304 +36,6 @@ final enum class org.maplibre.compose.camera/CameraMoveReason : kotlin/Enum<org.
     final fun values(): kotlin/Array<org.maplibre.compose.camera/CameraMoveReason> // org.maplibre.compose.camera/CameraMoveReason.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.expressions.value/CirclePitchAlignment : kotlin/Enum<org.maplibre.compose.expressions.value/CirclePitchAlignment>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/CirclePitchAlignment> { // org.maplibre.compose.expressions.value/CirclePitchAlignment|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/CirclePitchAlignment.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/CirclePitchAlignment.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/CirclePitchAlignment.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/CirclePitchAlignment> // org.maplibre.compose.expressions.value/CirclePitchAlignment.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/CirclePitchAlignment // org.maplibre.compose.expressions.value/CirclePitchAlignment.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/CirclePitchAlignment> // org.maplibre.compose.expressions.value/CirclePitchAlignment.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/CirclePitchScale : kotlin/Enum<org.maplibre.compose.expressions.value/CirclePitchScale>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/CirclePitchScale> { // org.maplibre.compose.expressions.value/CirclePitchScale|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/CirclePitchScale.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/CirclePitchScale.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/CirclePitchScale.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/CirclePitchScale> // org.maplibre.compose.expressions.value/CirclePitchScale.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/CirclePitchScale // org.maplibre.compose.expressions.value/CirclePitchScale.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/CirclePitchScale> // org.maplibre.compose.expressions.value/CirclePitchScale.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/ExpressionType : kotlin/Enum<org.maplibre.compose.expressions.value/ExpressionType>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/ExpressionType> { // org.maplibre.compose.expressions.value/ExpressionType|null[0]
-    enum entry Array // org.maplibre.compose.expressions.value/ExpressionType.Array|null[0]
-    enum entry Boolean // org.maplibre.compose.expressions.value/ExpressionType.Boolean|null[0]
-    enum entry Color // org.maplibre.compose.expressions.value/ExpressionType.Color|null[0]
-    enum entry Number // org.maplibre.compose.expressions.value/ExpressionType.Number|null[0]
-    enum entry Object // org.maplibre.compose.expressions.value/ExpressionType.Object|null[0]
-    enum entry String // org.maplibre.compose.expressions.value/ExpressionType.String|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/ExpressionType.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/ExpressionType> // org.maplibre.compose.expressions.value/ExpressionType.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/ExpressionType> // org.maplibre.compose.expressions.value/ExpressionType.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/GeometryType : kotlin/Enum<org.maplibre.compose.expressions.value/GeometryType>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/GeometryType> { // org.maplibre.compose.expressions.value/GeometryType|null[0]
-    enum entry LineString // org.maplibre.compose.expressions.value/GeometryType.LineString|null[0]
-    enum entry MultiLineString // org.maplibre.compose.expressions.value/GeometryType.MultiLineString|null[0]
-    enum entry MultiPoint // org.maplibre.compose.expressions.value/GeometryType.MultiPoint|null[0]
-    enum entry MultiPolygon // org.maplibre.compose.expressions.value/GeometryType.MultiPolygon|null[0]
-    enum entry Point // org.maplibre.compose.expressions.value/GeometryType.Point|null[0]
-    enum entry Polygon // org.maplibre.compose.expressions.value/GeometryType.Polygon|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/GeometryType.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/GeometryType> // org.maplibre.compose.expressions.value/GeometryType.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/GeometryType> // org.maplibre.compose.expressions.value/GeometryType.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/HillshadeMethod : kotlin/Enum<org.maplibre.compose.expressions.value/HillshadeMethod>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/HillshadeMethod> { // org.maplibre.compose.expressions.value/HillshadeMethod|null[0]
-    enum entry Basic // org.maplibre.compose.expressions.value/HillshadeMethod.Basic|null[0]
-    enum entry Combined // org.maplibre.compose.expressions.value/HillshadeMethod.Combined|null[0]
-    enum entry Igor // org.maplibre.compose.expressions.value/HillshadeMethod.Igor|null[0]
-    enum entry Multidirectional // org.maplibre.compose.expressions.value/HillshadeMethod.Multidirectional|null[0]
-    enum entry Standard // org.maplibre.compose.expressions.value/HillshadeMethod.Standard|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/HillshadeMethod.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/HillshadeMethod> // org.maplibre.compose.expressions.value/HillshadeMethod.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/HillshadeMethod> // org.maplibre.compose.expressions.value/HillshadeMethod.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/IconPitchAlignment : kotlin/Enum<org.maplibre.compose.expressions.value/IconPitchAlignment>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/IconPitchAlignment> { // org.maplibre.compose.expressions.value/IconPitchAlignment|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/IconPitchAlignment.Auto|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/IconPitchAlignment.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/IconPitchAlignment.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/IconPitchAlignment.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/IconPitchAlignment> // org.maplibre.compose.expressions.value/IconPitchAlignment.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/IconPitchAlignment // org.maplibre.compose.expressions.value/IconPitchAlignment.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/IconPitchAlignment> // org.maplibre.compose.expressions.value/IconPitchAlignment.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/IconRotationAlignment : kotlin/Enum<org.maplibre.compose.expressions.value/IconRotationAlignment>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/IconRotationAlignment> { // org.maplibre.compose.expressions.value/IconRotationAlignment|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/IconRotationAlignment.Auto|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/IconRotationAlignment.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/IconRotationAlignment.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/IconRotationAlignment.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/IconRotationAlignment> // org.maplibre.compose.expressions.value/IconRotationAlignment.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/IconRotationAlignment // org.maplibre.compose.expressions.value/IconRotationAlignment.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/IconRotationAlignment> // org.maplibre.compose.expressions.value/IconRotationAlignment.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/IconTextFit : kotlin/Enum<org.maplibre.compose.expressions.value/IconTextFit>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/IconTextFit> { // org.maplibre.compose.expressions.value/IconTextFit|null[0]
-    enum entry Both // org.maplibre.compose.expressions.value/IconTextFit.Both|null[0]
-    enum entry Height // org.maplibre.compose.expressions.value/IconTextFit.Height|null[0]
-    enum entry None // org.maplibre.compose.expressions.value/IconTextFit.None|null[0]
-    enum entry Width // org.maplibre.compose.expressions.value/IconTextFit.Width|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/IconTextFit.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/IconTextFit> // org.maplibre.compose.expressions.value/IconTextFit.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/IconTextFit // org.maplibre.compose.expressions.value/IconTextFit.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/IconTextFit> // org.maplibre.compose.expressions.value/IconTextFit.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/IlluminationAnchor : kotlin/Enum<org.maplibre.compose.expressions.value/IlluminationAnchor>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/IlluminationAnchor> { // org.maplibre.compose.expressions.value/IlluminationAnchor|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/IlluminationAnchor.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/IlluminationAnchor.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/IlluminationAnchor.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/IlluminationAnchor> // org.maplibre.compose.expressions.value/IlluminationAnchor.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/IlluminationAnchor // org.maplibre.compose.expressions.value/IlluminationAnchor.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/IlluminationAnchor> // org.maplibre.compose.expressions.value/IlluminationAnchor.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/LineCap : kotlin/Enum<org.maplibre.compose.expressions.value/LineCap>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/LineCap> { // org.maplibre.compose.expressions.value/LineCap|null[0]
-    enum entry Butt // org.maplibre.compose.expressions.value/LineCap.Butt|null[0]
-    enum entry Round // org.maplibre.compose.expressions.value/LineCap.Round|null[0]
-    enum entry Square // org.maplibre.compose.expressions.value/LineCap.Square|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/LineCap.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/LineCap> // org.maplibre.compose.expressions.value/LineCap.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/LineCap // org.maplibre.compose.expressions.value/LineCap.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/LineCap> // org.maplibre.compose.expressions.value/LineCap.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/LineJoin : kotlin/Enum<org.maplibre.compose.expressions.value/LineJoin>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/LineJoin> { // org.maplibre.compose.expressions.value/LineJoin|null[0]
-    enum entry Bevel // org.maplibre.compose.expressions.value/LineJoin.Bevel|null[0]
-    enum entry Miter // org.maplibre.compose.expressions.value/LineJoin.Miter|null[0]
-    enum entry Round // org.maplibre.compose.expressions.value/LineJoin.Round|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/LineJoin.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/LineJoin> // org.maplibre.compose.expressions.value/LineJoin.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/LineJoin // org.maplibre.compose.expressions.value/LineJoin.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/LineJoin> // org.maplibre.compose.expressions.value/LineJoin.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/ProjectionType : kotlin/Enum<org.maplibre.compose.expressions.value/ProjectionType>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/ProjectionType>, org.maplibre.compose.expressions.value/ProjectionValue { // org.maplibre.compose.expressions.value/ProjectionType|null[0]
-    enum entry Globe // org.maplibre.compose.expressions.value/ProjectionType.Globe|null[0]
-    enum entry Mercator // org.maplibre.compose.expressions.value/ProjectionType.Mercator|null[0]
-    enum entry VerticalPerspective // org.maplibre.compose.expressions.value/ProjectionType.VerticalPerspective|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/ProjectionType.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/ProjectionType> // org.maplibre.compose.expressions.value/ProjectionType.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/ProjectionType // org.maplibre.compose.expressions.value/ProjectionType.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/ProjectionType> // org.maplibre.compose.expressions.value/ProjectionType.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/RasterResampling : kotlin/Enum<org.maplibre.compose.expressions.value/RasterResampling>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/RasterResampling> { // org.maplibre.compose.expressions.value/RasterResampling|null[0]
-    enum entry Linear // org.maplibre.compose.expressions.value/RasterResampling.Linear|null[0]
-    enum entry Nearest // org.maplibre.compose.expressions.value/RasterResampling.Nearest|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/RasterResampling.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/RasterResampling> // org.maplibre.compose.expressions.value/RasterResampling.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/RasterResampling // org.maplibre.compose.expressions.value/RasterResampling.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/RasterResampling> // org.maplibre.compose.expressions.value/RasterResampling.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/SymbolAnchor : kotlin/Enum<org.maplibre.compose.expressions.value/SymbolAnchor>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/SymbolAnchor> { // org.maplibre.compose.expressions.value/SymbolAnchor|null[0]
-    enum entry Bottom // org.maplibre.compose.expressions.value/SymbolAnchor.Bottom|null[0]
-    enum entry BottomLeft // org.maplibre.compose.expressions.value/SymbolAnchor.BottomLeft|null[0]
-    enum entry BottomRight // org.maplibre.compose.expressions.value/SymbolAnchor.BottomRight|null[0]
-    enum entry Center // org.maplibre.compose.expressions.value/SymbolAnchor.Center|null[0]
-    enum entry Left // org.maplibre.compose.expressions.value/SymbolAnchor.Left|null[0]
-    enum entry Right // org.maplibre.compose.expressions.value/SymbolAnchor.Right|null[0]
-    enum entry Top // org.maplibre.compose.expressions.value/SymbolAnchor.Top|null[0]
-    enum entry TopLeft // org.maplibre.compose.expressions.value/SymbolAnchor.TopLeft|null[0]
-    enum entry TopRight // org.maplibre.compose.expressions.value/SymbolAnchor.TopRight|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/SymbolAnchor.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/SymbolAnchor> // org.maplibre.compose.expressions.value/SymbolAnchor.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/SymbolAnchor> // org.maplibre.compose.expressions.value/SymbolAnchor.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/SymbolHeightAnchor : kotlin/Enum<org.maplibre.compose.expressions.value/SymbolHeightAnchor>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/SymbolHeightAnchor> { // org.maplibre.compose.expressions.value/SymbolHeightAnchor|null[0]
-    enum entry Absolute // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Absolute|null[0]
-    enum entry Ground // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Ground|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/SymbolHeightAnchor.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/SymbolHeightAnchor> // org.maplibre.compose.expressions.value/SymbolHeightAnchor.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/SymbolHeightAnchor // org.maplibre.compose.expressions.value/SymbolHeightAnchor.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/SymbolHeightAnchor> // org.maplibre.compose.expressions.value/SymbolHeightAnchor.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/SymbolOverlap : kotlin/Enum<org.maplibre.compose.expressions.value/SymbolOverlap>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/SymbolOverlap> { // org.maplibre.compose.expressions.value/SymbolOverlap|null[0]
-    enum entry Always // org.maplibre.compose.expressions.value/SymbolOverlap.Always|null[0]
-    enum entry Cooperative // org.maplibre.compose.expressions.value/SymbolOverlap.Cooperative|null[0]
-    enum entry Never // org.maplibre.compose.expressions.value/SymbolOverlap.Never|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/SymbolOverlap.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/SymbolOverlap> // org.maplibre.compose.expressions.value/SymbolOverlap.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/SymbolOverlap // org.maplibre.compose.expressions.value/SymbolOverlap.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/SymbolOverlap> // org.maplibre.compose.expressions.value/SymbolOverlap.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/SymbolPlacement : kotlin/Enum<org.maplibre.compose.expressions.value/SymbolPlacement>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/SymbolPlacement> { // org.maplibre.compose.expressions.value/SymbolPlacement|null[0]
-    enum entry Line // org.maplibre.compose.expressions.value/SymbolPlacement.Line|null[0]
-    enum entry LineCenter // org.maplibre.compose.expressions.value/SymbolPlacement.LineCenter|null[0]
-    enum entry Point // org.maplibre.compose.expressions.value/SymbolPlacement.Point|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/SymbolPlacement.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/SymbolPlacement> // org.maplibre.compose.expressions.value/SymbolPlacement.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/SymbolPlacement // org.maplibre.compose.expressions.value/SymbolPlacement.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/SymbolPlacement> // org.maplibre.compose.expressions.value/SymbolPlacement.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/SymbolZOrder : kotlin/Enum<org.maplibre.compose.expressions.value/SymbolZOrder>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/SymbolZOrder> { // org.maplibre.compose.expressions.value/SymbolZOrder|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/SymbolZOrder.Auto|null[0]
-    enum entry Source // org.maplibre.compose.expressions.value/SymbolZOrder.Source|null[0]
-    enum entry ViewportY // org.maplibre.compose.expressions.value/SymbolZOrder.ViewportY|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/SymbolZOrder.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/SymbolZOrder> // org.maplibre.compose.expressions.value/SymbolZOrder.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/SymbolZOrder // org.maplibre.compose.expressions.value/SymbolZOrder.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/SymbolZOrder> // org.maplibre.compose.expressions.value/SymbolZOrder.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TextJustify : kotlin/Enum<org.maplibre.compose.expressions.value/TextJustify>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TextJustify> { // org.maplibre.compose.expressions.value/TextJustify|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/TextJustify.Auto|null[0]
-    enum entry Center // org.maplibre.compose.expressions.value/TextJustify.Center|null[0]
-    enum entry Left // org.maplibre.compose.expressions.value/TextJustify.Left|null[0]
-    enum entry Right // org.maplibre.compose.expressions.value/TextJustify.Right|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TextJustify.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TextJustify> // org.maplibre.compose.expressions.value/TextJustify.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TextJustify // org.maplibre.compose.expressions.value/TextJustify.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TextJustify> // org.maplibre.compose.expressions.value/TextJustify.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TextPitchAlignment : kotlin/Enum<org.maplibre.compose.expressions.value/TextPitchAlignment>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TextPitchAlignment> { // org.maplibre.compose.expressions.value/TextPitchAlignment|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/TextPitchAlignment.Auto|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/TextPitchAlignment.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/TextPitchAlignment.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TextPitchAlignment.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TextPitchAlignment> // org.maplibre.compose.expressions.value/TextPitchAlignment.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TextPitchAlignment // org.maplibre.compose.expressions.value/TextPitchAlignment.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TextPitchAlignment> // org.maplibre.compose.expressions.value/TextPitchAlignment.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TextRotationAlignment : kotlin/Enum<org.maplibre.compose.expressions.value/TextRotationAlignment>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TextRotationAlignment> { // org.maplibre.compose.expressions.value/TextRotationAlignment|null[0]
-    enum entry Auto // org.maplibre.compose.expressions.value/TextRotationAlignment.Auto|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/TextRotationAlignment.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/TextRotationAlignment.Viewport|null[0]
-    enum entry ViewportGlyph // org.maplibre.compose.expressions.value/TextRotationAlignment.ViewportGlyph|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TextRotationAlignment.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TextRotationAlignment> // org.maplibre.compose.expressions.value/TextRotationAlignment.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TextRotationAlignment // org.maplibre.compose.expressions.value/TextRotationAlignment.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TextRotationAlignment> // org.maplibre.compose.expressions.value/TextRotationAlignment.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TextTransform : kotlin/Enum<org.maplibre.compose.expressions.value/TextTransform>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TextTransform> { // org.maplibre.compose.expressions.value/TextTransform|null[0]
-    enum entry Lowercase // org.maplibre.compose.expressions.value/TextTransform.Lowercase|null[0]
-    enum entry None // org.maplibre.compose.expressions.value/TextTransform.None|null[0]
-    enum entry Uppercase // org.maplibre.compose.expressions.value/TextTransform.Uppercase|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TextTransform.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TextTransform> // org.maplibre.compose.expressions.value/TextTransform.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TextTransform // org.maplibre.compose.expressions.value/TextTransform.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TextTransform> // org.maplibre.compose.expressions.value/TextTransform.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TextWritingMode : kotlin/Enum<org.maplibre.compose.expressions.value/TextWritingMode>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TextWritingMode> { // org.maplibre.compose.expressions.value/TextWritingMode|null[0]
-    enum entry Horizontal // org.maplibre.compose.expressions.value/TextWritingMode.Horizontal|null[0]
-    enum entry Vertical // org.maplibre.compose.expressions.value/TextWritingMode.Vertical|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TextWritingMode.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TextWritingMode> // org.maplibre.compose.expressions.value/TextWritingMode.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TextWritingMode // org.maplibre.compose.expressions.value/TextWritingMode.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TextWritingMode> // org.maplibre.compose.expressions.value/TextWritingMode.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.expressions.value/TranslateAnchor : kotlin/Enum<org.maplibre.compose.expressions.value/TranslateAnchor>, org.maplibre.compose.expressions.value/EnumValue<org.maplibre.compose.expressions.value/TranslateAnchor> { // org.maplibre.compose.expressions.value/TranslateAnchor|null[0]
-    enum entry Map // org.maplibre.compose.expressions.value/TranslateAnchor.Map|null[0]
-    enum entry Viewport // org.maplibre.compose.expressions.value/TranslateAnchor.Viewport|null[0]
-
-    final val entries // org.maplibre.compose.expressions.value/TranslateAnchor.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.expressions.value/TranslateAnchor> // org.maplibre.compose.expressions.value/TranslateAnchor.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.expressions.value/TranslateAnchor // org.maplibre.compose.expressions.value/TranslateAnchor.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.expressions.value/TranslateAnchor> // org.maplibre.compose.expressions.value/TranslateAnchor.values|values#static(){}[0]
-}
-
 final enum class org.maplibre.compose.interaction/ClickResult : kotlin/Enum<org.maplibre.compose.interaction/ClickResult> { // org.maplibre.compose.interaction/ClickResult|null[0]
     enum entry Consume // org.maplibre.compose.interaction/ClickResult.Consume|null[0]
     enum entry Pass // org.maplibre.compose.interaction/ClickResult.Pass|null[0]
@@ -574,6 +276,16 @@ abstract fun interface org.maplibre.compose.sources/VectorTileProvider { // org.
     abstract suspend fun loadTile(org.maplibre.compose.sources/TileCoordinate): kotlin/ByteArray // org.maplibre.compose.sources/VectorTileProvider.loadTile|loadTile(org.maplibre.compose.sources.TileCoordinate){}[0]
 }
 
+abstract interface <#A: out org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.value/EnumType { // org.maplibre.compose.expressions.value/EnumType|null[0]
+    abstract val entries // org.maplibre.compose.expressions.value/EnumType.entries|{}entries[0]
+        abstract fun <get-entries>(): kotlin.collections/List<#A> // org.maplibre.compose.expressions.value/EnumType.entries.<get-entries>|<get-entries>(){}[0]
+}
+
+abstract interface org.maplibre.compose.expressions.value/EnumValue : org.maplibre.compose.expressions.value/StringValue { // org.maplibre.compose.expressions.value/EnumValue|null[0]
+    abstract val value // org.maplibre.compose.expressions.value/EnumValue.value|{}value[0]
+        abstract fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/EnumValue.value.<get-value>|<get-value>(){}[0]
+}
+
 abstract interface org.maplibre.compose.overlay/ScaleBarMeasure { // org.maplibre.compose.overlay/ScaleBarMeasure|null[0]
     abstract val stops // org.maplibre.compose.overlay/ScaleBarMeasure.stops|{}stops[0]
         abstract fun <get-stops>(): kotlin.collections/List<org.maplibre.spatialk.units/Length> // org.maplibre.compose.overlay/ScaleBarMeasure.stops.<get-stops>|<get-stops>(){}[0]
@@ -629,8 +341,6 @@ sealed interface <#A: kotlin/Any?> org.maplibre.compose.expressions.value/Number
 sealed interface <#A: kotlin/Any?> org.maplibre.compose.expressions.value/OffsetValue : org.maplibre.compose.expressions.value/VectorValue<#A> // org.maplibre.compose.expressions.value/OffsetValue|null[0]
 
 sealed interface <#A: kotlin/Any?> org.maplibre.compose.expressions.value/VectorValue : org.maplibre.compose.expressions.value/FloatOrVectorValue<#A>, org.maplibre.compose.expressions.value/InterpolatableValue<org.maplibre.compose.expressions.value/VectorValue<#A>>, org.maplibre.compose.expressions.value/ListValue<org.maplibre.compose.expressions.value/NumberValue<#A>> // org.maplibre.compose.expressions.value/VectorValue|null[0]
-
-sealed interface <#A: out kotlin/Any?> org.maplibre.compose.expressions.value/EnumValue : org.maplibre.compose.expressions.value/StringValue // org.maplibre.compose.expressions.value/EnumValue|null[0]
 
 sealed interface <#A: out kotlin/Any?> org.maplibre.compose.expressions.value/FloatOrVectorValue : org.maplibre.compose.expressions.value/ExpressionValue // org.maplibre.compose.expressions.value/FloatOrVectorValue|null[0]
 
@@ -3245,6 +2955,506 @@ final value class <#A: org.maplibre.compose.expressions.value/ExpressionValue?> 
     final fun toString(): kotlin/String // org.maplibre.compose.expressions.dsl/Variable.toString|toString(){}[0]
 }
 
+final value class org.maplibre.compose.expressions.value/CirclePitchAlignment : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/CirclePitchAlignment|null[0]
+    final val value // org.maplibre.compose.expressions.value/CirclePitchAlignment.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/CirclePitchAlignment.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/CirclePitchAlignment.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/CirclePitchAlignment.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/CirclePitchAlignment.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/CirclePitchAlignment> { // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion|null[0]
+        final val Map // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/CirclePitchAlignment // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/CirclePitchAlignment // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/CirclePitchAlignment> // org.maplibre.compose.expressions.value/CirclePitchAlignment.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/CirclePitchScale : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/CirclePitchScale|null[0]
+    final val value // org.maplibre.compose.expressions.value/CirclePitchScale.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/CirclePitchScale.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/CirclePitchScale.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/CirclePitchScale.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/CirclePitchScale.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/CirclePitchScale> { // org.maplibre.compose.expressions.value/CirclePitchScale.Companion|null[0]
+        final val Map // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/CirclePitchScale // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/CirclePitchScale // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/CirclePitchScale> // org.maplibre.compose.expressions.value/CirclePitchScale.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/ExpressionType : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/ExpressionType|null[0]
+    final val value // org.maplibre.compose.expressions.value/ExpressionType.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/ExpressionType.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/ExpressionType.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/ExpressionType.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/ExpressionType.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/ExpressionType> { // org.maplibre.compose.expressions.value/ExpressionType.Companion|null[0]
+        final val Array // org.maplibre.compose.expressions.value/ExpressionType.Companion.Array|{}Array[0]
+            final fun <get-Array>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.Array.<get-Array>|<get-Array>(){}[0]
+        final val Boolean // org.maplibre.compose.expressions.value/ExpressionType.Companion.Boolean|{}Boolean[0]
+            final fun <get-Boolean>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.Boolean.<get-Boolean>|<get-Boolean>(){}[0]
+        final val Color // org.maplibre.compose.expressions.value/ExpressionType.Companion.Color|{}Color[0]
+            final fun <get-Color>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.Color.<get-Color>|<get-Color>(){}[0]
+        final val Number // org.maplibre.compose.expressions.value/ExpressionType.Companion.Number|{}Number[0]
+            final fun <get-Number>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.Number.<get-Number>|<get-Number>(){}[0]
+        final val Object // org.maplibre.compose.expressions.value/ExpressionType.Companion.Object|{}Object[0]
+            final fun <get-Object>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.Object.<get-Object>|<get-Object>(){}[0]
+        final val String // org.maplibre.compose.expressions.value/ExpressionType.Companion.String|{}String[0]
+            final fun <get-String>(): org.maplibre.compose.expressions.value/ExpressionType // org.maplibre.compose.expressions.value/ExpressionType.Companion.String.<get-String>|<get-String>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/ExpressionType.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/ExpressionType> // org.maplibre.compose.expressions.value/ExpressionType.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/GeometryType : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/GeometryType|null[0]
+    final val value // org.maplibre.compose.expressions.value/GeometryType.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/GeometryType.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/GeometryType.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/GeometryType.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/GeometryType.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/GeometryType> { // org.maplibre.compose.expressions.value/GeometryType.Companion|null[0]
+        final val LineString // org.maplibre.compose.expressions.value/GeometryType.Companion.LineString|{}LineString[0]
+            final fun <get-LineString>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.LineString.<get-LineString>|<get-LineString>(){}[0]
+        final val MultiLineString // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiLineString|{}MultiLineString[0]
+            final fun <get-MultiLineString>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiLineString.<get-MultiLineString>|<get-MultiLineString>(){}[0]
+        final val MultiPoint // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiPoint|{}MultiPoint[0]
+            final fun <get-MultiPoint>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiPoint.<get-MultiPoint>|<get-MultiPoint>(){}[0]
+        final val MultiPolygon // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiPolygon|{}MultiPolygon[0]
+            final fun <get-MultiPolygon>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.MultiPolygon.<get-MultiPolygon>|<get-MultiPolygon>(){}[0]
+        final val Point // org.maplibre.compose.expressions.value/GeometryType.Companion.Point|{}Point[0]
+            final fun <get-Point>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.Point.<get-Point>|<get-Point>(){}[0]
+        final val Polygon // org.maplibre.compose.expressions.value/GeometryType.Companion.Polygon|{}Polygon[0]
+            final fun <get-Polygon>(): org.maplibre.compose.expressions.value/GeometryType // org.maplibre.compose.expressions.value/GeometryType.Companion.Polygon.<get-Polygon>|<get-Polygon>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/GeometryType.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/GeometryType> // org.maplibre.compose.expressions.value/GeometryType.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/HillshadeMethod : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/HillshadeMethod|null[0]
+    final val value // org.maplibre.compose.expressions.value/HillshadeMethod.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/HillshadeMethod.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/HillshadeMethod.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/HillshadeMethod.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/HillshadeMethod.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/HillshadeMethod> { // org.maplibre.compose.expressions.value/HillshadeMethod.Companion|null[0]
+        final val Basic // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Basic|{}Basic[0]
+            final fun <get-Basic>(): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Basic.<get-Basic>|<get-Basic>(){}[0]
+        final val Combined // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Combined|{}Combined[0]
+            final fun <get-Combined>(): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Combined.<get-Combined>|<get-Combined>(){}[0]
+        final val Igor // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Igor|{}Igor[0]
+            final fun <get-Igor>(): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Igor.<get-Igor>|<get-Igor>(){}[0]
+        final val Multidirectional // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Multidirectional|{}Multidirectional[0]
+            final fun <get-Multidirectional>(): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Multidirectional.<get-Multidirectional>|<get-Multidirectional>(){}[0]
+        final val Standard // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.expressions.value/HillshadeMethod // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/HillshadeMethod> // org.maplibre.compose.expressions.value/HillshadeMethod.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/IconPitchAlignment : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/IconPitchAlignment|null[0]
+    final val value // org.maplibre.compose.expressions.value/IconPitchAlignment.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/IconPitchAlignment.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/IconPitchAlignment.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/IconPitchAlignment.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/IconPitchAlignment.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/IconPitchAlignment> { // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/IconPitchAlignment // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Map // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/IconPitchAlignment // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/IconPitchAlignment // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/IconPitchAlignment> // org.maplibre.compose.expressions.value/IconPitchAlignment.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/IconRotationAlignment : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/IconRotationAlignment|null[0]
+    final val value // org.maplibre.compose.expressions.value/IconRotationAlignment.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/IconRotationAlignment.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/IconRotationAlignment.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/IconRotationAlignment.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/IconRotationAlignment.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/IconRotationAlignment> { // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/IconRotationAlignment // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Map // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/IconRotationAlignment // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/IconRotationAlignment // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/IconRotationAlignment> // org.maplibre.compose.expressions.value/IconRotationAlignment.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/IconTextFit : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/IconTextFit|null[0]
+    final val value // org.maplibre.compose.expressions.value/IconTextFit.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/IconTextFit.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/IconTextFit.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/IconTextFit.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/IconTextFit.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/IconTextFit> { // org.maplibre.compose.expressions.value/IconTextFit.Companion|null[0]
+        final val Both // org.maplibre.compose.expressions.value/IconTextFit.Companion.Both|{}Both[0]
+            final fun <get-Both>(): org.maplibre.compose.expressions.value/IconTextFit // org.maplibre.compose.expressions.value/IconTextFit.Companion.Both.<get-Both>|<get-Both>(){}[0]
+        final val Height // org.maplibre.compose.expressions.value/IconTextFit.Companion.Height|{}Height[0]
+            final fun <get-Height>(): org.maplibre.compose.expressions.value/IconTextFit // org.maplibre.compose.expressions.value/IconTextFit.Companion.Height.<get-Height>|<get-Height>(){}[0]
+        final val None // org.maplibre.compose.expressions.value/IconTextFit.Companion.None|{}None[0]
+            final fun <get-None>(): org.maplibre.compose.expressions.value/IconTextFit // org.maplibre.compose.expressions.value/IconTextFit.Companion.None.<get-None>|<get-None>(){}[0]
+        final val Width // org.maplibre.compose.expressions.value/IconTextFit.Companion.Width|{}Width[0]
+            final fun <get-Width>(): org.maplibre.compose.expressions.value/IconTextFit // org.maplibre.compose.expressions.value/IconTextFit.Companion.Width.<get-Width>|<get-Width>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/IconTextFit.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/IconTextFit> // org.maplibre.compose.expressions.value/IconTextFit.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/IlluminationAnchor : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/IlluminationAnchor|null[0]
+    final val value // org.maplibre.compose.expressions.value/IlluminationAnchor.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/IlluminationAnchor.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/IlluminationAnchor.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/IlluminationAnchor.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/IlluminationAnchor.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/IlluminationAnchor> { // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion|null[0]
+        final val Map // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/IlluminationAnchor // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/IlluminationAnchor // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/IlluminationAnchor> // org.maplibre.compose.expressions.value/IlluminationAnchor.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/LineCap : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/LineCap|null[0]
+    final val value // org.maplibre.compose.expressions.value/LineCap.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/LineCap.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/LineCap.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/LineCap.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/LineCap.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/LineCap> { // org.maplibre.compose.expressions.value/LineCap.Companion|null[0]
+        final val Butt // org.maplibre.compose.expressions.value/LineCap.Companion.Butt|{}Butt[0]
+            final fun <get-Butt>(): org.maplibre.compose.expressions.value/LineCap // org.maplibre.compose.expressions.value/LineCap.Companion.Butt.<get-Butt>|<get-Butt>(){}[0]
+        final val Round // org.maplibre.compose.expressions.value/LineCap.Companion.Round|{}Round[0]
+            final fun <get-Round>(): org.maplibre.compose.expressions.value/LineCap // org.maplibre.compose.expressions.value/LineCap.Companion.Round.<get-Round>|<get-Round>(){}[0]
+        final val Square // org.maplibre.compose.expressions.value/LineCap.Companion.Square|{}Square[0]
+            final fun <get-Square>(): org.maplibre.compose.expressions.value/LineCap // org.maplibre.compose.expressions.value/LineCap.Companion.Square.<get-Square>|<get-Square>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/LineCap.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/LineCap> // org.maplibre.compose.expressions.value/LineCap.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/LineJoin : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/LineJoin|null[0]
+    final val value // org.maplibre.compose.expressions.value/LineJoin.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/LineJoin.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/LineJoin.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/LineJoin.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/LineJoin.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/LineJoin> { // org.maplibre.compose.expressions.value/LineJoin.Companion|null[0]
+        final val Bevel // org.maplibre.compose.expressions.value/LineJoin.Companion.Bevel|{}Bevel[0]
+            final fun <get-Bevel>(): org.maplibre.compose.expressions.value/LineJoin // org.maplibre.compose.expressions.value/LineJoin.Companion.Bevel.<get-Bevel>|<get-Bevel>(){}[0]
+        final val Miter // org.maplibre.compose.expressions.value/LineJoin.Companion.Miter|{}Miter[0]
+            final fun <get-Miter>(): org.maplibre.compose.expressions.value/LineJoin // org.maplibre.compose.expressions.value/LineJoin.Companion.Miter.<get-Miter>|<get-Miter>(){}[0]
+        final val Round // org.maplibre.compose.expressions.value/LineJoin.Companion.Round|{}Round[0]
+            final fun <get-Round>(): org.maplibre.compose.expressions.value/LineJoin // org.maplibre.compose.expressions.value/LineJoin.Companion.Round.<get-Round>|<get-Round>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/LineJoin.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/LineJoin> // org.maplibre.compose.expressions.value/LineJoin.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/ProjectionType : org.maplibre.compose.expressions.value/EnumValue, org.maplibre.compose.expressions.value/ProjectionValue { // org.maplibre.compose.expressions.value/ProjectionType|null[0]
+    final val value // org.maplibre.compose.expressions.value/ProjectionType.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/ProjectionType.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/ProjectionType.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/ProjectionType.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/ProjectionType.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/ProjectionType> { // org.maplibre.compose.expressions.value/ProjectionType.Companion|null[0]
+        final val Globe // org.maplibre.compose.expressions.value/ProjectionType.Companion.Globe|{}Globe[0]
+            final fun <get-Globe>(): org.maplibre.compose.expressions.value/ProjectionType // org.maplibre.compose.expressions.value/ProjectionType.Companion.Globe.<get-Globe>|<get-Globe>(){}[0]
+        final val Mercator // org.maplibre.compose.expressions.value/ProjectionType.Companion.Mercator|{}Mercator[0]
+            final fun <get-Mercator>(): org.maplibre.compose.expressions.value/ProjectionType // org.maplibre.compose.expressions.value/ProjectionType.Companion.Mercator.<get-Mercator>|<get-Mercator>(){}[0]
+        final val VerticalPerspective // org.maplibre.compose.expressions.value/ProjectionType.Companion.VerticalPerspective|{}VerticalPerspective[0]
+            final fun <get-VerticalPerspective>(): org.maplibre.compose.expressions.value/ProjectionType // org.maplibre.compose.expressions.value/ProjectionType.Companion.VerticalPerspective.<get-VerticalPerspective>|<get-VerticalPerspective>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/ProjectionType.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/ProjectionType> // org.maplibre.compose.expressions.value/ProjectionType.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/RasterResampling : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/RasterResampling|null[0]
+    final val value // org.maplibre.compose.expressions.value/RasterResampling.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/RasterResampling.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/RasterResampling.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/RasterResampling.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/RasterResampling.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/RasterResampling> { // org.maplibre.compose.expressions.value/RasterResampling.Companion|null[0]
+        final val Linear // org.maplibre.compose.expressions.value/RasterResampling.Companion.Linear|{}Linear[0]
+            final fun <get-Linear>(): org.maplibre.compose.expressions.value/RasterResampling // org.maplibre.compose.expressions.value/RasterResampling.Companion.Linear.<get-Linear>|<get-Linear>(){}[0]
+        final val Nearest // org.maplibre.compose.expressions.value/RasterResampling.Companion.Nearest|{}Nearest[0]
+            final fun <get-Nearest>(): org.maplibre.compose.expressions.value/RasterResampling // org.maplibre.compose.expressions.value/RasterResampling.Companion.Nearest.<get-Nearest>|<get-Nearest>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/RasterResampling.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/RasterResampling> // org.maplibre.compose.expressions.value/RasterResampling.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/SymbolAnchor : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/SymbolAnchor|null[0]
+    final val value // org.maplibre.compose.expressions.value/SymbolAnchor.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/SymbolAnchor.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/SymbolAnchor.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/SymbolAnchor.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/SymbolAnchor.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/SymbolAnchor> { // org.maplibre.compose.expressions.value/SymbolAnchor.Companion|null[0]
+        final val Bottom // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Bottom|{}Bottom[0]
+            final fun <get-Bottom>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Bottom.<get-Bottom>|<get-Bottom>(){}[0]
+        final val BottomLeft // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.BottomLeft|{}BottomLeft[0]
+            final fun <get-BottomLeft>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.BottomLeft.<get-BottomLeft>|<get-BottomLeft>(){}[0]
+        final val BottomRight // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.BottomRight|{}BottomRight[0]
+            final fun <get-BottomRight>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.BottomRight.<get-BottomRight>|<get-BottomRight>(){}[0]
+        final val Center // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Center|{}Center[0]
+            final fun <get-Center>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Center.<get-Center>|<get-Center>(){}[0]
+        final val Left // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Left|{}Left[0]
+            final fun <get-Left>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Left.<get-Left>|<get-Left>(){}[0]
+        final val Right // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Right|{}Right[0]
+            final fun <get-Right>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Right.<get-Right>|<get-Right>(){}[0]
+        final val Top // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Top|{}Top[0]
+            final fun <get-Top>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.Top.<get-Top>|<get-Top>(){}[0]
+        final val TopLeft // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.TopLeft|{}TopLeft[0]
+            final fun <get-TopLeft>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.TopLeft.<get-TopLeft>|<get-TopLeft>(){}[0]
+        final val TopRight // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.TopRight|{}TopRight[0]
+            final fun <get-TopRight>(): org.maplibre.compose.expressions.value/SymbolAnchor // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.TopRight.<get-TopRight>|<get-TopRight>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/SymbolAnchor> // org.maplibre.compose.expressions.value/SymbolAnchor.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/SymbolHeightAnchor : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/SymbolHeightAnchor|null[0]
+    final val value // org.maplibre.compose.expressions.value/SymbolHeightAnchor.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/SymbolHeightAnchor.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/SymbolHeightAnchor.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/SymbolHeightAnchor.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/SymbolHeightAnchor.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/SymbolHeightAnchor> { // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion|null[0]
+        final val Absolute // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.Absolute|{}Absolute[0]
+            final fun <get-Absolute>(): org.maplibre.compose.expressions.value/SymbolHeightAnchor // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.Absolute.<get-Absolute>|<get-Absolute>(){}[0]
+        final val Ground // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.Ground|{}Ground[0]
+            final fun <get-Ground>(): org.maplibre.compose.expressions.value/SymbolHeightAnchor // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.Ground.<get-Ground>|<get-Ground>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/SymbolHeightAnchor> // org.maplibre.compose.expressions.value/SymbolHeightAnchor.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/SymbolOverlap : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/SymbolOverlap|null[0]
+    final val value // org.maplibre.compose.expressions.value/SymbolOverlap.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/SymbolOverlap.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/SymbolOverlap.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/SymbolOverlap.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/SymbolOverlap.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/SymbolOverlap> { // org.maplibre.compose.expressions.value/SymbolOverlap.Companion|null[0]
+        final val Always // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Always|{}Always[0]
+            final fun <get-Always>(): org.maplibre.compose.expressions.value/SymbolOverlap // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Always.<get-Always>|<get-Always>(){}[0]
+        final val Cooperative // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Cooperative|{}Cooperative[0]
+            final fun <get-Cooperative>(): org.maplibre.compose.expressions.value/SymbolOverlap // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Cooperative.<get-Cooperative>|<get-Cooperative>(){}[0]
+        final val Never // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Never|{}Never[0]
+            final fun <get-Never>(): org.maplibre.compose.expressions.value/SymbolOverlap // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.Never.<get-Never>|<get-Never>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/SymbolOverlap> // org.maplibre.compose.expressions.value/SymbolOverlap.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/SymbolPlacement : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/SymbolPlacement|null[0]
+    final val value // org.maplibre.compose.expressions.value/SymbolPlacement.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/SymbolPlacement.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/SymbolPlacement.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/SymbolPlacement.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/SymbolPlacement.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/SymbolPlacement> { // org.maplibre.compose.expressions.value/SymbolPlacement.Companion|null[0]
+        final val Line // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.Line|{}Line[0]
+            final fun <get-Line>(): org.maplibre.compose.expressions.value/SymbolPlacement // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.Line.<get-Line>|<get-Line>(){}[0]
+        final val LineCenter // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.LineCenter|{}LineCenter[0]
+            final fun <get-LineCenter>(): org.maplibre.compose.expressions.value/SymbolPlacement // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.LineCenter.<get-LineCenter>|<get-LineCenter>(){}[0]
+        final val Point // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.Point|{}Point[0]
+            final fun <get-Point>(): org.maplibre.compose.expressions.value/SymbolPlacement // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.Point.<get-Point>|<get-Point>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/SymbolPlacement> // org.maplibre.compose.expressions.value/SymbolPlacement.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/SymbolZOrder : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/SymbolZOrder|null[0]
+    final val value // org.maplibre.compose.expressions.value/SymbolZOrder.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/SymbolZOrder.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/SymbolZOrder.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/SymbolZOrder.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/SymbolZOrder.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/SymbolZOrder> { // org.maplibre.compose.expressions.value/SymbolZOrder.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/SymbolZOrder // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Source // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.Source|{}Source[0]
+            final fun <get-Source>(): org.maplibre.compose.expressions.value/SymbolZOrder // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.Source.<get-Source>|<get-Source>(){}[0]
+        final val ViewportY // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.ViewportY|{}ViewportY[0]
+            final fun <get-ViewportY>(): org.maplibre.compose.expressions.value/SymbolZOrder // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.ViewportY.<get-ViewportY>|<get-ViewportY>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/SymbolZOrder> // org.maplibre.compose.expressions.value/SymbolZOrder.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TextJustify : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TextJustify|null[0]
+    final val value // org.maplibre.compose.expressions.value/TextJustify.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TextJustify.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TextJustify.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TextJustify.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TextJustify.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TextJustify> { // org.maplibre.compose.expressions.value/TextJustify.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/TextJustify.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/TextJustify // org.maplibre.compose.expressions.value/TextJustify.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Center // org.maplibre.compose.expressions.value/TextJustify.Companion.Center|{}Center[0]
+            final fun <get-Center>(): org.maplibre.compose.expressions.value/TextJustify // org.maplibre.compose.expressions.value/TextJustify.Companion.Center.<get-Center>|<get-Center>(){}[0]
+        final val Left // org.maplibre.compose.expressions.value/TextJustify.Companion.Left|{}Left[0]
+            final fun <get-Left>(): org.maplibre.compose.expressions.value/TextJustify // org.maplibre.compose.expressions.value/TextJustify.Companion.Left.<get-Left>|<get-Left>(){}[0]
+        final val Right // org.maplibre.compose.expressions.value/TextJustify.Companion.Right|{}Right[0]
+            final fun <get-Right>(): org.maplibre.compose.expressions.value/TextJustify // org.maplibre.compose.expressions.value/TextJustify.Companion.Right.<get-Right>|<get-Right>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TextJustify.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TextJustify> // org.maplibre.compose.expressions.value/TextJustify.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TextPitchAlignment : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TextPitchAlignment|null[0]
+    final val value // org.maplibre.compose.expressions.value/TextPitchAlignment.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TextPitchAlignment.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TextPitchAlignment.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TextPitchAlignment.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TextPitchAlignment.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TextPitchAlignment> { // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/TextPitchAlignment // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Map // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/TextPitchAlignment // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/TextPitchAlignment // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TextPitchAlignment> // org.maplibre.compose.expressions.value/TextPitchAlignment.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TextRotationAlignment : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TextRotationAlignment|null[0]
+    final val value // org.maplibre.compose.expressions.value/TextRotationAlignment.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TextRotationAlignment.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TextRotationAlignment.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TextRotationAlignment.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TextRotationAlignment.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TextRotationAlignment> { // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion|null[0]
+        final val Auto // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Auto|{}Auto[0]
+            final fun <get-Auto>(): org.maplibre.compose.expressions.value/TextRotationAlignment // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Auto.<get-Auto>|<get-Auto>(){}[0]
+        final val Map // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/TextRotationAlignment // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/TextRotationAlignment // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val ViewportGlyph // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.ViewportGlyph|{}ViewportGlyph[0]
+            final fun <get-ViewportGlyph>(): org.maplibre.compose.expressions.value/TextRotationAlignment // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.ViewportGlyph.<get-ViewportGlyph>|<get-ViewportGlyph>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TextRotationAlignment> // org.maplibre.compose.expressions.value/TextRotationAlignment.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TextTransform : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TextTransform|null[0]
+    final val value // org.maplibre.compose.expressions.value/TextTransform.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TextTransform.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TextTransform.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TextTransform.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TextTransform.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TextTransform> { // org.maplibre.compose.expressions.value/TextTransform.Companion|null[0]
+        final val Lowercase // org.maplibre.compose.expressions.value/TextTransform.Companion.Lowercase|{}Lowercase[0]
+            final fun <get-Lowercase>(): org.maplibre.compose.expressions.value/TextTransform // org.maplibre.compose.expressions.value/TextTransform.Companion.Lowercase.<get-Lowercase>|<get-Lowercase>(){}[0]
+        final val None // org.maplibre.compose.expressions.value/TextTransform.Companion.None|{}None[0]
+            final fun <get-None>(): org.maplibre.compose.expressions.value/TextTransform // org.maplibre.compose.expressions.value/TextTransform.Companion.None.<get-None>|<get-None>(){}[0]
+        final val Uppercase // org.maplibre.compose.expressions.value/TextTransform.Companion.Uppercase|{}Uppercase[0]
+            final fun <get-Uppercase>(): org.maplibre.compose.expressions.value/TextTransform // org.maplibre.compose.expressions.value/TextTransform.Companion.Uppercase.<get-Uppercase>|<get-Uppercase>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TextTransform.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TextTransform> // org.maplibre.compose.expressions.value/TextTransform.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TextWritingMode : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TextWritingMode|null[0]
+    final val value // org.maplibre.compose.expressions.value/TextWritingMode.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TextWritingMode.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TextWritingMode.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TextWritingMode.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TextWritingMode.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TextWritingMode> { // org.maplibre.compose.expressions.value/TextWritingMode.Companion|null[0]
+        final val Horizontal // org.maplibre.compose.expressions.value/TextWritingMode.Companion.Horizontal|{}Horizontal[0]
+            final fun <get-Horizontal>(): org.maplibre.compose.expressions.value/TextWritingMode // org.maplibre.compose.expressions.value/TextWritingMode.Companion.Horizontal.<get-Horizontal>|<get-Horizontal>(){}[0]
+        final val Vertical // org.maplibre.compose.expressions.value/TextWritingMode.Companion.Vertical|{}Vertical[0]
+            final fun <get-Vertical>(): org.maplibre.compose.expressions.value/TextWritingMode // org.maplibre.compose.expressions.value/TextWritingMode.Companion.Vertical.<get-Vertical>|<get-Vertical>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TextWritingMode.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TextWritingMode> // org.maplibre.compose.expressions.value/TextWritingMode.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.expressions.value/TranslateAnchor : org.maplibre.compose.expressions.value/EnumValue { // org.maplibre.compose.expressions.value/TranslateAnchor|null[0]
+    final val value // org.maplibre.compose.expressions.value/TranslateAnchor.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/TranslateAnchor.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.value/TranslateAnchor.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.value/TranslateAnchor.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions.value/TranslateAnchor.toString|toString(){}[0]
+
+    final object Companion : org.maplibre.compose.expressions.value/EnumType<org.maplibre.compose.expressions.value/TranslateAnchor> { // org.maplibre.compose.expressions.value/TranslateAnchor.Companion|null[0]
+        final val Map // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.Map|{}Map[0]
+            final fun <get-Map>(): org.maplibre.compose.expressions.value/TranslateAnchor // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.Map.<get-Map>|<get-Map>(){}[0]
+        final val Viewport // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.Viewport|{}Viewport[0]
+            final fun <get-Viewport>(): org.maplibre.compose.expressions.value/TranslateAnchor // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
+        final val entries // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.entries|{}entries[0]
+            final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TranslateAnchor> // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
 sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch|null[0]
     final class Containing : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Containing|null[0]
         constructor <init>(kotlin/Array<out org.maplibre.compose.interaction/KeyModifier>...) // org.maplibre.compose.interaction/ModifierMatch.Containing.<init>|<init>(kotlin.Array<out|org.maplibre.compose.interaction.KeyModifier>...){}[0]
@@ -3781,12 +3991,13 @@ final fun <#A: kotlin/Any?> (org.maplibre.compose.expressions.ast/Expression<org
 final fun <#A: kotlin/Any?> (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>).org.maplibre.compose.expressions.dsl/gte(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/gte|gte@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>).org.maplibre.compose.expressions.dsl/lt(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/lt|lt@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>).org.maplibre.compose.expressions.dsl/lte(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ComparableValue<#A>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/lte|lte@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ComparableValue<0:0>>){0§<kotlin.Any?>}[0]
-final fun <#A: org.maplibre.compose.expressions.value/EnumValue<#A>> org.maplibre.compose.expressions.dsl/const(#A): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/const|const(0:0){0§<org.maplibre.compose.expressions.value.EnumValue<0:0>>}[0]
-final fun <#A: org.maplibre.compose.expressions.value/EnumValue<#A>> org.maplibre.compose.expressions.dsl/const(kotlin.collections/List<org.maplibre.compose.expressions.value/EnumValue<#A>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ListValue<org.maplibre.compose.expressions.value/EnumValue<#A>>> // org.maplibre.compose.expressions.dsl/const|const(kotlin.collections.List<org.maplibre.compose.expressions.value.EnumValue<0:0>>){0§<org.maplibre.compose.expressions.value.EnumValue<0:0>>}[0]
+final fun <#A: org.maplibre.compose.expressions.value/EnumValue> (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions.dsl/asEnum(org.maplibre.compose.expressions.value/EnumType<#A>, kotlin/Array<out org.maplibre.compose.expressions.ast/Expression<*>>...): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/asEnum|asEnum@org.maplibre.compose.expressions.ast.Expression<*>(org.maplibre.compose.expressions.value.EnumType<0:0>;kotlin.Array<out|org.maplibre.compose.expressions.ast.Expression<*>>...){0§<org.maplibre.compose.expressions.value.EnumValue>}[0]
+final fun <#A: org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.dsl/const(#A): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/const|const(0:0){0§<org.maplibre.compose.expressions.value.EnumValue>}[0]
+final fun <#A: org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.dsl/const(kotlin.collections/List<#A>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ListValue<#A>> // org.maplibre.compose.expressions.dsl/const|const(kotlin.collections.List<0:0>){0§<org.maplibre.compose.expressions.value.EnumValue>}[0]
 final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue> org.maplibre.compose.expressions.dsl/coalesce(kotlin/Array<out org.maplibre.compose.expressions.ast/Expression<#A?>>...): org.maplibre.compose.expressions.ast/Expression<#A?> // org.maplibre.compose.expressions.dsl/coalesce|coalesce(kotlin.Array<out|org.maplibre.compose.expressions.ast.Expression<0:0?>>...){0§<org.maplibre.compose.expressions.value.ExpressionValue>}[0]
 final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue> org.maplibre.compose.expressions.dsl/coalesce(kotlin/Array<out org.maplibre.compose.expressions.ast/Expression<#A?>>..., org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/coalesce|coalesce(kotlin.Array<out|org.maplibre.compose.expressions.ast.Expression<0:0?>>...;org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue>}[0]
-final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?, #B: org.maplibre.compose.expressions.value/EnumValue<#B>> org.maplibre.compose.expressions.dsl/case(#B, org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.dsl/Case<#B, #A> // org.maplibre.compose.expressions.dsl/case|case(0:1;org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>;1§<org.maplibre.compose.expressions.value.EnumValue<0:1>>}[0]
-final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?, #B: org.maplibre.compose.expressions.value/EnumValue<#B>> org.maplibre.compose.expressions.dsl/case(kotlin.collections/List<#B>, org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.dsl/Case<#B, #A> // org.maplibre.compose.expressions.dsl/case|case(kotlin.collections.List<0:1>;org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>;1§<org.maplibre.compose.expressions.value.EnumValue<0:1>>}[0]
+final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?, #B: org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.dsl/case(#B, org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.dsl/Case<#B, #A> // org.maplibre.compose.expressions.dsl/case|case(0:1;org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>;1§<org.maplibre.compose.expressions.value.EnumValue>}[0]
+final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?, #B: org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.dsl/case(kotlin.collections/List<#B>, org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.dsl/Case<#B, #A> // org.maplibre.compose.expressions.dsl/case|case(kotlin.collections.List<0:1>;org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>;1§<org.maplibre.compose.expressions.value.EnumValue>}[0]
 final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?, #B: org.maplibre.compose.expressions.value/ExpressionValue?> org.maplibre.compose.expressions.dsl/withVariable(kotlin/String, org.maplibre.compose.expressions.ast/Expression<#A>, kotlin/Function1<org.maplibre.compose.expressions.dsl/Variable<#A>, org.maplibre.compose.expressions.ast/Expression<#B>>): org.maplibre.compose.expressions.ast/Expression<#B> // org.maplibre.compose.expressions.dsl/withVariable|withVariable(kotlin.String;org.maplibre.compose.expressions.ast.Expression<0:0>;kotlin.Function1<org.maplibre.compose.expressions.dsl.Variable<0:0>,org.maplibre.compose.expressions.ast.Expression<0:1>>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>;1§<org.maplibre.compose.expressions.value.ExpressionValue?>}[0]
 final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?> (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ListValue<#A>>).org.maplibre.compose.expressions.dsl/contains(org.maplibre.compose.expressions.ast/Expression<#A>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/contains|contains@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ListValue<0:0>>(org.maplibre.compose.expressions.ast.Expression<0:0>){0§<org.maplibre.compose.expressions.value.ExpressionValue?>}[0]
 final fun <#A: org.maplibre.compose.expressions.value/ExpressionValue?> (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ListValue<#A>>).org.maplibre.compose.expressions.dsl/get(kotlin/Int): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/get|get@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.ListValue<0:0>>(kotlin.Int){0§<org.maplibre.compose.expressions.value.ExpressionValue?>}[0]
@@ -4156,7 +4367,6 @@ final fun org.maplibre.compose.util/org_maplibre_compose_util_PreparedImage$stab
 final fun org.maplibre.compose.util/org_maplibre_compose_util_SerializedDpPadding_$serializer$stableprop_getter(): kotlin/Int // org.maplibre.compose.util/org_maplibre_compose_util_SerializedDpPadding_$serializer$stableprop_getter|org_maplibre_compose_util_SerializedDpPadding_$serializer$stableprop_getter(){}[0]
 final fun org.maplibre.compose.util/org_maplibre_compose_util_VisibleBounds$stableprop_getter(): kotlin/Int // org.maplibre.compose.util/org_maplibre_compose_util_VisibleBounds$stableprop_getter|org_maplibre_compose_util_VisibleBounds$stableprop_getter(){}[0]
 final fun org.maplibre.compose.util/org_maplibre_compose_util_VisibleRegion$stableprop_getter(): kotlin/Int // org.maplibre.compose.util/org_maplibre_compose_util_VisibleRegion$stableprop_getter|org_maplibre_compose_util_VisibleRegion$stableprop_getter(){}[0]
-final inline fun <#A: reified kotlin/Enum<#A> & org.maplibre.compose.expressions.value/EnumValue<#A>> (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions.dsl/asEnum(kotlin/Array<out org.maplibre.compose.expressions.ast/Expression<*>>...): org.maplibre.compose.expressions.ast/Expression<#A> // org.maplibre.compose.expressions.dsl/asEnum|asEnum@org.maplibre.compose.expressions.ast.Expression<*>(kotlin.Array<out|org.maplibre.compose.expressions.ast.Expression<*>>...){0§<kotlin.Enum<0:0>&org.maplibre.compose.expressions.value.EnumValue<0:0>>}[0]
 final inline fun <#A: reified org.maplibre.compose.sources/Source> org.maplibre.compose.sources/getBaseSource(kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): #A? // org.maplibre.compose.sources/getBaseSource|getBaseSource(kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){0§<org.maplibre.compose.sources.Source>}[0]
 final suspend fun (org.maplibre.compose.location/LocationChangeScope).org.maplibre.compose.location/updateCamera(org.maplibre.compose.map/MapState, org.maplibre.compose.camera/CameraAnimation? = ..., org.maplibre.compose.location/BearingUpdate = ...) // org.maplibre.compose.location/updateCamera|updateCamera@org.maplibre.compose.location.LocationChangeScope(org.maplibre.compose.map.MapState;org.maplibre.compose.camera.CameraAnimation?;org.maplibre.compose.location.BearingUpdate){}[0]
 final suspend fun <#A: kotlin/Any?> (org.maplibre.compose.map/MapState).org.maplibre.compose.map/withPlatformMap(kotlin/Function1<org.maplibre.compose.map/PlatformMapScope, #A>): #A // org.maplibre.compose.map/withPlatformMap|withPlatformMap@org.maplibre.compose.map.MapState(kotlin.Function1<org.maplibre.compose.map.PlatformMapScope,0:0>){0§<kotlin.Any?>}[0]

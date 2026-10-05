@@ -1,23 +1,27 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Symbol placement relative to its geometry. */
-public enum class SymbolPlacement(internal val literal: StringLiteral) :
-  EnumValue<SymbolPlacement> {
-  /** The label is placed at the point where the geometry is located. */
-  Point(StringLiteral.of("point")),
+@JvmInline
+public value class SymbolPlacement private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<SymbolPlacement> {
+    /** The label is placed at the point where the geometry is located. */
+    public val Point: SymbolPlacement = SymbolPlacement("point")
 
-  /**
-   * The label is placed along the line of the geometry. Can only be used on LineString and Polygon
-   * geometries.
-   */
-  Line(StringLiteral.of("line")),
+    /**
+     * The label is placed along the line of the geometry. Can only be used on LineString and
+     * Polygon geometries.
+     */
+    public val Line: SymbolPlacement = SymbolPlacement("line")
 
-  /**
-   * The label is placed at the center of the line of the geometry. Can only be used on LineString
-   * and Polygon geometries. Note that a single feature in a vector tile may contain multiple line
-   * geometries.
-   */
-  LineCenter(StringLiteral.of("line-center")),
+    /**
+     * The label is placed at the center of the line of the geometry. Can only be used on LineString
+     * and Polygon geometries. Note that a single feature in a vector tile may contain multiple line
+     * geometries.
+     */
+    public val LineCenter: SymbolPlacement = SymbolPlacement("line-center")
+
+    public override val entries: List<SymbolPlacement> = listOf(Point, Line, LineCenter)
+  }
 }

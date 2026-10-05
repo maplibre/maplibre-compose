@@ -1,15 +1,20 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Specifies how to capitalize text, similar to the CSS text-transform property. */
-public enum class TextTransform(internal val literal: StringLiteral) : EnumValue<TextTransform> {
-  /** The text is not altered. */
-  None(StringLiteral.of("none")),
+@JvmInline
+public value class TextTransform private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<TextTransform> {
+    /** The text is not altered. */
+    public val None: TextTransform = TextTransform("none")
 
-  /** Forces all letters to be displayed in uppercase. */
-  Uppercase(StringLiteral.of("uppercase")),
+    /** Forces all letters to be displayed in uppercase. */
+    public val Uppercase: TextTransform = TextTransform("uppercase")
 
-  /** Forces all letters to be displayed in lowercase. */
-  Lowercase(StringLiteral.of("lowercase")),
+    /** Forces all letters to be displayed in lowercase. */
+    public val Lowercase: TextTransform = TextTransform("lowercase")
+
+    public override val entries: List<TextTransform> = listOf(None, Uppercase, Lowercase)
+  }
 }

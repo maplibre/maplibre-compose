@@ -14,7 +14,6 @@ import org.maplibre.compose.expressions.ast.DpLiteral
 import org.maplibre.compose.expressions.ast.DpOffsetLiteral
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.DpTextOffsetCalculation
-import org.maplibre.compose.expressions.ast.EnumLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.IntLiteral
@@ -47,15 +46,14 @@ import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
-import org.maplibre.compose.expressions.value.literal
 import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.util.DpPadding
 
 /** Creates a literal expression for a [String] value. */
 public fun const(string: String): Expression<StringValue> = StringLiteral.of(string)
 
-/** Creates a literal expression for an enum value implementing [EnumValue]. */
-public fun <T : EnumValue<T>> const(value: T): Expression<T> = EnumLiteral.of(value)
+/** Creates a literal expression for a named style value. */
+public fun <T : EnumValue> const(value: T): Expression<T> = StringLiteral.of(value.value).cast()
 
 /** Creates a literal expression for a dimensionless [Float] value. */
 public fun const(float: Float): Expression<FloatValue> = FloatLiteral.of(float)
@@ -107,10 +105,10 @@ internal fun <T : ExpressionValue?> const(list: List<Literal<T, *>>): ListLitera
 public fun const(list: List<String>): Expression<ListValue<StringValue>> =
   const(list.map { StringLiteral.of(it) })
 
-/** Creates a literal expression for a list of enum values. */
+/** Creates a literal expression for a list of named style values. */
 @JvmName("constEnumList")
-public fun <T : EnumValue<T>> const(list: List<EnumValue<T>>): Expression<ListValue<EnumValue<T>>> =
-  const(list.map { it.literal.cast<EnumValue<T>>() })
+public fun <T : EnumValue> const(list: List<T>): Expression<ListValue<T>> =
+  const(list.map { StringLiteral.of(it.value).cast<T>() })
 
 /** Creates a literal expression for a list of numbers. */
 @JvmName("constNumberList")

@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.TextUnit
 import kotlin.time.Duration
-import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.compose.util.DpPadding
 
 /**
@@ -115,42 +114,27 @@ public sealed interface StringValue :
   FormattedValue
 
 /**
- * Represents an [ExpressionValue] that resolves to an enum string. See
+ * A named string value used by a style expression. See
  * [const][org.maplibre.compose.expressions.dsl.const].
  *
- * @param T The [EnumValue] descendent type that this value represents.
+ * Style types expose named constants. Later releases may add constants; include an `else` branch
+ * when matching individual values in a `when` expression.
+ *
+ * Use [asEnum][org.maplibre.compose.expressions.dsl.asEnum] with the style type's companion to
+ * assert that dynamic input is one of its named values. Use
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] when the input is already known to
+ * belong to the style type; a cast does not check the value at runtime.
  */
-public sealed interface EnumValue<out T> : StringValue
+public interface EnumValue : StringValue {
+  /** The string used in the MapLibre style specification. */
+  public val value: String
+}
 
-/** The string expression representing this enum value. */
-internal val EnumValue<*>.literal: StringLiteral
-  get() =
-    when (this) {
-      is CirclePitchAlignment -> literal
-      is CirclePitchScale -> literal
-      is ExpressionType -> literal
-      is GeometryType -> literal
-      is HillshadeMethod -> literal
-      is IconPitchAlignment -> literal
-      is IconRotationAlignment -> literal
-      is IconTextFit -> literal
-      is IlluminationAnchor -> literal
-      is LineCap -> literal
-      is LineJoin -> literal
-      is ProjectionType -> literal
-      is RasterResampling -> literal
-      is SymbolAnchor -> literal
-      is SymbolHeightAnchor -> literal
-      is SymbolOverlap -> literal
-      is SymbolPlacement -> literal
-      is SymbolZOrder -> literal
-      is TextJustify -> literal
-      is TextPitchAlignment -> literal
-      is TextRotationAlignment -> literal
-      is TextTransform -> literal
-      is TextWritingMode -> literal
-      is TranslateAnchor -> literal
-    }
+/** Describes the named values of a style expression type. */
+public interface EnumType<out T : EnumValue> {
+  /** The named values supported by this version of the library. */
+  public val entries: List<T>
+}
 
 /**
  * Represents an [ExpressionValue] that resolves to a [Color] value. See

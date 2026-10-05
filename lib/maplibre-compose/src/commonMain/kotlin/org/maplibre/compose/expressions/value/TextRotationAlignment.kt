@@ -1,37 +1,43 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /**
  * In combination with [SymbolPlacement], determines the rotation behavior of the individual glyphs
  * forming the text.
  */
-public enum class TextRotationAlignment(internal val literal: StringLiteral) :
-  EnumValue<TextRotationAlignment> {
-  /**
-   * For [SymbolPlacement.Point], aligns text east-west. Otherwise, aligns text x-axes with the
-   * line.
-   */
-  Map(StringLiteral.of("map")),
+@JvmInline
+public value class TextRotationAlignment private constructor(override val value: String) :
+  EnumValue {
+  public companion object : EnumType<TextRotationAlignment> {
+    /**
+     * For [SymbolPlacement.Point], aligns text east-west. Otherwise, aligns text x-axes with the
+     * line.
+     */
+    public val Map: TextRotationAlignment = TextRotationAlignment("map")
 
-  /**
-   * Produces glyphs whose x-axes are aligned with the x-axis of the viewport, regardless of the
-   * [SymbolPlacement].
-   */
-  Viewport(StringLiteral.of("viewport")),
+    /**
+     * Produces glyphs whose x-axes are aligned with the x-axis of the viewport, regardless of the
+     * [SymbolPlacement].
+     */
+    public val Viewport: TextRotationAlignment = TextRotationAlignment("viewport")
 
-  /**
-   * For [SymbolPlacement.Point], this is equivalent to [TextRotationAlignment.Viewport]. Otherwise,
-   * aligns glyphs to the x-axis of the viewport and places them along the line.
-   *
-   * Not yet supported on native
-   * ([maplibre-native#250](https://github.com/maplibre/maplibre-native/issues/250)).
-   */
-  ViewportGlyph(StringLiteral.of("viewport-glyph")),
+    /**
+     * For [SymbolPlacement.Point], this is equivalent to [TextRotationAlignment.Viewport].
+     * Otherwise, aligns glyphs to the x-axis of the viewport and places them along the line.
+     *
+     * Not yet supported on native
+     * ([maplibre-native#250](https://github.com/maplibre/maplibre-native/issues/250)).
+     */
+    public val ViewportGlyph: TextRotationAlignment = TextRotationAlignment("viewport-glyph")
 
-  /**
-   * For [SymbolPlacement.Point], this is equivalent to [TextRotationAlignment.Viewport]. Otherwise,
-   * this is equivalent to [TextRotationAlignment.Map].
-   */
-  Auto(StringLiteral.of("auto")),
+    /**
+     * For [SymbolPlacement.Point], this is equivalent to [TextRotationAlignment.Viewport].
+     * Otherwise, this is equivalent to [TextRotationAlignment.Map].
+     */
+    public val Auto: TextRotationAlignment = TextRotationAlignment("auto")
+
+    public override val entries: List<TextRotationAlignment> =
+      listOf(Map, Viewport, ViewportGlyph, Auto)
+  }
 }
