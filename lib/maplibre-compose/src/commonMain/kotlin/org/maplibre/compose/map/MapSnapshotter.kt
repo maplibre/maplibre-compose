@@ -47,10 +47,8 @@ public data class MapSnapshotRequest(
   public val height: Int,
   /** Camera position used for this capture. */
   public val cameraPosition: CameraPosition = CameraPosition(),
-  /** Density used for rendering and style evaluation. */
-  public val density: Float = 1f,
-  /** Font scale used while evaluating the style composition. */
-  public val fontScale: Float = 1f,
+  /** Pixel density for rendering and font scale for style composition. */
+  public val density: Density = Density(1f),
   /** Layout direction used while evaluating the style composition. */
   public val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   /** Whether to preserve framebuffer alpha. When false, transparent pixels composite onto white. */
@@ -59,8 +57,10 @@ public data class MapSnapshotRequest(
   init {
     require(width > 0) { "Snapshot width must be positive" }
     require(height > 0) { "Snapshot height must be positive" }
-    require(density.isFinite() && density > 0f) { "Snapshot density must be finite and positive" }
-    require(fontScale.isFinite() && fontScale > 0f) {
+    require(density.density.isFinite() && density.density > 0f) {
+      "Snapshot density must be finite and positive"
+    }
+    require(density.fontScale.isFinite() && density.fontScale > 0f) {
       "Snapshot font scale must be finite and positive"
     }
   }
@@ -352,7 +352,7 @@ internal class MapSnapshotterImplementation(
                 styleContent,
                 currentBinding,
                 prepared.viewport,
-                Density(request.density, request.fontScale),
+                request.density,
                 request.layoutDirection,
                 evaluationOwnership,
               )

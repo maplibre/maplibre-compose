@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -76,7 +77,7 @@ class NativeMapSnapshotterTest {
             MapSnapshotRequest(
               width = SIZE,
               height = SIZE,
-              density = 2f,
+              density = Density(2f),
               cameraPosition =
                 CameraPosition(
                   target = Position(longitude = 0.0, latitude = 0.0),

@@ -69,7 +69,7 @@ internal class GlJsSnapshotterAdapter(
     val current = styleBinding
     if (
       loadedBaseStyleRevision == baseStyleRevision &&
-        loadedDensity == request.density &&
+        loadedDensity == request.density.density &&
         current?.isLoaded == true
     ) {
       return SnapshotPreparation(current, readViewport(currentMap, request))
@@ -91,7 +91,7 @@ internal class GlJsSnapshotterAdapter(
             styleBinding?.invalidate()
             styleBinding = binding
             loadedBaseStyleRevision = baseStyleRevision
-            loadedDensity = request.density
+            loadedDensity = request.density.density
             loading.complete(Result.success(Unit))
           },
           onFailed = { message ->
@@ -196,7 +196,7 @@ internal class GlJsSnapshotterAdapter(
   }
 
   private fun configure(map: MaplibreMap, request: MapSnapshotRequest) {
-    currentDensity = request.density
+    currentDensity = request.density.density
     container?.let { size(it, request) }
     map.setPixelRatio(renderPixelRatio(request))
     map.resize()
@@ -256,7 +256,7 @@ internal class GlJsSnapshotterAdapter(
 
   private fun renderPixelRatio(request: MapSnapshotRequest): Double {
     val minimumRatio = 1.0 / minOf(request.width, request.height)
-    return maxOf(request.density.toDouble(), minimumRatio)
+    return maxOf(request.density.density.toDouble(), minimumRatio)
   }
 
   private fun releaseEngine(reason: Throwable) {
@@ -310,7 +310,7 @@ internal class GlJsSnapshotterAdapter(
   }
 
   private fun MapSnapshotRequest.extent(): MapExtent =
-    MapExtent.fromLogical(width, height, density.toDouble())
+    MapExtent.fromLogical(width, height, density.density.toDouble())
 
   private companion object {
     const val MAX_CANVAS_SIZE = 4_096

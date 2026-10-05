@@ -150,10 +150,45 @@ class MlnFfiOfflinePackTest {
     assertContentEquals(metadata, restored.metadata.value)
   }
 
-  /**
-   * MapLibre spells "no maximum zoom" as an infinity an Int cannot hold, so it has to survive as a
-   * null rather than as whatever `Double.POSITIVE_INFINITY.toInt()` produces.
-   */
+  @Test
+  fun fractional_zoom_bounds_survive_creation_and_a_database_reopen() = runBlocking {
+    val styleUrl = writeStyle("fractional-zoom.json")
+    val definitions =
+      setOf(
+        tilePyramid(styleUrl).copy(minZoom = 5.5, maxZoom = 12.75),
+        OfflinePackDefinition.Shape(
+          styleUrl = styleUrl,
+          shape =
+            Polygon(
+              listOf(
+                listOf(
+                  Position(0.0, 0.0),
+                  Position(0.25, 0.0),
+                  Position(0.25, 0.25),
+                  Position(0.0, 0.0),
+                )
+              )
+            ),
+          pixelRatio = 1f,
+          minZoom = 5.5,
+          maxZoom = 12.75,
+        ),
+      )
+    val first = manager()
+    for (definition in definitions) {
+      val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
+      assertEquals(definition, pack.definition)
+    }
+    close(first)
+
+    val reopened = manager()
+    assertEquals(
+      definitions,
+      (reopened.state.value as OfflineManagerState.Ready).packs.map { it.definition }.toSet(),
+    )
+  }
+
+  /** MapLibre stores "no maximum zoom" as infinity; the public definition represents it as null. */
   @Test
   fun a_shape_pack_with_no_maximum_zoom_survives_a_reopen() = runBlocking {
     val definition =
@@ -171,7 +206,7 @@ class MlnFfiOfflinePackTest {
             )
           ),
         pixelRatio = 2f,
-        minZoom = 2,
+        minZoom = 2.0,
         maxZoom = null,
       )
 
@@ -372,8 +407,8 @@ class MlnFfiOfflinePackTest {
       styleUrl = styleUrl,
       bounds = BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(0.25, 0.25)),
       pixelRatio = pixelRatio,
-      minZoom = 0,
-      maxZoom = 1,
+      minZoom = 0.0,
+      maxZoom = 1.0,
     )
 
   private suspend fun awaitHealthy(

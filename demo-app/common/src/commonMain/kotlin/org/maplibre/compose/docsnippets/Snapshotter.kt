@@ -32,8 +32,7 @@ suspend fun captureCurrentMap(
         width = 640,
         height = 360,
         cameraPosition = mapState.cameraPosition,
-        density = density.density,
-        fontScale = density.fontScale,
+        density = density,
         layoutDirection = layoutDirection,
       )
     )

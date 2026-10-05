@@ -73,8 +73,8 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                       styleUrl = styleUrl,
                       bounds = region,
                       pixelRatio = pixelRatio,
-                      minZoom = 12,
-                      maxZoom = 15,
+                      minZoom = 12.0,
+                      maxZoom = 15.0,
                     ),
                   metadata = metadata,
                 )

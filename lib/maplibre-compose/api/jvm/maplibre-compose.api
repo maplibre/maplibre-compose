@@ -1946,21 +1946,19 @@ public final class org/maplibre/compose/map/MapSnapshotException : java/lang/Run
 
 public final class org/maplibre/compose/map/MapSnapshotRequest {
 	public static final field $stable I
-	public fun <init> (IILorg/maplibre/compose/camera/CameraPosition;FFLandroidx/compose/ui/unit/LayoutDirection;Z)V
-	public synthetic fun <init> (IILorg/maplibre/compose/camera/CameraPosition;FFLandroidx/compose/ui/unit/LayoutDirection;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)V
+	public synthetic fun <init> (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()I
 	public final fun component3 ()Lorg/maplibre/compose/camera/CameraPosition;
-	public final fun component4 ()F
-	public final fun component5 ()F
-	public final fun component6 ()Landroidx/compose/ui/unit/LayoutDirection;
-	public final fun component7 ()Z
-	public final fun copy (IILorg/maplibre/compose/camera/CameraPosition;FFLandroidx/compose/ui/unit/LayoutDirection;Z)Lorg/maplibre/compose/map/MapSnapshotRequest;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/map/MapSnapshotRequest;IILorg/maplibre/compose/camera/CameraPosition;FFLandroidx/compose/ui/unit/LayoutDirection;ZILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotRequest;
+	public final fun component4 ()Landroidx/compose/ui/unit/Density;
+	public final fun component5 ()Landroidx/compose/ui/unit/LayoutDirection;
+	public final fun component6 ()Z
+	public final fun copy (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)Lorg/maplibre/compose/map/MapSnapshotRequest;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/map/MapSnapshotRequest;IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotRequest;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
-	public final fun getDensity ()F
-	public final fun getFontScale ()F
+	public final fun getDensity ()Landroidx/compose/ui/unit/Density;
 	public final fun getHeight ()I
 	public final fun getLayoutDirection ()Landroidx/compose/ui/unit/LayoutDirection;
 	public final fun getTransparent ()Z
@@ -2500,26 +2498,26 @@ public final class org/maplibre/compose/offline/OfflinePack {
 }
 
 public abstract interface class org/maplibre/compose/offline/OfflinePackDefinition {
-	public abstract fun getMaxZoom ()Ljava/lang/Integer;
-	public abstract fun getMinZoom ()I
+	public abstract fun getMaxZoom ()Ljava/lang/Double;
+	public abstract fun getMinZoom ()D
 	public abstract fun getPixelRatio ()F
 	public abstract fun getStyleUrl ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/offline/OfflinePackDefinition$Shape : org/maplibre/compose/offline/OfflinePackDefinition {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FILjava/lang/Integer;)V
-	public synthetic fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FILjava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FDLjava/lang/Double;)V
+	public synthetic fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FDLjava/lang/Double;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Lorg/maplibre/spatialk/geojson/Geometry;
 	public final fun component3 ()F
-	public final fun component4 ()I
-	public final fun component5 ()Ljava/lang/Integer;
-	public final fun copy (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FILjava/lang/Integer;)Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FILjava/lang/Integer;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;
+	public final fun component4 ()D
+	public final fun component5 ()Ljava/lang/Double;
+	public final fun copy (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FDLjava/lang/Double;)Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Geometry;FDLjava/lang/Double;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflinePackDefinition$Shape;
 	public fun equals (Ljava/lang/Object;)Z
-	public fun getMaxZoom ()Ljava/lang/Integer;
-	public fun getMinZoom ()I
+	public fun getMaxZoom ()Ljava/lang/Double;
+	public fun getMinZoom ()D
 	public fun getPixelRatio ()F
 	public final fun getShape ()Lorg/maplibre/spatialk/geojson/Geometry;
 	public fun getStyleUrl ()Ljava/lang/String;
@@ -2529,19 +2527,19 @@ public final class org/maplibre/compose/offline/OfflinePackDefinition$Shape : or
 
 public final class org/maplibre/compose/offline/OfflinePackDefinition$TilePyramid : org/maplibre/compose/offline/OfflinePackDefinition {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FILjava/lang/Integer;)V
-	public synthetic fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FILjava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FDLjava/lang/Double;)V
+	public synthetic fun <init> (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FDLjava/lang/Double;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Lorg/maplibre/spatialk/geojson/BoundingBox;
 	public final fun component3 ()F
-	public final fun component4 ()I
-	public final fun component5 ()Ljava/lang/Integer;
-	public final fun copy (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FILjava/lang/Integer;)Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FILjava/lang/Integer;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;
+	public final fun component4 ()D
+	public final fun component5 ()Ljava/lang/Double;
+	public final fun copy (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FDLjava/lang/Double;)Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;Ljava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;FDLjava/lang/Double;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflinePackDefinition$TilePyramid;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBounds ()Lorg/maplibre/spatialk/geojson/BoundingBox;
-	public fun getMaxZoom ()Ljava/lang/Integer;
-	public fun getMinZoom ()I
+	public fun getMaxZoom ()Ljava/lang/Double;
+	public fun getMinZoom ()D
 	public fun getPixelRatio ()F
 	public fun getStyleUrl ()Ljava/lang/String;
 	public fun hashCode ()I
@@ -3570,12 +3568,16 @@ public final class org/maplibre/compose/style/TransitionOptions {
 public abstract interface annotation class org/maplibre/compose/util/DelicateMaplibreComposeApi : java/lang/annotation/Annotation {
 }
 
-public final class org/maplibre/compose/util/DpPadding {
+public final class org/maplibre/compose/util/DpPadding : androidx/compose/foundation/layout/PaddingValues {
 	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/util/DpPadding$Companion;
 	public fun <init> ()V
 	public synthetic fun <init> (FFFFILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (FFFFLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun calculateBottomPadding-D9Ej5fM ()F
+	public fun calculateLeftPadding-u2uoSUM (Landroidx/compose/ui/unit/LayoutDirection;)F
+	public fun calculateRightPadding-u2uoSUM (Landroidx/compose/ui/unit/LayoutDirection;)F
+	public fun calculateTopPadding-D9Ej5fM ()F
 	public final fun component1-D9Ej5fM ()F
 	public final fun component2-D9Ej5fM ()F
 	public final fun component3-D9Ej5fM ()F
@@ -3596,13 +3598,17 @@ public final class org/maplibre/compose/util/DpPadding$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class org/maplibre/compose/util/DpPaddingKt {
+	public static final fun toDpPadding (Landroidx/compose/foundation/layout/PaddingValues;Landroidx/compose/ui/unit/LayoutDirection;)Lorg/maplibre/compose/util/DpPadding;
+}
+
 public abstract class org/maplibre/compose/util/ImageStretch {
 	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/util/ImageStretch$Companion;
 }
 
 public final class org/maplibre/compose/util/ImageStretch$Companion {
-	public final fun capInsets (Landroidx/compose/foundation/layout/PaddingValues$Absolute;Landroidx/compose/foundation/layout/PaddingValues$Absolute;)Lorg/maplibre/compose/util/ImageStretch;
+	public final fun capInsets (Lorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;)Lorg/maplibre/compose/util/ImageStretch;
 	public final fun capInsets-a9UjIt4 (FFFF)Lorg/maplibre/compose/util/ImageStretch;
 	public final fun invoke (Ljava/util/List;Ljava/util/List;Landroidx/compose/ui/unit/DpRect;)Lorg/maplibre/compose/util/ImageStretch;
 	public static synthetic fun invoke$default (Lorg/maplibre/compose/util/ImageStretch$Companion;Ljava/util/List;Ljava/util/List;Landroidx/compose/ui/unit/DpRect;ILjava/lang/Object;)Lorg/maplibre/compose/util/ImageStretch;

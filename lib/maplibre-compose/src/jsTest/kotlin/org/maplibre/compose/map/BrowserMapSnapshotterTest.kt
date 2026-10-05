@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.js.js
@@ -145,11 +146,11 @@ class BrowserMapSnapshotterTest {
       for ((request, size) in
         listOf(
           MapSnapshotRequest(width = 32, height = 24) to (32 to 24),
-          MapSnapshotRequest(width = 96, height = 64, density = 2f) to (192 to 128),
-          MapSnapshotRequest(width = 1, height = 1, density = 3f) to (3 to 3),
-          MapSnapshotRequest(width = 31, height = 23, density = 1.25f) to (39 to 29),
-          MapSnapshotRequest(width = 33, height = 25, density = 1.25f) to (42 to 32),
-          MapSnapshotRequest(width = 1, height = 1, density = 0.5f) to (1 to 1),
+          MapSnapshotRequest(width = 96, height = 64, density = Density(2f)) to (192 to 128),
+          MapSnapshotRequest(width = 1, height = 1, density = Density(3f)) to (3 to 3),
+          MapSnapshotRequest(width = 31, height = 23, density = Density(1.25f)) to (39 to 29),
+          MapSnapshotRequest(width = 33, height = 25, density = Density(1.25f)) to (42 to 32),
+          MapSnapshotRequest(width = 1, height = 1, density = Density(0.5f)) to (1 to 1),
         )) {
         val captured = snapshotter.capture(request)
         assertEquals(size.first, captured.width, "width for $request")
@@ -235,7 +236,9 @@ class BrowserMapSnapshotterTest {
       try {
         val error =
           assertFailsWith<IllegalArgumentException> {
-            snapshotter.capture(MapSnapshotRequest(width = 2_049, height = 1, density = 2f))
+            snapshotter.capture(
+              MapSnapshotRequest(width = 2_049, height = 1, density = Density(2f))
+            )
           }
 
         assertTrue(error.message.orEmpty().contains("4096px canvas limit"))
@@ -261,7 +264,7 @@ class BrowserMapSnapshotterTest {
       )
     try {
       val first = snapshotter.capture(request)
-      val second = snapshotter.capture(request.copy(density = 2f))
+      val second = snapshotter.capture(request.copy(density = Density(2f)))
 
       assertEquals(SIZE, first.width)
       assertEquals(SIZE, first.height)

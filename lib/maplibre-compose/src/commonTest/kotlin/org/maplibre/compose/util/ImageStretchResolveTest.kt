@@ -1,6 +1,5 @@
 package org.maplibre.compose.util
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
@@ -54,8 +53,8 @@ class ImageStretchResolveTest {
         content = Rect(10f, 6f, 22f, 26f),
       ),
       ImageStretch.capInsets(
-          stretch = PaddingValues.Absolute(8.dp, 4.dp, 8.dp, 4.dp),
-          content = PaddingValues.Absolute(10.dp, 6.dp, 10.dp, 6.dp),
+          stretch = DpPadding(8.dp, 4.dp, 8.dp, 4.dp),
+          content = DpPadding(10.dp, 6.dp, 10.dp, 6.dp),
         )
         .resolve(imageWidth = 32, imageHeight = 32, scale = 1f),
     )

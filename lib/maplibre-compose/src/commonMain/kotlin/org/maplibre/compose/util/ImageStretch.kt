@@ -1,12 +1,10 @@
 package org.maplibre.compose.util
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Stretch and content-box metadata for a style image used with `icon-text-fit`. */
 @Immutable
@@ -35,7 +33,7 @@ public sealed class ImageStretch {
 
     /** Fixed insets on each edge. The interior stretches and receives text. */
     public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch {
-      val insets = PaddingValues.Absolute(left, top, right, bottom)
+      val insets = DpPadding(left, top, right, bottom)
       return CapInsets(stretch = insets, content = insets)
     }
 
@@ -44,8 +42,8 @@ public sealed class ImageStretch {
      * @param content Inset of the text box.
      */
     public fun capInsets(
-      stretch: PaddingValues.Absolute,
-      content: PaddingValues.Absolute,
+      stretch: DpPadding,
+      content: DpPadding,
     ): ImageStretch = CapInsets(stretch, content)
   }
 
@@ -78,8 +76,8 @@ public sealed class ImageStretch {
   }
 
   private data class CapInsets(
-    val stretch: PaddingValues.Absolute,
-    val content: PaddingValues.Absolute,
+    val stretch: DpPadding,
+    val content: DpPadding,
   ) : ImageStretch() {
     override fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchPixels {
       val density = Density(scale)
@@ -95,8 +93,8 @@ public sealed class ImageStretch {
 
     override fun toString(): String =
       if (stretch == content) {
-        "ImageStretch.capInsets(left=${leftEdge(stretch)}, top=${stretch.calculateTopPadding()}, " +
-          "right=${rightEdge(stretch)}, bottom=${stretch.calculateBottomPadding()})"
+        "ImageStretch.capInsets(left=${stretch.left}, top=${stretch.top}, " +
+          "right=${stretch.right}, bottom=${stretch.bottom})"
       } else {
         "ImageStretch.capInsets(stretch=$stretch, content=$content)"
       }
@@ -110,25 +108,19 @@ internal data class ImageStretchPixels(
 )
 
 private fun insetBox(
-  insets: PaddingValues.Absolute,
+  insets: DpPadding,
   imageWidth: Int,
   imageHeight: Int,
   density: Density,
 ): Rect =
   with(density) {
     Rect(
-      leftEdge(insets).toPx(),
-      insets.calculateTopPadding().toPx(),
-      imageWidth - rightEdge(insets).toPx(),
-      imageHeight - insets.calculateBottomPadding().toPx(),
+      insets.left.toPx(),
+      insets.top.toPx(),
+      imageWidth - insets.right.toPx(),
+      imageHeight - insets.bottom.toPx(),
     )
   }
-
-private fun leftEdge(insets: PaddingValues.Absolute): Dp =
-  insets.calculateLeftPadding(LayoutDirection.Ltr)
-
-private fun rightEdge(insets: PaddingValues.Absolute): Dp =
-  insets.calculateRightPadding(LayoutDirection.Ltr)
 
 private fun Rect.fits(imageWidth: Int, imageHeight: Int): Boolean =
   left < right &&
