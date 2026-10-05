@@ -45,8 +45,7 @@ public sealed interface MutableSourceHandle : SourceHandle {
 /**
  * Access to a GeoJSON source in one loaded style generation.
  *
- * Cluster queries use the source's current data. Query cluster features again after changing that
- * data: cluster IDs can disappear or be reused for different clusters.
+ * Cluster features must come from the source's current data.
  */
 public sealed interface GeoJsonSourceHandle : SourceHandle {
   override val asMutable: MutableGeoJsonSourceHandle?
@@ -60,18 +59,12 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    */
   public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double?
 
-  /**
-   * Returns the cluster children for [feature], or an empty collection when the feature has no
-   * cluster ID or the engine reports that the cluster is unavailable.
-   */
+  /** Returns the cluster children for [feature], or an empty collection when unavailable. */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<Geometry, JsonObject?>
 
-  /**
-   * Returns the cluster leaves for [feature], or an empty collection when the feature has no
-   * cluster ID or the engine reports that the cluster is unavailable.
-   */
+  /** Returns the cluster leaves for [feature], or an empty collection when unavailable. */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
