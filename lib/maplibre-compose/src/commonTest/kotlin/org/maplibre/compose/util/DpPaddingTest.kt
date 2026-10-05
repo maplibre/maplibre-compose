@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.float
@@ -39,6 +40,7 @@ class DpPaddingTest {
 
     assertEquals(DpPadding(1.dp, 2.dp, 3.dp, 4.dp), padding)
     val encoded = Json.parseToJsonElement(Json.encodeToString(padding)).jsonObject
+    assertFalse(encoded.values.any { it.jsonPrimitive.isString })
     assertEquals(
       mapOf("left" to 1f, "top" to 2f, "right" to 3f, "bottom" to 4f),
       encoded.mapValues { (_, value) -> value.jsonPrimitive.float },
