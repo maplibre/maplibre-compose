@@ -1,9 +1,8 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
-import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
+import org.maplibre.compose.desktop.mapHostFactory
 
 /** Gives Compose value-based keys reference-identity semantics for physical host resources. */
 internal class ReferenceIdentityKey(private val value: Any) {
@@ -23,12 +22,7 @@ internal actual fun rememberComposeMapPresentation(
   options: MapViewOptions,
 ): ComposeMapPresentation? {
   val hostFactory =
-    LocalMlnFfiMapHostFactory.current
-      ?: LocalComposeMapPresentationHost.current.let { presentationHost ->
-        remember(ReferenceIdentityKey(presentationHost)) {
-          ComposeMapPresentationHostFactory(presentationHost)
-        }
-      }
+    LocalMlnFfiMapHostFactory.current ?: LocalComposeMapPresentationHost.current.mapHostFactory
   return rememberMlnFfiComposeMapPresentation(
     hostFactory = hostFactory,
     state = state,

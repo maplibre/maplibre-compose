@@ -20,7 +20,7 @@ internal enum class MapRenderBackend {
  * Compose is the *consumer*: it imports the target MapLibre rendered into and composites it with
  * the rest of the UI. Which backend is in use depends on the Compose host and operating system.
  */
-public enum class ComposeRenderBackend {
+internal enum class ComposeRenderBackend {
   Metal,
   Direct3D12,
   OpenGl,

@@ -2,7 +2,7 @@ package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
+import org.maplibre.compose.desktop.DesktopComposeMapPresentationHost
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
@@ -20,7 +20,7 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
  * [close]: textures first, then the producer contexts on the renderer thread, then the thread.
  */
 internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
-  protected val presentationHost: ComposeMapPresentationHost,
+  protected val presentationHost: DesktopComposeMapPresentationHost<C>,
   final override val backends: RenderBackendPair,
   rendererThreadName: String,
 ) : MlnFfiMapHost {
@@ -35,7 +35,7 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
    * Runs [action] with exclusive access to Compose's context, or returns null while Compose has
    * none. With OpenGL, the context is current.
    */
-  protected abstract fun <R> withComposeContext(action: (C) -> R): R?
+  protected fun <R> withComposeContext(action: (C) -> R): R? = presentationHost.withContext(action)
 
   /** Drops what belonged to Compose's previous context, after Compose replaced it. */
   protected abstract fun contextReplaced()

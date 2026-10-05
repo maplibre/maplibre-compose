@@ -12,11 +12,9 @@ import kotlin.test.Test
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
 import org.maplibre.compose.desktop.skiko.HostOperatingSystem
-import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -42,7 +40,7 @@ class DesktopPresentationHostLifetimeTest {
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
       var host by
         mutableStateOf(
-          ContextlessPresentationHost("first", equalityKey = "same"),
+          contextlessPresentationHost("same"),
           referentialEqualityPolicy(),
         )
 
@@ -58,7 +56,7 @@ class DesktopPresentationHostLifetimeTest {
       val firstPresentation = requireNotNull(state.currentMapAttachment)
       val engine = firstPresentation.adapter
 
-      runOnIdle { host = ContextlessPresentationHost("second", equalityKey = "same") }
+      runOnIdle { host = contextlessPresentationHost("same") }
       waitUntil(timeoutMillis = 10_000) {
         mainClock.advanceTimeByFrame()
         state.currentMapAttachment != null && state.currentMapAttachment !== firstPresentation
@@ -90,27 +88,14 @@ class DesktopPresentationHostLifetimeTest {
     runtime.awaitClosed()
   }
 
-  private class ContextlessPresentationHost(
-    private val name: String,
-    private val equalityKey: String,
-  ) : ComposeMapPresentationHost {
-    override val description: String = "$name contextless presentation host"
-    override val backend: ComposeRenderBackend = packagedComposeBackend()
-
-    override fun gpuContext(): ComposeGpuContext? = null
-
-    override fun runOnGpuThread(action: Runnable) {
-      action.run()
+  private fun contextlessPresentationHost(description: String): ComposeMapPresentationHost =
+    when (HostOperatingSystem.current()) {
+      HostOperatingSystem.Macos ->
+        ComposeMapPresentationHost.metal(description, { null }, { it.run() })
+      HostOperatingSystem.Windows ->
+        ComposeMapPresentationHost.direct3D12(description, { null }, { it.run() })
+      HostOperatingSystem.Linux ->
+        ComposeMapPresentationHost.openGl(description, { null }, { it.run() })
+      HostOperatingSystem.Unsupported -> error("Unsupported test platform")
     }
-
-    override fun equals(other: Any?): Boolean =
-      other is ContextlessPresentationHost && equalityKey == other.equalityKey
-
-    override fun hashCode(): Int = equalityKey.hashCode()
-  }
-
-  private companion object {
-    fun packagedComposeBackend(): ComposeRenderBackend =
-      checkNotNull(HostOperatingSystem.current().composeBackend)
-  }
 }

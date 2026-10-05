@@ -5,73 +5,52 @@ import androidx.compose.runtime.remember
 import dev.nucleusframework.window.tao.TaoGpuRenderContext
 import dev.nucleusframework.window.tao.TaoMetalRenderContext
 import dev.nucleusframework.window.tao.TaoOpenGlRenderContext
-import dev.nucleusframework.window.tao.TaoRenderBackend
 import dev.nucleusframework.window.tao.rememberTaoGpuRenderContext
-import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
-import org.maplibre.compose.desktop.OpenGlInterop
-import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
-/**
- * A [ComposeMapPresentationHost] over a Nucleus Tao surface's graphics context.
- *
- * Tao publishes the context that Compose uses, so this host passes it through unchanged.
- */
-public class TaoComposeMapPresentationHost(private val renderContext: TaoGpuRenderContext) :
-  ComposeMapPresentationHost {
-
-  override val description: String
-    get() = "the Nucleus Tao host on ${backend.name.lowercase()}"
-
-  override val backend: ComposeRenderBackend
-    get() =
-      when (renderContext.backend) {
-        TaoRenderBackend.METAL -> ComposeRenderBackend.Metal
-        TaoRenderBackend.OPENGL -> ComposeRenderBackend.OpenGl
-      }
-
-  override val openGlInterop: OpenGlInterop
-    get() =
-      if (
-        renderContext.backend == TaoRenderBackend.OPENGL &&
-          System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
-      ) {
-        OpenGlInterop.AngleD3D11
-      } else {
-        OpenGlInterop.Native
-      }
-
-  override fun gpuContext(): ComposeGpuContext =
-    when (val context = renderContext) {
-      is TaoMetalRenderContext ->
-        MetalComposeGpuContext(
-          skiaContext = context.skiaContext,
-          device = NativeHandle(context.metalDevicePtr),
-        )
-      is TaoOpenGlRenderContext ->
+/** Adapts the current Tao context to the corresponding typed window integration. */
+private fun taoComposeMapPresentationHost(
+  renderContext: TaoGpuRenderContext
+): ComposeMapPresentationHost {
+  val runOnGpuThread: (Runnable) -> Unit = { action ->
+    renderContext.runOnGpuThread { action.run() }
+  }
+  return when (renderContext) {
+    is TaoMetalRenderContext ->
+      ComposeMapPresentationHost.metal(
+        description = "the Nucleus Tao Metal host",
+        gpuContext = {
+          MetalComposeGpuContext(
+            renderContext.skiaContext,
+            NativeHandle(renderContext.metalDevicePtr),
+          )
+        },
+        runOnGpuThread = runOnGpuThread,
+      )
+    is TaoOpenGlRenderContext -> {
+      val description = "the Nucleus Tao OpenGL host"
+      val gpuContext = {
         OpenGlComposeGpuContext(
-          skiaContext = context.skiaContext,
-          // Tao draws to the window itself, so the bind only makes the context current. The scoped
-          // call restores the previous context and invalidates Skia's GL cache after the action.
+          skiaContext = renderContext.skiaContext,
+          // Tao restores the previous context and invalidates Skia's GL cache after the action.
           withContextCurrent = { action ->
-            checkNotNull(context.withContextCurrent { action.run() }) {
+            checkNotNull(renderContext.withContextCurrent { action.run() }) {
               "$description could not make the GL context current"
             }
           },
         )
-      // Tao keeps a private intermediate type in the sealed hierarchy. Public callers receive the
-      // Metal and OpenGL leaves above.
-      else ->
-        error(
-          "$description reported an unsupported TaoGpuRenderContext: ${context::class.simpleName}"
-        )
+      }
+      if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+        ComposeMapPresentationHost.angleD3D11(description, gpuContext, runOnGpuThread)
+      } else {
+        ComposeMapPresentationHost.openGl(description, gpuContext, runOnGpuThread)
+      }
     }
-
-  override fun runOnGpuThread(action: Runnable) {
-    renderContext.runOnGpuThread { action.run() }
+    // Tao has a private intermediate type; public callers receive the two leaves above.
+    else -> error("Unsupported Tao GPU context: ${renderContext::class.simpleName}")
   }
 }
 
@@ -85,5 +64,5 @@ public class TaoComposeMapPresentationHost(private val renderContext: TaoGpuRend
 @Composable
 public fun rememberTaoComposeMapPresentationHost(): ComposeMapPresentationHost? {
   val renderContext = rememberTaoGpuRenderContext() ?: return null
-  return remember(renderContext) { TaoComposeMapPresentationHost(renderContext) }
+  return remember(renderContext) { taoComposeMapPresentationHost(renderContext) }
 }

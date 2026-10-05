@@ -2769,15 +2769,6 @@ public final class org/maplibre/compose/map/TileLodOptions$Companion {
 	public final fun getStandard ()Lorg/maplibre/compose/map/TileLodOptions;
 }
 
-public final class org/maplibre/compose/mlnffi/ComposeRenderBackend : java/lang/Enum {
-	public static final field Direct3D12 Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static final field Metal Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static final field OpenGl Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static fun values ()[Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-}
-
 public final class org/maplibre/compose/mlnffi/NativeHandle {
 	public static final synthetic fun box-impl (J)Lorg/maplibre/compose/mlnffi/NativeHandle;
 	public static fun constructor-impl (J)J
