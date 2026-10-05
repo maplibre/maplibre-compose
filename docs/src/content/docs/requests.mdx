@@ -30,9 +30,6 @@ For separate configuration, use <Api of="createMapRuntime" /> and pass the resul
 to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
 when finished.
 
-Compare `request.kind` with the named <Api of="MapResourceKind" /> constants
-when selecting resources. Include a fallback for kinds reported by newer engines.
-
 ## Serve the bytes
 
 For local tiles, return a <Api of="MapResourceLoad" />: `Bytes` for resource data,
