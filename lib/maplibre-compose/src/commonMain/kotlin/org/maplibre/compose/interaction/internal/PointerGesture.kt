@@ -22,6 +22,7 @@ import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 internal class PointerGesture(
   private val target: CameraInputTarget,
@@ -618,6 +619,7 @@ internal class PointerGesture(
             CameraAction.ZoomIn -> 1.0
             CameraAction.ZoomOut -> -1.0
             InputAction.None,
+            UnspecifiedAction,
             null -> return@camera
           }
         launchTapTransition(
@@ -640,7 +642,7 @@ internal class PointerGesture(
       family.matches(options, sample) &&
         (taps.hasHandlers(family) ||
           family.binding(options).select(sample, options.camera.settings)?.let {
-            it != InputAction.None
+            it != InputAction.None && it != UnspecifiedAction
           } == true)
 
     private fun animateContinuation(velocity: PointerContinuation) {

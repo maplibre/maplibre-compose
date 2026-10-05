@@ -35,6 +35,7 @@ import org.maplibre.compose.interaction.FocusAction
 import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.KeyAction
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 /**
  * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
@@ -191,8 +192,18 @@ internal class KeyInput(
         FocusAction.Engage -> focus.engage(byKey = true) || previous != null
         FocusAction.Disengage -> focus.disengage() || previous != null
         FocusAction.Back -> (focus.consumesBack && focus.disengage()) || previous != null
-        is CameraAction -> focus.isEngaged
-        InputAction.None -> false
+        CameraAction.PanLeft,
+        CameraAction.PanRight,
+        CameraAction.PanUp,
+        CameraAction.PanDown,
+        CameraAction.ZoomIn,
+        CameraAction.ZoomOut,
+        CameraAction.RotateLeft,
+        CameraAction.RotateRight,
+        CameraAction.PitchUp,
+        CameraAction.PitchDown -> focus.isEngaged
+        InputAction.None,
+        UnspecifiedAction -> false
       }
     if (!consumed) return false
 
@@ -378,6 +389,9 @@ private data class KeyMotion(
   }
 }
 
+internal val KeyAction.isCamera: Boolean
+  get() = component != null
+
 private val KeyAction.motion: KeyMotion
   get() =
     when (this) {
@@ -391,8 +405,11 @@ private val KeyAction.motion: KeyMotion
       CameraAction.RotateRight -> KeyMotion(bearing = 1.0)
       CameraAction.PitchUp -> KeyMotion(pitch = 1.0)
       CameraAction.PitchDown -> KeyMotion(pitch = -1.0)
-      is FocusAction,
-      InputAction.None -> KeyMotion.None
+      FocusAction.Engage,
+      FocusAction.Disengage,
+      FocusAction.Back,
+      InputAction.None,
+      UnspecifiedAction -> KeyMotion.None
     }
 
 private val KeyAction.component: CameraComponent?
@@ -408,6 +425,9 @@ private val KeyAction.component: CameraComponent?
       CameraAction.RotateRight -> CameraComponent.Rotate
       CameraAction.PitchUp,
       CameraAction.PitchDown -> CameraComponent.Pitch
-      is FocusAction,
-      InputAction.None -> null
+      FocusAction.Engage,
+      FocusAction.Disengage,
+      FocusAction.Back,
+      InputAction.None,
+      UnspecifiedAction -> null
     }

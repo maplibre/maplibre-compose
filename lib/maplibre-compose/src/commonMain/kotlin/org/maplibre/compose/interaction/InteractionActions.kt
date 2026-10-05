@@ -31,48 +31,48 @@ public sealed interface KeyAction
  * Built-in camera movements, restricted by the camera settings in [MapInteractions]. Movement
  * requires a ready map presentation. Negative configured steps or gains reverse these directions.
  */
-public sealed interface CameraAction {
+public object CameraAction {
   /** Moves map content by drag or scroll displacement. */
-  public data object Pan : CameraAction, DragAction, ScrollAction
+  public data object Pan : DragAction, ScrollAction
 
   /** Rotates from horizontal dragging and pitches from vertical dragging. */
-  public data object RotatePitch : CameraAction, DragAction
+  public data object RotatePitch : DragAction
 
   /** Fits the geographic bounds of the dragged rectangle. Requires both pan and zoom. */
-  public data object FitBounds : CameraAction, DragAction
+  public data object FitBounds : DragAction
 
   /** Zooms from vertical scrolling. Horizontal-only events remain unclaimed. */
-  public data object Zoom : CameraAction, ScrollAction
+  public data object Zoom : ScrollAction
 
   /** Increases zoom by the tap or key binding's zoom step. */
-  public data object ZoomIn : CameraAction, TapAction, KeyAction
+  public data object ZoomIn : TapAction, KeyAction
 
   /** Decreases zoom by the tap or key binding's zoom step. */
-  public data object ZoomOut : CameraAction, TapAction, KeyAction
+  public data object ZoomOut : TapAction, KeyAction
 
   /** Moves the camera left by the key binding's pan step. */
-  public data object PanLeft : CameraAction, KeyAction
+  public data object PanLeft : KeyAction
 
   /** Moves the camera right by the key binding's pan step. */
-  public data object PanRight : CameraAction, KeyAction
+  public data object PanRight : KeyAction
 
   /** Moves the camera up by the key binding's pan step. */
-  public data object PanUp : CameraAction, KeyAction
+  public data object PanUp : KeyAction
 
   /** Moves the camera down by the key binding's pan step. */
-  public data object PanDown : CameraAction, KeyAction
+  public data object PanDown : KeyAction
 
   /** Decreases bearing by the key binding's rotate step. */
-  public data object RotateLeft : CameraAction, KeyAction
+  public data object RotateLeft : KeyAction
 
   /** Increases bearing by the key binding's rotate step. */
-  public data object RotateRight : CameraAction, KeyAction
+  public data object RotateRight : KeyAction
 
   /** Increases pitch by the key binding's pitch step. */
-  public data object PitchUp : CameraAction, KeyAction
+  public data object PitchUp : KeyAction
 
   /** Decreases pitch by the key binding's pitch step. */
-  public data object PitchDown : CameraAction, KeyAction
+  public data object PitchDown : KeyAction
 }
 
 /**
@@ -80,16 +80,19 @@ public sealed interface CameraAction {
  * requires at least one reachable, permitted camera key mapping; removing those mappings or losing
  * Compose focus disengages the map.
  */
-public sealed interface FocusAction : KeyAction {
+public object FocusAction {
   /** Engages the focused map so camera keys move it rather than traverse Compose focus. */
-  public data object Engage : FocusAction
+  public data object Engage : KeyAction
 
   /** Disengages the map. A new press is unclaimed when the map is already disengaged. */
-  public data object Disengage : FocusAction
+  public data object Disengage : KeyAction
 
   /**
    * Disengages a map engaged through a key. Pointer engagement leaves Back unclaimed so the
    * application's navigation can handle it.
    */
-  public data object Back : FocusAction
+  public data object Back : KeyAction
 }
+
+// Keeps caller matches non-exhaustive when new built-in actions are added.
+internal object UnspecifiedAction : DragAction, ScrollAction, TapAction, KeyAction

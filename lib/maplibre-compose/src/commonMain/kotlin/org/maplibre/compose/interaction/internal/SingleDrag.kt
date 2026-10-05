@@ -20,6 +20,7 @@ import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.DragAction
 import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.QuickZoomDirection
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 /** What the one-contact drags of a [PointerGesture] share. */
 internal class DragContext(
@@ -45,6 +46,7 @@ internal class DragContext(
       CameraAction.RotatePitch -> SingleDrag.RotatePitch(this, first, afterContactChange)
       CameraAction.FitBounds -> SingleDrag.FitBounds(this, first, afterContactChange)
       InputAction.None,
+      UnspecifiedAction,
       null -> null
     }
 }

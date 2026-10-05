@@ -11,6 +11,7 @@ import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.ScrollAction
 import org.maplibre.compose.interaction.TapAction
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 internal fun PointerPattern.matches(
   sample: GesturePointerSample,
@@ -42,25 +43,25 @@ internal fun CameraSettings.permits(action: DragAction): Boolean =
     CameraAction.Pan -> pan.enabled
     CameraAction.RotatePitch -> rotate.enabled || pitch.enabled
     CameraAction.FitBounds -> pan.enabled && zoom.enabled
-    InputAction.None -> true
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
 internal fun CameraSettings.permits(action: ScrollAction): Boolean =
   when (action) {
     CameraAction.Pan -> pan.enabled
     CameraAction.Zoom -> zoom.enabled
-    InputAction.None -> true
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
 internal fun CameraSettings.permits(action: TapAction): Boolean =
   when (action) {
     CameraAction.ZoomIn,
     CameraAction.ZoomOut -> zoom.enabled
-    InputAction.None -> true
+    InputAction.None,
+    UnspecifiedAction -> true
   }
-
-internal val KeyAction.isCamera: Boolean
-  get() = this is CameraAction
 
 internal fun CameraSettings.permits(action: KeyAction): Boolean =
   when (action) {
@@ -77,7 +78,8 @@ internal fun CameraSettings.permits(action: KeyAction): Boolean =
     FocusAction.Engage,
     FocusAction.Disengage,
     FocusAction.Back,
-    InputAction.None -> true
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
 internal fun DragBinding.select(

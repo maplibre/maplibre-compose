@@ -10,6 +10,7 @@ import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.ScrollAction
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 /** Scroll shares the pointer arena so it sees consumption before claiming an event. */
 internal class ScrollGesture(
@@ -39,7 +40,7 @@ internal class ScrollGesture(
 
     val selected =
       options.bindings.scroll.select(sample, options.camera.settings)?.takeUnless {
-        it == InputAction.None
+        it == InputAction.None || it == UnspecifiedAction
       }
     if (burst.session != null && action != selected) cancel()
     if (selected == null) return
@@ -76,7 +77,8 @@ internal class ScrollGesture(
             gestureToken = session.token,
           )
       }
-      InputAction.None -> Unit
+      InputAction.None,
+      UnspecifiedAction -> Unit
     }
 
     event.changes.forEach { it.consume() }
