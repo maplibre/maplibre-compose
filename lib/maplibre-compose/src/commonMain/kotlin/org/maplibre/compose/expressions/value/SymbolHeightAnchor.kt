@@ -1,16 +1,20 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** What `symbol-height-offset` is measured from. */
-public enum class SymbolHeightAnchor(internal val literal: StringLiteral) :
-  EnumValue<SymbolHeightAnchor> {
-  /**
-   * The offset is measured from the terrain surface below the symbol, or from zero when terrain is
-   * off.
-   */
-  Ground(StringLiteral.of("ground")),
+@JvmInline
+public value class SymbolHeightAnchor private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<SymbolHeightAnchor> {
+    /**
+     * The offset is measured from the terrain surface below the symbol, or from zero when terrain
+     * is off.
+     */
+    public val Ground: SymbolHeightAnchor = SymbolHeightAnchor("ground")
 
-  /** The offset is measured from sea level. Terrain under the symbol is ignored. */
-  Absolute(StringLiteral.of("absolute")),
+    /** The offset is measured from sea level. Terrain under the symbol is ignored. */
+    public val Absolute: SymbolHeightAnchor = SymbolHeightAnchor("absolute")
+
+    public override val entries: List<SymbolHeightAnchor> = listOf(Ground, Absolute)
+  }
 }

@@ -51,8 +51,8 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
     is ProjectionTransitionLiteral ->
       JsonArray(
         listOf(
-          value.from.literal.normalizeJsonLike(inLiteral),
-          value.to.literal.normalizeJsonLike(inLiteral),
+          JsonPrimitive(value.from.value),
+          JsonPrimitive(value.to.value),
           JsonPrimitive(value.progress),
         )
       )

@@ -519,8 +519,9 @@ public final class org/maplibre/compose/expressions/dsl/StringKt {
 public final class org/maplibre/compose/expressions/dsl/TypesKt {
 	public static final fun asBoolean (Lorg/maplibre/compose/expressions/ast/Expression;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun asDpOffset (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static final fun asList (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/value/ExpressionType;Ljava/lang/Integer;)Lorg/maplibre/compose/expressions/ast/Expression;
-	public static synthetic fun asList$default (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/value/ExpressionType;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun asEnum (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/value/EnumType;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun asList--3duChk (Lorg/maplibre/compose/expressions/ast/Expression;Ljava/lang/String;Ljava/lang/Integer;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static synthetic fun asList--3duChk$default (Lorg/maplibre/compose/expressions/ast/Expression;Ljava/lang/String;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun asMap (Lorg/maplibre/compose/expressions/ast/Expression;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun asNumber (Lorg/maplibre/compose/expressions/ast/Expression;[Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun asOffset (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
@@ -577,20 +578,44 @@ public abstract interface class org/maplibre/compose/expressions/value/AnyValue 
 public abstract interface class org/maplibre/compose/expressions/value/BooleanValue : org/maplibre/compose/expressions/value/EquatableValue, org/maplibre/compose/expressions/value/ExpressionValue {
 }
 
-public final class org/maplibre/compose/expressions/value/CirclePitchAlignment : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Map Lorg/maplibre/compose/expressions/value/CirclePitchAlignment;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/CirclePitchAlignment;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/CirclePitchAlignment;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/CirclePitchAlignment;
+public final class org/maplibre/compose/expressions/value/CirclePitchAlignment : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/CirclePitchAlignment$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/CirclePitchAlignment;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/CirclePitchScale : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Map Lorg/maplibre/compose/expressions/value/CirclePitchScale;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/CirclePitchScale;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/CirclePitchScale;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/CirclePitchScale;
+public final class org/maplibre/compose/expressions/value/CirclePitchAlignment$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-_mp8fig ()Ljava/lang/String;
+	public final fun getViewport-_mp8fig ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/CirclePitchScale : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/CirclePitchScale$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/CirclePitchScale;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/CirclePitchScale$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-qEeAnwE ()Ljava/lang/String;
+	public final fun getViewport-qEeAnwE ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/CollatorValue : org/maplibre/compose/expressions/value/ExpressionValue {
@@ -605,22 +630,39 @@ public abstract interface class org/maplibre/compose/expressions/value/Comparabl
 public abstract interface class org/maplibre/compose/expressions/value/DpPaddingValue : org/maplibre/compose/expressions/value/VectorValue {
 }
 
+public abstract interface class org/maplibre/compose/expressions/value/EnumType {
+	public abstract fun getEntries ()Ljava/util/List;
+}
+
 public abstract interface class org/maplibre/compose/expressions/value/EnumValue : org/maplibre/compose/expressions/value/StringValue {
+	public abstract fun getValue ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/EquatableValue : org/maplibre/compose/expressions/value/ExpressionValue {
 }
 
-public final class org/maplibre/compose/expressions/value/ExpressionType : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Array Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static final field Boolean Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static final field Color Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static final field Number Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static final field Object Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static final field String Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/ExpressionType;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/ExpressionType;
+public final class org/maplibre/compose/expressions/value/ExpressionType : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/ExpressionType$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/ExpressionType;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/ExpressionType$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getArray-COPvqko ()Ljava/lang/String;
+	public final fun getBoolean-COPvqko ()Ljava/lang/String;
+	public final fun getColor-COPvqko ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getNumber-COPvqko ()Ljava/lang/String;
+	public final fun getObject-COPvqko ()Ljava/lang/String;
+	public final fun getString-COPvqko ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/ExpressionValue {
@@ -638,63 +680,135 @@ public abstract interface class org/maplibre/compose/expressions/value/Formatted
 public abstract interface class org/maplibre/compose/expressions/value/GeoJsonValue : org/maplibre/compose/expressions/value/ExpressionValue {
 }
 
-public final class org/maplibre/compose/expressions/value/GeometryType : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field LineString Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static final field MultiLineString Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static final field MultiPoint Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static final field MultiPolygon Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static final field Point Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static final field Polygon Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/GeometryType;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/GeometryType;
+public final class org/maplibre/compose/expressions/value/GeometryType : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/GeometryType$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/GeometryType;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/HillshadeMethod : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Basic Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static final field Combined Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static final field Igor Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static final field Multidirectional Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static final field Standard Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/HillshadeMethod;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/HillshadeMethod;
+public final class org/maplibre/compose/expressions/value/GeometryType$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLineString-90eZnCs ()Ljava/lang/String;
+	public final fun getMultiLineString-90eZnCs ()Ljava/lang/String;
+	public final fun getMultiPoint-90eZnCs ()Ljava/lang/String;
+	public final fun getMultiPolygon-90eZnCs ()Ljava/lang/String;
+	public final fun getPoint-90eZnCs ()Ljava/lang/String;
+	public final fun getPolygon-90eZnCs ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/IconPitchAlignment : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
-	public static final field Map Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
+public final class org/maplibre/compose/expressions/value/HillshadeMethod : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/HillshadeMethod$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/HillshadeMethod;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/IconRotationAlignment : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
-	public static final field Map Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
+public final class org/maplibre/compose/expressions/value/HillshadeMethod$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getBasic-Xwms3Ks ()Ljava/lang/String;
+	public final fun getCombined-Xwms3Ks ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getIgor-Xwms3Ks ()Ljava/lang/String;
+	public final fun getMultidirectional-Xwms3Ks ()Ljava/lang/String;
+	public final fun getStandard-Xwms3Ks ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/IconTextFit : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Both Lorg/maplibre/compose/expressions/value/IconTextFit;
-	public static final field Height Lorg/maplibre/compose/expressions/value/IconTextFit;
-	public static final field None Lorg/maplibre/compose/expressions/value/IconTextFit;
-	public static final field Width Lorg/maplibre/compose/expressions/value/IconTextFit;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconTextFit;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/IconTextFit;
+public final class org/maplibre/compose/expressions/value/IconPitchAlignment : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/IconPitchAlignment$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconPitchAlignment;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/IlluminationAnchor : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Map Lorg/maplibre/compose/expressions/value/IlluminationAnchor;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/IlluminationAnchor;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IlluminationAnchor;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/IlluminationAnchor;
+public final class org/maplibre/compose/expressions/value/IconPitchAlignment$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-HBfHs2w ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-HBfHs2w ()Ljava/lang/String;
+	public final fun getViewport-HBfHs2w ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IconRotationAlignment : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/IconRotationAlignment$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconRotationAlignment;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IconRotationAlignment$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-SBe0gMo ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-SBe0gMo ()Ljava/lang/String;
+	public final fun getViewport-SBe0gMo ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IconTextFit : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/IconTextFit$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IconTextFit;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IconTextFit$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getBoth-ZdYZBXA ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getHeight-ZdYZBXA ()Ljava/lang/String;
+	public final fun getNone-ZdYZBXA ()Ljava/lang/String;
+	public final fun getWidth-ZdYZBXA ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IlluminationAnchor : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/IlluminationAnchor$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/IlluminationAnchor;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/IlluminationAnchor$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-RZFtSBc ()Ljava/lang/String;
+	public final fun getViewport-RZFtSBc ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/ImageValue : org/maplibre/compose/expressions/value/ExpressionValue, org/maplibre/compose/expressions/value/FormattableValue {
@@ -706,22 +820,46 @@ public abstract interface class org/maplibre/compose/expressions/value/IntValue 
 public abstract interface class org/maplibre/compose/expressions/value/InterpolatableValue : org/maplibre/compose/expressions/value/ExpressionValue {
 }
 
-public final class org/maplibre/compose/expressions/value/LineCap : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Butt Lorg/maplibre/compose/expressions/value/LineCap;
-	public static final field Round Lorg/maplibre/compose/expressions/value/LineCap;
-	public static final field Square Lorg/maplibre/compose/expressions/value/LineCap;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/LineCap;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/LineCap;
+public final class org/maplibre/compose/expressions/value/LineCap : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/LineCap$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/LineCap;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/LineJoin : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Bevel Lorg/maplibre/compose/expressions/value/LineJoin;
-	public static final field Miter Lorg/maplibre/compose/expressions/value/LineJoin;
-	public static final field Round Lorg/maplibre/compose/expressions/value/LineJoin;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/LineJoin;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/LineJoin;
+public final class org/maplibre/compose/expressions/value/LineCap$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getButt-6xT9qas ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getRound-6xT9qas ()Ljava/lang/String;
+	public final fun getSquare-6xT9qas ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/LineJoin : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/LineJoin$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/LineJoin;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/LineJoin$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getBevel-pQtmhbc ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMiter-pQtmhbc ()Ljava/lang/String;
+	public final fun getRound-pQtmhbc ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/ListValue : org/maplibre/compose/expressions/value/ExpressionValue {
@@ -742,131 +880,287 @@ public abstract interface class org/maplibre/compose/expressions/value/NumberVal
 public abstract interface class org/maplibre/compose/expressions/value/OffsetValue : org/maplibre/compose/expressions/value/VectorValue {
 }
 
-public final class org/maplibre/compose/expressions/value/ProjectionType : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue, org/maplibre/compose/expressions/value/ProjectionValue {
-	public static final field Globe Lorg/maplibre/compose/expressions/value/ProjectionType;
-	public static final field Mercator Lorg/maplibre/compose/expressions/value/ProjectionType;
-	public static final field VerticalPerspective Lorg/maplibre/compose/expressions/value/ProjectionType;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/ProjectionType;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/ProjectionType;
+public final class org/maplibre/compose/expressions/value/ProjectionType : org/maplibre/compose/expressions/value/EnumValue, org/maplibre/compose/expressions/value/ProjectionValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/ProjectionType$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/ProjectionType;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/ProjectionType$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getGlobe-_FO8U8g ()Ljava/lang/String;
+	public final fun getMercator-_FO8U8g ()Ljava/lang/String;
+	public final fun getVerticalPerspective-_FO8U8g ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/ProjectionValue : org/maplibre/compose/expressions/value/ExpressionValue, org/maplibre/compose/expressions/value/InterpolatableValue {
 }
 
-public final class org/maplibre/compose/expressions/value/RasterResampling : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Linear Lorg/maplibre/compose/expressions/value/RasterResampling;
-	public static final field Nearest Lorg/maplibre/compose/expressions/value/RasterResampling;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/RasterResampling;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/RasterResampling;
+public final class org/maplibre/compose/expressions/value/RasterResampling : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/RasterResampling$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/RasterResampling;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/RasterResampling$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLinear-ZldVprk ()Ljava/lang/String;
+	public final fun getNearest-ZldVprk ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/StringValue : org/maplibre/compose/expressions/value/ComparableValue, org/maplibre/compose/expressions/value/EquatableValue, org/maplibre/compose/expressions/value/ExpressionValue, org/maplibre/compose/expressions/value/FormattableValue, org/maplibre/compose/expressions/value/FormattedValue, org/maplibre/compose/expressions/value/MatchableValue {
 }
 
-public final class org/maplibre/compose/expressions/value/SymbolAnchor : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Bottom Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field BottomLeft Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field BottomRight Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field Center Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field Left Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field Right Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field Top Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field TopLeft Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static final field TopRight Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolAnchor;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/SymbolAnchor;
+public final class org/maplibre/compose/expressions/value/SymbolAnchor : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/SymbolAnchor$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolAnchor;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/SymbolHeightAnchor : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Absolute Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor;
-	public static final field Ground Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor;
+public final class org/maplibre/compose/expressions/value/SymbolAnchor$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getBottom-VGgaFrw ()Ljava/lang/String;
+	public final fun getBottomLeft-VGgaFrw ()Ljava/lang/String;
+	public final fun getBottomRight-VGgaFrw ()Ljava/lang/String;
+	public final fun getCenter-VGgaFrw ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLeft-VGgaFrw ()Ljava/lang/String;
+	public final fun getRight-VGgaFrw ()Ljava/lang/String;
+	public final fun getTop-VGgaFrw ()Ljava/lang/String;
+	public final fun getTopLeft-VGgaFrw ()Ljava/lang/String;
+	public final fun getTopRight-VGgaFrw ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/SymbolOverlap : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Always Lorg/maplibre/compose/expressions/value/SymbolOverlap;
-	public static final field Cooperative Lorg/maplibre/compose/expressions/value/SymbolOverlap;
-	public static final field Never Lorg/maplibre/compose/expressions/value/SymbolOverlap;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolOverlap;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/SymbolOverlap;
+public final class org/maplibre/compose/expressions/value/SymbolHeightAnchor : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolHeightAnchor;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/SymbolPlacement : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Line Lorg/maplibre/compose/expressions/value/SymbolPlacement;
-	public static final field LineCenter Lorg/maplibre/compose/expressions/value/SymbolPlacement;
-	public static final field Point Lorg/maplibre/compose/expressions/value/SymbolPlacement;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolPlacement;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/SymbolPlacement;
+public final class org/maplibre/compose/expressions/value/SymbolHeightAnchor$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAbsolute-93xcYxs ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getGround-93xcYxs ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/SymbolZOrder : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/SymbolZOrder;
-	public static final field Source Lorg/maplibre/compose/expressions/value/SymbolZOrder;
-	public static final field ViewportY Lorg/maplibre/compose/expressions/value/SymbolZOrder;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolZOrder;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/SymbolZOrder;
+public final class org/maplibre/compose/expressions/value/SymbolOverlap : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/SymbolOverlap$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolOverlap;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TextJustify : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/TextJustify;
-	public static final field Center Lorg/maplibre/compose/expressions/value/TextJustify;
-	public static final field Left Lorg/maplibre/compose/expressions/value/TextJustify;
-	public static final field Right Lorg/maplibre/compose/expressions/value/TextJustify;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextJustify;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TextJustify;
+public final class org/maplibre/compose/expressions/value/SymbolOverlap$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAlways-VuG7zd0 ()Ljava/lang/String;
+	public final fun getCooperative-VuG7zd0 ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getNever-VuG7zd0 ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TextPitchAlignment : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
-	public static final field Map Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
+public final class org/maplibre/compose/expressions/value/SymbolPlacement : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/SymbolPlacement$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolPlacement;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TextRotationAlignment : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Auto Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
-	public static final field Map Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
-	public static final field ViewportGlyph Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
+public final class org/maplibre/compose/expressions/value/SymbolPlacement$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLine-9H6VByI ()Ljava/lang/String;
+	public final fun getLineCenter-9H6VByI ()Ljava/lang/String;
+	public final fun getPoint-9H6VByI ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TextTransform : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Lowercase Lorg/maplibre/compose/expressions/value/TextTransform;
-	public static final field None Lorg/maplibre/compose/expressions/value/TextTransform;
-	public static final field Uppercase Lorg/maplibre/compose/expressions/value/TextTransform;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextTransform;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TextTransform;
+public final class org/maplibre/compose/expressions/value/SymbolZOrder : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/SymbolZOrder$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/SymbolZOrder;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TextWritingMode : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Horizontal Lorg/maplibre/compose/expressions/value/TextWritingMode;
-	public static final field Vertical Lorg/maplibre/compose/expressions/value/TextWritingMode;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextWritingMode;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TextWritingMode;
+public final class org/maplibre/compose/expressions/value/SymbolZOrder$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-WZTxKL0 ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getSource-WZTxKL0 ()Ljava/lang/String;
+	public final fun getViewportY-WZTxKL0 ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/expressions/value/TranslateAnchor : java/lang/Enum, org/maplibre/compose/expressions/value/EnumValue {
-	public static final field Map Lorg/maplibre/compose/expressions/value/TranslateAnchor;
-	public static final field Viewport Lorg/maplibre/compose/expressions/value/TranslateAnchor;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TranslateAnchor;
-	public static fun values ()[Lorg/maplibre/compose/expressions/value/TranslateAnchor;
+public final class org/maplibre/compose/expressions/value/TextJustify : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TextJustify$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextJustify;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextJustify$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-OwCtjPI ()Ljava/lang/String;
+	public final fun getCenter-OwCtjPI ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLeft-OwCtjPI ()Ljava/lang/String;
+	public final fun getRight-OwCtjPI ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextPitchAlignment : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TextPitchAlignment$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextPitchAlignment;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextPitchAlignment$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-7Gl_zlo ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-7Gl_zlo ()Ljava/lang/String;
+	public final fun getViewport-7Gl_zlo ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextRotationAlignment : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TextRotationAlignment$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextRotationAlignment;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextRotationAlignment$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public final fun getAuto-owafds8 ()Ljava/lang/String;
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-owafds8 ()Ljava/lang/String;
+	public final fun getViewport-owafds8 ()Ljava/lang/String;
+	public final fun getViewportGlyph-owafds8 ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextTransform : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TextTransform$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextTransform;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextTransform$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getLowercase-hEBRJ-g ()Ljava/lang/String;
+	public final fun getNone-hEBRJ-g ()Ljava/lang/String;
+	public final fun getUppercase-hEBRJ-g ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextWritingMode : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TextWritingMode$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TextWritingMode;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TextWritingMode$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getHorizontal-gexaxdQ ()Ljava/lang/String;
+	public final fun getVertical-gexaxdQ ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TranslateAnchor : org/maplibre/compose/expressions/value/EnumValue {
+	public static final field Companion Lorg/maplibre/compose/expressions/value/TranslateAnchor$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/expressions/value/TranslateAnchor;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/value/TranslateAnchor$Companion : org/maplibre/compose/expressions/value/EnumType {
+	public fun getEntries ()Ljava/util/List;
+	public final fun getMap-IJNpg6c ()Ljava/lang/String;
+	public final fun getViewport-IJNpg6c ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/expressions/value/VectorValue : org/maplibre/compose/expressions/value/FloatOrVectorValue, org/maplibre/compose/expressions/value/InterpolatableValue, org/maplibre/compose/expressions/value/ListValue {
@@ -3489,16 +3783,16 @@ public final class org/maplibre/compose/style/Projection {
 
 public final class org/maplibre/compose/style/ProjectionTransition {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/compose/expressions/value/ProjectionType;Lorg/maplibre/compose/expressions/value/ProjectionType;F)V
-	public final fun component1 ()Lorg/maplibre/compose/expressions/value/ProjectionType;
-	public final fun component2 ()Lorg/maplibre/compose/expressions/value/ProjectionType;
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;FLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-_FO8U8g ()Ljava/lang/String;
+	public final fun component2-_FO8U8g ()Ljava/lang/String;
 	public final fun component3 ()F
-	public final fun copy (Lorg/maplibre/compose/expressions/value/ProjectionType;Lorg/maplibre/compose/expressions/value/ProjectionType;F)Lorg/maplibre/compose/style/ProjectionTransition;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/style/ProjectionTransition;Lorg/maplibre/compose/expressions/value/ProjectionType;Lorg/maplibre/compose/expressions/value/ProjectionType;FILjava/lang/Object;)Lorg/maplibre/compose/style/ProjectionTransition;
+	public final fun copy-qtORYOM (Ljava/lang/String;Ljava/lang/String;F)Lorg/maplibre/compose/style/ProjectionTransition;
+	public static synthetic fun copy-qtORYOM$default (Lorg/maplibre/compose/style/ProjectionTransition;Ljava/lang/String;Ljava/lang/String;FILjava/lang/Object;)Lorg/maplibre/compose/style/ProjectionTransition;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getFrom ()Lorg/maplibre/compose/expressions/value/ProjectionType;
+	public final fun getFrom-_FO8U8g ()Ljava/lang/String;
 	public final fun getProgress ()F
-	public final fun getTo ()Lorg/maplibre/compose/expressions/value/ProjectionType;
+	public final fun getTo-_FO8U8g ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

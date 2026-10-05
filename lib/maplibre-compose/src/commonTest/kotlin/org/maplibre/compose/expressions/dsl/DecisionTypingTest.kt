@@ -42,7 +42,7 @@ class DecisionTypingTest {
   }
 
   @Test
-  fun match_labels_can_be_strings_numbers_or_enums() {
+  fun match_labels_can_be_strings_numbers_or_named_values() {
     val byName: Expression<FloatValue> =
       switch(
         feature["class"].asString(),
@@ -71,7 +71,7 @@ class DecisionTypingTest {
       """["string",["case",["in",["get","cap"],["literal",["butt","round","square"]]],["get","cap"],null]]"""
     val byCap: Expression<DpValue> =
       switch(
-        feature["cap"].asEnum<LineCap>(),
+        feature["cap"].asEnum(LineCap),
         case(LineCap.Round, const(2.dp)),
         case(listOf(LineCap.Butt, LineCap.Square), const(1.dp)),
         case("bevel", const(3.dp)),

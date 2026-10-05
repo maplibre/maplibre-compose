@@ -15,7 +15,6 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MatchableValue
 import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.expressions.value.literal
 
 /**
  * Selects the first output from the given [conditions] whose corresponding test condition evaluates
@@ -215,10 +214,10 @@ public fun <O : ExpressionValue?> case(label: String, output: Expression<O>): Ca
   Case(JsonPrimitive(label), output)
 
 /** Create a [Case], see [switch] */
-public fun <O : ExpressionValue?, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue> case(
   label: E,
   output: Expression<O>,
-): Case<E, O> = Case(JsonPrimitive(label.literal.value), output)
+): Case<E, O> = Case(JsonPrimitive(label.value), output)
 
 /** Create a [Case], see [switch] */
 public fun <O : ExpressionValue?> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
@@ -233,10 +232,10 @@ public fun <O : ExpressionValue?> case(
 
 /** Create a [Case], see [switch] */
 @JvmName("enumsCase")
-public fun <O : ExpressionValue?, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue> case(
   label: List<E>,
   output: Expression<O>,
-): Case<E, O> = Case(JsonArray(label.map { JsonPrimitive(it.literal.value) }), output)
+): Case<E, O> = Case(JsonArray(label.map { JsonPrimitive(it.value) }), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("numbersCase")

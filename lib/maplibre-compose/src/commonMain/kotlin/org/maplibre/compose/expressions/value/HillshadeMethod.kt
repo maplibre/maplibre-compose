@@ -1,33 +1,39 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** The hillshade algorithm used to shade a DEM. */
-public enum class HillshadeMethod(internal val literal: StringLiteral) :
-  EnumValue<HillshadeMethod> {
+@JvmInline
+public value class HillshadeMethod private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<HillshadeMethod> {
+    /** The legacy hillshade method. */
+    public val Standard: HillshadeMethod = HillshadeMethod("standard")
 
-  /** The legacy hillshade method. */
-  Standard(StringLiteral.of("standard")),
+    /**
+     * Basic hillshade. Uses a simple physics model where the reflected light intensity is
+     * proportional to the cosine of the angle between the incident light and the surface normal.
+     * Similar to GDAL's `gdaldem` default algorithm.
+     */
+    public val Basic: HillshadeMethod = HillshadeMethod("basic")
 
-  /**
-   * Basic hillshade. Uses a simple physics model where the reflected light intensity is
-   * proportional to the cosine of the angle between the incident light and the surface normal.
-   * Similar to GDAL's `gdaldem` default algorithm.
-   */
-  Basic(StringLiteral.of("basic")),
+    /**
+     * Hillshade whose intensity scales with slope. Similar to GDAL's `gdaldem` with `-combined`.
+     */
+    public val Combined: HillshadeMethod = HillshadeMethod("combined")
 
-  /** Hillshade whose intensity scales with slope. Similar to GDAL's `gdaldem` with `-combined`. */
-  Combined(StringLiteral.of("combined")),
+    /**
+     * Hillshade that tries to minimize effects on other map features beneath. Similar to GDAL's
+     * `gdaldem` with `-igor`.
+     */
+    public val Igor: HillshadeMethod = HillshadeMethod("igor")
 
-  /**
-   * Hillshade that tries to minimize effects on other map features beneath. Similar to GDAL's
-   * `gdaldem` with `-igor`.
-   */
-  Igor(StringLiteral.of("igor")),
+    /**
+     * Hillshade with multiple illumination directions. Uses the basic hillshade model with multiple
+     * independent light sources.
+     */
+    public val Multidirectional: HillshadeMethod = HillshadeMethod("multidirectional")
 
-  /**
-   * Hillshade with multiple illumination directions. Uses the basic hillshade model with multiple
-   * independent light sources.
-   */
-  Multidirectional(StringLiteral.of("multidirectional")),
+    public override val entries: List<HillshadeMethod> =
+      listOf(Standard, Basic, Combined, Igor, Multidirectional)
+  }
 }

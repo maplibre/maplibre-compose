@@ -37,4 +37,5 @@ The Kotlin DSL for creating MapLibre expressions.
 
 # Package org.maplibre.compose.expressions.value
 
-The interfaces and enums defining the type system for MapLibre expressions.
+The interfaces and named value classes defining the type system for MapLibre
+expressions.

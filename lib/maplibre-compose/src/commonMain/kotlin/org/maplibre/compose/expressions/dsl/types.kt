@@ -1,7 +1,6 @@
 package org.maplibre.compose.expressions.dsl
 
 import androidx.compose.ui.unit.TextUnitType
-import kotlin.enums.enumEntries
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.TextUnitCalculation
 import org.maplibre.compose.expressions.value.AnyValue
@@ -11,6 +10,7 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpPaddingValue
 import org.maplibre.compose.expressions.value.DpValue
+import org.maplibre.compose.expressions.value.EnumType
 import org.maplibre.compose.expressions.value.EnumValue
 import org.maplibre.compose.expressions.value.ExpressionType
 import org.maplibre.compose.expressions.value.FloatOffsetValue
@@ -102,25 +102,23 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
   call("string", this, *fallbacks)
 
 /**
- * Asserts that this value is an entry of the enum specified by [T].
+ * Asserts that this expression resolves to one of the named values of [type]. Pass the style type's
+ * companion, such as `LineCap`, to obtain an expression of that type.
  *
- * In case this expression is not an entry of the enum, each of the [fallbacks] is evaluated in
- * order until a match is obtained. If none of the inputs match, the expression is an error.
+ * Each of the [fallbacks] is evaluated in order until a value matches. If neither this expression
+ * nor a fallback matches, the expression is an error. Membership in [EnumType.entries] is checked
+ * when MapLibre evaluates the expression.
  */
-public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
-  where T : Enum<T>, T : EnumValue<T> {
-  val entries = const(enumEntries<T>())
+public fun <T : EnumValue> Expression<*>.asEnum(
+  type: EnumType<T>,
+  vararg fallbacks: Expression<*>,
+): Expression<T> {
+  val entries = const(type.entries)
   val conditions =
-    buildList(fallbacks.size + 1) {
-      add(condition(entries.contains(this@asEnum), this@asEnum))
-      fallbacks.forEach { add(condition(entries.contains(it), it)) }
+    (listOf(this) + fallbacks).map { candidate ->
+      condition(entries.contains(candidate), candidate)
     }
-  return switch(
-      conditions,
-      fallback = nil(), // should always error .asString(), which is what we want as per kdoc
-    )
-    .asString()
-    .cast()
+  return switch(conditions, fallback = nil()).asString().cast()
 }
 
 /**

@@ -1,18 +1,23 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Text justification options. */
-public enum class TextJustify(internal val literal: StringLiteral) : EnumValue<TextJustify> {
-  /** The text is aligned towards the anchor position. */
-  Auto(StringLiteral.of("auto")),
+@JvmInline
+public value class TextJustify private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<TextJustify> {
+    /** The text is aligned towards the anchor position. */
+    public val Auto: TextJustify = TextJustify("auto")
 
-  /** The text is aligned to the left. */
-  Left(StringLiteral.of("left")),
+    /** The text is aligned to the left. */
+    public val Left: TextJustify = TextJustify("left")
 
-  /** The text is centered. */
-  Center(StringLiteral.of("center")),
+    /** The text is centered. */
+    public val Center: TextJustify = TextJustify("center")
 
-  /** The text is aligned to the right. */
-  Right(StringLiteral.of("right")),
+    /** The text is aligned to the right. */
+    public val Right: TextJustify = TextJustify("right")
+
+    public override val entries: List<TextJustify> = listOf(Auto, Left, Center, Right)
+  }
 }

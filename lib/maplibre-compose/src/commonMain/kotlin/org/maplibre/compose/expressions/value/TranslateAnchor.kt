@@ -1,13 +1,17 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** Frame of reference for offsetting geometry. */
-public enum class TranslateAnchor(internal val literal: StringLiteral) :
-  EnumValue<TranslateAnchor> {
-  /** Offset is relative to the map */
-  Map(StringLiteral.of("map")),
+@JvmInline
+public value class TranslateAnchor private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<TranslateAnchor> {
+    /** Offset is relative to the map */
+    public val Map: TranslateAnchor = TranslateAnchor("map")
 
-  /** Offset is relative to the viewport */
-  Viewport(StringLiteral.of("viewport")),
+    /** Offset is relative to the viewport */
+    public val Viewport: TranslateAnchor = TranslateAnchor("viewport")
+
+    public override val entries: List<TranslateAnchor> = listOf(Map, Viewport)
+  }
 }

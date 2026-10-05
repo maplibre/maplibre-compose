@@ -1,17 +1,21 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /** A named map projection. See [Projection][org.maplibre.compose.style.Projection]. */
-public enum class ProjectionType(internal val literal: StringLiteral) :
-  EnumValue<ProjectionType>, ProjectionValue {
+@JvmInline
+public value class ProjectionType private constructor(override val value: String) :
+  EnumValue, ProjectionValue {
+  public companion object : EnumType<ProjectionType> {
+    /** The Web Mercator projection. */
+    public val Mercator: ProjectionType = ProjectionType("mercator")
 
-  /** The Web Mercator projection. */
-  Mercator(StringLiteral.of("mercator")),
+    /** A globe projection at every zoom level. */
+    public val VerticalPerspective: ProjectionType = ProjectionType("vertical-perspective")
 
-  /** A globe projection at every zoom level. */
-  VerticalPerspective(StringLiteral.of("vertical-perspective")),
+    /** [VerticalPerspective] below zoom 11, interpolating to [Mercator] by zoom 12. */
+    public val Globe: ProjectionType = ProjectionType("globe")
 
-  /** [VerticalPerspective] below zoom 11, interpolating to [Mercator] by zoom 12. */
-  Globe(StringLiteral.of("globe")),
+    public override val entries: List<ProjectionType> = listOf(Mercator, VerticalPerspective, Globe)
+  }
 }

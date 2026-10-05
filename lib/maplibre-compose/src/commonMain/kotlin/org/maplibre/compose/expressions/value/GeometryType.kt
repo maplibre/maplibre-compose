@@ -1,16 +1,22 @@
 package org.maplibre.compose.expressions.value
 
-import org.maplibre.compose.expressions.ast.StringLiteral
+import kotlin.jvm.JvmInline
 
 /**
  * Type of a GeoJson feature, as returned by
  * [Feature.geometryType][org.maplibre.compose.expressions.dsl.Feature.geometryType].
  */
-public enum class GeometryType(internal val literal: StringLiteral) : EnumValue<GeometryType> {
-  Point(StringLiteral.of("Point")),
-  LineString(StringLiteral.of("LineString")),
-  Polygon(StringLiteral.of("Polygon")),
-  MultiPoint(StringLiteral.of("MultiPoint")),
-  MultiLineString(StringLiteral.of("MultiLineString")),
-  MultiPolygon(StringLiteral.of("MultiPolygon")),
+@JvmInline
+public value class GeometryType private constructor(override val value: String) : EnumValue {
+  public companion object : EnumType<GeometryType> {
+    public val Point: GeometryType = GeometryType("Point")
+    public val LineString: GeometryType = GeometryType("LineString")
+    public val Polygon: GeometryType = GeometryType("Polygon")
+    public val MultiPoint: GeometryType = GeometryType("MultiPoint")
+    public val MultiLineString: GeometryType = GeometryType("MultiLineString")
+    public val MultiPolygon: GeometryType = GeometryType("MultiPolygon")
+
+    public override val entries: List<GeometryType> =
+      listOf(Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon)
+  }
 }

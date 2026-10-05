@@ -112,7 +112,8 @@ class StyleGlobalStateTest {
       layer.paint("line-width", (const(40.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.layout(
         "line-cap",
-        (globalState("cap").asEnum<LineCap>().compile(ExpressionContext.None)).asLayerProperty(),
+        (globalState("cap").asEnum(LineCap, const(LineCap.Round)).compile(ExpressionContext.None))
+          .asLayerProperty(),
       )
       layer.paint(
         "line-gradient",
@@ -131,6 +132,8 @@ class StyleGlobalStateTest {
       fixture.pumpUntilPixel("reset cap", 296, 256, BLACK)
       state.resetProperty("color")
       fixture.pumpUntilPixel("reset color ramp", 256, 256, RED)
+      state.setProperty("cap", JsonPrimitive("invalid"))
+      fixture.pumpUntilPixel("fallback cap", 296, 256, RED)
       assertEquals(emptyList(), fixture.errors.toList())
     }
   }
