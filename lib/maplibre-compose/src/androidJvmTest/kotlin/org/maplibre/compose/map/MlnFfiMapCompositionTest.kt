@@ -69,8 +69,8 @@ import kotlinx.coroutines.async
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.layers.BackgroundLayer
@@ -436,7 +436,7 @@ class MlnFfiMapCompositionTest {
                 bindings {
                   drag {
                     enabled = true
-                    mappings { on(button = PointerButton.Primary, response = DragResponse.Pan) }
+                    mappings { on(button = PointerButton.Primary, action = CameraAction.Pan) }
                   }
                 }
               }

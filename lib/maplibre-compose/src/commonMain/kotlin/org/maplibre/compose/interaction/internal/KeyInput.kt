@@ -30,8 +30,12 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.interaction.CameraAction
+import org.maplibre.compose.interaction.FocusAction
+import org.maplibre.compose.interaction.InputAction
+import org.maplibre.compose.interaction.KeyAction
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.KeyResponse
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 /**
  * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
@@ -49,8 +53,8 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
    */
   val indicationInteractions = MutableInteractionSource()
 
-  /** A null response retains only consumption until release after cancellation. */
-  val claimedKeys = mutableStateMapOf<Key, KeyResponse?>()
+  /** A null action retains only consumption until release after cancellation. */
+  val claimedKeys = mutableStateMapOf<Key, KeyAction?>()
 
   /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
   var hasKeyBindings = false
@@ -179,17 +183,27 @@ internal class KeyInput(
     val settings = options()
     if (!settings.hasCameraKeys) return false
     val action =
-      (previous ?: settings.bindings.keys.select(key, modifiers, settings.camera.settings))
-        ?.takeUnless {
-          it == KeyResponse.None
-        } ?: return false
+      previous
+        ?: settings.bindings.keys.select(key, modifiers, settings.camera.settings)
+        ?: return false
 
     val consumed =
       when (action) {
-        KeyResponse.Engage -> focus.engage(byKey = true) || previous != null
-        KeyResponse.Disengage -> focus.disengage() || previous != null
-        KeyResponse.Back -> (focus.consumesBack && focus.disengage()) || previous != null
-        else -> focus.isEngaged
+        FocusAction.Engage -> focus.engage(byKey = true) || previous != null
+        FocusAction.Disengage -> focus.disengage() || previous != null
+        FocusAction.Back -> (focus.consumesBack && focus.disengage()) || previous != null
+        CameraAction.PanLeft,
+        CameraAction.PanRight,
+        CameraAction.PanUp,
+        CameraAction.PanDown,
+        CameraAction.ZoomIn,
+        CameraAction.ZoomOut,
+        CameraAction.RotateLeft,
+        CameraAction.RotateRight,
+        CameraAction.PitchUp,
+        CameraAction.PitchDown -> focus.isEngaged
+        InputAction.None,
+        UnspecifiedAction -> false
       }
     if (!consumed) return false
 
@@ -263,7 +277,7 @@ internal class KeyInput(
     }
 
   /** Eases the rest of a step that the hold loop had not finished. */
-  private fun completeStep(key: Key, action: KeyResponse) {
+  private fun completeStep(key: Key, action: KeyAction) {
     val current = session ?: return
     val remaining = 1.0 - (progress.remove(key) ?: 0.0)
     if (remaining > 0.0) launchStep(current, action, options(), fraction = remaining)
@@ -271,7 +285,7 @@ internal class KeyInput(
 
   private fun launchStep(
     session: GestureInputSession,
-    action: KeyResponse,
+    action: KeyAction,
     settings: InputConfiguration,
     fraction: Double,
   ) {
@@ -375,34 +389,45 @@ private data class KeyMotion(
   }
 }
 
-private val KeyResponse.motion: KeyMotion
+internal val KeyAction.isCamera: Boolean
+  get() = component != null
+
+private val KeyAction.motion: KeyMotion
   get() =
     when (this) {
-      KeyResponse.PanLeft -> KeyMotion(x = 1.0)
-      KeyResponse.PanRight -> KeyMotion(x = -1.0)
-      KeyResponse.PanUp -> KeyMotion(y = 1.0)
-      KeyResponse.PanDown -> KeyMotion(y = -1.0)
-      KeyResponse.ZoomIn -> KeyMotion(zoom = 1.0)
-      KeyResponse.ZoomOut -> KeyMotion(zoom = -1.0)
-      KeyResponse.RotateLeft -> KeyMotion(bearing = -1.0)
-      KeyResponse.RotateRight -> KeyMotion(bearing = 1.0)
-      KeyResponse.PitchUp -> KeyMotion(pitch = 1.0)
-      KeyResponse.PitchDown -> KeyMotion(pitch = -1.0)
-      else -> KeyMotion.None
+      CameraAction.PanLeft -> KeyMotion(x = 1.0)
+      CameraAction.PanRight -> KeyMotion(x = -1.0)
+      CameraAction.PanUp -> KeyMotion(y = 1.0)
+      CameraAction.PanDown -> KeyMotion(y = -1.0)
+      CameraAction.ZoomIn -> KeyMotion(zoom = 1.0)
+      CameraAction.ZoomOut -> KeyMotion(zoom = -1.0)
+      CameraAction.RotateLeft -> KeyMotion(bearing = -1.0)
+      CameraAction.RotateRight -> KeyMotion(bearing = 1.0)
+      CameraAction.PitchUp -> KeyMotion(pitch = 1.0)
+      CameraAction.PitchDown -> KeyMotion(pitch = -1.0)
+      FocusAction.Engage,
+      FocusAction.Disengage,
+      FocusAction.Back,
+      InputAction.None,
+      UnspecifiedAction -> KeyMotion.None
     }
 
-private val KeyResponse.component: CameraComponent?
+private val KeyAction.component: CameraComponent?
   get() =
     when (this) {
-      KeyResponse.PanLeft,
-      KeyResponse.PanRight,
-      KeyResponse.PanUp,
-      KeyResponse.PanDown -> CameraComponent.Pan
-      KeyResponse.ZoomIn,
-      KeyResponse.ZoomOut -> CameraComponent.Zoom
-      KeyResponse.RotateLeft,
-      KeyResponse.RotateRight -> CameraComponent.Rotate
-      KeyResponse.PitchUp,
-      KeyResponse.PitchDown -> CameraComponent.Pitch
-      else -> null
+      CameraAction.PanLeft,
+      CameraAction.PanRight,
+      CameraAction.PanUp,
+      CameraAction.PanDown -> CameraComponent.Pan
+      CameraAction.ZoomIn,
+      CameraAction.ZoomOut -> CameraComponent.Zoom
+      CameraAction.RotateLeft,
+      CameraAction.RotateRight -> CameraComponent.Rotate
+      CameraAction.PitchUp,
+      CameraAction.PitchDown -> CameraComponent.Pitch
+      FocusAction.Engage,
+      FocusAction.Disengage,
+      FocusAction.Back,
+      InputAction.None,
+      UnspecifiedAction -> null
     }

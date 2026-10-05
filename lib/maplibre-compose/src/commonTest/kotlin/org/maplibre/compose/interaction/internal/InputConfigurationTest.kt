@@ -11,13 +11,13 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.DragBindingBuilder
-import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.FocusAction
+import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.ScrollResponse
 
 class MapInteractionsTest {
   private fun sample(
@@ -31,7 +31,7 @@ class MapInteractionsTest {
     val standard = InputConfiguration.Standard
     val contact = sample(type = PointerType.Unknown, buttons = emptySet())
     assertEquals(
-      DragResponse.Pan,
+      CameraAction.Pan,
       standard.bindings.drag.select(contact, standard.camera.settings),
     )
     for (family in
@@ -47,7 +47,7 @@ class MapInteractionsTest {
     val standard = InputConfiguration.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))
     assertEquals(
-      DragResponse.RotatePitch,
+      CameraAction.RotatePitch,
       standard.bindings.drag.select(ctrlShift, standard.camera.settings),
     )
     val panLocked = InputConfiguration {
@@ -55,14 +55,14 @@ class MapInteractionsTest {
       bindings {
         scroll {
           mappings {
-            on(response = ScrollResponse.Pan)
-            otherwise(ScrollResponse.Zoom)
+            on(action = CameraAction.Pan)
+            otherwise(CameraAction.Zoom)
           }
         }
       }
     }
     assertEquals(
-      ScrollResponse.Zoom,
+      CameraAction.Zoom,
       panLocked.bindings.scroll.select(sample(), panLocked.camera.settings),
     )
     val excluded = InputConfiguration {
@@ -71,15 +71,15 @@ class MapInteractionsTest {
           mappings {
             on(
               modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
-              response = ScrollResponse.None,
+              action = InputAction.None,
             )
-            otherwise(ScrollResponse.Zoom)
+            otherwise(CameraAction.Zoom)
           }
         }
       }
     }
     assertEquals(
-      ScrollResponse.None,
+      InputAction.None,
       excluded.bindings.scroll.select(ctrlShift, excluded.camera.settings),
     )
     for (lockPan in listOf(false, true)) {
@@ -88,7 +88,7 @@ class MapInteractionsTest {
           pan { enabled = !lockPan }
           zoom { enabled = lockPan }
         }
-        bindings { drag { mappings { otherwise(DragResponse.FitBounds) } } }
+        bindings { drag { mappings { otherwise(CameraAction.FitBounds) } } }
       }
       assertNull(locked.bindings.drag.select(sample(), locked.camera.settings))
     }
@@ -152,7 +152,7 @@ class MapInteractionsTest {
     val shifted = sample(modifiers = setOf(KeyModifier.Shift))
     assertFalse(standard.bindings.tapDrag.matches(shifted))
     assertEquals(
-      DragResponse.FitBounds,
+      CameraAction.FitBounds,
       standard.bindings.drag.select(shifted, standard.camera.settings),
     )
   }
@@ -199,16 +199,16 @@ class MapInteractionsTest {
       bindings {
         keys {
           mappings {
-            on(Key.Plus, response = KeyResponse.None)
-            on(Key.Plus, response = KeyResponse.ZoomIn)
-            on(Key.Enter, response = KeyResponse.Engage)
+            on(Key.Plus, action = InputAction.None)
+            on(Key.Plus, action = CameraAction.ZoomIn)
+            on(Key.Enter, action = FocusAction.Engage)
           }
         }
       }
     }
     assertFalse(hidden.hasCameraKeys)
     assertEquals(
-      KeyResponse.None,
+      InputAction.None,
       hidden.bindings.keys.select(Key.Plus, emptySet(), hidden.camera.settings),
     )
     val locked = InputConfiguration {
@@ -216,8 +216,8 @@ class MapInteractionsTest {
       bindings {
         keys {
           mappings {
-            on(Key.Plus, response = KeyResponse.ZoomIn)
-            on(Key.Enter, response = KeyResponse.Engage)
+            on(Key.Plus, action = CameraAction.ZoomIn)
+            on(Key.Enter, action = FocusAction.Engage)
           }
         }
       }
@@ -237,7 +237,7 @@ class MapInteractionsTest {
     val base = InputConfiguration {
       bindings {
         transform { pan { modifiers = ModifierMatch.Exactly() } }
-        keys { mappings { on(Key.DirectionLeft, response = KeyResponse.PanLeft) } }
+        keys { mappings { on(Key.DirectionLeft, action = CameraAction.PanLeft) } }
       }
     }
     val modified = sample(type = PointerType.Touch, modifiers = setOf(KeyModifier.Alt))
@@ -251,14 +251,14 @@ class MapInteractionsTest {
           transform { pan { modifiers = null } }
           keys {
             mappings {
-              on(Key.DirectionLeft, modifiers = null, response = KeyResponse.PanLeft)
+              on(Key.DirectionLeft, modifiers = null, action = CameraAction.PanLeft)
             }
           }
         }
       }
     assertTrue(wildcard.bindings.transform.pan.matches(modified))
     assertEquals(
-      KeyResponse.PanLeft,
+      CameraAction.PanLeft,
       wildcard.bindings.keys.select(
         Key.DirectionLeft,
         modified.modifierKeys,
@@ -289,8 +289,8 @@ class MapInteractionsTest {
         bindings {
           scroll {
             mappings {
-              otherwise(ScrollResponse.Pan)
-              on(response = ScrollResponse.Zoom)
+              otherwise(CameraAction.Pan)
+              on(action = CameraAction.Zoom)
             }
           }
         }

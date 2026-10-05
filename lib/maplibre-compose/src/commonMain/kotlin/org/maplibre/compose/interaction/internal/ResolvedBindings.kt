@@ -6,19 +6,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.DragMappingsBuilder
-import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.FocusAction
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyMappingsBuilder
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.ScrollMappingsBuilder
-import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.interaction.TapMappingsBuilder
-import org.maplibre.compose.interaction.TapResponse
 
 internal data class DragPanSettings(
   val startSlop: Dp = Dp.Unspecified,
@@ -157,21 +155,21 @@ internal data class InteractionBindings(
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Secondary,
-                    response = DragResponse.RotatePitch,
+                    action = CameraAction.RotatePitch,
                   )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
                     modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
-                    response = DragResponse.RotatePitch,
+                    action = CameraAction.RotatePitch,
                   )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
                     modifiers = ModifierMatch.Containing(KeyModifier.Shift),
-                    response = DragResponse.FitBounds,
+                    action = CameraAction.FitBounds,
                   )
-                  on(button = PointerButton.Primary, response = DragResponse.Pan)
+                  on(button = PointerButton.Primary, action = CameraAction.Pan)
                 }
                 .build()
           ),
@@ -180,7 +178,7 @@ internal data class InteractionBindings(
             mappings =
               ScrollMappingsBuilder()
                 .apply {
-                  otherwise(ScrollResponse.Zoom)
+                  otherwise(CameraAction.Zoom)
                 }
                 .build()
           ),
@@ -192,9 +190,9 @@ internal data class InteractionBindings(
                   on(
                     pointerTypes = mouse,
                     modifiers = ModifierMatch.Containing(KeyModifier.Shift),
-                    response = TapResponse.ZoomOut,
+                    action = CameraAction.ZoomOut,
                   )
-                  otherwise(TapResponse.ZoomIn)
+                  otherwise(CameraAction.ZoomIn)
                 }
                 .build()
           ),
@@ -204,47 +202,47 @@ internal data class InteractionBindings(
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
           TapBinding(
-            mappings = TapMappingsBuilder().apply { otherwise(TapResponse.ZoomOut) }.build()
+            mappings = TapMappingsBuilder().apply { otherwise(CameraAction.ZoomOut) }.build()
           ),
         keys =
           KeyBinding(
             mappings =
               KeyMappingsBuilder()
                 .apply {
-                  on(Key.DirectionLeft, response = KeyResponse.PanLeft)
-                  on(Key.DirectionRight, response = KeyResponse.PanRight)
-                  on(Key.DirectionUp, response = KeyResponse.PanUp)
-                  on(Key.DirectionDown, response = KeyResponse.PanDown)
+                  on(Key.DirectionLeft, action = CameraAction.PanLeft)
+                  on(Key.DirectionRight, action = CameraAction.PanRight)
+                  on(Key.DirectionUp, action = CameraAction.PanUp)
+                  on(Key.DirectionDown, action = CameraAction.PanDown)
                   on(
                     Key.DirectionLeft,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.RotateLeft,
+                    action = CameraAction.RotateLeft,
                   )
                   on(
                     Key.DirectionRight,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.RotateRight,
+                    action = CameraAction.RotateRight,
                   )
                   on(
                     Key.DirectionUp,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.PitchUp,
+                    action = CameraAction.PitchUp,
                   )
                   on(
                     Key.DirectionDown,
                     ModifierMatch.Exactly(KeyModifier.Shift),
-                    response = KeyResponse.PitchDown,
+                    action = CameraAction.PitchDown,
                   )
                   for (key in listOf(Key.Plus, Key.Equals)) {
-                    on(key, response = KeyResponse.ZoomIn)
-                    on(key, ModifierMatch.Exactly(KeyModifier.Shift), response = KeyResponse.ZoomIn)
+                    on(key, action = CameraAction.ZoomIn)
+                    on(key, ModifierMatch.Exactly(KeyModifier.Shift), action = CameraAction.ZoomIn)
                   }
-                  on(Key.Minus, response = KeyResponse.ZoomOut)
+                  on(Key.Minus, action = CameraAction.ZoomOut)
                   for (key in listOf(Key.Enter, Key.NumPadEnter, Key.DirectionCenter)) {
-                    on(key, response = KeyResponse.Engage)
+                    on(key, action = FocusAction.Engage)
                   }
-                  on(Key.Escape, response = KeyResponse.Disengage)
-                  on(Key.Back, response = KeyResponse.Back)
+                  on(Key.Escape, action = FocusAction.Disengage)
+                  on(Key.Back, action = FocusAction.Back)
                 }
                 .build()
           ),

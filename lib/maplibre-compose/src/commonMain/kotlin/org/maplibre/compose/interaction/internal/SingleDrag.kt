@@ -16,8 +16,11 @@ import org.maplibre.compose.camera.internal.inputFitBoundsAwaitingTransition
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.CameraAction
+import org.maplibre.compose.interaction.DragAction
+import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.QuickZoomDirection
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 /** What the one-contact drags of a [PointerGesture] share. */
 internal class DragContext(
@@ -39,10 +42,11 @@ internal class DragContext(
     afterContactChange: Boolean = false,
   ): SingleDrag? =
     when (options.bindings.drag.select(sample, options.camera.settings)) {
-      DragResponse.Pan -> SingleDrag.Pan(this, first, afterContactChange)
-      DragResponse.RotatePitch -> SingleDrag.RotatePitch(this, first, afterContactChange)
-      DragResponse.FitBounds -> SingleDrag.FitBounds(this, first, afterContactChange)
-      DragResponse.None,
+      CameraAction.Pan -> SingleDrag.Pan(this, first, afterContactChange)
+      CameraAction.RotatePitch -> SingleDrag.RotatePitch(this, first, afterContactChange)
+      CameraAction.FitBounds -> SingleDrag.FitBounds(this, first, afterContactChange)
+      InputAction.None,
+      UnspecifiedAction,
       null -> null
     }
 }
@@ -75,8 +79,8 @@ internal sealed class SingleDrag(
     velocity.begin(first, afterContactChange)
   }
 
-  /** Mouse button and modifier changes compare this to the newly selected response. */
-  abstract val response: DragResponse?
+  /** Mouse button and modifier changes compare this to the newly selected action. */
+  abstract val action: DragAction?
 
   /** Components this drag takes over from momentum and start callbacks of an earlier gesture. */
   abstract val components: Set<CameraComponent>
@@ -131,7 +135,7 @@ internal sealed class SingleDrag(
       context.options.bindings.drag.pan.mouseStartSlop,
       afterContactChange,
     ) {
-    override val response = DragResponse.Pan
+    override val action = CameraAction.Pan
     override val components = setOf(CameraComponent.Pan)
 
     override fun update(
@@ -158,7 +162,7 @@ internal sealed class SingleDrag(
       afterContactChange,
     ) {
     private val settings = context.options.bindings.drag.rotatePitch
-    override val response = DragResponse.RotatePitch
+    override val action = CameraAction.RotatePitch
     override val components = setOf(CameraComponent.Rotate, CameraComponent.Pitch)
 
     override fun update(
@@ -195,7 +199,7 @@ internal sealed class SingleDrag(
       afterContactChange,
     ) {
     private val origin = first.position
-    override val response = DragResponse.FitBounds
+    override val action = CameraAction.FitBounds
     override val components = CameraComponent.entries.toSet()
 
     override fun onStart(motion: PointerDrag.Motion, change: PointerInputChange) {
@@ -249,7 +253,7 @@ internal sealed class SingleDrag(
     private var appliedDelta = 0.0
 
     /** No mouse button or modifier change selects a quick zoom. */
-    override val response: DragResponse? = null
+    override val action: DragAction? = null
     override val components = setOf(CameraComponent.Zoom)
 
     // The recognizer removes slop from the first delta; zoom is measured from that same origin.

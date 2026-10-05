@@ -2,12 +2,16 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerType
-import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.CameraAction
+import org.maplibre.compose.interaction.DragAction
+import org.maplibre.compose.interaction.FocusAction
+import org.maplibre.compose.interaction.InputAction
+import org.maplibre.compose.interaction.KeyAction
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.ScrollResponse
-import org.maplibre.compose.interaction.TapResponse
+import org.maplibre.compose.interaction.ScrollAction
+import org.maplibre.compose.interaction.TapAction
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 internal fun PointerPattern.matches(
   sample: GesturePointerSample,
@@ -34,92 +38,100 @@ internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
     (modifiers?.matches(sample.modifierKeys) != false) &&
     PointerPattern(button = PointerButton.Primary).matches(sample)
 
-internal fun CameraSettings.permits(response: DragResponse): Boolean =
-  when (response) {
-    DragResponse.Pan -> pan.enabled
-    DragResponse.RotatePitch -> rotate.enabled || pitch.enabled
-    DragResponse.FitBounds -> pan.enabled && zoom.enabled
-    DragResponse.None -> true
+internal fun CameraSettings.permits(action: DragAction): Boolean =
+  when (action) {
+    CameraAction.Pan -> pan.enabled
+    CameraAction.RotatePitch -> rotate.enabled || pitch.enabled
+    CameraAction.FitBounds -> pan.enabled && zoom.enabled
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
-internal fun CameraSettings.permits(response: ScrollResponse): Boolean =
-  when (response) {
-    ScrollResponse.Pan -> pan.enabled
-    ScrollResponse.Zoom -> zoom.enabled
-    ScrollResponse.None -> true
+internal fun CameraSettings.permits(action: ScrollAction): Boolean =
+  when (action) {
+    CameraAction.Pan -> pan.enabled
+    CameraAction.Zoom -> zoom.enabled
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
-internal fun CameraSettings.permits(response: TapResponse): Boolean =
-  response == TapResponse.None || zoom.enabled
+internal fun CameraSettings.permits(action: TapAction): Boolean =
+  when (action) {
+    CameraAction.ZoomIn,
+    CameraAction.ZoomOut -> zoom.enabled
+    InputAction.None,
+    UnspecifiedAction -> true
+  }
 
-internal fun CameraSettings.permits(response: KeyResponse): Boolean =
-  when (response) {
-    KeyResponse.PanLeft,
-    KeyResponse.PanRight,
-    KeyResponse.PanUp,
-    KeyResponse.PanDown -> pan.enabled
-    KeyResponse.ZoomIn,
-    KeyResponse.ZoomOut -> zoom.enabled
-    KeyResponse.RotateLeft,
-    KeyResponse.RotateRight -> rotate.enabled
-    KeyResponse.PitchUp,
-    KeyResponse.PitchDown -> pitch.enabled
-    KeyResponse.Engage,
-    KeyResponse.Disengage,
-    KeyResponse.Back,
-    KeyResponse.None -> true
+internal fun CameraSettings.permits(action: KeyAction): Boolean =
+  when (action) {
+    CameraAction.PanLeft,
+    CameraAction.PanRight,
+    CameraAction.PanUp,
+    CameraAction.PanDown -> pan.enabled
+    CameraAction.ZoomIn,
+    CameraAction.ZoomOut -> zoom.enabled
+    CameraAction.RotateLeft,
+    CameraAction.RotateRight -> rotate.enabled
+    CameraAction.PitchUp,
+    CameraAction.PitchDown -> pitch.enabled
+    FocusAction.Engage,
+    FocusAction.Disengage,
+    FocusAction.Back,
+    InputAction.None,
+    UnspecifiedAction -> true
   }
 
 internal fun DragBinding.select(
   sample: GesturePointerSample,
   camera: CameraSettings,
-): DragResponse? =
+): DragAction? =
   if (!matches(sample)) null
   else
     mappings
       .firstOrNull {
-        it.pattern.matches(sample) && camera.permits(it.response)
+        it.pattern.matches(sample) && camera.permits(it.action)
       }
-      ?.response
+      ?.action
 
 internal fun ScrollBinding.select(
   sample: GesturePointerSample,
   camera: CameraSettings,
-): ScrollResponse? =
+): ScrollAction? =
   if (!matches(sample)) null
   else
     mappings
       .firstOrNull {
-        it.pattern.matches(sample, contact = false) && camera.permits(it.response)
+        it.pattern.matches(sample, contact = false) && camera.permits(it.action)
       }
-      ?.response
+      ?.action
 
 internal fun TapBinding.select(
   sample: GesturePointerSample,
   camera: CameraSettings,
-): TapResponse? =
+): TapAction? =
   if (!matches(sample)) null
   else
     mappings
       .firstOrNull {
-        it.pattern.matches(sample) && camera.permits(it.response)
+        it.pattern.matches(sample) && camera.permits(it.action)
       }
-      ?.response
+      ?.action
 
 internal fun KeyBinding.select(
   key: Key,
   modifiers: Set<KeyModifier>,
   camera: CameraSettings,
-): KeyResponse? =
+): KeyAction? =
   if (!enabled) null
   else
     mappings
       .firstOrNull {
         (it.key == null || it.key == key) &&
           (it.modifiers?.matches(modifiers) != false) &&
-          camera.permits(it.response)
+          camera.permits(it.action)
       }
-      ?.response
+      ?.action
 
 /** Exhaustive modifier enumeration proves reachability without running application code. */
 internal fun KeyBinding.hasCameraBindings(camera: CameraSettings): Boolean {

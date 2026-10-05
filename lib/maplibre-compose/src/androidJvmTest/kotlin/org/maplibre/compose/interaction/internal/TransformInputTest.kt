@@ -23,7 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
@@ -523,7 +523,7 @@ class TransformInputTest {
             drag {
               enabled = true
 
-              mappings { on(button = PointerButton.Primary, response = DragResponse.Pan) }
+              mappings { on(button = PointerButton.Primary, action = CameraAction.Pan) }
             }
             transform {
               pan {

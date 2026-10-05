@@ -18,9 +18,11 @@ import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.HapticEmphasis
+import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.TapResponse
+import org.maplibre.compose.interaction.UnspecifiedAction
 
 internal class PointerGesture(
   private val target: CameraInputTarget,
@@ -310,7 +312,7 @@ internal class PointerGesture(
     // the replacement rebases at this event so it cannot apply the previous drag's movement.
     if (change.type == PointerType.Mouse && oldSample.buttons != sample.buttons) {
       val next = drags.cameraDrag(change, sample)
-      if (next?.response != single.drag?.response) {
+      if (next?.action != single.drag?.action) {
         single.press?.stopClick()
         effects.releaseDrag(single.drag, sample, single.pending)
         single.pending = null
@@ -612,8 +614,14 @@ internal class PointerGesture(
       val action = binding.select(sample, options.camera.settings)
 
       taps.dispatch(family, sample) camera@{
-        if (action == null || action == TapResponse.None) return@camera
-        val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
+        val direction =
+          when (action) {
+            CameraAction.ZoomIn -> 1.0
+            CameraAction.ZoomOut -> -1.0
+            InputAction.None,
+            UnspecifiedAction,
+            null -> return@camera
+          }
         launchTapTransition(
           scope,
           target,
@@ -634,7 +642,7 @@ internal class PointerGesture(
       family.matches(options, sample) &&
         (taps.hasHandlers(family) ||
           family.binding(options).select(sample, options.camera.settings)?.let {
-            it != TapResponse.None
+            it != InputAction.None && it != UnspecifiedAction
           } == true)
 
     private fun animateContinuation(velocity: PointerContinuation) {
