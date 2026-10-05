@@ -7,6 +7,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class DpPaddingTest {
   @Test
@@ -35,6 +38,10 @@ class DpPaddingTest {
     val padding = Json.decodeFromString<DpPadding>(saved)
 
     assertEquals(DpPadding(1.dp, 2.dp, 3.dp, 4.dp), padding)
-    assertEquals(saved, Json.encodeToString(padding))
+    val encoded = Json.parseToJsonElement(Json.encodeToString(padding)).jsonObject
+    assertEquals(
+      mapOf("left" to 1f, "top" to 2f, "right" to 3f, "bottom" to 4f),
+      encoded.mapValues { (_, value) -> value.jsonPrimitive.float },
+    )
   }
 }
