@@ -1,25 +1,34 @@
 package org.maplibre.compose.map
 
-/**
- * The MapLibre Native tile-detail algorithm and its parameters. To retain settings while editing an
- * algorithm, pass the previous value to its constructor.
- */
-public var TileLodOptions.Builder.algorithm: TileLodAlgorithm
-  get() = platform.algorithm
-  set(value) {
-    platform = platform.copy(algorithm = value)
+import androidx.compose.runtime.Immutable
+
+@Immutable
+public actual data class TileLodOptions
+internal constructor(
+  /**
+   * The tile-detail algorithm and its parameters. To retain settings while editing an algorithm,
+   * pass the previous value to its constructor.
+   */
+  public val algorithm: TileLodAlgorithm
+) {
+  public actual constructor(
+    from: TileLodOptions,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  private constructor(builder: Builder) : this(builder.algorithm)
+
+  @MapOptionsDsl
+  public actual class Builder internal constructor(from: TileLodOptions) {
+    /** See [TileLodOptions.algorithm]. */
+    public var algorithm: TileLodAlgorithm = from.algorithm
   }
 
-/** The MapLibre Native tile-detail algorithm and its parameters. */
-public val TileLodOptions.algorithm: TileLodAlgorithm
-  get() = platform.algorithm
+  public actual companion object {
+    public actual val Standard: TileLodOptions = TileLodOptions(TileLodAlgorithm.ScreenCenter())
 
-internal actual data class PlatformTileLodOptions(val algorithm: TileLodAlgorithm) {
-  actual constructor() : this(TileLodAlgorithm.ScreenCenter())
-
-  actual companion object {
-    actual val Performance: PlatformTileLodOptions =
-      PlatformTileLodOptions(
+    public actual val Performance: TileLodOptions =
+      TileLodOptions(
         TileLodAlgorithm.ScreenCenter {
           minRadius = 2.0
           scale = 1.5
@@ -27,8 +36,9 @@ internal actual data class PlatformTileLodOptions(val algorithm: TileLodAlgorith
           zoomShift = -1.0
         }
       )
-    actual val HighDetail: PlatformTileLodOptions =
-      PlatformTileLodOptions(
+
+    public actual val HighDetail: TileLodOptions =
+      TileLodOptions(
         TileLodAlgorithm.ScreenCenter {
           minRadius = 5.0
           pitchThreshold = 85.0

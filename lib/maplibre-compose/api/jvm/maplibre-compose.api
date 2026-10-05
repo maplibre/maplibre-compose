@@ -2384,12 +2384,6 @@ public final class org/maplibre/compose/map/NativeRenderOptionsKt {
 	public static final fun setTileTimestamps (Lorg/maplibre/compose/map/DebugOverlays$Builder;Z)V
 }
 
-public final class org/maplibre/compose/map/NativeTileLodOptionsKt {
-	public static final fun getAlgorithm (Lorg/maplibre/compose/map/TileLodOptions$Builder;)Lorg/maplibre/compose/map/TileLodAlgorithm;
-	public static final fun getAlgorithm (Lorg/maplibre/compose/map/TileLodOptions;)Lorg/maplibre/compose/map/TileLodAlgorithm;
-	public static final fun setAlgorithm (Lorg/maplibre/compose/map/TileLodOptions$Builder;Lorg/maplibre/compose/map/TileLodAlgorithm;)V
-}
-
 public final class org/maplibre/compose/map/PlatformMapAccessKt {
 	public static final fun withPlatformMap (Lorg/maplibre/compose/map/MapState;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
@@ -2651,12 +2645,17 @@ public final class org/maplibre/compose/map/TileLodOptions {
 	public static final field Companion Lorg/maplibre/compose/map/TileLodOptions$Companion;
 	public fun <init> (Lorg/maplibre/compose/map/TileLodOptions;Lkotlin/jvm/functions/Function1;)V
 	public synthetic fun <init> (Lorg/maplibre/compose/map/TileLodOptions;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/map/TileLodAlgorithm;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlgorithm ()Lorg/maplibre/compose/map/TileLodAlgorithm;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/TileLodOptions$Builder {
 	public static final field $stable I
+	public final fun getAlgorithm ()Lorg/maplibre/compose/map/TileLodAlgorithm;
+	public final fun setAlgorithm (Lorg/maplibre/compose/map/TileLodAlgorithm;)V
 }
 
 public final class org/maplibre/compose/map/TileLodOptions$Companion {

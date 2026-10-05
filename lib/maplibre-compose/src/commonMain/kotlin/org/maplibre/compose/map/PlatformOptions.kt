@@ -16,17 +16,6 @@ internal expect class PlatformDebugOverlays() {
   override fun hashCode(): Int
 }
 
-internal expect class PlatformTileLodOptions() {
-  override fun equals(other: Any?): Boolean
-
-  override fun hashCode(): Int
-
-  companion object {
-    val Performance: PlatformTileLodOptions
-    val HighDetail: PlatformTileLodOptions
-  }
-}
-
 /** Compose UI settings that exist on some platforms only. */
 internal expect class PlatformUiOptions() {
   override fun equals(other: Any?): Boolean

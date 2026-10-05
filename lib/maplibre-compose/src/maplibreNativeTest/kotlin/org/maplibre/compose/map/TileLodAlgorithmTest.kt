@@ -78,6 +78,15 @@ class TileLodAlgorithmTest {
     assertEquals(30.0, edited.pitchThreshold)
     assertEquals(-1.0, edited.zoomShift)
 
+    lateinit var optionsBuilder: TileLodOptions.Builder
+    val options = TileLodOptions {
+      optionsBuilder = this
+      algorithm = original
+    }
+    optionsBuilder.algorithm = edited
+    assertEquals(original, options.algorithm)
+    assertEquals(options, TileLodOptions(options) {})
+
     lateinit var distanceBuilder: TileLodAlgorithm.CameraDistance.Builder
     val distance = TileLodAlgorithm.CameraDistance {
       distanceBuilder = this
