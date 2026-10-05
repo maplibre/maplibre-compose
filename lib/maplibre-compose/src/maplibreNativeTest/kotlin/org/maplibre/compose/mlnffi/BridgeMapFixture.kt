@@ -19,9 +19,9 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.RuntimeImplementation
 import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
@@ -43,7 +43,7 @@ private constructor(
   private val cacheFile: Path,
   private val initialExtent: MapExtent,
   resourceConfig: MapResourceConfig,
-  sharedRuntime: RuntimeImplementation?,
+  sharedRuntime: MapRuntime?,
 ) : AutoCloseable {
 
   private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
@@ -562,7 +562,7 @@ private constructor(
     fun create(
       initialExtent: MapExtent = DEFAULT_EXTENT,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
-      runtime: RuntimeImplementation? = null,
+      runtime: MapRuntime? = null,
     ): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()

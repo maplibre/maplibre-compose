@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
-public interface OfflineManager {
+public sealed interface OfflineManager {
 
   /** Initialization and the current packs. Constructing a runtime never waits for its database. */
   public val state: StateFlow<OfflineManagerState>

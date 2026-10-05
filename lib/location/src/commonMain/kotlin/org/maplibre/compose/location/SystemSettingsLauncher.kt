@@ -1,7 +1,7 @@
 package org.maplibre.compose.location
 
 /** Opens system settings screens related to location. */
-public interface SystemSettingsLauncher {
+public expect class SystemSettingsLauncher {
   /** Whether [openApplicationSettings] can open a screen on this platform. */
   public val canOpenApplicationSettings: Boolean
 

@@ -18,5 +18,5 @@ public actual fun rememberDefaultHeadingProvider(): HeadingProvider = remember {
 
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {
-  IosSystemSettingsLauncher()
+  SystemSettingsLauncher()
 }

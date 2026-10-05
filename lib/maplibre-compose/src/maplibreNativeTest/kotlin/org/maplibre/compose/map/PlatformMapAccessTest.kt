@@ -398,7 +398,7 @@ class PlatformMapAccessTest {
     }
   }
 
-  private suspend fun withNativeMapState(block: suspend (MapState, RuntimeImplementation) -> Unit) {
+  private suspend fun withNativeMapState(block: suspend (MapState, MapRuntime) -> Unit) {
     FfiTestPlatform.initialize()
     TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
     val cacheFile = FfiTestPlatform.createCacheFile()

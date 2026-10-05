@@ -22,5 +22,5 @@ public actual fun rememberDefaultHeadingProvider(): HeadingProvider {
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher {
   val context = LocalContext.current
-  return remember(context) { AndroidSystemSettingsLauncher(context) }
+  return remember(context) { SystemSettingsLauncher(context) }
 }

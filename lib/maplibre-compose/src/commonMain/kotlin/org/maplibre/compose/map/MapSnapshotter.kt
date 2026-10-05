@@ -189,7 +189,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
 }
 
 /** An independent non-UI map that captures images. */
-public interface MapSnapshotter {
+public sealed interface MapSnapshotter {
   /** Desired and applied style state for this snapshotter's engine map. */
   public val style: MapStyleState
 
@@ -222,7 +222,7 @@ public interface MapSnapshotter {
 }
 
 internal class MapSnapshotterImplementation(
-  private val runtime: RuntimeImplementation,
+  private val runtime: MapRuntime,
   baseStyle: BaseStyle,
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {

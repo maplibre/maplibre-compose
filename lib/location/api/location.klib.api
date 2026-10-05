@@ -77,16 +77,6 @@ abstract interface org.maplibre.compose.location/LocationProvider : kotlin/AutoC
     open fun requestPermission() // org.maplibre.compose.location/LocationProvider.requestPermission|requestPermission(){}[0]
 }
 
-abstract interface org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/SystemSettingsLauncher|null[0]
-    abstract val canOpenApplicationSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
-        abstract fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
-    abstract val canOpenLocationServicesSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
-        abstract fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
-
-    abstract fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
-    abstract fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
-}
-
 sealed interface org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability|null[0]
     final class Misconfigured : org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured|null[0]
         constructor <init>(kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationBackendAvailability.Misconfigured.<init>|<init>(kotlin.Throwable?){}[0]
@@ -301,6 +291,18 @@ final class org.maplibre.compose.location/LocationRequest { // org.maplibre.comp
     final fun toString(): kotlin/String // org.maplibre.compose.location/LocationRequest.toString|toString(){}[0]
 }
 
+final class org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/SystemSettingsLauncher|null[0]
+    constructor <init>() // org.maplibre.compose.location/SystemSettingsLauncher.<init>|<init>(){}[0]
+
+    final val canOpenApplicationSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
+        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
+    final val canOpenLocationServicesSettings // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
+        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
+
+    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
+    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
+
 final object org.maplibre.compose.location/UnsupportedLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/UnsupportedLocationProvider|null[0]
     final val backendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability|{}backendAvailability[0]
         final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
@@ -347,19 +349,6 @@ final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.comp
     final fun updates(org.maplibre.compose.location/HeadingRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/IosHeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
 }
 
-// Targets: [ios]
-final class org.maplibre.compose.location/IosSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/IosSystemSettingsLauncher|null[0]
-    constructor <init>() // org.maplibre.compose.location/IosSystemSettingsLauncher.<init>|<init>(){}[0]
-
-    final val canOpenApplicationSettings // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
-        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
-    final val canOpenLocationServicesSettings // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
-        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
-
-    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
-    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/IosSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
-}
-
 // Targets: [js]
 final class org.maplibre.compose.location/BrowserLocationPermissionRequester { // org.maplibre.compose.location/BrowserLocationPermissionRequester|null[0]
     constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/BrowserLocationPermissionRequester.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
@@ -383,28 +372,4 @@ final class org.maplibre.compose.location/BrowserLocationProvider : org.maplibre
 
     final fun requestPermission() // org.maplibre.compose.location/BrowserLocationProvider.requestPermission|requestPermission(){}[0]
     final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/BrowserLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
-}
-
-// Targets: [js]
-final object org.maplibre.compose.location/BrowserSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/BrowserSystemSettingsLauncher|null[0]
-    final val canOpenApplicationSettings // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
-        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
-    final val canOpenLocationServicesSettings // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
-        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
-
-    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
-    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/BrowserSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
-}
-
-// Targets: [macosArm64]
-final class org.maplibre.compose.location/MacosSystemSettingsLauncher : org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/MacosSystemSettingsLauncher|null[0]
-    constructor <init>() // org.maplibre.compose.location/MacosSystemSettingsLauncher.<init>|<init>(){}[0]
-
-    final val canOpenApplicationSettings // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenApplicationSettings|{}canOpenApplicationSettings[0]
-        final fun <get-canOpenApplicationSettings>(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenApplicationSettings.<get-canOpenApplicationSettings>|<get-canOpenApplicationSettings>(){}[0]
-    final val canOpenLocationServicesSettings // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenLocationServicesSettings|{}canOpenLocationServicesSettings[0]
-        final fun <get-canOpenLocationServicesSettings>(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.canOpenLocationServicesSettings.<get-canOpenLocationServicesSettings>|<get-canOpenLocationServicesSettings>(){}[0]
-
-    final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
-    final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/MacosSystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
 }

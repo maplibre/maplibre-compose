@@ -24,7 +24,7 @@ import org.maplibre.compose.style.checkStyleHandle
  */
 internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
-  private val runtime: RuntimeImplementation,
+  private val runtime: MapRuntime,
   baseStyle: BaseStyle,
 ) : MapStyleStateOwner {
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }

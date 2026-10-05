@@ -1898,20 +1898,16 @@ public final class org/maplibre/compose/map/MapLocalsKt {
 public abstract interface annotation class org/maplibre/compose/map/MapOptionsDsl : java/lang/annotation/Annotation {
 }
 
-public abstract interface class org/maplibre/compose/map/MapRuntime {
-	public abstract fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun close ()V
-	public abstract fun createMapState (Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapState;
+public final class org/maplibre/compose/map/MapRuntime {
+	public static final field $stable I
+	public final fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun close ()V
+	public final fun createMapState (Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapState;
 	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
-	public abstract fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
+	public final fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
 	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
-	public abstract fun getOfflineManager ()Lorg/maplibre/compose/offline/OfflineManager;
-	public abstract fun isClosed ()Z
-}
-
-public final class org/maplibre/compose/map/MapRuntime$DefaultImpls {
-	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
-	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
+	public final fun getOfflineManager ()Lorg/maplibre/compose/offline/OfflineManager;
+	public final fun isClosed ()Z
 }
 
 public final class org/maplibre/compose/map/MapRuntimeKt {

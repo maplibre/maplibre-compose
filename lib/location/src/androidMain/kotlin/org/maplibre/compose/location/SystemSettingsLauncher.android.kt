@@ -12,14 +12,14 @@ import android.provider.Settings
  * @param context Any [Context]; a context that cannot reach an activity launches the screen in a
  *   new task.
  */
-public class AndroidSystemSettingsLauncher(private val context: Context) : SystemSettingsLauncher {
-  override val canOpenApplicationSettings: Boolean = true
+public actual class SystemSettingsLauncher(private val context: Context) {
+  public actual val canOpenApplicationSettings: Boolean = true
 
   /**
    * Opens this application's details screen in the system settings, where the user manages its
    * permissions.
    */
-  override fun openApplicationSettings(): Boolean =
+  public actual fun openApplicationSettings(): Boolean =
     launch(
       Intent(
         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -27,10 +27,10 @@ public class AndroidSystemSettingsLauncher(private val context: Context) : Syste
       )
     )
 
-  override val canOpenLocationServicesSettings: Boolean = true
+  public actual val canOpenLocationServicesSettings: Boolean = true
 
   /** Opens the location settings screen, where the user turns location services on. */
-  override fun openLocationServicesSettings(): Boolean =
+  public actual fun openLocationServicesSettings(): Boolean =
     launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
 
   private fun launch(intent: Intent): Boolean {

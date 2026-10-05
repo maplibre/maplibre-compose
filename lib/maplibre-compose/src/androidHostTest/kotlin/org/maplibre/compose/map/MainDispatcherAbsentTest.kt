@@ -10,7 +10,7 @@ class MainDispatcherAbsentTest {
   fun a_runtime_without_a_main_dispatcher_fails_at_creation() {
     val error =
       assertFailsWith<IllegalStateException> {
-        RuntimeImplementation(platformContext = null, closeResources = {}, logger = null)
+        MapRuntime(platformContext = null, closeResources = {}, logger = null)
       }
     assertTrue(error.message.orEmpty().contains("main dispatcher"))
   }

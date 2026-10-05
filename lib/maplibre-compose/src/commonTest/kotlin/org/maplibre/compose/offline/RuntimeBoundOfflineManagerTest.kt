@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.maplibre.compose.map.RuntimeImplementation
+import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -116,7 +116,7 @@ class RuntimeBoundOfflineManagerTest {
     backend: OfflineManagerBackend,
     closeResources: suspend () -> Unit = {},
   ) =
-    RuntimeImplementation(
+    MapRuntime(
       platformContext = null,
       closeResources = closeResources,
       logger = null,
