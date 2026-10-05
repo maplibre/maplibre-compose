@@ -2367,21 +2367,9 @@ public final class org/maplibre/compose/map/NativeRenderOptionsKt {
 }
 
 public final class org/maplibre/compose/map/NativeTileLodOptionsKt {
-	public static final fun getMinRadius (Lorg/maplibre/compose/map/TileLodOptions$Builder;)D
-	public static final fun getMinRadius (Lorg/maplibre/compose/map/TileLodOptions;)D
-	public static final fun getMode (Lorg/maplibre/compose/map/TileLodOptions$Builder;)Lorg/maplibre/compose/map/TileLodMode;
-	public static final fun getMode (Lorg/maplibre/compose/map/TileLodOptions;)Lorg/maplibre/compose/map/TileLodMode;
-	public static final fun getPitchThreshold (Lorg/maplibre/compose/map/TileLodOptions$Builder;)D
-	public static final fun getPitchThreshold (Lorg/maplibre/compose/map/TileLodOptions;)D
-	public static final fun getScale (Lorg/maplibre/compose/map/TileLodOptions$Builder;)D
-	public static final fun getScale (Lorg/maplibre/compose/map/TileLodOptions;)D
-	public static final fun getZoomShift (Lorg/maplibre/compose/map/TileLodOptions$Builder;)D
-	public static final fun getZoomShift (Lorg/maplibre/compose/map/TileLodOptions;)D
-	public static final fun setMinRadius (Lorg/maplibre/compose/map/TileLodOptions$Builder;D)V
-	public static final fun setMode (Lorg/maplibre/compose/map/TileLodOptions$Builder;Lorg/maplibre/compose/map/TileLodMode;)V
-	public static final fun setPitchThreshold (Lorg/maplibre/compose/map/TileLodOptions$Builder;D)V
-	public static final fun setScale (Lorg/maplibre/compose/map/TileLodOptions$Builder;D)V
-	public static final fun setZoomShift (Lorg/maplibre/compose/map/TileLodOptions$Builder;D)V
+	public static final fun getAlgorithm (Lorg/maplibre/compose/map/TileLodOptions$Builder;)Lorg/maplibre/compose/map/TileLodAlgorithm;
+	public static final fun getAlgorithm (Lorg/maplibre/compose/map/TileLodOptions;)Lorg/maplibre/compose/map/TileLodAlgorithm;
+	public static final fun setAlgorithm (Lorg/maplibre/compose/map/TileLodOptions$Builder;Lorg/maplibre/compose/map/TileLodAlgorithm;)V
 }
 
 public final class org/maplibre/compose/map/PlatformMapAccessKt {
@@ -2582,12 +2570,53 @@ public final class org/maplibre/compose/map/StyleTransition {
 	public final fun setPlacementTransitions (Z)V
 }
 
-public final class org/maplibre/compose/map/TileLodMode : java/lang/Enum {
-	public static final field Default Lorg/maplibre/compose/map/TileLodMode;
-	public static final field Distance Lorg/maplibre/compose/map/TileLodMode;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/map/TileLodMode;
-	public static fun values ()[Lorg/maplibre/compose/map/TileLodMode;
+public abstract class org/maplibre/compose/map/TileLodAlgorithm {
+	public static final field $stable I
+}
+
+public final class org/maplibre/compose/map/TileLodAlgorithm$Default : org/maplibre/compose/map/TileLodAlgorithm {
+	public static final field $stable I
+	public fun <init> (Lorg/maplibre/compose/map/TileLodAlgorithm$Default;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/map/TileLodAlgorithm$Default;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMinRadius ()D
+	public final fun getPitchThreshold ()D
+	public final fun getScale ()D
+	public final fun getZoomShift ()D
+	public fun hashCode ()I
+}
+
+public final class org/maplibre/compose/map/TileLodAlgorithm$Default$Builder {
+	public static final field $stable I
+	public final fun getMinRadius ()D
+	public final fun getPitchThreshold ()D
+	public final fun getScale ()D
+	public final fun getZoomShift ()D
+	public final fun setMinRadius (D)V
+	public final fun setPitchThreshold (D)V
+	public final fun setScale (D)V
+	public final fun setZoomShift (D)V
+}
+
+public final class org/maplibre/compose/map/TileLodAlgorithm$Distance : org/maplibre/compose/map/TileLodAlgorithm {
+	public static final field $stable I
+	public fun <init> (Lorg/maplibre/compose/map/TileLodAlgorithm$Distance;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/map/TileLodAlgorithm$Distance;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPitchThreshold ()D
+	public final fun getScale ()D
+	public final fun getZoomShift ()D
+	public fun hashCode ()I
+}
+
+public final class org/maplibre/compose/map/TileLodAlgorithm$Distance$Builder {
+	public static final field $stable I
+	public final fun getPitchThreshold ()D
+	public final fun getScale ()D
+	public final fun getZoomShift ()D
+	public final fun setPitchThreshold (D)V
+	public final fun setScale (D)V
+	public final fun setZoomShift (D)V
 }
 
 public final class org/maplibre/compose/map/TileLodOptions {

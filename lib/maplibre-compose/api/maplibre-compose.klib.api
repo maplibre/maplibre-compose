@@ -4373,18 +4373,6 @@ final suspend fun <#A: kotlin/Any?> (org.maplibre.compose.map/MapState).org.mapl
 final suspend fun org.maplibre.compose.sources/mbtilesUrl(kotlin/String): kotlin/String // org.maplibre.compose.sources/mbtilesUrl|mbtilesUrl(kotlin.String){}[0]
 
 // Targets: [apple]
-final enum class org.maplibre.compose.map/TileLodMode : kotlin/Enum<org.maplibre.compose.map/TileLodMode> { // org.maplibre.compose.map/TileLodMode|null[0]
-    enum entry Default // org.maplibre.compose.map/TileLodMode.Default|null[0]
-    enum entry Distance // org.maplibre.compose.map/TileLodMode.Distance|null[0]
-
-    final val entries // org.maplibre.compose.map/TileLodMode.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.map/TileLodMode> // org.maplibre.compose.map/TileLodMode.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.map/TileLodMode // org.maplibre.compose.map/TileLodMode.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.map/TileLodMode> // org.maplibre.compose.map/TileLodMode.values|values#static(){}[0]
-}
-
-// Targets: [apple]
 final enum class org.maplibre.compose.mlnffi/ComposeRenderBackend : kotlin/Enum<org.maplibre.compose.mlnffi/ComposeRenderBackend> { // org.maplibre.compose.mlnffi/ComposeRenderBackend|null[0]
     enum entry Direct3D12 // org.maplibre.compose.mlnffi/ComposeRenderBackend.Direct3D12|null[0]
     enum entry Metal // org.maplibre.compose.mlnffi/ComposeRenderBackend.Metal|null[0]
@@ -4423,6 +4411,66 @@ sealed interface org.maplibre.compose.map/CameraProjection { // org.maplibre.com
 }
 
 // Targets: [apple]
+abstract class org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm|null[0]
+    final class Default : org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm.Default|null[0]
+        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.Default? = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.Default.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.Default.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.Default?;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.Default.Builder,kotlin.Unit>){}[0]
+
+        final val minRadius // org.maplibre.compose.map/TileLodAlgorithm.Default.minRadius|{}minRadius[0]
+            final fun <get-minRadius>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.minRadius.<get-minRadius>|<get-minRadius>(){}[0]
+        final val pitchThreshold // org.maplibre.compose.map/TileLodAlgorithm.Default.pitchThreshold|{}pitchThreshold[0]
+            final fun <get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>(){}[0]
+        final val scale // org.maplibre.compose.map/TileLodAlgorithm.Default.scale|{}scale[0]
+            final fun <get-scale>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.scale.<get-scale>|<get-scale>(){}[0]
+        final val zoomShift // org.maplibre.compose.map/TileLodAlgorithm.Default.zoomShift|{}zoomShift[0]
+            final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
+
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/TileLodAlgorithm.Default.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.map/TileLodAlgorithm.Default.hashCode|hashCode(){}[0]
+
+        final class Builder { // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder|null[0]
+            final var minRadius // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.minRadius|{}minRadius[0]
+                final fun <get-minRadius>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.minRadius.<get-minRadius>|<get-minRadius>(){}[0]
+                final fun <set-minRadius>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.minRadius.<set-minRadius>|<set-minRadius>(kotlin.Double){}[0]
+            final var pitchThreshold // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.pitchThreshold|{}pitchThreshold[0]
+                final fun <get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>(){}[0]
+                final fun <set-pitchThreshold>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.pitchThreshold.<set-pitchThreshold>|<set-pitchThreshold>(kotlin.Double){}[0]
+            final var scale // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.scale|{}scale[0]
+                final fun <get-scale>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.scale.<get-scale>|<get-scale>(){}[0]
+                final fun <set-scale>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.scale.<set-scale>|<set-scale>(kotlin.Double){}[0]
+            final var zoomShift // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.zoomShift|{}zoomShift[0]
+                final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
+                final fun <set-zoomShift>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Default.Builder.zoomShift.<set-zoomShift>|<set-zoomShift>(kotlin.Double){}[0]
+        }
+    }
+
+    final class Distance : org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm.Distance|null[0]
+        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.Distance? = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.Distance.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.Distance?;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.Distance.Builder,kotlin.Unit>){}[0]
+
+        final val pitchThreshold // org.maplibre.compose.map/TileLodAlgorithm.Distance.pitchThreshold|{}pitchThreshold[0]
+            final fun <get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>(){}[0]
+        final val scale // org.maplibre.compose.map/TileLodAlgorithm.Distance.scale|{}scale[0]
+            final fun <get-scale>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.scale.<get-scale>|<get-scale>(){}[0]
+        final val zoomShift // org.maplibre.compose.map/TileLodAlgorithm.Distance.zoomShift|{}zoomShift[0]
+            final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
+
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/TileLodAlgorithm.Distance.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.map/TileLodAlgorithm.Distance.hashCode|hashCode(){}[0]
+
+        final class Builder { // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder|null[0]
+            final var pitchThreshold // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.pitchThreshold|{}pitchThreshold[0]
+                final fun <get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>(){}[0]
+                final fun <set-pitchThreshold>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.pitchThreshold.<set-pitchThreshold>|<set-pitchThreshold>(kotlin.Double){}[0]
+            final var scale // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.scale|{}scale[0]
+                final fun <get-scale>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.scale.<get-scale>|<get-scale>(){}[0]
+                final fun <set-scale>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.scale.<set-scale>|<set-scale>(kotlin.Double){}[0]
+            final var zoomShift // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.zoomShift|{}zoomShift[0]
+                final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
+                final fun <set-zoomShift>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.Distance.Builder.zoomShift.<set-zoomShift>|<set-zoomShift>(kotlin.Double){}[0]
+        }
+    }
+}
+
+// Targets: [apple]
 final value class org.maplibre.compose.mlnffi/NativeHandle { // org.maplibre.compose.mlnffi/NativeHandle|null[0]
     constructor <init>(kotlin/Long) // org.maplibre.compose.mlnffi/NativeHandle.<init>|<init>(kotlin.Long){}[0]
 
@@ -4437,16 +4485,12 @@ final value class org.maplibre.compose.mlnffi/NativeHandle { // org.maplibre.com
 }
 
 // Targets: [apple]
+final val org.maplibre.compose.map/algorithm // org.maplibre.compose.map/algorithm|@org.maplibre.compose.map.TileLodOptions{}algorithm[0]
+    final fun (org.maplibre.compose.map/TileLodOptions).<get-algorithm>(): org.maplibre.compose.map/TileLodAlgorithm // org.maplibre.compose.map/algorithm.<get-algorithm>|<get-algorithm>@org.maplibre.compose.map.TileLodOptions(){}[0]
+
+// Targets: [apple]
 final val org.maplibre.compose.map/cameraProjection // org.maplibre.compose.map/cameraProjection|@org.maplibre.compose.map.RenderOptions{}cameraProjection[0]
     final fun (org.maplibre.compose.map/RenderOptions).<get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/cameraProjection.<get-cameraProjection>|<get-cameraProjection>@org.maplibre.compose.map.RenderOptions(){}[0]
-
-// Targets: [apple]
-final val org.maplibre.compose.map/minRadius // org.maplibre.compose.map/minRadius|@org.maplibre.compose.map.TileLodOptions{}minRadius[0]
-    final fun (org.maplibre.compose.map/TileLodOptions).<get-minRadius>(): kotlin/Double // org.maplibre.compose.map/minRadius.<get-minRadius>|<get-minRadius>@org.maplibre.compose.map.TileLodOptions(){}[0]
-
-// Targets: [apple]
-final val org.maplibre.compose.map/mode // org.maplibre.compose.map/mode|@org.maplibre.compose.map.TileLodOptions{}mode[0]
-    final fun (org.maplibre.compose.map/TileLodOptions).<get-mode>(): org.maplibre.compose.map/TileLodMode // org.maplibre.compose.map/mode.<get-mode>|<get-mode>@org.maplibre.compose.map.TileLodOptions(){}[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axonometric$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axonometric$stableprop|#static{}org_maplibre_compose_map_CameraProjection_Axonometric$stableprop[0]
@@ -4455,12 +4499,19 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axo
 final val org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Perspective$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Perspective$stableprop|#static{}org_maplibre_compose_map_CameraProjection_Perspective$stableprop[0]
 
 // Targets: [apple]
-final val org.maplibre.compose.map/pitchThreshold // org.maplibre.compose.map/pitchThreshold|@org.maplibre.compose.map.TileLodOptions{}pitchThreshold[0]
-    final fun (org.maplibre.compose.map/TileLodOptions).<get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>@org.maplibre.compose.map.TileLodOptions(){}[0]
+final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm$stableprop[0]
 
 // Targets: [apple]
-final val org.maplibre.compose.map/scale // org.maplibre.compose.map/scale|@org.maplibre.compose.map.TileLodOptions{}scale[0]
-    final fun (org.maplibre.compose.map/TileLodOptions).<get-scale>(): kotlin/Double // org.maplibre.compose.map/scale.<get-scale>|<get-scale>@org.maplibre.compose.map.TileLodOptions(){}[0]
+final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.map/tileParseStatus // org.maplibre.compose.map/tileParseStatus|@org.maplibre.compose.map.DebugOverlays{}tileParseStatus[0]
@@ -4469,10 +4520,6 @@ final val org.maplibre.compose.map/tileParseStatus // org.maplibre.compose.map/t
 // Targets: [apple]
 final val org.maplibre.compose.map/tileTimestamps // org.maplibre.compose.map/tileTimestamps|@org.maplibre.compose.map.DebugOverlays{}tileTimestamps[0]
     final fun (org.maplibre.compose.map/DebugOverlays).<get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>@org.maplibre.compose.map.DebugOverlays(){}[0]
-
-// Targets: [apple]
-final val org.maplibre.compose.map/zoomShift // org.maplibre.compose.map/zoomShift|@org.maplibre.compose.map.TileLodOptions{}zoomShift[0]
-    final fun (org.maplibre.compose.map/TileLodOptions).<get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/zoomShift.<get-zoomShift>|<get-zoomShift>@org.maplibre.compose.map.TileLodOptions(){}[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop[0]
@@ -4505,29 +4552,14 @@ final val org.maplibre.compose.resource/org_maplibre_compose_resource_NativeReso
 final val org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop|#static{}org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop[0]
 
 // Targets: [apple]
+final var org.maplibre.compose.map/algorithm // org.maplibre.compose.map/algorithm|@org.maplibre.compose.map.TileLodOptions.Builder{}algorithm[0]
+    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-algorithm>(): org.maplibre.compose.map/TileLodAlgorithm // org.maplibre.compose.map/algorithm.<get-algorithm>|<get-algorithm>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
+    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-algorithm>(org.maplibre.compose.map/TileLodAlgorithm) // org.maplibre.compose.map/algorithm.<set-algorithm>|<set-algorithm>@org.maplibre.compose.map.TileLodOptions.Builder(org.maplibre.compose.map.TileLodAlgorithm){}[0]
+
+// Targets: [apple]
 final var org.maplibre.compose.map/cameraProjection // org.maplibre.compose.map/cameraProjection|@org.maplibre.compose.map.RenderOptions.Builder{}cameraProjection[0]
     final fun (org.maplibre.compose.map/RenderOptions.Builder).<get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/cameraProjection.<get-cameraProjection>|<get-cameraProjection>@org.maplibre.compose.map.RenderOptions.Builder(){}[0]
     final fun (org.maplibre.compose.map/RenderOptions.Builder).<set-cameraProjection>(org.maplibre.compose.map/CameraProjection) // org.maplibre.compose.map/cameraProjection.<set-cameraProjection>|<set-cameraProjection>@org.maplibre.compose.map.RenderOptions.Builder(org.maplibre.compose.map.CameraProjection){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/minRadius // org.maplibre.compose.map/minRadius|@org.maplibre.compose.map.TileLodOptions.Builder{}minRadius[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-minRadius>(): kotlin/Double // org.maplibre.compose.map/minRadius.<get-minRadius>|<get-minRadius>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-minRadius>(kotlin/Double) // org.maplibre.compose.map/minRadius.<set-minRadius>|<set-minRadius>@org.maplibre.compose.map.TileLodOptions.Builder(kotlin.Double){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/mode // org.maplibre.compose.map/mode|@org.maplibre.compose.map.TileLodOptions.Builder{}mode[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-mode>(): org.maplibre.compose.map/TileLodMode // org.maplibre.compose.map/mode.<get-mode>|<get-mode>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-mode>(org.maplibre.compose.map/TileLodMode) // org.maplibre.compose.map/mode.<set-mode>|<set-mode>@org.maplibre.compose.map.TileLodOptions.Builder(org.maplibre.compose.map.TileLodMode){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/pitchThreshold // org.maplibre.compose.map/pitchThreshold|@org.maplibre.compose.map.TileLodOptions.Builder{}pitchThreshold[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-pitchThreshold>(kotlin/Double) // org.maplibre.compose.map/pitchThreshold.<set-pitchThreshold>|<set-pitchThreshold>@org.maplibre.compose.map.TileLodOptions.Builder(kotlin.Double){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/scale // org.maplibre.compose.map/scale|@org.maplibre.compose.map.TileLodOptions.Builder{}scale[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-scale>(): kotlin/Double // org.maplibre.compose.map/scale.<get-scale>|<get-scale>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-scale>(kotlin/Double) // org.maplibre.compose.map/scale.<set-scale>|<set-scale>@org.maplibre.compose.map.TileLodOptions.Builder(kotlin.Double){}[0]
 
 // Targets: [apple]
 final var org.maplibre.compose.map/tileParseStatus // org.maplibre.compose.map/tileParseStatus|@org.maplibre.compose.map.DebugOverlays.Builder{}tileParseStatus[0]
@@ -4540,11 +4572,6 @@ final var org.maplibre.compose.map/tileTimestamps // org.maplibre.compose.map/ti
     final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-tileTimestamps>(kotlin/Boolean) // org.maplibre.compose.map/tileTimestamps.<set-tileTimestamps>|<set-tileTimestamps>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
 
 // Targets: [apple]
-final var org.maplibre.compose.map/zoomShift // org.maplibre.compose.map/zoomShift|@org.maplibre.compose.map.TileLodOptions.Builder{}zoomShift[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/zoomShift.<get-zoomShift>|<get-zoomShift>@org.maplibre.compose.map.TileLodOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/TileLodOptions.Builder).<set-zoomShift>(kotlin/Double) // org.maplibre.compose.map/zoomShift.<set-zoomShift>|<set-zoomShift>@org.maplibre.compose.map.TileLodOptions.Builder(kotlin.Double){}[0]
-
-// Targets: [apple]
 final fun (org.maplibre.compose.sources/MutableSourceHandle).org.maplibre.compose.sources/setVolatile(kotlin/Boolean) // org.maplibre.compose.sources/setVolatile|setVolatile@org.maplibre.compose.sources.MutableSourceHandle(kotlin.Boolean){}[0]
 
 // Targets: [apple]
@@ -4552,6 +4579,21 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axo
 
 // Targets: [apple]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Perspective$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Perspective$stableprop_getter|org_maplibre_compose_map_CameraProjection_Perspective$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm_Default$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm_Default_Builder$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm_Distance$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm_Distance_Builder$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(){}[0]

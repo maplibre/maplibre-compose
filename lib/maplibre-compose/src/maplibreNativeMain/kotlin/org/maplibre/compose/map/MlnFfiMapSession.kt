@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
-import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.time.Duration
@@ -76,7 +75,6 @@ import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.ProjectionModeOptions
-import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
 import org.maplibre.nativeffi.map.TileOptions
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.RenderSessionHandle
@@ -1422,20 +1420,7 @@ internal class MlnFfiMapSession(
   // endregion
 }
 
-private fun TileLodOptions.toFfi(): TileOptions =
-  TileOptions().also {
-    it.lodMode = mode.toFfi()
-    it.lodMinRadius = minRadius
-    it.lodScale = scale
-    it.lodPitchThreshold = pitchThreshold * PI / 180.0
-    it.lodZoomShift = zoomShift
-  }
-
-private fun TileLodMode.toFfi(): FfiTileLodMode =
-  when (this) {
-    TileLodMode.Default -> FfiTileLodMode.DEFAULT
-    TileLodMode.Distance -> FfiTileLodMode.DISTANCE
-  }
+private fun TileLodOptions.toFfi(): TileOptions = algorithm.toFfi()
 
 private fun CameraProjection.toFfi(): ProjectionModeOptions =
   ProjectionModeOptions().also { options ->
