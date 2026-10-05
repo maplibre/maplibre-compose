@@ -23,6 +23,10 @@ those sources.
 
 ## Development
 
+In code, use `Maplibre` and treat acronyms and initialisms as words (`Json`,
+`Ui`, `Url`). Use PascalCase for constants. Preserve required external API
+spellings. In prose, use established spellings such as MapLibre, JSON, and UI.
+
 Use mise tasks: `mise tasks --all` lists them, and `CONTRIBUTING.md` covers
 setup outside mise and the demo checks CI cannot run. For work that mise does
 not cover, run one named Gradle task per invocation. `./gradlew build` builds

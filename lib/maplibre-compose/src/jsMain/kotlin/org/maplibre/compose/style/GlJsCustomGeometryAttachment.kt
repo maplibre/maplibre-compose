@@ -2,7 +2,7 @@ package org.maplibre.compose.style
 
 import js.objects.unsafeJso
 import kotlinx.coroutines.CancellationException
-import org.maplibre.compose.gljs.GeoJSONToTileOptions
+import org.maplibre.compose.gljs.GeoJsonToTileOptions
 import org.maplibre.compose.gljs.VectorTileEncodingOptions
 import org.maplibre.compose.gljs.fromGeojsonVt
 import org.maplibre.compose.gljs.geoJSONToTile
@@ -54,7 +54,7 @@ internal class GlJsCustomGeometryAttachment(
         x = tile.x.toInt(),
         y = tile.y.toInt(),
         options =
-          unsafeJso<GeoJSONToTileOptions> {
+          unsafeJso<GeoJsonToTileOptions> {
             extent = EXTENT.toDouble()
             buffer = (SCALE * options.buffer).toDouble()
             tolerance = SCALE * options.tolerance.toDouble()

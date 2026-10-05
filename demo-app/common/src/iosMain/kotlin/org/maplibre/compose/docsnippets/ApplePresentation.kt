@@ -10,7 +10,7 @@ import platform.UIKit.UIView
 
 // #region apple-view
 /** The caller owns the MapState. Create and use this host on the main thread. */
-class UIKitMapHost(state: MapState) : AutoCloseable {
+class UiKitMapHost(state: MapState) : AutoCloseable {
   val presentation = AppleMapPresentation(state, isActive = false)
   val view: UIView = MaplibreMapView(presentation)
 
