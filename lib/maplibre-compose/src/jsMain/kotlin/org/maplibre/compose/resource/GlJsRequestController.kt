@@ -56,7 +56,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
         config.provider ?: throw IllegalStateException("No resource provider is installed")
       // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
       val result = provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
-      result.toProtocolResponse(parsed.url)
+      result.toProtocolResponse(parsed.url, request.type)
     }
     val signal = abortController.asDynamic().signal
     val abort: () -> Unit = { work.cancel() }
@@ -66,8 +66,9 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     return work.asPromise()
   }
 
+  // The prefix keeps the kind component nonempty even for an empty engine string.
   fun protocolUrl(url: String, kind: MapResourceKind): String =
-    "$scheme://${kind.name}/${encodeResourceUrl(url)}"
+    "$scheme://k${encodeResourceUrl(requireNotNull(kind.browserValue))}/${encodeResourceUrl(url)}"
 
   fun parseProtocolUrl(protocolUrl: String): MapResourceRequest {
     val prefix = "$scheme://"
@@ -75,7 +76,9 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     val remainder = protocolUrl.substring(prefix.length)
     val separator = remainder.indexOf('/')
     require(separator > 0) { "Invalid resource protocol URL: $protocolUrl" }
-    val kind = remainder.substring(0, separator).toStoredResourceKind()
+    val storedKind = remainder.substring(0, separator)
+    require(storedKind.startsWith("k")) { "Invalid resource kind in protocol URL: $protocolUrl" }
+    val kind = decodeResourceUrl(storedKind.substring(1)).toResourceKind()
     return MapResourceRequest(decodeResourceUrl(remainder.substring(separator + 1)), kind)
   }
 
@@ -118,12 +121,10 @@ internal fun String?.toResourceKind(): MapResourceKind =
     "SpriteJSON" -> MapResourceKind.SpriteJson
     "SpriteImage" -> MapResourceKind.SpriteImage
     "Image" -> MapResourceKind.Image
-    else -> MapResourceKind.Unknown
+    "Unknown",
+    null -> MapResourceKind.Unknown
+    else -> MapResourceKind(null, this)
   }
-
-/** Parses a kind that [GlJsRequestController.protocolUrl] stored as [MapResourceKind.name]. */
-internal fun String.toStoredResourceKind(): MapResourceKind =
-  MapResourceKind.entries.firstOrNull { it.name == this } ?: MapResourceKind.Unknown
 
 private fun requestParameters(url: String, headers: Map<String, String>): Any {
   val params = js("{}")
@@ -159,11 +160,11 @@ internal class ResourceLoadError(message: String, val status: Int?) : Exception(
 }
 
 /** Converts a load result to the protocol promise outcome of the corresponding HTTP response. */
-private fun MapResourceLoad.toProtocolResponse(url: String): ProtocolResponse {
+private fun MapResourceLoad.toProtocolResponse(url: String, type: String?): ProtocolResponse {
   val expires = expires?.let { Date(it.toEpochMilliseconds().toDouble()) }
   return when (this) {
-    is MapResourceLoad.Bytes -> bytes.toProtocolResponse(expires)
-    is MapResourceLoad.NoContent -> ByteArray(0).toProtocolResponse(expires)
+    is MapResourceLoad.Bytes -> bytes.toProtocolResponse(expires, type)
+    is MapResourceLoad.NoContent -> ByteArray(0).toProtocolResponse(expires, type)
     is MapResourceLoad.NotModified ->
       throw ResourceLoadError(
         "Resource provider returned NotModified for $url, but the browser sends no validators",
@@ -173,11 +174,17 @@ private fun MapResourceLoad.toProtocolResponse(url: String): ProtocolResponse {
   }
 }
 
-private fun ByteArray.toProtocolResponse(expires: Date?): ProtocolResponse {
-  val bytes = Uint8Array<ArrayBuffer>(size)
-  forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
+private fun ByteArray.toProtocolResponse(expires: Date?, type: String?): ProtocolResponse {
+  // GL JS protocol handlers return decoded JSON for getJSON, and buffers for binary loads.
+  val data =
+    if (type == "json") JSON.parse<Any>(decodeToString())
+    else {
+      val bytes = Uint8Array<ArrayBuffer>(size)
+      forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
+      bytes.buffer
+    }
   return unsafeJso {
-    data = bytes.buffer
+    this.data = data
     if (expires != null) this.expires = expires
   }
 }

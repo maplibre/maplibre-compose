@@ -100,7 +100,7 @@ class GlJsRequestControllerTest {
       )
     val result = controller.transformRequest("app://style.json", "Style")
     val url = result.asDynamic().url as String
-    assertTrue(url.startsWith("${controller.scheme}://Style/"))
+    assertTrue(url.startsWith("${controller.scheme}://kStyle/"))
     val parsed = controller.parseProtocolUrl(url)
     assertEquals("app://style.json", parsed.url)
     assertEquals(MapResourceKind.Style, parsed.kind)
@@ -115,11 +115,81 @@ class GlJsRequestControllerTest {
       )
     val result = controller.transformRequest("app://sprite.json", "SpriteJSON")
     val url = result.asDynamic().url as String
-    assertTrue(url.startsWith("${controller.scheme}://SpriteJson/"))
+    assertTrue(url.startsWith("${controller.scheme}://kSpriteJSON/"))
     val parsed = controller.parseProtocolUrl(url)
     assertEquals("app://sprite.json", parsed.url)
     assertEquals(MapResourceKind.SpriteJson, parsed.kind)
     controller.close()
+  }
+
+  @Test
+  fun unnamed_browser_kinds_survive_interception_and_provider_loading() = runTest {
+    // Include separators, escapes, Unicode, and the empty string in the stored kind identity.
+    for (engineKind in listOf("Future/Kind?%#字体", "", "future-kind")) {
+      val expected = engineKind.toResourceKind()
+      val callbacks = mutableListOf<MapResourceKind>()
+      var loaded: MapResourceLoadRequest? = null
+      val controller =
+        GlJsRequestController(
+          MapResourceConfig(
+            interceptor =
+              MapRequestInterceptor(
+                rewriteUrl = {
+                  callbacks += it.kind
+                  "app://rewritten"
+                }
+              ),
+            provider =
+              MapResourceProvider(
+                accepts = {
+                  callbacks += it.kind
+                  true
+                },
+                load = {
+                  loaded = it
+                  MapResourceLoad.NoContent()
+                },
+              ),
+          )
+        )
+      try {
+        val transformed = controller.transformRequest("app://original", engineKind)
+        val request = transformed.unsafeCast<RequestParameters>()
+        controller.loadProtocol(request, js("new AbortController()")).await()
+        val load = requireNotNull(loaded)
+        assertEquals(listOf(expected, expected), callbacks)
+        assertEquals(expected, load.kind)
+        assertEquals(engineKind, load.kind.browserValue)
+        assertNull(load.kind.nativeValue)
+        assertEquals("app://rewritten", load.url)
+        assertEquals(MapResourceLoadRequest.LoadingMethod.All, load.loadingMethod)
+        assertEquals(MapResourceLoadRequest.Priority.Regular, load.priority)
+        assertEquals(MapResourceLoadRequest.Usage.Online, load.usage)
+        assertEquals(MapResourceLoadRequest.StoragePolicy.Permanent, load.storagePolicy)
+        assertNotEquals(MapResourceKind.Unknown, expected)
+        assertNotEquals("another-kind".toResourceKind(), expected)
+      } finally {
+        controller.close()
+      }
+    }
+  }
+
+  @Test
+  fun known_browser_kinds_and_unspecified_requests_keep_their_common_identity() {
+    for (kind in
+      listOf(
+        MapResourceKind.Style,
+        MapResourceKind.Source,
+        MapResourceKind.Tile,
+        MapResourceKind.Glyphs,
+        MapResourceKind.SpriteJson,
+        MapResourceKind.SpriteImage,
+        MapResourceKind.Image,
+        MapResourceKind.Unknown,
+      )) {
+      assertEquals(kind, kind.browserValue.toResourceKind())
+    }
+    assertEquals(MapResourceKind.Unknown, null.toResourceKind())
   }
 
   @Test
@@ -170,14 +240,26 @@ class GlJsRequestControllerTest {
     val expires = Instant.fromEpochMilliseconds(1_000)
     val response =
       load(MapResourceLoad.Bytes("body".encodeToByteArray(), expires = expires)).await()
-    assertEquals("body", response.data.decodeToString())
+    assertEquals("body", response.data.unsafeCast<ArrayBuffer>().decodeToString())
     assertEquals(1_000.0, response.expires?.getTime())
+  }
+
+  @Test
+  fun json_requests_resolve_with_decoded_json() = runTest {
+    val response =
+      load(MapResourceLoad.Bytes("""{"version":8}""".encodeToByteArray()), "json").await()
+    assertEquals(8, response.data.asDynamic().version as Int)
+  }
+
+  @Test
+  fun invalid_json_rejects_the_load() = runTest {
+    assertFails { load(MapResourceLoad.Bytes("invalid".encodeToByteArray()), "json").await() }
   }
 
   @Test
   fun no_content_resolves_with_an_empty_body() = runTest {
     val response = load(MapResourceLoad.NoContent()).await()
-    assertEquals(0, response.data.byteLength)
+    assertEquals(0, response.data.unsafeCast<ArrayBuffer>().byteLength)
     assertNull(response.expires)
   }
 
@@ -186,6 +268,24 @@ class GlJsRequestControllerTest {
     val error = rejection(MapResourceLoad.Failed(MapResourceError.NotFound, "no tile"))
     assertEquals(404, error.asDynamic().status as Int)
     assertEquals("no tile", error.message)
+  }
+
+  @Test
+  fun all_failure_categories_keep_their_browser_status() = runTest {
+    val statuses =
+      mapOf(
+        MapResourceError.NotFound to 404,
+        MapResourceError.Server to 500,
+        MapResourceError.RateLimit to 429,
+        MapResourceError.Connection to null,
+        MapResourceError.Other to null,
+      )
+    assertEquals(MapResourceError.entries.toSet(), statuses.keys)
+    for ((reason, status) in statuses) {
+      val error = rejection(MapResourceLoad.Failed(reason, "failure"))
+      assertEquals(status, error.asDynamic().status as Int?)
+      assertEquals("failure", error.message)
+    }
   }
 
   @Test
@@ -201,7 +301,7 @@ class GlJsRequestControllerTest {
     assertTrue(error.message.orEmpty().contains("NotModified"))
   }
 
-  private fun load(result: MapResourceLoad): Promise<ProtocolResponse> {
+  private fun load(result: MapResourceLoad, type: String? = null): Promise<ProtocolResponse> {
     val controller =
       GlJsRequestController(
         MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result }))
@@ -209,6 +309,7 @@ class GlJsRequestControllerTest {
     val protocolUrl = controller.protocolUrl("app://tile", MapResourceKind.Tile)
     val request = js("({})").unsafeCast<RequestParameters>()
     request.asDynamic().url = protocolUrl
+    request.asDynamic().type = type
     return controller.loadProtocol(request, js("new AbortController()")).also {
       it.then({ controller.close() }, { controller.close() })
     }

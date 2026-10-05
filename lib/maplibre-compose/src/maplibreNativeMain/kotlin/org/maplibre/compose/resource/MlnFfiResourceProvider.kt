@@ -19,16 +19,12 @@ import kotlinx.coroutines.selects.select
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
-import org.maplibre.nativeffi.resource.ResourceLoadingMethod
-import org.maplibre.nativeffi.resource.ResourcePriority
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
 import org.maplibre.nativeffi.resource.ResourceRequest
 import org.maplibre.nativeffi.resource.ResourceRequestHandle
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
-import org.maplibre.nativeffi.resource.ResourceStoragePolicy
-import org.maplibre.nativeffi.resource.ResourceUsage
 
 /**
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
@@ -368,27 +364,10 @@ internal fun ResourceRequest.toLoadRequest(url: String = resolvedUrl): MapResour
     url = url,
     kind = kind.toCommon(),
     requestedUrl = requestedUrl,
-    loadingMethod =
-      when (loadingMethod) {
-        ResourceLoadingMethod.CACHE_ONLY -> MapResourceLoadRequest.LoadingMethod.CacheOnly
-        ResourceLoadingMethod.NETWORK_ONLY -> MapResourceLoadRequest.LoadingMethod.NetworkOnly
-        else -> MapResourceLoadRequest.LoadingMethod.All
-      },
-    priority =
-      when (priority) {
-        ResourcePriority.LOW -> MapResourceLoadRequest.Priority.Low
-        else -> MapResourceLoadRequest.Priority.Regular
-      },
-    usage =
-      when (usage) {
-        ResourceUsage.OFFLINE -> MapResourceLoadRequest.Usage.Offline
-        else -> MapResourceLoadRequest.Usage.Online
-      },
-    storagePolicy =
-      when (storagePolicy) {
-        ResourceStoragePolicy.VOLATILE -> MapResourceLoadRequest.StoragePolicy.Volatile
-        else -> MapResourceLoadRequest.StoragePolicy.Permanent
-      },
+    loadingMethod = MapResourceLoadRequest.LoadingMethod(loadingMethod.nativeValue),
+    priority = MapResourceLoadRequest.Priority(priority.nativeValue),
+    usage = MapResourceLoadRequest.Usage(usage.nativeValue),
+    storagePolicy = MapResourceLoadRequest.StoragePolicy(storagePolicy.nativeValue),
     range = range?.let { it.start..it.end },
     priorEtag = priorEtag,
     priorModified = priorModifiedUnixMs?.let(Instant::fromEpochMilliseconds),

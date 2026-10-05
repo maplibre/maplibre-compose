@@ -233,23 +233,6 @@ final enum class org.maplibre.compose.resource/MapResourceError : kotlin/Enum<or
     final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceError> // org.maplibre.compose.resource/MapResourceError.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.resource/MapResourceKind : kotlin/Enum<org.maplibre.compose.resource/MapResourceKind> { // org.maplibre.compose.resource/MapResourceKind|null[0]
-    enum entry Glyphs // org.maplibre.compose.resource/MapResourceKind.Glyphs|null[0]
-    enum entry Image // org.maplibre.compose.resource/MapResourceKind.Image|null[0]
-    enum entry Source // org.maplibre.compose.resource/MapResourceKind.Source|null[0]
-    enum entry SpriteImage // org.maplibre.compose.resource/MapResourceKind.SpriteImage|null[0]
-    enum entry SpriteJson // org.maplibre.compose.resource/MapResourceKind.SpriteJson|null[0]
-    enum entry Style // org.maplibre.compose.resource/MapResourceKind.Style|null[0]
-    enum entry Tile // org.maplibre.compose.resource/MapResourceKind.Tile|null[0]
-    enum entry Unknown // org.maplibre.compose.resource/MapResourceKind.Unknown|null[0]
-
-    final val entries // org.maplibre.compose.resource/MapResourceKind.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceKind> // org.maplibre.compose.resource/MapResourceKind.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceKind> // org.maplibre.compose.resource/MapResourceKind.values|values#static(){}[0]
-}
-
 final enum class org.maplibre.compose.sources/TileCoordinateSystem : kotlin/Enum<org.maplibre.compose.sources/TileCoordinateSystem> { // org.maplibre.compose.sources/TileCoordinateSystem|null[0]
     enum entry Tms // org.maplibre.compose.sources/TileCoordinateSystem.Tms|null[0]
     enum entry Xyz // org.maplibre.compose.sources/TileCoordinateSystem.Xyz|null[0]
@@ -2424,6 +2407,36 @@ final class org.maplibre.compose.overlay/ZoomButtonsStyle { // org.maplibre.comp
     final fun toString(): kotlin/String // org.maplibre.compose.overlay/ZoomButtonsStyle.toString|toString(){}[0]
 }
 
+final class org.maplibre.compose.resource/MapResourceKind { // org.maplibre.compose.resource/MapResourceKind|null[0]
+    final val browserValue // org.maplibre.compose.resource/MapResourceKind.browserValue|{}browserValue[0]
+        final fun <get-browserValue>(): kotlin/String? // org.maplibre.compose.resource/MapResourceKind.browserValue.<get-browserValue>|<get-browserValue>(){}[0]
+    final val nativeValue // org.maplibre.compose.resource/MapResourceKind.nativeValue|{}nativeValue[0]
+        final fun <get-nativeValue>(): kotlin/Int? // org.maplibre.compose.resource/MapResourceKind.nativeValue.<get-nativeValue>|<get-nativeValue>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceKind.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceKind.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceKind.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.resource/MapResourceKind.Companion|null[0]
+        final val Glyphs // org.maplibre.compose.resource/MapResourceKind.Companion.Glyphs|{}Glyphs[0]
+            final fun <get-Glyphs>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Glyphs.<get-Glyphs>|<get-Glyphs>(){}[0]
+        final val Image // org.maplibre.compose.resource/MapResourceKind.Companion.Image|{}Image[0]
+            final fun <get-Image>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Image.<get-Image>|<get-Image>(){}[0]
+        final val Source // org.maplibre.compose.resource/MapResourceKind.Companion.Source|{}Source[0]
+            final fun <get-Source>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Source.<get-Source>|<get-Source>(){}[0]
+        final val SpriteImage // org.maplibre.compose.resource/MapResourceKind.Companion.SpriteImage|{}SpriteImage[0]
+            final fun <get-SpriteImage>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.SpriteImage.<get-SpriteImage>|<get-SpriteImage>(){}[0]
+        final val SpriteJson // org.maplibre.compose.resource/MapResourceKind.Companion.SpriteJson|{}SpriteJson[0]
+            final fun <get-SpriteJson>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.SpriteJson.<get-SpriteJson>|<get-SpriteJson>(){}[0]
+        final val Style // org.maplibre.compose.resource/MapResourceKind.Companion.Style|{}Style[0]
+            final fun <get-Style>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Style.<get-Style>|<get-Style>(){}[0]
+        final val Tile // org.maplibre.compose.resource/MapResourceKind.Companion.Tile|{}Tile[0]
+            final fun <get-Tile>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Tile.<get-Tile>|<get-Tile>(){}[0]
+        final val Unknown // org.maplibre.compose.resource/MapResourceKind.Companion.Unknown|{}Unknown[0]
+            final fun <get-Unknown>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceKind.Companion.Unknown.<get-Unknown>|<get-Unknown>(){}[0]
+    }
+}
+
 final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplibre.compose.resource/MapResourceLoadRequest|null[0]
     final val kind // org.maplibre.compose.resource/MapResourceLoadRequest.kind|{}kind[0]
         final fun <get-kind>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceLoadRequest.kind.<get-kind>|<get-kind>(){}[0]
@@ -2452,49 +2465,70 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 
     final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.toString|toString(){}[0]
 
-    final enum class LoadingMethod : kotlin/Enum<org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod> { // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod|null[0]
-        enum entry All // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.All|null[0]
-        enum entry CacheOnly // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.CacheOnly|null[0]
-        enum entry NetworkOnly // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.NetworkOnly|null[0]
+    final value class LoadingMethod { // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod|null[0]
+        final val nativeValue // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.nativeValue|{}nativeValue[0]
+            final fun <get-nativeValue>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.nativeValue.<get-nativeValue>|<get-nativeValue>(){}[0]
 
-        final val entries // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.entries|#static{}entries[0]
-            final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod> // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.entries.<get-entries>|<get-entries>#static(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.toString|toString(){}[0]
 
-        final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.valueOf|valueOf#static(kotlin.String){}[0]
-        final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod> // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.values|values#static(){}[0]
+        final object Companion { // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion|null[0]
+            final val All // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.All|{}All[0]
+                final fun <get-All>(): org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.All.<get-All>|<get-All>(){}[0]
+            final val CacheOnly // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.CacheOnly|{}CacheOnly[0]
+                final fun <get-CacheOnly>(): org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.CacheOnly.<get-CacheOnly>|<get-CacheOnly>(){}[0]
+            final val NetworkOnly // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.NetworkOnly|{}NetworkOnly[0]
+                final fun <get-NetworkOnly>(): org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.Companion.NetworkOnly.<get-NetworkOnly>|<get-NetworkOnly>(){}[0]
+        }
     }
 
-    final enum class Priority : kotlin/Enum<org.maplibre.compose.resource/MapResourceLoadRequest.Priority> { // org.maplibre.compose.resource/MapResourceLoadRequest.Priority|null[0]
-        enum entry Low // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Low|null[0]
-        enum entry Regular // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Regular|null[0]
+    final value class Priority { // org.maplibre.compose.resource/MapResourceLoadRequest.Priority|null[0]
+        final val nativeValue // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.nativeValue|{}nativeValue[0]
+            final fun <get-nativeValue>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.nativeValue.<get-nativeValue>|<get-nativeValue>(){}[0]
 
-        final val entries // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.entries|#static{}entries[0]
-            final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceLoadRequest.Priority> // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.entries.<get-entries>|<get-entries>#static(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.toString|toString(){}[0]
 
-        final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceLoadRequest.Priority // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.valueOf|valueOf#static(kotlin.String){}[0]
-        final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceLoadRequest.Priority> // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.values|values#static(){}[0]
+        final object Companion { // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Companion|null[0]
+            final val Low // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Companion.Low|{}Low[0]
+                final fun <get-Low>(): org.maplibre.compose.resource/MapResourceLoadRequest.Priority // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Companion.Low.<get-Low>|<get-Low>(){}[0]
+            final val Regular // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Companion.Regular|{}Regular[0]
+                final fun <get-Regular>(): org.maplibre.compose.resource/MapResourceLoadRequest.Priority // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.Companion.Regular.<get-Regular>|<get-Regular>(){}[0]
+        }
     }
 
-    final enum class StoragePolicy : kotlin/Enum<org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy> { // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy|null[0]
-        enum entry Permanent // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Permanent|null[0]
-        enum entry Volatile // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Volatile|null[0]
+    final value class StoragePolicy { // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy|null[0]
+        final val nativeValue // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.nativeValue|{}nativeValue[0]
+            final fun <get-nativeValue>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.nativeValue.<get-nativeValue>|<get-nativeValue>(){}[0]
 
-        final val entries // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.entries|#static{}entries[0]
-            final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy> // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.entries.<get-entries>|<get-entries>#static(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.toString|toString(){}[0]
 
-        final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.valueOf|valueOf#static(kotlin.String){}[0]
-        final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy> // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.values|values#static(){}[0]
+        final object Companion { // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Companion|null[0]
+            final val Permanent // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Companion.Permanent|{}Permanent[0]
+                final fun <get-Permanent>(): org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Companion.Permanent.<get-Permanent>|<get-Permanent>(){}[0]
+            final val Volatile // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Companion.Volatile|{}Volatile[0]
+                final fun <get-Volatile>(): org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.Companion.Volatile.<get-Volatile>|<get-Volatile>(){}[0]
+        }
     }
 
-    final enum class Usage : kotlin/Enum<org.maplibre.compose.resource/MapResourceLoadRequest.Usage> { // org.maplibre.compose.resource/MapResourceLoadRequest.Usage|null[0]
-        enum entry Offline // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Offline|null[0]
-        enum entry Online // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Online|null[0]
+    final value class Usage { // org.maplibre.compose.resource/MapResourceLoadRequest.Usage|null[0]
+        final val nativeValue // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.nativeValue|{}nativeValue[0]
+            final fun <get-nativeValue>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.nativeValue.<get-nativeValue>|<get-nativeValue>(){}[0]
 
-        final val entries // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.entries|#static{}entries[0]
-            final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceLoadRequest.Usage> // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.entries.<get-entries>|<get-entries>#static(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.toString|toString(){}[0]
 
-        final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceLoadRequest.Usage // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.valueOf|valueOf#static(kotlin.String){}[0]
-        final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceLoadRequest.Usage> // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.values|values#static(){}[0]
+        final object Companion { // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Companion|null[0]
+            final val Offline // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Companion.Offline|{}Offline[0]
+                final fun <get-Offline>(): org.maplibre.compose.resource/MapResourceLoadRequest.Usage // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Companion.Offline.<get-Offline>|<get-Offline>(){}[0]
+            final val Online // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Companion.Online|{}Online[0]
+                final fun <get-Online>(): org.maplibre.compose.resource/MapResourceLoadRequest.Usage // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.Companion.Online.<get-Online>|<get-Online>(){}[0]
+        }
     }
 }
 
@@ -3858,6 +3892,7 @@ final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeas
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeasures$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeasures$stableprop|#static{}org_maplibre_compose_overlay_ScaleBarMeasures$stableprop[0]
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop|#static{}org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop[0]
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop|#static{}org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop[0]
+final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceKind$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceKind$stableprop|#static{}org_maplibre_compose_resource_MapResourceKind$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoadRequest$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop[0]
@@ -4293,6 +4328,7 @@ final fun org.maplibre.compose.overlay/rememberPlacedTowardsState(androidx.compo
 final fun org.maplibre.compose.resource/MapRequestInterceptor(kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin/String?> = ..., kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin.collections/Map<kotlin/String, kotlin/String>> = ...): org.maplibre.compose.resource/MapRequestInterceptor // org.maplibre.compose.resource/MapRequestInterceptor|MapRequestInterceptor(kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.String?>;kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.collections.Map<kotlin.String,kotlin.String>>){}[0]
 final fun org.maplibre.compose.resource/MapResourceProvider(kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin/Boolean>, kotlin.coroutines/SuspendFunction1<org.maplibre.compose.resource/MapResourceLoadRequest, org.maplibre.compose.resource/MapResourceLoad>): org.maplibre.compose.resource/MapResourceProvider // org.maplibre.compose.resource/MapResourceProvider|MapResourceProvider(kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.Boolean>;kotlin.coroutines.SuspendFunction1<org.maplibre.compose.resource.MapResourceLoadRequest,org.maplibre.compose.resource.MapResourceLoad>){}[0]
 final fun org.maplibre.compose.resource/MapResourceProvider(kotlin/String, kotlin.coroutines/SuspendFunction1<org.maplibre.compose.resource/MapResourceLoadRequest, kotlin/ByteArray>): org.maplibre.compose.resource/MapResourceProvider // org.maplibre.compose.resource/MapResourceProvider|MapResourceProvider(kotlin.String;kotlin.coroutines.SuspendFunction1<org.maplibre.compose.resource.MapResourceLoadRequest,kotlin.ByteArray>){}[0]
+final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceKind$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceKind$stableprop_getter|org_maplibre_compose_resource_MapResourceKind$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter|org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter|org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter|org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter(){}[0]

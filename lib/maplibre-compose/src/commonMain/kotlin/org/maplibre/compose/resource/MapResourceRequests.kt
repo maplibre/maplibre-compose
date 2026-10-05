@@ -1,21 +1,44 @@
 package org.maplibre.compose.resource
 
+import kotlin.jvm.JvmInline
 import kotlin.time.Instant
 
 /**
  * The kind of resource MapLibre is about to fetch.
  *
- * A newer engine may report a kind that has no name here; that value becomes [Unknown].
+ * Compare with the named constants. A kind from a newer engine can have no named constant, so a
+ * `when` needs an `else` branch. Unnamed kinds preserve their [nativeValue] or [browserValue] and
+ * compare equal only when that engine identity is equal. Named kinds compare equal across engines.
+ * These values are received from MapLibre; applications cannot create new kinds.
  */
-public enum class MapResourceKind {
-  Style,
-  Source,
-  Tile,
-  Glyphs,
-  SpriteJson,
-  SpriteImage,
-  Image,
-  Unknown,
+public class MapResourceKind
+internal constructor(
+  /** The MapLibre Native FFI identifier, or null for an unnamed browser kind. */
+  public val nativeValue: Int?,
+  /** The MapLibre GL JS resource type, or null for an unnamed Native kind. */
+  public val browserValue: String?,
+) {
+  public companion object {
+    public val Style: MapResourceKind = MapResourceKind(1, "Style")
+    public val Source: MapResourceKind = MapResourceKind(2, "Source")
+    public val Tile: MapResourceKind = MapResourceKind(3, "Tile")
+    public val Glyphs: MapResourceKind = MapResourceKind(4, "Glyphs")
+    public val SpriteJson: MapResourceKind = MapResourceKind(6, "SpriteJSON")
+    public val SpriteImage: MapResourceKind = MapResourceKind(5, "SpriteImage")
+    public val Image: MapResourceKind = MapResourceKind(7, "Image")
+    /** The unspecified kind, including a browser request with no resource type. */
+    public val Unknown: MapResourceKind = MapResourceKind(0, "Unknown")
+  }
+
+  override fun equals(other: Any?): Boolean =
+    other is MapResourceKind &&
+      nativeValue == other.nativeValue &&
+      browserValue == other.browserValue
+
+  override fun hashCode(): Int =
+    31 * (nativeValue?.hashCode() ?: 0) + (browserValue?.hashCode() ?: 0)
+
+  override fun toString(): String = browserValue ?: "MapResourceKind(nativeValue=$nativeValue)"
 }
 
 /**
@@ -75,6 +98,10 @@ public fun MapRequestInterceptor(
  * rewrites it. [requestedUrl] is the URL in the style; on the browser it equals [url]. The prior
  * fields are the validators and the body of the cached copy. A provider uses them to revalidate.
  * The browser has no ambient cache, so it passes the default for every field after [kind].
+ *
+ * Request classifications can include unnamed engine values. A provider must choose how to handle
+ * them; an unrecognized [loadingMethod] does not grant permission to use both cache and network.
+ * Return [MapResourceLoad.Failed] with [MapResourceError.Other] if a request cannot be handled.
  */
 public class MapResourceLoadRequest
 internal constructor(
@@ -93,35 +120,74 @@ internal constructor(
   /** The cached body, or null when the cache has no body for this resource. */
   public val priorData: ByteArray? = null,
 ) {
-  /** Limits the load to the cache or to the network. [All] allows both. */
-  public enum class LoadingMethod {
-    All,
-    CacheOnly,
-    NetworkOnly,
+  /**
+   * Limits the load to the cache or to the network. [All] allows both.
+   *
+   * Values are received from MapLibre Native FFI. An unnamed value preserves its [nativeValue]; a
+   * `when` needs an `else` branch. The browser uses [All].
+   */
+  @JvmInline
+  public value class LoadingMethod internal constructor(public val nativeValue: Int) {
+    public companion object {
+      public val All: LoadingMethod = LoadingMethod(0)
+      public val CacheOnly: LoadingMethod = LoadingMethod(1)
+      public val NetworkOnly: LoadingMethod = LoadingMethod(2)
+    }
   }
 
-  /** The priority of the load. */
-  public enum class Priority {
-    Regular,
-    Low,
+  /**
+   * The priority of the load.
+   *
+   * Values are received from MapLibre Native FFI. An unnamed value preserves its [nativeValue]; a
+   * `when` needs an `else` branch. The browser uses [Regular].
+   */
+  @JvmInline
+  public value class Priority internal constructor(public val nativeValue: Int) {
+    public companion object {
+      public val Regular: Priority = Priority(0)
+      public val Low: Priority = Priority(1)
+    }
   }
 
-  /** The consumer of the resource: a map, or an offline pack download. */
-  public enum class Usage {
-    Online,
-    Offline,
+  /**
+   * The consumer of the resource: a map, or an offline pack download.
+   *
+   * Values are received from MapLibre Native FFI. An unnamed value preserves its [nativeValue]; a
+   * `when` needs an `else` branch. The browser uses [Online].
+   */
+  @JvmInline
+  public value class Usage internal constructor(public val nativeValue: Int) {
+    public companion object {
+      public val Online: Usage = Usage(0)
+      public val Offline: Usage = Usage(1)
+    }
   }
 
-  /** The cache retention policy for the resource. */
-  public enum class StoragePolicy {
-    Permanent,
-    Volatile,
+  /**
+   * The cache retention policy for the resource.
+   *
+   * Values are received from MapLibre Native FFI. An unnamed value preserves its [nativeValue]; a
+   * `when` needs an `else` branch. The browser uses [Permanent].
+   */
+  @JvmInline
+  public value class StoragePolicy internal constructor(public val nativeValue: Int) {
+    public companion object {
+      public val Permanent: StoragePolicy = StoragePolicy(0)
+      public val Volatile: StoragePolicy = StoragePolicy(1)
+    }
   }
 
   override fun toString(): String = "MapResourceLoadRequest(url=$url, kind=$kind)"
 }
 
-/** The cause of a failed resource load. Each reason corresponds to an HTTP status. */
+/**
+ * The cause of a failed resource load.
+ *
+ * This is a closed set of failure behaviors supported by the engines. Use [Other] for failures
+ * outside these categories, with details in [MapResourceLoad.Failed.message]. These reasons do not
+ * carry arbitrary HTTP status codes. The browser maps [NotFound], [Server], and [RateLimit] to 404,
+ * 500, and 429; [Connection] and [Other] have no HTTP status.
+ */
 public enum class MapResourceError {
   /** A 404. */
   NotFound,
@@ -134,6 +200,7 @@ public enum class MapResourceError {
 
   /** A 429. */
   RateLimit,
+  /** A failure outside the other categories. */
   Other,
 }
 
@@ -186,9 +253,9 @@ public sealed interface MapResourceLoad {
   /**
    * A failed load.
    *
-   * [reason] is the HTTP status that the engine handles. MapLibre Native reports a tile error for a
-   * [MapResourceError.NotFound] tile, and the browser skips the tile. Return [NoContent] for a tile
-   * outside the data set.
+   * [reason] selects the failure behavior that the engine handles. MapLibre Native reports a tile
+   * error for a [MapResourceError.NotFound] tile, and the browser skips the tile. Return
+   * [NoContent] for a tile outside the data set.
    */
   public class Failed(
     public val reason: MapResourceError,

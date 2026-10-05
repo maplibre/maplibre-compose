@@ -279,6 +279,25 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
+  fun all_failure_categories_keep_their_native_reason() {
+    val reasons =
+      mapOf(
+        MapResourceError.NotFound to ResourceErrorReason.NOT_FOUND,
+        MapResourceError.Server to ResourceErrorReason.SERVER,
+        MapResourceError.Connection to ResourceErrorReason.CONNECTION,
+        MapResourceError.RateLimit to ResourceErrorReason.RATE_LIMIT,
+        MapResourceError.Other to ResourceErrorReason.OTHER,
+      )
+    assertEquals(MapResourceError.entries.toSet(), reasons.keys)
+    for ((common, native) in reasons) {
+      val response = MapResourceLoad.Failed(common, "failure").toResourceResponse()
+      assertEquals(ResourceResponseStatus.ERROR, response.status)
+      assertEquals(native, response.errorReason)
+      assertEquals("failure", response.errorMessage)
+    }
+  }
+
+  @Test
   fun the_ffi_request_copies_into_the_load_request() {
     val ffi =
       ResourceRequest(

@@ -48,5 +48,6 @@ internal fun ResourceKind.toCommon(): MapResourceKind =
     ResourceKind.SPRITE_JSON -> MapResourceKind.SpriteJson
     ResourceKind.SPRITE_IMAGE -> MapResourceKind.SpriteImage
     ResourceKind.IMAGE -> MapResourceKind.Image
-    else -> MapResourceKind.Unknown
+    ResourceKind.UNKNOWN -> MapResourceKind.Unknown
+    else -> MapResourceKind(nativeValue, null)
   }

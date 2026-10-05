@@ -83,10 +83,11 @@ internal external interface SourceSpecification
 internal external interface RequestParameters {
   val url: String
   val headers: Any?
+  val type: String?
 }
 
 internal external interface ProtocolResponse {
-  var data: ArrayBuffer
+  var data: Any
   var expires: Date?
 }
 

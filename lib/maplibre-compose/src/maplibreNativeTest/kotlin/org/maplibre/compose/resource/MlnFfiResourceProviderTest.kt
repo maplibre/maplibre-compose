@@ -3,6 +3,7 @@ package org.maplibre.compose.resource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.nativeffi.resource.ResourceKind
@@ -114,6 +115,84 @@ class MlnFfiResourceProviderTest {
       NativeResourceRoute.Read("file:/styles/rewritten.json"),
       config.nativeRoute(request("custom://style.json")),
     )
+  }
+
+  @Test
+  fun unnamed_values_survive_routing_to_the_application() {
+    val incoming =
+      ResourceRequest(
+        requestedUrl = "custom://style.json",
+        resolvedUrl = "custom://style.json",
+        kind = ResourceKind(99),
+        loadingMethod = ResourceLoadingMethod(91),
+        priority = ResourcePriority(92),
+        usage = ResourceUsage(93),
+        storagePolicy = ResourceStoragePolicy(94),
+        range = null,
+        priorModifiedUnixMs = null,
+        priorExpiresUnixMs = null,
+        priorEtag = null,
+        priorData = ByteArray(0),
+      )
+    val callbacks = mutableListOf<MapResourceKind>()
+    val config =
+      MapResourceConfig(
+        interceptor =
+          MapRequestInterceptor(
+            rewriteUrl = {
+              callbacks += it.kind
+              "app://style.json"
+            }
+          ),
+        provider =
+          MapResourceProvider(
+            accepts = {
+              callbacks += it.kind
+              true
+            },
+            load = { MapResourceLoad.NoContent() },
+          ),
+      )
+    val route = config.nativeRoute(incoming)
+    assertTrue(route is NativeResourceRoute.Load)
+    val load = route.request
+    assertEquals(listOf(load.kind, load.kind), callbacks)
+    assertEquals("app://style.json", load.url)
+    assertEquals("custom://style.json", load.requestedUrl)
+    assertEquals(99, load.kind.nativeValue)
+    assertEquals(91, load.loadingMethod.nativeValue)
+    assertEquals(92, load.priority.nativeValue)
+    assertEquals(93, load.usage.nativeValue)
+    assertEquals(94, load.storagePolicy.nativeValue)
+    assertNotEquals(MapResourceLoadRequest.LoadingMethod.All, load.loadingMethod)
+    assertNotEquals(MapResourceLoadRequest.Priority.Regular, load.priority)
+    assertNotEquals(MapResourceLoadRequest.Usage.Online, load.usage)
+    assertNotEquals(MapResourceLoadRequest.StoragePolicy.Permanent, load.storagePolicy)
+  }
+
+  @Test
+  fun named_metadata_matches_the_pinned_ffi_identifiers() {
+    for ((native, common) in
+      listOf(
+        ResourceLoadingMethod.ALL to MapResourceLoadRequest.LoadingMethod.All,
+        ResourceLoadingMethod.CACHE_ONLY to MapResourceLoadRequest.LoadingMethod.CacheOnly,
+        ResourceLoadingMethod.NETWORK_ONLY to MapResourceLoadRequest.LoadingMethod.NetworkOnly,
+      )) assertEquals(common, MapResourceLoadRequest.LoadingMethod(native.nativeValue))
+    for ((native, common) in
+      listOf(
+        ResourcePriority.REGULAR to MapResourceLoadRequest.Priority.Regular,
+        ResourcePriority.LOW to MapResourceLoadRequest.Priority.Low,
+      )) assertEquals(common, MapResourceLoadRequest.Priority(native.nativeValue))
+    for ((native, common) in
+      listOf(
+        ResourceUsage.ONLINE to MapResourceLoadRequest.Usage.Online,
+        ResourceUsage.OFFLINE to MapResourceLoadRequest.Usage.Offline,
+      )) assertEquals(common, MapResourceLoadRequest.Usage(native.nativeValue))
+    for ((native, common) in
+      listOf(
+        ResourceStoragePolicy.PERMANENT to MapResourceLoadRequest.StoragePolicy.Permanent,
+        ResourceStoragePolicy.VOLATILE to MapResourceLoadRequest.StoragePolicy.Volatile,
+      )) assertEquals(common, MapResourceLoadRequest.StoragePolicy(native.nativeValue))
   }
 
   private fun request(url: String): ResourceRequest =
