@@ -4,6 +4,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
@@ -49,13 +50,14 @@ class MlnFfiTileLodTest {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setTileLodSettings(TileLodOptions.Performance)
 
+      val distance = TileLodAlgorithm.CameraDistance {
+        scale = 2.0
+        pitchThreshold = 45.0
+        zoomShift = 1.0
+      }
       fixture.session.setTileLodSettings(
-        TileLodOptions {
-          algorithm = TileLodAlgorithm.CameraDistance {
-            scale = 2.0
-            pitchThreshold = 30.0
-            zoomShift = 1.0
-          }
+        TileLodOptions(TileLodOptions.Performance) {
+          algorithm = TileLodAlgorithm.CameraDistance(distance) { pitchThreshold = 30.0 }
         }
       )
       val appliedDistance = assertNotNull(fixture.session.readMap { it.tileOptions })
@@ -74,6 +76,41 @@ class MlnFfiTileLodTest {
       assertEquals(1.0, assertNotNull(appliedStandard.lodScale))
       assertAngleDegrees(60.0, appliedStandard.lodPitchThreshold)
       assertEquals(0.0, assertNotNull(appliedStandard.lodZoomShift))
+    }
+  }
+
+  @Test
+  fun invalid_parameters_fail_at_construction_and_engine_boundary_values_remain_available() {
+    for (invalid in listOf(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)) {
+      assertFailsWith<IllegalArgumentException> {
+        TileLodAlgorithm.ScreenCenter { minRadius = invalid }
+      }
+      assertFailsWith<IllegalArgumentException> {
+        TileLodAlgorithm.CameraDistance { scale = invalid }
+      }
+      assertFailsWith<IllegalArgumentException> {
+        TileLodAlgorithm.CameraDistance { pitchThreshold = invalid }
+      }
+      assertFailsWith<IllegalArgumentException> {
+        TileLodAlgorithm.CameraDistance { zoomShift = invalid }
+      }
+    }
+    assertFailsWith<IllegalArgumentException> { TileLodAlgorithm.ScreenCenter { minRadius = 0.9 } }
+    assertFailsWith<IllegalArgumentException> { TileLodAlgorithm.ScreenCenter { scale = -1.0 } }
+    assertFailsWith<IllegalArgumentException> { TileLodAlgorithm.CameraDistance { scale = -1.0 } }
+    for (invalid in listOf(-1.0, 181.0)) {
+      assertFailsWith<IllegalArgumentException> {
+        TileLodAlgorithm.CameraDistance { pitchThreshold = invalid }
+      }
+    }
+    TileLodAlgorithm.ScreenCenter {
+      minRadius = 1.0
+      scale = 0.0
+      pitchThreshold = 0.0
+    }
+    TileLodAlgorithm.CameraDistance {
+      scale = 0.0
+      pitchThreshold = 180.0
     }
   }
 
