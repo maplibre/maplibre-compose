@@ -5,14 +5,7 @@ import kotlin.math.PI
 import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
 import org.maplibre.nativeffi.map.TileOptions
 
-/**
- * A MapLibre Native tile-detail algorithm and its tuning parameters.
- *
- * Available on Android, iOS, and desktop. Assign an algorithm to
- * [TileLodOptions.Builder.algorithm]. Instances have value equality. Only the library can define
- * algorithms; future releases may add algorithms, so callers inspecting this type must handle other
- * implementations.
- */
+/** A MapLibre Native tile-detail algorithm and its tuning parameters. */
 @Immutable
 public abstract class TileLodAlgorithm private constructor() {
   internal abstract fun toFfi(): TileOptions
@@ -20,10 +13,10 @@ public abstract class TileLodAlgorithm private constructor() {
   /**
    * Keeps the finest tiles around the screen centre and uses coarser tiles farther away.
    *
-   * @property minRadius Radius around the view point, in tile units, that keeps the finest zoom.
+   * @property minRadius Radius around the screen centre, in tile units, that keeps the finest zoom.
    *   Must be finite and at least 1.
-   * @property scale Scale applied to distance from the view point. Must be finite and nonnegative.
-   *   Values above 1 coarsen distant tiles; 0 keeps the finest zoom.
+   * @property scale Scale applied to distance from the screen centre. Must be finite and
+   *   nonnegative. Values above 1 coarsen distant tiles; 0 keeps the finest zoom.
    * @property pitchThreshold Camera pitch in degrees from nadir, matching
    *   [org.maplibre.compose.camera.CameraPosition.pitch]. Distance-based coarsening runs when the
    *   pitch exceeds this value. Must be in `0..180`; 180 disables coarsening.
@@ -31,51 +24,43 @@ public abstract class TileLodAlgorithm private constructor() {
    *   finite. A value of -1 requests roughly four times fewer tiles for the same view.
    */
   @Immutable
-  public class Default private constructor(private val parameters: DefaultTileLodParameters) :
-    TileLodAlgorithm() {
+  public data class ScreenCenter
+  internal constructor(
+    public val minRadius: Double,
+    public val scale: Double,
+    public val pitchThreshold: Double,
+    public val zoomShift: Double,
+  ) : TileLodAlgorithm() {
     /** Edits [from]; without it, uses Native's defaults. Omitted settings inherit. */
     public constructor(
-      from: Default? = null,
+      from: ScreenCenter? = null,
       block: Builder.() -> Unit = {},
-    ) : this(Builder(from).apply(block).build())
+    ) : this(Builder(from).apply(block))
 
-    public val minRadius: Double
-      get() = parameters.minRadius
+    private constructor(
+      builder: Builder
+    ) : this(builder.minRadius, builder.scale, builder.pitchThreshold, builder.zoomShift)
 
-    public val scale: Double
-      get() = parameters.scale
-
-    public val pitchThreshold: Double
-      get() = parameters.pitchThreshold
-
-    public val zoomShift: Double
-      get() = parameters.zoomShift
-
-    override fun equals(other: Any?): Boolean = other is Default && parameters == other.parameters
-
-    override fun hashCode(): Int = parameters.hashCode()
+    init {
+      require(minRadius.isFinite() && minRadius >= 1.0) {
+        "minRadius must be finite and at least 1"
+      }
+      validate(scale, pitchThreshold, zoomShift)
+    }
 
     @MapOptionsDsl
-    public class Builder internal constructor(from: Default?) {
-      /** See [Default.minRadius]. */
+    public class Builder internal constructor(from: ScreenCenter?) {
+      /** See [ScreenCenter.minRadius]. */
       public var minRadius: Double = from?.minRadius ?: 3.0
 
-      /** See [Default.scale]. */
+      /** See [ScreenCenter.scale]. */
       public var scale: Double = from?.scale ?: 1.0
 
-      /** See [Default.pitchThreshold]. */
+      /** See [ScreenCenter.pitchThreshold]. */
       public var pitchThreshold: Double = from?.pitchThreshold ?: 60.0
 
-      /** See [Default.zoomShift]. */
+      /** See [ScreenCenter.zoomShift]. */
       public var zoomShift: Double = from?.zoomShift ?: 0.0
-
-      internal fun build(): DefaultTileLodParameters {
-        require(minRadius.isFinite() && minRadius >= 1.0) {
-          "minRadius must be finite and at least 1"
-        }
-        validate(scale, pitchThreshold, zoomShift)
-        return DefaultTileLodParameters(minRadius, scale, pitchThreshold, zoomShift)
-      }
     }
 
     internal override fun toFfi(): TileOptions =
@@ -85,8 +70,8 @@ public abstract class TileLodAlgorithm private constructor() {
   /**
    * Keeps finer tiles nearest the camera, with coarser tiles toward the horizon.
    *
-   * Unlike [Default], this algorithm can request tiles above the covering zoom when the pitch
-   * exceeds [pitchThreshold], up to the source's maximum zoom. It has no minimum-radius setting.
+   * Unlike [ScreenCenter], this algorithm can request tiles above the covering zoom when the pitch
+   * exceeds [pitchThreshold], up to the source's maximum zoom.
    *
    * @property scale Scale applied to camera-to-tile distance. Must be finite and nonnegative.
    *   Values above 1 coarsen distant tiles; 0 keeps the finest zoom permitted by the source and
@@ -98,61 +83,42 @@ public abstract class TileLodAlgorithm private constructor() {
    *   finite. The covering zoom also affects distance-based tile selection above [pitchThreshold].
    */
   @Immutable
-  public class Distance private constructor(private val parameters: DistanceTileLodParameters) :
-    TileLodAlgorithm() {
+  public data class CameraDistance
+  internal constructor(
+    public val scale: Double,
+    public val pitchThreshold: Double,
+    public val zoomShift: Double,
+  ) : TileLodAlgorithm() {
     /** Edits [from]; without it, uses Native's defaults. Omitted settings inherit. */
     public constructor(
-      from: Distance? = null,
+      from: CameraDistance? = null,
       block: Builder.() -> Unit = {},
-    ) : this(Builder(from).apply(block).build())
+    ) : this(Builder(from).apply(block))
 
-    public val scale: Double
-      get() = parameters.scale
+    private constructor(
+      builder: Builder
+    ) : this(builder.scale, builder.pitchThreshold, builder.zoomShift)
 
-    public val pitchThreshold: Double
-      get() = parameters.pitchThreshold
-
-    public val zoomShift: Double
-      get() = parameters.zoomShift
-
-    override fun equals(other: Any?): Boolean = other is Distance && parameters == other.parameters
-
-    override fun hashCode(): Int = parameters.hashCode()
+    init {
+      validate(scale, pitchThreshold, zoomShift)
+    }
 
     @MapOptionsDsl
-    public class Builder internal constructor(from: Distance?) {
-      /** See [Distance.scale]. */
+    public class Builder internal constructor(from: CameraDistance?) {
+      /** See [CameraDistance.scale]. */
       public var scale: Double = from?.scale ?: 1.0
 
-      /** See [Distance.pitchThreshold]. */
+      /** See [CameraDistance.pitchThreshold]. */
       public var pitchThreshold: Double = from?.pitchThreshold ?: 60.0
 
-      /** See [Distance.zoomShift]. */
+      /** See [CameraDistance.zoomShift]. */
       public var zoomShift: Double = from?.zoomShift ?: 0.0
-
-      internal fun build(): DistanceTileLodParameters {
-        validate(scale, pitchThreshold, zoomShift)
-        return DistanceTileLodParameters(scale, pitchThreshold, zoomShift)
-      }
     }
 
     internal override fun toFfi(): TileOptions =
       tileOptions(FfiTileLodMode.DISTANCE, 3.0, scale, pitchThreshold, zoomShift)
   }
 }
-
-internal data class DefaultTileLodParameters(
-  val minRadius: Double,
-  val scale: Double,
-  val pitchThreshold: Double,
-  val zoomShift: Double,
-)
-
-internal data class DistanceTileLodParameters(
-  val scale: Double,
-  val pitchThreshold: Double,
-  val zoomShift: Double,
-)
 
 private fun validate(scale: Double, pitchThreshold: Double, zoomShift: Double) {
   require(scale.isFinite() && scale >= 0.0) { "scale must be finite and nonnegative" }

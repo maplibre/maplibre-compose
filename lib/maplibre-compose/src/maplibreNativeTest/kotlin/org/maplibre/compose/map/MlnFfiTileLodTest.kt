@@ -51,7 +51,7 @@ class MlnFfiTileLodTest {
 
       fixture.session.setTileLodSettings(
         TileLodOptions {
-          algorithm = TileLodAlgorithm.Distance {
+          algorithm = TileLodAlgorithm.CameraDistance {
             scale = 2.0
             pitchThreshold = 30.0
             zoomShift = 1.0
@@ -87,7 +87,7 @@ class MlnFfiTileLodTest {
           fixture.loadStyle(BaseStyle.Empty)
           fixture.bridge.session.setTileLodSettings(
             TileLodOptions {
-              algorithm = TileLodAlgorithm.Distance {
+              algorithm = TileLodAlgorithm.CameraDistance {
                 pitchThreshold = 0.0
                 zoomShift = shift
               }

@@ -1,8 +1,7 @@
 package org.maplibre.compose.map
 
 /**
- * The MapLibre Native tile-detail algorithm and its parameters. Available on Android, iOS, and
- * desktop. Replacing it replaces all algorithm settings. To retain settings while editing an
+ * The MapLibre Native tile-detail algorithm and its parameters. To retain settings while editing an
  * algorithm, pass the previous value to its constructor.
  */
 public var TileLodOptions.Builder.algorithm: TileLodAlgorithm
@@ -16,12 +15,12 @@ public val TileLodOptions.algorithm: TileLodAlgorithm
   get() = platform.algorithm
 
 internal actual data class PlatformTileLodOptions(val algorithm: TileLodAlgorithm) {
-  actual constructor() : this(TileLodAlgorithm.Default())
+  actual constructor() : this(TileLodAlgorithm.ScreenCenter())
 
   actual companion object {
     actual val Performance: PlatformTileLodOptions =
       PlatformTileLodOptions(
-        TileLodAlgorithm.Default {
+        TileLodAlgorithm.ScreenCenter {
           minRadius = 2.0
           scale = 1.5
           pitchThreshold = 45.0
@@ -30,7 +29,7 @@ internal actual data class PlatformTileLodOptions(val algorithm: TileLodAlgorith
       )
     actual val HighDetail: PlatformTileLodOptions =
       PlatformTileLodOptions(
-        TileLodAlgorithm.Default {
+        TileLodAlgorithm.ScreenCenter {
           minRadius = 5.0
           pitchThreshold = 85.0
         }
