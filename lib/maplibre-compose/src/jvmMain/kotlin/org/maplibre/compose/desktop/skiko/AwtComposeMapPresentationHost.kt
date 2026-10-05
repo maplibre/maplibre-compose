@@ -58,21 +58,21 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
     when (operatingSystem) {
       HostOperatingSystem.Macos ->
         ComposeMapPresentationHost.metal(
-          description,
+          "$description using Metal",
           { SkikoReflection.findSkiaLayer(window)?.let(::metalContext) },
           ::runOnGpuThread,
           { xdgPortalWindow },
         )
       HostOperatingSystem.Windows ->
         ComposeMapPresentationHost.direct3D12(
-          description,
+          "$description using Direct3D 12",
           { SkikoReflection.findSkiaLayer(window)?.let(::direct3D12Context) },
           ::runOnGpuThread,
           { xdgPortalWindow },
         )
       HostOperatingSystem.Linux ->
         ComposeMapPresentationHost.openGl(
-          description,
+          "$description using OpenGL",
           { SkikoReflection.findSkiaLayer(window)?.let(::openGlContext) },
           ::runOnGpuThread,
           { xdgPortalWindow },
