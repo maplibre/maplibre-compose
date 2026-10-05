@@ -26,8 +26,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
       FfiRegionDefinition.TilePyramid(
         styleUrl = styleUrl,
         bounds = bounds.toLatLngBounds(),
-        minZoom = minZoom.toDouble(),
-        maxZoom = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
+        minZoom = minZoom,
+        maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
         includeIdeographs = INCLUDE_IDEOGRAPHS,
       )
@@ -35,8 +35,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
       FfiRegionDefinition.GeometryRegion(
         styleUrl = styleUrl,
         geometry = shape.toJson().encodeToByteArray(),
-        minZoom = minZoom.toDouble(),
-        maxZoom = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
+        minZoom = minZoom,
+        maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
         includeIdeographs = INCLUDE_IDEOGRAPHS,
       )
@@ -54,17 +54,17 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
         styleUrl = styleUrl,
         bounds = bounds.toBoundingBox(),
         pixelRatio = pixelRatio,
-        minZoom = minZoom.toInt(),
-        // MapLibre spells "no maximum" as infinity, which does not survive a conversion to Int.
-        maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
+        minZoom = minZoom,
+        // MapLibre stores an unlimited maximum as infinity.
+        maxZoom = maxZoom.takeIf { it.isFinite() },
       )
     is FfiRegionDefinition.GeometryRegion ->
       OfflinePackDefinition.Shape(
         styleUrl = styleUrl,
         shape = geometry.toGeoJsonGeometry(logger),
         pixelRatio = pixelRatio,
-        minZoom = minZoom.toInt(),
-        maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
+        minZoom = minZoom,
+        maxZoom = maxZoom.takeIf { it.isFinite() },
       )
     else -> {
       logger?.w { "Ignoring an offline region with an unrecognized definition: $this" }

@@ -217,8 +217,7 @@ class SnapshotCompositionTest {
         MapSnapshotRequest(
           30,
           20,
-          density = 2f,
-          fontScale = 1.5f,
+          density = Density(2f, 1.5f),
           layoutDirection = LayoutDirection.Rtl,
         )
       )
@@ -232,8 +231,7 @@ class SnapshotCompositionTest {
         MapSnapshotRequest(
           10,
           40,
-          density = 3f,
-          fontScale = 2f,
+          density = Density(3f, 2f),
           layoutDirection = LayoutDirection.Ltr,
         )
       )

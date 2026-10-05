@@ -13,11 +13,14 @@ public sealed interface OfflinePackDefinition {
    */
   public val pixelRatio: Float
 
-  /** The minimum zoom level for which the pack downloads resources. */
-  public val minZoom: Int
+  /**
+   * The minimum camera zoom for which the pack downloads resources. MapLibre converts camera zoom
+   * to tile zoom using each source's tile size, flooring vector zoom and rounding raster zoom.
+   */
+  public val minZoom: Double
 
-  /** The maximum zoom level for which the pack downloads resources, or null for no maximum. */
-  public val maxZoom: Int?
+  /** The maximum camera zoom to download, converted as for [minZoom], or null for no maximum. */
+  public val maxZoom: Double?
 
   /** Defines an offline region by a style URL, geographic bounds, and zoom range. */
   public data class TilePyramid(
@@ -25,8 +28,8 @@ public sealed interface OfflinePackDefinition {
     /** The geographic bounds of the downloaded region. */
     public val bounds: BoundingBox,
     override val pixelRatio: Float,
-    override val minZoom: Int = 0,
-    override val maxZoom: Int? = null,
+    override val minZoom: Double = 0.0,
+    override val maxZoom: Double? = null,
   ) : OfflinePackDefinition
 
   /** Defines an offline region by a style URL, geographic shape, and zoom range. */
@@ -35,7 +38,7 @@ public sealed interface OfflinePackDefinition {
     /** The geographic shape of the downloaded region. */
     public val shape: Geometry,
     override val pixelRatio: Float,
-    override val minZoom: Int = 0,
-    override val maxZoom: Int? = null,
+    override val minZoom: Double = 0.0,
+    override val maxZoom: Double? = null,
   ) : OfflinePackDefinition
 }

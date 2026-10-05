@@ -74,7 +74,7 @@ class SharedMapRuntimeTest {
                 "file:///unused-style.json",
                 BoundingBox(-1.0, -1.0, 1.0, 1.0),
                 1f,
-                maxZoom = 0,
+                maxZoom = 0.0,
               )
             )
           }
@@ -227,7 +227,7 @@ class SharedMapRuntimeTest {
                       fileUrlOf(styleFile),
                       BoundingBox(-1.0, -1.0, 1.0, 1.0),
                       1f,
-                      maxZoom = 0,
+                      maxZoom = 0.0,
                     )
                   )
                 runtime.offlineManager.resume(pack)

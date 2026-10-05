@@ -1,7 +1,9 @@
 package org.maplibre.compose.util
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -9,7 +11,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-/** Physical left, top, right, and bottom padding in dp. */
+/** Physical left, top, right, and bottom padding in dp, independent of layout direction. */
 @Serializable(with = DpPaddingSerializer::class)
 @Immutable
 public data class DpPadding(
@@ -17,11 +19,28 @@ public data class DpPadding(
   val top: Dp = 0.dp,
   val right: Dp = 0.dp,
   val bottom: Dp = 0.dp,
-) {
+) : PaddingValues {
+  override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp = left
+
+  override fun calculateTopPadding(): Dp = top
+
+  override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp = right
+
+  override fun calculateBottomPadding(): Dp = bottom
+
   public companion object {
     public val Zero: DpPadding = DpPadding()
   }
 }
+
+/** Resolves start and end padding to physical edges using [layoutDirection]. */
+public fun PaddingValues.toDpPadding(layoutDirection: LayoutDirection): DpPadding =
+  DpPadding(
+    left = calculateLeftPadding(layoutDirection),
+    top = calculateTopPadding(),
+    right = calculateRightPadding(layoutDirection),
+    bottom = calculateBottomPadding(),
+  )
 
 @Serializable
 private data class SerializedDpPadding(

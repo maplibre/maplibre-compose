@@ -98,8 +98,10 @@ object MapSnapshotterDemo : Demo {
           height,
           mapState.cameraPosition.copy(target = center),
           density =
-            minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height),
-          fontScale = density.fontScale,
+            Density(
+              minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height),
+              density.fontScale,
+            ),
           layoutDirection = direction,
         )
       state.status = CaptureStatus.Capturing
@@ -112,7 +114,7 @@ object MapSnapshotterDemo : Demo {
               .withAttribution(
                 snapshotter.style.attributions(),
                 textMeasurer,
-                Density(request.density, request.fontScale),
+                request.density,
                 direction,
               )
           state.captured = CapturedSnapshot(image, request, rect, (state.captured?.index ?: 0) + 1)

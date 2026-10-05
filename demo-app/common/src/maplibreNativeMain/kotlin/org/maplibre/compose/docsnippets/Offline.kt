@@ -38,8 +38,8 @@ fun Offline() {
                 styleUrl = "https://tiles.openfreemap.org/styles/liberty",
                 bounds = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
                 pixelRatio = pixelRatio,
-                minZoom = 10,
-                maxZoom = 14,
+                minZoom = 10.0,
+                maxZoom = 14.0,
               ),
             metadata = "Seattle".encodeToByteArray(),
           )

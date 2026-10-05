@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.Density
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -41,6 +42,18 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.setImage
 
 class MapSnapshotterTest {
+
+  @Test
+  fun snapshot_requests_reject_invalid_pixel_density_and_font_scale() {
+    for (value in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+      assertFailsWith<IllegalArgumentException> {
+        MapSnapshotRequest(1, 1, density = Density(value))
+      }
+      assertFailsWith<IllegalArgumentException> {
+        MapSnapshotRequest(1, 1, density = Density(1f, fontScale = value))
+      }
+    }
+  }
 
   @Test
   fun captures_execute_in_submission_order() = runTest {

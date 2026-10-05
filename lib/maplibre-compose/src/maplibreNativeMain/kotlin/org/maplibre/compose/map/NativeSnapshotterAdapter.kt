@@ -71,7 +71,7 @@ private class NativeSnapshotterAdapter(
   ): SnapshotPreparation = runNativeRequest {
     owner.awaitReady()
     ensureEngine(request)
-    currentDensity = request.density
+    currentDensity = request.density.density
     configureRequest(request)
     val current = styleBinding
     if (baseStyleRevision == loadedBaseStyleRevision && current?.isLoaded == true) {
@@ -434,7 +434,7 @@ private class NativeSnapshotterAdapter(
   }
 
   private fun MapSnapshotRequest.extent(): MapExtent =
-    MapExtent.fromLogical(width, height, density.toDouble())
+    MapExtent.fromLogical(width, height, density.density.toDouble())
 
   /** One request step that snapshot events or the owner thread complete. */
   private class NativeSnapshotOperation(val awaits: Awaits) {

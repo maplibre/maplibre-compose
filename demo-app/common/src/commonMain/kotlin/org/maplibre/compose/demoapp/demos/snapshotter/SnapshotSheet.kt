@@ -197,7 +197,7 @@ private fun ActionButton(
 private fun snapshotMetadata(shot: CapturedSnapshot): String {
   val camera = shot.request.cameraPosition
   return "${shot.image.width} × ${shot.image.height} px · " +
-    "${shot.request.density.toDouble().formatTrimmed(1)}× density · " +
+    "${shot.request.density.density.toDouble().formatTrimmed(1)}× density · " +
     "zoom ${camera.zoom.formatTrimmed(1)} · " +
     "${camera.target.latitude.formatTrimmed(4)}, ${camera.target.longitude.formatTrimmed(4)}"
 }
