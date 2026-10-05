@@ -2,10 +2,7 @@ package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
 
-/**
- * A mouse button recognized by map input. Touch and stylus match [Primary] without reporting a
- * mouse button.
- */
+/** A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button. */
 public enum class PointerButton {
   Primary,
   Secondary,

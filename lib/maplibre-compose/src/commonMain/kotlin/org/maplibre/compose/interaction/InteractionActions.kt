@@ -1,51 +1,37 @@
 package org.maplibre.compose.interaction
 
-/**
- * A built-in action selected by an input mapping. The library recognizes the input and executes the
- * action; applications cannot implement actions. Each binding accepts only the actions it can
- * execute, through [DragAction], [ScrollAction], [TapAction], or [KeyAction].
- *
- * Additional built-in actions may be introduced in future releases.
- */
-public sealed interface InputAction {
+/** Actions shared by every input binding. */
+public object InputAction {
   /**
-   * Leaves matching input unclaimed and stops mapping selection. Later rows are not tried, even if
-   * camera movements are disabled. Tap callbacks and feature click handlers still run.
+   * Leaves matching input unclaimed and stops trying later mapping rows. Tap callbacks and feature
+   * click handlers still run.
    */
   public data object None : DragAction, ScrollAction, TapAction, KeyAction
 }
 
-/**
- * Actions available to a single-pointer drag: [CameraAction.Pan], [CameraAction.RotatePitch],
- * [CameraAction.FitBounds], and [InputAction.None].
- */
-public sealed interface DragAction : InputAction
+/** A built-in action for a single-pointer drag. */
+public sealed interface DragAction
+
+/** A built-in action for scrolling. */
+public sealed interface ScrollAction
 
 /**
- * Actions available to scrolling: [CameraAction.Pan], [CameraAction.Zoom], and [InputAction.None].
+ * A built-in action executed after tap callbacks and feature click handlers leave a tap unhandled.
  */
-public sealed interface ScrollAction : InputAction
-
-/**
- * Actions available after tap callbacks and feature click handlers leave a tap unhandled:
- * [CameraAction.ZoomIn], [CameraAction.ZoomOut], and [InputAction.None].
- */
-public sealed interface TapAction : InputAction
+public sealed interface TapAction
 
 /**
  * Camera steps, [FocusAction] commands, and [InputAction.None] available to a key binding. Camera
  * actions require the map to be engaged. A camera key press moves one configured step; holding the
  * key continues movement. Focus commands execute on key press without camera motion.
  */
-public sealed interface KeyAction : InputAction
+public sealed interface KeyAction
 
 /**
- * Built-in camera movements. The binding supplies thresholds, anchors, steps, and scaling;
- * [MapInteractions] determines which movements are permitted. Camera actions use the map's gesture
- * authority and apply only when its presentation is ready. Negative configured steps or gains
- * reverse the directions described below.
+ * Built-in camera movements, restricted by the camera settings in [MapInteractions]. Movement
+ * requires a ready map presentation. Negative configured steps or gains reverse these directions.
  */
-public sealed interface CameraAction : InputAction {
+public sealed interface CameraAction {
   /** Moves map content by drag or scroll displacement. */
   public data object Pan : CameraAction, DragAction, ScrollAction
 
@@ -98,7 +84,7 @@ public sealed interface FocusAction : KeyAction {
   /** Engages the focused map so camera keys move it rather than traverse Compose focus. */
   public data object Engage : FocusAction
 
-  /** Disengages the map. Unclaimed when it is already disengaged. */
+  /** Disengages the map. A new press is unclaimed when the map is already disengaged. */
   public data object Disengage : FocusAction
 
   /**

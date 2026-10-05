@@ -182,10 +182,9 @@ internal class KeyInput(
     val settings = options()
     if (!settings.hasCameraKeys) return false
     val action =
-      (previous ?: settings.bindings.keys.select(key, modifiers, settings.camera.settings))
-        ?.takeUnless {
-          it == InputAction.None
-        } ?: return false
+      previous
+        ?: settings.bindings.keys.select(key, modifiers, settings.camera.settings)
+        ?: return false
 
     val consumed =
       when (action) {

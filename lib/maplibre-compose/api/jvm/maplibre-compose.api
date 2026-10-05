@@ -1195,7 +1195,7 @@ public final class org/maplibre/compose/interaction/BearingTargets$Companion {
 	public static synthetic fun evenlySpaced$default (Lorg/maplibre/compose/interaction/BearingTargets$Companion;IDILjava/lang/Object;)Lorg/maplibre/compose/interaction/BearingTargets;
 }
 
-public abstract interface class org/maplibre/compose/interaction/CameraAction : org/maplibre/compose/interaction/InputAction {
+public abstract interface class org/maplibre/compose/interaction/CameraAction {
 }
 
 public final class org/maplibre/compose/interaction/CameraAction$FitBounds : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/DragAction {
@@ -1347,7 +1347,7 @@ public final class org/maplibre/compose/interaction/DoubleClickCallbackBuilder {
 	public final fun onEvent (Lkotlin/jvm/functions/Function1;)V
 }
 
-public abstract interface class org/maplibre/compose/interaction/DragAction : org/maplibre/compose/interaction/InputAction {
+public abstract interface class org/maplibre/compose/interaction/DragAction {
 }
 
 public final class org/maplibre/compose/interaction/DragBindingBuilder {
@@ -1443,7 +1443,9 @@ public final class org/maplibre/compose/interaction/HapticEmphasis : java/lang/E
 	public static fun values ()[Lorg/maplibre/compose/interaction/HapticEmphasis;
 }
 
-public abstract interface class org/maplibre/compose/interaction/InputAction {
+public final class org/maplibre/compose/interaction/InputAction {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/InputAction;
 }
 
 public final class org/maplibre/compose/interaction/InputAction$None : org/maplibre/compose/interaction/DragAction, org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/ScrollAction, org/maplibre/compose/interaction/TapAction {
@@ -1476,7 +1478,7 @@ public final class org/maplibre/compose/interaction/InteractionCallbacksBuilder 
 	public final fun longClick (Lkotlin/jvm/functions/Function1;)V
 }
 
-public abstract interface class org/maplibre/compose/interaction/KeyAction : org/maplibre/compose/interaction/InputAction {
+public abstract interface class org/maplibre/compose/interaction/KeyAction {
 }
 
 public final class org/maplibre/compose/interaction/KeyBindingBuilder {
@@ -1640,7 +1642,7 @@ public final class org/maplibre/compose/interaction/RotateCameraBuilder {
 	public static synthetic fun snapping$default (Lorg/maplibre/compose/interaction/RotateCameraBuilder;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 }
 
-public abstract interface class org/maplibre/compose/interaction/ScrollAction : org/maplibre/compose/interaction/InputAction {
+public abstract interface class org/maplibre/compose/interaction/ScrollAction {
 }
 
 public final class org/maplibre/compose/interaction/ScrollBindingBuilder {
@@ -1665,7 +1667,7 @@ public final class org/maplibre/compose/interaction/ScrollMappingsBuilder {
 	public final fun otherwise (Lorg/maplibre/compose/interaction/ScrollAction;)V
 }
 
-public abstract interface class org/maplibre/compose/interaction/TapAction : org/maplibre/compose/interaction/InputAction {
+public abstract interface class org/maplibre/compose/interaction/TapAction {
 }
 
 public final class org/maplibre/compose/interaction/TapBindingBuilder {

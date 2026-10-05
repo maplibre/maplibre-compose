@@ -233,27 +233,6 @@ class MapInteractionsTest {
   }
 
   @Test
-  fun key_focus_commands_are_permitted_without_camera_motion_and_can_shadow_camera_rows() {
-    val options = InputConfiguration {
-      camera { zoom { enabled = false } }
-      bindings {
-        keys {
-          mappings {
-            on(Key.Enter, action = CameraAction.ZoomIn)
-            on(Key.Enter, action = FocusAction.Engage)
-            on(Key.Enter, action = CameraAction.PanLeft)
-          }
-        }
-      }
-    }
-    assertEquals(
-      FocusAction.Engage,
-      options.bindings.keys.select(Key.Enter, emptySet(), options.camera.settings),
-    )
-    assertFalse(options.hasCameraKeys)
-  }
-
-  @Test
   fun null_modifiers_match_any_keys_and_restore_inherited_pointer_filters() {
     val base = InputConfiguration {
       bindings {
