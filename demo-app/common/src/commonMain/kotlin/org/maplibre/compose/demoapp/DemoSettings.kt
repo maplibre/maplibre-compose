@@ -12,10 +12,10 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
-import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
@@ -116,8 +116,8 @@ class DemoSettings {
           bindings {
             scroll {
               mappings {
-                on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
-                otherwise(ScrollResponse.Pan)
+                on(modifiers = Containing(KeyModifier.Ctrl), action = CameraAction.Zoom)
+                otherwise(CameraAction.Pan)
               }
             }
           }

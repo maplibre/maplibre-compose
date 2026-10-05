@@ -4,12 +4,12 @@ package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.interaction.BearingTargets
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
-import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.spatialk.geojson.Position
@@ -68,8 +68,8 @@ fun Interaction() {
         bindings {
           scroll {
             mappings {
-              on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
-              otherwise(ScrollResponse.Pan)
+              on(modifiers = Containing(KeyModifier.Ctrl), action = CameraAction.Zoom)
+              otherwise(CameraAction.Pan)
             }
           }
         }

@@ -17,6 +17,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.interaction.CameraAction
+import org.maplibre.compose.interaction.FocusAction
+import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.map.GestureTestFixture
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -63,6 +66,52 @@ class MapKeyInputTest {
 
   private val pannedX: Float
     get() = map.target.moveCalls.sumOf { it.x.toDouble() }.toFloat()
+
+  @Test
+  fun mapped_focus_commands_do_not_start_camera_sessions_and_none_remains_unclaimed() = runTest {
+    val options = InputConfiguration {
+      bindings {
+        keys {
+          mappings {
+            on(Key.A, action = FocusAction.Engage)
+            on(Key.B, action = CameraAction.ZoomIn)
+            on(Key.C, action = InputAction.None)
+            on(Key.C, action = CameraAction.PanLeft)
+            on(Key.Escape, action = FocusAction.Disengage)
+          }
+        }
+      }
+    }
+    val focus = InputFocus {}
+    focus.hasKeyBindings = options.hasCameraKeys
+    focus.onFocusChanged(true)
+    val input =
+      KeyInput(
+        map.target,
+        { options },
+        focus,
+        CoroutineScope(backgroundScope.coroutineContext + clock),
+      )
+    input.configure(options.settings)
+    assertFalse(input.onSample(Key.B, KeyEventType.KeyDown, emptySet()))
+    input.down(Key.A)
+    input.up(Key.A)
+    assertTrue(focus.isEngaged)
+    assertEquals(0, map.target.startedCount)
+    assertFalse(input.onSample(Key.C, KeyEventType.KeyDown, emptySet()))
+    assertFalse(input.onSample(Key.C, KeyEventType.KeyUp, emptySet()))
+    input.down(Key.B)
+    input.up(Key.B)
+    runCurrent()
+    assertEquals(1, map.target.startedCount)
+    assertTrue(map.target.scaleCalls.single().scale > 1.0)
+    assertTrue(map.target.moveCalls.isEmpty())
+    input.down(Key.Escape)
+    input.up(Key.Escape)
+    assertFalse(focus.isEngaged)
+    assertEquals(1, map.target.startedCount)
+    assertFalse(input.onSample(Key.B, KeyEventType.KeyDown, emptySet()))
+  }
 
   @Test
   fun overlapping_keys_share_authority_and_components_rearm_only_after_their_last_release() =

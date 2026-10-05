@@ -15,6 +15,10 @@ button, and the scale bar.
 
 Camera controls and positioning utilities for the map view.
 
+# Package org.maplibre.compose.interaction
+
+Input bindings, built-in camera and focus actions, and map click callbacks.
+
 # Package org.maplibre.compose.offline
 
 Offline packs and ambient cache management.

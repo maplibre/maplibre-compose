@@ -23,9 +23,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
-import org.maplibre.compose.interaction.ScrollResponse
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class ScrollGestureInputTest {
@@ -41,7 +41,7 @@ class ScrollGestureInputTest {
           bindings {
             scroll {
               enabled = true
-              mappings { otherwise(ScrollResponse.Zoom) }
+              mappings { otherwise(CameraAction.Zoom) }
             }
           }
         }
@@ -104,7 +104,7 @@ class ScrollGestureInputTest {
         InputConfiguration {
           bindings {
             scroll {
-              mappings { otherwise(ScrollResponse.Pan) }
+              mappings { otherwise(CameraAction.Pan) }
             }
           }
         }
@@ -142,9 +142,9 @@ class ScrollGestureInputTest {
               mappings {
                 on(
                   modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
-                  response = ScrollResponse.Zoom,
+                  action = CameraAction.Zoom,
                 )
-                otherwise(ScrollResponse.Pan)
+                otherwise(CameraAction.Pan)
               }
             }
           }
@@ -180,7 +180,7 @@ class ScrollGestureInputTest {
     var parentSawConsumed = false
     fixture.runRecognitionTest(
       options =
-        InputConfiguration { bindings { scroll { mappings { otherwise(ScrollResponse.Zoom) } } } },
+        InputConfiguration { bindings { scroll { mappings { otherwise(CameraAction.Zoom) } } } },
       parentModifier =
         Modifier.pointerInput(Unit) {
           awaitPointerEventScope {

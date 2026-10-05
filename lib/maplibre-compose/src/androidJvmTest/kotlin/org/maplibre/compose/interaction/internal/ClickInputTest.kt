@@ -27,13 +27,12 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.TapResponse
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -155,7 +154,7 @@ class ClickInputTest {
             bindings {
               longPress {
                 enabled = true
-                mappings { otherwise(TapResponse.ZoomIn) }
+                mappings { otherwise(CameraAction.ZoomIn) }
               }
             }
           },
@@ -189,7 +188,7 @@ class ClickInputTest {
             drag {
               enabled = true
               pointerTypes = setOf(PointerType.Touch)
-              mappings { otherwise(DragResponse.Pan) }
+              mappings { otherwise(CameraAction.Pan) }
             }
           }
         }
@@ -488,7 +487,7 @@ class ClickInputTest {
               mappings {
                 on(
                   modifiers = ModifierMatch.Containing(KeyModifier.Shift),
-                  response = TapResponse.ZoomIn,
+                  action = CameraAction.ZoomIn,
                 )
               }
             }
@@ -542,7 +541,7 @@ class ClickInputTest {
           bindings {
             twoFingerTap {
               enabled = true
-              mappings { otherwise(TapResponse.ZoomOut) }
+              mappings { otherwise(CameraAction.ZoomOut) }
             }
           }
         },
