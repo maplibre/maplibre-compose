@@ -2003,10 +2003,7 @@ public final class org/maplibre/compose/location/HeadingTrackingStatus$Tracking 
 
 public final class org/maplibre/compose/location/HeadingTrackingStatus$Unavailable : org/maplibre/compose/location/HeadingTrackingStatus {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/Throwable;)V
 	public final fun component1 ()Ljava/lang/Throwable;
-	public final fun copy (Ljava/lang/Throwable;)Lorg/maplibre/compose/location/HeadingTrackingStatus$Unavailable;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/location/HeadingTrackingStatus$Unavailable;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingTrackingStatus$Unavailable;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCause ()Ljava/lang/Throwable;
 	public fun hashCode ()I
@@ -2071,12 +2068,8 @@ public final class org/maplibre/compose/location/LocationTrackingStatus$Tracking
 
 public final class org/maplibre/compose/location/LocationTrackingStatus$Unavailable : org/maplibre/compose/location/LocationTrackingStatus {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)V
-	public synthetic fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lorg/maplibre/compose/location/LocationUnavailableReason;
 	public final fun component2 ()Ljava/lang/Throwable;
-	public final fun copy (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)Lorg/maplibre/compose/location/LocationTrackingStatus$Unavailable;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/location/LocationTrackingStatus$Unavailable;Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationTrackingStatus$Unavailable;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCause ()Ljava/lang/Throwable;
 	public final fun getReason ()Lorg/maplibre/compose/location/LocationUnavailableReason;
@@ -2107,8 +2100,6 @@ public final class org/maplibre/compose/logging/MapLogLevel : java/lang/Enum {
 
 public final class org/maplibre/compose/logging/MapLogRecord {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/compose/logging/MapLogLevel;Lorg/maplibre/compose/logging/MapLogSource;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)V
-	public synthetic fun <init> (Lorg/maplibre/compose/logging/MapLogLevel;Lorg/maplibre/compose/logging/MapLogSource;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getCategory ()Ljava/lang/String;
 	public final fun getLevel ()Lorg/maplibre/compose/logging/MapLogLevel;
 	public final fun getMessage ()Ljava/lang/String;
@@ -2616,10 +2607,7 @@ public abstract interface class org/maplibre/compose/map/StyleLoadState {
 
 public final class org/maplibre/compose/map/StyleLoadState$Failed : org/maplibre/compose/map/StyleLoadState {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lorg/maplibre/compose/map/StyleLoadState$Failed;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/map/StyleLoadState$Failed;Ljava/lang/String;ILjava/lang/Object;)Lorg/maplibre/compose/map/StyleLoadState$Failed;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getReason ()Ljava/lang/String;
 	public fun hashCode ()I
@@ -2794,11 +2782,8 @@ public abstract interface class org/maplibre/compose/offline/DownloadProgress {
 
 public final class org/maplibre/compose/offline/DownloadProgress$Error : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lorg/maplibre/compose/offline/DownloadProgress$Error;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/DownloadProgress$Error;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lorg/maplibre/compose/offline/DownloadProgress$Error;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getMessage ()Ljava/lang/String;
 	public final fun getReason ()Ljava/lang/String;
@@ -2808,7 +2793,6 @@ public final class org/maplibre/compose/offline/DownloadProgress$Error : org/map
 
 public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
-	public fun <init> (JJJJLorg/maplibre/compose/offline/DownloadStatus;ZJ)V
 	public final fun component1 ()J
 	public final fun component2 ()J
 	public final fun component3 ()J
@@ -2816,8 +2800,6 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 	public final fun component5 ()Lorg/maplibre/compose/offline/DownloadStatus;
 	public final fun component6 ()Z
 	public final fun component7 ()J
-	public final fun copy (JJJJLorg/maplibre/compose/offline/DownloadStatus;ZJ)Lorg/maplibre/compose/offline/DownloadProgress$Healthy;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/DownloadProgress$Healthy;JJJJLorg/maplibre/compose/offline/DownloadStatus;ZJILjava/lang/Object;)Lorg/maplibre/compose/offline/DownloadProgress$Healthy;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCompletedResourceBytes ()J
 	public final fun getCompletedResourceCount ()J
@@ -2832,10 +2814,7 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 
 public final class org/maplibre/compose/offline/DownloadProgress$TileLimitExceeded : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
-	public fun <init> (J)V
 	public final fun component1 ()J
-	public final fun copy (J)Lorg/maplibre/compose/offline/DownloadProgress$TileLimitExceeded;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/DownloadProgress$TileLimitExceeded;JILjava/lang/Object;)Lorg/maplibre/compose/offline/DownloadProgress$TileLimitExceeded;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getLimit ()J
 	public fun hashCode ()I
@@ -2948,10 +2927,7 @@ public abstract interface class org/maplibre/compose/offline/OfflineStorageState
 
 public final class org/maplibre/compose/offline/OfflineStorageState$Failed : org/maplibre/compose/offline/OfflineStorageState {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/Throwable;)V
 	public final fun component1 ()Ljava/lang/Throwable;
-	public final fun copy (Ljava/lang/Throwable;)Lorg/maplibre/compose/offline/OfflineStorageState$Failed;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineStorageState$Failed;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineStorageState$Failed;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCause ()Ljava/lang/Throwable;
 	public fun hashCode ()I
@@ -2968,10 +2944,7 @@ public final class org/maplibre/compose/offline/OfflineStorageState$Loading : or
 
 public final class org/maplibre/compose/offline/OfflineStorageState$Ready : org/maplibre/compose/offline/OfflineStorageState {
 	public static final field $stable I
-	public fun <init> (Ljava/util/Set;)V
 	public final fun component1 ()Ljava/util/Set;
-	public final fun copy (Ljava/util/Set;)Lorg/maplibre/compose/offline/OfflineStorageState$Ready;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineStorageState$Ready;Ljava/util/Set;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineStorageState$Ready;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getPacks ()Ljava/util/Set;
 	public fun hashCode ()I
@@ -4098,11 +4071,8 @@ public final class org/maplibre/compose/util/UriHandlerKt {
 
 public final class org/maplibre/compose/util/VisibleBounds {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;)V
 	public final fun component1 ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun component2 ()Lorg/maplibre/spatialk/geojson/Position;
-	public final fun copy (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;)Lorg/maplibre/compose/util/VisibleBounds;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/util/VisibleBounds;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;ILjava/lang/Object;)Lorg/maplibre/compose/util/VisibleBounds;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getEast ()D
 	public final fun getNorth ()D
@@ -4117,13 +4087,10 @@ public final class org/maplibre/compose/util/VisibleBounds {
 
 public final class org/maplibre/compose/util/VisibleRegion {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;)V
 	public final fun component1 ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun component2 ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun component3 ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun component4 ()Lorg/maplibre/spatialk/geojson/Position;
-	public final fun copy (Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;)Lorg/maplibre/compose/util/VisibleRegion;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/util/VisibleRegion;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/geojson/Position;ILjava/lang/Object;)Lorg/maplibre/compose/util/VisibleRegion;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getFarLeft ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun getFarRight ()Lorg/maplibre/spatialk/geojson/Position;

@@ -283,8 +283,12 @@ public sealed interface StyleLoadState {
    */
   public data object Ready : StyleLoadState
 
-  /** Loading the style or applying its composed content failed. A later revision may recover. */
-  public data class Failed(public val reason: String?) : StyleLoadState
+  /**
+   * Loading the style or applying its composed content failed. A later revision may recover.
+   *
+   * @property reason The failure message, or `null` when the failure has none.
+   */
+  public data class Failed internal constructor(public val reason: String?) : StyleLoadState
 }
 
 internal interface MapStyleStateOwner {
