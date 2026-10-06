@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
+import org.maplibre.compose.resource.toCommon
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -280,7 +281,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       finish = { nativeRuntime, handle ->
         publishProgress(
           regionId,
-          nativeRuntime.takeOfflineRegionStatusResult(handle).toDownloadProgress(logger),
+          nativeRuntime.takeOfflineRegionStatusResult(handle).toDownloadProgress(),
         )
       },
     )
@@ -306,7 +307,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     when (event.type) {
       RuntimeEventType.OFFLINE_REGION_STATUS_CHANGED -> {
         val payload = event.payload as? RuntimeEventPayload.OfflineRegionStatusChanged ?: return
-        publishProgress(payload.regionId, payload.status.toDownloadProgress(logger))
+        publishProgress(payload.regionId, payload.status.toDownloadProgress())
       }
 
       RuntimeEventType.OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED -> {
@@ -317,9 +318,9 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
       RuntimeEventType.OFFLINE_REGION_RESPONSE_ERROR -> {
         val payload = event.payload as? RuntimeEventPayload.OfflineRegionResponseError ?: return
-        val reason = payload.reason.toDownloadErrorReason()
+        val reason = payload.reason.toCommon()
         val message = event.message.ifBlank { "MapLibre could not download an offline resource" }
-        logger?.e { "Offline pack ${payload.regionId} failed ($reason): $message" }
+        logger?.e { "Offline pack ${payload.regionId} failed (${reason.value}): $message" }
         publishProgress(payload.regionId, DownloadProgress.Error(reason, message))
       }
 

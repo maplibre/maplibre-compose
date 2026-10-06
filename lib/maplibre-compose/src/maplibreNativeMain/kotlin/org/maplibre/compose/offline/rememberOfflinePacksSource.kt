@@ -63,7 +63,7 @@ public fun rememberOfflinePacksSource(
 private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadProgress) =
   when (progress) {
     is DownloadProgress.Healthy -> {
-      put("status", progress.status.name)
+      put("status", progress.status.value)
       put("completed_resource_count", progress.completedResourceCount)
       put("required_resource_count", progress.requiredResourceCount)
       put("completed_resource_bytes", progress.completedResourceBytes)
@@ -73,7 +73,7 @@ private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadPr
     }
     is DownloadProgress.Error -> {
       put("status", "Error")
-      put("error_reason", progress.reason)
+      put("error_reason", progress.reason.value)
       put("error_message", progress.message)
     }
     is DownloadProgress.TileLimitExceeded -> {

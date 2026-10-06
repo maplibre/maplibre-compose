@@ -170,20 +170,33 @@ internal constructor(
   override fun toString(): String = "MapResourceLoadRequest(url=$url, kind=$kind)"
 }
 
-/** The cause of a failed resource load. Each reason corresponds to an HTTP status. */
-public enum class MapResourceError {
-  /** A 404. */
-  NotFound,
+/**
+ * The cause of a failed resource load. Most reasons correspond to an HTTP status.
+ *
+ * [value] is MapLibre Native's name for the reason, such as `NotFound`. MapLibre Native reports a
+ * reason as a number, so a reason that has no name here holds that number as decimal text, such as
+ * `6`.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
+@JvmInline
+public value class MapResourceError internal constructor(public val value: String) {
+  public companion object {
+    /** A 404. */
+    public val NotFound: MapResourceError = MapResourceError("NotFound")
 
-  /** A 5xx. */
-  Server,
+    /** A 5xx. */
+    public val Server: MapResourceError = MapResourceError("Server")
 
-  /** A transport failure. */
-  Connection,
+    /** A transport failure. */
+    public val Connection: MapResourceError = MapResourceError("Connection")
 
-  /** A 429. */
-  RateLimit,
-  Other,
+    /** A 429. */
+    public val RateLimit: MapResourceError = MapResourceError("RateLimit")
+
+    /** A failure that matches no other reason. */
+    public val Other: MapResourceError = MapResourceError("Other")
+  }
 }
 
 /**

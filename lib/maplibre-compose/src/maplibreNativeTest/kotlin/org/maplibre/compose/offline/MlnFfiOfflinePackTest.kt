@@ -23,6 +23,7 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.mlnffi.unusedLoopbackPort
+import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -300,7 +301,7 @@ class MlnFfiOfflinePackTest {
       pack.downloadProgress.value is DownloadProgress.Error
     }
     assertEquals(
-      "REASON_CONNECTION",
+      MapResourceError.Connection,
       (pack.downloadProgress.value as DownloadProgress.Error).reason,
     )
 

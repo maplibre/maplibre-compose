@@ -53,7 +53,7 @@ internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String,
               is OfflineStorageState.Ready ->
                 check(state.packs.isEmpty()) { "Benchmark cache must contain no offline packs" }
               is OfflineStorageState.Failed -> throw state.cause
-              OfflineStorageState.Loading -> error("Runtime is still loading")
+              else -> error("Offline storage did not become ready: $state")
             }
           },
           close = { it.close() },

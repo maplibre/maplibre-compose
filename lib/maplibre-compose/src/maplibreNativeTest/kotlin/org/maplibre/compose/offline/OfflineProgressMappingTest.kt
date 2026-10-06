@@ -2,7 +2,9 @@ package org.maplibre.compose.offline
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.resource.MapResourceError
+import org.maplibre.compose.resource.toCommon
+import org.maplibre.compose.resource.toFfi
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
 import org.maplibre.nativeffi.offline.OfflineRegionStatus
 import org.maplibre.nativeffi.resource.ResourceErrorReason
@@ -10,12 +12,10 @@ import org.maplibre.nativeffi.resource.ResourceErrorReason
 /** How a native offline status or error becomes the [DownloadProgress] common code switches on. */
 class OfflineProgressMappingTest {
 
-  private val logger = MapLog
-
   @Test
   fun an_inactive_incomplete_region_is_paused_and_carries_its_counts_across() {
     val progress =
-      status(OfflineRegionDownloadState.INACTIVE, complete = false).toDownloadProgress(logger)
+      status(OfflineRegionDownloadState.INACTIVE, complete = false).toDownloadProgress()
 
     assertEquals(
       DownloadProgress.Healthy(
@@ -33,8 +33,7 @@ class OfflineProgressMappingTest {
 
   @Test
   fun an_active_incomplete_region_is_downloading() {
-    val progress =
-      status(OfflineRegionDownloadState.ACTIVE, complete = false).toDownloadProgress(logger)
+    val progress = status(OfflineRegionDownloadState.ACTIVE, complete = false).toDownloadProgress()
 
     assertEquals(DownloadStatus.Downloading, (progress as DownloadProgress.Healthy).status)
   }
@@ -45,38 +44,33 @@ class OfflineProgressMappingTest {
    */
   @Test
   fun a_complete_region_is_complete_even_while_it_is_still_marked_active() {
-    val progress =
-      status(OfflineRegionDownloadState.ACTIVE, complete = true).toDownloadProgress(logger)
+    val progress = status(OfflineRegionDownloadState.ACTIVE, complete = true).toDownloadProgress()
 
     assertEquals(DownloadStatus.Complete, (progress as DownloadProgress.Healthy).status)
   }
 
   /**
    * Download states are value classes over Int, so a newer native runtime can report one this build
-   * does not recognize. Treat unknown values as paused.
+   * does not recognize. The status keeps its number.
    */
   @Test
-  fun an_unrecognized_download_state_is_reported_as_paused() {
-    val progress =
-      status(OfflineRegionDownloadState(999), complete = false).toDownloadProgress(logger)
+  fun an_unrecognized_download_state_keeps_its_number() {
+    val progress = status(OfflineRegionDownloadState(999), complete = false).toDownloadProgress()
 
-    assertEquals(DownloadStatus.Paused, (progress as DownloadProgress.Healthy).status)
+    assertEquals("999", (progress as DownloadProgress.Healthy).status.value)
   }
 
-  /**
-   * The strings are the MapLibre Android SDK's `OfflineRegionError` reasons, which is what common
-   * code compares against.
-   */
   @Test
-  fun error_reasons_use_the_same_names_every_platform_reports() {
-    assertEquals("REASON_SUCCESS", ResourceErrorReason.NONE.toDownloadErrorReason())
-    assertEquals("REASON_NOT_FOUND", ResourceErrorReason.NOT_FOUND.toDownloadErrorReason())
-    assertEquals("REASON_SERVER", ResourceErrorReason.SERVER.toDownloadErrorReason())
-    assertEquals("REASON_CONNECTION", ResourceErrorReason.CONNECTION.toDownloadErrorReason())
-    assertEquals("REASON_RATE_LIMIT", ResourceErrorReason.RATE_LIMIT.toDownloadErrorReason())
-    assertEquals("REASON_OTHER", ResourceErrorReason.OTHER.toDownloadErrorReason())
-    // Same reasoning as the unknown download state: an unmapped reason must still be a reason.
-    assertEquals("REASON_OTHER", ResourceErrorReason(999).toDownloadErrorReason())
+  fun error_reasons_keep_their_names_and_unnamed_numbers() {
+    assertEquals(MapResourceError.NotFound, ResourceErrorReason.NOT_FOUND.toCommon())
+    assertEquals(MapResourceError.Server, ResourceErrorReason.SERVER.toCommon())
+    assertEquals(MapResourceError.Connection, ResourceErrorReason.CONNECTION.toCommon())
+    assertEquals(MapResourceError.RateLimit, ResourceErrorReason.RATE_LIMIT.toCommon())
+    assertEquals(MapResourceError.Other, ResourceErrorReason.OTHER.toCommon())
+
+    val unnamed = ResourceErrorReason(999).toCommon()
+    assertEquals("999", unnamed.value)
+    assertEquals(ResourceErrorReason(999), unnamed.toFfi())
   }
 
   private fun status(

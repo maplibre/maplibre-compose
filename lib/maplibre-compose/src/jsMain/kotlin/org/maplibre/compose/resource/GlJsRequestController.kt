@@ -137,8 +137,7 @@ internal fun MapResourceError.httpStatus(): Int? =
     MapResourceError.NotFound -> 404
     MapResourceError.Server -> 500
     MapResourceError.RateLimit -> 429
-    MapResourceError.Connection,
-    MapResourceError.Other -> null
+    else -> null
   }
 
 /**

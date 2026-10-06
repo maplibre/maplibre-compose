@@ -104,7 +104,7 @@ public sealed interface OfflineStorage {
 /**
  * The initialization result and current contents of an [OfflineStorage].
  *
- * Closed. Initialization happens once, and it is either unfinished, succeeded, or failed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface OfflineStorageState {
   /** Initialization has not finished. */
@@ -126,11 +126,18 @@ public sealed interface OfflineStorageState {
   public data class Failed internal constructor(public val cause: Throwable) : OfflineStorageState
 }
 
+/**
+ * Keeps [OfflineStorageState] open: callers' `when` needs an `else` branch. The library never
+ * reports it.
+ */
+internal data object UnspecifiedOfflineStorageState : OfflineStorageState
+
 internal suspend fun OfflineStorage.awaitReady() {
   when (val current = state.first { it !is OfflineStorageState.Loading }) {
     is OfflineStorageState.Ready -> Unit
     is OfflineStorageState.Failed -> throw current.cause
     OfflineStorageState.Loading -> error("Initialization has not completed")
+    UnspecifiedOfflineStorageState -> error("UnspecifiedOfflineStorageState is never reported")
   }
 }
 
@@ -214,6 +221,7 @@ internal class RuntimeBoundOfflineStorage(
         formatToString("OfflineStorage", "state" to "Ready", "packs" to current.packs.size)
       is OfflineStorageState.Failed ->
         formatToString("OfflineStorage", "state" to "Failed", "cause" to current.cause)
+      UnspecifiedOfflineStorageState -> formatToString("OfflineStorage", "state" to current)
     }
 }
 

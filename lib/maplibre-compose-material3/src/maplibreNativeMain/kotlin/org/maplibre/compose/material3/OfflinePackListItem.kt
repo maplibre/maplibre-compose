@@ -207,6 +207,7 @@ public object OfflinePackListItemDefaults {
             DownloadStatus.Complete -> completedIcon
             DownloadStatus.Paused -> pausedIcon
             DownloadStatus.Downloading -> downloadingIcon
+            else -> warningIcon
           }
         is DownloadProgress.Error -> errorIcon
         // TileLimitExceeded, Unknown, and any case this version does not name.
@@ -262,6 +263,7 @@ public object OfflinePackListItemDefaults {
           DownloadStatus.Complete -> completedContent(progress)
           DownloadStatus.Downloading -> downloadingContent(progress)
           DownloadStatus.Paused -> pausedContent(progress)
+          else -> unknownContent(DownloadProgress.Unknown)
         }
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
@@ -411,10 +413,15 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
   CircularProgressIndicator(progress = { animatedProgressRatio })
 }
 
+private val ActionableStatuses =
+  setOf(DownloadStatus.Paused, DownloadStatus.Downloading, DownloadStatus.Complete)
+
 @Composable
 private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineStorage) {
   val progress by pack.downloadProgress.collectAsState()
   val status = (progress as? DownloadProgress.Healthy)?.status ?: return
+  // A status that this version does not name has no action.
+  if (status !in ActionableStatuses) return
   val coroutineScope = rememberCoroutineScope()
 
   fun onClick() {
