@@ -30,7 +30,9 @@ private constructor(val x: TextUnit, val y: TextUnit) : ExpressionNode<TextUnitO
   companion object {
     fun of(x: TextUnit, y: TextUnit): TextUnitOffsetCalculation {
       require(x.isSpecified && y.isSpecified) { "TextUnit type must be specified" }
-      require(x.type == y.type) { "X and Y text units must have the same type" }
+      require(x.type == y.type) {
+        "X and Y text units must have the same type, were $x and $y"
+      }
       return TextUnitOffsetCalculation(x, y)
     }
   }

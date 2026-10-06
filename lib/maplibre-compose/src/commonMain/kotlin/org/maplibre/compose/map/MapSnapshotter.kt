@@ -71,10 +71,10 @@ public data class MapSnapshotRequest(
       "Snapshot height must be finite and positive, was ${size.height}"
     }
     require(density.density.isFinite() && density.density > 0f) {
-      "Snapshot density must be finite and positive"
+      "Snapshot density must be finite and positive, was ${density.density}"
     }
     require(density.fontScale.isFinite() && density.fontScale > 0f) {
-      "Snapshot font scale must be finite and positive"
+      "Snapshot font scale must be finite and positive, was ${density.fontScale}"
     }
   }
 }

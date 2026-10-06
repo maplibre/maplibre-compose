@@ -147,7 +147,7 @@ public fun GeographicLayout(
     measurables,
     constraints ->
     require(constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
-      "GeographicLayout needs bounded width and height"
+      "GeographicLayout needs bounded width and height, was $constraints"
     }
     val width = constraints.maxWidth
     val height = constraints.maxHeight

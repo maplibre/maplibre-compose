@@ -25,18 +25,18 @@ public data class CameraUpdate(
       "A camera update must specify at least one property"
     }
     require(target == null || target.longitude.isFinite() && target.latitude.isFinite()) {
-      "Target coordinates must be finite"
+      "Target coordinates must be finite, was $target"
     }
-    require(zoom == null || zoom.isFinite()) { "Zoom must be finite" }
-    require(bearing == null || bearing.isFinite()) { "Bearing must be finite" }
-    require(pitch == null || pitch.isFinite()) { "Pitch must be finite" }
+    require(zoom == null || zoom.isFinite()) { "Zoom must be finite, was $zoom" }
+    require(bearing == null || bearing.isFinite()) { "Bearing must be finite, was $bearing" }
+    require(pitch == null || pitch.isFinite()) { "Pitch must be finite, was $pitch" }
     require(
       padding == null ||
         listOf(padding.left, padding.top, padding.right, padding.bottom).all {
           it.value.isFinite() && it.value >= 0f
         }
     ) {
-      "Padding must be finite and nonnegative"
+      "Padding must be finite and nonnegative, was $padding"
     }
   }
 

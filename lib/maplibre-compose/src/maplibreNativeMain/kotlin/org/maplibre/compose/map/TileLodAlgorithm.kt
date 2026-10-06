@@ -43,7 +43,7 @@ public abstract class TileLodAlgorithm private constructor() {
 
     init {
       require(minRadius.isFinite() && minRadius >= 1.0) {
-        "minRadius must be finite and at least 1"
+        "minRadius must be finite and at least 1, was $minRadius"
       }
       validate(scale, pitchThreshold, zoomShift)
     }
@@ -121,9 +121,11 @@ public abstract class TileLodAlgorithm private constructor() {
 }
 
 private fun validate(scale: Double, pitchThreshold: Double, zoomShift: Double) {
-  require(scale.isFinite() && scale >= 0.0) { "scale must be finite and nonnegative" }
-  require(pitchThreshold in 0.0..180.0) { "pitchThreshold must be in [0, 180] degrees" }
-  require(zoomShift.isFinite()) { "zoomShift must be finite" }
+  require(scale.isFinite() && scale >= 0.0) { "scale must be finite and nonnegative, was $scale" }
+  require(pitchThreshold in 0.0..180.0) {
+    "pitchThreshold must be in [0, 180] degrees, was $pitchThreshold"
+  }
+  require(zoomShift.isFinite()) { "zoomShift must be finite, was $zoomShift" }
 }
 
 private fun tileOptions(

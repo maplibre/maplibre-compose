@@ -32,7 +32,9 @@ private constructor(
   ) : this(builder.maximumFps, builder.tileLod, builder.debugBuilder.build(), builder.platform)
 
   init {
-    require(maximumFps == null || maximumFps > 0) { "maximumFps must be positive" }
+    require(maximumFps == null || maximumFps > 0) {
+      "maximumFps must be positive, was $maximumFps"
+    }
   }
 
   override fun equals(other: Any?): Boolean =

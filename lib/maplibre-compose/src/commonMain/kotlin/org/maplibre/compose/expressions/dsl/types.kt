@@ -46,7 +46,7 @@ public fun Expression<*>.asList(
       type == ExpressionType.Number ||
       type == ExpressionType.Boolean
   ) {
-    "The item type of a list assertion must be String, Number, or Boolean"
+    "The item type of a list assertion must be String, Number, or Boolean, was $type"
   }
   require(length == null || type != null) { "A list assertion with a length needs an item type" }
   return call("array", listOfNotNull(type?.let { const(it) }, length?.let { const(it) }, this))

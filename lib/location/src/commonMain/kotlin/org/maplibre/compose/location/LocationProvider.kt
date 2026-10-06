@@ -117,8 +117,12 @@ public data class LocationRequest(
   val minimumDistance: Length = 1.meters,
 ) {
   init {
-    require(!minimumInterval.isNegative()) { "minimumInterval must not be negative" }
-    require(minimumDistance.inMeters >= 0.0) { "minimumDistance must not be negative" }
+    require(!minimumInterval.isNegative()) {
+      "minimumInterval must not be negative, was $minimumInterval"
+    }
+    require(minimumDistance.inMeters >= 0.0) {
+      "minimumDistance must not be negative, was $minimumDistance"
+    }
   }
 }
 

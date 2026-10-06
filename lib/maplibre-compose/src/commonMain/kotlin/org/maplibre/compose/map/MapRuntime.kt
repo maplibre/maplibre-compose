@@ -1239,11 +1239,11 @@ internal constructor(
     pitch: Double? = null,
     animation: CameraAnimation.Ease = CameraAnimation.Ease(),
   ): Unit = coroutineScope {
-    require(zoom == null || zoom.isFinite()) { "Zoom must be finite" }
-    require(bearing == null || bearing.isFinite()) { "Bearing must be finite" }
-    require(pitch == null || pitch.isFinite()) { "Pitch must be finite" }
+    require(zoom == null || zoom.isFinite()) { "Zoom must be finite, was $zoom" }
+    require(bearing == null || bearing.isFinite()) { "Bearing must be finite, was $bearing" }
+    require(pitch == null || pitch.isFinite()) { "Pitch must be finite, was $pitch" }
     require(animation.duration.isFinite() && animation.duration >= Duration.ZERO) {
-      "Duration must be finite and nonnegative"
+      "Duration must be finite and nonnegative, was ${animation.duration}"
     }
     val guard =
       gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job], concurrent = true)

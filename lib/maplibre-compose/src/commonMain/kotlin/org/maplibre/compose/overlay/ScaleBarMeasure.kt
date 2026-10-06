@@ -55,7 +55,9 @@ public interface ScaleBarMeasure {
     init {
       require(units.isNotEmpty()) { "At least one unit must be provided" }
       require(mantissas.isNotEmpty()) { "At least one mantissa must be provided" }
-      require(mantissas.all { it in 1..<10 }) { "Mantissas must be single digit positive integers" }
+      require(mantissas.all { it in 1..<10 }) {
+        "Mantissas must be single digit positive integers, were $mantissas"
+      }
     }
 
     private val sortedUnits = units.sortedBy { it.metersPerUnit }

@@ -80,7 +80,8 @@ public fun CompassButton(
   needlePainter: Painter = CompassDefaults.needlePainter(),
   getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, pitch = 0.0) },
 ) {
-  val currentMapState = checkNotNull(LocalMapState.current)
+  val currentMapState =
+    checkNotNull(LocalMapState.current) { "CompassButton must be inside a MaplibreMap overlay" }
   val coroutineScope = rememberCoroutineScope()
   val interactionSource = remember { MutableInteractionSource() }
   val hovered by interactionSource.collectIsHoveredAsState()
@@ -151,7 +152,10 @@ public fun DisappearingCompassButton(
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {
-  val mapState = checkNotNull(LocalMapState.current)
+  val mapState =
+    checkNotNull(LocalMapState.current) {
+      "DisappearingCompassButton must be inside a MaplibreMap overlay"
+    }
   val visible = remember { MutableTransitionState(false) }
 
   val currentGetHomeUpdate by rememberUpdatedState(getHomeUpdate)

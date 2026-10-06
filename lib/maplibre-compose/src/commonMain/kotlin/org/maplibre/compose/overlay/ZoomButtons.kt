@@ -83,7 +83,8 @@ public fun ZoomButtons(
   getZoomInUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom + 1) },
   getZoomOutUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom - 1) },
 ) {
-  val currentMapState = checkNotNull(LocalMapState.current)
+  val currentMapState =
+    checkNotNull(LocalMapState.current) { "ZoomButtons must be inside a MaplibreMap overlay" }
   val coroutineScope = rememberCoroutineScope()
   val zoomInInteractionSource = remember { MutableInteractionSource() }
   val zoomOutInteractionSource = remember { MutableInteractionSource() }
