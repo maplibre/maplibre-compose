@@ -1,5 +1,6 @@
 package org.maplibre.compose.location
 
+import kotlin.jvm.JvmInline
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import org.maplibre.spatialk.units.Bearing
@@ -21,14 +22,26 @@ public data class HeadingMeasurement(
   val measuredAt: Instant,
 )
 
-/** North reference for a [HeadingMeasurement] bearing. */
-public enum class HeadingReference {
-  /** Geographic true north. */
-  TrueNorth,
+/**
+ * North reference for a [HeadingMeasurement] bearing.
+ *
+ * Serializes as its name, such as `TrueNorth`, and keeps a name that this version does not define.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
+@Serializable
+@JvmInline
+public value class HeadingReference private constructor(private val name: String) {
+  override fun toString(): String = name
 
-  /** Magnetic north. */
-  MagneticNorth,
+  public companion object {
+    /** Geographic true north. */
+    public val TrueNorth: HeadingReference = HeadingReference("TrueNorth")
 
-  /** True north when the platform has magnetic declination, and magnetic north otherwise. */
-  TrueOrMagneticNorth,
+    /** Magnetic north. */
+    public val MagneticNorth: HeadingReference = HeadingReference("MagneticNorth")
+
+    /** True north when the platform has magnetic declination, and magnetic north otherwise. */
+    public val TrueOrMagneticNorth: HeadingReference = HeadingReference("TrueOrMagneticNorth")
+  }
 }

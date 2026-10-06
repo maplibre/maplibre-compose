@@ -92,8 +92,7 @@ internal constructor(
 /**
  * Current state of device-heading collection managed by [rememberLocationState].
  *
- * Closed. A heading request is either not active, waiting for its first measurement, delivering
- * measurements, or ended by a failure.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface HeadingTrackingStatus {
   /** No platform heading request is active. */
@@ -114,10 +113,15 @@ public sealed interface HeadingTrackingStatus {
 }
 
 /**
+ * Keeps [HeadingTrackingStatus] open: callers' `when` needs an `else` branch. The library never
+ * reports it.
+ */
+internal data object UnspecifiedHeadingTrackingStatus : HeadingTrackingStatus
+
+/**
  * Current state of the foreground location updates managed by [rememberLocationState].
  *
- * Closed. A location request is either not active, waiting for its first measurement, delivering
- * measurements, or unable to deliver; [Unavailable.reason] classifies the last case.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface LocationTrackingStatus {
   /** No platform location request is active. */
@@ -141,6 +145,12 @@ public sealed interface LocationTrackingStatus {
     val cause: Throwable? = null,
   ) : LocationTrackingStatus
 }
+
+/**
+ * Keeps [LocationTrackingStatus] open: callers' `when` needs an `else` branch. The library never
+ * reports it.
+ */
+internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
 
 /**
  * Remembers foreground location and heading state.
@@ -192,6 +202,7 @@ public fun rememberLocationState(
       LocationPermission.Unknown,
       is LocationPermission.Granted -> true
       is LocationPermission.NotGranted -> false
+      else -> false
     }
   SideEffect {
     state.permission = permission
@@ -235,6 +246,7 @@ public fun rememberLocationState(
               is LocationEvent.Update -> state.accept(event)
               is LocationEvent.Unavailable ->
                 state.status = LocationTrackingStatus.Unavailable(event.reason, event.cause)
+              else -> Unit
             }
           }
         if (

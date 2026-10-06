@@ -8,18 +8,6 @@
 // - Show declarations: true
 
 // Library unique name: <org.maplibre.compose:location>
-final enum class org.maplibre.compose.location/HeadingReference : kotlin/Enum<org.maplibre.compose.location/HeadingReference> { // org.maplibre.compose.location/HeadingReference|null[0]
-    enum entry MagneticNorth // org.maplibre.compose.location/HeadingReference.MagneticNorth|null[0]
-    enum entry TrueNorth // org.maplibre.compose.location/HeadingReference.TrueNorth|null[0]
-    enum entry TrueOrMagneticNorth // org.maplibre.compose.location/HeadingReference.TrueOrMagneticNorth|null[0]
-
-    final val entries // org.maplibre.compose.location/HeadingReference.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/HeadingReference> // org.maplibre.compose.location/HeadingReference.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.location/HeadingReference> // org.maplibre.compose.location/HeadingReference.values|values#static(){}[0]
-}
-
 final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
     enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
     enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]
@@ -32,32 +20,6 @@ final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<or
 
     final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationAccuracy.valueOf|valueOf#static(kotlin.String){}[0]
     final fun values(): kotlin/Array<org.maplibre.compose.location/LocationAccuracy> // org.maplibre.compose.location/LocationAccuracy.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.location/LocationAccuracyAuthorization : kotlin/Enum<org.maplibre.compose.location/LocationAccuracyAuthorization> { // org.maplibre.compose.location/LocationAccuracyAuthorization|null[0]
-    enum entry Approximate // org.maplibre.compose.location/LocationAccuracyAuthorization.Approximate|null[0]
-    enum entry Precise // org.maplibre.compose.location/LocationAccuracyAuthorization.Precise|null[0]
-    enum entry Unknown // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown|null[0]
-
-    final val entries // org.maplibre.compose.location/LocationAccuracyAuthorization.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/LocationAccuracyAuthorization> // org.maplibre.compose.location/LocationAccuracyAuthorization.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationAccuracyAuthorization.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.location/LocationAccuracyAuthorization> // org.maplibre.compose.location/LocationAccuracyAuthorization.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.location/LocationUnavailableReason : kotlin/Enum<org.maplibre.compose.location/LocationUnavailableReason> { // org.maplibre.compose.location/LocationUnavailableReason|null[0]
-    enum entry PermissionDenied // org.maplibre.compose.location/LocationUnavailableReason.PermissionDenied|null[0]
-    enum entry ServicesDisabled // org.maplibre.compose.location/LocationUnavailableReason.ServicesDisabled|null[0]
-    enum entry TemporarilyUnavailable // org.maplibre.compose.location/LocationUnavailableReason.TemporarilyUnavailable|null[0]
-    enum entry UnexpectedFailure // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure|null[0]
-    enum entry Unsupported // org.maplibre.compose.location/LocationUnavailableReason.Unsupported|null[0]
-
-    final val entries // org.maplibre.compose.location/LocationUnavailableReason.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.location/LocationUnavailableReason> // org.maplibre.compose.location/LocationUnavailableReason.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.location/LocationUnavailableReason> // org.maplibre.compose.location/LocationUnavailableReason.values|values#static(){}[0]
 }
 
 abstract interface org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/HeadingProvider|null[0]
@@ -206,8 +168,6 @@ final class org.maplibre.compose.location/HeadingMeasurement { // org.maplibre.c
     }
 
     final object Companion { // org.maplibre.compose.location/HeadingMeasurement.Companion|null[0]
-        final val $childSerializers // org.maplibre.compose.location/HeadingMeasurement.Companion.$childSerializers|{}$childSerializers[0]
-
         final fun serializer(): kotlinx.serialization/KSerializer<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/HeadingMeasurement.Companion.serializer|serializer(){}[0]
     }
 }
@@ -301,6 +261,66 @@ final class org.maplibre.compose.location/SystemSettingsLauncher { // org.maplib
 
     final fun openApplicationSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openApplicationSettings|openApplicationSettings(){}[0]
     final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
+}
+
+final value class org.maplibre.compose.location/HeadingReference { // org.maplibre.compose.location/HeadingReference|null[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingReference.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingReference.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingReference.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<org.maplibre.compose.location/HeadingReference> { // org.maplibre.compose.location/HeadingReference.$serializer|null[0]
+        final val descriptor // org.maplibre.compose.location/HeadingReference.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // org.maplibre.compose.location/HeadingReference.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // org.maplibre.compose.location/HeadingReference.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, org.maplibre.compose.location/HeadingReference) // org.maplibre.compose.location/HeadingReference.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;org.maplibre.compose.location.HeadingReference){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.location/HeadingReference.Companion|null[0]
+        final val MagneticNorth // org.maplibre.compose.location/HeadingReference.Companion.MagneticNorth|{}MagneticNorth[0]
+            final fun <get-MagneticNorth>(): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.Companion.MagneticNorth.<get-MagneticNorth>|<get-MagneticNorth>(){}[0]
+        final val TrueNorth // org.maplibre.compose.location/HeadingReference.Companion.TrueNorth|{}TrueNorth[0]
+            final fun <get-TrueNorth>(): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.Companion.TrueNorth.<get-TrueNorth>|<get-TrueNorth>(){}[0]
+        final val TrueOrMagneticNorth // org.maplibre.compose.location/HeadingReference.Companion.TrueOrMagneticNorth|{}TrueOrMagneticNorth[0]
+            final fun <get-TrueOrMagneticNorth>(): org.maplibre.compose.location/HeadingReference // org.maplibre.compose.location/HeadingReference.Companion.TrueOrMagneticNorth.<get-TrueOrMagneticNorth>|<get-TrueOrMagneticNorth>(){}[0]
+
+        final fun serializer(): kotlinx.serialization/KSerializer<org.maplibre.compose.location/HeadingReference> // org.maplibre.compose.location/HeadingReference.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.location/LocationAccuracyAuthorization { // org.maplibre.compose.location/LocationAccuracyAuthorization|null[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationAccuracyAuthorization.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationAccuracyAuthorization.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/LocationAccuracyAuthorization.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion|null[0]
+        final val Approximate // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Approximate|{}Approximate[0]
+            final fun <get-Approximate>(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Approximate.<get-Approximate>|<get-Approximate>(){}[0]
+        final val Precise // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Precise|{}Precise[0]
+            final fun <get-Precise>(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Precise.<get-Precise>|<get-Precise>(){}[0]
+        final val Unknown // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Unknown|{}Unknown[0]
+            final fun <get-Unknown>(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationAccuracyAuthorization.Companion.Unknown.<get-Unknown>|<get-Unknown>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.location/LocationUnavailableReason { // org.maplibre.compose.location/LocationUnavailableReason|null[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationUnavailableReason.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationUnavailableReason.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.location/LocationUnavailableReason.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.location/LocationUnavailableReason.Companion|null[0]
+        final val PermissionDenied // org.maplibre.compose.location/LocationUnavailableReason.Companion.PermissionDenied|{}PermissionDenied[0]
+            final fun <get-PermissionDenied>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.Companion.PermissionDenied.<get-PermissionDenied>|<get-PermissionDenied>(){}[0]
+        final val ServicesDisabled // org.maplibre.compose.location/LocationUnavailableReason.Companion.ServicesDisabled|{}ServicesDisabled[0]
+            final fun <get-ServicesDisabled>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.Companion.ServicesDisabled.<get-ServicesDisabled>|<get-ServicesDisabled>(){}[0]
+        final val TemporarilyUnavailable // org.maplibre.compose.location/LocationUnavailableReason.Companion.TemporarilyUnavailable|{}TemporarilyUnavailable[0]
+            final fun <get-TemporarilyUnavailable>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.Companion.TemporarilyUnavailable.<get-TemporarilyUnavailable>|<get-TemporarilyUnavailable>(){}[0]
+        final val UnexpectedFailure // org.maplibre.compose.location/LocationUnavailableReason.Companion.UnexpectedFailure|{}UnexpectedFailure[0]
+            final fun <get-UnexpectedFailure>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.Companion.UnexpectedFailure.<get-UnexpectedFailure>|<get-UnexpectedFailure>(){}[0]
+        final val Unsupported // org.maplibre.compose.location/LocationUnavailableReason.Companion.Unsupported|{}Unsupported[0]
+            final fun <get-Unsupported>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationUnavailableReason.Companion.Unsupported.<get-Unsupported>|<get-Unsupported>(){}[0]
+    }
 }
 
 final object org.maplibre.compose.location/UnsupportedLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/UnsupportedLocationProvider|null[0]

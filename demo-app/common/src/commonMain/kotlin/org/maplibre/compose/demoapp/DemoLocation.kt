@@ -280,5 +280,7 @@ private fun LocationState.trackingStatusMessage(): String =
         LocationUnavailableReason.Unsupported -> "Location is not available on this device"
         LocationUnavailableReason.PermissionDenied -> "Location permission was denied"
         LocationUnavailableReason.UnexpectedFailure -> "Location failed"
+        else -> "Location is unavailable"
       }
+    else -> "Location is unavailable"
   }

@@ -110,6 +110,8 @@ internal constructor(
                 )
               )
             }
+            // This provider reports only the permissions above.
+            else -> Unit
           }
         }
       } catch (error: Throwable) {

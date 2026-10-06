@@ -82,7 +82,8 @@ internal constructor(
             close()
             this@launch.cancel()
           }
-          LocationPermission.Unknown -> Unit
+          LocationPermission.Unknown,
+          UnspecifiedLocationPermission -> Unit
           is LocationPermission.NotGranted ->
             send(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
         }
