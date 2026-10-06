@@ -115,10 +115,23 @@ class GlJsRequestControllerTest {
       )
     val result = controller.transformRequest("app://sprite.json", "SpriteJSON")
     val url = result.asDynamic().url as String
-    assertTrue(url.startsWith("${controller.scheme}://SpriteJson/"))
+    assertTrue(url.startsWith("${controller.scheme}://SpriteJSON/"))
     val parsed = controller.parseProtocolUrl(url)
     assertEquals("app://sprite.json", parsed.url)
     assertEquals(MapResourceKind.SpriteJson, parsed.kind)
+    controller.close()
+  }
+
+  @Test
+  fun a_protocol_url_keeps_a_resource_type_with_no_name() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    val result = controller.transformRequest("app://model.glb", "Model")
+    val parsed = controller.parseProtocolUrl(result.asDynamic().url as String)
+    assertEquals("app://model.glb", parsed.url)
+    assertEquals("Model", parsed.kind.value)
     controller.close()
   }
 

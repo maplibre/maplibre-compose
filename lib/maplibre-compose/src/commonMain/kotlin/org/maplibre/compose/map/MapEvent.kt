@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 
 /**
@@ -70,8 +71,7 @@ internal data object UnspecifiedMapEvent : MapEvent
 /** The engine's measurements of one rendered frame. */
 public data class RenderStats
 internal constructor(
-  /** Null for a render mode this version of the library does not name. */
-  public val mode: Mode?,
+  public val mode: Mode,
   /** Whether the engine needs another frame to finish work this one started. */
   public val needsRepaint: Boolean,
   /** Whether symbol placement changed during the frame. */
@@ -87,11 +87,22 @@ internal constructor(
   /** Draw calls the engine has issued, including this frame's. */
   public val totalDrawCallCount: Long,
 ) {
-  /** Whether everything the frame needed had loaded when the engine drew it. */
-  public enum class Mode {
-    /** The engine drew before every tile and image the frame needed had loaded. */
-    Partial,
-    /** The engine drew with everything the frame needed. */
-    Full,
+  /**
+   * Whether everything the frame needed had loaded when the engine drew it.
+   *
+   * [value] is MapLibre Native's name for the mode, such as `Full`. A mode that has no name here
+   * holds the number that MapLibre Native reports, as decimal text.
+   *
+   * Values may be added in minor releases; use an `else` branch when matching.
+   */
+  @JvmInline
+  public value class Mode internal constructor(public val value: String) {
+    public companion object {
+      /** The engine drew before every tile and image the frame needed had loaded. */
+      public val Partial: Mode = Mode("Partial")
+
+      /** The engine drew with everything the frame needed. */
+      public val Full: Mode = Mode("Full")
+    }
   }
 }

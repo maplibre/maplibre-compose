@@ -39,8 +39,10 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
   )
 }
 
+/** The kind with the same name in MapLibre GL JS, or the native number as decimal text. */
 internal fun ResourceKind.toCommon(): MapResourceKind =
   when (this) {
+    ResourceKind.UNKNOWN -> MapResourceKind.Unknown
     ResourceKind.STYLE -> MapResourceKind.Style
     ResourceKind.SOURCE -> MapResourceKind.Source
     ResourceKind.TILE -> MapResourceKind.Tile
@@ -48,5 +50,5 @@ internal fun ResourceKind.toCommon(): MapResourceKind =
     ResourceKind.SPRITE_JSON -> MapResourceKind.SpriteJson
     ResourceKind.SPRITE_IMAGE -> MapResourceKind.SpriteImage
     ResourceKind.IMAGE -> MapResourceKind.Image
-    else -> MapResourceKind.Unknown
+    else -> MapResourceKind(nativeValue.toString())
   }

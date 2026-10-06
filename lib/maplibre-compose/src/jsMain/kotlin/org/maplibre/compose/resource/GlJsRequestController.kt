@@ -67,7 +67,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
   }
 
   fun protocolUrl(url: String, kind: MapResourceKind): String =
-    "$scheme://${kind.name}/${encodeResourceUrl(url)}"
+    "$scheme://${encodeResourceUrl(kind.value)}/${encodeResourceUrl(url)}"
 
   fun parseProtocolUrl(protocolUrl: String): MapResourceRequest {
     val prefix = "$scheme://"
@@ -109,21 +109,13 @@ private fun newResourceProtocolScheme(): String {
 
 private val undefined: Any? = js("undefined")
 
+/** The kind that MapLibre GL JS names with this resource type, or [MapResourceKind.Unknown]. */
 internal fun String?.toResourceKind(): MapResourceKind =
-  when (this) {
-    "Style" -> MapResourceKind.Style
-    "Source" -> MapResourceKind.Source
-    "Tile" -> MapResourceKind.Tile
-    "Glyphs" -> MapResourceKind.Glyphs
-    "SpriteJSON" -> MapResourceKind.SpriteJson
-    "SpriteImage" -> MapResourceKind.SpriteImage
-    "Image" -> MapResourceKind.Image
-    else -> MapResourceKind.Unknown
-  }
+  if (isNullOrEmpty()) MapResourceKind.Unknown else MapResourceKind(this)
 
-/** Parses a kind that [GlJsRequestController.protocolUrl] stored as [MapResourceKind.name]. */
+/** Parses a kind that [GlJsRequestController.protocolUrl] stored. */
 internal fun String.toStoredResourceKind(): MapResourceKind =
-  MapResourceKind.entries.firstOrNull { it.name == this } ?: MapResourceKind.Unknown
+  MapResourceKind(decodeResourceUrl(this))
 
 private fun requestParameters(url: String, headers: Map<String, String>): Any {
   val params = js("{}")

@@ -31,7 +31,7 @@ private fun RuntimeEvent.isAnimatedChange(): Boolean =
 
 private fun RuntimeEventPayload.RenderFrame.toRenderStats(): RenderStats =
   RenderStats(
-    mode = mode.toRenderStatsMode(),
+    mode = mode.toCommon(),
     needsRepaint = needsRepaint,
     placementChanged = placementChanged,
     encodingTime = stats.encodingTime.seconds,
@@ -41,9 +41,10 @@ private fun RuntimeEventPayload.RenderFrame.toRenderStats(): RenderStats =
     totalDrawCallCount = stats.totalDrawCallCount,
   )
 
-private fun RenderMode.toRenderStatsMode(): RenderStats.Mode? =
+/** The mode with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun RenderMode.toCommon(): RenderStats.Mode =
   when (this) {
     RenderMode.PARTIAL -> RenderStats.Mode.Partial
     RenderMode.FULL -> RenderStats.Mode.Full
-    else -> null
+    else -> RenderStats.Mode(nativeValue.toString())
   }
