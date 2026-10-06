@@ -138,7 +138,8 @@ Each layer carries a different level of detail:
 Library users know Compose but often not MapLibre, and many read English as a
 second language, so say what the API does in literal terms.
 
-Site pages import Kotlin examples from `// #region` blocks in
+Site pages that show how to use the library import Kotlin examples from
+`// #region` blocks in
 `demo-app/common/src/*/kotlin/org/maplibre/compose/docsnippets/`, which compile
 with the demo app, so examples stay correct as the API changes. Add or update a
 region for each Kotlin example.

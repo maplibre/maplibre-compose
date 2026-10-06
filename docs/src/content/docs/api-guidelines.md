@@ -167,7 +167,7 @@ shape later is a breaking change.
 ```kotlin
 // Open identity: can hold values with no named constant in this version
 @JvmInline
-public value class LineCap internal constructor(public val value: String) : EnumValue {
+public value class LineCap internal constructor(override val value: String) : EnumValue {
   public companion object : EnumType<LineCap> {
     public val Butt: LineCap = LineCap("butt")
     public val Round: LineCap = LineCap("round")
@@ -176,11 +176,11 @@ public value class LineCap internal constructor(public val value: String) : Enum
   }
 }
 
-// Open structure: callers can't reference Unspecified, so their `when` needs `else`
+// Open structure: callers can't reference the internal subtype, so their `when` needs `else`
 public sealed interface MapEvent {
   public class CameraMoved internal constructor(public val reason: CameraMoveReason) : MapEvent
-  internal object Unspecified : MapEvent
 }
+internal object UnspecifiedMapEvent : MapEvent
 ```
 
 ## 5. Options and configuration
@@ -190,42 +190,44 @@ Settings objects that might gain fields use the shape shown below.
 - Use a final class with a builder, not a data class. Write `equals`,
   `hashCode`, and `toString`; leave out `copy` and `componentN`.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api)
-- Take a `from` parameter in the builder instead of providing `copy`.
+- Take a `from` parameter in the builder instead of providing `copy`, and
+  default it to a standard preset on the companion object.
 - Take required values with no sensible default, such as an ID, as constructor
   parameters before `block`.
-- When an options class has different members in different source sets, such as
-  JS and native, provide presets as companion `val`s named for their purpose, so
-  that callers in common code can still select one. Default `from` to the
-  standard preset.
-  [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#do-the-right-thing-by-default)
 - Within a major version, don't start rejecting a value that an earlier release
   accepted.
 - Make every option that all platforms support settable from common code, with
   defaults that need no platform setup.
   [[4]](https://kotlinlang.org/docs/api-guidelines-build-for-multiplatform.html#design-apis-for-use-from-common-code)
-- When settings differ by source set, declare the options class and its builder
-  as `expect` classes. The common declarations hold only what every platform
-  shares, and each `actual` adds its platform's settings.
+- When settings differ by source set, such as JS and native, declare the options
+  class and its builder as `expect` classes. The common declarations hold only
+  what every platform shares, and each `actual` adds its platform's settings.
+  Provide presets as companion `val`s named for their purpose, so that callers
+  in common code can still select one.
+  [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#do-the-right-thing-by-default)
 - Use a data class only when its fields are fixed by definition, such as the
   four edges of `DpPadding`. Departs from
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api).
 
 ```kotlin
 @Immutable
-public class RenderOptions private constructor(
-  public val maximumFps: Int?,
-  public val tileLod: TileLodOptions,
-) {
-  public constructor(from: RenderOptions = Standard, block: Builder.() -> Unit)
+public class RenderOptions private constructor(builder: Builder) {
+  public val maximumFps: Int? = builder.maximumFps
+  public val tileLod: TileLodOptions = builder.tileLod
+
+  public constructor(from: RenderOptions = Standard, block: Builder.() -> Unit) :
+    this(Builder(from).apply(block))
+
+  // equals, hashCode, and toString
 
   @MapOptionsDsl
-  public class Builder internal constructor(from: RenderOptions) {
-    public var maximumFps: Int? = from.maximumFps
-    public var tileLod: TileLodOptions = from.tileLod
+  public class Builder internal constructor(from: RenderOptions?) {
+    public var maximumFps: Int? = from?.maximumFps
+    public var tileLod: TileLodOptions = from?.tileLod ?: TileLodOptions.Standard
   }
 
   public companion object {
-    public val Standard: RenderOptions
+    public val Standard: RenderOptions = RenderOptions(Builder(from = null))
   }
 }
 
@@ -259,8 +261,8 @@ val options = RenderOptions(from = RenderOptions.Standard) {
 - Don't take `State<T>` or `MutableState<T>`. Take a value, or a `() -> T`
   lambda for values that change often.
   [[2]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-component-api-guidelines.md#State_T_as-a-parameter)
-- Read a `CompositionLocal` only in a parameter's default value, not in the
-  implementation.
+- For a value callers might want to set, such as a theme color, read the
+  `CompositionLocal` in a parameter's default value, not in the implementation.
   [[2]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-component-api-guidelines.md#Explicit-vs-implicit-dependencies)
 - Group related settings into one options parameter (section 5) that defaults to
   a named preset.
@@ -315,8 +317,8 @@ public fun MapButton(
 
 ## 7. Callbacks
 
-- Take one parameter of a library type with an internal constructor, so that it
-  can gain fields.
+- Give a callback no parameters, or one parameter of a library type with an
+  internal constructor, so that the type can gain fields.
 - Don't give callbacks a receiver. Inside a callback with a receiver, `this`
   refers to the receiver instead of the enclosing class.
 - Name the callback parameters of composables `onX`.
@@ -478,18 +480,20 @@ val uptimeMillis: Long             // plain number, unit in the name
 
 ## 12. Stability and compatibility
 
-Within a major version, binary, source, and behavior compatibility are kept as
-follows.
+Within a major version, stable APIs (see Stability annotations) keep binary,
+source, and behavior compatibility:
 [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#compatibility-types)
 
 - Code compiled against an earlier release keeps linking and running.
-- Source code that uses stable APIs keeps compiling, except as the deprecation
-  cycle allows.
+- Source code keeps compiling, except for deprecated declarations and for a
+  `when` with no `else` branch over a type that may grow (section 4).
 - Documented behavior and serialized formats don't change.
+
+To keep these guarantees:
 
 - Don't widen or narrow a return type.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-widening-or-narrowing-return-types)
-- Use caution when adding a public `const val`, or `inline` function. Their
+- Use caution when adding a public `const val` or `inline` function. Their
   values and bodies are copied into callers' compiled code.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#considerations-for-using-the-publishedapi-annotation)
 - Don't remove targets from an annotation's `@Target`. Don't add
@@ -497,8 +501,8 @@ follows.
   one of the others, because existing uses on constructor properties could move
   to a different element.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-changing-annotation-targets)
-- Keep the field names of serialized classes. When renaming a field, keep the
-  old name readable with `@JsonNames`.
+- Keep the serialized names of fields. When renaming a property, keep its old
+  serialized name with `@SerialName`.
 
 ### Stability annotations
 
