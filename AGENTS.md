@@ -23,6 +23,9 @@ those sources.
 
 ## Development
 
+Public API follows the
+[API guidelines](docs/src/content/docs/api-guidelines.md).
+
 In code, use `Maplibre` and treat acronyms and initialisms as words (`Json`,
 `Ui`, `Url`). Use PascalCase for constants. Preserve required external API
 spellings. In prose, use established spellings such as MapLibre, JSON, and UI.
