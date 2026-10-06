@@ -26,7 +26,7 @@ internal class RotaryGesture(
         !verticalScrollPixels.isFinite()
     )
       return false
-    val scale = 2.0.pow(-verticalScrollPixels / notchPixels * binding.zoomStep)
+    val scale = 2.0.pow(-verticalScrollPixels / notchPixels * binding.zoomStepLevels)
     if (!scale.isFinite() || scale <= 0.0) return false
     if (burst.session?.token?.acceptsCommands == false) cancel()
 

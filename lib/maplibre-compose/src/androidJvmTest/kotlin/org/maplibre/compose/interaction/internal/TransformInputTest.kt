@@ -518,7 +518,7 @@ class TransformInputTest {
     fixture.runRecognitionTest(
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
-          camera { pan { momentum { minimumSpeed = 1.0 } } }
+          camera { pan { momentum { minimumSpeedDpPerSecond = 1.0 } } }
           bindings {
             drag {
               enabled = true
@@ -562,7 +562,7 @@ class TransformInputTest {
     fixture.runRecognitionTest(
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
-          camera { pan { momentum { minimumSpeed = 1.0 } } }
+          camera { pan { momentum { minimumSpeedDpPerSecond = 1.0 } } }
           bindings {
             transform {
               pan {

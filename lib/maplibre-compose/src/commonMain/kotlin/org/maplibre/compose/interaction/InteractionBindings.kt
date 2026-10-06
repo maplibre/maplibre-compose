@@ -326,14 +326,28 @@ public class TapBindingBuilder internal constructor(from: TapBinding) {
   }
 
   public var anchor: GestureAnchor = from.anchor
-  public var zoomStep: Double = from.zoomStep
+
+  /**
+   * Zoom levels that one [CameraAction.ZoomIn] or [CameraAction.ZoomOut] tap changes. One zoom
+   * level doubles or halves the map scale. Must be finite; negative values reverse the direction.
+   * Building the options throws [IllegalArgumentException] for a value that is not finite.
+   */
+  public var zoomStepLevels: Double = from.zoomStepLevels
 
   internal fun build(): TapBinding {
-    require(zoomStep.isFinite()) { "zoomStep must be finite" }
-    return TapBinding(enabled, pointerTypes?.toSet(), rows, anchor, zoomStep)
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
+    return TapBinding(enabled, pointerTypes?.toSet(), rows, anchor, zoomStepLevels)
   }
 }
 
+/**
+ * Key input and the camera steps that keys take. A press and release of a camera key moves the
+ * camera by one step. A held key moves one step per [MapInteractions.animationDuration], or one
+ * step per key repeat when that duration is zero.
+ *
+ * Each step must be finite; negative values reverse the key's direction. Building the options
+ * throws [IllegalArgumentException] for a step that is not finite.
+ */
 @MapInteractionDsl
 public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   public var enabled: Boolean = from.enabled
@@ -343,30 +357,53 @@ public class KeyBindingBuilder internal constructor(from: KeyBinding) {
     rows = KeyMappingsBuilder().apply(block).build()
   }
 
+  /** Screen distance that one step of a pan key moves the map. */
   public var panStep: Dp = from.panStep
-  public var zoomStep: Double = from.zoomStep
-  public var rotateStep: Double = from.rotateStep
-  public var pitchStep: Double = from.pitchStep
+
+  /**
+   * Zoom levels that one step of a zoom key changes. One zoom level doubles or halves the scale.
+   */
+  public var zoomStepLevels: Double = from.zoomStepLevels
+
+  /** Degrees that one step of a rotate key changes the bearing. */
+  public var bearingStepDegrees: Double = from.bearingStepDegrees
+
+  /** Degrees that one step of a pitch key changes the pitch. */
+  public var pitchStepDegrees: Double = from.pitchStepDegrees
 
   internal fun build(): KeyBinding {
     require(panStep.value.isFinite()) { "panStep must be finite" }
-    require(zoomStep.isFinite()) { "zoomStep must be finite" }
-    require(rotateStep.isFinite()) { "rotateStep must be finite" }
-    require(pitchStep.isFinite()) { "pitchStep must be finite" }
-    return KeyBinding(enabled, rows, panStep, zoomStep, rotateStep, pitchStep)
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
+    require(bearingStepDegrees.isFinite()) { "bearingStepDegrees must be finite" }
+    require(pitchStepDegrees.isFinite()) { "pitchStepDegrees must be finite" }
+    return KeyBinding(
+      enabled,
+      rows,
+      panStep,
+      zoomStepLevels,
+      bearingStepDegrees,
+      pitchStepDegrees,
+    )
   }
 }
 
+/** Zoom from rotary input, such as a watch crown. Only Android reports rotary input. */
 @MapInteractionDsl
 public class RotaryBindingBuilder internal constructor(from: RotaryBinding) {
   public var enabled: Boolean = from.enabled
-  public var zoomStep: Double = from.zoomStep
+
+  /**
+   * Zoom levels that one detent of rotary input changes. One zoom level doubles or halves the map
+   * scale. Must be finite; negative values reverse the direction. Building the options throws
+   * [IllegalArgumentException] for a value that is not finite.
+   */
+  public var zoomStepLevels: Double = from.zoomStepLevels
   public var idleDuration: Duration = from.idleDuration
 
   internal fun build(): RotaryBinding {
-    require(zoomStep.isFinite()) { "zoomStep must be finite" }
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
     requireNonnegativeFinite(idleDuration, "idleDuration")
-    return RotaryBinding(enabled, zoomStep, idleDuration)
+    return RotaryBinding(enabled, zoomStepLevels, idleDuration)
   }
 }
 

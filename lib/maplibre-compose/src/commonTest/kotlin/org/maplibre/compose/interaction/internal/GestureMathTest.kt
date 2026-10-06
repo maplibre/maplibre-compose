@@ -124,7 +124,7 @@ class GestureMathTest {
 
   @Test
   fun fling_tuning_preserves_screen_space_travel_and_zero_disables_it() {
-    assertNull(GestureMath.fling(1400.0, 0.0, PanMomentum(minimumSpeed = 1500.0)))
+    assertNull(GestureMath.fling(1400.0, 0.0, PanMomentum(minimumSpeedDpPerSecond = 1500.0)))
     val fling =
       assertNotNull(
         GestureMath.fling(
@@ -139,7 +139,7 @@ class GestureMathTest {
     assertEquals(unscaled.duration * 2, fling.duration)
     assertEquals(unscaled.offsetXDp * 2, fling.offsetXDp, 1e-10)
     assertNull(GestureMath.fling(1050.0, 0.0, PanMomentum(durationScale = 0.0)))
-    assertNull(GestureMath.fling(0.0, 0.0, PanMomentum(minimumSpeed = 0.0)))
+    assertNull(GestureMath.fling(0.0, 0.0, PanMomentum(minimumSpeedDpPerSecond = 0.0)))
     assertNull(GestureMath.fling(Double.NaN, 0.0))
   }
 
@@ -169,7 +169,7 @@ class GestureMathTest {
 
   @Test
   fun pitch_momentum_preserves_direction_and_obeys_configured_threshold_and_duration() {
-    val settings = PitchMomentum(minimumSpeed = 8.0, duration = 200.milliseconds)
+    val settings = PitchMomentum(minimumSpeedDegreesPerSecond = 8.0, duration = 200.milliseconds)
     assertNull(GestureMath.pitchVelocity(7.0, settings))
     val forward = assertNotNull(GestureMath.pitchVelocity(10.0, settings))
     val backward = assertNotNull(GestureMath.pitchVelocity(-10.0, settings))
@@ -181,6 +181,6 @@ class GestureMathTest {
     assertTrue(longer.pitchDelta > forward.pitchDelta)
     assertEquals(400.milliseconds, longer.duration)
     assertNull(GestureMath.pitchVelocity(10.0, settings.copy(duration = Duration.ZERO)))
-    assertNull(GestureMath.pitchVelocity(0.0, settings.copy(minimumSpeed = 0.0)))
+    assertNull(GestureMath.pitchVelocity(0.0, settings.copy(minimumSpeedDegreesPerSecond = 0.0)))
   }
 }

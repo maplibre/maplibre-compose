@@ -134,7 +134,8 @@ internal object GestureMath {
   ): Fling? {
     if (!continuation.enabled) return null
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)
-    if (!velocity.isFinite() || velocity == 0.0 || velocity < continuation.minimumSpeed) return null
+    if (!velocity.isFinite() || velocity == 0.0 || velocity < continuation.minimumSpeedDpPerSecond)
+      return null
     val durationMillis =
       ((velocity / 10.5 + continuation.baseTime.inWholeMilliseconds) * continuation.durationScale)
         .toLong()
@@ -209,7 +210,7 @@ internal object GestureMath {
       !continuation.enabled ||
         !degreesPerSecond.isFinite() ||
         degreesPerSecond == 0.0 ||
-        abs(degreesPerSecond) < continuation.minimumSpeed ||
+        abs(degreesPerSecond) < continuation.minimumSpeedDegreesPerSecond ||
         continuation.duration == Duration.ZERO
     )
       return null

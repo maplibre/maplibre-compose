@@ -160,7 +160,8 @@ class MapInteractionsTest {
   @Test
   fun mappings_are_replaced_and_tuning_does_not_restore_them() {
     val cleared = InputConfiguration { bindings { doubleTap { mappings {} } } }
-    val tuned = InputConfiguration(from = cleared) { bindings { doubleTap { zoomStep = 2.0 } } }
+    val tuned =
+      InputConfiguration(from = cleared) { bindings { doubleTap { zoomStepLevels = 2.0 } } }
     assertTrue(tuned.bindings.doubleTap.mappings.isEmpty())
     assertTrue(tuned.bindings.doubleTap.enabled)
     assertEquals(InputConfiguration.Standard.bindings.drag.mappings, tuned.bindings.drag.mappings)

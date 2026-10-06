@@ -1469,21 +1469,21 @@ final class org.maplibre.compose.interaction/InteractionCallbacksBuilder { // or
 }
 
 final class org.maplibre.compose.interaction/KeyBindingBuilder { // org.maplibre.compose.interaction/KeyBindingBuilder|null[0]
+    final var bearingStepDegrees // org.maplibre.compose.interaction/KeyBindingBuilder.bearingStepDegrees|{}bearingStepDegrees[0]
+        final fun <get-bearingStepDegrees>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.bearingStepDegrees.<get-bearingStepDegrees>|<get-bearingStepDegrees>(){}[0]
+        final fun <set-bearingStepDegrees>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.bearingStepDegrees.<set-bearingStepDegrees>|<set-bearingStepDegrees>(kotlin.Double){}[0]
     final var enabled // org.maplibre.compose.interaction/KeyBindingBuilder.enabled|{}enabled[0]
         final fun <get-enabled>(): kotlin/Boolean // org.maplibre.compose.interaction/KeyBindingBuilder.enabled.<get-enabled>|<get-enabled>(){}[0]
         final fun <set-enabled>(kotlin/Boolean) // org.maplibre.compose.interaction/KeyBindingBuilder.enabled.<set-enabled>|<set-enabled>(kotlin.Boolean){}[0]
     final var panStep // org.maplibre.compose.interaction/KeyBindingBuilder.panStep|{}panStep[0]
         final fun <get-panStep>(): androidx.compose.ui.unit/Dp // org.maplibre.compose.interaction/KeyBindingBuilder.panStep.<get-panStep>|<get-panStep>(){}[0]
         final fun <set-panStep>(androidx.compose.ui.unit/Dp) // org.maplibre.compose.interaction/KeyBindingBuilder.panStep.<set-panStep>|<set-panStep>(androidx.compose.ui.unit.Dp){}[0]
-    final var pitchStep // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStep|{}pitchStep[0]
-        final fun <get-pitchStep>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStep.<get-pitchStep>|<get-pitchStep>(){}[0]
-        final fun <set-pitchStep>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStep.<set-pitchStep>|<set-pitchStep>(kotlin.Double){}[0]
-    final var rotateStep // org.maplibre.compose.interaction/KeyBindingBuilder.rotateStep|{}rotateStep[0]
-        final fun <get-rotateStep>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.rotateStep.<get-rotateStep>|<get-rotateStep>(){}[0]
-        final fun <set-rotateStep>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.rotateStep.<set-rotateStep>|<set-rotateStep>(kotlin.Double){}[0]
-    final var zoomStep // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStep|{}zoomStep[0]
-        final fun <get-zoomStep>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStep.<get-zoomStep>|<get-zoomStep>(){}[0]
-        final fun <set-zoomStep>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStep.<set-zoomStep>|<set-zoomStep>(kotlin.Double){}[0]
+    final var pitchStepDegrees // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStepDegrees|{}pitchStepDegrees[0]
+        final fun <get-pitchStepDegrees>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStepDegrees.<get-pitchStepDegrees>|<get-pitchStepDegrees>(){}[0]
+        final fun <set-pitchStepDegrees>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.pitchStepDegrees.<set-pitchStepDegrees>|<set-pitchStepDegrees>(kotlin.Double){}[0]
+    final var zoomStepLevels // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStepLevels|{}zoomStepLevels[0]
+        final fun <get-zoomStepLevels>(): kotlin/Double // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStepLevels.<get-zoomStepLevels>|<get-zoomStepLevels>(){}[0]
+        final fun <set-zoomStepLevels>(kotlin/Double) // org.maplibre.compose.interaction/KeyBindingBuilder.zoomStepLevels.<set-zoomStepLevels>|<set-zoomStepLevels>(kotlin.Double){}[0]
 
     final fun mappings(kotlin/Function1<org.maplibre.compose.interaction/KeyMappingsBuilder, kotlin/Unit>) // org.maplibre.compose.interaction/KeyBindingBuilder.mappings|mappings(kotlin.Function1<org.maplibre.compose.interaction.KeyMappingsBuilder,kotlin.Unit>){}[0]
 }
@@ -1542,9 +1542,9 @@ final class org.maplibre.compose.interaction/PanMomentumBuilder { // org.maplibr
     final var enabled // org.maplibre.compose.interaction/PanMomentumBuilder.enabled|{}enabled[0]
         final fun <get-enabled>(): kotlin/Boolean // org.maplibre.compose.interaction/PanMomentumBuilder.enabled.<get-enabled>|<get-enabled>(){}[0]
         final fun <set-enabled>(kotlin/Boolean) // org.maplibre.compose.interaction/PanMomentumBuilder.enabled.<set-enabled>|<set-enabled>(kotlin.Boolean){}[0]
-    final var minimumSpeed // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeed|{}minimumSpeed[0]
-        final fun <get-minimumSpeed>(): kotlin/Double // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeed.<get-minimumSpeed>|<get-minimumSpeed>(){}[0]
-        final fun <set-minimumSpeed>(kotlin/Double) // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeed.<set-minimumSpeed>|<set-minimumSpeed>(kotlin.Double){}[0]
+    final var minimumSpeedDpPerSecond // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeedDpPerSecond|{}minimumSpeedDpPerSecond[0]
+        final fun <get-minimumSpeedDpPerSecond>(): kotlin/Double // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeedDpPerSecond.<get-minimumSpeedDpPerSecond>|<get-minimumSpeedDpPerSecond>(){}[0]
+        final fun <set-minimumSpeedDpPerSecond>(kotlin/Double) // org.maplibre.compose.interaction/PanMomentumBuilder.minimumSpeedDpPerSecond.<set-minimumSpeedDpPerSecond>|<set-minimumSpeedDpPerSecond>(kotlin.Double){}[0]
 }
 
 final class org.maplibre.compose.interaction/PitchCameraBuilder { // org.maplibre.compose.interaction/PitchCameraBuilder|null[0]
@@ -1563,9 +1563,9 @@ final class org.maplibre.compose.interaction/PitchMomentumBuilder { // org.mapli
     final var enabled // org.maplibre.compose.interaction/PitchMomentumBuilder.enabled|{}enabled[0]
         final fun <get-enabled>(): kotlin/Boolean // org.maplibre.compose.interaction/PitchMomentumBuilder.enabled.<get-enabled>|<get-enabled>(){}[0]
         final fun <set-enabled>(kotlin/Boolean) // org.maplibre.compose.interaction/PitchMomentumBuilder.enabled.<set-enabled>|<set-enabled>(kotlin.Boolean){}[0]
-    final var minimumSpeed // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeed|{}minimumSpeed[0]
-        final fun <get-minimumSpeed>(): kotlin/Double // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeed.<get-minimumSpeed>|<get-minimumSpeed>(){}[0]
-        final fun <set-minimumSpeed>(kotlin/Double) // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeed.<set-minimumSpeed>|<set-minimumSpeed>(kotlin.Double){}[0]
+    final var minimumSpeedDegreesPerSecond // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeedDegreesPerSecond|{}minimumSpeedDegreesPerSecond[0]
+        final fun <get-minimumSpeedDegreesPerSecond>(): kotlin/Double // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeedDegreesPerSecond.<get-minimumSpeedDegreesPerSecond>|<get-minimumSpeedDegreesPerSecond>(){}[0]
+        final fun <set-minimumSpeedDegreesPerSecond>(kotlin/Double) // org.maplibre.compose.interaction/PitchMomentumBuilder.minimumSpeedDegreesPerSecond.<set-minimumSpeedDegreesPerSecond>|<set-minimumSpeedDegreesPerSecond>(kotlin.Double){}[0]
 }
 
 final class org.maplibre.compose.interaction/RotaryBindingBuilder { // org.maplibre.compose.interaction/RotaryBindingBuilder|null[0]
@@ -1575,9 +1575,9 @@ final class org.maplibre.compose.interaction/RotaryBindingBuilder { // org.mapli
     final var idleDuration // org.maplibre.compose.interaction/RotaryBindingBuilder.idleDuration|{}idleDuration[0]
         final fun <get-idleDuration>(): kotlin.time/Duration // org.maplibre.compose.interaction/RotaryBindingBuilder.idleDuration.<get-idleDuration>|<get-idleDuration>(){}[0]
         final fun <set-idleDuration>(kotlin.time/Duration) // org.maplibre.compose.interaction/RotaryBindingBuilder.idleDuration.<set-idleDuration>|<set-idleDuration>(kotlin.time.Duration){}[0]
-    final var zoomStep // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStep|{}zoomStep[0]
-        final fun <get-zoomStep>(): kotlin/Double // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStep.<get-zoomStep>|<get-zoomStep>(){}[0]
-        final fun <set-zoomStep>(kotlin/Double) // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStep.<set-zoomStep>|<set-zoomStep>(kotlin.Double){}[0]
+    final var zoomStepLevels // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStepLevels|{}zoomStepLevels[0]
+        final fun <get-zoomStepLevels>(): kotlin/Double // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStepLevels.<get-zoomStepLevels>|<get-zoomStepLevels>(){}[0]
+        final fun <set-zoomStepLevels>(kotlin/Double) // org.maplibre.compose.interaction/RotaryBindingBuilder.zoomStepLevels.<set-zoomStepLevels>|<set-zoomStepLevels>(kotlin.Double){}[0]
 }
 
 final class org.maplibre.compose.interaction/RotateCameraBuilder { // org.maplibre.compose.interaction/RotateCameraBuilder|null[0]
@@ -1626,9 +1626,9 @@ final class org.maplibre.compose.interaction/TapBindingBuilder { // org.maplibre
     final var pointerTypes // org.maplibre.compose.interaction/TapBindingBuilder.pointerTypes|{}pointerTypes[0]
         final fun <get-pointerTypes>(): kotlin.collections/Set<androidx.compose.ui.input.pointer/PointerType>? // org.maplibre.compose.interaction/TapBindingBuilder.pointerTypes.<get-pointerTypes>|<get-pointerTypes>(){}[0]
         final fun <set-pointerTypes>(kotlin.collections/Set<androidx.compose.ui.input.pointer/PointerType>?) // org.maplibre.compose.interaction/TapBindingBuilder.pointerTypes.<set-pointerTypes>|<set-pointerTypes>(kotlin.collections.Set<androidx.compose.ui.input.pointer.PointerType>?){}[0]
-    final var zoomStep // org.maplibre.compose.interaction/TapBindingBuilder.zoomStep|{}zoomStep[0]
-        final fun <get-zoomStep>(): kotlin/Double // org.maplibre.compose.interaction/TapBindingBuilder.zoomStep.<get-zoomStep>|<get-zoomStep>(){}[0]
-        final fun <set-zoomStep>(kotlin/Double) // org.maplibre.compose.interaction/TapBindingBuilder.zoomStep.<set-zoomStep>|<set-zoomStep>(kotlin.Double){}[0]
+    final var zoomStepLevels // org.maplibre.compose.interaction/TapBindingBuilder.zoomStepLevels|{}zoomStepLevels[0]
+        final fun <get-zoomStepLevels>(): kotlin/Double // org.maplibre.compose.interaction/TapBindingBuilder.zoomStepLevels.<get-zoomStepLevels>|<get-zoomStepLevels>(){}[0]
+        final fun <set-zoomStepLevels>(kotlin/Double) // org.maplibre.compose.interaction/TapBindingBuilder.zoomStepLevels.<set-zoomStepLevels>|<set-zoomStepLevels>(kotlin.Double){}[0]
 
     final fun mappings(kotlin/Function1<org.maplibre.compose.interaction/TapMappingsBuilder, kotlin/Unit>) // org.maplibre.compose.interaction/TapBindingBuilder.mappings|mappings(kotlin.Function1<org.maplibre.compose.interaction.TapMappingsBuilder,kotlin.Unit>){}[0]
 }
