@@ -220,6 +220,12 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var modifiers: ModifierMatch? = from.modifiers
   public var startSlop: Dp = from.startSlop
   public var anchor: GestureAnchor = from.anchor
+
+  /**
+   * Which vertical drag direction zooms in. The default follows the platform's usual map app:
+   * [QuickZoomDirection.UpZoomsIn] on iOS, as in Apple Maps, and [QuickZoomDirection.DownZoomsIn]
+   * on Android, the browser, and desktop, including macOS, as in Google Maps.
+   */
   public var direction: QuickZoomDirection = from.direction
   public var zoomLevelsPerViewport: Double = from.zoomLevelsPerViewport
 

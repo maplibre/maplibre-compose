@@ -6,8 +6,14 @@ public enum class GestureAnchor {
   CameraCenter,
 }
 
-/** The sign of vertical displacement used by quick zoom. */
+/**
+ * Which vertical drag direction zooms in during quick zoom: tap, then press again and drag up or
+ * down.
+ */
 public enum class QuickZoomDirection {
+  /** Dragging down zooms in and dragging up zooms out, as in Google Maps. */
   DownZoomsIn,
+
+  /** Dragging up zooms in and dragging down zooms out, as in Apple Maps. */
   UpZoomsIn,
 }
