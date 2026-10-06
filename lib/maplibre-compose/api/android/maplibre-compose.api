@@ -1445,14 +1445,39 @@ public final class org/maplibre/compose/interaction/KeyMappingsBuilder {
 	public final fun otherwise (Lorg/maplibre/compose/interaction/KeyAction;)V
 }
 
-public final class org/maplibre/compose/interaction/KeyModifier : java/lang/Enum {
-	public static final field Alt Lorg/maplibre/compose/interaction/KeyModifier;
-	public static final field Ctrl Lorg/maplibre/compose/interaction/KeyModifier;
-	public static final field Meta Lorg/maplibre/compose/interaction/KeyModifier;
-	public static final field Shift Lorg/maplibre/compose/interaction/KeyModifier;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/interaction/KeyModifier;
-	public static fun values ()[Lorg/maplibre/compose/interaction/KeyModifier;
+public abstract interface class org/maplibre/compose/interaction/KeyModifier {
+}
+
+public final class org/maplibre/compose/interaction/KeyModifier$Alt : org/maplibre/compose/interaction/KeyModifier {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/KeyModifier$Alt;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/KeyModifier$Ctrl : org/maplibre/compose/interaction/KeyModifier {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/KeyModifier$Ctrl;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/KeyModifier$Meta : org/maplibre/compose/interaction/KeyModifier {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/KeyModifier$Meta;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/KeyModifier$Shift : org/maplibre/compose/interaction/KeyModifier {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/KeyModifier$Shift;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/LongClickCallbackBuilder {
@@ -1547,15 +1572,47 @@ public final class org/maplibre/compose/interaction/PitchMomentumBuilder {
 	public final fun setMinimumSpeedDegreesPerSecond (D)V
 }
 
-public final class org/maplibre/compose/interaction/PointerButton : java/lang/Enum {
-	public static final field Back Lorg/maplibre/compose/interaction/PointerButton;
-	public static final field Forward Lorg/maplibre/compose/interaction/PointerButton;
-	public static final field Primary Lorg/maplibre/compose/interaction/PointerButton;
-	public static final field Secondary Lorg/maplibre/compose/interaction/PointerButton;
-	public static final field Tertiary Lorg/maplibre/compose/interaction/PointerButton;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/interaction/PointerButton;
-	public static fun values ()[Lorg/maplibre/compose/interaction/PointerButton;
+public abstract interface class org/maplibre/compose/interaction/PointerButton {
+}
+
+public final class org/maplibre/compose/interaction/PointerButton$Back : org/maplibre/compose/interaction/PointerButton {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/PointerButton$Back;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/PointerButton$Forward : org/maplibre/compose/interaction/PointerButton {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/PointerButton$Forward;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/PointerButton$Primary : org/maplibre/compose/interaction/PointerButton {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/PointerButton$Primary;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/PointerButton$Secondary : org/maplibre/compose/interaction/PointerButton {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/PointerButton$Secondary;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/PointerButton$Tertiary : org/maplibre/compose/interaction/PointerButton {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/interaction/PointerButton$Tertiary;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/QuickZoomDirection : java/lang/Enum {
