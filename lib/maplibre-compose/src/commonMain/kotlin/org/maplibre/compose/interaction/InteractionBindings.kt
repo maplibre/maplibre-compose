@@ -361,7 +361,8 @@ public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   public var panStep: Dp = from.panStep
 
   /**
-   * Zoom levels that one step of a zoom key changes. One zoom level doubles or halves the scale.
+   * Zoom levels that one step of a zoom key changes. One zoom level doubles or halves the map
+   * scale.
    */
   public var zoomStepLevels: Double = from.zoomStepLevels
 
@@ -393,7 +394,7 @@ public class RotaryBindingBuilder internal constructor(from: RotaryBinding) {
   public var enabled: Boolean = from.enabled
 
   /**
-   * Zoom levels that one detent of rotary input changes. One zoom level doubles or halves the map
+   * Zoom levels that one notch of rotary input changes. One zoom level doubles or halves the map
    * scale. Must be finite; negative values reverse the direction. Building the options throws
    * [IllegalArgumentException] for a value that is not finite.
    */
