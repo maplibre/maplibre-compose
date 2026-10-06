@@ -5,6 +5,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -419,14 +421,23 @@ internal open class MlnFfiStyleBinding(
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-vector-$sourceId",
         binding = this,
-        load = provider::loadTile,
+        load = { tile ->
+          try {
+            provider.loadTile(tile)
+          } catch (error: Throwable) {
+            rethrowIfFatal(error)
+            // A cancelled job means the request ended. The provider's own cancellation, such as a
+            // timeout, leaves the job active and fails like any other exception.
+            if (error is CancellationException) currentCoroutineContext().ensureActive()
+            // Logged here rather than in `fail`, which a cancelled or replaced request skips.
+            // MapLibre logs the tile error as an error with the message alone; this record
+            // carries the exception.
+            logger?.w(error) { "Custom vector tile source '$sourceId' failed to load $tile" }
+            throw error
+          }
+        },
         deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
-          // MapLibre logs the tile error as an error with the message alone; this record carries
-          // the exception.
-          logger?.w(error) {
-            "Custom vector tile source '$sourceId' failed to load ${tile.toTileCoordinate()}"
-          }
           map.setCustomMvtVectorSourceTileError(
             sourceId,
             tile,
