@@ -3777,32 +3777,43 @@ public final class org/maplibre/compose/sources/TileCoordinate {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/sources/TileCoordinateSystem : java/lang/Enum {
-	public static final field Tms Lorg/maplibre/compose/sources/TileCoordinateSystem;
-	public static final field Xyz Lorg/maplibre/compose/sources/TileCoordinateSystem;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/sources/TileCoordinateSystem;
-	public static fun values ()[Lorg/maplibre/compose/sources/TileCoordinateSystem;
+public final class org/maplibre/compose/sources/TileScheme {
+	public static final field Companion Lorg/maplibre/compose/sources/TileScheme$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/sources/TileScheme;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/sources/TileScheme$Companion {
+	public final fun getTms-r0EGEHY ()Ljava/lang/String;
+	public final fun getXyz-r0EGEHY ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/sources/TileSetOptions {
 	public static final field $stable I
 	public fun <init> ()V
-	public fun <init> (IILorg/maplibre/compose/sources/TileCoordinateSystem;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;)V
-	public synthetic fun <init> (IILorg/maplibre/compose/sources/TileCoordinateSystem;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (IILjava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (IILjava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()I
-	public final fun component3 ()Lorg/maplibre/compose/sources/TileCoordinateSystem;
+	public final fun component3-r0EGEHY ()Ljava/lang/String;
 	public final fun component4 ()Lorg/maplibre/spatialk/geojson/BoundingBox;
 	public final fun component5 ()Ljava/lang/String;
-	public final fun copy (IILorg/maplibre/compose/sources/TileCoordinateSystem;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;)Lorg/maplibre/compose/sources/TileSetOptions;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/sources/TileSetOptions;IILorg/maplibre/compose/sources/TileCoordinateSystem;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;ILjava/lang/Object;)Lorg/maplibre/compose/sources/TileSetOptions;
+	public final fun copy-69qC_MA (IILjava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;)Lorg/maplibre/compose/sources/TileSetOptions;
+	public static synthetic fun copy-69qC_MA$default (Lorg/maplibre/compose/sources/TileSetOptions;IILjava/lang/String;Lorg/maplibre/spatialk/geojson/BoundingBox;Ljava/lang/String;ILjava/lang/Object;)Lorg/maplibre/compose/sources/TileSetOptions;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAttributionHtml ()Ljava/lang/String;
 	public final fun getBoundingBox ()Lorg/maplibre/spatialk/geojson/BoundingBox;
 	public final fun getMaxZoom ()I
 	public final fun getMinZoom ()I
-	public final fun getTileCoordinateSystem ()Lorg/maplibre/compose/sources/TileCoordinateSystem;
+	public final fun getScheme-r0EGEHY ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

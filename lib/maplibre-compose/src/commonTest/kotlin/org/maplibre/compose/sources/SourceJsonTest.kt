@@ -37,7 +37,7 @@ class SourceJsonTest {
         TileSetOptions(
           minZoom = 3,
           maxZoom = 14,
-          tileCoordinateSystem = TileCoordinateSystem.Tms,
+          scheme = TileScheme.Tms,
           boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0)),
           attributionHtml = "© someone",
         )
@@ -74,7 +74,7 @@ class SourceJsonTest {
             TileSetOptions(
               minZoom = 2,
               maxZoom = 12,
-              tileCoordinateSystem = TileCoordinateSystem.Tms,
+              scheme = TileScheme.Tms,
               boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0)),
               attributionHtml = "© someone",
             ),

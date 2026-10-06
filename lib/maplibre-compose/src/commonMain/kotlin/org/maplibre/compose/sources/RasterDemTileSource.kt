@@ -43,9 +43,9 @@ public class RasterDemTileSource : Source {
   /**
    * @param id Unique identifier for this source
    * @param tiles List of URIs pointing to tile images
-   * @param options see [TileSetOptions]. [TileSetOptions.tileCoordinateSystem] is a vector and
-   *   raster key; a raster-dem source has no `scheme` in the style spec. MapLibre Native still
-   *   honours TMS; adding such a source to a MapLibre GL JS map fails.
+   * @param options see [TileSetOptions]. [TileSetOptions.scheme] is a vector and raster key; a
+   *   raster-dem source has no `scheme` in the style spec. MapLibre Native still honours TMS;
+   *   adding such a source to a MapLibre GL JS map fails.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source. Defaults to 512, the style spec default.
    * @param demEncoding The encoding used by this source. Mapbox Terrain RGB is used by default.
@@ -106,13 +106,10 @@ internal fun rasterDemSourceJson(
   demEncoding: RasterDemEncoding,
   capabilities: RasterDemCapabilities,
 ): JsonObject {
-  if (
-    !capabilities.supportsRasterDemScheme &&
-      options.tileCoordinateSystem != TileCoordinateSystem.Xyz
-  ) {
+  if (!capabilities.supportsRasterDemScheme && options.scheme != TileScheme.Xyz) {
     throw StyleMutationException(
       "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
-        "TileCoordinateSystem.Xyz",
+        "TileScheme.Xyz",
       null,
     )
   }

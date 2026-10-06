@@ -24,13 +24,7 @@ internal fun JsonObjectBuilder.putTileSetOptions(
   put("minzoom", options.minZoom)
   put("maxzoom", options.maxZoom)
   if (includeScheme) {
-    put(
-      "scheme",
-      when (options.tileCoordinateSystem) {
-        TileCoordinateSystem.Xyz -> "xyz"
-        TileCoordinateSystem.Tms -> "tms"
-      },
-    )
+    put("scheme", options.scheme.value)
   }
   options.boundingBox?.let { box ->
     putJsonArray("bounds") {
