@@ -76,7 +76,7 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
 /**
  * Whether a location implementation has a usable platform backend.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  *
  * This describes application and backend setup. It does not describe location permission, system
  * location services, or whether the next request can obtain a measurement.
@@ -236,7 +236,7 @@ public enum class LocationUnavailableReason {
 /**
  * The accuracy level that the user authorized.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public enum class LocationAccuracyAuthorization {
   /** Fine location on Android or full accuracy on iOS. */
@@ -252,7 +252,7 @@ public enum class LocationAccuracyAuthorization {
 /**
  * Current foreground location authorization.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface LocationPermission {
   /**

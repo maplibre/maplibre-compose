@@ -6,7 +6,7 @@ import org.maplibre.compose.util.formatToString
 /**
  * A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public enum class PointerButton {
   Primary,
@@ -19,7 +19,7 @@ public enum class PointerButton {
 /**
  * Keyboard modifiers reported with an input sample.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public enum class KeyModifier {
   Shift,

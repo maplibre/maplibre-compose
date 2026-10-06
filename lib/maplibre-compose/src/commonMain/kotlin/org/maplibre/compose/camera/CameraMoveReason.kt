@@ -5,7 +5,7 @@ import androidx.compose.runtime.Immutable
 /**
  * What started the most recent camera movement.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @Immutable
 public enum class CameraMoveReason {

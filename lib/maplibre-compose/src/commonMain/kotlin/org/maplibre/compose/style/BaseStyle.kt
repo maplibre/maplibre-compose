@@ -11,7 +11,7 @@ import kotlinx.serialization.json.putJsonObject
 /**
  * A MapLibre style document for the map to load, given by [Uri] or inline as [Json].
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @Immutable
 public sealed interface BaseStyle {

@@ -24,7 +24,7 @@ public data class HeadingMeasurement(
 /**
  * North reference for a [HeadingMeasurement] bearing.
  *
- * Closed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public enum class HeadingReference {
   /** Geographic true north. */

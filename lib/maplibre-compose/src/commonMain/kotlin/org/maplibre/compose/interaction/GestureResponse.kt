@@ -14,7 +14,7 @@ public enum class GestureAnchor {
  * Which vertical drag direction zooms in during quick zoom: tap, then press again and drag up or
  * down.
  *
- * Closed.
+ * Closed. A vertical drag goes either up or down.
  */
 public enum class QuickZoomDirection {
   /** Dragging down zooms in and dragging up zooms out, as in Google Maps. */
