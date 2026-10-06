@@ -350,26 +350,26 @@ final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.comp
 }
 
 // Targets: [js]
-final class org.maplibre.compose.location/BrowserLocationPermissionRequester { // org.maplibre.compose.location/BrowserLocationPermissionRequester|null[0]
-    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/BrowserLocationPermissionRequester.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
+final class org.maplibre.compose.location/WebLocationPermissionRequester { // org.maplibre.compose.location/WebLocationPermissionRequester|null[0]
+    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/WebLocationPermissionRequester.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
 
-    final val backendAvailability // org.maplibre.compose.location/BrowserLocationPermissionRequester.backendAvailability|{}backendAvailability[0]
-        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/BrowserLocationPermissionRequester.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
-    final val status // org.maplibre.compose.location/BrowserLocationPermissionRequester.status|{}status[0]
-        final fun <get-status>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/BrowserLocationPermissionRequester.status.<get-status>|<get-status>(){}[0]
+    final val backendAvailability // org.maplibre.compose.location/WebLocationPermissionRequester.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/WebLocationPermissionRequester.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val status // org.maplibre.compose.location/WebLocationPermissionRequester.status|{}status[0]
+        final fun <get-status>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/WebLocationPermissionRequester.status.<get-status>|<get-status>(){}[0]
 
-    final fun requestForegroundPermission() // org.maplibre.compose.location/BrowserLocationPermissionRequester.requestForegroundPermission|requestForegroundPermission(){}[0]
+    final fun requestForegroundPermission() // org.maplibre.compose.location/WebLocationPermissionRequester.requestForegroundPermission|requestForegroundPermission(){}[0]
 }
 
 // Targets: [js]
-final class org.maplibre.compose.location/BrowserLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/BrowserLocationProvider|null[0]
-    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/BrowserLocationProvider.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
+final class org.maplibre.compose.location/WebLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/WebLocationProvider|null[0]
+    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/WebLocationProvider.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
 
-    final val backendAvailability // org.maplibre.compose.location/BrowserLocationProvider.backendAvailability|{}backendAvailability[0]
-        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/BrowserLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
-    final val permission // org.maplibre.compose.location/BrowserLocationProvider.permission|{}permission[0]
-        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/BrowserLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+    final val backendAvailability // org.maplibre.compose.location/WebLocationProvider.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/WebLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val permission // org.maplibre.compose.location/WebLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/WebLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
 
-    final fun requestPermission() // org.maplibre.compose.location/BrowserLocationProvider.requestPermission|requestPermission(){}[0]
-    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/BrowserLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+    final fun requestPermission() // org.maplibre.compose.location/WebLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/WebLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
 }

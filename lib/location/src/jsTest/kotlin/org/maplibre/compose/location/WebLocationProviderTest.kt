@@ -25,11 +25,11 @@ import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BrowserLocationProviderTest {
+class WebLocationProviderTest {
   @Test
   fun missingGeolocationMarksProviderUnsupported() = runTest {
     val boundary = FakeBrowserGeolocationBoundary(supported = false)
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
     assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
@@ -41,7 +41,7 @@ class BrowserLocationProviderTest {
   @Test
   fun watchMapsCoordinatesThrottlesUpdatesAndStopsOnCancellation() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     val request = LocationRequest(minimumInterval = 1.seconds)
 
@@ -73,7 +73,7 @@ class BrowserLocationProviderTest {
   @Test
   fun browserErrorsBecomeTypedEvents() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     runCurrent()
     backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
@@ -102,7 +102,7 @@ class BrowserLocationProviderTest {
   @Test
   fun nonFiniteHeadingsAreNotPublishedAsCourse() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
     runCurrent()
@@ -120,7 +120,7 @@ class BrowserLocationProviderTest {
   @Test
   fun firstFixAfterTransientErrorBypassesUpdateThrottle() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch {
       provider.updates(LocationRequest(minimumInterval = 10.seconds)).collect(events::add)
@@ -142,7 +142,7 @@ class BrowserLocationProviderTest {
   fun providerObservesAndExplicitlyRequestsPermission() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Prompt
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     runCurrent()
     assertEquals(LocationPermission.NotGranted(canRequest = true), provider.permission.value)
 
@@ -170,7 +170,7 @@ class BrowserLocationProviderTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Unknown
     boundary.requestPositionAction = { BrowserResult.Error(BrowserError.PositionUnavailable) }
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
     runCurrent()
 
@@ -192,7 +192,7 @@ class BrowserLocationProviderTest {
     boundary.permission.value = BrowserPermission.Prompt
     val result = CompletableDeferred<BrowserResult>()
     boundary.requestPositionAction = { result.await() }
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     runCurrent()
 
     provider.requestPermission()
@@ -217,7 +217,7 @@ class BrowserLocationProviderTest {
       if (fail) error("geolocation failed")
       position(milliseconds = 0, longitude = 0.0)
     }
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     runCurrent()
 
     provider.requestPermission()
@@ -238,7 +238,7 @@ class BrowserLocationProviderTest {
   fun collectionWaitsForPermissionInitialization() = runTest {
     val initialized = CompletableDeferred<Unit>()
     val boundary = FakeBrowserGeolocationBoundary(permissionInitialized = initialized)
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch { provider.updates().collect(events::add) }
     runCurrent()
@@ -264,7 +264,7 @@ class BrowserLocationProviderTest {
   @Test
   fun cancellingOneCollectorLeavesTheOtherWatchRunning() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val firstEvents = mutableListOf<LocationEvent>()
     val secondEvents = mutableListOf<LocationEvent>()
     val first = backgroundScope.launch { provider.updates().collect(firstEvents::add) }
@@ -292,7 +292,7 @@ class BrowserLocationProviderTest {
   fun failedWatchStartupReportsFailureAndCompletes() = runTest {
     val failure = IllegalStateException("watch unavailable")
     val boundary = FakeBrowserGeolocationBoundary().apply { startFailure = failure }
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch { provider.updates().collect(events::add) }
     runCurrent()
@@ -308,7 +308,7 @@ class BrowserLocationProviderTest {
     val initialized = CompletableDeferred<Unit>()
     val boundary = FakeBrowserGeolocationBoundary(permissionInitialized = initialized)
     boundary.requestPositionAction = { BrowserResult.Error(BrowserError.PermissionDenied) }
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch { provider.updates().collect(events::add) }
     runCurrent()
@@ -335,7 +335,7 @@ class BrowserLocationProviderTest {
   fun collectorRecoversAfterPermissionChangesWithoutPrompting() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Denied
-    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val provider = WebLocationProvider(boundary, backgroundScope)
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest()).collect(events::add)
