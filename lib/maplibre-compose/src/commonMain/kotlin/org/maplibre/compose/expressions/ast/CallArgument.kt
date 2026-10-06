@@ -6,8 +6,6 @@ import kotlinx.serialization.json.JsonElement
  * An argument to [call][org.maplibre.compose.expressions.dsl.call]: an [Expression], or a value
  * from [verbatim][org.maplibre.compose.expressions.dsl.verbatim] or
  * [options][org.maplibre.compose.expressions.dsl.options].
- *
- * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface CallArgument
 

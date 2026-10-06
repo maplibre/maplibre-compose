@@ -5,8 +5,6 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 /**
  * An [Expression] that evaluates to a value of type [T].
  *
- * Values may be added in minor releases; use an `else` branch when matching.
- *
  * The functions to create expressions are defined in the
  * [`org.maplibre.compose.expressions.dsl`](https://maplibre.org/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.expressions.dsl/index.html)
  * package.

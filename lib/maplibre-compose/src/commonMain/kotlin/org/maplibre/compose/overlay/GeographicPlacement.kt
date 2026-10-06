@@ -25,11 +25,7 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * Layout operations for direct children of a map overlay or [GeographicLayout].
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** Layout operations for direct children of a map overlay or [GeographicLayout]. */
 @Stable
 public sealed interface MapOverlayScope : BoxScope {
   /**
