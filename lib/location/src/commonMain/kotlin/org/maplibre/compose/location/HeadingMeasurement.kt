@@ -21,11 +21,7 @@ public data class HeadingMeasurement(
   val measuredAt: Instant,
 )
 
-/**
- * North reference for a [HeadingMeasurement] bearing.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** North reference for a [HeadingMeasurement] bearing. */
 public enum class HeadingReference {
   /** Geographic true north. */
   TrueNorth,

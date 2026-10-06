@@ -170,11 +170,7 @@ internal constructor(
   override fun toString(): String = "MapResourceLoadRequest(url=$url, kind=$kind)"
 }
 
-/**
- * The cause of a failed resource load. Each reason corresponds to an HTTP status.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** The cause of a failed resource load. Each reason corresponds to an HTTP status. */
 public enum class MapResourceError {
   /** A 404. */
   NotFound,

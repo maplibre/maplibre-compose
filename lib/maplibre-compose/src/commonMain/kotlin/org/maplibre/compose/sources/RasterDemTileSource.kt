@@ -134,11 +134,7 @@ internal fun rasterDemSourceJson(
   }
 }
 
-/**
- * The encoding used by a Raster DEM source.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** The encoding used by a Raster DEM source. */
 public sealed class RasterDemEncoding(internal val value: String) {
   /**
    * Mapbox Terrain RGB tiles. See

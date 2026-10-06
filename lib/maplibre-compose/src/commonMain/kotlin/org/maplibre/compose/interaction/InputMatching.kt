@@ -3,11 +3,7 @@ package org.maplibre.compose.interaction
 import androidx.compose.runtime.Immutable
 import org.maplibre.compose.util.formatToString
 
-/**
- * A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button. */
 public enum class PointerButton {
   Primary,
   Secondary,
@@ -16,11 +12,7 @@ public enum class PointerButton {
   Forward,
 }
 
-/**
- * Keyboard modifiers reported with an input sample.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** Keyboard modifiers reported with an input sample. */
 public enum class KeyModifier {
   Shift,
   Ctrl,

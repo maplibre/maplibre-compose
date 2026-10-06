@@ -1,10 +1,6 @@
 package org.maplibre.compose.offline
 
-/**
- * Indicates whether an [OfflinePack] is actively downloading or has completed its download.
- *
- * Values may be added in minor releases; use an `else` branch when matching.
- */
+/** Indicates whether an [OfflinePack] is actively downloading or has completed its download. */
 public enum class DownloadStatus {
   /** The pack is incomplete and is not downloading. */
   Paused,
