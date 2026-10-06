@@ -28,6 +28,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -94,8 +96,7 @@ object MapSnapshotterDemo : Demo {
       val height = (rect.height / density.density).roundToInt().coerceAtLeast(1)
       val request =
         MapSnapshotRequest(
-          width,
-          height,
+          DpSize(width.dp, height.dp),
           mapState.cameraPosition.copy(target = center),
           density =
             Density(

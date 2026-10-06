@@ -22,7 +22,8 @@ suspends until the image is ready:
 
 <Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
 
-The request size is in logical pixels. Pass `LocalDensity.current` and
+The request size is in dp, and the image is that size multiplied by the
+request's pixel density. Pass `LocalDensity.current` and
 `LocalLayoutDirection.current` from the calling composable to match the displayed
 map's sizing and layout direction.
 

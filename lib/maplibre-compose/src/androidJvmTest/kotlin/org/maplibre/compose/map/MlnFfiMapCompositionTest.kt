@@ -44,6 +44,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -644,7 +645,7 @@ class MlnFfiMapCompositionTest {
             evaluatorIdentities.size == 1
         }
         val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, content)
-        val image = snapshotter.capture(MapSnapshotRequest(width = 16, height = 16))
+        val image = snapshotter.capture(MapSnapshotRequest(DpSize(16.dp, 16.dp)))
 
         assertEquals(16, image.width)
         assertEquals(16, image.height)

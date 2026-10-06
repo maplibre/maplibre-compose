@@ -116,12 +116,14 @@ internal class GlJsSnapshotterAdapter(
    * Reads the viewport the next capture renders. GL JS adopts the resize and camera of [configure]
    * synchronously, and the loaded style's projection shapes the bounds, so this runs after both.
    */
-  private fun readViewport(map: MaplibreMap, request: MapSnapshotRequest): Viewport =
-    map.readViewport(
-      request.width.toDouble(),
-      request.height.toDouble(),
+  private fun readViewport(map: MaplibreMap, request: MapSnapshotRequest): Viewport {
+    val extent = request.extent()
+    return map.readViewport(
+      extent.width.toDouble(),
+      extent.height.toDouble(),
       viewportInsets = DpPadding.Zero.toPaddingOptions(),
     )
+  }
 
   override suspend fun capture(
     request: MapSnapshotRequest,
@@ -255,7 +257,8 @@ internal class GlJsSnapshotterAdapter(
   }
 
   private fun renderPixelRatio(request: MapSnapshotRequest): Double {
-    val minimumRatio = 1.0 / minOf(request.width, request.height)
+    val extent = request.extent()
+    val minimumRatio = 1.0 / minOf(extent.width, extent.height)
     return maxOf(request.density.density.toDouble(), minimumRatio)
   }
 
@@ -308,9 +311,6 @@ internal class GlJsSnapshotterAdapter(
     val body = document.asDynamic().body
     return if (body == null) null else body.unsafeCast<HTMLElement>()
   }
-
-  private fun MapSnapshotRequest.extent(): MapExtent =
-    MapExtent.fromLogical(width, height, density.density.toDouble())
 
   private companion object {
     const val MAX_CANVAS_SIZE = 4_096

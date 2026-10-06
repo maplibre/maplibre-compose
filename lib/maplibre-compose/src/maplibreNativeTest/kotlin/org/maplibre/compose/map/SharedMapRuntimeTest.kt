@@ -2,6 +2,8 @@
 
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
@@ -236,7 +238,7 @@ class SharedMapRuntimeTest {
                     it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
                   }
                 }
-                val capture = async { snapshot.capture(MapSnapshotRequest(32, 32)) }
+                val capture = async { snapshot.capture(MapSnapshotRequest(DpSize(32.dp, 32.dp))) }
                 val firstAnimation =
                   async(start = CoroutineStart.UNDISPATCHED) {
                     first.state.animateCamera(
@@ -275,7 +277,7 @@ class SharedMapRuntimeTest {
                 )
                 val gestureCapture =
                   async(start = CoroutineStart.UNDISPATCHED) {
-                    snapshot.capture(MapSnapshotRequest(32, 32))
+                    snapshot.capture(MapSnapshotRequest(DpSize(32.dp, 32.dp)))
                   }
                 val metadata =
                   async(start = CoroutineStart.UNDISPATCHED) {

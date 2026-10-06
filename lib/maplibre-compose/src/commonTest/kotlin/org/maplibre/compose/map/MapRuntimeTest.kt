@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -102,7 +104,7 @@ class MapRuntimeTest {
       runtime.createSnapshotter(BaseStyle.Empty)
     }
     assertFailsWith<IllegalStateException> {
-      snapshotter.capture(MapSnapshotRequest(1, 1))
+      snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
     }
     runtime.awaitClosed()
     assertTrue(resourcesClosed)

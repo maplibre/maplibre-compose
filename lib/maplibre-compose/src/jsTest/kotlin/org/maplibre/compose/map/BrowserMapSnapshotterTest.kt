@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.js.js
@@ -58,8 +59,7 @@ class BrowserMapSnapshotterTest {
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition =
                 CameraPosition(
                   target = Position(longitude = 0.0, latitude = 0.0),
@@ -112,8 +112,7 @@ class BrowserMapSnapshotterTest {
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition =
                 CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
             )
@@ -145,12 +144,12 @@ class BrowserMapSnapshotterTest {
     try {
       for ((request, size) in
         listOf(
-          MapSnapshotRequest(width = 32, height = 24) to (32 to 24),
-          MapSnapshotRequest(width = 96, height = 64, density = Density(2f)) to (192 to 128),
-          MapSnapshotRequest(width = 1, height = 1, density = Density(3f)) to (3 to 3),
-          MapSnapshotRequest(width = 31, height = 23, density = Density(1.25f)) to (39 to 29),
-          MapSnapshotRequest(width = 33, height = 25, density = Density(1.25f)) to (42 to 32),
-          MapSnapshotRequest(width = 1, height = 1, density = Density(0.5f)) to (1 to 1),
+          MapSnapshotRequest(DpSize(32.dp, 24.dp)) to (32 to 24),
+          MapSnapshotRequest(DpSize(96.dp, 64.dp), density = Density(2f)) to (192 to 128),
+          MapSnapshotRequest(DpSize(1.dp, 1.dp), density = Density(3f)) to (3 to 3),
+          MapSnapshotRequest(DpSize(31.dp, 23.dp), density = Density(1.25f)) to (39 to 29),
+          MapSnapshotRequest(DpSize(33.dp, 25.dp), density = Density(1.25f)) to (42 to 32),
+          MapSnapshotRequest(DpSize(1.dp, 1.dp), density = Density(0.5f)) to (1 to 1),
         )) {
         val captured = snapshotter.capture(request)
         assertEquals(size.first, captured.width, "width for $request")
@@ -174,16 +173,14 @@ class BrowserMapSnapshotterTest {
       val centered =
         snapshotter.capture(
           MapSnapshotRequest(
-            width = SIZE,
-            height = SIZE,
+            size = DpSize(SIZE.dp, SIZE.dp),
             cameraPosition = CameraPosition(zoom = 2.0),
           )
         )
       val shifted =
         snapshotter.capture(
           MapSnapshotRequest(
-            width = SIZE,
-            height = SIZE,
+            size = DpSize(SIZE.dp, SIZE.dp),
             cameraPosition =
               CameraPosition(
                 target = Position(longitude = 90.0, latitude = 0.0),
@@ -212,7 +209,7 @@ class BrowserMapSnapshotterTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val snapshotter = runtime.createSnapshotter(BASE_STYLE)
     try {
-      val captured = snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
+      val captured = snapshotter.capture(MapSnapshotRequest(DpSize(31.dp, 23.dp)))
       val target = assertNotNull(snapshotTargets().singleOrNull())
 
       assertEquals(31, captured.width)
@@ -236,9 +233,7 @@ class BrowserMapSnapshotterTest {
       try {
         val error =
           assertFailsWith<IllegalArgumentException> {
-            snapshotter.capture(
-              MapSnapshotRequest(width = 2_049, height = 1, density = Density(2f))
-            )
+            snapshotter.capture(MapSnapshotRequest(DpSize(2_049.dp, 1.dp), density = Density(2f)))
           }
 
         assertTrue(error.message.orEmpty().contains("4096px canvas limit"))
@@ -258,8 +253,7 @@ class BrowserMapSnapshotterTest {
     val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointIconStyle(icon))
     val request =
       MapSnapshotRequest(
-        width = SIZE,
-        height = SIZE,
+        size = DpSize(SIZE.dp, SIZE.dp),
         cameraPosition = CameraPosition(zoom = 2.0),
       )
     try {
@@ -287,12 +281,11 @@ class BrowserMapSnapshotterTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val snapshotter = runtime.createSnapshotter(EMPTY_STYLE)
     try {
-      val opaque = snapshotter.capture(MapSnapshotRequest(width = 8, height = 8))
+      val opaque = snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
       val transparent =
         snapshotter.capture(
           MapSnapshotRequest(
-            width = 8,
-            height = 8,
+            size = DpSize(8.dp, 8.dp),
             transparent = true,
           )
         )
@@ -326,7 +319,7 @@ class BrowserMapSnapshotterTest {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Uri(BLOCKED_STYLE_URI), POINT_STYLE)
       try {
         coroutineScope {
-          val capture = async { snapshotter.capture(MapSnapshotRequest(SIZE, SIZE)) }
+          val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp))) }
           waitUntilMap("the snapshot style request to start") {
             styleRequested && snapshotTargets().size == 1
           }
@@ -341,8 +334,7 @@ class BrowserMapSnapshotterTest {
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           )

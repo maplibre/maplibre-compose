@@ -14,7 +14,7 @@ internal class FakeSnapshotterAdapter(
     RecordingStyleBinding()
   },
   private val capture: suspend (MapSnapshotRequest, StyleSnapshot) -> ImageBitmap = { request, _ ->
-    FakeImageBitmap(request.width, request.height)
+    FakeImageBitmap(request.extent().width, request.extent().height)
   },
   private val cancel: suspend () -> SnapshotterEngineDisposition = {
     SnapshotterEngineDisposition.Retained

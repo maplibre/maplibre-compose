@@ -13,6 +13,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,7 +42,7 @@ class PointerPinButtonTest {
           override fun screenLocationFromPosition(position: Position) =
             DpOffset(position.longitude.dp, position.latitude.dp)
         }
-        .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
+        .apply { currentViewport = viewportFor(MapSnapshotRequest(DpSize(300.dp, 300.dp))) }
     map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     setContent {
       MapOverlayHost(

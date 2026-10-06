@@ -29,6 +29,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -60,7 +61,7 @@ class MapOverlayTest {
     val map = runtime.createMapState(BaseStyle.Empty)
     val adapter =
       PresentationTestAdapter().apply {
-        currentViewport = viewportFor(MapSnapshotRequest(300, 300))
+        currentViewport = viewportFor(MapSnapshotRequest(DpSize(300.dp, 300.dp)))
       }
     map.publishPresentation(map.reservePresentation(), adapter)
     var overlayCompositions = 0
@@ -79,7 +80,7 @@ class MapOverlayTest {
     val initialCompositions = overlayCompositions
     assertEquals(300.dp, observedWidth)
     runOnIdle {
-      adapter.currentViewport = viewportFor(MapSnapshotRequest(400, 300))
+      adapter.currentViewport = viewportFor(MapSnapshotRequest(DpSize(400.dp, 300.dp)))
       map.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoved)
     }
     waitForIdle()
@@ -99,7 +100,7 @@ class MapOverlayTest {
         object : PresentationTestAdapter() {
             override fun screenLocationFromPosition(position: Position) = DpOffset(x, 100.dp)
           }
-          .apply { currentViewport = viewportFor(MapSnapshotRequest(x.value.toInt() + 200, 300)) }
+          .apply { currentViewport = viewportFor(MapSnapshotRequest(DpSize(x + 200.dp, 300.dp))) }
       map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     }
     var outer by mutableStateOf(first)
@@ -255,7 +256,7 @@ class MapOverlayTest {
           override fun screenLocationFromPosition(position: Position) =
             DpOffset(position.longitude.dp, position.latitude.dp)
         }
-        .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
+        .apply { currentViewport = viewportFor(MapSnapshotRequest(DpSize(300.dp, 300.dp))) }
     map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     var offset by mutableStateOf(20.dp)
     val towards = PlacedTowardsState()
@@ -303,7 +304,7 @@ class MapOverlayTest {
         object : PresentationTestAdapter() {
             override fun screenLocationFromPosition(position: Position) = DpOffset(100.dp, 100.dp)
           }
-          .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
+          .apply { currentViewport = viewportFor(MapSnapshotRequest(DpSize(300.dp, 300.dp))) }
       map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
       setUnitDensityContent {
         MapOverlayHost(
@@ -377,7 +378,7 @@ class MapOverlayTest {
           override fun screenLocationFromPosition(position: Position) =
             DpOffset(position.longitude.dp, position.latitude.dp)
         }
-        .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
+        .apply { currentViewport = viewportFor(MapSnapshotRequest(DpSize(300.dp, 300.dp))) }
     map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
     val first = PlacedTowardsState()
     val second = PlacedTowardsState()

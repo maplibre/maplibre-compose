@@ -11,9 +11,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.roundToInt
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellableContinuation
@@ -41,10 +45,12 @@ import org.maplibre.compose.util.MaplibreComposable
 
 /** Immutable inputs for one snapshot capture. */
 public data class MapSnapshotRequest(
-  /** Viewport width in logical pixels. */
-  public val width: Int,
-  /** Viewport height in logical pixels. */
-  public val height: Int,
+  /**
+   * Size of the captured map. MapLibre lays out maps in whole dp, so each dimension is rounded to
+   * the nearest whole dp, and to at least 1 dp. Each image dimension in pixels is the rounded size
+   * multiplied by [density], rounded up.
+   */
+  public val size: DpSize,
   /** Camera position used for this capture. */
   public val cameraPosition: CameraPosition = CameraPosition(),
   /** Pixel density for rendering and font scale for style composition. */
@@ -55,16 +61,33 @@ public data class MapSnapshotRequest(
   public val transparent: Boolean = false,
 ) {
   init {
-    require(width > 0) { "Snapshot width must be positive" }
-    require(height > 0) { "Snapshot height must be positive" }
+    require(size.width.value.isFinite() && size.width > 0.dp) {
+      "Snapshot width must be finite and positive, was ${size.width}"
+    }
+    require(size.height.value.isFinite() && size.height > 0.dp) {
+      "Snapshot height must be finite and positive, was ${size.height}"
+    }
     require(density.density.isFinite() && density.density > 0f) {
-      "Snapshot density must be finite and positive"
+      "Snapshot density must be finite and positive, was ${density.density}"
     }
     require(density.fontScale.isFinite() && density.fontScale > 0f) {
-      "Snapshot font scale must be finite and positive"
+      "Snapshot font scale must be finite and positive, was ${density.fontScale}"
     }
   }
 }
+
+/**
+ * The engine map extent for this request: [MapSnapshotRequest.size] in whole logical pixels, at
+ * [MapSnapshotRequest.density].
+ */
+internal fun MapSnapshotRequest.extent(): MapExtent =
+  MapExtent.fromLogical(
+    size.width.wholeLogicalPixels(),
+    size.height.wholeLogicalPixels(),
+    density.density.toDouble(),
+  )
+
+private fun Dp.wholeLogicalPixels(): Int = value.roundToInt().coerceAtLeast(1)
 
 /** Reports a failed snapshot capture. */
 public class MapSnapshotException internal constructor(message: String, cause: Throwable) :

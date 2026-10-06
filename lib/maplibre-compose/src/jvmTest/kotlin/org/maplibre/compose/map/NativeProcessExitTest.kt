@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
@@ -79,7 +81,7 @@ internal object NativeProcessExitProbe {
         val style = BaseStyle.Json("""{"version":8,"center":false,"sources":{},"layers":[]}""")
         val snapshotter = runtime.createSnapshotter(style)
         try {
-          snapshotter.capture(MapSnapshotRequest(width = 64, height = 64))
+          snapshotter.capture(MapSnapshotRequest(DpSize(64.dp, 64.dp)))
           check(received.await(10, TimeUnit.SECONDS)) { "No asynchronous native parser warning" }
         } finally {
           snapshotter.close()
