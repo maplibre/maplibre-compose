@@ -67,7 +67,7 @@ internal class SystemCoreLocationManager : CoreLocationManager {
       if (ObjectiveC.respondsTo(manager, "accuracyAuthorization")) {
         ObjectiveC.sendLong(manager, "accuracyAuthorization")
       } else {
-        CL_ACCURACY_AUTHORIZATION_FULL
+        CLAccuracyAuthorizationFullAccuracy
       }
     }
 

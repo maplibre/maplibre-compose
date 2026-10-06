@@ -277,12 +277,12 @@ private fun VulkanDevice.importDirect3D12Resource(sharedHandle: Long, extent: Ma
  * wrong index calls the wrong method rather than failing.
  */
 private object WindowsDirect3DInterop {
-  private const val IID_ID3D12_DEVICE_DATA1 = 0x189819F1
-  private const val IID_ID3D12_DEVICE_DATA2 = 0x1DB6
-  private const val IID_ID3D12_DEVICE_DATA3 = 0x4B57
-  private const val IID_ID3D12_RESOURCE_DATA1 = 0x696442BE
-  private const val IID_ID3D12_RESOURCE_DATA2 = 0xA72E
-  private const val IID_ID3D12_RESOURCE_DATA3 = 0x4059
+  private const val ID3d12DeviceIidData1 = 0x189819F1
+  private const val ID3d12DeviceIidData2 = 0x1DB6
+  private const val ID3d12DeviceIidData3 = 0x4B57
+  private const val ID3d12ResourceIidData1 = 0x696442BE
+  private const val ID3d12ResourceIidData2 = 0xA72E
+  private const val ID3d12ResourceIidData3 = 0x4059
   private const val GENERIC_ALL = 0x10000000
 
   private const val D3D12_HEAP_TYPE_DEFAULT = 1
@@ -434,9 +434,9 @@ private object WindowsDirect3DInterop {
   private fun iidId3D12Device(arena: Arena): MemorySegment =
     guid(
       arena,
-      IID_ID3D12_DEVICE_DATA1,
-      IID_ID3D12_DEVICE_DATA2,
-      IID_ID3D12_DEVICE_DATA3,
+      ID3d12DeviceIidData1,
+      ID3d12DeviceIidData2,
+      ID3d12DeviceIidData3,
       0xBE,
       0x54,
       0x18,
@@ -451,9 +451,9 @@ private object WindowsDirect3DInterop {
   private fun iidId3D12Resource(arena: Arena): MemorySegment =
     guid(
       arena,
-      IID_ID3D12_RESOURCE_DATA1,
-      IID_ID3D12_RESOURCE_DATA2,
-      IID_ID3D12_RESOURCE_DATA3,
+      ID3d12ResourceIidData1,
+      ID3d12ResourceIidData2,
+      ID3d12ResourceIidData3,
       0xBC,
       0x79,
       0x5B,

@@ -40,7 +40,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
 class MacosLocationProviderTest {
   @Test
   fun collectorRecoversAfterPermissionChanges() = runTest {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_DENIED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusDenied)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
     val permissionManager = client.managers.single()
     val events = mutableListOf<LocationEvent>()
@@ -54,7 +54,7 @@ class MacosLocationProviderTest {
     )
     assertEquals(1, client.managers.size)
 
-    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.authorizationStatus = kCLAuthorizationStatusAuthorizedWhenInUse
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
     val firstManagers = client.managers.drop(1)
@@ -63,7 +63,7 @@ class MacosLocationProviderTest {
     runCurrent()
     assertIs<LocationEvent.Update>(events.last())
 
-    permissionManager.authorizationStatus = CL_AUTHORIZATION_DENIED
+    permissionManager.authorizationStatus = kCLAuthorizationStatusDenied
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
     assertTrue(firstManagers.all { it.closed })
@@ -71,7 +71,7 @@ class MacosLocationProviderTest {
       LocationUnavailableReason.PermissionDenied,
       assertIs<LocationEvent.Unavailable>(events.last()).reason,
     )
-    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.authorizationStatus = kCLAuthorizationStatusAuthorizedWhenInUse
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
     assertEquals(3, client.managers.size)
@@ -94,12 +94,12 @@ class MacosLocationProviderTest {
 
   @Test
   fun mapsCoreLocationErrorsByRecoverability() {
-    val denied = CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_DENIED)
+    val denied = CoreLocationError(kCLErrorDomain, kCLErrorDenied)
     assertEquals(LocationUnavailableReason.ServicesDisabled, denied.asUnavailableReason(false))
     assertEquals(LocationUnavailableReason.PermissionDenied, denied.asUnavailableReason(true))
     assertEquals(
       LocationUnavailableReason.UnexpectedFailure,
-      CoreLocationError("example.error", CL_ERROR_DENIED).asUnavailableReason(true),
+      CoreLocationError("example.error", kCLErrorDenied).asUnavailableReason(true),
     )
   }
 
@@ -107,21 +107,21 @@ class MacosLocationProviderTest {
   fun mapsAccuracyAuthorizationOfGrants() {
     assertEquals(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise),
-      readPermission(CL_AUTHORIZATION_AUTHORIZED_ALWAYS, CL_ACCURACY_AUTHORIZATION_FULL),
+      readPermission(kCLAuthorizationStatusAuthorizedAlways, CLAccuracyAuthorizationFullAccuracy),
     )
     assertEquals(
       LocationPermission.Granted(LocationAccuracyAuthorization.Approximate),
-      readPermission(CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE, 1),
+      readPermission(kCLAuthorizationStatusAuthorizedWhenInUse, 1),
     )
   }
 
   @Test
   fun lowestAccuracyUsesExportedReducedAccuracy() {
-    assertEquals(CL_LOCATION_ACCURACY_REDUCED, LocationAccuracy.Lowest.toDesiredAccuracy())
+    assertEquals(kCLLocationAccuracyReduced, LocationAccuracy.Lowest.toDesiredAccuracy())
     if (System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("mac")) {
       assertEquals(
         ObjectiveC.exportedDoubleOrNull("kCLLocationAccuracyReduced"),
-        CL_LOCATION_ACCURACY_REDUCED,
+        kCLLocationAccuracyReduced,
       )
     }
   }
@@ -175,7 +175,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun reentrantCloseWaitsForPermissionCallToFinish() {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
     val requester = MacosLocationPermissionRequester(client)
     client.managers.single().onRequest = {
       requester.close()
@@ -192,7 +192,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun closeFromAnotherThreadWaitsForPermissionCallToFinish() {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
     val requester = MacosLocationPermissionRequester(client)
     val manager = client.managers.single()
     val closing = CountDownLatch(1)
@@ -219,7 +219,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun requestFromStatusCollectorDuringRequestStartsOneAuthorizationRequest() = runTest {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
     client.createFailure = IllegalStateException("native failed")
     val requester = MacosLocationPermissionRequester(client)
     client.createFailure = null
@@ -249,7 +249,7 @@ class MacosLocationProviderTest {
     assertEquals(52.0, event.measurement.position.latitude)
     assertEquals(2, client.managers.size)
     val manager = client.managers.last()
-    assertEquals(CL_LOCATION_ACCURACY_BEST, manager.desiredAccuracy)
+    assertEquals(kCLLocationAccuracyBest, manager.desiredAccuracy)
     assertEquals(1.0, manager.distanceFilter)
     assertTrue(manager.closed)
     assertFalse(manager.updating)
@@ -301,7 +301,7 @@ class MacosLocationProviderTest {
 
     assertIs<LocationEvent.Update>(events.single())
     val delegate = client.managers.last().boundDelegate
-    delegate?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_LOCATION_UNKNOWN))
+    delegate?.didFailWithError(CoreLocationError(kCLErrorDomain, kCLErrorLocationUnknown))
     delegate?.didUpdateLocations(listOf(sampleMeasurement().copy(latitude = 53.0)))
 
     assertEquals(3, events.size)
@@ -328,7 +328,7 @@ class MacosLocationProviderTest {
     client.managers
       .last()
       .boundDelegate
-      ?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_DENIED))
+      ?.didFailWithError(CoreLocationError(kCLErrorDomain, kCLErrorDenied))
 
     val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
     assertEquals(2, events.size)
@@ -427,7 +427,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun overlappingPermissionRequestsStartOneAuthorizationRequest() {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val manager = client.managers.single()
 
@@ -438,7 +438,7 @@ class MacosLocationProviderTest {
     assertEquals(1, manager.whenInUseRequests)
     assertTrue(manager.updating)
 
-    manager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    manager.authorizationStatus = kCLAuthorizationStatusAuthorizedWhenInUse
     manager.boundDelegate?.didChangeAuthorization()
     assertEquals(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise),
@@ -456,7 +456,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun permissionFailureClearsPendingRequest() {
-    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
+    val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val manager = client.managers.single()
 
@@ -464,7 +464,7 @@ class MacosLocationProviderTest {
     assertEquals(1, manager.whenInUseRequests)
     assertTrue(manager.updating)
 
-    manager.boundDelegate?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_DENIED))
+    manager.boundDelegate?.didFailWithError(CoreLocationError(kCLErrorDomain, kCLErrorDenied))
     assertFalse(manager.updating)
 
     provider.requestPermission()
@@ -489,7 +489,7 @@ class MacosLocationProviderTest {
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val manager = client.managers.single()
 
-    manager.authorizationStatus = CL_AUTHORIZATION_DENIED
+    manager.authorizationStatus = kCLAuthorizationStatusDenied
     manager.boundDelegate?.didChangeAuthorization()
     provider.requestPermission()
 
@@ -515,7 +515,7 @@ private fun sampleMeasurement(): CoreLocationMeasurement =
 private class FakeCoreLocationClient(
   override var locationServicesEnabled: Boolean = true,
   hasUsageDescription: Boolean = true,
-  val authorizationStatus: Long = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE,
+  val authorizationStatus: Long = kCLAuthorizationStatusAuthorizedWhenInUse,
 ) : CoreLocationClient {
   override val backendAvailability: LocationBackendAvailability =
     if (hasUsageDescription) {
@@ -552,7 +552,7 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
   CoreLocationManager {
   override var desiredAccuracy: Double = 0.0
   override var distanceFilter: Double = 0.0
-  override var authorizationStatus: Long = CL_AUTHORIZATION_NOT_DETERMINED
+  override var authorizationStatus: Long = kCLAuthorizationStatusNotDetermined
     get() {
       authorizationReads += 1
       readFailure?.let { throw it }
@@ -561,7 +561,7 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
 
   var authorizationReads = 0
   var readFailure: Throwable? = null
-  override var accuracyAuthorization: Long = CL_ACCURACY_AUTHORIZATION_FULL
+  override var accuracyAuthorization: Long = CLAccuracyAuthorizationFullAccuracy
   var boundDelegate: CoreLocationDelegate? = null
   var updating = false
   var whenInUseRequests = 0

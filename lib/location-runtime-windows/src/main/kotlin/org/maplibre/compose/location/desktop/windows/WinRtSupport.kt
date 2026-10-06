@@ -374,8 +374,8 @@ private object WinRtCallbacks {
   private const val S_OK = 0
   private const val E_NOINTERFACE = -2_147_467_262
   private const val E_FAIL = -2_147_467_259
-  private const val IID_IUNKNOWN = "00000000-0000-0000-c000-000000000046"
-  private const val IID_IAGILE_OBJECT = "94ea2b94-e9cc-49e0-c0ff-ee64ca8f5b90"
+  private const val IUnknownIid = "00000000-0000-0000-c000-000000000046"
+  private const val IAgileObjectIid = "94ea2b94-e9cc-49e0-c0ff-ee64ca8f5b90"
   private val callbacks = ConcurrentHashMap<Long, Callback>()
   private val linker = Linker.nativeLinker()
   private val stubs = Arena.global()
@@ -438,8 +438,8 @@ private object WinRtCallbacks {
   ): Int {
     val callback = callbacks[self.address()] ?: return E_NOINTERFACE
     return if (
-      WinRt.guidEquals(iid, IID_IUNKNOWN) ||
-        WinRt.guidEquals(iid, IID_IAGILE_OBJECT) ||
+      WinRt.guidEquals(iid, IUnknownIid) ||
+        WinRt.guidEquals(iid, IAgileObjectIid) ||
         WinRt.guidEquals(iid, callback.iid)
     ) {
       if (callback.addReference() == 0) {
