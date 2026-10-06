@@ -168,6 +168,10 @@ shape later is a breaking change.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#prevent-unwanted-and-invalid-extensions)
 - Keep unrecognized values in an open identity. Don't map them to a named value
   such as `Unknown`.
+- When a value means "no answer", such as an unclassified failure or a setting
+  the platform doesn't report, use `null` instead of a named catch-all such as
+  `Unknown` or `Other`. Name a case `Unknown` only when the engine or platform
+  reports a real value with that meaning.
 - Use a value class only to wrap a raw value from outside the library. When the
   library defines the names itself, use an open structure instead of inventing a
   raw value.
