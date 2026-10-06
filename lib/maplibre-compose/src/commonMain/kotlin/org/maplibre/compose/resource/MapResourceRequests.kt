@@ -1,21 +1,30 @@
 package org.maplibre.compose.resource
 
+import kotlin.jvm.JvmInline
 import kotlin.time.Instant
 
 /**
  * The kind of resource MapLibre is about to fetch.
  *
- * A newer engine may report a kind that has no name here; that value becomes [Unknown].
+ * [value] is the engine's name for the kind, such as `SpriteJSON`. MapLibre Native reports a kind
+ * as a number, so a kind that has no name here holds that number as decimal text, such as `8`.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
-public enum class MapResourceKind {
-  Style,
-  Source,
-  Tile,
-  Glyphs,
-  SpriteJson,
-  SpriteImage,
-  Image,
-  Unknown,
+@JvmInline
+public value class MapResourceKind internal constructor(public val value: String) {
+  public companion object {
+    public val Style: MapResourceKind = MapResourceKind("Style")
+    public val Source: MapResourceKind = MapResourceKind("Source")
+    public val Tile: MapResourceKind = MapResourceKind("Tile")
+    public val Glyphs: MapResourceKind = MapResourceKind("Glyphs")
+    public val SpriteJson: MapResourceKind = MapResourceKind("SpriteJSON")
+    public val SpriteImage: MapResourceKind = MapResourceKind("SpriteImage")
+    public val Image: MapResourceKind = MapResourceKind("Image")
+
+    /** A resource that the engine requests without saying which kind it is. */
+    public val Unknown: MapResourceKind = MapResourceKind("Unknown")
+  }
 }
 
 /**
@@ -93,29 +102,65 @@ internal constructor(
   /** The cached body, or null when the cache has no body for this resource. */
   public val priorData: ByteArray? = null,
 ) {
-  /** Limits the load to the cache or to the network. [All] allows both. */
-  public enum class LoadingMethod {
-    All,
-    CacheOnly,
-    NetworkOnly,
+  /**
+   * Limits the load to the cache or to the network. [All] allows both.
+   *
+   * [value] is the number that MapLibre Native reports.
+   *
+   * Values may be added in minor releases; use an `else` branch when matching.
+   */
+  @JvmInline
+  public value class LoadingMethod internal constructor(public val value: Int) {
+    public companion object {
+      public val All: LoadingMethod = LoadingMethod(0)
+      public val CacheOnly: LoadingMethod = LoadingMethod(1)
+      public val NetworkOnly: LoadingMethod = LoadingMethod(2)
+    }
   }
 
-  /** The priority of the load. */
-  public enum class Priority {
-    Regular,
-    Low,
+  /**
+   * The priority of the load.
+   *
+   * [value] is the number that MapLibre Native reports.
+   *
+   * Values may be added in minor releases; use an `else` branch when matching.
+   */
+  @JvmInline
+  public value class Priority internal constructor(public val value: Int) {
+    public companion object {
+      public val Regular: Priority = Priority(0)
+      public val Low: Priority = Priority(1)
+    }
   }
 
-  /** The consumer of the resource: a map, or an offline pack download. */
-  public enum class Usage {
-    Online,
-    Offline,
+  /**
+   * The consumer of the resource: a map, or an offline pack download.
+   *
+   * [value] is the number that MapLibre Native reports.
+   *
+   * Values may be added in minor releases; use an `else` branch when matching.
+   */
+  @JvmInline
+  public value class Usage internal constructor(public val value: Int) {
+    public companion object {
+      public val Online: Usage = Usage(0)
+      public val Offline: Usage = Usage(1)
+    }
   }
 
-  /** The cache retention policy for the resource. */
-  public enum class StoragePolicy {
-    Permanent,
-    Volatile,
+  /**
+   * The cache retention policy for the resource.
+   *
+   * [value] is the number that MapLibre Native reports.
+   *
+   * Values may be added in minor releases; use an `else` branch when matching.
+   */
+  @JvmInline
+  public value class StoragePolicy internal constructor(public val value: Int) {
+    public companion object {
+      public val Permanent: StoragePolicy = StoragePolicy(0)
+      public val Volatile: StoragePolicy = StoragePolicy(1)
+    }
   }
 
   override fun toString(): String = "MapResourceLoadRequest(url=$url, kind=$kind)"

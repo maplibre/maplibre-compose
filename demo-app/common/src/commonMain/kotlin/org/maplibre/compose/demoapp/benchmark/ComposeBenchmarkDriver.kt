@@ -317,7 +317,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
               renderingMs = event.stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
               drawCalls = event.stats?.drawCallCount,
               frameCount = event.stats?.frameCount,
-              mode = event.stats?.mode?.name?.lowercase(),
+              mode = event.stats?.mode?.let(::frameModeName),
             )
           }
           .collect(recorder::record)
@@ -359,3 +359,11 @@ internal suspend fun awaitSettled(state: MapState) {
 }
 
 internal expect suspend fun benchmarkRequestRepaint(state: MapState)
+
+/** The render mode as recorded benchmark samples spell it. */
+private fun frameModeName(mode: RenderStats.Mode): String =
+  when (mode) {
+    RenderStats.Mode.Partial -> "partial"
+    RenderStats.Mode.Full -> "full"
+    else -> mode.value.toString()
+  }

@@ -311,6 +311,54 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
+  fun the_load_request_names_the_default_ffi_values() {
+    val load =
+      ResourceRequest(
+          requestedUrl = URL,
+          resolvedUrl = URL,
+          kind = ResourceKind.STYLE,
+          loadingMethod = ResourceLoadingMethod.ALL,
+          priority = ResourcePriority.REGULAR,
+          usage = ResourceUsage.ONLINE,
+          storagePolicy = ResourceStoragePolicy.PERMANENT,
+          range = null,
+          priorModifiedUnixMs = null,
+          priorExpiresUnixMs = null,
+          priorEtag = null,
+          priorData = ByteArray(0),
+        )
+        .toLoadRequest()
+    assertEquals(MapResourceLoadRequest.LoadingMethod.All, load.loadingMethod)
+    assertEquals(MapResourceLoadRequest.Priority.Regular, load.priority)
+    assertEquals(MapResourceLoadRequest.Usage.Online, load.usage)
+    assertEquals(MapResourceLoadRequest.StoragePolicy.Permanent, load.storagePolicy)
+  }
+
+  @Test
+  fun the_load_request_keeps_ffi_values_with_no_name() {
+    val load =
+      ResourceRequest(
+          requestedUrl = URL,
+          resolvedUrl = URL,
+          kind = ResourceKind.STYLE,
+          loadingMethod = ResourceLoadingMethod(9),
+          priority = ResourcePriority(9),
+          usage = ResourceUsage(9),
+          storagePolicy = ResourceStoragePolicy(9),
+          range = null,
+          priorModifiedUnixMs = null,
+          priorExpiresUnixMs = null,
+          priorEtag = null,
+          priorData = ByteArray(0),
+        )
+        .toLoadRequest()
+    assertEquals(9, load.loadingMethod.value)
+    assertEquals(9, load.priority.value)
+    assertEquals(9, load.usage.value)
+    assertEquals(9, load.storagePolicy.value)
+  }
+
+  @Test
   fun a_user_load_reaches_the_request_as_the_ffi_response() {
     val provider =
       MlnFfiResourceProvider(getLogger = { null }).also {
