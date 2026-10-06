@@ -11,6 +11,12 @@ v1.0.0 and later; the current API doesn't fully conform to it yet.
 This guide covers every `public` or `@PublishedApi` declaration in the published
 libraries. It doesn't cover internal code, the demo app, or the benchmarks.
 
+The API is designed for Kotlin callers using Compose. Calling it from Java or
+other JVM languages isn't supported, so a declaration that is awkward or
+impossible to call from Java is fine. Examples: value classes in signatures,
+which mangle JVM method names, and missing `@JvmOverloads`, `@JvmStatic`, or
+`@JvmName`.
+
 Each section lists rules, then examples. A rule taken from an upstream guide
 ends with a bracketed number, such as [1], that links to the relevant section;
 the guides are also listed under Sources at the end. If a rule doesn't fit a
@@ -489,7 +495,7 @@ source, and behavior compatibility:
 - Documented behavior and serialized formats don't change.
 
 These guarantees don't cover a `when` with no `else` branch over a type that may
-grow (section 4).
+grow (section 4), or callers in other JVM languages (section 1).
 
 To keep these guarantees:
 
