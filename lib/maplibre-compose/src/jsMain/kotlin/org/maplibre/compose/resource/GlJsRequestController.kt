@@ -63,15 +63,16 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
   /**
    * Rejects a [failureUrl] request without sending it. The interceptor's exception is already
    * logged.
+   *
+   * Rejects with a plain JS error: MapLibre copies a tile error through its worker boundary, and a
+   * Kotlin exception's non-enumerable `message` does not survive that copy, while a JS error's
+   * does.
    */
   internal fun failProtocol(request: RequestParameters): Promise<ProtocolResponse> {
     val url = parseProtocolUrl(request.url, failureScheme).url
-    return Promise.reject(
-      ResourceLoadError(
-        "The request interceptor failed for $url, so the request was not sent",
-        status = null,
-      )
-    )
+    val error = js("new Error()")
+    error.message = "The request interceptor failed for $url, so the request was not sent"
+    return Promise.reject(error.unsafeCast<Throwable>())
   }
 
   internal fun loadProtocol(
