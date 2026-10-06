@@ -50,8 +50,8 @@ internal constructor(
  * called repeatedly; return the same result while the request and application state are unchanged.
  * Read changing credentials from a thread-safe store.
  *
- * If a function throws an exception, the library logs a warning and uses the default result: the
- * URL is not rewritten, or the request gets no added headers.
+ * If a function throws an exception, the library logs a warning and the request continues: with its
+ * original URL when [rewriteUrl] throws, or with no added headers when [headers] throws.
  *
  * Use [MapResourceProvider] to supply resource data directly.
  */

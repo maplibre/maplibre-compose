@@ -18,6 +18,11 @@ import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
+import org.maplibre.compose.logging.MapLogLevel
+import org.maplibre.compose.logging.MapLogRecord
+import org.maplibre.compose.logging.MapLogSource
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
@@ -73,6 +78,50 @@ class CustomVectorTileSourceTest {
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())
     }
   }
+
+  @Test
+  fun a_failing_mvt_provider_logs_its_exception_once_and_fails_the_tile(): MapTestResult =
+    runMapTest {
+      val failure = IllegalStateException("fixture provider failure")
+      val calls = RecordingList<TileCoordinate>()
+      val records = RecordingList<MapLogRecord>()
+      val previous = MapLogging.logger
+      MapLogging.logger = MapLogger { record ->
+        records += record
+        previous?.log(record)
+      }
+      try {
+        createMapFixture().use { fixture ->
+          fixture.loadStyle(BlackStyle)
+          val style = assertNotNull(fixture.style)
+          val source =
+            CustomVectorTileSource(
+              SourceId,
+              CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
+            ) { tile ->
+              calls += tile
+              throw failure
+            }
+          style.install(source)
+          val layer = TestLayer("custom-vector-points", "circle", source)
+          layer.sourceLayer = SourceLayer
+          style.install(layer)
+
+          fixture.pumpUntil("MapLibre to report the failed tile") {
+            records.any { it.source != MapLogSource.Library && failure.message!! in it.message }
+          }
+
+          val logged = records.filter { it.throwable === failure }
+          assertEquals(calls.size, logged.size, "one record per failed provider call")
+          val record = logged.first()
+          assertEquals(MapLogSource.Library, record.source)
+          assertEquals(MapLogLevel.Warning, record.level)
+          assertTrue(SourceId in record.message, "the record names the source: ${record.message}")
+        }
+      } finally {
+        MapLogging.logger = previous
+      }
+    }
 
   @Test
   fun replacing_the_style_cancels_an_mvt_provider_call(): MapTestResult = runMapTest {

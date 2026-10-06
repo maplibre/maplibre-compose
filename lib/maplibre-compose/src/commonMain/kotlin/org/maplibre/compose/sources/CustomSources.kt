@@ -72,7 +72,8 @@ public fun interface GeometryTileProvider {
    *
    * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
    * style. Any other exception, including a cancellation that the provider causes itself, such as
-   * its own timeout, is logged as an error, and the tile has no features.
+   * its own timeout, is logged as an error, and the tile loads with no features. MapLibre does not
+   * report a tile error.
    */
   public suspend fun loadTile(tile: TileCoordinate): FeatureCollection<*, *>
 }
@@ -90,8 +91,8 @@ public fun interface VectorTileProvider {
    *
    * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
    * style. Any other exception, including a cancellation that the provider causes itself, such as
-   * its own timeout, fails the tile, with the exception message as the error that the engine
-   * reports.
+   * its own timeout, is logged as a warning, and the tile fails to load. MapLibre reports a tile
+   * error with the exception message.
    */
   public suspend fun loadTile(tile: TileCoordinate): ByteArray
 }
