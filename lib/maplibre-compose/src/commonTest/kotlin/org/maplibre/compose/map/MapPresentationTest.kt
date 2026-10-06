@@ -1381,8 +1381,8 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
     val first = PreparedImage.fromBitmap(FakeImageBitmap(1, 1))
     val second = PreparedImage.fromBitmap(FakeImageBitmap(2, 1))
-    val moved = IMAGE_QUAD.copy(topLeft = Position(-2.0, 1.0))
-    val source = ImageSource("image", IMAGE_QUAD, first)
+    val moved = ImageQuad.copy(topLeft = Position(-2.0, 1.0))
+    val source = ImageSource("image", ImageQuad, first)
 
     val handle = fixture.state.style.sources.add(source)
     assertSame(first, binding.addedImageSourceImages["image"])
@@ -2891,7 +2891,7 @@ private fun attributedVectorSource(id: String, attribution: String): VectorTileS
     options = TileSetOptions(attributionHtml = attribution),
   )
 
-private val IMAGE_QUAD =
+private val ImageQuad =
   PositionQuad(
     Position(-1.0, 1.0),
     Position(1.0, 1.0),

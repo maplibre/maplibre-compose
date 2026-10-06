@@ -69,20 +69,20 @@ class GeoJsonSourceUpdateTest {
             resourceConfig =
               MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() })
           ),
-          MapFixture.DEFAULT_EXTENT,
+          MapFixture.DefaultExtent,
         )
     map.use { fixture ->
-      fixture.loadStyle(STYLE)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
+      fixture.loadStyle(Style)
+      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 14.0))
       val style = checkNotNull(fixture.style) { "Errors: ${fixture.errors}" }
       val source =
         GeoJsonSource(
-          SOURCE_ID,
-          GeoJsonData.Features(pointAt(ORIGIN)),
+          SourceId,
+          GeoJsonData.Features(pointAt(Origin)),
           GeoJsonOptions(),
         )
       fixture.state.style.sources.add(source)
-      val layer = TestLayer(LAYER_ID, "circle", source)
+      val layer = TestLayer(LayerId, "circle", source)
       layer.paint(
         "circle-radius",
         (const(16.dp).compile(ExpressionContext.None)).asLayerProperty(),
@@ -90,12 +90,12 @@ class GeoJsonSourceUpdateTest {
       layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
       layer.paint("circle-opacity", (const(1.0f)).asLayerProperty())
       style.install(layer)
-      val sourceHandle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+      val sourceHandle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SourceId])
 
       val centerX = 256
       val centerY = 256
       fixture.pumpUntil("the initial point to render") {
-        fixture.readPixel(centerX, centerY).isNear(CIRCLE)
+        fixture.readPixel(centerX, centerY).isNear(Circle)
       }
 
       val file = if (latestIsUri) FfiTestPlatform.createCacheFile() else null
@@ -104,11 +104,11 @@ class GeoJsonSourceUpdateTest {
           if (file == null) GeoJsonData.Uri("held://superseded.geojson")
           else {
             SystemFileSystem.sink(file).buffered().use {
-              it.writeString(pointAt(FAR_AWAY).toJson())
+              it.writeString(pointAt(FarAway).toJson())
             }
             GeoJsonData.Uri(fileUrlOf(file))
           }
-        val inline = GeoJsonData.Features(pointAt(if (latestIsUri) ORIGIN else FAR_AWAY))
+        val inline = GeoJsonData.Features(pointAt(if (latestIsUri) Origin else FarAway))
         (fixture as MlnFfiMapFixture).withOwnerParked {
           sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
           sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
@@ -118,12 +118,12 @@ class GeoJsonSourceUpdateTest {
         if (latestIsUri) {
           // Completion includes submission, not loading the URL's contents.
           fixture.pumpUntil("the newer URL data to replace the inline submission") {
-            fixture.readPixel(centerX, centerY).isNear(BACKGROUND)
+            fixture.readPixel(centerX, centerY).isNear(Background)
           }
         } else {
           // Withhold the superseded URL response so its native parser cannot race the inline
           // update. Real hosts draw only requested frames; pumping could mask a missing repaint.
-          fixture.awaitRequestedPixel(BACKGROUND)
+          fixture.awaitRequestedPixel(Background)
         }
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       } finally {
@@ -135,15 +135,15 @@ class GeoJsonSourceUpdateTest {
   @Test
   fun a_base_style_update_preserves_the_loaded_sources_minimum_zoom(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(MIN_ZOOM_STYLE)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 8.0))
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+      fixture.loadStyle(MinZoomStyle)
+      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 8.0))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SourceId])
       fixture.pumpUntil("the source to render above its minimum zoom") {
-        fixture.readPixel(256, 256).isNear(CIRCLE)
+        fixture.readPixel(256, 256).isNear(Circle)
       }
       lateinit var completion: Deferred<Unit>
       (fixture as MlnFfiMapFixture).withOwnerParked {
-        handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+        handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
         completion =
           async(start = CoroutineStart.UNDISPATCHED) {
             (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
@@ -151,15 +151,15 @@ class GeoJsonSourceUpdateTest {
         assertFalse(completion.isCompleted, "completion missed a queued source's first update")
       }
       completion.await()
-      fixture.awaitRequestedPixel(BACKGROUND)
+      fixture.awaitRequestedPixel(Background)
 
-      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(ORIGIN)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(Origin)))
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-      fixture.awaitRequestedPixel(CIRCLE)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
-      fixture.awaitRequestedPixel(BACKGROUND)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 8.0))
-      fixture.awaitRequestedPixel(CIRCLE)
+      fixture.awaitRequestedPixel(Circle)
+      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 6.0))
+      fixture.awaitRequestedPixel(Background)
+      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 8.0))
+      fixture.awaitRequestedPixel(Circle)
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -168,22 +168,22 @@ class GeoJsonSourceUpdateTest {
   fun rejected_data_reports_a_source_event_keeps_the_previous_point_and_allows_recovery():
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(STYLE)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
+      fixture.loadStyle(Style)
+      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 14.0))
       val binding = fixture.style as MlnFfiStyleBinding
       val source =
         GeoJsonSource(
-          SOURCE_ID,
-          GeoJsonData.Features(pointAt(ORIGIN)),
+          SourceId,
+          GeoJsonData.Features(pointAt(Origin)),
           GeoJsonOptions(synchronousTiling = true),
         )
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
-      val layer = TestLayer(LAYER_ID, "circle", source)
+      val layer = TestLayer(LayerId, "circle", source)
       layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint("circle-color", (const(Color.Black)).asLayerProperty())
       binding.install(layer)
       fixture.pumpUntil("the initial point to render") {
-        fixture.readPixel(256, 256).isNear(CIRCLE)
+        fixture.readPixel(256, 256).isNear(Circle)
       }
 
       coroutineScope {
@@ -195,14 +195,14 @@ class GeoJsonSourceUpdateTest {
         handle.asMutable!!.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
         assertTrue(runCatching { binding.awaitGeoJsonUpdates() }.isFailure)
         val failure = withTimeout(5_000) { event.await() }
-        assertEquals(SOURCE_ID, failure.sourceId)
+        assertEquals(SourceId, failure.sourceId)
         assertTrue(failure.cause.message.orEmpty().isNotBlank())
       }
-      assertTrue(fixture.readPixel(256, 256).isNear(CIRCLE))
+      assertTrue(fixture.readPixel(256, 256).isNear(Circle))
 
-      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
       binding.awaitGeoJsonUpdates()
-      fixture.awaitRequestedPixel(BACKGROUND)
+      fixture.awaitRequestedPixel(Background)
     }
   }
 
@@ -240,13 +240,13 @@ class GeoJsonSourceUpdateTest {
     }
 
   private companion object {
-    const val SOURCE_ID = "points"
-    const val LAYER_ID = "points-layer"
-    val ORIGIN = Position(0.0, 0.0)
-    val FAR_AWAY = Position(5.0, 5.0)
-    val BACKGROUND = RgbaPixel(0x33, 0x66, 0x99, 0xff)
-    val CIRCLE = RgbaPixel(0x00, 0x00, 0x00, 0xff)
-    val STYLE =
+    const val SourceId = "points"
+    const val LayerId = "points-layer"
+    val Origin = Position(0.0, 0.0)
+    val FarAway = Position(5.0, 5.0)
+    val Background = RgbaPixel(0x33, 0x66, 0x99, 0xff)
+    val Circle = RgbaPixel(0x00, 0x00, 0x00, 0xff)
+    val Style =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[
@@ -255,7 +255,7 @@ class GeoJsonSourceUpdateTest {
         """
           .trimIndent()
       )
-    val MIN_ZOOM_STYLE =
+    val MinZoomStyle =
       BaseStyle.Json(
         """
         {"version":8,"sources":{"points":{"type":"geojson","minzoom":7,"data":{

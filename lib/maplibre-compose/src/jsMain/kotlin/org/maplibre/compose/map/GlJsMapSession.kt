@@ -33,7 +33,7 @@ import org.maplibre.compose.camera.resolveScreenPoint
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.gljs.CameraForBoundsOptions
-import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
+import org.maplibre.compose.gljs.DefaultWorkerUrl
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.FlyToOptions
@@ -379,7 +379,7 @@ internal class GlJsMapSession(
     val host =
       mapContainer
         ?: document.createElement("div").unsafeCast<HTMLElement>().also {
-          it.style.cssText = OFFSCREEN_CONTAINER_STYLE
+          it.style.cssText = OffscreenContainerStyle
           document.body.appendChild(it)
         }
     host.style.width = "${extent.width}px"
@@ -398,7 +398,7 @@ internal class GlJsMapSession(
           maxCanvasSize = maxTextureSize(it.gl)
         }
       }
-    GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
+    GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
     val created =
       if (target == null) MaplibreMap(options)
       else {
@@ -567,8 +567,8 @@ internal class GlJsMapSession(
       style?.let { events.resolveMissingImage(it, imageId).asPromise() }
     }
 
-    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { events.engineEvent(engine, it) }
-    subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) { event ->
+    subscribeTranslated(map, EngineGlJsEvents) { events.engineEvent(engine, it) }
+    subscribeTranslated(map, PresentationGlJsEvents) { event ->
       val accepted = isCurrentPresentation(engine, lease)
       if (accepted && event is MapEvent.CameraMoveEnded) {
         cameraTransitions.movementEnded { events.presentationEvent(engine, lease, event) }
@@ -1481,7 +1481,7 @@ internal class GlJsMapSession(
     top == other.top && left == other.left && bottom == other.bottom && right == other.right
 
   internal companion object {
-    const val OFFSCREEN_CONTAINER_STYLE =
+    const val OffscreenContainerStyle =
       "all:initial;position:absolute;display:block;left:-10000px;top:0;" +
         "visibility:hidden;pointer-events:none;"
 

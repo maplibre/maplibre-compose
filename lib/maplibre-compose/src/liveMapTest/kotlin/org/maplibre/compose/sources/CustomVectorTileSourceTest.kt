@@ -34,19 +34,19 @@ class CustomVectorTileSourceTest {
   fun an_mvt_provider_renders_its_tile(): MapTestResult = runMapTest {
     val requests = RecordingList<TileCoordinate>()
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BLACK_STYLE)
+      fixture.loadStyle(BlackStyle)
       val style = assertNotNull(fixture.style)
       val source =
         CustomVectorTileSource(
-          SOURCE_ID,
+          SourceId,
           CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
         ) { tile ->
           requests += tile
-          POINT_TILE
+          PointTile
         }
       fixture.state.style.sources.add(source)
       val layer = TestLayer("custom-vector-points", "circle", source)
-      layer.sourceLayer = SOURCE_LAYER
+      layer.sourceLayer = SourceLayer
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(
         "circle-color",
@@ -54,10 +54,10 @@ class CustomVectorTileSourceTest {
       )
       style.install(layer)
 
-      fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)
+      fixture.pumpUntilPixel("the custom MVT point to render", Center, Center, Blue)
 
-      val handle = assertIs<VectorTileSourceHandle>(fixture.state.style.sources[SOURCE_ID])
-      val features = handle.querySourceFeatures(setOf(SOURCE_LAYER))
+      val handle = assertIs<VectorTileSourceHandle>(fixture.state.style.sources[SourceId])
+      val features = handle.querySourceFeatures(setOf(SourceLayer))
       assertEquals(
         setOf("center"),
         features.map { it.properties?.get("name")?.jsonPrimitive?.content }.toSet(),
@@ -65,7 +65,7 @@ class CustomVectorTileSourceTest {
       assertTrue(handle.querySourceFeatures(setOf("missing")).isEmpty())
       assertTrue(
         handle
-          .querySourceFeatures(setOf(SOURCE_LAYER), feature["name"].asString() eq const("absent"))
+          .querySourceFeatures(setOf(SourceLayer), feature["name"].asString() eq const("absent"))
           .isEmpty()
       )
 
@@ -78,10 +78,10 @@ class CustomVectorTileSourceTest {
   fun replacing_the_style_cancels_an_mvt_provider_call(): MapTestResult = runMapTest {
     val state = CancellationState()
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BLACK_STYLE)
+      fixture.loadStyle(BlackStyle)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorTileSource(SOURCE_ID, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(SourceId, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
           state.started = true
           try {
             awaitCancellation()
@@ -91,11 +91,11 @@ class CustomVectorTileSourceTest {
         }
       style.install(source)
       val layer = TestLayer("custom-vector-points", "circle", source)
-      layer.sourceLayer = SOURCE_LAYER
+      layer.sourceLayer = SourceLayer
       style.install(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
 
-      fixture.loadStyle(REPLACEMENT_STYLE)
+      fixture.loadStyle(ReplacementStyle)
 
       fixture.pumpUntil("the detached custom MVT provider to be cancelled") { state.cancelled }
     }
@@ -105,10 +105,10 @@ class CustomVectorTileSourceTest {
   fun removing_the_source_cancels_an_mvt_provider_call(): MapTestResult = runMapTest {
     val state = CancellationState()
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BLACK_STYLE)
+      fixture.loadStyle(BlackStyle)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorTileSource(SOURCE_ID, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(SourceId, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
           state.started = true
           try {
             awaitCancellation()
@@ -117,7 +117,7 @@ class CustomVectorTileSourceTest {
           }
         }
       val layer = TestLayer("custom-vector-points", "circle", source)
-      layer.sourceLayer = SOURCE_LAYER
+      layer.sourceLayer = SourceLayer
       style.install(source)
       style.install(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
@@ -135,12 +135,12 @@ class CustomVectorTileSourceTest {
   }
 
   private companion object {
-    const val SOURCE_ID = "custom-vector"
-    const val SOURCE_LAYER = "points"
-    const val CENTER = 256
-    val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
+    const val SourceId = "custom-vector"
+    const val SourceLayer = "points"
+    const val Center = 256
+    val Blue = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
 
-    val BLACK_STYLE =
+    val BlackStyle =
       BaseStyle.Json(
         """
         {
@@ -155,7 +155,7 @@ class CustomVectorTileSourceTest {
           .trimIndent()
       )
 
-    val REPLACEMENT_STYLE =
+    val ReplacementStyle =
       BaseStyle.Json(
         """
         {
@@ -169,9 +169,9 @@ class CustomVectorTileSourceTest {
       )
 
     /** One point feature with id 1 and `name = center`, in a layer named `points`. */
-    val POINT_TILE: ByteArray = protobuf {
+    val PointTile: ByteArray = protobuf {
       message(3) {
-        string(1, SOURCE_LAYER)
+        string(1, SourceLayer)
         message(2) {
           varint(1, 1)
           packed(2, 0, 0)

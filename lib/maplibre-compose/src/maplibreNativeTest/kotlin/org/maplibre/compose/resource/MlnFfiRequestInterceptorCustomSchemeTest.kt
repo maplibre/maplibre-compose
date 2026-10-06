@@ -22,7 +22,7 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
                 rewriteUrl = { request ->
                   rewritten += request.url
                   // A second application would append the marker to the rewritten URL.
-                  if (request.url.startsWith("custom://")) REWRITTEN_URL else "${request.url}?again"
+                  if (request.url.startsWith("custom://")) RewrittenUrl else "${request.url}?again"
                 },
                 headers = { request ->
                   headerUrls += request.url
@@ -43,7 +43,7 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
       rewritten.all { it.startsWith("custom://") },
       "a hook received an already-rewritten URL: $rewritten",
     )
-    assertContains(headerUrls.toList(), REWRITTEN_URL)
+    assertContains(headerUrls.toList(), RewrittenUrl)
     assertTrue(
       headerUrls.none { it.endsWith("?again") },
       "the rewrite was applied twice: $headerUrls",
@@ -51,6 +51,6 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
   }
 
   private companion object {
-    const val REWRITTEN_URL = "https://example.invalid/style.json"
+    const val RewrittenUrl = "https://example.invalid/style.json"
   }
 }

@@ -21,7 +21,7 @@ class BrowserStyleFailureTest {
     MapTestResult = runMapTest {
     for (engineReadyLast in listOf(false, true)) {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Json(STYLE_A))
+        fixture.loadStyle(BaseStyle.Json(StyleA))
         val session = fixture.session as GlJsMapSession
         val map = requireNotNull(session.engineMapForTest())
         val originalIsStyleLoaded = map.asDynamic().isStyleLoaded
@@ -30,10 +30,10 @@ class BrowserStyleFailureTest {
         try {
           if (engineReadyLast) {
             map.asDynamic().isStyleLoaded = { false }
-            fixture.loadStyle(BaseStyle.Json(STYLE_B))
+            fixture.loadStyle(BaseStyle.Json(StyleB))
             map.asDynamic().isStyleLoaded = originalIsStyleLoaded
           } else {
-            session.setBaseStyle(BaseStyle.Json(STYLE_B))
+            session.setBaseStyle(BaseStyle.Json(StyleB))
             fixture.pumpUntil("the replacement binding") {
               fixture.state.style.loadState == StyleLoadState.Loading &&
                 fixture.style?.isLoaded == true
@@ -66,7 +66,7 @@ class BrowserStyleFailureTest {
   @Test
   fun ordinary_revisions_do_not_repeat_readiness(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BaseStyle.Json(STYLE_A))
+      fixture.loadStyle(BaseStyle.Json(StyleA))
       val session = fixture.session as GlJsMapSession
       val callbacks = session.callbacks
       var readyCount = 0
@@ -86,15 +86,15 @@ class BrowserStyleFailureTest {
   @Test
   fun a_source_error_does_not_cancel_a_pending_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BaseStyle.Json(STYLE_A))
+      fixture.loadStyle(BaseStyle.Json(StyleA))
       fixture.events.clear()
       fixture.errors.clear()
 
-      fixture.session.setBaseStyle(BaseStyle.Json(STYLE_B))
+      fixture.session.setBaseStyle(BaseStyle.Json(StyleB))
       (fixture as GlJsMapFixture).fireStyleError("unrelated source failure")
-      fixture.session.setBaseStyle(BaseStyle.Json(STYLE_B))
+      fixture.session.setBaseStyle(BaseStyle.Json(StyleB))
       fixture.pumpUntil("the replacement style to load", timeout = 5.seconds) {
-        fixture.events.contains(MapFixture.STYLE_LOADED)
+        fixture.events.contains(MapFixture.StyleLoaded)
       }
 
       assertTrue(fixture.errors.isEmpty(), "The source error failed the style: ${fixture.errors}")
@@ -108,7 +108,7 @@ class BrowserStyleFailureTest {
       fixture.pumpUntil("the missing style URL to fail") { fixture.errors.isNotEmpty() }
 
       val reported = fixture.errors.single()
-      fixture.loadStyle(BaseStyle.Json(STYLE_B))
+      fixture.loadStyle(BaseStyle.Json(StyleB))
       fixture.awaitMapReady()
       assertEquals(listOf(reported), fixture.errors)
     }
@@ -118,19 +118,19 @@ class BrowserStyleFailureTest {
   fun an_invalid_inline_style_reports_once_and_a_later_style_recovers(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.session.setBaseStyle(BaseStyle.Json(INVALID_STYLE))
+        fixture.session.setBaseStyle(BaseStyle.Json(InvalidStyle))
         fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
 
         val reported = fixture.errors.single()
-        fixture.loadStyle(BaseStyle.Json(STYLE_B))
+        fixture.loadStyle(BaseStyle.Json(StyleB))
         fixture.awaitMapReady()
         assertEquals(listOf(reported), fixture.errors)
       }
     }
 
   private companion object {
-    const val STYLE_A = """{"version":8,"sources":{},"layers":[]}"""
-    const val STYLE_B = """{"version":8,"name":"replacement","sources":{},"layers":[]}"""
-    const val INVALID_STYLE = """{"version":7,"sources":{},"layers":[]}"""
+    const val StyleA = """{"version":8,"sources":{},"layers":[]}"""
+    const val StyleB = """{"version":8,"name":"replacement","sources":{},"layers":[]}"""
+    const val InvalidStyle = """{"version":7,"sources":{},"layers":[]}"""
   }
 }

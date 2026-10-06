@@ -106,7 +106,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
         }
       serviceOwnerSubscription =
         connection.addSigHandler(DBus.NameOwnerChanged::class.java) { signal ->
-          if (signal.name == PORTAL_BUS && signal.newOwner.isEmpty()) {
+          if (signal.name == PortalBus && signal.newOwner.isEmpty()) {
             trySend(LocationEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable))
             close()
           }
@@ -137,12 +137,12 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
   private fun detectPortal(): Boolean =
     try {
       openConnection().use { connection ->
-        val bus = connection.getRemoteObject(DBUS_BUS, DBUS_PATH, DBus::class.java)
-        bus.StartServiceByName(PORTAL_BUS, UInt32(0))
-        if (!bus.NameHasOwner(PORTAL_BUS)) return@use false
+        val bus = connection.getRemoteObject(DbusBus, DbusPath, DBus::class.java)
+        bus.StartServiceByName(PortalBus, UInt32(0))
+        if (!bus.NameHasOwner(PortalBus)) return@use false
 
-        val properties = connection.getRemoteObject(PORTAL_BUS, PORTAL_PATH, Properties::class.java)
-        properties.Get<UInt32>(LOCATION_INTERFACE, "version")
+        val properties = connection.getRemoteObject(PortalBus, PortalPath, Properties::class.java)
+        properties.Get<UInt32>(LocationInterface, "version")
         true
       }
     } catch (_: Throwable) {
@@ -160,7 +160,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
       val token = newToken()
       val responsePath = PortalResponsePath(connection.uniqueName, token)
       request.set(
-        connection.getRemoteObject(PORTAL_BUS, responsePath.current, PortalRequest::class.java)
+        connection.getRemoteObject(PortalBus, responsePath.current, PortalRequest::class.java)
       )
       continuation.invokeOnCancellation {
         closeQuietly { request.get()?.Close() }
@@ -183,7 +183,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
           )
         responsePath.update(requestPath.path)
         request.set(
-          connection.getRemoteObject(PORTAL_BUS, requestPath.path, PortalRequest::class.java)
+          connection.getRemoteObject(PortalBus, requestPath.path, PortalRequest::class.java)
         )
       } catch (error: Throwable) {
         closeQuietly { subscription.getAndSet(null)?.close() }
@@ -196,17 +196,17 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     DBusConnectionBuilder.forSessionBus().withShared(false).build()
 
   private fun DBusConnection.locationPortal(): LocationPortal =
-    getRemoteObject(PORTAL_BUS, PORTAL_PATH, LocationPortal::class.java)
+    getRemoteObject(PortalBus, PortalPath, LocationPortal::class.java)
 
   private fun DBusConnection.portalSession(path: DBusPath): PortalSession =
-    getRemoteObject(PORTAL_BUS, path.path, PortalSession::class.java)
+    getRemoteObject(PortalBus, path.path, PortalSession::class.java)
 
   private companion object {
-    const val PORTAL_BUS = "org.freedesktop.portal.Desktop"
-    const val PORTAL_PATH = "/org/freedesktop/portal/desktop"
-    const val LOCATION_INTERFACE = "org.freedesktop.portal.Location"
-    const val DBUS_BUS = "org.freedesktop.DBus"
-    const val DBUS_PATH = "/org/freedesktop/DBus"
+    const val PortalBus = "org.freedesktop.portal.Desktop"
+    const val PortalPath = "/org/freedesktop/portal/desktop"
+    const val LocationInterface = "org.freedesktop.portal.Location"
+    const val DbusBus = "org.freedesktop.DBus"
+    const val DbusPath = "/org/freedesktop/DBus"
   }
 }
 

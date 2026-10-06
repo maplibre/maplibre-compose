@@ -247,7 +247,7 @@ internal object ObjectiveC {
 
   private fun loadFrameworkForClass(className: String) {
     when {
-      className.startsWith("CL") || className == DELEGATE_CLASS_NAME -> {
+      className.startsWith("CL") || className == DelegateClassName -> {
         loadFramework("Foundation")
         loadFramework("CoreLocation")
       }
@@ -271,7 +271,7 @@ internal object ObjectiveC {
     return implementation
   }
 
-  internal const val DELEGATE_CLASS_NAME = "MLCLocationDelegate"
+  internal const val DelegateClassName = "MLCLocationDelegate"
 
   internal class AutoreleasePool(private var pool: Long) : AutoCloseable {
     override fun close() {

@@ -37,7 +37,7 @@ class MlnFfiLayerKeyRoundTripTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source =
         GeoJsonSource(
-            id = SOURCE_ID,
+            id = SourceId,
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
             options = GeoJsonOptions(),
           )
@@ -70,7 +70,7 @@ class MlnFfiLayerKeyRoundTripTest {
 
       style.onMap { map ->
         assertEquals("places", map.layerSourceLayer("before"))
-        assertEquals(SOURCE_ID, map.layerSourceId("before"))
+        assertEquals(SourceId, map.layerSourceId("before"))
         assertEquals(3.0, map.layerMinZoom("before"))
         assertEquals(15.0, map.layerMaxZoom("before"))
         assertEquals(StyleLayerVisibility.NONE, map.layerVisibility("before"))
@@ -101,6 +101,6 @@ class MlnFfiLayerKeyRoundTripTest {
   }
 
   private companion object {
-    const val SOURCE_ID = "features"
+    const val SourceId = "features"
   }
 }

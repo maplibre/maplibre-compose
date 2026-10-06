@@ -12,10 +12,10 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /** Parks in the native pump until a wake arrives, rather than on a bound. */
-private const val PUMP_PARK_MILLIS = -1L
+private const val PumpParkMillis = -1L
 
 /** Bounds native draining below a 120 Hz frame so queued input can run between pumps. */
-private const val PUMP_BUDGET_MILLIS = 4L
+private const val PumpBudgetMillis = 4L
 
 /** One native runtime, owner thread, command queue and failure domain for a public MapRuntime. */
 internal class MlnFfiRuntime(
@@ -198,7 +198,7 @@ internal class MlnFfiRuntime(
         if (stopRequested) break
         // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
         // Never pump holding acceptLock: a parked pump would block the post that could wake it.
-        runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, PUMP_BUDGET_MILLIS)
+        runtime.pump(if (ranTasks) 0L else PumpParkMillis, PumpBudgetMillis)
         for (event in runtime.drainEvents().events) {
           if (event.sourceType == RuntimeEventSourceType.MAP) {
             maps[event.mapSource]?.onEvent(event)

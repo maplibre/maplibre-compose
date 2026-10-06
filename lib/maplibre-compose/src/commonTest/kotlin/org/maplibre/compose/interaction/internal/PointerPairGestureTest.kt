@@ -257,7 +257,7 @@ class PointerPairGestureTest {
         val scale = assertNotNull(release.scale)
         assertEquals(300.milliseconds, scale.duration)
         assertEquals(scale.duration, pan.duration)
-        assertEquals(GestureMath.TRANSFORM_DECAY_POWER, pan.decayPower)
+        assertEquals(GestureMath.TransformDecayPower, pan.decayPower)
       } else {
         assertNull(release.scale)
         assertEquals(2, pan.decayPower)

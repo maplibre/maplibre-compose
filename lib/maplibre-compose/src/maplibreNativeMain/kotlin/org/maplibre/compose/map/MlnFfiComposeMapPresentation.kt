@@ -14,7 +14,7 @@ import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
 /** Test tag for the color shown until the first style has loaded. */
-internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
+internal const val MapLoadPlaceholderTag = "maplibre-map-load-placeholder"
 
 /** A map rendered by a platform surface that owns its presentation loop. */
 @Composable
@@ -54,7 +54,7 @@ internal fun MlnFfiMapSurfaceContent(
       Box(
         Modifier.matchParentSize()
           .background(options.uiOptions.loadColor)
-          .testTag(MAP_LOAD_PLACEHOLDER_TAG)
+          .testTag(MapLoadPlaceholderTag)
       )
     }
   }

@@ -159,7 +159,7 @@ internal class LayerInstallation(
         next["paint"] as? JsonObject,
         LayerPropertyKind.Paint,
       )
-      ROOT_PROPERTY_NAMES.forEach { name ->
+      RootPropertyNames.forEach { name ->
         val previous = current[name]
         val value = next[name]
         if (previous == value) return@forEach
@@ -217,7 +217,7 @@ internal class LayerInstallation(
     // writes animates the new value with the new timing.
     val names = previous.orEmpty().keys + next.orEmpty().keys
     names
-      .sortedByDescending { it.endsWith(TRANSITION_SUFFIX) }
+      .sortedByDescending { it.endsWith(TransitionSuffix) }
       .forEach { name ->
         val oldValue = previous?.get(name)
         val newValue = next?.get(name)
@@ -254,7 +254,7 @@ internal class LayerInstallation(
   }
 
   private companion object {
-    val ROOT_PROPERTY_NAMES = setOf("source-layer", "minzoom", "maxzoom", "filter")
+    val RootPropertyNames = setOf("source-layer", "minzoom", "maxzoom", "filter")
   }
 }
 
@@ -264,7 +264,7 @@ internal class LayerInstallation(
  */
 private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
   when {
-    kind == LayerPropertyKind.Paint && name.endsWith(TRANSITION_SUFFIX) -> CLEARED_TRANSITION
+    kind == LayerPropertyKind.Paint && name.endsWith(TransitionSuffix) -> ClearedTransition
     kind == LayerPropertyKind.Root && name == "minzoom" -> JsonPrimitive(0)
     kind == LayerPropertyKind.Root && name == "maxzoom" -> JsonPrimitive(24)
     else -> JsonNull

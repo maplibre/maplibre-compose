@@ -31,7 +31,7 @@ import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 
-private val SNAPSHOT_EVENTS =
+private val SnapshotEvents =
   RuntimeEventMask.MAP_STYLE_LOADED +
     RuntimeEventMask.MAP_LOADING_FAILED +
     RuntimeEventMask.MAP_STILL_IMAGE_FINISHED +
@@ -169,7 +169,7 @@ private class NativeSnapshotterAdapter(
         onEvent = { map, event -> handleEvent(candidate, map, event) },
         onEventsDrained = {},
         requestFrame = {},
-        mapEventMask = SNAPSHOT_EVENTS,
+        mapEventMask = SnapshotEvents,
         mapMode = MapMode.STATIC,
         onFailure = { error ->
           val failure = Result.failure<Unit>(error)

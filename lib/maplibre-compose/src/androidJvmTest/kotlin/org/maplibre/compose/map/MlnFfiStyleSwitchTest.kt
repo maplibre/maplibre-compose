@@ -65,10 +65,10 @@ class MlnFfiStyleSwitchTest {
 
   private fun rotateStyles(anchorFor: (DemoStyle) -> Anchor) = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
-      var style by mutableStateOf(STYLES[0])
+      var style by mutableStateOf(Styles[0])
       var extraLayer by mutableStateOf(false)
       val state =
-        runtime.createMapState(baseStyle = STYLES[0].base) {
+        runtime.createMapState(baseStyle = Styles[0].base) {
           val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
           // Two layers on one source at different anchors, so the re-add order matters.
           CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
@@ -90,20 +90,20 @@ class MlnFfiStyleSwitchTest {
       // Each style finishes loading before the next is chosen; switching mid-load is a separate
       // race
       // this test deliberately does not cover.
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
       var identity = assertNotNull(session.loadedStyleIdentity)
       assertStyleLayers(session, style, extraLayer)
 
-      repeat(ROTATIONS) { round ->
+      repeat(Rotations) { round ->
         runOnUiThread {
-          style = STYLES[(round + 1) % STYLES.size]
+          style = Styles[(round + 1) % Styles.size]
           extraLayer = !extraLayer
           state.style.asMutable!!.baseStyle = style.base
         }
-        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = SettleTimeoutMillis) {
           state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
         }
         val replacementIdentity = assertNotNull(session.loadedStyleIdentity)
@@ -117,10 +117,10 @@ class MlnFfiStyleSwitchTest {
   @Test
   fun recreating_an_anchored_layer_while_switching_the_base_style() = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
-      var style by mutableStateOf(SLOT_STYLES[0])
+      var style by mutableStateOf(SlotStyles[0])
       var sourceLayer by mutableStateOf("places")
       val state =
-        runtime.createMapState(baseStyle = SLOT_STYLES[0]) {
+        runtime.createMapState(baseStyle = SlotStyles[0]) {
           val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
           Anchor.Below("base-slot") {
             FillLayer(
@@ -136,25 +136,24 @@ class MlnFfiStyleSwitchTest {
         MaplibreMap(modifier = Modifier, state = state)
       }
 
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-      fun slotLayers(): List<String> =
-        session.currentStyleLayerIds().filter { it in SLOT_LAYER_IDS }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      fun slotLayers(): List<String> = session.currentStyleLayerIds().filter { it in SlotLayerIds }
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
       }
 
       runOnUiThread {
-        style = SLOT_STYLES[1]
+        style = SlotStyles[1]
         sourceLayer = "roads"
         state.style.asMutable!!.baseStyle = style
       }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready
       }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
       }
     }
@@ -169,7 +168,7 @@ class MlnFfiStyleSwitchTest {
         resourceProvider =
           MapResourceProvider("held") { request ->
             when (request.url) {
-              B_STYLE_URL -> {
+              BStyleUrl -> {
                 styleBStarted.countDown()
                 try {
                   awaitCancellation()
@@ -177,7 +176,7 @@ class MlnFfiStyleSwitchTest {
                   styleBCancelled.countDown()
                 }
               }
-              C_STYLE_URL -> STYLE_C_JSON.encodeToByteArray()
+              CStyleUrl -> StyleCJson.encodeToByteArray()
               else -> error("Unexpected resource request for ${request.url}")
             }
           }
@@ -185,7 +184,7 @@ class MlnFfiStyleSwitchTest {
     ) { runtime ->
       var showLatestLayer by mutableStateOf(false)
       val state =
-        runtime.createMapState(baseStyle = INITIAL_STYLE) {
+        runtime.createMapState(baseStyle = InitialStyle) {
           if (showLatestLayer) {
             Anchor.Below("base-c") {
               BackgroundLayer(id = "user-latest", color = const(Color.Blue))
@@ -197,24 +196,24 @@ class MlnFfiStyleSwitchTest {
         MaplibreMap(modifier = Modifier, state = state)
       }
 
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
 
       runOnUiThread {
-        state.style.asMutable!!.baseStyle = BaseStyle.Uri(B_STYLE_URL)
+        state.style.asMutable!!.baseStyle = BaseStyle.Uri(BStyleUrl)
       }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         styleBStarted.count == 0L
       }
 
       runOnUiThread {
         showLatestLayer = true
-        state.style.asMutable!!.baseStyle = BaseStyle.Uri(C_STYLE_URL)
+        state.style.asMutable!!.baseStyle = BaseStyle.Uri(CStyleUrl)
       }
 
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = SettleTimeoutMillis) {
         styleBCancelled.count == 0L &&
           state.style.loadState == StyleLoadState.Ready &&
           "user-latest" in session.currentStyleLayerIds()
@@ -239,9 +238,9 @@ class MlnFfiStyleSwitchTest {
       add("user-circles")
     }
     fun relevantLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
+      session.currentStyleLayerIds().filter { it in RelevantLayerIds }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { relevantLayers() == expected }
+    waitUntil(timeoutMillis = SettleTimeoutMillis) { relevantLayers() == expected }
     assertEquals(expected, relevantLayers(), "live style layer order")
   }
 
@@ -258,25 +257,25 @@ class MlnFfiStyleSwitchTest {
     }
 
   private companion object {
-    const val SETTLE_TIMEOUT_MILLIS = 30_000L
-    const val B_STYLE_URL = "held://style-b"
-    const val C_STYLE_URL = "held://style-c"
+    const val SettleTimeoutMillis = 30_000L
+    const val BStyleUrl = "held://style-b"
+    const val CStyleUrl = "held://style-c"
 
-    const val EMPTY_SOURCE_JSON =
+    const val EmptySourceJson =
       """{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}"""
 
-    const val STYLE_C_JSON =
+    const val StyleCJson =
       """{"version":8,"sources":{},"layers":[{"id":"base-c","type":"background"}]}"""
 
-    val INITIAL_STYLE =
+    val InitialStyle =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"base-initial","type":"background"}]}"""
       )
 
     /** Enough rounds that a fault which needs a second or third switch still shows up. */
-    const val ROTATIONS = 6
+    const val Rotations = 6
 
-    val RELEVANT_LAYER_IDS =
+    val RelevantLayerIds =
       setOf(
         "bg-a",
         "labels-a",
@@ -287,9 +286,9 @@ class MlnFfiStyleSwitchTest {
         "user-circles",
       )
 
-    val SLOT_LAYER_IDS = setOf("bg-a", "bg-b", "base-slot", "user-anchored")
+    val SlotLayerIds = setOf("bg-a", "bg-b", "base-slot", "user-anchored")
 
-    val SLOT_STYLES =
+    val SlotStyles =
       listOf(
         BaseStyle.Json(
           """
@@ -313,13 +312,13 @@ class MlnFfiStyleSwitchTest {
      * Styles with different layer sets, so a re-add lands against a different base each time.
      * Inline rather than remote, so the test does not need the network.
      */
-    val STYLES =
+    val Styles =
       listOf(
         DemoStyle(
           base =
             BaseStyle.Json(
               """
-              {"version":8,"sources":{"empty":$EMPTY_SOURCE_JSON},"layers":[
+              {"version":8,"sources":{"empty":$EmptySourceJson},"layers":[
                 {"id":"bg-a","type":"background","paint":{"background-color":"#eee"}},
                 {"id":"labels-a","type":"symbol","source":"empty"}
               ]}
@@ -332,7 +331,7 @@ class MlnFfiStyleSwitchTest {
           base =
             BaseStyle.Json(
               """
-              {"version":8,"sources":{"empty":$EMPTY_SOURCE_JSON},"layers":[
+              {"version":8,"sources":{"empty":$EmptySourceJson},"layers":[
                 {"id":"bg-b","type":"background","paint":{"background-color":"#ddd"}},
                 {"id":"labels-b","type":"symbol","source":"empty"}
               ]}

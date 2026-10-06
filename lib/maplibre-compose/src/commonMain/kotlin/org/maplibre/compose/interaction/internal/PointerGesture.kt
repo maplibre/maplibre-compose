@@ -515,7 +515,7 @@ internal class PointerGesture(
 
     fun update(input: Input.Sample, slopPixels: Float): Boolean {
       val now = input.metadata.uptimeMillis
-      if (now - startedAtMillis > GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS) {
+      if (now - startedAtMillis > GestureMath.TwoFingerTapTimeoutMillis) {
         return false
       }
       input.event.changes.forEach { change ->

@@ -89,7 +89,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
       // Metal texture rows start at the top left, as fixture coordinates do.
       texture.getBytes(
         bytes,
-        BYTES_PER_ROW,
+        BytesPerRow,
         MTLRegionMake2D(x.toULong(), y.toULong(), 1u, 1u),
         0uL,
       )
@@ -139,7 +139,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
   }
 
   companion object {
-    private const val BYTES_PER_ROW = 4uL
+    private const val BytesPerRow = 4uL
 
     fun create(): AppleMetalTestRenderDriver {
       val device =

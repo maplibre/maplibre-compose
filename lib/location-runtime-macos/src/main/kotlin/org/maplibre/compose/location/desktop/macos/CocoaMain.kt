@@ -35,7 +35,7 @@ internal object CocoaMain {
   private val jobClass: Long by lazy { registerJobClass() }
   private val runLoopModes: Long by lazy {
     ObjectiveC.allocInit("NSMutableArray").also { modes ->
-      OPENJDK_RUN_LOOP_MODES.forEach { mode ->
+      OpenjdkRunLoopModes.forEach { mode ->
         ObjectiveC.sendVoid(modes, "addObject:", ObjectiveC.nsString(mode))
       }
     }
@@ -69,12 +69,12 @@ internal object CocoaMain {
 
   private fun performOnMainThread(work: Runnable) {
     check(jobClass != NULL)
-    val performer = ObjectiveC.allocInit(JOB_CLASS_NAME)
+    val performer = ObjectiveC.allocInit(JobClassName)
     jobs[performer] = work
     try {
       ObjectiveC.performSelectorOnMainThreadAndWait(
         receiver = performer,
-        selectorName = INVOKE_SELECTOR,
+        selectorName = InvokeSelector,
         modes = runLoopModes,
       )
     } finally {
@@ -93,20 +93,20 @@ internal object CocoaMain {
 
   private fun registerJobClass(): Long {
     ObjectiveC.loadFramework("Foundation")
-    val existing = ObjCRuntime.objc_getClass(JOB_CLASS_NAME)
+    val existing = ObjCRuntime.objc_getClass(JobClassName)
     if (existing != NULL) return existing
 
-    val cls = ObjCRuntime.objc_allocateClassPair(ObjectiveC.cls("NSObject"), JOB_CLASS_NAME, 0)
-    check(cls != NULL) { "Failed to allocate $JOB_CLASS_NAME" }
+    val cls = ObjCRuntime.objc_allocateClassPair(ObjectiveC.cls("NSObject"), JobClassName, 0)
+    check(cls != NULL) { "Failed to allocate $JobClassName" }
     check(
       ObjCRuntime.class_addMethod(
         cls,
-        ObjectiveC.selector(INVOKE_SELECTOR),
+        ObjectiveC.selector(InvokeSelector),
         workStub.address(),
         "v@:",
       )
     ) {
-      "Failed to add $INVOKE_SELECTOR to $JOB_CLASS_NAME"
+      "Failed to add $InvokeSelector to $JobClassName"
     }
     ObjCRuntime.objc_registerClassPair(cls)
     return cls
@@ -122,9 +122,9 @@ internal object CocoaMain {
     fun get(): T = checkNotNull(result) { "AppKit main-thread work did not run" }.getOrThrow()
   }
 
-  private const val JOB_CLASS_NAME = "MLCocoaMainJob"
-  private const val INVOKE_SELECTOR = "invoke"
-  private val OPENJDK_RUN_LOOP_MODES =
+  private const val JobClassName = "MLCocoaMainJob"
+  private const val InvokeSelector = "invoke"
+  private val OpenjdkRunLoopModes =
     listOf(
       "kCFRunLoopDefaultMode",
       "NSModalPanelRunLoopMode",

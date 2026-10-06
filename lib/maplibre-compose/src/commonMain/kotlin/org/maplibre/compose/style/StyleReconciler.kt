@@ -49,7 +49,7 @@ internal class StyleReconciler {
     val revision = prepared.revision
     revision.fontScale?.let { next ->
       if (fontScale != next) {
-        style.setGlobalStateProperty(FONT_SCALE_GLOBAL_STATE, JsonPrimitive(next))
+        style.setGlobalStateProperty(FontScaleGlobalState, JsonPrimitive(next))
         fontScale = next
       }
     }

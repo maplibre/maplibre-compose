@@ -27,11 +27,11 @@ class MapVisibleAreaTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.state.setCameraPosition(CAMERA)
-      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
+      it.state.setCameraPosition(Camera)
+      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(Camera) }
 
       val box = assertNotNull(it.state.getVisibleBounds())
-      assertContains(box, CAMERA.target, "the camera target")
+      assertContains(box, Camera.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
     }
@@ -42,8 +42,8 @@ class MapVisibleAreaTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.state.setCameraPosition(ROTATED_CAMERA)
-      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
+      it.state.setCameraPosition(RotatedCamera)
+      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(RotatedCamera) }
 
       val region = assertNotNull(it.state.getVisibleRegion())
       val box = assertNotNull(it.state.getVisibleBounds())
@@ -69,8 +69,8 @@ class MapVisibleAreaTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.state.setCameraPosition(ANTIMERIDIAN_CAMERA)
-      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
+      it.state.setCameraPosition(AntimeridianCamera)
+      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(AntimeridianCamera) }
 
       val box = assertNotNull(it.state.getVisibleBounds())
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
@@ -79,7 +79,7 @@ class MapVisibleAreaTest {
         box.northeast.longitude - box.southwest.longitude < 90.0,
         "the box should span the short way around the antimeridian, was $box",
       )
-      assertContains(box, Position(ANTIMERIDIAN_CAMERA.target.longitude, 47.0), "the target")
+      assertContains(box, Position(AntimeridianCamera.target.longitude, 47.0), "the target")
       val region = assertNotNull(it.state.getVisibleRegion())
       for (corner in region.corners()) assertContains(box, corner, "an antimeridian corner")
       assertTrue(region.farRight.longitude > 180.0, "the right corner should keep its world copy")
@@ -115,12 +115,12 @@ class MapVisibleAreaTest {
   }
 
   private companion object {
-    val CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
-    val ANTIMERIDIAN_CAMERA = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
-    val ROTATED_CAMERA =
+    val Camera = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
+    val AntimeridianCamera = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
+    val RotatedCamera =
       CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
 
-    const val TOLERANCE = 1e-6
+    const val Tolerance = 1e-6
 
     /**
      * Camera, bounding box, and region update together after native applies a position. Wait for a
@@ -141,9 +141,9 @@ class MapVisibleAreaTest {
     fun assertContains(box: VisibleBounds, position: Position, what: String) {
       assertTrue(
         position.longitude in
-          (box.southwest.longitude - TOLERANCE)..(box.northeast.longitude + TOLERANCE) &&
+          (box.southwest.longitude - Tolerance)..(box.northeast.longitude + Tolerance) &&
           position.latitude in
-            (box.southwest.latitude - TOLERANCE)..(box.northeast.latitude + TOLERANCE),
+            (box.southwest.latitude - Tolerance)..(box.northeast.latitude + Tolerance),
         "the bounding box should contain $what: $position was outside $box",
       )
     }

@@ -24,9 +24,9 @@ internal object NgonPlugin {
 
   /** Loads the library through the Java FFM API and calls `mln_ngon_layer_register`. */
   private fun register(): Boolean {
-    val libraryFile = System.mapLibraryName(LIBRARY_NAME)
+    val libraryFile = System.mapLibraryName(LibraryName)
     val library =
-      NgonPlugin::class.java.classLoader.getResourceAsStream("$RESOURCE_ROOT/$libraryFile")
+      NgonPlugin::class.java.classLoader.getResourceAsStream("$ResourceRoot/$libraryFile")
     if (library == null) {
       log.i { "$libraryFile is not on the classpath; run `mise run deps:ngon-plugin` to build it." }
       return false
@@ -51,9 +51,9 @@ internal object NgonPlugin {
             ),
           )
       Arena.ofConfined().use { arena ->
-        val error = arena.allocate(ERROR_CAPACITY)
+        val error = arena.allocate(ErrorCapacity)
         val hostRegister = MemorySegment.ofAddress(Maplibre.pluginRegisterFunctionV1().address)
-        val status = register.invokeExact(hostRegister, error, ERROR_CAPACITY) as Int
+        val status = register.invokeExact(hostRegister, error, ErrorCapacity) as Int
         // OK, or already registered by an earlier map in this process.
         val registered = status == 0 || status == 1
         if (!registered) {
@@ -78,7 +78,7 @@ internal object NgonPlugin {
     return path
   }
 
-  private const val LIBRARY_NAME = "mln-ngon-layer"
-  private const val RESOURCE_ROOT = "plugins/ngon-layer"
-  private const val ERROR_CAPACITY = 1024L
+  private const val LibraryName = "mln-ngon-layer"
+  private const val ResourceRoot = "plugins/ngon-layer"
+  private const val ErrorCapacity = 1024L
 }

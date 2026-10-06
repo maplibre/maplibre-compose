@@ -45,7 +45,7 @@ internal fun fitPositions(
   minZoom: Double,
   maxZoom: Double,
 ): GeometryFit? {
-  val worldSize = TILE_SIZE * 2.0.pow(zoom)
+  val worldSize = TileSize * 2.0.pow(zoom)
   val rotation = -bearing * PI / 180.0
   var minX = Double.POSITIVE_INFINITY
   var minY = Double.POSITIVE_INFINITY
@@ -124,7 +124,7 @@ internal fun refineFitForPitch(
   // The flat fit shows every position at pitch zero; it stands in until a pitched candidate does.
   var shown = fit
   var next = fit
-  repeat(MAX_PITCH_PASSES) {
+  repeat(MaxPitchPasses) {
     candidate.setCenter(next.target.toLngLat())
     candidate.setZoom(next.zoom)
     // The map's constraints may have moved the candidate.
@@ -156,19 +156,19 @@ internal fun refineFitForPitch(
     val moved = unproject(project(target, 1.0).plus(shift), 1.0)
 
     val settled =
-      abs(fittedZoom - zoom) < ZOOM_TOLERANCE &&
-        abs(midpoint.x - roomCenter.x) < PIXEL_TOLERANCE &&
-        abs(midpoint.y - roomCenter.y) < PIXEL_TOLERANCE
+      abs(fittedZoom - zoom) < ZoomTolerance &&
+        abs(midpoint.x - roomCenter.x) < PixelTolerance &&
+        abs(midpoint.y - roomCenter.y) < PixelTolerance
     next = GeometryFit(target = moved, zoom = fittedZoom)
     if (settled) return next
   }
   return shown
 }
 
-private const val TILE_SIZE = 512.0
-private const val MAX_PITCH_PASSES = 12
-private const val ZOOM_TOLERANCE = 1e-4
-private const val PIXEL_TOLERANCE = 0.05
+private const val TileSize = 512.0
+private const val MaxPitchPasses = 12
+private const val ZoomTolerance = 1e-4
+private const val PixelTolerance = 0.05
 
 private fun screenPoint(x: Double, y: Double): Point = unsafeJso {
   this.x = x

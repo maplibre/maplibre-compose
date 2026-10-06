@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.macosx.ObjCRuntime
 import org.maplibre.compose.location.LocationBackendAvailability
-import org.maplibre.compose.location.desktop.macos.ObjectiveC.DELEGATE_CLASS_NAME
+import org.maplibre.compose.location.desktop.macos.ObjectiveC.DelegateClassName
 
 internal class SystemCoreLocationClient : CoreLocationClient {
   override val backendAvailability: LocationBackendAvailability
@@ -67,7 +67,7 @@ internal class SystemCoreLocationManager : CoreLocationManager {
       if (ObjectiveC.respondsTo(manager, "accuracyAuthorization")) {
         ObjectiveC.sendLong(manager, "accuracyAuthorization")
       } else {
-        CL_ACCURACY_AUTHORIZATION_FULL
+        CLAccuracyAuthorizationFullAccuracy
       }
     }
 
@@ -80,7 +80,7 @@ internal class SystemCoreLocationManager : CoreLocationManager {
         objcDelegate = NULL
       }
       if (delegate != null) {
-        objcDelegate = ObjectiveC.allocInit(DELEGATE_CLASS_NAME)
+        objcDelegate = ObjectiveC.allocInit(DelegateClassName)
         CoreLocationDelegateClass.bind(objcDelegate, delegate)
         ObjectiveC.sendVoid(manager, "setDelegate:", objcDelegate)
       }
@@ -153,11 +153,11 @@ internal object CoreLocationDelegateClass {
 
   @Synchronized
   fun register() {
-    val existing = ObjCRuntime.objc_getClass(DELEGATE_CLASS_NAME)
+    val existing = ObjCRuntime.objc_getClass(DelegateClassName)
     if (existing != NULL) return
 
-    val cls = ObjCRuntime.objc_allocateClassPair(ObjectiveC.cls("NSObject"), DELEGATE_CLASS_NAME, 0)
-    check(cls != NULL) { "Failed to allocate $DELEGATE_CLASS_NAME" }
+    val cls = ObjCRuntime.objc_allocateClassPair(ObjectiveC.cls("NSObject"), DelegateClassName, 0)
+    check(cls != NULL) { "Failed to allocate $DelegateClassName" }
 
     val protocol = ObjCRuntime.objc_getProtocol("CLLocationManagerDelegate")
     if (protocol != NULL) {
@@ -215,7 +215,7 @@ internal object CoreLocationDelegateClass {
     check(
       ObjCRuntime.class_addMethod(cls, ObjectiveC.selector(selectorName), stub.address(), types)
     ) {
-      "Failed to add $selectorName to $DELEGATE_CLASS_NAME"
+      "Failed to add $selectorName to $DelegateClassName"
     }
   }
 

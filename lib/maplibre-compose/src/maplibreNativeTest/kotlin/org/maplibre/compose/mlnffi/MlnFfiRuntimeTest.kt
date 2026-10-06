@@ -28,7 +28,7 @@ class MlnFfiRuntimeTest {
   @AfterTest
   fun cleanUp() = runBlocking {
     threads.forEach { it.close() }
-    threads.forEach { withTimeout(TIMEOUT_MILLIS) { it.awaitClosed() } }
+    threads.forEach { withTimeout(TimeoutMillis) { it.awaitClosed() } }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -63,7 +63,7 @@ class MlnFfiRuntimeTest {
 
     thread.start()
 
-    assertTrue(done.await(TIMEOUT_MILLIS), "the queued tasks did not run")
+    assertTrue(done.await(TimeoutMillis), "the queued tasks did not run")
     assertEquals(listOf("first", "second", "third"), recorded())
   }
 
@@ -81,7 +81,7 @@ class MlnFfiRuntimeTest {
 
     thread.start()
 
-    assertTrue(done.await(TIMEOUT_MILLIS), "the task after the batch waited for another wake")
+    assertTrue(done.await(TimeoutMillis), "the task after the batch waited for another wake")
     assertEquals(listOf("ends batch", "next"), recorded())
   }
 
@@ -96,11 +96,11 @@ class MlnFfiRuntimeTest {
       thread.post(
         task("blocking", endsBatch = true) {
           entered.countDown()
-          check(release.await(TIMEOUT_MILLIS)) { "the test did not release the owner" }
+          check(release.await(TimeoutMillis)) { "the test did not release the owner" }
         }
       )
     )
-    assertTrue(entered.await(TIMEOUT_MILLIS))
+    assertTrue(entered.await(TimeoutMillis))
     assertTrue(thread.post(task("queued one")))
     assertTrue(thread.post(task("queued two")))
 
@@ -109,7 +109,7 @@ class MlnFfiRuntimeTest {
     val stopped = async(start = CoroutineStart.UNDISPATCHED) { thread.awaitClosed() }
     assertFalse(stopped.isCompleted, "the owner still holds the runtime")
     release.countDown()
-    withTimeout(TIMEOUT_MILLIS) { stopped.await() }
+    withTimeout(TimeoutMillis) { stopped.await() }
 
     assertEquals(
       listOf(
@@ -127,7 +127,7 @@ class MlnFfiRuntimeTest {
     assertTrue(thread.post(task("queued")))
 
     thread.close()
-    withTimeout(TIMEOUT_MILLIS) { thread.awaitClosed() }
+    withTimeout(TimeoutMillis) { thread.awaitClosed() }
 
     assertFalse(thread.post(task("refused")))
     assertFailsWith<IllegalStateException> { thread.start() }
@@ -138,6 +138,6 @@ class MlnFfiRuntimeTest {
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 5_000L
+    const val TimeoutMillis = 5_000L
   }
 }

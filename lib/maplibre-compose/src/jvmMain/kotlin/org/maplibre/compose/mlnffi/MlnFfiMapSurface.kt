@@ -216,12 +216,12 @@ internal class MlnFfiSurfaceController(
   private fun recover(error: Throwable, frameId: Long) {
     rethrowIfFatal(error)
     clearPresentation()
-    if (error !is MlnFfiRecoverableFrameException || ++failures > MAX_RENDER_RECOVERY_ATTEMPTS) {
+    if (error !is MlnFfiRecoverableFrameException || ++failures > MaxRenderRecoveryAttempts) {
       fail(error)
       return
     }
     logger?.w(error) {
-      "Map frame $frameId failed; rebuilding the render session (attempt $failures of $MAX_RENDER_RECOVERY_ATTEMPTS)"
+      "Map frame $frameId failed; rebuilding the render session (attempt $failures of $MaxRenderRecoveryAttempts)"
     }
     try {
       session?.let(renderer::onSurfaceLost)

@@ -33,8 +33,8 @@ import org.maplibre.spatialk.geojson.Position
 class MlnFfiViewportTest {
   @Test
   fun ground_scale_uses_the_native_projection_in_logical_pixels() {
-    BridgeMapFixture.create(initialExtent = BridgeMapFixture.RETINA_EXTENT).use { fixture ->
-      fixture.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
+    BridgeMapFixture.create(initialExtent = BridgeMapFixture.RetinaExtent).use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RetinaExtent)
       fixture.session.setCameraPosition(CameraPosition(target = Position(10.0, 60.0), zoom = 9.0))
       fixture.pumpUntil("the requested viewport") {
         fixture.session.getViewport()?.cameraPosition?.zoom == 9.0

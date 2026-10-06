@@ -98,7 +98,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
       derivedExtents?.let {
         return it
       }
-      val corners = projection?.let { unprojectedCorners(it, size) } ?: EMPTY_CORNERS
+      val corners = projection?.let { unprojectedCorners(it, size) } ?: EmptyCorners
       return MapViewportExtents(corners).also { derivedExtents = it }
     }
 

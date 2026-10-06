@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
+import org.maplibre.compose.sources.ClusterIdProperty
 import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -44,7 +44,7 @@ internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObj
  * Returns null when there is no usable cluster id.
  */
 internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
-  val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()
+  val clusterId = (properties?.get(ClusterIdProperty) as? JsonPrimitive)?.toUnsignedOrNull()
   if (clusterId == null) return null
 
   val feature = buildJsonObject {
@@ -55,7 +55,7 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
       properties.orEmpty().forEach { (key, value) ->
         when (key) {
           // uint64_t crosses JSON as an integer literal; a Long's bit pattern reads back unsigned.
-          CLUSTER_ID_PROPERTY -> put(key, JsonPrimitive(clusterId.toULong()))
+          ClusterIdProperty -> put(key, JsonPrimitive(clusterId.toULong()))
           else -> put(key, value)
         }
       }

@@ -22,7 +22,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 
-private const val RENDER_TIMEOUT_MS = 30_000
+private const val RenderTimeoutMs = 30_000
 
 internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double = 1.0) :
   AutoCloseable {
@@ -74,7 +74,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   }
 
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {
-    val deadline = Date.now() + RENDER_TIMEOUT_MS
+    val deadline = Date.now() + RenderTimeoutMs
     while (!condition()) {
       drawOnce(target)
       loadFailure?.let { error("the style failed to load: $it") }

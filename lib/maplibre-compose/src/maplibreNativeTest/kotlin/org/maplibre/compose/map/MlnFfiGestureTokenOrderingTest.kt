@@ -30,9 +30,9 @@ class MlnFfiGestureTokenOrderingTest {
           fixture.awaitMapReady()
           // Zoomed in, so the world is taller than the viewport and a vertical pan is not
           // constrained.
-          fixture.state.setCameraPosition(CameraPosition(zoom = START_ZOOM))
+          fixture.state.setCameraPosition(CameraPosition(zoom = StartZoom))
           fixture.pumpUntil("the camera to adopt the start zoom") {
-            abs(session.getCameraPosition().zoom - START_ZOOM) < ZOOM_TOLERANCE
+            abs(session.getCameraPosition().zoom - StartZoom) < ZoomTolerance
           }
           fixture.settle()
           fixture.events.clear()
@@ -49,9 +49,9 @@ class MlnFfiGestureTokenOrderingTest {
             assertTrue(entered.await(5_000))
 
             val stale = fixture.gestures.onGestureStarted()
-            fixture.gestures.moveBy(DRAG_STEP_DP, 0.0, gestureToken = stale)
+            fixture.gestures.moveBy(DragStepDp, 0.0, gestureToken = stale)
             val latest = fixture.gestures.onGestureStarted()
-            fixture.gestures.moveBy(0.0, DRAG_STEP_DP, gestureToken = latest)
+            fixture.gestures.moveBy(0.0, DragStepDp, gestureToken = latest)
             fixture.gestures.onGestureEnded(latest)
             fixture.gestures.onGestureEnded(stale)
             release.countDown()
@@ -64,8 +64,8 @@ class MlnFfiGestureTokenOrderingTest {
 
           val camera = session.getCameraPosition()
           assertTrue(
-            abs(camera.target.longitude - start.target.longitude) < ZOOM_TOLERANCE &&
-              abs(camera.target.latitude - start.target.latitude) > MIN_DELTA_DEGREES,
+            abs(camera.target.longitude - start.target.longitude) < ZoomTolerance &&
+              abs(camera.target.latitude - start.target.latitude) > MinDeltaDegrees,
             "only the current owner's delta should reach the camera: $start then $camera",
           )
           assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
@@ -88,7 +88,7 @@ class MlnFfiGestureTokenOrderingTest {
         val session = fixture.session as MlnFfiMapSession
         fixture.loadStyle(BaseStyle.Empty)
         fixture.awaitMapReady()
-        fixture.state.setCameraPosition(CameraPosition(zoom = START_ZOOM))
+        fixture.state.setCameraPosition(CameraPosition(zoom = StartZoom))
         fixture.settle()
         val before = fixture.state.cameraPosition
         val entered = TestLatch(1)
@@ -101,7 +101,7 @@ class MlnFfiGestureTokenOrderingTest {
         try {
           assertTrue(entered.await(5_000))
           val input = GestureInputSession(this, fixture.gestures)
-          fixture.gestures.inputPanBy(DRAG_STEP_DP, 0.0, input.token)
+          fixture.gestures.inputPanBy(DragStepDp, 0.0, input.token)
           input.end()
           input.scope.cancel()
           release.countDown()
@@ -124,7 +124,7 @@ class MlnFfiGestureTokenOrderingTest {
       val session = fixture.session as MlnFfiMapSession
       fixture.loadStyle(BaseStyle.Empty)
       fixture.awaitMapReady()
-      fixture.state.setCameraPosition(CameraPosition(zoom = START_ZOOM))
+      fixture.state.setCameraPosition(CameraPosition(zoom = StartZoom))
       fixture.settle()
       val entered = TestLatch(1)
       val release = TestLatch(1)
@@ -137,16 +137,16 @@ class MlnFfiGestureTokenOrderingTest {
         assertTrue(entered.await(5_000))
         fixture.state.setCameraPosition(CameraPosition(zoom = 12.0))
         val gesture = fixture.gestures.onGestureStarted()
-        fixture.gestures.moveBy(DRAG_STEP_DP, 0.0, gestureToken = gesture)
+        fixture.gestures.moveBy(DragStepDp, 0.0, gestureToken = gesture)
         fixture.gestures.onGestureEnded(gesture)
         release.countDown()
         fixture.awaitWhileRendering("the replacement gesture to finish") {
           gesture.awaitCompletion()
         }
         val camera = session.getCameraPosition()
-        assertEquals(START_ZOOM, camera.zoom, 1e-6)
+        assertEquals(StartZoom, camera.zoom, 1e-6)
         assertTrue(
-          abs(camera.target.longitude) > MIN_DELTA_DEGREES,
+          abs(camera.target.longitude) > MinDeltaDegrees,
           "the current gesture's pan must still execute",
         )
       } finally {
@@ -156,12 +156,12 @@ class MlnFfiGestureTokenOrderingTest {
   }
 
   private companion object {
-    const val DRAG_STEP_DP = 10.0
+    const val DragStepDp = 10.0
 
-    const val START_ZOOM = 3.0
+    const val StartZoom = 3.0
 
-    const val ZOOM_TOLERANCE = 0.01
+    const val ZoomTolerance = 0.01
 
-    const val MIN_DELTA_DEGREES = 0.5
+    const val MinDeltaDegrees = 0.5
   }
 }

@@ -89,7 +89,7 @@ that Compose does not recognize.
    written would log an unsupported warning on every layer of that type.
 2. Note on the parameter that it is not yet supported on native, with the issue
    link from `sdk-support`.
-3. Add a row to `MlnFfiStyleBinding.UNSUPPORTED_LAYER_PROPERTIES`. The reason
+3. Add a row to `MlnFfiStyleBinding.UnsupportedLayerProperties`. The reason
    string is what the layer logs once.
 4. Add the round-trip case to the `glJsOnly*` list in
    `LayerPropertyRoundTripTest`, so desktop does not assert a write native will

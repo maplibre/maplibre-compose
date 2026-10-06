@@ -28,7 +28,7 @@ internal suspend fun CameraInputTarget.animateFling(
  */
 internal suspend fun animateDecelerating(
   duration: Duration,
-  power: Int = GestureMath.TRANSFORM_DECAY_POWER,
+  power: Int = GestureMath.TransformDecayPower,
   apply: (frameFraction: Double) -> Unit,
 ) {
   val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)

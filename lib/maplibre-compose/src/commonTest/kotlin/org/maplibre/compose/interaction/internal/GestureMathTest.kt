@@ -73,7 +73,7 @@ class GestureMathTest {
         val original = assertNotNull(GestureMath.fling(speed, -speed))
         val combined = original.settleWith(duration)
         assertEquals(duration, combined.duration)
-        assertEquals(GestureMath.TRANSFORM_DECAY_POWER, combined.decayPower)
+        assertEquals(GestureMath.TransformDecayPower, combined.decayPower)
         assertTrue(combined.offsetXDp > 0.0)
         assertTrue(combined.offsetXDp <= original.offsetXDp)
         assertEquals(-combined.offsetXDp, combined.offsetYDp)

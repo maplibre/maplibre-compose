@@ -37,32 +37,32 @@ class AndroidMapStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = TimeoutMillis) {
           activity?.mapState?.currentMapAttachment != null
         }
         val firstActivity = requireNotNull(activity)
         val firstState = requireNotNull(firstActivity.mapState)
         assertTrue(firstActivity.defaultRuntimeIsShared)
 
-        runOnIdle { firstState.setCameraPosition(EXPECTED_CAMERA) }
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-          firstState.currentMapAttachment?.adapter?.hasCamera(EXPECTED_CAMERA) == true
+        runOnIdle { firstState.setCameraPosition(ExpectedCamera) }
+        waitUntil(timeoutMillis = TimeoutMillis) {
+          firstState.currentMapAttachment?.adapter?.hasCamera(ExpectedCamera) == true
         }
 
         runOnIdle { firstActivity.recreate() }
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = TimeoutMillis) {
           activity != null &&
             activity !== firstActivity &&
-            activity?.mapState?.currentMapAttachment?.adapter?.hasCamera(EXPECTED_CAMERA) == true
+            activity?.mapState?.currentMapAttachment?.adapter?.hasCamera(ExpectedCamera) == true
         }
 
         val replacementActivity = requireNotNull(activity)
         assertNotSame(firstActivity, replacementActivity, "the activity should have been recreated")
         val restoredState = requireNotNull(replacementActivity.mapState)
         assertNotSame(firstState, restoredState, "restoration should create a new logical map")
-        assertCamera(EXPECTED_CAMERA, restoredState.cameraPosition, "restored MapState")
+        assertCamera(ExpectedCamera, restoredState.cameraPosition, "restored MapState")
         assertCamera(
-          EXPECTED_CAMERA,
+          ExpectedCamera,
           requireNotNull(restoredState.currentMapAttachment).adapter.getCameraPosition(),
           "replacement native map",
         )
@@ -79,10 +79,10 @@ class AndroidMapStateRecreationTest {
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 10_000L
-    const val TOLERANCE = 1e-3
+    const val TimeoutMillis = 10_000L
+    const val Tolerance = 1e-3
 
-    val EXPECTED_CAMERA =
+    val ExpectedCamera =
       CameraPosition(
         bearing = 37.0,
         target = Position(longitude = 11.5761, latitude = 48.1371),
@@ -110,7 +110,7 @@ class AndroidMapStateRecreationTest {
         expected.padding == actual.padding
 
     fun near(expected: Number, actual: Number): Boolean =
-      abs(expected.toDouble() - actual.toDouble()) < TOLERANCE
+      abs(expected.toDouble() - actual.toDouble()) < Tolerance
   }
 }
 

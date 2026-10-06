@@ -41,7 +41,7 @@ object DataVizDemo : Demo {
     DemoDestination.FitBounds(BoundingBox(west = 100.0, south = -60.0, east = -65.0, north = 70.0))
 
   /** USGS serves this feed with open CORS headers, so every platform can fetch it directly. */
-  private const val FEED_URI =
+  private const val FeedUri =
     "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson"
 
   private enum class Mode(val label: String) {
@@ -67,14 +67,14 @@ object DataVizDemo : Demo {
         Mode.Points -> Points()
         Mode.Heatmap -> Heatmap()
         Mode.Clusters -> Clusters(style)
-        Mode.Hexbins -> hexbins?.MapContent(FEED_URI)
+        Mode.Hexbins -> hexbins?.MapContent(FeedUri)
       }
     }
   }
 
   @Composable
   private fun Points() {
-    val source = rememberGeoJsonSource(GeoJsonData.Uri(FEED_URI))
+    val source = rememberGeoJsonSource(GeoJsonData.Uri(FeedUri))
     CircleLayer(
       id = "earthquake-points",
       source = source,
@@ -96,7 +96,7 @@ object DataVizDemo : Demo {
 
   @Composable
   private fun Heatmap() {
-    val source = rememberGeoJsonSource(GeoJsonData.Uri(FEED_URI))
+    val source = rememberGeoJsonSource(GeoJsonData.Uri(FeedUri))
     HeatmapLayer(
       id = "earthquake-heatmap",
       source = source,
@@ -109,7 +109,7 @@ object DataVizDemo : Demo {
   private fun Clusters(style: DemoStyle) {
     val source =
       rememberGeoJsonSource(
-        GeoJsonData.Uri(FEED_URI),
+        GeoJsonData.Uri(FeedUri),
         GeoJsonOptions(cluster = true, clusterRadius = 40, clusterMaxZoom = 10),
       )
     val pointCount = feature["point_count"].asNumber()

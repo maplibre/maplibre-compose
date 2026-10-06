@@ -4,7 +4,7 @@ import androidx.compose.runtime.Stable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.style.INTERNAL_GLOBAL_STATE_PREFIX
+import org.maplibre.compose.style.InternalGlobalStatePrefix
 import org.maplibre.compose.style.StyleHandleException
 
 /**
@@ -26,7 +26,7 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
    */
   public suspend fun get(): JsonObject? =
     style.globalStateValues()?.let { state ->
-      JsonObject(state.filterKeys { !it.startsWith(INTERNAL_GLOBAL_STATE_PREFIX) })
+      JsonObject(state.filterKeys { !it.startsWith(InternalGlobalStatePrefix) })
     }
 
   /**
@@ -36,8 +36,8 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
    * @throws StyleHandleException if no style is ready.
    */
   public fun setProperty(name: String, value: JsonElement) {
-    require(!name.startsWith(INTERNAL_GLOBAL_STATE_PREFIX)) {
-      "Global-state names beginning with '$INTERNAL_GLOBAL_STATE_PREFIX' are reserved, was '$name'"
+    require(!name.startsWith(InternalGlobalStatePrefix)) {
+      "Global-state names beginning with '$InternalGlobalStatePrefix' are reserved, was '$name'"
     }
     style.setGlobalStateProperty(name, value)
   }

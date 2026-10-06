@@ -62,14 +62,14 @@ class MlnFfiSurfaceLossTest {
   fun a_map_whose_surface_is_lost_and_restored_renders_again_with_its_style_and_camera_intact() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(STYLE)
-      it.session.setCameraPosition(CAMERA)
+      it.loadStyle(Style)
+      it.session.setCameraPosition(Camera)
       it.pumpUntilRendered()
       it.pumpUntil("the map to reach its camera") {
-        abs(it.session.getCameraPosition().zoom - CAMERA.zoom) < TOLERANCE
+        abs(it.session.getCameraPosition().zoom - Camera.zoom) < Tolerance
       }
       val attachesBefore = it.attachCount
-      val styleLoadsBefore = it.events.count { event -> event == BridgeMapFixture.STYLE_LOADED }
+      val styleLoadsBefore = it.events.count { event -> event == BridgeMapFixture.StyleLoaded }
 
       it.loseSurface()
       it.restoreSurface()
@@ -84,18 +84,18 @@ class MlnFfiSurfaceLossTest {
       )
       assertEquals(
         styleLoadsBefore,
-        it.events.count { event -> event == BridgeMapFixture.STYLE_LOADED },
+        it.events.count { event -> event == BridgeMapFixture.StyleLoaded },
         "the style lives on the map, so surface loss should not have reloaded it",
       )
       val camera = it.session.getCameraPosition()
-      assertNear(CAMERA.zoom, camera.zoom, "zoom should survive surface loss")
+      assertNear(Camera.zoom, camera.zoom, "zoom should survive surface loss")
       assertNear(
-        CAMERA.target.longitude,
+        Camera.target.longitude,
         camera.target.longitude,
         "longitude should survive surface loss",
       )
       assertNear(
-        CAMERA.target.latitude,
+        Camera.target.latitude,
         camera.target.latitude,
         "latitude should survive surface loss",
       )
@@ -123,7 +123,7 @@ class MlnFfiSurfaceLossTest {
   fun a_map_whose_surface_is_lost_closes_cleanly() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(STYLE)
+      it.loadStyle(Style)
       it.pumpUntilRendered()
       it.loseSurface()
       it.session.close()
@@ -136,7 +136,7 @@ class MlnFfiSurfaceLossTest {
     val fixture = BridgeMapFixture.create()
     var closureFailure: Throwable? = null
     try {
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       fixture.pumpUntilRendered()
       val session = fixture.session
       val engine = checkNotNull(session.lifecycle.engine)
@@ -176,7 +176,7 @@ class MlnFfiSurfaceLossTest {
   fun feature_state_accepts_mutations_without_a_surface_and_survives_its_replacement() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(BLACK_STYLE)
+      it.loadStyle(BlackStyle)
       it.session.setCameraPosition(
         CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0)
       )
@@ -218,10 +218,10 @@ class MlnFfiSurfaceLossTest {
         }
       }
       it.pumpUntil("the incomplete feature state to render blue") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
+        it.tryReadPixel(Center, Center)?.isNear(Blue) == true
       }
       it.loseSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
+      assertEquals(null, it.tryReadPixel(Center, Center))
       runBlocking {
         style.onOwner {
           style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
@@ -232,29 +232,29 @@ class MlnFfiSurfaceLossTest {
         style.featureStateOnOwnerThread(source.id, "1"),
       )
       it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
+      assertEquals(null, it.tryReadPixel(Center, Center))
       it.pumpUntil("feature state to render on the replacement surface") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(RED) == true
+        it.tryReadPixel(Center, Center)?.isNear(Red) == true
       }
 
       it.loseSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
+      assertEquals(null, it.tryReadPixel(Center, Center))
       style.postOwner { style.resetFeatureStates(source.id, null) }
       assertEquals(
         JsonObject(emptyMap()),
         style.featureStateOnOwnerThread(source.id, "1"),
       )
       it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
+      assertEquals(null, it.tryReadPixel(Center, Center))
       it.pumpUntil("the reset feature state to render") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
+        it.tryReadPixel(Center, Center)?.isNear(Blue) == true
       }
     }
   }
 
   private companion object {
     /** Inline and layer-only, so the test needs no network to prove a style survived. */
-    val STYLE =
+    val Style =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[
@@ -263,7 +263,7 @@ class MlnFfiSurfaceLossTest {
         """
       )
 
-    val BLACK_STYLE =
+    val BlackStyle =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[
@@ -273,21 +273,21 @@ class MlnFfiSurfaceLossTest {
           .trimIndent()
       )
 
-    val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
-    val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
-    const val CENTER = 256
+    val Red = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
+    val Blue = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
+    const val Center = 256
 
-    val CAMERA = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
+    val Camera = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
 
     /** Camera round trips lose a little precision through the projection. */
-    const val TOLERANCE = 1e-3
+    const val Tolerance = 1e-3
 
     fun state(vararg keys: String): JsonObject = buildJsonObject {
       keys.forEach { key -> put(key, true) }
     }
 
     fun assertNear(expected: Double, actual: Double, message: String) {
-      assertTrue(abs(expected - actual) < TOLERANCE, "$message (expected $expected, got $actual)")
+      assertTrue(abs(expected - actual) < Tolerance, "$message (expected $expected, got $actual)")
     }
   }
 }

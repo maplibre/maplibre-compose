@@ -9,7 +9,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 
-private const val SAMPLE_MILLIS = 500L
+private const val SampleMillis = 500L
 
 /**
  * Samples the rendered frame count to calculate frames per second.
@@ -40,7 +40,7 @@ class FrameRateState {
     var lastFrames = frames
     var lastMark = TimeSource.Monotonic.markNow()
     while (true) {
-      delay(SAMPLE_MILLIS)
+      delay(SampleMillis)
       val nowFrames = frames
       val nowMark = TimeSource.Monotonic.markNow()
       val elapsed = (nowMark - lastMark).toDouble(DurationUnit.SECONDS)

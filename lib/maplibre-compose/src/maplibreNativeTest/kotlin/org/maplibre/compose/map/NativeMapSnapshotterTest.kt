@@ -58,12 +58,12 @@ class NativeMapSnapshotterTest {
         MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
       )
     try {
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
       try {
         val densityOne =
           snapshotter.capture(
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition =
                 CameraPosition(
                   target = Position(longitude = 0.0, latitude = 0.0),
@@ -75,7 +75,7 @@ class NativeMapSnapshotterTest {
         val densityTwo =
           snapshotter.capture(
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               density = Density(2f),
               cameraPosition =
                 CameraPosition(
@@ -86,14 +86,14 @@ class NativeMapSnapshotterTest {
             )
           )
 
-        assertEquals(SIZE, densityOne.width)
-        assertEquals(SIZE, densityOne.height)
-        assertEquals(SIZE * 2, densityTwo.width)
-        assertEquals(SIZE * 2, densityTwo.height)
-        assertEquals(BACKGROUND, densityOne.readPixel(6, SIZE / 2))
-        assertEquals(BACKGROUND, densityTwo.readPixel(12, SIZE))
-        assertEquals(GREEN, densityOne.readPixel(SIZE - 6, SIZE / 2 - 8))
-        assertEquals(GREEN, densityTwo.readPixel(SIZE * 2 - 12, SIZE - 16))
+        assertEquals(Size, densityOne.width)
+        assertEquals(Size, densityOne.height)
+        assertEquals(Size * 2, densityTwo.width)
+        assertEquals(Size * 2, densityTwo.height)
+        assertEquals(Background, densityOne.readPixel(6, Size / 2))
+        assertEquals(Background, densityTwo.readPixel(12, Size))
+        assertEquals(Green, densityOne.readPixel(Size - 6, Size / 2 - 8))
+        assertEquals(Green, densityTwo.readPixel(Size * 2 - 12, Size - 16))
       } finally {
         snapshotter.close()
         snapshotter.awaitClosed()
@@ -120,12 +120,12 @@ class NativeMapSnapshotterTest {
         )
       val request =
         MapSnapshotRequest(
-          size = DpSize(SIZE.dp, SIZE.dp),
+          size = DpSize(Size.dp, Size.dp),
           cameraPosition =
             CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
         )
       try {
-        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
+        val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
         try {
           // A missing wake would park the engine forever; the bound turns that into a failure.
           withTimeout(60_000) {
@@ -135,8 +135,8 @@ class NativeMapSnapshotterTest {
               abandoned.cancelAndJoin()
 
               val image = snapshotter.capture(request)
-              assertEquals(BACKGROUND, image.readPixel(6, SIZE / 2), "after $delayMillis ms")
-              assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2), "after $delayMillis ms")
+              assertEquals(Background, image.readPixel(6, Size / 2), "after $delayMillis ms")
+              assertEquals(Green, image.readPixel(Size / 2, Size / 2), "after $delayMillis ms")
             }
           }
         } finally {
@@ -160,20 +160,20 @@ class NativeMapSnapshotterTest {
           MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
         )
       try {
-        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
+        val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
         try {
           val request =
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           snapshotter.capture(request)
 
-          snapshotter.style.asMutable!!.baseStyle = ALTERNATE_STYLE
-          snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
+          snapshotter.style.asMutable!!.baseStyle = AlternateStyle
+          snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
           val captured = snapshotter.capture(request)
 
-          assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
+          assertEquals(Green, captured.readPixel(Size / 2, Size / 2))
         } finally {
           snapshotter.close()
           snapshotter.awaitClosed()
@@ -197,14 +197,14 @@ class NativeMapSnapshotterTest {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
       try {
         val rejected = runCatching {
-          snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp)))
+          snapshotter.capture(MapSnapshotRequest(DpSize(Size.dp, Size.dp)))
         }
         assertTrue(rejected.isFailure)
 
-        snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
-        val captured = snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp)))
+        snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
+        val captured = snapshotter.capture(MapSnapshotRequest(DpSize(Size.dp, Size.dp)))
 
-        assertEquals(BACKGROUND, captured.readPixel(0, 0))
+        assertEquals(Background, captured.readPixel(0, 0))
       } finally {
         snapshotter.close()
         snapshotter.awaitClosed()
@@ -227,20 +227,21 @@ class NativeMapSnapshotterTest {
         )
       val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
       try {
-        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition { data.value })
+        val snapshotter =
+          runtime.createSnapshotter(BackgroundStyle, pointComposition { data.value })
         try {
           val request =
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
           assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
 
-          data.value = POINT_DATA
+          data.value = PointData
           val captured = snapshotter.capture(request)
 
-          assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
+          assertEquals(Green, captured.readPixel(Size / 2, Size / 2))
         } finally {
           snapshotter.close()
           snapshotter.awaitClosed()
@@ -253,7 +254,7 @@ class NativeMapSnapshotterTest {
     }
 
   private fun pointComposition(
-    data: () -> GeoJsonData = { POINT_DATA }
+    data: () -> GeoJsonData = { PointData }
   ): @Composable @MaplibreComposable () -> Unit {
     return {
       val points = GeoJsonSource(id = "points", data = data(), options = GeoJsonOptions())
@@ -287,16 +288,16 @@ class NativeMapSnapshotterTest {
     )
 
   private companion object {
-    const val SIZE = 64
-    val BACKGROUND = RgbaPixel(red = 51, green = 102, blue = 153, alpha = 255)
-    val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
-    val POINT_DATA =
+    const val Size = 64
+    val Background = RgbaPixel(red = 51, green = 102, blue = 153, alpha = 255)
+    val Green = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
+    val PointData =
       GeoJsonData.Features(
         buildFeatureCollection<Geometry, JsonObject?> {
           addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
         }
       )
-    val BASE_STYLE =
+    val BackgroundStyle =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[
@@ -305,7 +306,7 @@ class NativeMapSnapshotterTest {
         """
           .trimIndent()
       )
-    val ALTERNATE_STYLE =
+    val AlternateStyle =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"alternate","type":"background"}]}"""
       )

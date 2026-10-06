@@ -185,7 +185,7 @@ internal constructor(
     }
 
     override fun didFailWithError(error: CoreLocationError) {
-      if (error.domain == CL_ERROR_DOMAIN && error.code == CL_ERROR_DENIED) {
+      if (error.domain == kCLErrorDomain && error.code == kCLErrorDenied) {
         scope.launch(ioDispatcher) {
           channel.trySend(
             LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))

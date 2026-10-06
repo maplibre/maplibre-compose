@@ -53,7 +53,7 @@ class MlnFfiEngineStartupTest {
           done.complete(Unit)
         }
 
-        withTimeout(TIMEOUT_MILLIS) { done.await() }
+        withTimeout(TimeoutMillis) { done.await() }
 
         assertEquals(listOf("before constraints", "after constraints", "after start"), order)
         assertNotEquals(10.0, maxZoomBefore)
@@ -93,7 +93,7 @@ class MlnFfiEngineStartupTest {
       session.loop.submit(onDropped = { abandoned.complete(Unit) }) { ran = true }
 
       session.close()
-      withTimeout(TIMEOUT_MILLIS) { session.awaitClosed() }
+      withTimeout(TimeoutMillis) { session.awaitClosed() }
 
       assertTrue(abandoned.isCompleted, "Queued work was not released at close")
       assertFalse(ran)
@@ -124,13 +124,13 @@ class MlnFfiEngineStartupTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             runCatching { session.attachPresentation() }
           }
-        withTimeout(TIMEOUT_MILLIS) { entered.await() }
+        withTimeout(TimeoutMillis) { entered.await() }
 
         session.close()
         release.open()
 
-        withTimeout(TIMEOUT_MILLIS) { session.awaitClosed() }
-        assertTrue(withTimeout(TIMEOUT_MILLIS) { attach.await() }.isFailure)
+        withTimeout(TimeoutMillis) { session.awaitClosed() }
+        assertTrue(withTimeout(TimeoutMillis) { attach.await() }.isFailure)
       }
     } finally {
       release.open()
@@ -157,7 +157,7 @@ class MlnFfiEngineStartupTest {
             }
           val actual =
             assertFailsWith<IllegalArgumentException> {
-              withTimeout(TIMEOUT_MILLIS) {
+              withTimeout(TimeoutMillis) {
                 suspendCancellableCoroutine<Unit> { continuation ->
                   session.loop.submit { map ->
                     transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, _
@@ -170,7 +170,7 @@ class MlnFfiEngineStartupTest {
             }
           assertEquals("rejected camera options", actual.message)
           session.loop.await { transitions.cancelAnchor(it) }
-          withTimeout(TIMEOUT_MILLIS) {
+          withTimeout(TimeoutMillis) {
             assertFailsWith<CancellationException> { previous.await() }
           }
         } finally {
@@ -201,18 +201,18 @@ class MlnFfiEngineStartupTest {
             }
           }
         }
-        val id = withTimeout(TIMEOUT_MILLIS) { entered.await() }
+        val id = withTimeout(TimeoutMillis) { entered.await() }
         // Failed renderer release can leave the map owner running while physical cleanup retires
         // completion. Hold a start in progress to exercise that handoff without leaking a renderer.
         transitions.releaseAll()
-        withTimeout(TIMEOUT_MILLIS) { movement.await() }
+        withTimeout(TimeoutMillis) { movement.await() }
         ownerHeld.open()
         session.loop.await {
           transitions.finished(id)
           transitions.eventsDrained()
           transitions.cancelAnchor(it)
         }
-        withTimeout(TIMEOUT_MILLIS) {
+        withTimeout(TimeoutMillis) {
           suspendCancellableCoroutine<Unit> { continuation ->
             session.loop.submit { map ->
               transitions.start(map, AnimationOptions(), continuation, anchored = false) { _, _ ->
@@ -259,13 +259,13 @@ class MlnFfiEngineStartupTest {
     } finally {
       runtime.close()
       // A session that never finishes closing holds the runtime open; fail instead of hanging.
-      withTimeout(TIMEOUT_MILLIS) { runtime.awaitClosed() }
+      withTimeout(TimeoutMillis) { runtime.awaitClosed() }
       TestMain.loop = null
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 5_000L
+    const val TimeoutMillis = 5_000L
   }
 }

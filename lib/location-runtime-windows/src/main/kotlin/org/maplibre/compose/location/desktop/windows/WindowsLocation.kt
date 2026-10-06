@@ -101,7 +101,7 @@ internal fun WindowsLocationMeasurement.asMaplibreLocationMeasurement(): Locatio
   if (!latitude.isFinite() || latitude !in -90.0..90.0) return null
   if (!longitude.isFinite() || longitude !in -180.0..180.0) return null
   if (!horizontalAccuracyMeters.isFinite() || horizontalAccuracyMeters < 0.0) return null
-  if (windowsTimestampTicks < WINDOWS_EPOCH_TICKS) return null
+  if (windowsTimestampTicks < WindowsEpochTicks) return null
 
   val altitude = altitudeMeters?.takeIf(Double::isFinite)
   val verticalAccuracy =
@@ -110,7 +110,7 @@ internal fun WindowsLocationMeasurement.asMaplibreLocationMeasurement(): Locatio
   val course =
     headingDegrees?.takeIf { it.isFinite() && it >= 0.0 }?.let { Bearing.North + it.degrees }
   val speed = speedMetersPerSecond?.takeIf { it.isFinite() && it >= 0.0 }?.meters
-  val capturedAtMillis = (windowsTimestampTicks - WINDOWS_EPOCH_TICKS) / TICKS_PER_MILLISECOND
+  val capturedAtMillis = (windowsTimestampTicks - WindowsEpochTicks) / TicksPerMillisecond
 
   return LocationMeasurement(
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
@@ -136,7 +136,7 @@ internal class WindowsLocationFilter(
     }
     val elapsed =
       ((measurement.windowsTimestampTicks - previous.windowsTimestampTicks).coerceAtLeast(0) /
-          TICKS_PER_MILLISECOND)
+          TicksPerMillisecond)
         .milliseconds
     if (elapsed < minimumInterval) return false
     if (haversineMeters(previous, measurement) < minimumDistanceMeters) return false
@@ -156,11 +156,11 @@ private fun haversineMeters(
   val a =
     sin(latitudeDelta / 2).let { it * it } +
       cos(firstLatitude) * cos(secondLatitude) * sin(longitudeDelta / 2).let { it * it }
-  return 2 * EARTH_RADIUS_METERS * asin(sqrt(a.coerceIn(0.0, 1.0)))
+  return 2 * EarthRadiusMeters * asin(sqrt(a.coerceIn(0.0, 1.0)))
 }
 
 private fun Double.toRadians(): Double = this * PI / 180.0
 
-internal const val WINDOWS_EPOCH_TICKS: Long = 116_444_736_000_000_000L
-internal const val TICKS_PER_MILLISECOND: Long = 10_000L
-private const val EARTH_RADIUS_METERS: Double = 6_371_008.8
+internal const val WindowsEpochTicks: Long = 116_444_736_000_000_000L
+internal const val TicksPerMillisecond: Long = 10_000L
+private const val EarthRadiusMeters: Double = 6_371_008.8

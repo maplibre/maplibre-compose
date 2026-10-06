@@ -14,36 +14,36 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 
 /** Thresholds and camera equations for [mapInput] pointer gestures. Distances are in dp. */
 internal object GestureMath {
-  const val SCALE_START_SPAN_DP = 7.0
+  const val ScaleStartSpanDp = 7.0
   /** Android `ViewConfiguration.getScaledDoubleTapSlop()`, used to pair two touch taps. */
-  const val DOUBLE_TAP_SLOP_DP = 100.0
-  const val SCALE_START_WHILE_ROTATING_DP = 75.0
-  const val SHOVE_START_DP = 16.0
-  const val TWO_FINGER_TAP_SLOP_DP = 5.0
-  const val TWO_FINGER_TAP_TIMEOUT_MILLIS = 150L
-  const val ROTATE_START_DEGREES = 3.0
+  const val DoubleTapSlopDp = 100.0
+  const val ScaleStartWhileRotatingDp = 75.0
+  const val ShoveStartDp = 16.0
+  const val TwoFingerTapSlopDp = 5.0
+  const val TwoFingerTapTimeoutMillis = 150L
+  const val RotateStartDegrees = 3.0
   // MapLibre GL JS uses 25 logical pixels of arc travel to reject pinch-induced angle noise.
-  const val ROTATE_START_WHILE_ZOOMING_ARC_DP = 25.0
-  const val SHOVE_MAX_FINGER_ANGLE_DEGREES = 45.0
-  const val PRESSURE_RATIO_THRESHOLD = 0.67f
+  const val RotateStartWhileZoomingArcDp = 25.0
+  const val ShoveMaxFingerAngleDegrees = 45.0
+  const val PressureRatioThreshold = 0.67f
 
   /** 6 mm at 160 dpi: 6 / 25.4 * 160. */
-  const val MINIMUM_TWO_FINGER_SPAN_DP = 37.79527559055118
+  const val MinimumTwoFingerSpanDp = 37.79527559055118
 
-  private const val ZOOM_RATE = 0.65
-  private const val MINIMUM_SCALE_SPEED_DP_PER_MILLISECOND = 0.6
-  private const val MINIMUM_ANGLED_SCALE_SPEED_DP_PER_MILLISECOND = 0.9
-  private const val MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE = 2.5
+  private const val ZoomRate = 0.65
+  private const val MinimumScaleSpeedDpPerMillisecond = 0.6
+  private const val MinimumAngledScaleSpeedDpPerMillisecond = 0.9
+  private const val MaximumScaleVelocityZoomChange = 2.5
   // Decay the measured camera speed over the default momentum duration.
-  private const val TRANSFORM_DECAY_MILLIS = 600.0
+  private const val TransformDecayMillis = 600.0
   // Quartic displacement gives a cubic velocity decay: a fast initial slowdown and a gentle tail.
   // Its integral is initialVelocity * duration / 4.
-  const val TRANSFORM_DECAY_POWER = 4
+  const val TransformDecayPower = 4
 
   /** Returns a multiplicative scale, not a zoom delta. */
   fun pinchScale(rawScale: Double): Double {
     if (!rawScale.isFinite() || rawScale <= 0.0) return 1.0
-    val zoomDelta = ln(rawScale) / ln(PI / 2.0) * ZOOM_RATE
+    val zoomDelta = ln(rawScale) / ln(PI / 2.0) * ZoomRate
     return 2.0.pow(zoomDelta)
   }
 
@@ -61,22 +61,22 @@ internal object GestureMath {
     spanDeltaFromPreviousDp: Double,
     elapsedMillis: Long,
     rotationDeltaFromPreviousDegrees: Double,
-    startSpanSlopDp: Double = SCALE_START_SPAN_DP,
+    startSpanSlopDp: Double = ScaleStartSpanDp,
   ): Boolean {
     if (abs(spanDeltaFromStartDp) < startSpanSlopDp || elapsedMillis < 0L) return false
     // Quantized synthetic samples can move at one timestamp. Their rate is unknown.
     if (elapsedMillis == 0L) return true
     val speed = abs(spanDeltaFromPreviousDp) / elapsedMillis
-    if (speed < MINIMUM_SCALE_SPEED_DP_PER_MILLISECOND) return false
+    if (speed < MinimumScaleSpeedDpPerMillisecond) return false
     return abs(rotationDeltaFromPreviousDegrees) <= 0.4 ||
-      speed >= MINIMUM_ANGLED_SCALE_SPEED_DP_PER_MILLISECOND
+      speed >= MinimumAngledScaleSpeedDpPerMillisecond
   }
 
   fun shouldStartRotation(
     rotationFromStartDegrees: Double,
     rotationFromPreviousDegrees: Double,
     elapsedMillis: Long,
-    startAngleDegrees: Double = ROTATE_START_DEGREES,
+    startAngleDegrees: Double = RotateStartDegrees,
   ): Boolean {
     val cumulative = abs(rotationFromStartDegrees)
     if (cumulative < startAngleDegrees || elapsedMillis < 0L) return false
@@ -92,17 +92,17 @@ internal object GestureMath {
     firstDisplacementDp: Offset,
     secondDisplacementDp: Offset,
     fingerAngleFromHorizontalDegrees: Double,
-    startSlopDp: Double = SHOVE_START_DP,
+    startSlopDp: Double = ShoveStartDp,
   ): Boolean =
     abs((firstDisplacementDp.y + secondDisplacementDp.y) / 2) >= startSlopDp &&
       abs(firstDisplacementDp.y) > abs(firstDisplacementDp.x) &&
       abs(secondDisplacementDp.y) > abs(secondDisplacementDp.x) &&
       (firstDisplacementDp.y > 0) == (secondDisplacementDp.y > 0) &&
-      abs(fingerAngleFromHorizontalDegrees) <= SHOVE_MAX_FINGER_ANGLE_DEGREES
+      abs(fingerAngleFromHorizontalDegrees) <= ShoveMaxFingerAngleDegrees
 
   /** Rejects a sudden pressure drop, which is usually a finger lift. */
   fun hasStablePressure(current: Float, previous: Float): Boolean =
-    previous <= 0f || current / previous > PRESSURE_RATIO_THRESHOLD
+    previous <= 0f || current / previous > PressureRatioThreshold
 
   data class Fling(
     val offsetXDp: Double,
@@ -113,12 +113,12 @@ internal object GestureMath {
     fun settleWith(transformDuration: Duration): Fling {
       // Preserve initial speed when changing decay curves, without increasing total travel.
       val distanceScale =
-        minOf(1.0, transformDuration / duration * decayPower / TRANSFORM_DECAY_POWER)
+        minOf(1.0, transformDuration / duration * decayPower / TransformDecayPower)
       return copy(
         offsetXDp = offsetXDp * distanceScale,
         offsetYDp = offsetYDp * distanceScale,
         duration = transformDuration,
-        decayPower = TRANSFORM_DECAY_POWER,
+        decayPower = TransformDecayPower,
       )
     }
   }
@@ -151,13 +151,13 @@ internal object GestureMath {
    * Largest screen-space `moveBy` a fling applies in one call. A dropped frame can cover the whole
    * remaining offset; splitting it keeps each unprojection as small as a live drag step.
    */
-  const val FLING_MAX_STEP_DP = 16.0
+  const val FlingMaxStepDp = 16.0
 
   /** Splits [offsetXDp], [offsetYDp] into steps no longer than [maxStepDp]. */
   fun forEachScreenSpaceStep(
     offsetXDp: Double,
     offsetYDp: Double,
-    maxStepDp: Double = FLING_MAX_STEP_DP,
+    maxStepDp: Double = FlingMaxStepDp,
     apply: (deltaX: Double, deltaY: Double) -> Unit,
   ) {
     val distance = hypot(offsetXDp, offsetYDp)
@@ -176,10 +176,10 @@ internal object GestureMath {
   ): ScaleVelocity? {
     if (!continuation.enabled || !zoomLevelsPerSecond.isFinite() || zoomLevelsPerSecond == 0.0)
       return null
-    val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
-    val zoomDelta = zoomLevelsPerSecond * duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER
+    val duration = continuation.duration(TransformDecayMillis) ?: return null
+    val zoomDelta = zoomLevelsPerSecond * duration.inWholeNanoseconds / 1e9 / TransformDecayPower
     return ScaleVelocity(
-      zoomDelta.coerceIn(-MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE, MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE),
+      zoomDelta.coerceIn(-MaximumScaleVelocityZoomChange, MaximumScaleVelocityZoomChange),
       duration,
     )
   }
@@ -192,9 +192,9 @@ internal object GestureMath {
   ): RotationVelocity? {
     if (!continuation.enabled || !degreesPerSecond.isFinite() || degreesPerSecond == 0.0)
       return null
-    val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
+    val duration = continuation.duration(TransformDecayMillis) ?: return null
     return RotationVelocity(
-      degreesPerSecond * duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER,
+      degreesPerSecond * duration.inWholeNanoseconds / 1e9 / TransformDecayPower,
       duration,
     )
   }
@@ -215,7 +215,7 @@ internal object GestureMath {
     )
       return null
     return PitchVelocity(
-      degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER),
+      degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / TransformDecayPower),
       continuation.duration,
     )
   }

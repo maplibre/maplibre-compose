@@ -56,7 +56,7 @@ class MlnFfiOfflinePackTest {
       val definition = tilePyramid(writeStyle("listed.json"), pixelRatio = 2f)
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
-      val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { storage.create(definition, metadata) }
+      val pack = withTimeout(OperationTimeoutMillis) { storage.create(definition, metadata) }
 
       // The pack is built from what MapLibre echoed back out of the stored region, not from the
       // definition passed in, so this is a round trip through the database's own columns.
@@ -73,7 +73,7 @@ class MlnFfiOfflinePackTest {
   fun a_manager_rejects_a_pack_that_belongs_to_another_manager() = runBlocking {
     val first = storage()
     val pack =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         first.create(tilePyramid(writeStyle("foreign-pack.json")), ByteArray(0))
       }
     val second = storage()
@@ -86,12 +86,12 @@ class MlnFfiOfflinePackTest {
   fun updating_metadata_replaces_what_the_pack_reports() = runBlocking {
     val storage = storage()
     val pack =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.create(tilePyramid(writeStyle("metadata.json")), "before".encodeToByteArray())
       }
 
     val updated = "after, and longer than before".encodeToByteArray()
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { pack.setMetadata(updated) }
+    withTimeout(OperationTimeoutMillis) { pack.setMetadata(updated) }
 
     assertContentEquals(updated, pack.metadata.value)
 
@@ -113,18 +113,18 @@ class MlnFfiOfflinePackTest {
     val storage = storage()
     val definition = tilePyramid(writeStyle("deleted.json"))
     val kept =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.create(definition, "kept".encodeToByteArray())
       }
     // Two packs, because deleting the only one cannot tell "removed the pack it was given" apart
     // from "cleared the list".
     val removed =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.create(definition, "removed".encodeToByteArray())
       }
     assertEquals(setOf(kept, removed), (storage.state.value as OfflineStorageState.Ready).packs)
 
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { storage.delete(removed) }
+    withTimeout(OperationTimeoutMillis) { storage.delete(removed) }
 
     assertEquals(setOf(kept), (storage.state.value as OfflineStorageState.Ready).packs)
   }
@@ -136,7 +136,7 @@ class MlnFfiOfflinePackTest {
     val metadata = "written before the restart".encodeToByteArray()
 
     val first = storage()
-    val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
+    val created = withTimeout(OperationTimeoutMillis) { first.create(definition, metadata) }
 
     close(first)
 
@@ -176,7 +176,7 @@ class MlnFfiOfflinePackTest {
       )
     val first = storage()
     for (definition in definitions) {
-      val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
+      val pack = withTimeout(OperationTimeoutMillis) { first.create(definition, ByteArray(0)) }
       assertEquals(definition, pack.definition)
     }
     close(first)
@@ -211,7 +211,7 @@ class MlnFfiOfflinePackTest {
       )
 
     val first = storage()
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
+    withTimeout(OperationTimeoutMillis) { first.create(definition, ByteArray(0)) }
     close(first)
 
     val second = storage()
@@ -226,12 +226,12 @@ class MlnFfiOfflinePackTest {
     val definition = tilePyramid(writeStyle("restart-delete.json"))
     val first = storage()
     val kept =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, "kept".encodeToByteArray()) }
+      withTimeout(OperationTimeoutMillis) { first.create(definition, "kept".encodeToByteArray()) }
     val removed =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         first.create(definition, "removed".encodeToByteArray())
       }
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
+    withTimeout(OperationTimeoutMillis) { first.delete(removed) }
 
     close(first)
 
@@ -251,17 +251,17 @@ class MlnFfiOfflinePackTest {
     val sourceFile = Path(directory, "merge-source.db")
 
     val source = storage(options.copy(cacheFile = sourceFile))
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { source.create(definition, sharedMetadata) }
-    withTimeout(OPERATION_TIMEOUT_MILLIS) {
+    withTimeout(OperationTimeoutMillis) { source.create(definition, sharedMetadata) }
+    withTimeout(OperationTimeoutMillis) {
       source.create(definition, "source-only pack".encodeToByteArray())
     }
     close(source)
 
     val destination = storage()
     val existing =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) { destination.create(definition, sharedMetadata) }
+      withTimeout(OperationTimeoutMillis) { destination.create(definition, sharedMetadata) }
 
-    val merged = withTimeout(OPERATION_TIMEOUT_MILLIS) { destination.mergeDatabase(sourceFile) }
+    val merged = withTimeout(OperationTimeoutMillis) { destination.mergeDatabase(sourceFile) }
 
     assertEquals(2, merged.size)
     assertTrue(existing in merged, "an identical source pack should reuse the destination pack")
@@ -281,7 +281,7 @@ class MlnFfiOfflinePackTest {
   fun resuming_a_pack_starts_downloading_and_pausing_reports_it_paused_again() = runBlocking {
     val storage = storage()
     val pack =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
       }
 
@@ -320,7 +320,7 @@ class MlnFfiOfflinePackTest {
     val pack = downloadedPack(storage, "collected.json")
 
     val completed =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         pack.downloadProgress.first {
           it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
         }
@@ -328,7 +328,7 @@ class MlnFfiOfflinePackTest {
 
     assertTrue((completed as DownloadProgress.Healthy).completedResourceCount > 0)
     val packs =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.state.first { it is OfflineStorageState.Ready && pack in it.packs }
       }
     assertEquals(setOf(pack), (packs as OfflineStorageState.Ready).packs)
@@ -377,7 +377,7 @@ class MlnFfiOfflinePackTest {
     styleName: String,
   ): OfflinePack {
     val pack =
-      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      withTimeout(OperationTimeoutMillis) {
         storage.create(tilePyramid(writeStyle(styleName)), ByteArray(0))
       }
     storage.resume(pack)
@@ -427,20 +427,20 @@ class MlnFfiOfflinePackTest {
 
   /** Polls [condition] until it holds, failing rather than hanging if it never does. */
   private suspend fun await(describe: () -> String, condition: () -> Boolean) {
-    val deadline = TimeSource.Monotonic.markNow() + OPERATION_TIMEOUT_MILLIS.milliseconds
+    val deadline = TimeSource.Monotonic.markNow() + OperationTimeoutMillis.milliseconds
     while (!condition()) {
       if (deadline.hasPassedNow()) {
-        fail("Timed out after ${OPERATION_TIMEOUT_MILLIS}ms waiting for ${describe()}")
+        fail("Timed out after ${OperationTimeoutMillis}ms waiting for ${describe()}")
       }
-      delay(POLL_MILLIS)
+      delay(PollMillis)
     }
   }
 
   private companion object {
     /** Generous: every one of these operations is a database round trip on a busy machine. */
-    const val OPERATION_TIMEOUT_MILLIS = 30_000L
+    const val OperationTimeoutMillis = 30_000L
 
-    const val POLL_MILLIS = 20L
+    const val PollMillis = 20L
   }
   // endregion
 }

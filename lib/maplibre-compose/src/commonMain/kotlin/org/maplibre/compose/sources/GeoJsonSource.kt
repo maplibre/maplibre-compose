@@ -13,7 +13,7 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
 
 /** Names the style-spec property that identifies a cluster feature. */
-internal const val CLUSTER_ID_PROPERTY = "cluster_id"
+internal const val ClusterIdProperty = "cluster_id"
 
 /**
  * Defines a map data source that contains GeoJSON data.
@@ -69,7 +69,7 @@ public class GeoJsonSource : VectorSource {
   private class FromStyle(val json: JsonObject) : Content
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
-    CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
+    ClusterIdProperty in feature.properties.orEmpty()
 }
 
 /**

@@ -7,7 +7,7 @@ import org.maplibre.compose.style.BaseStyle
  * The demo key for api.protomaps.com, shared by the Protomaps styles and MaterialStyleDemo. Get
  * your own key at https://app.protomaps.com/ when copying this code.
  */
-internal const val PROTOMAPS_API_KEY = "73c45a97eddd43fb"
+internal const val ProtomapsApiKey = "73c45a97eddd43fb"
 
 /**
  * A base map style plus the metadata a demo needs to draw on it.
@@ -60,7 +60,7 @@ enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
 
   override val base =
     BaseStyle.Uri(
-      "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=$PROTOMAPS_API_KEY"
+      "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=$ProtomapsApiKey"
     )
 }
 

@@ -87,19 +87,19 @@ class AndroidSurfaceReplacementTest {
       lateinit var activity: ReusableSurfaceActivity
       scenario.onActivity { activity = it }
       assertTrue(
-        activity.initialSurface.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        activity.initialSurface.await(TimeoutMillis, TimeUnit.MILLISECONDS),
         "the initial surface host did not receive its surface",
       )
 
       scenario.onActivity { it.deactivateSurface() }
       assertTrue(
-        activity.surfaceDisposed.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        activity.surfaceDisposed.await(TimeoutMillis, TimeUnit.MILLISECONDS),
         "the reusable surface content was not disposed",
       )
 
       scenario.onActivity { it.reactivateSurface() }
       assertTrue(
-        activity.reactivatedSurface.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        activity.reactivatedSurface.await(TimeoutMillis, TimeUnit.MILLISECONDS),
         "the reactivated surface host did not receive its surface",
       )
     }
@@ -110,7 +110,7 @@ class AndroidSurfaceReplacementTest {
     latch: CountDownLatch,
     message: String,
   ) {
-    val completed = latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+    val completed = latch.await(TimeoutMillis, TimeUnit.MILLISECONDS)
     if (completed) return
 
     var diagnostic = "activity unavailable"
@@ -119,7 +119,7 @@ class AndroidSurfaceReplacementTest {
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 10_000L
+    const val TimeoutMillis = 10_000L
   }
 }
 
@@ -253,7 +253,7 @@ private fun TestMap(
   onPresentation: () -> Unit,
   onFrame: () -> Unit,
 ) {
-  val state = rememberMapState(baseStyle = SOLID_STYLE)
+  val state = rememberMapState(baseStyle = SolidStyle)
   LaunchedEffect(state) {
     onState(state)
     snapshotFlow { state.currentMapAttachment }.first { it != null }
@@ -277,7 +277,7 @@ private fun View.descendants(): Sequence<View> = sequence {
   }
 }
 
-private val SOLID_STYLE =
+private val SolidStyle =
   BaseStyle.Json(
     """
     {"version":8,"sources":{},"layers":[

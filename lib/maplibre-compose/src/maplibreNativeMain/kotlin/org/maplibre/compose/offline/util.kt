@@ -18,7 +18,7 @@ import org.maplibre.spatialk.geojson.toJson
  * font. MapLibre Native's renderer takes a local font family too, but maplibre-native-ffi does not
  * expose it, so the glyphs have to come down with the pack.
  */
-private const val INCLUDE_IDEOGRAPHS = true
+private const val IncludeIdeographs = true
 
 internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition =
   when (this) {
@@ -29,7 +29,7 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
         minZoom = minZoom,
         maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
-        includeIdeographs = INCLUDE_IDEOGRAPHS,
+        includeIdeographs = IncludeIdeographs,
       )
     is OfflinePackDefinition.Shape ->
       FfiRegionDefinition.GeometryRegion(
@@ -38,7 +38,7 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
         minZoom = minZoom,
         maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
-        includeIdeographs = INCLUDE_IDEOGRAPHS,
+        includeIdeographs = IncludeIdeographs,
       )
     is UnspecifiedOfflinePackDefinition ->
       error("UnspecifiedOfflinePackDefinition has no instances")

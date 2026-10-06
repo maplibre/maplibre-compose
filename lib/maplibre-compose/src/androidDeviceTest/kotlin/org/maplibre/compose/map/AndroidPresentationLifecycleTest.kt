@@ -71,7 +71,7 @@ class AndroidPresentationLifecycleTest {
         fixture.awaitRendering()
         fixture.await("the style effect to start") { activeEffects.get() > 0 }
         fixture.onMain { state.close() }
-        withTimeout(TIMEOUT_MILLIS) { fixture.state.awaitClosed() }
+        withTimeout(TimeoutMillis) { fixture.state.awaitClosed() }
         fixture.await("state closure to dispose its presentation effects") {
           activeEffects.get() == 0
         }
@@ -79,7 +79,7 @@ class AndroidPresentationLifecycleTest {
           assertNull(state.viewport)
           assertTrue(consumer.surface.isValid)
           assertFailsWith<IllegalStateException> {
-            presenter.attachSurface(consumer.surface, WIDTH, HEIGHT, 1f)
+            presenter.attachSurface(consumer.surface, Width, Height, 1f)
           }
         }
         // Check before the fixture's defensive close: state.close alone must stop this render
@@ -111,7 +111,7 @@ class AndroidPresentationLifecycleTest {
         }
         val initialCamera = fixture.onMain { state.cameraPosition }
         fixture.onMain {
-          state.click(DpOffset((WIDTH / 2).dp, (HEIGHT / 2).dp))
+          state.click(DpOffset((Width / 2).dp, (Height / 2).dp))
           state.panBy(DpOffset(40.dp, 0.dp))
         }
         fixture.await("recognized input to reach the presented map") {
@@ -130,9 +130,9 @@ class AndroidPresentationLifecycleTest {
           assertNull(state.viewport)
           assertTrue(consumer.surface.isValid)
           // A closed binding ignores a late size callback instead of throwing.
-          binding.update(WIDTH, HEIGHT, 1f)
+          binding.update(Width, Height, 1f)
           assertFailsWith<IllegalStateException> {
-            presenter.attachSurface(consumer.surface, WIDTH, HEIGHT, 1f)
+            presenter.attachSurface(consumer.surface, Width, Height, 1f)
           }
           // Recognized gestures are ignored without a presentation.
           state.panBy(DpOffset(40.dp, 0.dp))
@@ -143,7 +143,7 @@ class AndroidPresentationLifecycleTest {
         fixture.onMain {
           lifecycleOwner = PresentationLifecycleOwner()
           presenter = newPresenter()
-          binding = presenter.attachSurface(consumer.surface, WIDTH, HEIGHT, 1f)
+          binding = presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new lifecycle host to present the retained map") {
           consumer.frames.get() > previousFrames &&
@@ -196,7 +196,7 @@ class AndroidPresentationLifecycleTest {
         }
         // The terminal write must reach an existing observer after the presentation's own snapshot
         // observer has been disposed. Do not produce an unrelated snapshot write to wake this up.
-        val deliveredFailure = withTimeout(TIMEOUT_MILLIS) { observedFailure.await() }
+        val deliveredFailure = withTimeout(TimeoutMillis) { observedFailure.await() }
         fixture.onMain {
           val failure = assertNotNull(presenter.failure)
           assertTrue(
@@ -216,7 +216,7 @@ class AndroidPresentationLifecycleTest {
         fixture.onMain {
           failurePhase = null
           presenter = newPresenter()
-          presenter.attachSurface(consumer.surface, WIDTH, HEIGHT, 1f)
+          presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new presenter to render the retained state after failure") {
           consumer.frames.get() > framesBefore && state.viewport != null
@@ -236,7 +236,7 @@ private enum class FailurePhase {
 }
 
 private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads: Set<Thread>) {
-  val consumer = SurfaceConsumer(WIDTH, HEIGHT)
+  val consumer = SurfaceConsumer(Width, Height)
   var lifecycleOwner = PresentationLifecycleOwner()
   val activeEffects = AtomicInteger()
   val composedColor = AtomicInteger()
@@ -270,7 +270,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
   fun start(initialFailure: FailurePhase?) {
     failurePhase = initialFailure
     presenter = newPresenter()
-    binding = presenter.attachSurface(consumer.surface, WIDTH, HEIGHT, 1f)
+    binding = presenter.attachSurface(consumer.surface, Width, Height, 1f)
   }
 
   fun newPresenter(lifecycle: Lifecycle = lifecycleOwner.lifecycle): AndroidMapPresentation =
@@ -301,7 +301,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
 
   suspend fun await(description: String, predicate: LifecycleFixture.() -> Boolean) {
     try {
-      withTimeout(TIMEOUT_MILLIS) {
+      withTimeout(TimeoutMillis) {
         while (!onMain(predicate)) delay(10)
       }
     } catch (error: Throwable) {
@@ -348,7 +348,7 @@ private suspend fun withLifecycleFixture(
   } finally {
     runtime.close()
     try {
-      withTimeout(TIMEOUT_MILLIS) { runtime.awaitClosed() }
+      withTimeout(TimeoutMillis) { runtime.awaitClosed() }
     } finally {
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
@@ -364,7 +364,7 @@ private fun renderThreads(): Set<Thread> =
 
 private suspend fun awaitNoNewRenderThreads(initial: Set<Thread>) {
   try {
-    withTimeout(TIMEOUT_MILLIS) {
+    withTimeout(TimeoutMillis) {
       while ((renderThreads() - initial).isNotEmpty()) delay(10)
     }
   } catch (error: Throwable) {
@@ -375,6 +375,6 @@ private suspend fun awaitNoNewRenderThreads(initial: Set<Thread>) {
   }
 }
 
-private const val WIDTH = 128
-private const val HEIGHT = 96
-private const val TIMEOUT_MILLIS = 10_000L
+private const val Width = 128
+private const val Height = 96
+private const val TimeoutMillis = 10_000L

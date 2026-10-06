@@ -18,26 +18,25 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
  * Every reflective access in MapLibre Compose lives in this file.
  */
 internal object SkikoReflection {
-  const val SKIA_LAYER_CLASS = "org.jetbrains.skiko.SkiaLayer"
-  const val COMPOSE_WINDOW_CLASS = "androidx.compose.ui.awt.ComposeWindow"
-  const val METAL_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.MetalRedrawer"
-  const val DIRECT3D_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.Direct3DRedrawer"
-  const val LINUX_OPENGL_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawer"
-  const val LINUX_OPENGL_REDRAWER_HELPERS_CLASS =
-    "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawerKt"
-  const val AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS = "org.jetbrains.skiko.AWTLinuxDrawingSurfaceKt"
-  const val DIRECT3D_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.Direct3DContextHandler"
-  const val METAL_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.MetalContextHandler"
-  const val CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.ContextHandler"
+  const val SkiaLayerClass = "org.jetbrains.skiko.SkiaLayer"
+  const val ComposeWindowClass = "androidx.compose.ui.awt.ComposeWindow"
+  const val MetalRedrawerClass = "org.jetbrains.skiko.redrawer.MetalRedrawer"
+  const val Direct3dRedrawerClass = "org.jetbrains.skiko.redrawer.Direct3DRedrawer"
+  const val LinuxOpenGlRedrawerClass = "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawer"
+  const val LinuxOpenGlRedrawerHelpersClass = "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawerKt"
+  const val AwtLinuxDrawingSurfaceHelpersClass = "org.jetbrains.skiko.AWTLinuxDrawingSurfaceKt"
+  const val Direct3dContextHandlerClass = "org.jetbrains.skiko.context.Direct3DContextHandler"
+  const val MetalContextHandlerClass = "org.jetbrains.skiko.context.MetalContextHandler"
+  const val ContextHandlerClass = "org.jetbrains.skiko.context.ContextHandler"
 
   /**
    * Skiko's Objective-C wrapper around the Metal device, and the selector on it that answers with
    * the `id<MTLDevice>` underneath. Neither is published API (private to Skiko's
    * `MetalRedrawer.mm`), so both are pinned by `SkikoMetalDeviceContractTest`.
    */
-  const val SKIKO_METAL_DEVICE_CLASS: String = "MetalDevice"
+  const val SkikoMetalDeviceClass: String = "MetalDevice"
 
-  const val SKIKO_METAL_DEVICE_ADAPTER: String = "adapter"
+  const val SkikoMetalDeviceAdapter: String = "adapter"
 
   /** Finds only the Skia layer owned by [window], once that window is displayable. */
   fun findSkiaLayer(window: Window): Any? {
@@ -54,7 +53,7 @@ internal object SkikoReflection {
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
     val redrawer =
       layer.invokeNoArg("getRedrawer\$skiko")
-        ?: throw MlnFfiHostException("$SKIA_LAYER_CLASS.getRedrawer\$skiko returned null")
+        ?: throw MlnFfiHostException("$SkiaLayerClass.getRedrawer\$skiko returned null")
     if (!Class.forName(expectedClass).isAssignableFrom(redrawer.javaClass)) {
       throw MlnFfiHostException(
         "Skiko redrawer was ${redrawer.javaClass.name}, expected $expectedClass. " +
@@ -84,7 +83,7 @@ internal object SkikoReflection {
   }
 
   fun requireMetalContextHandler(layer: Any): Any =
-    requireContextHandler(requireRedrawer(layer, METAL_REDRAWER_CLASS), METAL_REDRAWER_CLASS)
+    requireContextHandler(requireRedrawer(layer, MetalRedrawerClass), MetalRedrawerClass)
 
   /**
    * The Metal device Compose renders with on macOS; MapLibre must allocate its texture on the same
@@ -122,7 +121,7 @@ internal object SkikoReflection {
     window.walkComponents().firstOrNull { isSkiaLayer(it) }
 
   private fun findComposeWindowSkiaLayer(window: Window): Any? {
-    if (window.javaClass.name != COMPOSE_WINDOW_CLASS) return null
+    if (window.javaClass.name != ComposeWindowClass) return null
     return runCatching {
       val composePanel = window.getField("composePanel") ?: return@runCatching null
       val content =
@@ -133,7 +132,7 @@ internal object SkikoReflection {
       .getOrNull()
   }
 
-  private fun isSkiaLayer(value: Any): Boolean = Class.forName(SKIA_LAYER_CLASS).isInstance(value)
+  private fun isSkiaLayer(value: Any): Boolean = Class.forName(SkiaLayerClass).isInstance(value)
 
   private fun Component.walkComponents(): Sequence<Component> = sequence {
     yield(this@walkComponents)
@@ -205,27 +204,27 @@ internal data class SkikoDirect3DDevice(val ptr: Long)
  * fields must be located by byte offset.
  *
  * Offsets were read off Skiko's `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and Skia's
- * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` at [VERIFIED_SKIKO_VERSION]: `DirectXDevice` is
+ * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` at [VerifiedSkikoVersion]: `DirectXDevice` is
  * non-virtual, `HWND hWnd` at 0, `GrD3DBackendContext` at 8 (`fAdapter`, `fDevice`, `fQueue`,
  * `fMemoryAllocator`, `fProtectedContext`, one pointer each), `device` at 48.
  *
  * Skiko assigns both copies of the device from the same local, so reading both and requiring
  * agreement detects a layout change. The first read also compares the classpath Skiko version to
- * [VERIFIED_SKIKO_VERSION] and warns when they differ; `WindowsDirect3DDeviceLayoutTest` fails the
+ * [VerifiedSkikoVersion] and warns when they differ; `WindowsDirect3DDeviceLayoutTest` fails the
  * build on that same mismatch.
  */
 internal object SkikoDirect3DDeviceLayout {
   /** The Skiko version whose sources these offsets were read from. */
-  const val VERIFIED_SKIKO_VERSION: String = "0.150.1"
+  const val VerifiedSkikoVersion: String = "0.150.1"
 
   /** `DirectXDevice::backendContext::fDevice`. */
-  const val BACKEND_CONTEXT_DEVICE_OFFSET: Long = 16L
+  const val BackendContextDeviceOffset: Long = 16L
 
   /** `DirectXDevice::device`, the second copy of the same `ID3D12Device`. */
-  const val DEVICE_OFFSET: Long = 48L
+  const val DeviceOffset: Long = 48L
 
   /** How much of the object has to be addressable for both reads; the real one is far larger. */
-  const val READ_SIZE: Long = DEVICE_OFFSET + Long.SIZE_BYTES
+  const val ReadSize: Long = DeviceOffset + Long.SIZE_BYTES
 
   private val warnedAboutSkikoVersion = AtomicBoolean(false)
   private val logger = MapLog
@@ -240,16 +239,16 @@ internal object SkikoDirect3DDeviceLayout {
     .getOrNull()
 
   /**
-   * Warns once when the classpath Skiko differs from [VERIFIED_SKIKO_VERSION]. The offsets may
-   * still be right; the two-pointer cross-check below catches a moved layout.
+   * Warns once when the classpath Skiko differs from [VerifiedSkikoVersion]. The offsets may still
+   * be right; the two-pointer cross-check below catches a moved layout.
    */
   fun warnIfUnverifiedSkiko() {
     if (!warnedAboutSkikoVersion.compareAndSet(false, true)) return
     val skiko = classpathSkikoVersion() ?: return
-    if (skiko == VERIFIED_SKIKO_VERSION) return
+    if (skiko == VerifiedSkikoVersion) return
     logger.w {
       "Skiko $skiko is on the classpath; the Windows Direct3D host verified its DirectXDevice " +
-        "layout against $VERIFIED_SKIKO_VERSION. Re-read " +
+        "layout against $VerifiedSkikoVersion. Re-read " +
         "skiko/src/awtMain/cpp/windows/directXRedrawer.cc and update SkikoDirect3DDeviceLayout if " +
         "the struct moved."
     }
@@ -257,14 +256,13 @@ internal object SkikoDirect3DDeviceLayout {
 
   /** The `ID3D12Device` inside the `DirectXDevice` [device] points at. */
   fun rawDevice(device: SkikoDirect3DDevice): Long =
-    read(MemorySegment.ofAddress(device.ptr).reinterpret(READ_SIZE))
+    read(MemorySegment.ofAddress(device.ptr).reinterpret(ReadSize))
 
   /** Reads both copies out of [struct] and returns them if they agree. */
   fun read(struct: MemorySegment): Long {
     warnIfUnverifiedSkiko()
-    val fromBackendContext =
-      struct.get(ValueLayout.ADDRESS, BACKEND_CONTEXT_DEVICE_OFFSET).address()
-    val fromDeviceField = struct.get(ValueLayout.ADDRESS, DEVICE_OFFSET).address()
+    val fromBackendContext = struct.get(ValueLayout.ADDRESS, BackendContextDeviceOffset).address()
+    val fromDeviceField = struct.get(ValueLayout.ADDRESS, DeviceOffset).address()
     if (fromBackendContext == 0L && fromDeviceField == 0L) {
       throw MlnFfiHostException(
         "Skiko's DirectXDevice holds no ID3D12Device. The host was probably asked for the " +
@@ -274,9 +272,9 @@ internal object SkikoDirect3DDeviceLayout {
     if (fromBackendContext != fromDeviceField) {
       throw MlnFfiHostException(
         "Skiko's DirectXDevice gave two different ID3D12Device pointers: " +
-          "0x${fromBackendContext.toULong().toString(16)} at $BACKEND_CONTEXT_DEVICE_OFFSET and " +
-          "0x${fromDeviceField.toULong().toString(16)} at $DEVICE_OFFSET. Skiko has changed the " +
-          "layout of DirectXDevice since $VERIFIED_SKIKO_VERSION; re-read " +
+          "0x${fromBackendContext.toULong().toString(16)} at $BackendContextDeviceOffset and " +
+          "0x${fromDeviceField.toULong().toString(16)} at $DeviceOffset. Skiko has changed the " +
+          "layout of DirectXDevice since $VerifiedSkikoVersion; re-read " +
           "skiko/src/awtMain/cpp/windows/directXRedrawer.cc and update SkikoDirect3DDeviceLayout."
       )
     }

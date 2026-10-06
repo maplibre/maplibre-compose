@@ -10,25 +10,25 @@ class TileCoordinateTest {
   @Test
   fun the_single_tile_at_zoom_zero_covers_the_mercator_world() {
     val bounds = TileCoordinate(zoomLevel = 0, x = 0, y = 0).bounds
-    assertEquals(-180.0, bounds.southwest.longitude, TOLERANCE, "west")
-    assertEquals(180.0, bounds.northeast.longitude, TOLERANCE, "east")
-    assertEquals(-MERCATOR_LIMIT, bounds.southwest.latitude, TOLERANCE, "south")
-    assertEquals(MERCATOR_LIMIT, bounds.northeast.latitude, TOLERANCE, "north")
+    assertEquals(-180.0, bounds.southwest.longitude, Tolerance, "west")
+    assertEquals(180.0, bounds.northeast.longitude, Tolerance, "east")
+    assertEquals(-MercatorLimit, bounds.southwest.latitude, Tolerance, "south")
+    assertEquals(MercatorLimit, bounds.northeast.latitude, Tolerance, "north")
   }
 
   @Test
   fun edge_tiles_have_canonical_bounds() {
     val northWest = TileCoordinate(zoomLevel = 1, x = 0, y = 0).bounds
-    assertEquals(-180.0, northWest.southwest.longitude, TOLERANCE, "west")
-    assertEquals(0.0, northWest.northeast.longitude, TOLERANCE, "east")
-    assertEquals(0.0, northWest.southwest.latitude, TOLERANCE, "south")
-    assertEquals(MERCATOR_LIMIT, northWest.northeast.latitude, TOLERANCE, "north")
+    assertEquals(-180.0, northWest.southwest.longitude, Tolerance, "west")
+    assertEquals(0.0, northWest.northeast.longitude, Tolerance, "east")
+    assertEquals(0.0, northWest.southwest.latitude, Tolerance, "south")
+    assertEquals(MercatorLimit, northWest.northeast.latitude, Tolerance, "north")
 
     val southEast = TileCoordinate(zoomLevel = 1, x = 1, y = 1).bounds
-    assertEquals(0.0, southEast.southwest.longitude, TOLERANCE, "west")
-    assertEquals(180.0, southEast.northeast.longitude, TOLERANCE, "east")
-    assertEquals(-MERCATOR_LIMIT, southEast.southwest.latitude, TOLERANCE, "south")
-    assertEquals(0.0, southEast.northeast.latitude, TOLERANCE, "north")
+    assertEquals(0.0, southEast.southwest.longitude, Tolerance, "west")
+    assertEquals(180.0, southEast.northeast.longitude, Tolerance, "east")
+    assertEquals(-MercatorLimit, southEast.southwest.latitude, Tolerance, "south")
+    assertEquals(0.0, southEast.northeast.latitude, Tolerance, "north")
   }
 
   @Test
@@ -36,8 +36,8 @@ class TileCoordinateTest {
     val left = TileCoordinate(zoomLevel = 3, x = 2, y = 3).bounds
     val right = TileCoordinate(zoomLevel = 3, x = 3, y = 3).bounds
     val below = TileCoordinate(zoomLevel = 3, x = 2, y = 4).bounds
-    assertEquals(left.northeast.longitude, right.southwest.longitude, TOLERANCE)
-    assertEquals(left.southwest.latitude, below.northeast.latitude, TOLERANCE)
+    assertEquals(left.northeast.longitude, right.southwest.longitude, Tolerance)
+    assertEquals(left.southwest.latitude, below.northeast.latitude, Tolerance)
   }
 
   @Test
@@ -64,7 +64,7 @@ class TileCoordinateTest {
   }
 
   private companion object {
-    const val MERCATOR_LIMIT = 85.0511287798066
-    const val TOLERANCE = 1e-9
+    const val MercatorLimit = 85.0511287798066
+    const val Tolerance = 1e-9
   }
 }

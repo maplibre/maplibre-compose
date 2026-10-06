@@ -374,8 +374,8 @@ private object WinRtCallbacks {
   private const val S_OK = 0
   private const val E_NOINTERFACE = -2_147_467_262
   private const val E_FAIL = -2_147_467_259
-  private const val IID_IUNKNOWN = "00000000-0000-0000-c000-000000000046"
-  private const val IID_IAGILE_OBJECT = "94ea2b94-e9cc-49e0-c0ff-ee64ca8f5b90"
+  private const val IUnknownIid = "00000000-0000-0000-c000-000000000046"
+  private const val IAgileObjectIid = "94ea2b94-e9cc-49e0-c0ff-ee64ca8f5b90"
   private val callbacks = ConcurrentHashMap<Long, Callback>()
   private val linker = Linker.nativeLinker()
   private val stubs = Arena.global()
@@ -401,13 +401,13 @@ private object WinRtCallbacks {
 
   private fun vtable(event: Boolean): MemorySegment {
     val table = stubs.allocate(ADDRESS, 4)
-    table.setAtIndex(ADDRESS, 0, stub("queryInterface", QUERY_INTERFACE))
-    table.setAtIndex(ADDRESS, 1, stub("addRef", ADD_REF))
-    table.setAtIndex(ADDRESS, 2, stub("release", ADD_REF))
+    table.setAtIndex(ADDRESS, 0, stub("queryInterface", QueryInterface))
+    table.setAtIndex(ADDRESS, 1, stub("addRef", AddRef))
+    table.setAtIndex(ADDRESS, 2, stub("release", AddRef))
     table.setAtIndex(
       ADDRESS,
       3,
-      if (event) stub("invokeEvent", INVOKE_EVENT) else stub("invokeAsync", INVOKE_ASYNC),
+      if (event) stub("invokeEvent", InvokeEvent) else stub("invokeAsync", InvokeAsync),
     )
     return table
   }
@@ -438,8 +438,8 @@ private object WinRtCallbacks {
   ): Int {
     val callback = callbacks[self.address()] ?: return E_NOINTERFACE
     return if (
-      WinRt.guidEquals(iid, IID_IUNKNOWN) ||
-        WinRt.guidEquals(iid, IID_IAGILE_OBJECT) ||
+      WinRt.guidEquals(iid, IUnknownIid) ||
+        WinRt.guidEquals(iid, IAgileObjectIid) ||
         WinRt.guidEquals(iid, callback.iid)
     ) {
       if (callback.addReference() == 0) {
@@ -482,8 +482,8 @@ private object WinRtCallbacks {
       E_FAIL
     }
 
-  private val QUERY_INTERFACE = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
-  private val ADD_REF = FunctionDescriptor.of(JAVA_INT, ADDRESS)
-  private val INVOKE_EVENT = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
-  private val INVOKE_ASYNC = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT)
+  private val QueryInterface = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
+  private val AddRef = FunctionDescriptor.of(JAVA_INT, ADDRESS)
+  private val InvokeEvent = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
+  private val InvokeAsync = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT)
 }

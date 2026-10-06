@@ -55,10 +55,10 @@ internal class GlJsCustomGeometryAttachment(
         y = tile.y.toInt(),
         options =
           unsafeJso<GeoJsonToTileOptions> {
-            extent = EXTENT.toDouble()
-            buffer = (SCALE * options.buffer).toDouble()
-            tolerance = SCALE * options.tolerance.toDouble()
-            maxZoom = MAX_ZOOM
+            extent = Extent.toDouble()
+            buffer = (Scale * options.buffer).toDouble()
+            tolerance = Scale * options.tolerance.toDouble()
+            maxZoom = MaxZoom
             wrap = options.wrap
             clip = options.clip
           },
@@ -71,7 +71,7 @@ internal class GlJsCustomGeometryAttachment(
         layers,
         unsafeJso<VectorTileEncodingOptions> {
           version = 2.0
-          extent = EXTENT.toDouble()
+          extent = Extent.toDouble()
         },
       )
     return ByteArray(bytes.length) { bytes[it].toByte() }
@@ -79,15 +79,15 @@ internal class GlJsCustomGeometryAttachment(
 
   private companion object {
     /** MapLibre Native's `util::EXTENT`, the tile extent it encodes custom geometry at. */
-    const val EXTENT = 8192
+    const val Extent = 8192
 
     /** The tile size the source's options are measured against. */
-    const val TILE_SIZE = 512
+    const val TileSize = 512
 
     /** Converts buffer and tolerance from tile-size units to extent units. */
-    const val SCALE = EXTENT / TILE_SIZE
+    const val Scale = Extent / TileSize
 
     // Keep the conversion pass precise; geojson-vt applies per-tile simplification below this zoom.
-    const val MAX_ZOOM = 24
+    const val MaxZoom = 24
   }
 }

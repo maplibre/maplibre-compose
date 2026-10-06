@@ -28,7 +28,7 @@ class FusedLocationProviderTest {
       FusedLocationProvider(
         locationClient = fakeClient(registration, removed),
         permissionDelegate = null,
-        executor = DIRECT_EXECUTOR,
+        executor = DirectExecutor,
       )
     val collection = launch { provider.updates(LocationRequest()).collect {} }
 
@@ -62,6 +62,6 @@ class FusedLocationProviderTest {
     ) as FusedLocationProviderClient
 
   private companion object {
-    val DIRECT_EXECUTOR = Executor { it.run() }
+    val DirectExecutor = Executor { it.run() }
   }
 }

@@ -170,14 +170,14 @@ class KeyAndRotaryInputTest {
     val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
     map.performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionRight) } }
-    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
     map.performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionUp) } }
-    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.pitchDelta != 0.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.rotateCalls.any { it.pitchDelta != 0.0 } }
   }
 
   @Test
   fun tab_focuses_the_map_without_engaging_it() = fixture.runFocusTest { target, unconsumed ->
-    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    onNodeWithTag(BeforeMapTag).requestFocus()
     mapNode().performKeyInput { pressKey(Key.Tab) }
     mapNode().assertIsFocused()
 
@@ -190,13 +190,13 @@ class KeyAndRotaryInputTest {
 
   @Test
   fun enter_engages_the_map_so_a_direction_key_pans() = fixture.runFocusTest { target, unconsumed ->
-    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    onNodeWithTag(BeforeMapTag).requestFocus()
     mapNode().performKeyInput { pressKey(Key.Tab) }
 
     mapNode().performKeyInput { pressKey(Key.Enter) }
     mapNode().performKeyInput { pressKey(Key.DirectionRight) }
 
-    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+    waitUntil(timeoutMillis = Timeout) { target.moveCalls.isNotEmpty() }
     assertFalse(Key.Enter in unconsumed, "the map passed Enter through")
     assertFalse(
       Key.DirectionRight in unconsumed,
@@ -208,7 +208,7 @@ class KeyAndRotaryInputTest {
   @Test
   fun escape_disengages_the_map_and_the_next_direction_key_passes_through() =
     fixture.runFocusTest { target, unconsumed ->
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      onNodeWithTag(BeforeMapTag).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
       mapNode().performKeyInput { pressKey(Key.Enter) }
 
@@ -223,7 +223,7 @@ class KeyAndRotaryInputTest {
 
   @Test
   fun back_disengages_a_map_that_a_key_engaged() = fixture.runFocusTest { target, unconsumed ->
-    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    onNodeWithTag(BeforeMapTag).requestFocus()
     mapNode().performKeyInput { pressKey(Key.Tab) }
     mapNode().performKeyInput { pressKey(Key.Enter) }
 
@@ -241,7 +241,7 @@ class KeyAndRotaryInputTest {
       val map = mapNode()
       map.performMouseInput { click(Offset(10f, 10f)) }
       map.performKeyInput { pressKey(Key.DirectionRight) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { target.moveCalls.isNotEmpty() }
 
       map.performKeyInput { pressKey(Key.Back) }
       waitForIdle()
@@ -261,9 +261,9 @@ class KeyAndRotaryInputTest {
           }
         }
     ) { _, _ ->
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      onNodeWithTag(BeforeMapTag).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
-      onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
+      onNodeWithTag(AfterMapTag).assertIsFocused()
     }
 
   @Test
@@ -279,7 +279,7 @@ class KeyAndRotaryInputTest {
         },
       rotaryNotchPixels = 24f,
     ) { _, unconsumed ->
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      onNodeWithTag(BeforeMapTag).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
       mapNode().assertIsFocused()
 
@@ -303,7 +303,7 @@ class KeyAndRotaryInputTest {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { target.moveCalls.isNotEmpty() }
       runOnUiThread { options = InputConfiguration.NoBindings }
       waitForIdle()
       map.assertIsFocused()
@@ -314,9 +314,9 @@ class KeyAndRotaryInputTest {
       }
       waitForIdle()
       assertFalse(Key.DirectionRight in unconsumed, "the owed release escaped after disabling keys")
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      onNodeWithTag(BeforeMapTag).requestFocus()
       map.performKeyInput { pressKey(Key.Tab) }
-      onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
+      onNodeWithTag(AfterMapTag).assertIsFocused()
     }
   }
 
@@ -326,7 +326,7 @@ class KeyAndRotaryInputTest {
       val map = mapNode()
       map.requestFocus()
       map.performKeyInput { pressKey(Key.Enter) }
-      onNodeWithTag(AFTER_MAP_TAG).requestFocus()
+      onNodeWithTag(AfterMapTag).requestFocus()
       map.requestFocus()
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitForIdle()
@@ -344,9 +344,9 @@ class KeyAndRotaryInputTest {
         },
       rotaryNotchPixels = Float.POSITIVE_INFINITY,
     ) { _, _ ->
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      onNodeWithTag(BeforeMapTag).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
-      onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
+      onNodeWithTag(AfterMapTag).assertIsFocused()
     }
 
   @Test
@@ -359,12 +359,12 @@ class KeyAndRotaryInputTest {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      mainClock.advanceTimeBy(FRAME_MILLIS * 4)
+      mainClock.advanceTimeBy(FrameMillis * 4)
       val moves = target.moveCalls.size
       assertTrue(moves > 0)
       lateinit var newer: CameraInputToken
       runOnUiThread { newer = target.onGestureStarted() }
-      mainClock.advanceTimeBy(FRAME_MILLIS * 4)
+      mainClock.advanceTimeBy(FrameMillis * 4)
       assertEquals(moves, target.moveCalls.size)
       map.performKeyInput { keyUp(Key.DirectionRight) }
       mainClock.advanceTimeBy(600)
@@ -395,7 +395,7 @@ class KeyAndRotaryInputTest {
       assertTrue(target.moveCalls.all { it.x < 0f && it.y == 0f }, "${target.moveCalls}")
       assertEquals(0, target.endedCount)
       map.performKeyInput { keyUp(Key.DirectionRight) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
+      waitUntil(timeoutMillis = Timeout) { target.endedCount == 1 }
       val settled = target.moveCalls.toList()
       mainClock.advanceTimeBy(600)
       assertEquals(settled, target.moveCalls)
@@ -465,7 +465,7 @@ class KeyAndRotaryInputTest {
       map.requestFocus()
       map.performRotaryScrollInput { rotateToScrollVertically(24f) }
       assertEquals(1, target.scaleCalls.size)
-      onNodeWithTag(AFTER_MAP_TAG).requestFocus()
+      onNodeWithTag(AfterMapTag).requestFocus()
       waitForIdle()
       assertEquals(1, target.endedCount)
       map.performRotaryScrollInput { rotateToScrollVertically(24f) }
@@ -506,9 +506,9 @@ class KeyAndRotaryInputTest {
     val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
     map.performKeyInput { pressKey(Key.Equals) }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale > 1.0 } }
     map.performKeyInput { pressKey(Key.Minus) }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale < 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale < 1.0 } }
   }
 
   @Test
@@ -524,7 +524,7 @@ class KeyAndRotaryInputTest {
         }
       }
       val zoomStep = InputConfiguration.Standard.bindings.keys.zoomStepLevels
-      waitUntil(timeoutMillis = TIMEOUT) { target.zoomed() >= 2 * zoomStep - 1e-6 }
+      waitUntil(timeoutMillis = Timeout) { target.zoomed() >= 2 * zoomStep - 1e-6 }
       assertFalse(Key.Equals in unconsumed)
       assertFalse(Key.Plus in unconsumed)
       map.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Equals) } }
@@ -543,7 +543,7 @@ class KeyAndRotaryInputTest {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { target.moveCalls.isNotEmpty() }
       runOnUiThread {
         options = InputConfiguration {
           bindings { keys { mappings { on(Key.DirectionRight, action = CameraAction.ZoomIn) } } }
@@ -558,7 +558,7 @@ class KeyAndRotaryInputTest {
       assertFalse(Key.DirectionRight in unconsumed)
       assertTrue(target.scaleCalls.isEmpty())
       map.performKeyInput { pressKey(Key.DirectionRight) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { target.scaleCalls.isNotEmpty() }
     }
   }
 

@@ -64,7 +64,7 @@ class ClickInputTest {
     ) { target ->
       mapNode().performTouchInput {
         click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         click(center)
       }
       waitForIdle()
@@ -94,7 +94,7 @@ class ClickInputTest {
     ) { target ->
       mapNode().performMouseInput {
         click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         click(center, MouseButton.Secondary)
       }
       waitForIdle()
@@ -117,7 +117,7 @@ class ClickInputTest {
       try {
         mapNode().performTouchInput { click(center) }
         // Delivery is queued; keep virtual time frozen while its coroutine runs.
-        waitUntil(timeoutMillis = TIMEOUT) { target.clicks == 1 }
+        waitUntil(timeoutMillis = Timeout) { target.clicks == 1 }
       } finally {
         mainClock.autoAdvance = true
       }
@@ -282,7 +282,7 @@ class ClickInputTest {
       moveBy(Offset(60f, 0f))
       release()
     }
-    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+    waitUntil(timeoutMillis = Timeout) { target.moveCalls.isNotEmpty() }
     assertEquals(0, target.clicks, "the drag reported a click")
   }
 
@@ -321,7 +321,7 @@ class ClickInputTest {
       val map = mapNode()
       map.performTouchInput { down(0, center) }
       mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { target.longClicks == 1 }
+      waitUntil(timeoutMillis = Timeout) { target.longClicks == 1 }
       map.performTouchInput { up(0) }
       waitForIdle()
       assertEquals(0, parentLongClicks.load())
@@ -371,7 +371,7 @@ class ClickInputTest {
   @Test
   fun double_click_zooms_and_reports_its_first_click() = fixture.runRecognitionTest { target ->
     mapNode().performMouseInput { doubleClick() }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.isNotEmpty() }
     assertEquals(1, target.clicks, "a double click did not report exactly its first click")
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "a double click did not zoom in")
   }
@@ -379,7 +379,7 @@ class ClickInputTest {
   @Test
   fun double_tap_zooms_without_reporting_the_first_tap() = fixture.runRecognitionTest { target ->
     mapNode().performTouchInput { doubleClick() }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale > 1.0 } }
     mainClock.advanceTimeBy(1_000)
     waitForIdle()
     assertEquals(0, target.clicks, "a double tap leaked its first tap as a click")
@@ -389,12 +389,12 @@ class ClickInputTest {
   fun quick_zoom_does_not_leak_its_first_tap() = fixture.runRecognitionTest { target ->
     mapNode().performTouchInput {
       click(center)
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      advanceEventTime(SecondTapGapMillis)
       down(0, center)
       moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
       up(0)
     }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale > 1.0 } }
     mainClock.advanceTimeBy(1_000)
     waitForIdle()
     assertEquals(0, target.clicks, "a quick zoom leaked its first tap as a click")
@@ -404,12 +404,12 @@ class ClickInputTest {
   fun mouse_quick_zoom_reports_its_first_click() = fixture.runRecognitionTest { target ->
     mapNode().performMouseInput {
       click(center)
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      advanceEventTime(SecondTapGapMillis)
       press()
       moveBy(Offset(0f, 100f))
       release()
     }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale > 1.0 } }
     mainClock.advanceTimeBy(1_000)
     waitForIdle()
     assertEquals(1, target.clicks, "a mouse quick zoom did not report exactly its first click")
@@ -420,7 +420,7 @@ class ClickInputTest {
   fun horizontal_motion_disqualifies_quick_zoom() = fixture.runRecognitionTest { target ->
     mapNode().performTouchInput {
       click(center)
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      advanceEventTime(SecondTapGapMillis)
       down(0, center)
       moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
       moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
@@ -443,7 +443,7 @@ class ClickInputTest {
   fun horizontal_mouse_motion_disqualifies_quick_zoom() = fixture.runRecognitionTest { target ->
     mapNode().performMouseInput {
       click(center)
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      advanceEventTime(SecondTapGapMillis)
       press()
       moveBy(Offset(100f, 0f))
       moveBy(Offset(0f, 100f))
@@ -467,7 +467,7 @@ class ClickInputTest {
     ) { target ->
       mapNode().performTouchInput {
         click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         down(center)
         moveBy(Offset(0f, 60f))
         up()
@@ -494,7 +494,7 @@ class ClickInputTest {
     ) { target ->
       mapNode().performTouchInput {
         click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         down(center)
         moveBy(Offset(0f, -60f))
         up()
@@ -527,7 +527,7 @@ class ClickInputTest {
       map.performMouseInput { click(center) }
       map.performKeyInput { keyDown(Key.ShiftLeft) }
       map.performMouseInput {
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         click(center)
       }
       map.performKeyInput { keyUp(Key.ShiftLeft) }
@@ -624,6 +624,6 @@ class ClickInputTest {
       up(0)
       up(1)
     }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale < 1.0 } }
+    waitUntil(timeoutMillis = Timeout) { target.scaleCalls.any { it.scale < 1.0 } }
   }
 }

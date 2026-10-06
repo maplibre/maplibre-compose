@@ -36,7 +36,7 @@ class StyleGlobalStateTest {
       val state = fixture.state.style.globalState
       assertNull(state.get())
       assertFailsWith<StyleHandleException> { state.setProperty("color", JsonPrimitive("blue")) }
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       val oldBinding = assertNotNull(fixture.style)
       val defaults = assertNotNull(state.get())
       assertEquals(JsonPrimitive("red"), defaults["color"])
@@ -56,12 +56,12 @@ class StyleGlobalStateTest {
 
       state.setProperty("color", JsonPrimitive("blue"))
       state.setProperty("runtimeOnly", JsonPrimitive(true))
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       assertEquals(JsonObject(emptyMap()), state.get())
       assertFailsWith<StyleHandleException> {
         oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
       }
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       assertEquals(defaults, state.get())
       fixture.closeSession()
       assertNull(state.get())
@@ -72,7 +72,7 @@ class StyleGlobalStateTest {
   @Test
   fun state_changes_repaint_and_refilter_without_replacing_the_layer(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.onOwner { binding.getSource("points") })
       val layer = TestLayer("circle", "circle", source)
@@ -89,15 +89,15 @@ class StyleGlobalStateTest {
       )
       binding.install(layer)
       val state = fixture.state.style.globalState
-      fixture.pumpUntilPixel("default color", 256, 256, RED)
+      fixture.pumpUntilPixel("default color", 256, 256, Red)
       state.setProperty("color", JsonPrimitive("blue"))
-      fixture.pumpUntilPixel("updated paint", 256, 256, BLUE)
+      fixture.pumpUntilPixel("updated paint", 256, 256, Blue)
       state.setProperty("show", JsonPrimitive(false))
-      fixture.pumpUntilPixel("updated filter", 256, 256, BLACK)
+      fixture.pumpUntilPixel("updated filter", 256, 256, Black)
       state.resetProperty("show")
-      fixture.pumpUntilPixel("reset filter", 256, 256, BLUE)
+      fixture.pumpUntilPixel("reset filter", 256, 256, Blue)
       state.resetProperty("color")
-      fixture.pumpUntilPixel("reset paint", 256, 256, RED)
+      fixture.pumpUntilPixel("reset paint", 256, 256, Red)
       assertEquals(emptyList(), fixture.errors.toList())
     }
   }
@@ -105,7 +105,7 @@ class StyleGlobalStateTest {
   @Test
   fun state_changes_rebuild_layout_and_color_ramps(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(LINE_STYLE)
+      fixture.loadStyle(LineStyle)
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.onOwner { binding.getSource("line") })
       val layer = TestLayer("line", "line", source)
@@ -121,28 +121,28 @@ class StyleGlobalStateTest {
       )
       binding.install(layer)
       val state = fixture.state.style.globalState
-      fixture.pumpUntilPixel("default line gradient", 256, 256, RED)
+      fixture.pumpUntilPixel("default line gradient", 256, 256, Red)
       // At zoom 0 the endpoint at longitude 20 is x=284.4. A round 40px cap covers x=296.
-      fixture.pumpUntilPixel("butt cap", 296, 256, BLACK)
+      fixture.pumpUntilPixel("butt cap", 296, 256, Black)
       state.setProperty("cap", JsonPrimitive("round"))
-      fixture.pumpUntilPixel("rebuilt round cap", 296, 256, RED)
+      fixture.pumpUntilPixel("rebuilt round cap", 296, 256, Red)
       state.setProperty("color", JsonPrimitive("blue"))
-      fixture.pumpUntilPixel("updated color ramp", 256, 256, BLUE)
+      fixture.pumpUntilPixel("updated color ramp", 256, 256, Blue)
       state.resetProperty("cap")
-      fixture.pumpUntilPixel("reset cap", 296, 256, BLACK)
+      fixture.pumpUntilPixel("reset cap", 296, 256, Black)
       state.resetProperty("color")
-      fixture.pumpUntilPixel("reset color ramp", 256, 256, RED)
+      fixture.pumpUntilPixel("reset color ramp", 256, 256, Red)
       state.setProperty("cap", JsonPrimitive("invalid"))
-      fixture.pumpUntilPixel("fallback cap", 296, 256, RED)
+      fixture.pumpUntilPixel("fallback cap", 296, 256, Red)
       assertEquals(emptyList(), fixture.errors.toList())
     }
   }
 
   private companion object {
-    val RED = RgbaPixel(255, 0, 0, 255)
-    val BLUE = RgbaPixel(0, 0, 255, 255)
-    val BLACK = RgbaPixel(0, 0, 0, 255)
-    val LINE_STYLE =
+    val Red = RgbaPixel(255, 0, 0, 255)
+    val Blue = RgbaPixel(0, 0, 255, 255)
+    val Black = RgbaPixel(0, 0, 0, 255)
+    val LineStyle =
       BaseStyle.Json(
         """
         {"version":8,"state":{"color":{"default":"red"},"cap":{"default":"butt"}},
@@ -153,8 +153,8 @@ class StyleGlobalStateTest {
         """
           .trimIndent()
       )
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val STYLE =
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val Style =
       BaseStyle.Json(
         """
         {"version":8,"state":{"color":{"default":"red"},"show":{"default":true}},

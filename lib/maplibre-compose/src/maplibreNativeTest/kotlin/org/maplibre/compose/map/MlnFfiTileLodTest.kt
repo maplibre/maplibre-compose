@@ -30,7 +30,7 @@ class MlnFfiTileLodTest {
       fixture.loadStyle(BaseStyle.Empty)
 
       fixture.session.readMap { map ->
-        map.tileOptions = map.tileOptions.also { it.prefetchZoomDelta = PREFETCH }
+        map.tileOptions = map.tileOptions.also { it.prefetchZoomDelta = Prefetch }
       }
       fixture.session.setTileLodSettings(TileLodOptions.Performance)
       val applied = assertNotNull(fixture.session.readMap { it.tileOptions })
@@ -40,7 +40,7 @@ class MlnFfiTileLodTest {
       assertEquals(1.5, assertNotNull(applied.lodScale))
       assertAngleDegrees(45.0, applied.lodPitchThreshold)
       assertEquals(-1.0, assertNotNull(applied.lodZoomShift))
-      assertEquals(PREFETCH, applied.prefetchZoomDelta)
+      assertEquals(Prefetch, applied.prefetchZoomDelta)
     }
   }
 
@@ -160,7 +160,7 @@ class MlnFfiTileLodTest {
     }
 
   private companion object {
-    const val PREFETCH = 7
+    const val Prefetch = 7
 
     fun assertAngleDegrees(expected: Double, radians: Double?) {
       val actual = assertNotNull(radians) * 180.0 / PI

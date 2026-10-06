@@ -19,31 +19,31 @@ class SkikoMetalDeviceContractTest {
     onMacos("the Objective-C runtime this interrogates exists only on macOS") {
       val skikoVersion = loadSkikoNativeLibrary()
 
-      val deviceClass = ObjCRuntime.objc_getClass(SkikoReflection.SKIKO_METAL_DEVICE_CLASS)
+      val deviceClass = ObjCRuntime.objc_getClass(SkikoReflection.SkikoMetalDeviceClass)
       assertTrue(
         deviceClass != NULL,
         "Skiko $skikoVersion no longer registers the Objective-C class " +
-          "'${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}'. The macOS map host reads Compose's " +
+          "'${SkikoReflection.SkikoMetalDeviceClass}'. The macOS map host reads Compose's " +
           "MTLDevice out of it; update AwtComposeMapPresentationHost.",
       )
 
-      val adapter = ObjCRuntime.sel_registerName(SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER)
+      val adapter = ObjCRuntime.sel_registerName(SkikoReflection.SkikoMetalDeviceAdapter)
       assertTrue(
         ObjCRuntime.class_respondsToSelector(deviceClass, adapter),
-        "Skiko $skikoVersion's '${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}' no longer responds " +
-          "to '${SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER}'. The macOS map host sends that to " +
+        "Skiko $skikoVersion's '${SkikoReflection.SkikoMetalDeviceClass}' no longer responds " +
+          "to '${SkikoReflection.SkikoMetalDeviceAdapter}'. The macOS map host sends that to " +
           "reach the MTLDevice it allocates its texture on; update AwtComposeMapPresentationHost.",
       )
 
       // The name surviving is not enough; the property has to still be the device. Objective-C
       // records the declared type in the attribute string: `T@"<MTLDevice>",&,V_adapter` here.
       val property =
-        ObjCRuntime.class_getProperty(deviceClass, SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER)
+        ObjCRuntime.class_getProperty(deviceClass, SkikoReflection.SkikoMetalDeviceAdapter)
       val attributes =
         property.takeIf { it != NULL }?.let { ObjCRuntime.property_getAttributes(it) }.orEmpty()
       assertTrue(
         attributes.contains("@\"<MTLDevice>\""),
-        "Skiko $skikoVersion declares '${SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER}' as " +
+        "Skiko $skikoVersion declares '${SkikoReflection.SkikoMetalDeviceAdapter}' as " +
           "'$attributes', not as an id<MTLDevice>. The macOS map host allocates its texture on " +
           "whatever this returns.",
       )

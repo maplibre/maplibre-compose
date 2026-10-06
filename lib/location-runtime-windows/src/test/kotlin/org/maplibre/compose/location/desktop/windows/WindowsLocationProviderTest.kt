@@ -141,17 +141,17 @@ class WindowsLocationProviderTest {
     assertTrue(filter.shouldDeliver(first))
     assertFalse(
       filter.shouldDeliver(
-        first.copy(longitude = 1.0, windowsTimestampTicks = 500 * TICKS_PER_MILLISECOND)
+        first.copy(longitude = 1.0, windowsTimestampTicks = 500 * TicksPerMillisecond)
       )
     )
     assertFalse(
       filter.shouldDeliver(
-        first.copy(longitude = 13.00001, windowsTimestampTicks = 2_000 * TICKS_PER_MILLISECOND)
+        first.copy(longitude = 13.00001, windowsTimestampTicks = 2_000 * TicksPerMillisecond)
       )
     )
     assertTrue(
       filter.shouldDeliver(
-        first.copy(longitude = 13.01, windowsTimestampTicks = 2_500 * TICKS_PER_MILLISECOND)
+        first.copy(longitude = 13.01, windowsTimestampTicks = 2_500 * TicksPerMillisecond)
       )
     )
   }
@@ -397,7 +397,7 @@ private fun sampleMeasurement(
   verticalAccuracyMeters: Double? = 3.0,
   headingDegrees: Double? = 90.0,
   speedMetersPerSecond: Double? = 4.0,
-  windowsTimestampTicks: Long = WINDOWS_EPOCH_TICKS + 1_700_000_000_000 * TICKS_PER_MILLISECOND,
+  windowsTimestampTicks: Long = WindowsEpochTicks + 1_700_000_000_000 * TicksPerMillisecond,
 ): WindowsLocationMeasurement =
   WindowsLocationMeasurement(
     latitude,

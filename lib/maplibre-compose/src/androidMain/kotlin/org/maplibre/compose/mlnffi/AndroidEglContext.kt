@@ -53,7 +53,7 @@ private constructor(
 
   companion object {
     private const val EGL_OPENGL_ES3_BIT = 0x00000040
-    private val WINDOW_ATTRIBUTES = intArrayOf(EGL14.EGL_NONE)
+    private val WindowAttributes = intArrayOf(EGL14.EGL_NONE)
 
     fun create(surface: Surface): AndroidEglContext {
       val display = AndroidEglDisplay.default
@@ -61,7 +61,7 @@ private constructor(
 
       val config = chooseConfig(display)
       val windowSurface =
-        EGL14.eglCreateWindowSurface(display, config, surface, WINDOW_ATTRIBUTES, 0)
+        EGL14.eglCreateWindowSurface(display, config, surface, WindowAttributes, 0)
       check(windowSurface != EGL14.EGL_NO_SURFACE) { eglFailure("create the EGL window surface") }
       return AndroidEglContext(display, config, windowSurface)
     }

@@ -52,14 +52,14 @@ class BrowserMapSnapshotterTest {
   fun composed_content_renders_in_a_private_target_that_cleanup_removes(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, POINT_STYLE)
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
       try {
         assertEquals(0, snapshotTargets().size)
 
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition =
                 CameraPosition(
                   target = Position(longitude = 0.0, latitude = 0.0),
@@ -69,10 +69,10 @@ class BrowserMapSnapshotterTest {
             )
           )
 
-        assertEquals(SIZE, image.width)
-        assertEquals(SIZE, image.height)
-        assertEquals(GREEN, image.readPixel(SIZE - 6, SIZE / 2 - 8))
-        assertEquals(BACKGROUND, image.readPixel(0, 0))
+        assertEquals(Size, image.width)
+        assertEquals(Size, image.height)
+        assertEquals(Green, image.readPixel(Size - 6, Size / 2 - 8))
+        assertEquals(Background, image.readPixel(0, 0))
         val target = assertNotNull(snapshotTargets().singleOrNull())
         assertTrue(target.style.visibility == "hidden")
         assertTrue(target.parentElement === document.body)
@@ -95,13 +95,13 @@ class BrowserMapSnapshotterTest {
           evaluatorIdentities += identity
           onDispose {}
         }
-        POINT_STYLE()
+        PointStyle()
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = BASE_STYLE, content = content)
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, content)
+      val state = runtime.createMapState(baseStyle = BackgroundStyle, content = content)
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content)
       try {
-        setBrowserMapContent(size = SIZE) { MaplibreMap(state = state) }
+        setBrowserMapContent(size = Size) { MaplibreMap(state = state) }
         waitUntilMap("the interactive map to become ready") {
           state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
@@ -112,13 +112,13 @@ class BrowserMapSnapshotterTest {
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition =
                 CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
             )
           )
 
-        assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2))
+        assertEquals(Green, image.readPixel(Size / 2, Size / 2))
         assertEquals(2, evaluatorIdentities.size)
         assertSame(presentation, state.currentMapAttachment)
         assertSame(interactiveEngine, session.engineMapForTest())
@@ -140,7 +140,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun consecutive_captures_honor_size_and_density(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle)
     try {
       for ((request, size) in
         listOf(
@@ -154,8 +154,8 @@ class BrowserMapSnapshotterTest {
         val captured = snapshotter.capture(request)
         assertEquals(size.first, captured.width, "width for $request")
         assertEquals(size.second, captured.height, "height for $request")
-        assertEquals(BACKGROUND, captured.readPixel(0, 0))
-        assertEquals(BACKGROUND, captured.readPixel(captured.width - 1, captured.height - 1))
+        assertEquals(Background, captured.readPixel(0, 0))
+        assertEquals(Background, captured.readPixel(captured.width - 1, captured.height - 1))
       }
     } finally {
       snapshotter.close()
@@ -168,19 +168,19 @@ class BrowserMapSnapshotterTest {
   @Test
   fun camera_position_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE, POINT_STYLE)
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
     try {
       val centered =
         snapshotter.capture(
           MapSnapshotRequest(
-            size = DpSize(SIZE.dp, SIZE.dp),
+            size = DpSize(Size.dp, Size.dp),
             cameraPosition = CameraPosition(zoom = 2.0),
           )
         )
       val shifted =
         snapshotter.capture(
           MapSnapshotRequest(
-            size = DpSize(SIZE.dp, SIZE.dp),
+            size = DpSize(Size.dp, Size.dp),
             cameraPosition =
               CameraPosition(
                 target = Position(longitude = 90.0, latitude = 0.0),
@@ -189,8 +189,8 @@ class BrowserMapSnapshotterTest {
           )
         )
 
-      assertEquals(GREEN, centered.readPixel(SIZE / 2, SIZE / 2))
-      assertEquals(BACKGROUND, shifted.readPixel(SIZE / 2, SIZE / 2))
+      assertEquals(Green, centered.readPixel(Size / 2, Size / 2))
+      assertEquals(Background, shifted.readPixel(Size / 2, Size / 2))
     } finally {
       snapshotter.close()
       snapshotter.awaitClosed()
@@ -207,7 +207,7 @@ class BrowserMapSnapshotterTest {
         "box-sizing: border-box; border: 7px solid; padding: 11px; }"
     document.body?.appendChild(pageStyle.asDynamic())
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle)
     try {
       val captured = snapshotter.capture(MapSnapshotRequest(DpSize(31.dp, 23.dp)))
       val target = assertNotNull(snapshotTargets().singleOrNull())
@@ -229,7 +229,7 @@ class BrowserMapSnapshotterTest {
   fun a_request_above_the_web_canvas_limit_fails_before_map_creation(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle)
       try {
         val error =
           assertFailsWith<IllegalArgumentException> {
@@ -250,24 +250,24 @@ class BrowserMapSnapshotterTest {
   fun a_density_change_reapplies_an_unchanged_style_image(): Promise<*> = runBrowserMapTest {
     val icon = IntArray(8 * 8) { 0xff00ff00.toInt() }.toImageBitmap(8, 8)
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointIconStyle(icon))
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointIconStyle(icon))
     val request =
       MapSnapshotRequest(
-        size = DpSize(SIZE.dp, SIZE.dp),
+        size = DpSize(Size.dp, Size.dp),
         cameraPosition = CameraPosition(zoom = 2.0),
       )
     try {
       val first = snapshotter.capture(request)
       val second = snapshotter.capture(request.copy(density = Density(2f)))
 
-      assertEquals(SIZE, first.width)
-      assertEquals(SIZE, first.height)
-      assertEquals(SIZE * 2, second.width)
-      assertEquals(SIZE * 2, second.height)
-      assertEquals(GREEN, first.readPixel(SIZE / 2, SIZE / 2))
-      assertEquals(BACKGROUND, first.readPixel(SIZE / 2 + 6, SIZE / 2))
-      assertEquals(GREEN, second.readPixel(SIZE, SIZE))
-      assertEquals(BACKGROUND, second.readPixel(SIZE + 12, SIZE))
+      assertEquals(Size, first.width)
+      assertEquals(Size, first.height)
+      assertEquals(Size * 2, second.width)
+      assertEquals(Size * 2, second.height)
+      assertEquals(Green, first.readPixel(Size / 2, Size / 2))
+      assertEquals(Background, first.readPixel(Size / 2 + 6, Size / 2))
+      assertEquals(Green, second.readPixel(Size, Size))
+      assertEquals(Background, second.readPixel(Size + 12, Size))
     } finally {
       snapshotter.close()
       snapshotter.awaitClosed()
@@ -279,7 +279,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun output_transparency_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(EMPTY_STYLE)
+    val snapshotter = runtime.createSnapshotter(EmptyStyle)
     try {
       val opaque = snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
       val transparent =
@@ -290,8 +290,8 @@ class BrowserMapSnapshotterTest {
           )
         )
 
-      assertEquals(WHITE, opaque.readPixel(0, 0))
-      assertEquals(TRANSPARENT, transparent.readPixel(0, 0))
+      assertEquals(White, opaque.readPixel(0, 0))
+      assertEquals(Transparent, transparent.readPixel(0, 0))
     } finally {
       snapshotter.close()
       snapshotter.awaitClosed()
@@ -308,7 +308,7 @@ class BrowserMapSnapshotterTest {
       var styleRequested = false
       global.fetch = { input: dynamic, init: dynamic ->
         val url = if (jsTypeOf(input) == "string") input as String else input.url as String
-        if (url == BLOCKED_STYLE_URI) {
+        if (url == BlockedStyleUri) {
           styleRequested = true
           Promise<dynamic> { _, _ -> }
         } else {
@@ -316,10 +316,10 @@ class BrowserMapSnapshotterTest {
         }
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BaseStyle.Uri(BLOCKED_STYLE_URI), POINT_STYLE)
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Uri(BlockedStyleUri), PointStyle)
       try {
         coroutineScope {
-          val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp))) }
+          val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(Size.dp, Size.dp))) }
           waitUntilMap("the snapshot style request to start") {
             styleRequested && snapshotTargets().size == 1
           }
@@ -330,15 +330,15 @@ class BrowserMapSnapshotterTest {
             snapshotTargets().isEmpty() && snapshotter.style.loadState == StyleLoadState.Pending
           }
         }
-        snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
+        snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
         val image =
           snapshotter.capture(
             MapSnapshotRequest(
-              size = DpSize(SIZE.dp, SIZE.dp),
+              size = DpSize(Size.dp, Size.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           )
-        assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2))
+        assertEquals(Green, image.readPixel(Size / 2, Size / 2))
         assertEquals(1, snapshotTargets().size)
       } finally {
         global.fetch = originalFetch
@@ -390,14 +390,14 @@ class BrowserMapSnapshotterTest {
     )
 
   private companion object {
-    const val SIZE = 64
-    const val BLOCKED_STYLE_URI = "https://snapshot-style.test/style.json"
-    val BACKGROUND = RgbaPixel(red = 51, green = 102, blue = 153, alpha = 255)
-    val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
-    val WHITE = RgbaPixel(red = 255, green = 255, blue = 255, alpha = 255)
-    val TRANSPARENT = RgbaPixel(red = 0, green = 0, blue = 0, alpha = 0)
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val BASE_STYLE =
+    const val Size = 64
+    const val BlockedStyleUri = "https://snapshot-style.test/style.json"
+    val Background = RgbaPixel(red = 51, green = 102, blue = 153, alpha = 255)
+    val Green = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
+    val White = RgbaPixel(red = 255, green = 255, blue = 255, alpha = 255)
+    val Transparent = RgbaPixel(red = 0, green = 0, blue = 0, alpha = 0)
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val BackgroundStyle =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[
@@ -406,7 +406,7 @@ class BrowserMapSnapshotterTest {
         """
           .trimIndent()
       )
-    val POINT_STYLE: @Composable @MaplibreComposable () -> Unit = {
+    val PointStyle: @Composable @MaplibreComposable () -> Unit = {
       val points =
         GeoJsonSource(
           id = "points",

@@ -42,7 +42,7 @@ class MapCameraTransitionTest {
   @Test
   fun polar_bounds_fit_like_their_mercator_clamped_bounds(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.startAt(START)
+      fixture.startAt(Start)
       val latitudeLimit = 85.0511287798066
       for (bounds in
         listOf(
@@ -70,28 +70,28 @@ class MapCameraTransitionTest {
   fun camera_padding_and_viewport_insets_have_independent_ownership(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val padding = DpPadding(left = 20.dp, bottom = 80.dp)
-      val camera = START.copy(padding = padding)
+      val camera = Start.copy(padding = padding)
       val framing = PaddingValues.Absolute(left = 20.dp, bottom = 80.dp)
-      fixture.session.setViewportInsets(VIEWPORT_INSETS)
+      fixture.session.setViewportInsets(ViewportInsets)
       fixture.startAt(camera)
       fixture.pumpUntil("combined camera padding") {
-        fixture.cameraTargetMatches(camera, VIEWPORT_INSETS + framing)
+        fixture.cameraTargetMatches(camera, ViewportInsets + framing)
       }
       assertEquals(padding, fixture.session.getCameraPosition().padding)
-      fixture.session.setViewportInsets(REPLACEMENT_VIEWPORT_INSETS)
+      fixture.session.setViewportInsets(ReplacementViewportInsets)
       fixture.pumpUntil("replacement viewport insets") {
-        fixture.cameraTargetMatches(camera, REPLACEMENT_VIEWPORT_INSETS + framing)
+        fixture.cameraTargetMatches(camera, ReplacementViewportInsets + framing)
       }
       assertEquals(padding, fixture.session.getCameraPosition().padding)
-      val fit = fixture.state.cameraForBounds(boundingBox = BOUNDS, fitPadding = FIT_PADDING)
+      val fit = fixture.state.cameraForBounds(boundingBox = Bounds, fitPadding = FitPadding)
       assertEquals(padding, fit.padding)
       fixture.state.setCameraPosition(fit)
       fixture.pump(frames = 3)
-      fixture.assertBoundsInside(REPLACEMENT_VIEWPORT_INSETS + framing + FIT_PADDING)
-      fixture.assertCameraTarget(fit, REPLACEMENT_VIEWPORT_INSETS + framing)
+      fixture.assertBoundsInside(ReplacementViewportInsets + framing + FitPadding)
+      fixture.assertCameraTarget(fit, ReplacementViewportInsets + framing)
       fixture.state.setCameraPosition(fit.copy(padding = DpPadding.Zero))
       fixture.pump(frames = 3)
-      fixture.assertCameraTarget(fit, REPLACEMENT_VIEWPORT_INSETS)
+      fixture.assertCameraTarget(fit, ReplacementViewportInsets)
       assertEquals(DpPadding.Zero, fixture.session.getCameraPosition().padding)
     }
   }
@@ -101,9 +101,9 @@ class MapCameraTransitionTest {
     runMapTest {
       if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
       createMapFixture().use { fixture ->
-        fixture.session.setViewportInsets(VIEWPORT_INSETS)
-        fixture.startAt(START)
-        val target = TARGET.copy(padding = DpPadding(bottom = 100.dp))
+        fixture.session.setViewportInsets(ViewportInsets)
+        fixture.startAt(Start)
+        val target = Target.copy(padding = DpPadding(bottom = 100.dp))
         val animation = launch {
           fixture.state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
         }
@@ -116,7 +116,7 @@ class MapCameraTransitionTest {
         assertFalse(animation.isCancelled)
         assertTrue(intermediate, "padding must be reported during the animation")
         assertEquals(target.padding, fixture.session.getCameraPosition().padding)
-        fixture.assertCameraTarget(target, VIEWPORT_INSETS + PaddingValues(bottom = 100.dp))
+        fixture.assertCameraTarget(target, ViewportInsets + PaddingValues(bottom = 100.dp))
       }
     }
 
@@ -124,32 +124,32 @@ class MapCameraTransitionTest {
   fun fit_queries_use_destination_padding_without_moving_the_live_camera(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        val initial = START.copy(padding = DpPadding(left = 20.dp))
+        val initial = Start.copy(padding = DpPadding(left = 20.dp))
         val destination = DpPadding(right = 45.dp, bottom = 100.dp)
         val framing = PaddingValues.Absolute(right = 45.dp, bottom = 100.dp)
-        val corners = listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest, BOUNDS_NW)
-        fixture.session.setViewportInsets(VIEWPORT_INSETS)
+        val corners = listOf(BoundsNw, Bounds.northeast, BoundsSe, Bounds.southwest, BoundsNw)
+        fixture.session.setViewportInsets(ViewportInsets)
         fixture.startAt(initial)
         val before = fixture.session.getCameraPosition()
         val queries =
           listOf(
             fixture.state.cameraForBounds(
-              boundingBox = BOUNDS,
+              boundingBox = Bounds,
               bearing = 35.0,
               cameraPadding = destination,
-              fitPadding = FIT_PADDING,
+              fitPadding = FitPadding,
             ),
             fixture.state.cameraForGeometry(
               geometry = Polygon(listOf(corners)),
               bearing = 35.0,
               cameraPadding = destination,
-              fitPadding = FIT_PADDING,
+              fitPadding = FitPadding,
             ),
             fixture.state.cameraForCoordinates(
               coordinates = corners,
               bearing = 35.0,
               cameraPadding = destination,
-              fitPadding = FIT_PADDING,
+              fitPadding = FitPadding,
             ),
           )
         fixture.pump(frames = 2)
@@ -164,15 +164,15 @@ class MapCameraTransitionTest {
         }
         fixture.state.setCameraPosition(queries.first())
         fixture.pump(frames = 3)
-        fixture.assertCameraTarget(queries.first(), VIEWPORT_INSETS + framing)
-        fixture.assertPositionsInside(corners, VIEWPORT_INSETS + framing + FIT_PADDING)
+        fixture.assertCameraTarget(queries.first(), ViewportInsets + framing)
+        fixture.assertPositionsInside(corners, ViewportInsets + framing + FitPadding)
 
         // Explicit destination padding and padding inherited from the applied camera must agree.
         val currentFit =
           fixture.state.cameraForBounds(
-            boundingBox = BOUNDS,
+            boundingBox = Bounds,
             bearing = 35.0,
-            fitPadding = FIT_PADDING,
+            fitPadding = FitPadding,
           )
         assertSameFit(
           queries.first(),
@@ -182,26 +182,26 @@ class MapCameraTransitionTest {
         assertEquals(destination, currentFit.padding)
 
         fixture.state.fitCameraToBounds(
-          boundingBox = BOUNDS,
+          boundingBox = Bounds,
           cameraPadding = DpPadding.Zero,
-          fitPadding = FIT_PADDING,
+          fitPadding = FitPadding,
         )
         fixture.pump(frames = 3)
         assertEquals(DpPadding.Zero, fixture.session.getCameraPosition().padding)
-        fixture.assertBoundsInside(VIEWPORT_INSETS + FIT_PADDING)
+        fixture.assertBoundsInside(ViewportInsets + FitPadding)
       }
     }
 
   @Test
   fun a_bounds_query_can_be_applied_with_transient_padding(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.startAt(START)
+      it.session.setViewportInsets(ViewportInsets)
+      it.startAt(Start)
       it.pumpUntil("the viewport insets to be applied") {
-        it.cameraTargetMatches(START, VIEWPORT_INSETS)
+        it.cameraTargetMatches(Start, ViewportInsets)
       }
       val before = it.session.getCameraPosition()
-      val camera = it.state.cameraForBounds(boundingBox = BOUNDS, fitPadding = FIT_PADDING)
+      val camera = it.state.cameraForBounds(boundingBox = Bounds, fitPadding = FitPadding)
       it.pump(frames = 2)
       assertSameFit(before, it.session.getCameraPosition(), "the query moved the camera")
 
@@ -209,10 +209,10 @@ class MapCameraTransitionTest {
       it.pumpUntil("the calculated camera to be applied") {
         abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01
       }
-      it.assertCameraTarget(camera, VIEWPORT_INSETS)
-      it.assertBoundsInside(VIEWPORT_INSETS + FIT_PADDING)
+      it.assertCameraTarget(camera, ViewportInsets)
+      it.assertBoundsInside(ViewportInsets + FitPadding)
 
-      it.state.fitCameraToBounds(boundingBox = BOUNDS, fitPadding = FIT_PADDING)
+      it.state.fitCameraToBounds(boundingBox = Bounds, fitPadding = FitPadding)
       it.pump(frames = 2)
       assertSameFit(camera, it.session.getCameraPosition(), "the query disagrees with the fit")
     }
@@ -224,13 +224,13 @@ class MapCameraTransitionTest {
     runMapTest {
       createMapFixture().use {
         it.startAtOrigin()
-        val flat = it.state.cameraForBounds(boundingBox = BOUNDS, fitPadding = FIT_PADDING)
+        val flat = it.state.cameraForBounds(boundingBox = Bounds, fitPadding = FitPadding)
         val camera =
           it.state.cameraForBounds(
-            boundingBox = BOUNDS,
+            boundingBox = Bounds,
             bearing = 35.0,
             pitch = 50.0,
-            fitPadding = FIT_PADDING,
+            fitPadding = FitPadding,
           )
         assertNear(50.0, camera.pitch, "the query pitch")
         assertTrue(
@@ -242,8 +242,8 @@ class MapCameraTransitionTest {
         it.pumpUntil("the calculated camera to be applied") {
           abs(it.session.getCameraPosition().pitch - 50.0) < 0.01
         }
-        val corners = listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest)
-        it.assertPositionsInside(corners, FIT_PADDING.asPaddingValues())
+        val corners = listOf(BoundsNw, Bounds.northeast, BoundsSe, Bounds.southwest)
+        it.assertPositionsInside(corners, FitPadding.asPaddingValues())
       }
     }
 
@@ -252,15 +252,15 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
       val destination = DpPadding(left = 30.dp, bottom = 60.dp)
-      it.session.setViewportInsets(VIEWPORT_INSETS)
+      it.session.setViewportInsets(ViewportInsets)
       val before = it.session.getCameraPosition()
       val camera =
         it.state.cameraForBounds(
-          boundingBox = BOUNDS,
+          boundingBox = Bounds,
           bearing = 35.0,
           pitch = 50.0,
           cameraPadding = destination,
-          fitPadding = FIT_PADDING,
+          fitPadding = FitPadding,
         )
       assertEquals(before, it.session.getCameraPosition(), "the query moved the live camera")
       assertEquals(destination, camera.padding)
@@ -270,10 +270,10 @@ class MapCameraTransitionTest {
       it.pumpUntil("the calculated camera to be applied") {
         abs(it.session.getCameraPosition().pitch - 50.0) < 0.01
       }
-      val corners = listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest)
-      val effective = VIEWPORT_INSETS + destination.asPaddingValues()
+      val corners = listOf(BoundsNw, Bounds.northeast, BoundsSe, Bounds.southwest)
+      val effective = ViewportInsets + destination.asPaddingValues()
       it.assertCameraTarget(camera, effective)
-      it.assertPositionsInside(corners, effective + FIT_PADDING)
+      it.assertPositionsInside(corners, effective + FitPadding)
     }
   }
 
@@ -282,13 +282,13 @@ class MapCameraTransitionTest {
     createMapFixture().use { fixture ->
       val query =
         async(start = CoroutineStart.UNDISPATCHED) {
-          fixture.state.cameraForBounds(ANTIMERIDIAN_BOUNDS)
+          fixture.state.cameraForBounds(AntimeridianBounds)
         }
       assertFalse(query.isCompleted)
       fixture.awaitMapReady()
       val camera = withTimeout(30.seconds) { query.await() }
       assertTrue(abs(abs(camera.target.longitude) - 180.0) < 1.0)
-      assertTrue(camera.zoom > START.zoom)
+      assertTrue(camera.zoom > Start.zoom)
     }
   }
 
@@ -297,12 +297,12 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
       val animation = launch {
-        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
       }
       it.awaitCameraMoving()
       it.state
         .cameraForBounds(
-          boundingBox = BOUNDS,
+          boundingBox = Bounds,
           bearing = 35.0,
           pitch = 20.0,
           cameraPadding = DpPadding(bottom = 80.dp),
@@ -314,7 +314,7 @@ class MapCameraTransitionTest {
         }
       it.pumpUntil("the animation to complete after the query") { animation.isCompleted }
       assertFalse(animation.isCancelled)
-      assertNear(TARGET.zoom, it.session.getCameraPosition().zoom, "the animation target")
+      assertNear(Target.zoom, it.session.getCameraPosition().zoom, "the animation target")
     }
   }
 
@@ -323,11 +323,11 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
       val corners =
-        Polygon(listOf(listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest, BOUNDS_NW)))
+        Polygon(listOf(listOf(BoundsNw, Bounds.northeast, BoundsSe, Bounds.southwest, BoundsNw)))
       val fromBounds =
-        it.state.cameraForBounds(boundingBox = BOUNDS, bearing = 35.0, fitPadding = FIT_PADDING)
+        it.state.cameraForBounds(boundingBox = Bounds, bearing = 35.0, fitPadding = FitPadding)
       val fromGeometry =
-        it.state.cameraForGeometry(geometry = corners, bearing = 35.0, fitPadding = FIT_PADDING)
+        it.state.cameraForGeometry(geometry = corners, bearing = 35.0, fitPadding = FitPadding)
       assertSameFit(fromBounds, fromGeometry, "the geometry query disagrees with the bounds query")
       assertNear(35.0, fromGeometry.bearing, "the query bearing")
     }
@@ -342,12 +342,12 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         it.startAtOrigin()
         val fromBounds =
-          it.state.cameraForBounds(boundingBox = BOUNDS, bearing = 45.0, fitPadding = FIT_PADDING)
+          it.state.cameraForBounds(boundingBox = Bounds, bearing = 45.0, fitPadding = FitPadding)
         val camera =
           it.state.cameraForCoordinates(
-            coordinates = DIAMOND_ROUTE,
+            coordinates = DiamondRoute,
             bearing = 45.0,
-            fitPadding = FIT_PADDING,
+            fitPadding = FitPadding,
           )
         assertTrue(
           camera.zoom > fromBounds.zoom + 0.5,
@@ -358,7 +358,7 @@ class MapCameraTransitionTest {
         it.pumpUntil("the calculated camera to be applied") {
           abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01
         }
-        it.assertPositionsInside(DIAMOND_ROUTE, FIT_PADDING.asPaddingValues())
+        it.assertPositionsInside(DiamondRoute, FitPadding.asPaddingValues())
       }
     }
 
@@ -367,50 +367,50 @@ class MapCameraTransitionTest {
     runMapTest {
       createMapFixture().use {
         it.startAtOrigin()
-        val camera = it.state.cameraForCoordinates(ANTIMERIDIAN_ROUTE)
+        val camera = it.state.cameraForCoordinates(AntimeridianRoute)
         assertTrue(
           abs(abs(camera.target.longitude) - 180.0) < 1.0,
           "the target should sit on the antimeridian, but was ${camera.target}",
         )
-        assertTrue(camera.zoom > START.zoom)
+        assertTrue(camera.zoom > Start.zoom)
       }
     }
 
   @Test
   fun a_bounds_jump_keeps_fit_padding_transient(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.startAt(START)
+      it.session.setViewportInsets(ViewportInsets)
+      it.startAt(Start)
       it.pumpUntil("the viewport insets to be applied") {
-        it.cameraTargetMatches(START, VIEWPORT_INSETS)
+        it.cameraTargetMatches(Start, ViewportInsets)
       }
 
       it.state.fitCameraToBounds(
-        boundingBox = BOUNDS,
+        boundingBox = Bounds,
         bearing = 0.0,
         pitch = 0.0,
-        fitPadding = FIT_PADDING,
+        fitPadding = FitPadding,
       )
       it.pumpUntil("the bounds fit to be applied") {
-        abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
+        abs(it.session.getCameraPosition().zoom - Start.zoom) > 0.1
       }
       val fitAfterPadding = it.session.getCameraPosition()
-      it.assertCameraTarget(fitAfterPadding, VIEWPORT_INSETS)
-      it.assertBoundsInside(VIEWPORT_INSETS + FIT_PADDING)
+      it.assertCameraTarget(fitAfterPadding, ViewportInsets)
+      it.assertBoundsInside(ViewportInsets + FitPadding)
 
       it.state.fitCameraToBounds(
-        boundingBox = BOUNDS,
+        boundingBox = Bounds,
         bearing = 0.0,
         pitch = 0.0,
-        fitPadding = FIT_PADDING,
+        fitPadding = FitPadding,
       )
       it.pump(frames = 2)
       val repeatedFit = it.session.getCameraPosition()
       assertSameFit(fitAfterPadding, repeatedFit, "repeating the bounds fit changed its camera")
 
-      it.session.setViewportInsets(REPLACEMENT_VIEWPORT_INSETS)
+      it.session.setViewportInsets(ReplacementViewportInsets)
       it.pumpUntil("the replacement viewport insets to be applied") {
-        it.cameraTargetMatches(fitAfterPadding, REPLACEMENT_VIEWPORT_INSETS)
+        it.cameraTargetMatches(fitAfterPadding, ReplacementViewportInsets)
       }
     }
   }
@@ -421,7 +421,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.state.fitCameraToBounds(
-        boundingBox = ANTIMERIDIAN_BOUNDS,
+        boundingBox = AntimeridianBounds,
         bearing = 0.0,
         pitch = 0.0,
         cameraPadding = DpPadding(left = 20.dp, right = 20.dp),
@@ -429,7 +429,7 @@ class MapCameraTransitionTest {
       )
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
-        abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > START.zoom
+        abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > Start.zoom
       }
     }
   }
@@ -437,35 +437,35 @@ class MapCameraTransitionTest {
   @Test
   fun a_bounds_animation_keeps_fit_padding_transient(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.startAt(START)
+      it.session.setViewportInsets(ViewportInsets)
+      it.startAt(Start)
       it.pumpUntil("the viewport insets to be applied") {
-        it.cameraTargetMatches(START, VIEWPORT_INSETS)
+        it.cameraTargetMatches(Start, ViewportInsets)
       }
 
       it.awaitWhileRendering("the bounds animation to complete") {
         it.state.animateCameraToBounds(
-          boundingBox = BOUNDS,
+          boundingBox = Bounds,
           bearing = 0.0,
           pitch = 0.0,
           cameraPadding = DpPadding(bottom = 80.dp),
-          fitPadding = FIT_PADDING,
+          fitPadding = FitPadding,
           animation = CameraAnimation.Fly(200.milliseconds),
         )
       }
 
       val firstFit = it.session.getCameraPosition()
       assertEquals(DpPadding(bottom = 80.dp), firstFit.padding)
-      val effective = VIEWPORT_INSETS + PaddingValues(bottom = 80.dp)
+      val effective = ViewportInsets + PaddingValues(bottom = 80.dp)
       it.assertCameraTarget(firstFit, effective)
-      it.assertBoundsInside(effective + FIT_PADDING)
+      it.assertBoundsInside(effective + FitPadding)
 
       it.awaitWhileRendering("the repeated bounds animation to complete") {
         it.state.animateCameraToBounds(
-          boundingBox = BOUNDS,
+          boundingBox = Bounds,
           bearing = 0.0,
           pitch = 0.0,
-          fitPadding = FIT_PADDING,
+          fitPadding = FitPadding,
           animation = CameraAnimation.Fly(200.milliseconds),
         )
       }
@@ -483,15 +483,15 @@ class MapCameraTransitionTest {
   fun a_flight_zooms_out_on_its_way_to_the_target(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(FLIGHT_START)
+      it.startAt(FlightStart)
 
-      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
+      val lowestZoom = it.lowestZoomWhileAnimating(FlightTarget, CameraAnimation.Fly(1.seconds))
 
       assertTrue(
-        lowestZoom < FLIGHT_START.zoom - 1.0,
+        lowestZoom < FlightStart.zoom - 1.0,
         "the flight did not zoom out, lowest $lowestZoom",
       )
-      it.assertLanded(FLIGHT_TARGET, "the flight")
+      it.assertLanded(FlightTarget, "the flight")
     }
   }
 
@@ -500,12 +500,12 @@ class MapCameraTransitionTest {
   fun a_flight_paced_by_speed_animates_and_lands_on_its_target(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(FLIGHT_START)
+      it.startAt(FlightStart)
       it.engineEvents.clear()
 
       it.awaitWhileRendering("the flight to complete") {
         it.state.animateCamera(
-          FLIGHT_TARGET.toCameraUpdate(),
+          FlightTarget.toCameraUpdate(),
           CameraAnimation.Fly(speed = 20.0),
         )
       }
@@ -518,7 +518,7 @@ class MapCameraTransitionTest {
           "the speed-paced flight was not animated: ${it.engineEvents}",
         )
       }
-      it.assertLanded(FLIGHT_TARGET, "the flight")
+      it.assertLanded(FlightTarget, "the flight")
     }
   }
 
@@ -531,16 +531,16 @@ class MapCameraTransitionTest {
   fun a_flight_peaks_near_its_minimum_zoom(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(FLIGHT_START)
+      it.startAt(FlightStart)
 
       val lowestZoom =
         it.lowestZoomWhileAnimating(
-          FLIGHT_TARGET,
-          CameraAnimation.Fly(1.seconds, minZoom = FLIGHT_START.zoom),
+          FlightTarget,
+          CameraAnimation.Fly(1.seconds, minZoom = FlightStart.zoom),
         )
 
-      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
-      it.assertLanded(FLIGHT_TARGET, "the flight")
+      assertTrue(lowestZoom > FlightStart.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      it.assertLanded(FlightTarget, "the flight")
     }
   }
 
@@ -553,19 +553,19 @@ class MapCameraTransitionTest {
   fun the_maps_minimum_zoom_shapes_a_flight(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(FLIGHT_START)
-      it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(minZoom = FLIGHT_START.zoom - 2.0))
+      it.startAt(FlightStart)
+      it.session.setCameraConstraints(TestConstraints.copy(minZoom = FlightStart.zoom - 2.0))
       it.pump(frames = 2)
 
-      val trace = it.cameraTraceWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
+      val trace = it.cameraTraceWhileAnimating(FlightTarget, CameraAnimation.Fly(1.seconds))
 
       val peak = trace.minBy { camera -> camera.zoom }
-      assertTrue(peak.zoom > FLIGHT_START.zoom - 2.5, "the flight zoomed out to ${peak.zoom}")
+      assertTrue(peak.zoom > FlightStart.zoom - 2.5, "the flight zoomed out to ${peak.zoom}")
       assertTrue(
         peak.target.longitude > 2.0,
         "the flight reached its lowest zoom at longitude ${peak.target.longitude}, near its start",
       )
-      it.assertLanded(FLIGHT_TARGET, "the flight")
+      it.assertLanded(FlightTarget, "the flight")
     }
   }
 
@@ -577,13 +577,13 @@ class MapCameraTransitionTest {
   fun a_flight_ignores_a_minimum_zoom_below_its_path(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(START)
+      it.startAt(Start)
 
       val lowestZoom =
-        it.lowestZoomWhileAnimating(TARGET, CameraAnimation.Fly(1.seconds, minZoom = 0.0))
+        it.lowestZoomWhileAnimating(Target, CameraAnimation.Fly(1.seconds, minZoom = 0.0))
 
-      assertTrue(lowestZoom > START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
-      it.assertLanded(TARGET, "the flight")
+      assertTrue(lowestZoom > Start.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      it.assertLanded(Target, "the flight")
     }
   }
 
@@ -592,12 +592,12 @@ class MapCameraTransitionTest {
   fun an_ease_zooms_directly_to_the_target(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
-      it.startAt(FLIGHT_START)
+      it.startAt(FlightStart)
 
-      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Ease(1.seconds))
+      val lowestZoom = it.lowestZoomWhileAnimating(FlightTarget, CameraAnimation.Ease(1.seconds))
 
-      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.05, "the ease zoomed out to $lowestZoom")
-      it.assertLanded(FLIGHT_TARGET, "the ease")
+      assertTrue(lowestZoom > FlightStart.zoom - 0.05, "the ease zoomed out to $lowestZoom")
+      it.assertLanded(FlightTarget, "the ease")
     }
   }
 
@@ -606,12 +606,12 @@ class MapCameraTransitionTest {
   fun an_eased_bounds_animation_lands_on_the_fit(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtOrigin()
-      val fit = it.state.cameraForBounds(boundingBox = BOUNDS, fitPadding = FIT_PADDING)
+      val fit = it.state.cameraForBounds(boundingBox = Bounds, fitPadding = FitPadding)
 
       it.awaitWhileRendering("the eased bounds animation to complete") {
         it.state.animateCameraToBounds(
-          boundingBox = BOUNDS,
-          fitPadding = FIT_PADDING,
+          boundingBox = Bounds,
+          fitPadding = FitPadding,
           animation = CameraAnimation.Ease(200.milliseconds),
         )
       }
@@ -629,7 +629,7 @@ class MapCameraTransitionTest {
         it.pump(frames = 2)
 
         val animation = launch {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
         }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -638,7 +638,7 @@ class MapCameraTransitionTest {
         }
 
         assertNear(
-          TARGET.zoom,
+          Target.zoom,
           it.session.getCameraPosition().zoom,
           "repeating identical constraints should not stop the animation",
         )
@@ -650,12 +650,12 @@ class MapCameraTransitionTest {
     runMapTest {
       createMapFixture().use {
         it.startAtOrigin()
-        it.session.setCameraConstraints(TEST_CONSTRAINTS)
+        it.session.setCameraConstraints(TestConstraints)
         it.pump(frames = 2)
 
-        it.session.setCameraConstraints(DISJOINT_ZOOM_CONSTRAINTS)
+        it.session.setCameraConstraints(DisjointZoomConstraints)
         it.pumpUntil("the camera to adopt the disjoint zoom range") {
-          abs(it.session.getCameraPosition().zoom - DISJOINT_ZOOM_CONSTRAINTS.minZoom) < 0.01
+          abs(it.session.getCameraPosition().zoom - DisjointZoomConstraints.minZoom) < 0.01
         }
       }
     }
@@ -667,10 +667,10 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(0.milliseconds))
+        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(0.milliseconds))
       }
       assertNear(
-        TARGET.zoom,
+        Target.zoom,
         it.session.getCameraPosition().zoom,
         "the instant animation should reach its target",
       )
@@ -689,12 +689,12 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       val superseded = launch {
-        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
+        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
       }
       it.awaitCameraMoving()
 
       val replacement = launch {
-        it.state.animateCamera(MIDPOINT.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+        it.state.animateCamera(Midpoint.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
       }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
@@ -707,7 +707,7 @@ class MapCameraTransitionTest {
 
       it.pumpUntil("the replacement animation to complete") { replacement.isCompleted }
       assertNear(
-        MIDPOINT.zoom,
+        Midpoint.zoom,
         it.session.getCameraPosition().zoom,
         "the replacement should have reached its own target",
       )
@@ -724,22 +724,22 @@ class MapCameraTransitionTest {
         it.events.clear()
 
         val animation = launch {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
+          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
         }
         it.awaitCameraMoving()
         animation.cancel()
         it.pumpUntil("the cancelled animation to unwind") { animation.isCompleted }
 
         it.pumpUntil("the abandoned animation to reach its target") {
-          abs(it.session.getCameraPosition().zoom - TARGET.zoom) < 0.01
+          abs(it.session.getCameraPosition().zoom - Target.zoom) < 0.01
         }
         assertTrue(animation.isCancelled)
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
+          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
         }
         assertNear(
-          TARGET.zoom,
+          Target.zoom,
           it.session.getCameraPosition().zoom,
           "a later animation should still complete",
         )
@@ -753,7 +753,7 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         it.startAtOrigin()
         val animation = launch {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
+          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
         }
         it.awaitCameraMoving()
         it.state.stopCameraMovement()
@@ -762,7 +762,7 @@ class MapCameraTransitionTest {
         }
         assertTrue(animation.isCancelled)
         val stopped = it.session.getCameraPosition()
-        assertTrue(stopped.zoom < TARGET.zoom - 0.1)
+        assertTrue(stopped.zoom < Target.zoom - 0.1)
         it.pump(frames = 10)
         assertSameFit(stopped, it.session.getCameraPosition(), "movement after stop")
         assertSameFit(stopped, it.state.cameraPosition, "retained stopped camera")
@@ -770,9 +770,9 @@ class MapCameraTransitionTest {
         // Queue a stop and a replacement without rendering between them.
         it.state.stopCameraMovement()
         it.awaitWhileRendering("the command racing the stop to complete") {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(200.milliseconds))
+          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(200.milliseconds))
         }
-        it.assertLanded(TARGET, "the newer command")
+        it.assertLanded(Target, "the newer command")
       }
     }
 
@@ -781,8 +781,8 @@ class MapCameraTransitionTest {
     runMapTest {
       if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
       createMapFixture().use { fixture ->
-        fixture.startAt(START.copy(zoom = 8.0, bearing = 25.0, pitch = 35.0))
-        fixture.session.setViewportInsets(VIEWPORT_INSETS)
+        fixture.startAt(Start.copy(zoom = 8.0, bearing = 25.0, pitch = 35.0))
+        fixture.session.setViewportInsets(ViewportInsets)
         fixture.pump(frames = 3)
         val point = DpOffset(190.dp, 300.dp)
         val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
@@ -809,7 +809,7 @@ class MapCameraTransitionTest {
         assertNear(10.0, camera.zoom, "zoom")
         assertNear(110.0, camera.bearing, "bearing")
         assertNear(55.0, camera.pitch, "pitch")
-        fixture.assertCameraTarget(camera, VIEWPORT_INSETS)
+        fixture.assertCameraTarget(camera, ViewportInsets)
       }
     }
 
@@ -817,7 +817,7 @@ class MapCameraTransitionTest {
   fun a_geographic_anchor_uses_the_nearest_world_copy_and_an_instant_anchored_endpoint():
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.startAt(START.copy(target = Position(179.0, 0.0), zoom = 3.0, pitch = 40.0))
+      fixture.startAt(Start.copy(target = Position(179.0, 0.0), zoom = 3.0, pitch = 40.0))
       val location = Position(-179.0, 1.0)
       val point = requireNotNull(fixture.session.screenLocationFromPosition(location))
       fixture.awaitWhileRendering("the instant anchored zoom") {
@@ -856,7 +856,7 @@ class MapCameraTransitionTest {
   fun a_screen_anchor_can_select_a_distant_visible_world_copy(): MapTestResult = runMapTest {
     createMapFixture(MapExtent.fromLogical(width = 2048, height = 512, scaleFactor = 1.0)).use {
       fixture ->
-      fixture.startAt(START.copy(zoom = 1.0, bearing = 15.0))
+      fixture.startAt(Start.copy(zoom = 1.0, bearing = 15.0))
       val point = DpOffset(50.dp, 256.dp)
       val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
       assertTrue(abs(location.longitude) > 180.0, "the anchor must select another world copy")
@@ -883,7 +883,7 @@ class MapCameraTransitionTest {
   @Test
   fun changing_viewport_insets_cancels_an_anchored_animation(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.assertAnchoredCancellation { fixture.session.setViewportInsets(VIEWPORT_INSETS) }
+      fixture.assertAnchoredCancellation { fixture.session.setViewportInsets(ViewportInsets) }
     }
   }
 
@@ -911,7 +911,7 @@ class MapCameraTransitionTest {
         )
       }
       fixture.awaitCameraMoving()
-      fixture.resize(MapFixture.RETINA_EXTENT)
+      fixture.resize(MapFixture.RetinaExtent)
       fixture.pumpUntil("the animation to complete after changing density") {
         fixture.assertAnchor(location, point)
         animation.isCompleted
@@ -925,7 +925,7 @@ class MapCameraTransitionTest {
   fun an_anchored_animation_obeys_zoom_and_pitch_constraints(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.startAtOrigin()
-      fixture.session.setCameraConstraints(TEST_CONSTRAINTS.copy(maxZoom = 4.0, maxPitch = 45.0))
+      fixture.session.setCameraConstraints(TestConstraints.copy(maxZoom = 4.0, maxPitch = 45.0))
       fixture.pump(frames = 3)
       val point = DpOffset(190.dp, 300.dp)
       val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
@@ -946,7 +946,7 @@ class MapCameraTransitionTest {
   @Test
   fun a_new_camera_command_cancels_an_anchored_animation(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.assertAnchoredCancellation { fixture.state.setCameraPosition(START) }
+      fixture.assertAnchoredCancellation { fixture.state.setCameraPosition(Start) }
     }
   }
 
@@ -963,7 +963,7 @@ class MapCameraTransitionTest {
             )
           }
         }
-        assertNear(START.zoom, fixture.session.getCameraPosition().zoom, "unchanged zoom")
+        assertNear(Start.zoom, fixture.session.getCameraPosition().zoom, "unchanged zoom")
       }
     }
 
@@ -996,7 +996,7 @@ class MapCameraTransitionTest {
     )
   }
 
-  private suspend fun MapFixture.startAtOrigin() = startAt(START)
+  private suspend fun MapFixture.startAtOrigin() = startAt(Start)
 
   private suspend fun MapFixture.startAt(position: CameraPosition) {
     // GL JS renders nothing without a style.
@@ -1044,27 +1044,27 @@ class MapCameraTransitionTest {
 
   private suspend fun MapFixture.awaitCameraMoving() {
     pumpUntil("the animation to start moving the camera") {
-      abs(session.getCameraPosition().zoom - START.zoom) > 0.01
+      abs(session.getCameraPosition().zoom - Start.zoom) > 0.01
     }
   }
 
   private fun MapAdapter.applyTestConstraints() {
-    setCameraConstraints(TEST_CONSTRAINTS)
+    setCameraConstraints(TestConstraints)
   }
 
   private companion object {
-    val START = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
-    val TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
-    val MIDPOINT = CameraPosition(target = Position(5.0, 20.0), zoom = 5.0)
+    val Start = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
+    val Target = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+    val Midpoint = CameraPosition(target = Position(5.0, 20.0), zoom = 5.0)
     // Far apart at their zoom, so a flight has to zoom out to cross the distance.
-    val FLIGHT_START = CameraPosition(target = Position(0.0, 0.0), zoom = 10.0)
-    val FLIGHT_TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 12.0)
-    val BOUNDS =
+    val FlightStart = CameraPosition(target = Position(0.0, 0.0), zoom = 10.0)
+    val FlightTarget = CameraPosition(target = Position(11.0, 47.0), zoom = 12.0)
+    val Bounds =
       BoundingBox(
         southwest = Position(longitude = -5.0, latitude = -5.0),
         northeast = Position(longitude = 5.0, latitude = 5.0),
       )
-    val TEST_CONSTRAINTS =
+    val TestConstraints =
       CameraConstraints(
         minZoom = 0.0,
         maxZoom = 20.0,
@@ -1072,31 +1072,31 @@ class MapCameraTransitionTest {
         maxPitch = 60.0,
         boundingBox = null,
       )
-    val DISJOINT_ZOOM_CONSTRAINTS = TEST_CONSTRAINTS.copy(minZoom = 21.0, maxZoom = 22.0)
-    val BOUNDS_NW = Position(longitude = BOUNDS.west, latitude = BOUNDS.north)
-    val BOUNDS_SE = Position(longitude = BOUNDS.east, latitude = BOUNDS.south)
-    /** The vertices touch every side of [BOUNDS] without reaching a corner. */
-    val DIAMOND_ROUTE =
+    val DisjointZoomConstraints = TestConstraints.copy(minZoom = 21.0, maxZoom = 22.0)
+    val BoundsNw = Position(longitude = Bounds.west, latitude = Bounds.north)
+    val BoundsSe = Position(longitude = Bounds.east, latitude = Bounds.south)
+    /** The vertices touch every side of [Bounds] without reaching a corner. */
+    val DiamondRoute =
       listOf(
         Position(longitude = -5.0, latitude = 0.0),
         Position(longitude = 0.0, latitude = 5.0),
         Position(longitude = 5.0, latitude = 0.0),
         Position(longitude = 0.0, latitude = -5.0),
       )
-    val ANTIMERIDIAN_ROUTE =
+    val AntimeridianRoute =
       listOf(
         Position(longitude = 170.0, latitude = -10.0),
         Position(longitude = 190.0, latitude = 10.0),
       )
-    val ANTIMERIDIAN_BOUNDS =
+    val AntimeridianBounds =
       BoundingBox(
         southwest = Position(longitude = 170.0, latitude = -10.0),
         northeast = Position(longitude = -170.0, latitude = 10.0),
       )
-    val VIEWPORT_INSETS =
+    val ViewportInsets =
       PaddingValues.Absolute(left = 120.dp, top = 10.dp, right = 5.dp, bottom = 30.dp)
-    val FIT_PADDING = DpPadding(left = 40.dp, top = 20.dp, right = 70.dp, bottom = 60.dp)
-    val REPLACEMENT_VIEWPORT_INSETS =
+    val FitPadding = DpPadding(left = 40.dp, top = 20.dp, right = 70.dp, bottom = 60.dp)
+    val ReplacementViewportInsets =
       PaddingValues.Absolute(left = 15.dp, top = 35.dp, right = 80.dp, bottom = 5.dp)
 
     fun DpPadding.asPaddingValues(): PaddingValues =
@@ -1139,7 +1139,7 @@ class MapCameraTransitionTest {
     }
 
     fun MapFixture.assertBoundsInside(padding: PaddingValues) {
-      assertPositionsInside(listOf(BOUNDS.southwest, BOUNDS.northeast), padding)
+      assertPositionsInside(listOf(Bounds.southwest, Bounds.northeast), padding)
     }
 
     fun MapFixture.assertPositionsInside(positions: List<Position>, padding: PaddingValues) {

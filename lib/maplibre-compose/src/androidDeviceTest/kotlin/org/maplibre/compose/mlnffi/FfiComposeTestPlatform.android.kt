@@ -43,18 +43,18 @@ internal actual fun runPlainComposeUiTest(block: suspend ComposeUiTest.() -> Uni
  * reaches that check, so the 30 s timeout never fires and the Android job sits until GitHub cancels
  * it.
  */
-private const val HANG_DUMP_DELAY_MILLIS = 50_000L
+private const val HangDumpDelayMillis = 50_000L
 
 /** Fails a blocked FFI Compose test so the instrumentation process cannot stay silent. */
 private fun startHangWatchdog(): Thread {
   val watchdog = Thread {
     try {
-      Thread.sleep(HANG_DUMP_DELAY_MILLIS)
+      Thread.sleep(HangDumpDelayMillis)
     } catch (_: InterruptedException) {
       return@Thread
     }
     System.err.println(
-      "An FFI Compose test has run for $HANG_DUMP_DELAY_MILLIS ms; dumping all threads:"
+      "An FFI Compose test has run for $HangDumpDelayMillis ms; dumping all threads:"
     )
     for ((thread, stack) in Thread.getAllStackTraces()) {
       System.err.println(thread)

@@ -14,31 +14,30 @@ import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
 
-internal const val CL_ERROR_DOMAIN = "kCLErrorDomain"
-internal const val CL_ERROR_LOCATION_UNKNOWN = 0L
-internal const val CL_ERROR_DENIED = 1L
-internal const val CL_ERROR_NETWORK = 2L
-internal const val CL_ERROR_PROMPT_DECLINED = 18L
+internal const val kCLErrorDomain = "kCLErrorDomain"
+internal const val kCLErrorLocationUnknown = 0L
+internal const val kCLErrorDenied = 1L
+internal const val kCLErrorNetwork = 2L
+internal const val kCLErrorPromptDeclined = 18L
 
-internal const val CL_AUTHORIZATION_NOT_DETERMINED = 0L
-internal const val CL_AUTHORIZATION_RESTRICTED = 1L
-internal const val CL_AUTHORIZATION_DENIED = 2L
-internal const val CL_AUTHORIZATION_AUTHORIZED_ALWAYS = 3L
-internal const val CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE = 4L
+internal const val kCLAuthorizationStatusNotDetermined = 0L
+internal const val kCLAuthorizationStatusRestricted = 1L
+internal const val kCLAuthorizationStatusDenied = 2L
+internal const val kCLAuthorizationStatusAuthorizedAlways = 3L
+internal const val kCLAuthorizationStatusAuthorizedWhenInUse = 4L
 
-internal const val CL_ACCURACY_AUTHORIZATION_FULL = 0L
+internal const val CLAccuracyAuthorizationFullAccuracy = 0L
 
-internal const val CL_LOCATION_ACCURACY_BEST_FOR_NAVIGATION = -2.0
-internal const val CL_LOCATION_ACCURACY_BEST = -1.0
-internal const val CL_LOCATION_ACCURACY_HUNDRED_METERS = 100.0
-internal const val CL_LOCATION_ACCURACY_KILOMETER = 1000.0
+internal const val kCLLocationAccuracyBestForNavigation = -2.0
+internal const val kCLLocationAccuracyBest = -1.0
+internal const val kCLLocationAccuracyHundredMeters = 100.0
+internal const val kCLLocationAccuracyKilometer = 1000.0
 
 /** Fallback when `kCLLocationAccuracyReduced` cannot be resolved, such as off macOS. */
-internal const val CL_LOCATION_ACCURACY_REDUCED_FALLBACK = 6_380_000.0
+internal const val ReducedLocationAccuracyFallback = 6_380_000.0
 
-internal val CL_LOCATION_ACCURACY_REDUCED: Double by lazy {
-  ObjectiveC.exportedDoubleOrNull("kCLLocationAccuracyReduced")
-    ?: CL_LOCATION_ACCURACY_REDUCED_FALLBACK
+internal val kCLLocationAccuracyReduced: Double by lazy {
+  ObjectiveC.exportedDoubleOrNull("kCLLocationAccuracyReduced") ?: ReducedLocationAccuracyFallback
 }
 
 internal data class CoreLocationMeasurement(
@@ -94,26 +93,26 @@ internal interface CoreLocationClient : AutoCloseable {
 
 internal fun LocationAccuracy.toDesiredAccuracy(): Double =
   when (this) {
-    LocationAccuracy.BestForNavigation -> CL_LOCATION_ACCURACY_BEST_FOR_NAVIGATION
-    LocationAccuracy.High -> CL_LOCATION_ACCURACY_BEST
-    LocationAccuracy.Balanced -> CL_LOCATION_ACCURACY_HUNDRED_METERS
-    LocationAccuracy.Low -> CL_LOCATION_ACCURACY_KILOMETER
-    LocationAccuracy.Lowest -> CL_LOCATION_ACCURACY_REDUCED
+    LocationAccuracy.BestForNavigation -> kCLLocationAccuracyBestForNavigation
+    LocationAccuracy.High -> kCLLocationAccuracyBest
+    LocationAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
+    LocationAccuracy.Low -> kCLLocationAccuracyKilometer
+    LocationAccuracy.Lowest -> kCLLocationAccuracyReduced
   }
 
 internal fun CoreLocationError.asUnavailableReason(
   locationServicesEnabled: Boolean
 ): LocationUnavailableReason =
   when {
-    domain != CL_ERROR_DOMAIN -> LocationUnavailableReason.UnexpectedFailure
-    code == CL_ERROR_DENIED ->
+    domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure
+    code == kCLErrorDenied ->
       if (locationServicesEnabled) {
         LocationUnavailableReason.PermissionDenied
       } else {
         LocationUnavailableReason.ServicesDisabled
       }
-    code == CL_ERROR_PROMPT_DECLINED -> LocationUnavailableReason.PermissionDenied
-    code == CL_ERROR_LOCATION_UNKNOWN || code == CL_ERROR_NETWORK ->
+    code == kCLErrorPromptDeclined -> LocationUnavailableReason.PermissionDenied
+    code == kCLErrorLocationUnknown || code == kCLErrorNetwork ->
       LocationUnavailableReason.TemporarilyUnavailable
     else -> LocationUnavailableReason.UnexpectedFailure
   }
@@ -139,17 +138,17 @@ internal fun readPermission(
   accuracyAuthorization: Long,
 ): LocationPermission =
   when (authorizationStatus) {
-    CL_AUTHORIZATION_AUTHORIZED_ALWAYS,
-    CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE ->
+    kCLAuthorizationStatusAuthorizedAlways,
+    kCLAuthorizationStatusAuthorizedWhenInUse ->
       LocationPermission.Granted(
-        if (accuracyAuthorization == CL_ACCURACY_AUTHORIZATION_FULL) {
+        if (accuracyAuthorization == CLAccuracyAuthorizationFullAccuracy) {
           LocationAccuracyAuthorization.Precise
         } else {
           LocationAccuracyAuthorization.Approximate
         }
       )
-    CL_AUTHORIZATION_NOT_DETERMINED -> LocationPermission.NotGranted(canRequest = true)
-    CL_AUTHORIZATION_DENIED,
-    CL_AUTHORIZATION_RESTRICTED -> LocationPermission.NotGranted(canRequest = false)
+    kCLAuthorizationStatusNotDetermined -> LocationPermission.NotGranted(canRequest = true)
+    kCLAuthorizationStatusDenied,
+    kCLAuthorizationStatusRestricted -> LocationPermission.NotGranted(canRequest = false)
     else -> LocationPermission.NotGranted(canRequest = null)
   }

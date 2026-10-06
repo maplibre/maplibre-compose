@@ -1,6 +1,6 @@
 package org.maplibre.compose.browser
 
-import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
+import org.maplibre.compose.gljs.DefaultWorkerUrl
 import org.maplibre.compose.gljs.SkikoGpuBridge
 
 /**
@@ -11,7 +11,7 @@ import org.maplibre.compose.gljs.SkikoGpuBridge
  *
  * @throws IllegalStateException if skiko has not published its exports yet.
  */
-public fun installMaplibreCompose(workerUrl: String = DEFAULT_WORKER_URL) {
+public fun installMaplibreCompose(workerUrl: String = DefaultWorkerUrl) {
   check(SkikoGpuBridge.install()) {
     "installMaplibreCompose() ran before skiko finished loading, so Compose's graphics context " +
       "cannot be reached. Call it inside onWasmReady, immediately before ComposeViewport."

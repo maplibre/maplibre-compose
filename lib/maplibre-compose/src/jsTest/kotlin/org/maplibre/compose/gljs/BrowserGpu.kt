@@ -11,7 +11,7 @@ import org.maplibre.compose.browser.installMaplibreCompose
 import web.gl.WebGL2RenderingContext
 import web.html.HTMLCanvasElement
 
-internal const val GPU_CANVAS_SIZE: Int = 256
+internal const val GpuCanvasSize: Int = 256
 
 internal class BrowserGpu(
   val canvas: HTMLCanvasElement,
@@ -36,8 +36,8 @@ internal suspend fun browserGpu(): BrowserGpu = gpu.await()
 
 internal fun createGpu(): BrowserGpu {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
-  canvas.width = GPU_CANVAS_SIZE
-  canvas.height = GPU_CANVAS_SIZE
+  canvas.width = GpuCanvasSize
+  canvas.height = GpuCanvasSize
 
   // Emscripten's registry, not canvas.getContext: skia addresses a context by the integer name only
   // this registers.

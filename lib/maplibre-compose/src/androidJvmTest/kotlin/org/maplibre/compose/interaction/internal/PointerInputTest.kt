@@ -447,7 +447,7 @@ class PointerInputTest {
       moveBy(Offset(80f, -40f), delayMillis = 50)
       release(MouseButton.Secondary)
     }
-    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.isNotEmpty() }
+    waitUntil(timeoutMillis = Timeout) { target.rotateCalls.isNotEmpty() }
     assertTrue(target.rotateCalls.any { it.bearingDelta != 0.0 }, "a secondary drag did not rotate")
     assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 }, "a secondary drag did not pitch")
     assertEquals(0, target.moveCalls.size, "a secondary drag panned")

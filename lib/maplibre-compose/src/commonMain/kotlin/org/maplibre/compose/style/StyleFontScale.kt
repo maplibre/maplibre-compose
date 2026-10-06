@@ -9,10 +9,10 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.value.FloatValue
 
-internal const val INTERNAL_GLOBAL_STATE_PREFIX = "maplibre-compose:"
-internal const val FONT_SCALE_GLOBAL_STATE = "${INTERNAL_GLOBAL_STATE_PREFIX}font-scale"
+internal const val InternalGlobalStatePrefix = "maplibre-compose:"
+internal const val FontScaleGlobalState = "${InternalGlobalStatePrefix}font-scale"
 internal val LocalStyleFontScale = compositionLocalOf<Float?> { null }
-private val globalFontScale = globalState(FONT_SCALE_GLOBAL_STATE).asNumber(const(1f))
+private val globalFontScale = globalState(FontScaleGlobalState).asNumber(const(1f))
 
 @Composable
 internal fun styleFontScale(): Expression<FloatValue> {

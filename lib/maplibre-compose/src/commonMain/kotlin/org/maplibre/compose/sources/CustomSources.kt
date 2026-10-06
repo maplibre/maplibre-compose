@@ -25,8 +25,8 @@ public data class TileCoordinate(
 ) {
 
   init {
-    require(zoomLevel in MIN_ZOOM..MAX_ZOOM) {
-      "zoomLevel must be within $MIN_ZOOM..$MAX_ZOOM, was $zoomLevel"
+    require(zoomLevel in MinZoom..MaxZoom) {
+      "zoomLevel must be within $MinZoom..$MaxZoom, was $zoomLevel"
     }
     val tileCount = 1L shl zoomLevel
     require(x in 0 until tileCount) {
@@ -50,8 +50,8 @@ public data class TileCoordinate(
     }
 
   private companion object {
-    const val MIN_ZOOM = 0
-    const val MAX_ZOOM = 32
+    const val MinZoom = 0
+    const val MaxZoom = 32
   }
 }
 

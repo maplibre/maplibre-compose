@@ -17,7 +17,7 @@ class StyleLayerSummariesTest {
   @Test
   fun published_metadata_reports_base_resources_in_style_order(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(LAYERED_STYLE)
+      fixture.loadStyle(LayeredStyle)
       val style = assertNotNull(fixture.style)
 
       val summaries = style.baseLayers
@@ -40,7 +40,7 @@ class StyleLayerSummariesTest {
   fun external_edits_refresh_resources_in_engine_order_and_keep_unchanged_handles(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(LAYERED_STYLE)
+        fixture.loadStyle(LayeredStyle)
         val binding = assertNotNull(fixture.style)
         val unchanged = assertNotNull(fixture.state.style.sources["points"])
         val layer = assertNotNull(fixture.state.style.layers["pins"])
@@ -72,7 +72,7 @@ class StyleLayerSummariesTest {
     }
 
   private companion object {
-    val LAYERED_STYLE =
+    val LayeredStyle =
       BaseStyle.Json(
         """
         {

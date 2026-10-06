@@ -48,7 +48,7 @@ import org.maplibre.compose.layers.GlJsLocationIndicator
 import org.maplibre.compose.layers.IndicatorImage
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
+import org.maplibre.compose.sources.ClusterIdProperty
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -602,10 +602,10 @@ internal class GlJsStyleBinding(
   /** Null when the feature is not a cluster or the style has unloaded. */
   private fun clusterQuery(sourceId: String, feature: Feature<*, JsonObject?>): ClusterQuery? {
     val clusterId =
-      (feature.properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.doubleOrNull
+      (feature.properties?.get(ClusterIdProperty) as? JsonPrimitive)?.doubleOrNull
         ?: run {
           logger?.w {
-            "Cluster query on a feature with no '$CLUSTER_ID_PROPERTY' in source '$sourceId'"
+            "Cluster query on a feature with no '$ClusterIdProperty' in source '$sourceId'"
           }
           return null
         }

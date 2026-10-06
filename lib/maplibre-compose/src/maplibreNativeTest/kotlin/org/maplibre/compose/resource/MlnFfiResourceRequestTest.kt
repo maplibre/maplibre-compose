@@ -37,7 +37,7 @@ import org.maplibre.nativeffi.resource.ResourceStoragePolicy
 import org.maplibre.nativeffi.resource.ResourceUsage
 
 /** Long enough that a wait failing here means the thing waited for is not going to happen. */
-private const val WAIT_SECONDS = 10L
+private const val WaitSeconds = 10L
 
 /**
  * What the provider does with a request between taking it and answering it. Taking a request must
@@ -73,14 +73,14 @@ class MlnFfiResourceRequestTest {
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS * 1_000)
+      finishRead.await(WaitSeconds * 1_000)
       ok("late")
     }
     val request = RecordedRequest()
 
-    provider.take(request, URL, URL)
+    provider.take(request, Url, Url)
 
-    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
+    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
     assertEquals(0, request.completions, "the request was answered before the read finished")
     finishRead.countDown()
     request.awaitAnswer()
@@ -99,7 +99,7 @@ class MlnFfiResourceRequestTest {
     val userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
     request.awaitClose()
     assertEquals(1, request.closes)
     assertEquals(1, request.completions)
@@ -128,7 +128,7 @@ class MlnFfiResourceRequestTest {
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     provider.close()
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
     assertEquals(1, request.completions)
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "shut down")
@@ -154,8 +154,8 @@ class MlnFfiResourceRequestTest {
         },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
-    assertTrue(loading.await(WAIT_SECONDS * 1_000), "the user load never started")
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
+    assertTrue(loading.await(WaitSeconds * 1_000), "the user load never started")
 
     request.cancel()
     request.awaitClose()
@@ -206,7 +206,7 @@ class MlnFfiResourceRequestTest {
       )
     val request = RecordedRequest(cancelOnRegistration = true)
 
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
     request.awaitClose()
 
     assertEquals(false, loaded.load(), "a request cancelled before loading must not start work")
@@ -225,7 +225,7 @@ class MlnFfiResourceRequestTest {
         load = { throw CancellationException("timeout") },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
     request.awaitAnswer()
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "cancelled")
@@ -319,7 +319,7 @@ class MlnFfiResourceRequestTest {
     val userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.NoContent() })
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Tile), userProvider)
+    provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Tile), userProvider)
     request.awaitAnswer()
     assertEquals(ResourceResponseStatus.NO_CONTENT, request.response.status)
     request.awaitClose()
@@ -330,7 +330,7 @@ class MlnFfiResourceRequestTest {
     val provider = provider { _, _ -> ok("unwanted") }
     val request = RecordedRequest(cancelled = true)
 
-    provider.take(request, URL, URL)
+    provider.take(request, Url, Url)
     request.awaitClose()
 
     assertEquals(emptyList(), reads.toList(), "a cancelled request must not be read")
@@ -344,17 +344,17 @@ class MlnFfiResourceRequestTest {
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS * 1_000)
+      finishRead.await(WaitSeconds * 1_000)
       ok("in flight")
     }
     val request = RecordedRequest()
-    provider.take(request, URL, URL)
-    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
+    provider.take(request, Url, Url)
+    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
 
     val closed = TestLatch(1)
     launchTestTask { provider.close().also { closed.countDown() } }
 
-    assertTrue(closed.await(WAIT_SECONDS * 1_000), "close should not wait for reads")
+    assertTrue(closed.await(WaitSeconds * 1_000), "close should not wait for reads")
     assertEquals(0, request.completions)
     finishRead.countDown()
     request.awaitAnswer()
@@ -369,22 +369,22 @@ class MlnFfiResourceRequestTest {
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS * 1_000)
+      finishRead.await(WaitSeconds * 1_000)
       ok("queued")
     }
     val first = RecordedRequest()
     val second = RecordedRequest()
-    provider.take(first, URL, URL)
-    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
-    provider.take(second, OTHER_URL, OTHER_URL)
+    provider.take(first, Url, Url)
+    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
+    provider.take(second, OtherUrl, OtherUrl)
 
     val closed = TestLatch(1)
     launchTestTask { provider.close().also { closed.countDown() } }
     finishRead.countDown()
 
-    assertTrue(closed.await(WAIT_SECONDS * 1_000), "close never returned")
+    assertTrue(closed.await(WaitSeconds * 1_000), "close never returned")
     second.awaitAnswer()
-    assertEquals(setOf(URL, OTHER_URL), reads.toSet(), "both accepted reads must run")
+    assertEquals(setOf(Url, OtherUrl), reads.toSet(), "both accepted reads must run")
     assertEquals(1, second.completions, "a request the provider took must be answered")
     second.awaitClose()
   }
@@ -395,7 +395,7 @@ class MlnFfiResourceRequestTest {
     provider.close()
     val request = RecordedRequest()
 
-    provider.take(request, URL, URL)
+    provider.take(request, Url, Url)
 
     assertEquals(emptyList(), reads.toList(), "a refused request must not be read")
     assertEquals(1, request.completions, "an unanswered request leaves MapLibre waiting for it")
@@ -412,7 +412,7 @@ class MlnFfiResourceRequestTest {
     val provider = provider { _, _ -> throw IllegalStateException("the disk went away") }
     val request = RecordedRequest()
 
-    provider.take(request, URL, URL)
+    provider.take(request, Url, Url)
     request.awaitClose()
 
     assertEquals(0, request.completions)
@@ -467,18 +467,18 @@ class MlnFfiResourceRequestTest {
       get() = responses.single()
 
     fun awaitAnswer() {
-      assertTrue(answered.await(WAIT_SECONDS * 1_000), "the request was never answered")
+      assertTrue(answered.await(WaitSeconds * 1_000), "the request was never answered")
     }
 
     fun awaitClose() {
-      val deadline = TimeSource.Monotonic.markNow() + WAIT_SECONDS.seconds
+      val deadline = TimeSource.Monotonic.markNow() + WaitSeconds.seconds
       while (closes == 0 && deadline.hasNotPassedNow()) parkForTest(1)
       assertEquals(1, closes, "the request was never closed")
     }
   }
 
   private companion object {
-    const val URL = "jar:file:/demo%20app.jar!/style.json"
-    const val OTHER_URL = "file:/demo/sprite.png"
+    const val Url = "jar:file:/demo%20app.jar!/style.json"
+    const val OtherUrl = "file:/demo/sprite.png"
   }
 }

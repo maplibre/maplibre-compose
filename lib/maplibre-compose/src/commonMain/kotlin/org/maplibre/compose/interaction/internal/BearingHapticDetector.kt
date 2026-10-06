@@ -26,15 +26,15 @@ internal class BearingHapticDetector(notches: List<BearingHapticNotch>) {
     var strongest: HapticEmphasis? = null
     for (notch in notches) {
       val distance = bearingDelta(from, notch.bearing)
-      if (!initialized) notch.armed = abs(distance) > CAPTURE_DEGREES
+      if (!initialized) notch.armed = abs(distance) > CaptureDegrees
       val reached =
-        distance >= min(0.0, travel) - CAPTURE_DEGREES &&
-          distance <= max(0.0, travel) + CAPTURE_DEGREES
+        distance >= min(0.0, travel) - CaptureDegrees &&
+          distance <= max(0.0, travel) + CaptureDegrees
       if (notch.armed && reached) {
         if (strongest == null || notch.emphasis > strongest) strongest = notch.emphasis
         notch.armed = false
       }
-      if (abs(bearingDelta(to, notch.bearing)) > REARM_DEGREES) notch.armed = true
+      if (abs(bearingDelta(to, notch.bearing)) > RearmDegrees) notch.armed = true
     }
     initialized = true
     // Consume crossings even when suppressed, so they cannot replay as delayed ticks.
@@ -44,7 +44,7 @@ internal class BearingHapticDetector(notches: List<BearingHapticNotch>) {
   }
 
   private companion object {
-    const val CAPTURE_DEGREES = 1.0
-    const val REARM_DEGREES = 2.0
+    const val CaptureDegrees = 1.0
+    const val RearmDegrees = 2.0
   }
 }

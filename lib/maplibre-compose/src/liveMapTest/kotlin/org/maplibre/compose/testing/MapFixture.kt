@@ -84,15 +84,15 @@ internal interface MapFixture : AutoCloseable {
   fun closeSession()
 
   companion object {
-    const val STYLE_LOADED: String = "styleLoaded"
+    const val StyleLoaded: String = "styleLoaded"
 
-    const val STYLE_READY: String = "styleReady"
+    const val StyleReady: String = "styleReady"
 
     /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
-    val DEFAULT_EXTENT: MapExtent =
+    val DefaultExtent: MapExtent =
       MapExtent.fromLogical(width = 512, height = 512, scaleFactor = 1.0)
 
-    val RETINA_EXTENT: MapExtent =
+    val RetinaExtent: MapExtent =
       MapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
   }
 }
@@ -124,7 +124,7 @@ internal suspend fun MapFixture.pumpUntilPixel(
   }
 }
 
-internal expect fun createMapFixture(extent: MapExtent = MapFixture.DEFAULT_EXTENT): MapFixture
+internal expect fun createMapFixture(extent: MapExtent = MapFixture.DefaultExtent): MapFixture
 
 /** Evaluates real composables, then publishes and reconciles through the map's production paths. */
 internal suspend fun MapFixture.declare(
@@ -184,11 +184,11 @@ internal class RecordingMapCallbacks(
     // starts on a freshly loaded style reaches it.
     state?.styleAuthority?.updateLoadedStyle(map, style)
     attachment?.updateViewport(map.getViewport())
-    events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
+    events += if (style == null) "styleChanged(null)" else MapFixture.StyleLoaded
   }
 
   override fun onStyleReady(map: MapAdapter) {
-    events += MapFixture.STYLE_READY
+    events += MapFixture.StyleReady
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {

@@ -100,7 +100,7 @@ class MlnFfiMapCompositionTest {
   private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
 
   /** Camera round trips lose a little precision through the projection. */
-  private val POSITION_TOLERANCE = 1e-4
+  private val PositionTolerance = 1e-4
 
   @AfterTest
   fun cleanUp() {
@@ -156,10 +156,10 @@ class MlnFfiMapCompositionTest {
             },
           )
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.style.loadState == StyleLoadState.Ready &&
             state.currentMapAttachment?.viewport != null &&
-            onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+            onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
         }
         val before = state.cameraPosition
         performMouseInputOnUiThread(onNodeWithTag("map")) {
@@ -251,10 +251,10 @@ class MlnFfiMapCompositionTest {
           },
         )
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready &&
           state.currentMapAttachment?.viewport != null &&
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
       val before = state.cameraPosition
       assertFalse(mapFocused.load())
@@ -318,10 +318,10 @@ class MlnFfiMapCompositionTest {
           },
         )
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready &&
           state.currentMapAttachment?.viewport != null &&
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
       val before = state.cameraPosition
       // Small steps cross the map's former component thresholds before host touch slop.
@@ -378,18 +378,18 @@ class MlnFfiMapCompositionTest {
           )
         }
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready &&
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
       val originalOverlay = overlayIdentity
       val originalSession = state.currentMapAttachment?.adapter
       runOnUiThread { scale = 2f }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment?.adapter != null &&
           state.currentMapAttachment?.adapter !== originalSession &&
           state.style.loadState == StyleLoadState.Ready &&
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
       assertSame(originalOverlay, overlayIdentity)
       assertEquals(0, disposed.load())
@@ -414,7 +414,7 @@ class MlnFfiMapCompositionTest {
             uiOptions = uiOptions,
           )
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.style.loadState == StyleLoadState.Ready &&
             state.currentMapAttachment?.viewport != null
         }
@@ -443,7 +443,7 @@ class MlnFfiMapCompositionTest {
               }
             state.setCameraPosition(start)
           }
-          waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          waitUntil(timeoutMillis = RenderTimeoutMillis) {
             val camera = state.cameraPosition
             abs(camera.target.latitude) < 1e-8 &&
               abs(camera.target.longitude) < 1e-8 &&
@@ -455,7 +455,7 @@ class MlnFfiMapCompositionTest {
             repeat(4) { moveBy(Offset(0f, direction * 16f * density), delayMillis = 8) }
             up()
           }
-          waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          waitUntil(timeoutMillis = RenderTimeoutMillis) {
             state.cameraMoveReason == CameraMoveReason.Gesture && !state.isCameraMoving
           }
           val camera = state.cameraPosition
@@ -484,13 +484,13 @@ class MlnFfiMapCompositionTest {
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
 
       assertTrue(state.currentMapAttachment?.isValid == true)
       assertTrue(
-        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty(),
+        onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty(),
         "the load placeholder should be absent after the base style is ready",
       )
 
@@ -517,13 +517,13 @@ class MlnFfiMapCompositionTest {
           overlay = {},
         )
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null &&
           state.style.loadState == StyleLoadState.Ready &&
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
 
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { hasFocus.load() }
       onNodeWithContentDescription("Map").assertIsFocused()
       assertFalse(state.isEngaged, "a focus request engaged the map")
     }
@@ -542,13 +542,13 @@ class MlnFfiMapCompositionTest {
       setFfiTestMapContent(runtimeOptions) {
         MaplibreMap(state = state, cameraConstraints = constraints)
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment != null }
       val session = requireNotNull(state.currentMapAttachment).adapter
       val updated =
         CameraConstraints(minZoom = 2.0, maxZoom = 18.0, minPitch = 3.0, maxPitch = 45.0)
 
       constraints = updated
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         session.getCameraPosition().zoom >= updated.minZoom
       }
 
@@ -587,7 +587,7 @@ class MlnFfiMapCompositionTest {
           MaplibreMap(state = second)
         }
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         first.currentMapAttachment != null &&
           evaluatorIdentities.size == 1 &&
           first.style.declaredRevision.layers.any {
@@ -595,21 +595,21 @@ class MlnFfiMapCompositionTest {
           }
       }
       val firstSession = first.currentMapAttachment?.adapter as MlnFfiMapSession
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         "shared-layer" in firstSession.currentStyleLayerIds()
       }
 
       showFirst = false
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         first.currentMapAttachment == null &&
           second.currentMapAttachment != null &&
           evaluatorIdentities.size == 2
       }
       val secondSession = second.currentMapAttachment?.adapter as MlnFfiMapSession
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         "shared-layer" in secondSession.currentStyleLayerIds()
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         first.style.loadState == StyleLoadState.Ready &&
           second.style.loadState == StyleLoadState.Ready
       }
@@ -639,7 +639,7 @@ class MlnFfiMapCompositionTest {
         val state = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
 
         setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.currentMapAttachment != null &&
             state.style.loadState == StyleLoadState.Ready &&
             evaluatorIdentities.size == 1
@@ -672,28 +672,28 @@ class MlnFfiMapCompositionTest {
         setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
           if (presented) MaplibreMap(state = state)
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.style.loadState == StyleLoadState.Ready && state.currentMapAttachment != null
         }
         val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           "initial-background" in session.currentStyleLayerIds()
         }
 
         presented = false
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+        waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
         latest = true
         assertTrue("initial-background" in session.currentStyleLayerIds())
         assertTrue("latest-background" !in session.currentStyleLayerIds())
 
         presented = true
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.currentMapAttachment != null &&
             state.style.declaredRevision.layers.any {
               it.definition.id == "latest-background"
             }
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           "latest-background" in session.currentStyleLayerIds() &&
             "initial-background" !in session.currentStyleLayerIds()
         }
@@ -715,22 +715,22 @@ class MlnFfiMapCompositionTest {
           }
 
         setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.style.loadState is StyleLoadState.Failed
         }
         assertTrue(
-          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isNotEmpty(),
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isNotEmpty(),
           "the failed revision must leave the map surface hidden",
         )
         onNodeWithContentDescription("Map").assertExists("a map without a style has no semantics")
 
         unsupportedLayer = false
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.style.loadState == StyleLoadState.Ready
         }
         val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
         assertTrue("application-layer" in session.currentStyleLayerIds())
-        assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
+        assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
       }
     }
 
@@ -744,28 +744,28 @@ class MlnFfiMapCompositionTest {
       setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
         if (presented) MaplibreMap(state = state)
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val firstAttachment = requireNotNull(state.currentMapAttachment)
       val firstMap = firstAttachment.adapter
 
       presented = false
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
 
       assertTrue(!firstAttachment.isValid)
       assertEquals(StyleLoadState.Ready, state.style.loadState)
       runOnUiThread { state.style.asMutable!!.baseStyle = BaseStyle.Json("{") }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment == null && state.style.loadState is StyleLoadState.Failed
       }
       runOnUiThread {
-        state.style.asMutable!!.baseStyle = RETAINED_STYLE
+        state.style.asMutable!!.baseStyle = RetainedStyle
         assertEquals(StyleLoadState.Loading, state.style.loadState)
       }
 
       presented = true
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
 
@@ -774,7 +774,7 @@ class MlnFfiMapCompositionTest {
       assertTrue("retained-style" in (firstMap as MlnFfiMapSession).currentStyleLayerIds())
 
       presented = false
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
     }
   }
 
@@ -796,13 +796,13 @@ class MlnFfiMapCompositionTest {
       setFfiTestMapContent(runtimeOptions, presentationCount = 3) {
         if (presented) key(generation) { MaplibreMap(state = state) }
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && contentCompositions == 1
       }
       val firstAttachment = requireNotNull(state.currentMapAttachment)
       val firstMap = firstAttachment.adapter
       presented = false
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
 
       // Holding the owner thread keeps the next presentation attaching, so the key change detaches
       // it while its attachment is still running and the replacement composes before that
@@ -826,12 +826,12 @@ class MlnFfiMapCompositionTest {
         releaseOwner.open()
       }
       access.await()
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment != null }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment != null }
 
       assertTrue(!firstAttachment.isValid)
       assertSame(firstMap, requireNotNull(state.currentMapAttachment).adapter)
       // The replacement's own callbacks receive the retained style, so its content composes.
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         contentCompositions == 2 && state.style.layers["content-background"] != null
       }
     }
@@ -847,7 +847,7 @@ class MlnFfiMapCompositionTest {
         MaplibreMap(state = state)
         if (includeRival) MaplibreMap(state = state)
       }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val presentation = requireNotNull(state.currentMapAttachment)
@@ -871,7 +871,7 @@ class MlnFfiMapCompositionTest {
         val state =
           runtime.createMapState(
             cameraPosition = camera,
-            baseStyle = REPLACEMENT_STYLE,
+            baseStyle = ReplacementStyle,
           )
         var presented by mutableStateOf(true)
         var scaleFactor by mutableStateOf(1f)
@@ -881,17 +881,17 @@ class MlnFfiMapCompositionTest {
             if (presented) MaplibreMap(state = state)
           }
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
         val firstPresentation = requireNotNull(state.currentMapAttachment)
         val firstMap = firstPresentation.adapter
 
         presented = false
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.currentMapAttachment == null }
+        waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
         scaleFactor = 2f
         presented = true
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
 
@@ -910,16 +910,16 @@ class MlnFfiMapCompositionTest {
     }
 
   private fun assertCameraEquals(expected: CameraPosition, actual: CameraPosition) {
-    assertEquals(expected.bearing, actual.bearing, POSITION_TOLERANCE, "bearing")
+    assertEquals(expected.bearing, actual.bearing, PositionTolerance, "bearing")
     assertEquals(
       expected.target.longitude,
       actual.target.longitude,
-      POSITION_TOLERANCE,
+      PositionTolerance,
       "longitude",
     )
-    assertEquals(expected.target.latitude, actual.target.latitude, POSITION_TOLERANCE, "latitude")
-    assertEquals(expected.pitch, actual.pitch, POSITION_TOLERANCE, "pitch")
-    assertEquals(expected.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
+    assertEquals(expected.target.latitude, actual.target.latitude, PositionTolerance, "latitude")
+    assertEquals(expected.pitch, actual.pitch, PositionTolerance, "pitch")
+    assertEquals(expected.zoom, actual.zoom, PositionTolerance, "zoom")
   }
 
   @Test
@@ -936,27 +936,27 @@ class MlnFfiMapCompositionTest {
       val state = runtime.createMapState(baseStyle = first)
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
       assertTrue(session.canPresentFrames)
-      assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
+      assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
 
       runOnUiThread { state.style.asMutable!!.baseStyle = second }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.style.baseStyle == second }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) { state.style.baseStyle == second }
       assertTrue(
         session.canPresentFrames,
         "a later style switch must keep the first loaded style on screen",
       )
       assertTrue(
-        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty(),
+        onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty(),
         "a style switch must not cover the map with the load placeholder",
       )
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready && "bg-b" in session.currentStyleLayerIds()
       }
-      assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
+      assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
     }
   }
 
@@ -966,19 +966,19 @@ class MlnFfiMapCompositionTest {
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
       assertTrue(session.canPresentFrames)
 
       runOnUiThread { state.style.asMutable!!.baseStyle = BaseStyle.Json("{") }
-      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.style.loadState is StyleLoadState.Failed
       }
 
       assertTrue(!session.canPresentFrames)
-      onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
+      onNodeWithTag(MapLoadPlaceholderTag).assertExists()
     }
   }
 
@@ -996,8 +996,8 @@ class MlnFfiMapCompositionTest {
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         )
     }
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { errors.isNotEmpty() }
-    onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
+    waitUntil(timeoutMillis = RenderTimeoutMillis) { errors.isNotEmpty() }
+    onNodeWithTag(MapLoadPlaceholderTag).assertExists()
     // The session, because an event collector misses a frame that renders before it subscribes.
     val session = mapState.currentMapAttachment?.adapter as? MlnFfiMapSession
     assertFalse(
@@ -1008,13 +1008,13 @@ class MlnFfiMapCompositionTest {
 
     val before = mapState.cameraPosition.target
     val dragStep = Offset(30f * density.density, 0f)
-    performTouchInputOnUiThread(onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG)) { down(center) }
+    performTouchInputOnUiThread(onNodeWithTag(MapLoadPlaceholderTag)) { down(center) }
     runOnUiThread { baseStyle = BaseStyle.Empty }
     // Android creates its surface after revealing the map; style readiness alone is not enough.
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+    waitUntil(timeoutMillis = RenderTimeoutMillis) {
       mapState.style.loadState == StyleLoadState.Ready &&
         mapState.currentMapAttachment?.viewport != null &&
-        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+        onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
     }
     performTouchInputOnUiThread(onNodeWithContentDescription("Map")) {
       // A handler that wrongly admits the first move could pan on the second one.
@@ -1028,7 +1028,7 @@ class MlnFfiMapCompositionTest {
       repeat(2) { moveBy(dragStep) }
       up()
     }
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { mapState.cameraPosition.target != before }
+    waitUntil(timeoutMillis = RenderTimeoutMillis) { mapState.cameraPosition.target != before }
   }
 
   @Test
@@ -1077,17 +1077,17 @@ class MlnFfiMapCompositionTest {
         assertEquals(
           firstPosition.target.longitude,
           actual.target.longitude,
-          POSITION_TOLERANCE,
+          PositionTolerance,
           "longitude",
         )
         assertEquals(
           firstPosition.target.latitude,
           actual.target.latitude,
-          POSITION_TOLERANCE,
+          PositionTolerance,
           "latitude",
         )
-        assertEquals(firstPosition.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
-        assertEquals(firstPosition.pitch, actual.pitch, POSITION_TOLERANCE, "pitch")
+        assertEquals(firstPosition.zoom, actual.zoom, PositionTolerance, "zoom")
+        assertEquals(firstPosition.pitch, actual.pitch, PositionTolerance, "pitch")
       }
     ) { errors, onFrame ->
       mapState =
@@ -1110,17 +1110,17 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         fun centerX(): Float? {
-          if (onAllNodesWithTag(PLACED_AT_TAG).fetchSemanticsNodes().isEmpty()) return null
-          val bounds = onNodeWithTag(PLACED_AT_TAG).getUnclippedBoundsInRoot()
+          if (onAllNodesWithTag(PlacedAtTag).fetchSemanticsNodes().isEmpty()) return null
+          val bounds = onNodeWithTag(PlacedAtTag).getUnclippedBoundsInRoot()
           return ((bounds.left + bounds.right) / 2).value
         }
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           val x = centerX()
           x != null && abs(x - 64f) < 4f
         }
         val first = requireNotNull(centerX())
         mapWidth.value = 256.dp
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
           val x = centerX()
           x != null && abs(x - 128f) < 4f
         }
@@ -1142,7 +1142,7 @@ class MlnFfiMapCompositionTest {
             Box(
               Modifier.placedAt(target, alignment = Alignment.Center)
                 .size(4.dp)
-                .testTag(PLACED_AT_TAG)
+                .testTag(PlacedAtTag)
             )
           },
       )
@@ -1157,7 +1157,7 @@ class MlnFfiMapCompositionTest {
     val errors = RecordingList<String>()
     val frames = AtomicInt(0)
     setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndFetch() } }
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
+    waitUntil(timeoutMillis = RenderTimeoutMillis) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     body(errors)
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
@@ -1165,19 +1165,19 @@ class MlnFfiMapCompositionTest {
   }
 
   private companion object {
-    val RETAINED_STYLE =
+    val RetainedStyle =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"retained-style","type":"background"}]}"""
       )
 
-    val REPLACEMENT_STYLE =
+    val ReplacementStyle =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"replacement-style","type":"background"}]}"""
       )
 
-    const val RENDER_TIMEOUT_MILLIS = 30_000L
+    const val RenderTimeoutMillis = 30_000L
 
-    const val PLACED_AT_TAG = "map-placed-at"
+    const val PlacedAtTag = "map-placed-at"
   }
 }
 

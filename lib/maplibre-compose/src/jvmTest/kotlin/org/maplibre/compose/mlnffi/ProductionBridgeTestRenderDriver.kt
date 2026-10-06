@@ -410,15 +410,15 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
       EventQueue.invokeAndWait {
         window = ComposeWindow()
         window.isUndecorated = true
-        window.setSize(WINDOW_WIDTH, WINDOW_HEIGHT)
-        window.setLocation(-WINDOW_WIDTH * 2, -WINDOW_HEIGHT * 2)
+        window.setSize(WindowWidth, WindowHeight)
+        window.setLocation(-WindowWidth * 2, -WindowHeight * 2)
         window.setContent {}
         window.isVisible = true
         window.renderImmediately()
       }
       val environment = Direct3D12TestGpuEnvironment(window)
       try {
-        val deadline = TimeSource.Monotonic.markNow() + CONTEXT_TIMEOUT
+        val deadline = TimeSource.Monotonic.markNow() + ContextTimeout
         while (environment.presentationHost.currentContext() == null) {
           check(deadline.hasNotPassedNow()) { "Timed out waiting for Skiko's D3D12 context" }
           EventQueue.invokeAndWait { window.renderImmediately() }
@@ -431,9 +431,9 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
       }
     }
 
-    private const val WINDOW_WIDTH = 512
-    private const val WINDOW_HEIGHT = 512
-    private val CONTEXT_TIMEOUT = 30.seconds
+    private const val WindowWidth = 512
+    private const val WindowHeight = 512
+    private val ContextTimeout = 30.seconds
   }
 }
 
@@ -506,7 +506,7 @@ private class EglTestContext private constructor() : AutoCloseable {
         eglCreatePbufferSurface(
           display,
           config,
-          stack.ints(EGL_WIDTH, PBUFFER_SIZE, EGL_HEIGHT, PBUFFER_SIZE, EGL_NONE),
+          stack.ints(EGL_WIDTH, PbufferSize, EGL_HEIGHT, PbufferSize, EGL_NONE),
         )
       check(surface != EGL_NO_SURFACE) { eglFailure("eglCreatePbufferSurface") }
       context = eglCreateContext(display, config, EGL_NO_CONTEXT, stack.ints(EGL_NONE))
@@ -541,7 +541,7 @@ private class EglTestContext private constructor() : AutoCloseable {
     "$operation failed with EGL error 0x${eglGetError().toString(16)}"
 
   companion object {
-    private const val PBUFFER_SIZE = 1024
+    private const val PbufferSize = 1024
 
     fun create(): EglTestContext = EglTestContext()
   }
@@ -551,7 +551,7 @@ private class EglTestContext private constructor() : AutoCloseable {
 private fun interface GlProcAddressCallbackI : CallbackI {
   fun invoke(context: Long, name: Long): Long
 
-  override fun getDescriptor(): Callback.Descriptor = DESCRIPTOR
+  override fun getDescriptor(): Callback.Descriptor = Descriptor
 
   override fun callback(ret: Long, args: Long) {
     val context = memGetAddress(args)
@@ -560,7 +560,7 @@ private fun interface GlProcAddressCallbackI : CallbackI {
   }
 
   companion object {
-    val DESCRIPTOR =
+    val Descriptor =
       Callback.Descriptor(
         GlProcAddressCallbackI::class.java,
         MethodHandles.lookup(),
@@ -570,7 +570,7 @@ private fun interface GlProcAddressCallbackI : CallbackI {
 }
 
 private abstract class GlProcAddressCallback :
-  Callback(GlProcAddressCallbackI.DESCRIPTOR), GlProcAddressCallbackI {
+  Callback(GlProcAddressCallbackI.Descriptor), GlProcAddressCallbackI {
   override fun address(): Long = super<Callback>.address()
 
   override fun getDescriptor(): Callback.Descriptor = super<GlProcAddressCallbackI>.getDescriptor()

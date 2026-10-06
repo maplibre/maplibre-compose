@@ -11,5 +11,5 @@ internal actual fun platformMapLogger(): MapLogger = MapLogger { record ->
       MapLogLevel.Error -> Log.ERROR
     }
   val trace = record.throwable?.let { "\n" + Log.getStackTraceString(it) }.orEmpty()
-  Log.println(priority, MAP_LOG_TAG, record.categorizedMessage() + trace)
+  Log.println(priority, MapLogTag, record.categorizedMessage() + trace)
 }

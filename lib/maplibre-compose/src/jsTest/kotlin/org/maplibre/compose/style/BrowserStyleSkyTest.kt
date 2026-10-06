@@ -15,7 +15,7 @@ class BrowserStyleSkyTest {
   fun a_sky_write_replaces_every_property_and_a_null_write_removes_the_sky(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(EMPTY_STYLE)
+        fixture.loadStyle(EmptyStyle)
         val sky = fixture.state.style.sky
         assertNull(sky.getProperty("sky-color"))
 
@@ -36,14 +36,14 @@ class BrowserStyleSkyTest {
   @Test
   fun a_declared_sky_reads_back(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(SKY_STYLE)
+      fixture.loadStyle(SkyStyle)
       assertEquals(JsonPrimitive(0.5), fixture.state.style.sky.getProperty("atmosphere-blend"))
     }
   }
 
   private companion object {
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val SKY_STYLE =
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val SkyStyle =
       BaseStyle.Json("""{"version":8,"sky":{"atmosphere-blend":0.5},"sources":{},"layers":[]}""")
   }
 }

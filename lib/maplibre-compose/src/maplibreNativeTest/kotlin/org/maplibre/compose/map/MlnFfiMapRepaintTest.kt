@@ -98,7 +98,7 @@ class MlnFfiMapRepaintTest {
 
         assertTrue(ownerEntered.await(5_000), "The owner did not reach the gate")
         // Allow one draw of the published update while its native transition clock is held.
-        fixture.session.onSurfaceChanged(BridgeMapFixture.DEFAULT_EXTENT)
+        fixture.session.onSurfaceChanged(BridgeMapFixture.DefaultExtent)
         assertTrue(fixture.frame() is MlnFfiFrameResult.Rendered)
         assertTrue(
           fixture.renderOnDemand(300.milliseconds) <= 1,

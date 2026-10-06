@@ -47,13 +47,13 @@ class BrowserMapLifecycleTest {
       restore = { global.fetch = original },
       isStyleRequested = { resolveStyle != null },
       resolveStyle = {
-        val body = REPLAY_STYLE_JSON
+        val body = ReplayStyleJson
         val response = js("new Response(body, { headers: { 'content-type': 'application/json' } })")
         checkNotNull(resolveStyle).invoke(response)
       },
       isSourceRequested = { resolveSource != null },
       resolveSource = {
-        val body = REPLAY_SOURCE_JSON
+        val body = ReplaySourceJson
         val response = js("new Response(body, { headers: { 'content-type': 'application/json' } })")
         checkNotNull(resolveSource).invoke(response)
       },
@@ -84,7 +84,7 @@ class BrowserMapLifecycleTest {
       val state =
         runtime.createMapState(
           cameraPosition = initialCamera,
-          baseStyle = STYLE_A,
+          baseStyle = StyleA,
         )
       val presented = mutableStateOf(true)
 
@@ -112,7 +112,7 @@ class BrowserMapLifecycleTest {
 
       val deferredStyle = installDeferredReplayStyle()
       try {
-        state.style.asMutable!!.baseStyle = REPLAY_STYLE
+        state.style.asMutable!!.baseStyle = ReplayStyle
         runOnIdle { presented.value = true }
         waitUntilMap("the replacement Web map to request its retained style") {
           state.currentMapAttachment != null && deferredStyle.isStyleRequested()
@@ -227,14 +227,14 @@ class BrowserMapLifecycleTest {
     }
 
   private companion object {
-    val STYLE_A =
+    val StyleA =
       BaseStyle.Json(
         """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}"""
       )
-    val REPLAY_STYLE = BaseStyle.Uri("https://replay-style.test/style.json")
-    const val REPLAY_STYLE_JSON =
+    val ReplayStyle = BaseStyle.Uri("https://replay-style.test/style.json")
+    const val ReplayStyleJson =
       """{"version":8,"sources":{"replay-source":{"type":"vector","url":"https://replay-style.test/source.json"}},"layers":[{"id":"replayed","type":"background"}]}"""
-    const val REPLAY_SOURCE_JSON =
+    const val ReplaySourceJson =
       """{"tilejson":"3.0.0","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"]}"""
   }
 }

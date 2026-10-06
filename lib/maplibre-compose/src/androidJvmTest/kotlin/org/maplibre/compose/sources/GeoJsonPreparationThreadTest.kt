@@ -56,7 +56,7 @@ class GeoJsonPreparationThreadTest {
             fixture.state.style.sources.add(
               GeoJsonSource(
                 "points",
-                if (initial) data else GeoJsonData.JsonString(EMPTY),
+                if (initial) data else GeoJsonData.JsonString(Empty),
                 GeoJsonOptions(synchronousTiling = true),
               )
             )
@@ -77,6 +77,6 @@ class GeoJsonPreparationThreadTest {
   }
 
   private companion object {
-    const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
+    const val Empty = """{"type":"FeatureCollection","features":[]}"""
   }
 }

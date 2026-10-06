@@ -44,13 +44,13 @@ class MapQueryTest {
   @Test
   fun a_query_at_a_covered_point_returns_the_feature(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
+      it.loadStyle(BaseStyle.Json(WorldPolygonStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
       }
 
-      val features = it.state.queryRenderedFeatures(offset = CENTER)
+      val features = it.state.queryRenderedFeatures(offset = Center)
 
       assertTrue(features.isNotEmpty(), "Expected a hit at the map center. Errors: ${it.errors}")
       val feature = features.first()
@@ -61,13 +61,13 @@ class MapQueryTest {
   @Test
   fun queried_feature_metadata_does_not_replace_source_properties(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(COLLIDING_PROPERTIES_STYLE))
+      it.loadStyle(BaseStyle.Json(CollidingPropertiesStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
       }
 
-      val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
+      val feature = it.state.queryRenderedFeatures(offset = Center).first()
 
       assertEquals("original-source", feature.properties?.get("\$source")?.jsonPrimitive?.content)
       assertEquals(
@@ -81,7 +81,7 @@ class MapQueryTest {
   @Test
   fun a_query_restricted_to_another_layer_returns_nothing(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
+      it.loadStyle(BaseStyle.Json(WorldPolygonStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
@@ -89,7 +89,7 @@ class MapQueryTest {
 
       val features =
         it.state.queryRenderedFeatures(
-          offset = CENTER,
+          offset = Center,
           layerIds = setOf("no-such-layer"),
         )
 
@@ -100,7 +100,7 @@ class MapQueryTest {
   @Test
   fun a_box_query_covering_the_map_returns_the_feature(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
+      it.loadStyle(BaseStyle.Json(WorldPolygonStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
@@ -121,7 +121,7 @@ class MapQueryTest {
       coroutineScope {
         val query =
           async(start = CoroutineStart.UNDISPATCHED) {
-            fixture.state.queryRenderedFeatures(offset = CENTER)
+            fixture.state.queryRenderedFeatures(offset = Center)
           }
 
         assertFalse(query.isCompleted)
@@ -135,7 +135,7 @@ class MapQueryTest {
   @Test
   fun a_predicate_keeps_only_matching_features(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
+      it.loadStyle(BaseStyle.Json(WorldPolygonStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
@@ -144,11 +144,11 @@ class MapQueryTest {
       val matching = Feature["name"].cast<StringValue>() eq const("world")
       val misses = Feature["name"].cast<StringValue>() eq const("other")
 
-      val kept = it.state.queryRenderedFeatures(offset = CENTER, predicate = matching)
+      val kept = it.state.queryRenderedFeatures(offset = Center, predicate = matching)
       assertTrue(kept.isNotEmpty(), "Expected the matching predicate to keep the feature")
       assertEquals("world", kept.first().properties?.get("name")?.jsonPrimitive?.content)
 
-      val dropped = it.state.queryRenderedFeatures(offset = CENTER, predicate = misses)
+      val dropped = it.state.queryRenderedFeatures(offset = Center, predicate = misses)
       assertTrue(dropped.isEmpty(), "Expected the non-matching predicate to drop the feature")
     }
   }
@@ -156,14 +156,14 @@ class MapQueryTest {
   @Test
   fun a_query_returns_the_front_layer_first(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+      it.loadStyle(BaseStyle.Json(OverlappingFillStyle))
       it.awaitMapReady()
       it.pumpUntil("both overlapping sources to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).names() ==
           setOf("front", "back")
       }
 
-      val features = it.state.queryRenderedFeatures(offset = CENTER)
+      val features = it.state.queryRenderedFeatures(offset = Center)
       val names = features.map { feature ->
         feature.properties?.get("name")?.jsonPrimitive?.content
       }
@@ -183,7 +183,7 @@ class MapQueryTest {
   @Test
   fun a_query_at_an_off_center_point_returns_only_the_feature_there(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
+      it.loadStyle(BaseStyle.Json(TwoHalvesStyle))
       // Zoom 0 keeps ±90 inside the 512 px viewport.
       it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
       it.awaitMapReady()
@@ -191,8 +191,8 @@ class MapQueryTest {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
       }
 
-      val westAt = assertNotNull(it.state.screenLocationFromPosition(WEST_POINT))
-      val eastAt = assertNotNull(it.state.screenLocationFromPosition(EAST_POINT))
+      val westAt = assertNotNull(it.state.screenLocationFromPosition(WestPoint))
+      val eastAt = assertNotNull(it.state.screenLocationFromPosition(EastPoint))
       val westHits = it.state.queryRenderedFeatures(offset = westAt)
       val eastHits = it.state.queryRenderedFeatures(offset = eastAt)
 
@@ -212,7 +212,7 @@ class MapQueryTest {
   @Test
   fun a_query_by_layer_returns_each_layers_features(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+      it.loadStyle(BaseStyle.Json(OverlappingFillStyle))
       it.awaitMapReady()
       it.pumpUntil("both overlapping sources to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).names() ==
@@ -222,7 +222,7 @@ class MapQueryTest {
       val hits =
         assertNotNull(it.state.currentMapAttachment)
           .queryRenderedFeaturesByLayer(
-            CENTER,
+            Center,
             mapOf("front-fill" to 0.dp, "back-fill" to 4.dp, "no-such-layer" to 0.dp),
           )
 
@@ -235,7 +235,7 @@ class MapQueryTest {
   @Test
   fun a_query_by_layer_reaches_features_within_the_padding(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
+      it.loadStyle(BaseStyle.Json(TwoHalvesStyle))
       // At zoom 0, the 20° gap between the halves is about 28dp wide at the center.
       it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
       it.awaitMapReady()
@@ -244,8 +244,8 @@ class MapQueryTest {
       }
       val attachment = assertNotNull(it.state.currentMapAttachment)
 
-      val point = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 0.dp))
-      val padded = attachment.queryRenderedFeaturesByLayer(CENTER, mapOf("test-fill" to 20.dp))
+      val point = attachment.queryRenderedFeaturesByLayer(Center, mapOf("test-fill" to 0.dp))
+      val padded = attachment.queryRenderedFeaturesByLayer(Center, mapOf("test-fill" to 20.dp))
 
       assertTrue(point.getValue("test-fill").isEmpty())
       assertEquals(setOf("west", "east"), padded.getValue("test-fill").names())
@@ -255,13 +255,13 @@ class MapQueryTest {
   @Test
   fun a_queried_feature_keeps_its_geojson_id(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
+      it.loadStyle(BaseStyle.Json(WorldPolygonStyle))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
       }
 
-      val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
+      val feature = it.state.queryRenderedFeatures(offset = Center).first()
       val id = assertIs<JsonPrimitive>(feature.id)
       assertFalse(id.isString, "Expected the GeoJSON id to stay a number, not a string")
       assertEquals("42", id.content)
@@ -272,7 +272,7 @@ class MapQueryTest {
   fun location_indicator_queries_return_one_point_and_follow_visibility(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+        fixture.loadStyle(BaseStyle.Json(OverlappingFillStyle))
         fixture.awaitMapReady()
         fixture.declare {
           LocationIndicatorLayer(
@@ -283,9 +283,9 @@ class MapQueryTest {
         }
         val style = assertNotNull(fixture.style)
         suspend fun indicatorHits() =
-          fixture.state.queryRenderedFeatures(CENTER, setOf("indicator"))
+          fixture.state.queryRenderedFeatures(Center, setOf("indicator"))
         fixture.pumpUntil("indicator and source features") {
-          fixture.state.queryRenderedFeatures(CENTER).size == 3
+          fixture.state.queryRenderedFeatures(Center).size == 3
         }
         val hit = indicatorHits().single()
         assertEquals(Position(0.0, 0.0), assertIs<Point>(hit.geometry).coordinates)
@@ -299,12 +299,12 @@ class MapQueryTest {
         assertTrue(
           fixture.state.queryRenderedFeatures(DpOffset(20.dp, 20.dp), setOf("indicator")).isEmpty()
         )
-        assertTrue(fixture.state.queryRenderedFeatures(CENTER, emptySet()).isEmpty())
+        assertTrue(fixture.state.queryRenderedFeatures(Center, emptySet()).isEmpty())
         // Native's dynamic feature index does not apply source-feature predicates to indicators.
         assertIs<Point>(
           fixture.state
             .queryRenderedFeatures(
-              CENTER,
+              Center,
               predicate = Feature["name"].cast<StringValue>() eq const("missing"),
             )
             .single()
@@ -334,12 +334,12 @@ class MapQueryTest {
     }
 
   private companion object {
-    /** The center of [MapFixture.DEFAULT_EXTENT], in the logical pixels a query takes. */
-    val CENTER = DpOffset(256.dp, 256.dp)
+    /** The center of [MapFixture.DefaultExtent], in the logical pixels a query takes. */
+    val Center = DpOffset(256.dp, 256.dp)
 
-    val WEST_POINT = Position(longitude = -90.0, latitude = 0.0)
+    val WestPoint = Position(longitude = -90.0, latitude = 0.0)
 
-    val EAST_POINT = Position(longitude = 90.0, latitude = 0.0)
+    val EastPoint = Position(longitude = 90.0, latitude = 0.0)
 
     fun List<GeoJsonFeature<Geometry, JsonObject?>>.names(): Set<String?> = map { feature ->
       feature.properties?.get("name")?.jsonPrimitive?.content
@@ -348,9 +348,9 @@ class MapQueryTest {
 
     /**
      * Two non-overlapping fills, one west and one east of the prime meridian. A point query at
-     * [WEST_POINT] or [EAST_POINT] hits only that half.
+     * [WestPoint] or [EastPoint] hits only that half.
      */
-    val TWO_HALVES_STYLE =
+    val TwoHalvesStyle =
       """
       {
         "version": 8,
@@ -395,7 +395,7 @@ class MapQueryTest {
         .trimIndent()
 
     /** A polygon covering most of the world, so the viewport center is a hit at any zoom. */
-    val WORLD_POLYGON_STYLE =
+    val WorldPolygonStyle =
       """
       {
         "version": 8,
@@ -428,8 +428,8 @@ class MapQueryTest {
       """
         .trimIndent()
 
-    val COLLIDING_PROPERTIES_STYLE =
-      WORLD_POLYGON_STYLE.replace(
+    val CollidingPropertiesStyle =
+      WorldPolygonStyle.replace(
         """"properties": { "name": "world" }""",
         """"properties": {"name":"world","${'$'}source":"original-source","${'$'}sourceLayer":"original-source-layer","${'$'}state":"original-state"}""",
       )
@@ -438,7 +438,7 @@ class MapQueryTest {
      * Two world-covering fills from different sources. The second layer is the one in front. The
      * query API promises that order: front first, then back.
      */
-    val OVERLAPPING_FILL_STYLE =
+    val OverlappingFillStyle =
       """
       {
         "version": 8,

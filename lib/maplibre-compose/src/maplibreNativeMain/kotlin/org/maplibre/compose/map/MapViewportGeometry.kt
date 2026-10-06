@@ -60,7 +60,7 @@ internal class MapViewportExtents(corners: List<Position>) {
 }
 
 /** Answers reads made before the map has projected anything. */
-internal val EMPTY_CORNERS: List<Position> = List(4) { Position(0.0, 0.0) }
+internal val EmptyCorners: List<Position> = List(4) { Position(0.0, 0.0) }
 
 /**
  * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.

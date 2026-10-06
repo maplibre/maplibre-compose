@@ -90,7 +90,7 @@ class MlnFfiMapSurfaceRecoveryTest {
           presentFrames = visible.value,
         )
       }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { published }
+      waitUntil(timeoutMillis = TimeoutMillis) { published }
       runOnIdle { visible.value = false }
       waitForIdle()
       assertFalse(published)
@@ -116,9 +116,9 @@ class MlnFfiMapSurfaceRecoveryTest {
       }
     val result = MlnFfiMapHostResult.Created(failingHost)
     setContent { MlnFfiMapSurface(renderer, result, Modifier.size(64.dp)) }
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
     assertEquals(7, draws)
-    assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
+    assertEquals(MaxRecoveryAttempts, renderer.surfaceLostCount)
   }
 
   @Test
@@ -129,7 +129,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val result = factory.create(factory.bridges.single())
     val show = mutableStateOf(true)
     setContent { if (show.value) MlnFfiMapSurface(renderer, result, Modifier.size(64.dp)) }
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+    waitUntil(timeoutMillis = TimeoutMillis) {
       mainClock.advanceTimeByFrame()
       renderer.renderedFrames > 0
     }
@@ -168,7 +168,7 @@ class MlnFfiMapSurfaceRecoveryTest {
           },
         )
       }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+      waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
       waitForIdle()
       val host = factory.created.single()
       val acquired = host.acquireCount
@@ -176,7 +176,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       waitForIdle()
       assertEquals(acquired, host.acquireCount)
       runOnIdle { repeat(20) { renderer.requestFrame() } }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.acquireCount > acquired }
+      waitUntil(timeoutMillis = TimeoutMillis) { host.acquireCount > acquired }
       waitForIdle()
       assertEquals(acquired + 1, host.acquireCount)
     }
@@ -187,7 +187,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       RecordingRenderer(renderResults = ArrayDeque(listOf(MlnFfiFrameResult.RetryNextFrame)))
     val factory = FakeMlnFfiMapHostFactory()
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames == 2 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames == 2 }
     waitForIdle()
     assertEquals(2, factory.created.single().acquireCount)
   }
@@ -197,7 +197,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val renderer = RecordingRenderer(additionalFrameRequests = 1)
     val factory = FakeMlnFfiMapHostFactory()
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames == 2 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames == 2 }
     waitForIdle()
     assertEquals(2, factory.created.single().acquireCount)
   }
@@ -238,12 +238,12 @@ class MlnFfiMapSurfaceRecoveryTest {
       setContent {
         if (show.value) MlnFfiMapSurface(projectingRenderer, result, Modifier.size(64.dp))
       }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { created > 0 }
+      waitUntil(timeoutMillis = TimeoutMillis) { created > 0 }
       waitForIdle()
       assertEquals(created - 1, closed.size)
       failCompletion = true
       renderer.requestFrame()
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+      waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
       waitForIdle()
       assertEquals((1..created).toSet(), closed.toSet())
       assertEquals(created, closed.size)
@@ -319,18 +319,18 @@ class MlnFfiMapSurfaceRecoveryTest {
             )
           }
       }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { drawnProjections.isNotEmpty() }
+      waitUntil(timeoutMillis = TimeoutMillis) { drawnProjections.isNotEmpty() }
       waitForIdle()
       val retained = published.value
       renderer.skipAllRenders = true
       renderer.requestFrame()
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+      waitUntil(timeoutMillis = TimeoutMillis) { renderer.skippedFrames > 0 }
       waitForIdle()
       assertEquals(retained, published.value)
       assertFalse(retained in projectionCloses)
       renderer.skipAllRenders = false
       renderer.requestFrame()
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { published.value > retained }
+      waitUntil(timeoutMillis = TimeoutMillis) { published.value > retained }
       waitForIdle()
       assertTrue(retained in projectionCloses)
       show.value = false
@@ -357,7 +357,7 @@ class MlnFfiMapSurfaceRecoveryTest {
         MlnFfiMapSurface(renderer, failure, Modifier.size(64.dp))
       }
     }
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
     showSurface.value = false
     waitForIdle()
     assertEquals(1, renderer.closeCount)
@@ -369,7 +369,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
 
     val host = factory.created.single()
     assertEquals(1, renderer.surfaceLostCount)
@@ -387,14 +387,14 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.rotateTargetsOnAcquire = true })
     setSurfaceContent(renderer, factory)
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawnTargets.isNotEmpty() }
     waitForIdle()
     val renderedTarget = host.drawnTargets.last()
     val drawsBeforeSkip = host.drawnTargets.size
 
     renderer.skipAllRenders = true
     renderer.requestFrame()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.size > drawsBeforeSkip }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawnTargets.size > drawsBeforeSkip }
     waitForIdle()
 
     val skippedTarget = renderer.renderTargets.last()
@@ -414,12 +414,12 @@ class MlnFfiMapSurfaceRecoveryTest {
 
     setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawRecords.isNotEmpty() }
     for (nextSize in listOf(96.dp, 48.dp, 80.dp)) {
       val drawsBeforeResize = host.drawRecords.size
       renderer.skipNextRender = true
       size.value = nextSize
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.size > drawsBeforeResize }
+      waitUntil(timeoutMillis = TimeoutMillis) { host.drawRecords.size > drawsBeforeResize }
       waitForIdle()
 
       for (draw in host.drawRecords.drop(drawsBeforeResize)) {
@@ -438,13 +438,13 @@ class MlnFfiMapSurfaceRecoveryTest {
 
     setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawRecords.isNotEmpty() }
     val lastRenderedTarget = host.drawRecords.last().target
     val drawsBeforeResize = host.drawRecords.size
 
     renderer.skipAllRenders = true
     size.value = 257.dp
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.skippedFrames > 0 }
     waitForIdle()
 
     val resizeDraws = host.drawRecords.drop(drawsBeforeResize)
@@ -470,7 +470,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
       setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
       val host = factory.created.single()
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+      waitUntil(timeoutMillis = TimeoutMillis) { host.drawRecords.isNotEmpty() }
       val completedTarget = host.drawRecords.last().target
       val drawsBeforeResize = host.drawRecords.size
 
@@ -478,7 +478,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       renderer.presentationAnchorOffsetY = 8
       renderer.skipAllRenders = true
       size.value = 96.dp
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+      waitUntil(timeoutMillis = TimeoutMillis) { renderer.skippedFrames > 0 }
       waitForIdle()
 
       val resizeDraws = host.drawRecords.drop(drawsBeforeResize)
@@ -497,7 +497,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
 
     assertEquals(renderer.renderTargets.first().extent, renderer.surfaceExtentAtRenders.first())
   }
@@ -506,13 +506,13 @@ class MlnFfiMapSurfaceRecoveryTest {
   fun extended_not_ready_does_not_consume_recovery() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory =
-      FakeMlnFfiMapHostFactory(configureHost = { it.notReadyAcquires = MAX_RECOVERY_ATTEMPTS + 20 })
+      FakeMlnFfiMapHostFactory(configureHost = { it.notReadyAcquires = MaxRecoveryAttempts + 20 })
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
 
     assertEquals(0, renderer.surfaceLostCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 21, factory.created.single().acquireCount)
+    assertEquals(MaxRecoveryAttempts + 21, factory.created.single().acquireCount)
     assertEquals(0, renderer.closeCount)
   }
 
@@ -522,7 +522,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory =
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
-          repeat(MAX_RECOVERY_ATTEMPTS) {
+          repeat(MaxRecoveryAttempts) {
             host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.Failure
             host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.NotReady
           }
@@ -531,10 +531,10 @@ class MlnFfiMapSurfaceRecoveryTest {
       )
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
-    assertEquals(MAX_RECOVERY_ATTEMPTS * 2 + 1, factory.created.single().acquireCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
+    assertEquals(MaxRecoveryAttempts * 2 + 1, factory.created.single().acquireCount)
+    assertEquals(MaxRecoveryAttempts, renderer.surfaceLostCount)
   }
 
   @Test
@@ -543,15 +543,15 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
     setSurfaceContent(renderer, factory)
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawnTargets.isNotEmpty() }
     runOnIdle {
-      host.failingAcquires = MAX_RECOVERY_ATTEMPTS + 1
+      host.failingAcquires = MaxRecoveryAttempts + 1
       renderer.requestFrame()
     }
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 1, renderer.surfaceLostCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 3, host.acquireCount)
+    assertEquals(MaxRecoveryAttempts + 1, renderer.surfaceLostCount)
+    assertEquals(MaxRecoveryAttempts + 3, host.acquireCount)
   }
 
   @Test
@@ -560,16 +560,16 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory()
     setSurfaceContent(renderer, factory)
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+    waitUntil(timeoutMillis = TimeoutMillis) { host.drawnTargets.isNotEmpty() }
 
     // Desktop hosts fail one acquire per graphics-device change; each rebuild presents again.
-    repeat(MAX_RECOVERY_ATTEMPTS * 2) { change ->
+    repeat(MaxRecoveryAttempts * 2) { change ->
       val before = runOnIdle {
         host.failingAcquires = 1
         renderer.requestFrame()
         host.drawnTargets.last()
       }
-      waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+      waitUntil(timeoutMillis = TimeoutMillis) {
         renderer.surfaceLostCount == change + 1 && host.drawnTargets.last() !== before
       }
     }
@@ -583,7 +583,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
 
     assertEquals(1, renderer.surfaceLostCount)
     assertEquals(0, renderer.closeCount)
@@ -595,7 +595,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
     assertEquals(1, renderer.surfaceLostCount)
     assertEquals(1, factory.created.single().acquireCount)
@@ -608,13 +608,13 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = Int.MAX_VALUE })
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
     val host = factory.created.single()
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 1, host.acquireCount)
-    assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
+    assertEquals(MaxRecoveryAttempts + 1, host.acquireCount)
+    assertEquals(MaxRecoveryAttempts, renderer.surfaceLostCount)
     waitForIdle()
-    assertEquals(MAX_RECOVERY_ATTEMPTS + 1, host.acquireCount)
+    assertEquals(MaxRecoveryAttempts + 1, host.acquireCount)
     assertEquals(1, renderer.closeCount)
   }
 
@@ -624,7 +624,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
     assertEquals(0, renderer.surfaceLostCount)
     assertEquals(1, factory.created.single().acquireCount)
@@ -641,7 +641,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       )
 
     setSurfaceContent(renderer, factory)
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
 
     assertEquals(0, renderer.surfaceLostCount)
     assertEquals(1, factory.created.single().acquireCount)
@@ -655,10 +655,10 @@ class MlnFfiMapSurfaceRecoveryTest {
     val hostResult = factory.create(factory.bridges.single())
 
     setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.renderedFrames > 0 }
     renderer.failingSurfaceChanges = 1
     size.value = 96.dp
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+    waitUntil(timeoutMillis = TimeoutMillis) { renderer.closeCount == 1 }
     waitForIdle()
     assertEquals(1, renderer.closeCount)
   }
@@ -791,7 +791,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   private companion object {
-    const val MAX_RECOVERY_ATTEMPTS = 3
-    const val TIMEOUT_MILLIS = 10_000L
+    const val MaxRecoveryAttempts = 3
+    const val TimeoutMillis = 10_000L
   }
 }

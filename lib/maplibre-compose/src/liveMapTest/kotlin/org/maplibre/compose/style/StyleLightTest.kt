@@ -21,7 +21,7 @@ class StyleLightTest {
   @Test
   fun a_light_write_replaces_every_property(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       val light = fixture.state.style.light
       assertNull(light.getProperty("intensity"))
 
@@ -48,7 +48,7 @@ class StyleLightTest {
   fun a_declared_light_reads_back_and_a_rejected_write_changes_nothing(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(LIT_STYLE)
+        fixture.loadStyle(LitStyle)
         val light = fixture.state.style.light
         assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
 
@@ -68,8 +68,8 @@ class StyleLightTest {
     }
 
   private companion object {
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val LIT_STYLE =
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val LitStyle =
       BaseStyle.Json("""{"version":8,"light":{"anchor":"map"},"sources":{},"layers":[]}""")
   }
 }

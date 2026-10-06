@@ -171,11 +171,11 @@ internal class MetalMapHost(
  * run on threads that have none of their own.
  */
 internal object MetalTexture {
-  private const val MTL_TEXTURE_TYPE_2D = 2L
-  private const val MTL_PIXEL_FORMAT_BGRA8_UNORM = 80L
-  private const val MTL_TEXTURE_USAGE_SHADER_READ = 1L
-  private const val MTL_TEXTURE_USAGE_RENDER_TARGET = 4L
-  private const val MTL_STORAGE_MODE_PRIVATE = 2L
+  private const val MTLTextureType2D = 2L
+  private const val MTLPixelFormatBGRA8Unorm = 80L
+  private const val MTLTextureUsageShaderRead = 1L
+  private const val MTLTextureUsageRenderTarget = 4L
+  private const val MTLStorageModePrivate = 2L
 
   /**
    * Allocates a texture of [width] by [height] physical pixels, reusing [oldTexture] if it already
@@ -193,16 +193,16 @@ internal object MetalTexture {
 
       val descriptor = ObjectiveC.allocInit("MTLTextureDescriptor")
       try {
-        ObjectiveC.sendVoid(descriptor, "setTextureType:", MTL_TEXTURE_TYPE_2D)
-        ObjectiveC.sendVoid(descriptor, "setPixelFormat:", MTL_PIXEL_FORMAT_BGRA8_UNORM)
+        ObjectiveC.sendVoid(descriptor, "setTextureType:", MTLTextureType2D)
+        ObjectiveC.sendVoid(descriptor, "setPixelFormat:", MTLPixelFormatBGRA8Unorm)
         ObjectiveC.sendVoid(descriptor, "setWidth:", width.toLong())
         ObjectiveC.sendVoid(descriptor, "setHeight:", height.toLong())
         ObjectiveC.sendVoid(
           descriptor,
           "setUsage:",
-          MTL_TEXTURE_USAGE_SHADER_READ or MTL_TEXTURE_USAGE_RENDER_TARGET,
+          MTLTextureUsageShaderRead or MTLTextureUsageRenderTarget,
         )
-        ObjectiveC.sendVoid(descriptor, "setStorageMode:", MTL_STORAGE_MODE_PRIVATE)
+        ObjectiveC.sendVoid(descriptor, "setStorageMode:", MTLStorageModePrivate)
         val texture = ObjectiveC.sendPointer(device, "newTextureWithDescriptor:", descriptor)
         if (texture == 0L) {
           throw MlnFfiHostException("Metal texture allocation returned null")

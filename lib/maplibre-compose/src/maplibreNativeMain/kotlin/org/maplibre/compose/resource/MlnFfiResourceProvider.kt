@@ -34,7 +34,7 @@ import org.maplibre.nativeffi.resource.ResourceUsage
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
  * non-HTTP URI with `invalid authority`.
  */
-private val NETWORK_SCHEMES = setOf("http", "https")
+private val NetworkSchemes = setOf("http", "https")
 
 internal typealias MlnFfiResourceProviderFactory =
   (getLogger: () -> MapLog?, config: MapResourceConfig) -> MlnFfiResourceProvider
@@ -337,7 +337,7 @@ internal fun MapResourceConfig.nativeRoute(request: ResourceRequest): NativeReso
  * too.
  */
 internal fun isMapLibresToFetch(url: String): Boolean =
-  schemeOf(url).let { it == null || it in NETWORK_SCHEMES }
+  schemeOf(url).let { it == null || it in NetworkSchemes }
 
 /**
  * The scheme of [url] in lowercase, or null when it has none or cannot be parsed.

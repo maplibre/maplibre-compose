@@ -3,7 +3,7 @@ package org.maplibre.compose.gljs
 import web.gl.WebGL2RenderingContext
 
 /** The worker built with the embedded engine, shared by every map in this module. */
-internal val DEFAULT_WORKER_URL: String by lazy { getDefaultWorkerUrl() }
+internal val DefaultWorkerUrl: String by lazy { getDefaultWorkerUrl() }
 
 /**
  * A same-origin worker URL for [workerUrl]. A cross-origin URL becomes a blob that `import`s the

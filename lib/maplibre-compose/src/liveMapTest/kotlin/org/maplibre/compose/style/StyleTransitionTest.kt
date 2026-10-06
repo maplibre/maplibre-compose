@@ -12,7 +12,7 @@ class StyleTransitionTest {
   @Test
   fun a_declared_transition_reads_back_and_a_reload_replaces_a_write(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(TIMED_STYLE)
+      fixture.loadStyle(TimedStyle)
       val declared = TransitionOptions(duration = 500.milliseconds, delay = 100.milliseconds)
       assertEquals(declared, fixture.state.style.transition.get())
 
@@ -23,14 +23,14 @@ class StyleTransitionTest {
         fixture.state.style.transition.get(),
       )
 
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       assertEquals(TransitionOptions(), fixture.state.style.transition.get())
     }
   }
 
   private companion object {
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val TIMED_STYLE =
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val TimedStyle =
       BaseStyle.Json(
         """{"version":8,"transition":{"duration":500,"delay":100},"sources":{},"layers":[]}"""
       )
