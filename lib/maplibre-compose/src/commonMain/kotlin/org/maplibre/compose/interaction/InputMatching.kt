@@ -1,23 +1,63 @@
 package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
+import kotlin.jvm.JvmInline
 import org.maplibre.compose.util.formatToString
 
-/** A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button. */
-public enum class PointerButton {
-  Primary,
-  Secondary,
-  Tertiary,
-  Back,
-  Forward,
+/**
+ * A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
+@JvmInline
+public value class PointerButton private constructor(private val name: String) {
+  override fun toString(): String = name
+
+  public companion object {
+    /** The left mouse button. */
+    public val Primary: PointerButton = PointerButton("Primary")
+
+    /** The right mouse button. */
+    public val Secondary: PointerButton = PointerButton("Secondary")
+
+    /** The middle mouse button, often the scroll wheel pressed down. */
+    public val Tertiary: PointerButton = PointerButton("Tertiary")
+
+    /** The side mouse button that navigates back. */
+    public val Back: PointerButton = PointerButton("Back")
+
+    /** The side mouse button that navigates forward. */
+    public val Forward: PointerButton = PointerButton("Forward")
+  }
 }
 
-/** Keyboard modifiers reported with an input sample. */
-public enum class KeyModifier {
-  Shift,
-  Ctrl,
-  Alt,
-  Meta,
+/**
+ * A keyboard modifier key reported with an input sample.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
+public class KeyModifier private constructor(private val name: String) {
+  // A class rather than a value class, because ModifierMatch takes a vararg and Kotlin rejects
+  // varargs of value classes. The private constructor keeps the named values the only instances.
+
+  override fun toString(): String = name
+
+  public companion object {
+    /** The Shift key. */
+    public val Shift: KeyModifier = KeyModifier("Shift")
+
+    /** The Control key. */
+    public val Ctrl: KeyModifier = KeyModifier("Ctrl")
+
+    /** The Alt key, labeled Option on Apple keyboards. */
+    public val Alt: KeyModifier = KeyModifier("Alt")
+
+    /** The Meta key: Command on Apple keyboards and the Windows key on others. */
+    public val Meta: KeyModifier = KeyModifier("Meta")
+
+    /** Every modifier this library reports, for code that enumerates modifier combinations. */
+    internal val entries: List<KeyModifier> = listOf(Shift, Ctrl, Alt, Meta)
+  }
 }
 
 /**
