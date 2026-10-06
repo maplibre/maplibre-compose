@@ -12,10 +12,15 @@ public sealed interface OfflinePackDefinition {
   public val styleUrl: String
 
   /**
-   * The scale used to resolve `{ratio}` in tile URL templates. MapLibre selects the 2x tile variant
-   * for values greater than 1.
+   * The ratio of physical pixels to density-independent pixels that the pack's resources are
+   * downloaded for, usually the screen's `Density.density`. MapLibre uses it to resolve `{ratio}`
+   * in tile URL templates, selecting the 2x tile variant for values greater than 1. Packs always
+   * include both the 1x and 2x sprites.
+   *
+   * MapLibre Native stores this value with single precision, so a pack read back from the database
+   * can report a value that differs from the one it was created with in the last decimal places.
    */
-  public val pixelRatio: Float
+  public val pixelRatio: Double
 
   /**
    * The minimum camera zoom for which the pack downloads resources. MapLibre converts camera zoom
@@ -31,7 +36,7 @@ public sealed interface OfflinePackDefinition {
     override val styleUrl: String,
     /** The geographic bounds of the downloaded region. */
     public val bounds: BoundingBox,
-    override val pixelRatio: Float,
+    override val pixelRatio: Double,
     override val minZoom: Double = 0.0,
     override val maxZoom: Double? = null,
   ) : OfflinePackDefinition
@@ -41,7 +46,7 @@ public sealed interface OfflinePackDefinition {
     override val styleUrl: String,
     /** The geographic shape of the downloaded region. */
     public val shape: Geometry,
-    override val pixelRatio: Float,
+    override val pixelRatio: Double,
     override val minZoom: Double = 0.0,
     override val maxZoom: Double? = null,
   ) : OfflinePackDefinition

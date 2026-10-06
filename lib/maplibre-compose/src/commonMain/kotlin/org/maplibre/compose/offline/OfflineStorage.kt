@@ -86,12 +86,19 @@ public sealed interface OfflineStorage {
   public suspend fun clearAmbientCache()
 
   /**
-   * Sets the maximum ambient-cache size in bytes. A size of zero disables ambient caching.
+   * Limits how many bytes of ambient-cache resources the database keeps.
    *
+   * Lowering the limit deletes the least recently used ambient-cache resources until the ambient
+   * cache fits. Resources that an offline pack needs are never deleted and do not count toward the
+   * limit.
+   *
+   * @param sizeBytes The maximum ambient-cache size in bytes. Zero keeps no ambient-cache
+   *   resources. Must not be negative.
+   * @throws IllegalArgumentException if [sizeBytes] is negative.
    * @throws UnsupportedOperationException if the runtime does not support ambient-cache management.
    * @throws OfflineStorageException if the operation failed.
    */
-  public suspend fun setMaximumAmbientCacheSize(size: Long)
+  public suspend fun setMaximumAmbientCacheSize(sizeBytes: Long)
 }
 
 /**
@@ -193,9 +200,10 @@ internal class RuntimeBoundOfflineStorage(
     delegate.clearAmbientCache()
   }
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long) {
+  override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long) {
+    require(sizeBytes >= 0) { "sizeBytes must not be negative, was $sizeBytes" }
     requireRuntimeOpen()
-    delegate.setMaximumAmbientCacheSize(size)
+    delegate.setMaximumAmbientCacheSize(sizeBytes)
   }
 
   // Packs are counted, not listed: a pack definition's style URL can contain an access token.
@@ -237,7 +245,7 @@ internal object UnsupportedOfflineStorage : OfflineStorageBackend {
 
   override suspend fun clearAmbientCache(): Unit = unsupportedAmbientCacheManagement()
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long): Unit =
+  override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long): Unit =
     unsupportedAmbientCacheManagement()
 
   private fun unsupportedOfflinePacks(): Nothing =

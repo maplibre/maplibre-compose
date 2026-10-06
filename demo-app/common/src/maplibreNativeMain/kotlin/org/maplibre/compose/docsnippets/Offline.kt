@@ -23,7 +23,7 @@ fun Offline() {
   val offlineStorage = DefaultMapRuntime.instance.offlineStorage
   // #endregion storage
   val scope = rememberCoroutineScope()
-  val pixelRatio = LocalDensity.current.density
+  val pixelRatio = LocalDensity.current.density.toDouble()
 
   // #region create
   val offlineState by offlineStorage.state.collectAsState()

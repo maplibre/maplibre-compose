@@ -28,7 +28,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
   val offlineStorage = DefaultMapRuntime.instance.offlineStorage
-  val pixelRatio = LocalDensity.current.density
+  val pixelRatio = LocalDensity.current.density.toDouble()
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
   val offlineState by offlineStorage.state.collectAsState()

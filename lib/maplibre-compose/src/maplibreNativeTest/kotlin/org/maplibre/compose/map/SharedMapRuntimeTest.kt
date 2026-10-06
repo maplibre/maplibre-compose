@@ -75,7 +75,7 @@ class SharedMapRuntimeTest {
               OfflinePackDefinition.TilePyramid(
                 "file:///unused-style.json",
                 BoundingBox(-1.0, -1.0, 1.0, 1.0),
-                1f,
+                1.0,
                 maxZoom = 0.0,
               )
             )
@@ -228,7 +228,7 @@ class SharedMapRuntimeTest {
                     OfflinePackDefinition.TilePyramid(
                       fileUrlOf(styleFile),
                       BoundingBox(-1.0, -1.0, 1.0, 1.0),
-                      1f,
+                      1.0,
                       maxZoom = 0.0,
                     )
                   )
