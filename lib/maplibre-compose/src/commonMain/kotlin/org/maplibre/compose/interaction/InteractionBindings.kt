@@ -383,8 +383,12 @@ public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   internal fun build(): KeyBinding {
     require(panStep.value.isFinite()) { "panStep must be finite, was $panStep" }
     require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite, was $zoomStepLevels" }
-    require(bearingStepDegrees.isFinite()) { "bearingStepDegrees must be finite, was $bearingStepDegrees" }
-    require(pitchStepDegrees.isFinite()) { "pitchStepDegrees must be finite, was $pitchStepDegrees" }
+    require(bearingStepDegrees.isFinite()) {
+      "bearingStepDegrees must be finite, was $bearingStepDegrees"
+    }
+    require(pitchStepDegrees.isFinite()) {
+      "pitchStepDegrees must be finite, was $pitchStepDegrees"
+    }
     return KeyBinding(
       enabled,
       rows,
