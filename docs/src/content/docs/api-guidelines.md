@@ -131,9 +131,17 @@ class OfflineManager
 - Avoid `Boolean` arguments whose meaning isn't clear at the call site. Named
   `Boolean` builder properties are fine.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#avoid-using-the-boolean-type-as-an-argument)
-- Reject invalid arguments with `require` and invalid state with `check`, with a
-  message that describes the problem and includes the rejected value.
-  [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#validate-inputs-and-state)
+- Choose the exception by whether correct code could have avoided it:
+  - A programming error is a call that correct code never makes, such as an
+    invalid argument or using an object after closing it. Reject it with
+    `require` (`IllegalArgumentException`) or `check` (`IllegalStateException`),
+    with a message that describes the problem and includes the rejected value.
+  - A failure that correct code can't prevent, such as the engine failing to
+    render a snapshot or the offline database failing, throws the library
+    exception for that feature, such as `MapSnapshotException` or
+    `OfflineStorageException`. These extend `RuntimeException`, have internal
+    constructors, and keep the underlying exception as their `cause`.
+    [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#validate-inputs-and-state)
 - Return `null` when data can't be found or computed. Don't use exceptions for
   control flow.
   [[4]](https://kotlinlang.org/docs/api-guidelines-consistency.html#choose-the-appropriate-error-handling-mechanism)
@@ -142,9 +150,6 @@ class OfflineManager
   For example, a base-style layer handle expires when the engine reloads the
   style: its reads return `null`, and its writes do nothing and log a warning.
   Using an object after the caller closed it is a programming error, and throws.
-- Throw a library exception type only for failures that callers handle
-  specifically, such as `MapSnapshotException`. Library exception types extend
-  `RuntimeException` and have internal constructors.
 - Make behavior unsurprising instead of documenting a surprise. When behavior is
   wrong, fix it instead of documenting it.
 - Give stateful types a `toString` that shows their contents in a consistent
