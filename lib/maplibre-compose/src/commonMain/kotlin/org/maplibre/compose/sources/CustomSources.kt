@@ -58,11 +58,13 @@ public data class TileCoordinate(
 /**
  * Supplies geographic features for one tile.
  *
- * On MapLibre Native, calls run on a background thread, and calls for different tiles can run at
- * the same time; move blocking work to another dispatcher such as `Dispatchers.IO`. A new request
- * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
- * main thread and overlap only where they suspend, and requests from one source in one map for a
- * tile that is already loading share that call.
+ * On MapLibre Native, calls run on background threads where blocking work, such as reading a file
+ * or a database, is safe, and calls for different tiles can run at the same time. On the browser,
+ * calls run on the page's main thread and overlap only where they suspend.
+ *
+ * A tile can be requested again while a call for it is still running. The library may cancel a call
+ * that it no longer needs, or share one call between requests for the same tile, so do not expect
+ * exactly one call for each request.
  */
 public fun interface GeometryTileProvider {
   /**
@@ -78,7 +80,8 @@ public fun interface GeometryTileProvider {
 /**
  * Supplies encoded vector data for one tile.
  *
- * Calls run on the same threads, and overlap the same way, as [GeometryTileProvider] calls.
+ * Calls run on the same threads, overlap the same way, and are cancelled or shared the same way as
+ * [GeometryTileProvider] calls.
  */
 public fun interface VectorTileProvider {
   /**

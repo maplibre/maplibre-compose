@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -30,7 +31,8 @@ internal class MlnFfiTileRequestCoordinator<T>(
 ) : AutoCloseable {
   private class Request(val token: Long, val job: Job)
 
-  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName(name))
+  /** On the IO dispatcher, because tile providers may block. */
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName(name))
   private val lock = MlnFfiLock()
   private var closed = false
   private var nextToken = 0L

@@ -298,8 +298,8 @@ public interface MapResourceProvider {
   /**
    * Loads the resource for a request that [accepts] returned true for.
    *
-   * On MapLibre Native, calls run on a background thread, and calls for different requests can run
-   * at the same time; move blocking work to another dispatcher such as `Dispatchers.IO`. On the
+   * On MapLibre Native, calls run on background threads where blocking work, such as reading a file
+   * or a database, is safe, and calls for different requests can run at the same time. On the
    * browser, calls run on the page's main thread and overlap only where they suspend.
    *
    * The library cancels a call when the engine no longer needs the resource or the map runtime

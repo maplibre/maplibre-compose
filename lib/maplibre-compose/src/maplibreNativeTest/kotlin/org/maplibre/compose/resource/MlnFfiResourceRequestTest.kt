@@ -214,6 +214,37 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
+  fun blocking_user_loads_leave_default_dispatcher_work_running() {
+    val provider = MlnFfiResourceProvider(getLogger = { null }).also { providers += it }
+    // More than a pool sized to the CPU count, such as Dispatchers.Default, runs at once.
+    val loads = 32
+    val started = TestLatch(loads)
+    val release = TestLatch(1)
+    val userProvider =
+      MapResourceProvider(
+        accepts = { true },
+        load = {
+          started.countDown()
+          release.await()
+          MapResourceLoad.NoContent()
+        },
+      )
+    val requests = List(loads) { RecordedRequest() }
+    try {
+      requests.forEach {
+        provider.takeUser(it, MapResourceLoadRequest(Url, MapResourceKind.Tile), userProvider)
+      }
+      assertTrue(started.await(WaitSeconds * 1_000), "blocking loads did not all run at once")
+      val defaultWork = TestLatch(1)
+      launchTestTask { defaultWork.countDown() }
+      assertTrue(defaultWork.await(WaitSeconds * 1_000), "blocking loads starved Default")
+    } finally {
+      release.countDown()
+    }
+    requests.forEach { it.awaitClose() }
+  }
+
+  @Test
   fun a_provider_timeout_completes_an_active_request() {
     val provider =
       MlnFfiResourceProvider(getLogger = { null }).also {
