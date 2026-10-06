@@ -37,7 +37,11 @@ import org.maplibre.compose.style.TransitionOptions
 @Stable
 public class StyleSources internal constructor(private val style: MapStyleState) :
   Iterable<SourceHandle> {
-  /** Returns the current generation's handle for [id], or null when unavailable or absent. */
+  /**
+   * Returns the current generation's handle for [id], or null when unavailable or absent. A source
+   * whose style-spec type has no handle interface in this version, such as a GL JS video or canvas
+   * source, has a handle that implements only [SourceHandle].
+   */
   public operator fun get(id: String): SourceHandle? = style.sourceHandle(id)
 
   /**
