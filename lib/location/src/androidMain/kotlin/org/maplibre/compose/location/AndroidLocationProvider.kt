@@ -94,7 +94,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
     val listener =
       object : LocationListener {
         override fun onLocationChanged(location: AndroidLocation) {
-          trySend(location.asMapLibreLocationUpdate())
+          trySend(location.asMaplibreLocationUpdate())
         }
 
         override fun onProviderDisabled(provider: String) {
@@ -121,7 +121,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       }
 
       manager.getLastKnownLocation(provider)?.let { location ->
-        trySend(location.asMapLibreLocationUpdate())
+        trySend(location.asMaplibreLocationUpdate())
       }
       if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && provider == LocationManager.FUSED_PROVIDER

@@ -82,7 +82,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
     val listener =
       object : WindowsLocationListener {
         override fun onPosition(measurement: WindowsLocationMeasurement) {
-          val location = measurement.asMapLibreLocationMeasurement() ?: return
+          val location = measurement.asMaplibreLocationMeasurement() ?: return
           synchronized(filter) {
             if (filter.shouldDeliver(measurement)) {
               trySend(

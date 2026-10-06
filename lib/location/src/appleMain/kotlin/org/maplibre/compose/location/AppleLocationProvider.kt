@@ -120,7 +120,7 @@ internal constructor(
       channel.trySend(
         AppleLocationCallback.Update(
           LocationEvent.Update(
-            location.asMapLibreLocationMeasurement(),
+            location.asMaplibreLocationMeasurement(),
             TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
           )
         )

@@ -118,7 +118,7 @@ internal fun CoreLocationError.asUnavailableReason(
     else -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun CoreLocationMeasurement.asMapLibreLocationMeasurement(): LocationMeasurement =
+internal fun CoreLocationMeasurement.asMaplibreLocationMeasurement(): LocationMeasurement =
   LocationMeasurement(
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
     horizontalAccuracy = horizontalAccuracy.meters,

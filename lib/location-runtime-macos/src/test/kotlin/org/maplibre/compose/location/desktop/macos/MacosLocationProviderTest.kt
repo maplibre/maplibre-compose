@@ -128,7 +128,7 @@ class MacosLocationProviderTest {
 
   @Test
   fun convertsCoreLocationMeasurement() {
-    val location = sampleMeasurement().copy(ageSeconds = 2.0).asMapLibreLocationMeasurement()
+    val location = sampleMeasurement().copy(ageSeconds = 2.0).asMaplibreLocationMeasurement()
 
     assertEquals(52.0, location.position.latitude)
     assertEquals(13.0, location.position.longitude)
@@ -144,7 +144,7 @@ class MacosLocationProviderTest {
     val invalid =
       sampleMeasurement()
         .copy(verticalAccuracy = -1.0, course = -1.0, speed = -1.0)
-        .asMapLibreLocationMeasurement()
+        .asMaplibreLocationMeasurement()
     assertNull(invalid.altitudeAccuracy)
     assertNull(invalid.course)
     assertNull(invalid.courseAccuracy)

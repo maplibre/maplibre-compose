@@ -28,7 +28,7 @@ import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.asMapLibreLocationUpdate
+import org.maplibre.compose.location.asMaplibreLocationUpdate
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -112,7 +112,7 @@ internal constructor(
       object : LocationCallback() {
         override fun onLocationResult(result: LocationResult?) {
           result?.locations?.forEach { location ->
-            trySend(location.asMapLibreLocationUpdate())
+            trySend(location.asMaplibreLocationUpdate())
           }
         }
 
@@ -127,7 +127,7 @@ internal constructor(
       try {
         locationClient.lastLocation
           .addOnSuccessListener { location ->
-            location?.let { trySend(it.asMapLibreLocationUpdate()) }
+            location?.let { trySend(it.asMaplibreLocationUpdate()) }
           }
           .addOnFailureListener { error -> close(error) }
 

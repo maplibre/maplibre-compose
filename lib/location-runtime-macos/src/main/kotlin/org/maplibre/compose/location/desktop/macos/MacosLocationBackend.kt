@@ -202,7 +202,7 @@ internal constructor(
       if (location.horizontalAccuracy < 0.0) return
       channel.trySend(
         LocationEvent.Update(
-          location.asMapLibreLocationMeasurement(),
+          location.asMaplibreLocationMeasurement(),
           TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
         )
       )

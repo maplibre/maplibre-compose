@@ -340,7 +340,7 @@ final class org.maplibre.compose.location/AppleLocationProvider : org.maplibre.c
 }
 
 // Targets: [apple]
-final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMapLibreLocationMeasurement(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/asMapLibreLocationMeasurement|asMapLibreLocationMeasurement@platform.CoreLocation.CLLocation(){}[0]
+final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMaplibreLocationMeasurement(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/asMaplibreLocationMeasurement|asMaplibreLocationMeasurement@platform.CoreLocation.CLLocation(){}[0]
 
 // Targets: [ios]
 final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/IosHeadingProvider|null[0]

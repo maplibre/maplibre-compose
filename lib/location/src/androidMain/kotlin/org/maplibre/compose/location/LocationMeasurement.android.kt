@@ -12,7 +12,7 @@ import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
 
-public fun AndroidLocation.asMapLibreLocationMeasurement(): LocationMeasurement =
+public fun AndroidLocation.asMaplibreLocationMeasurement(): LocationMeasurement =
   LocationMeasurement(
     position =
       Position(
@@ -47,9 +47,9 @@ public fun AndroidLocation.asMapLibreLocationMeasurement(): LocationMeasurement 
   )
 
 /** Converts this platform location and preserves its monotonic age at receipt. */
-public fun AndroidLocation.asMapLibreLocationUpdate(): LocationEvent.Update =
+public fun AndroidLocation.asMaplibreLocationUpdate(): LocationEvent.Update =
   LocationEvent.Update(
-    measurement = asMapLibreLocationMeasurement(),
+    measurement = asMaplibreLocationMeasurement(),
     measurementMark = TimeSource.Monotonic.markNow() - ageAtReceipt(),
   )
 
