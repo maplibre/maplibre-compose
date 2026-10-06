@@ -108,8 +108,7 @@ public fun interface VectorTileProvider {
  * Layers read the source's single feature layer regardless of their `source-layer` setting. On the
  * browser, a layer handle reads back the source id as its `source-layer`.
  *
- * Browser invalidation reloads the whole source after outstanding tile requests finish. Provider
- * failures are logged and produce an empty tile.
+ * Provider failures are logged and produce an empty tile.
  */
 public class CustomGeometrySource(
   id: String,

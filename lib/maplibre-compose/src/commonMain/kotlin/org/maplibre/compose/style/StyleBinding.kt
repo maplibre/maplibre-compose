@@ -417,12 +417,7 @@ internal interface StyleBinding {
     provider: VectorTileProvider,
   ): Boolean
 
-  /**
-   * Requests new data for one tile of a custom vector source when MapLibre needs it.
-   *
-   * @throws UnsupportedOperationException on MapLibre GL JS, which exposes no public per-tile
-   *   invalidation operation.
-   */
+  /** Requests new data for one tile. GL JS reloads the whole source. */
   fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)
 
   /**

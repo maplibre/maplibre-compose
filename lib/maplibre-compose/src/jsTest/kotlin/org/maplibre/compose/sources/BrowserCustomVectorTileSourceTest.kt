@@ -75,6 +75,36 @@ class BrowserCustomVectorTileSourceTest {
       ?.single()
 
   @Test
+  fun invalidation_reloads_a_failed_tile(): MapTestResult = runMapTest {
+    var failing = true
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source =
+        CustomVectorTileSource("retried", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+          if (failing) error("fixture protocol failure")
+          PointMvtTile
+        }
+      val handle = assertIs<CustomVectorTileSourceHandle>(fixture.state.style.sources.add(source))
+      val layer = TestLayer("retried-points", "circle", source)
+      layer.sourceLayer = "points"
+      style.install(layer)
+      fixture.pumpUntil("the tile to fail") {
+        style.lastReportedError != null && style.withMap { it.isSourceLoaded(source.id) } == true
+      }
+      failing = false
+      fixture.pump(frames = 60)
+      assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())
+
+      handle.invalidateTile(TileCoordinate(0, 0, 0))
+
+      fixture.pumpUntil("the invalidated tile to load its features") {
+        handle.querySourceFeatures(setOf("points")).isNotEmpty()
+      }
+    }
+  }
+
+  @Test
   fun provider_failure_rejects_the_protocol_request(): MapTestResult = runMapTest {
     var requested = false
     createMapFixture().use { fixture ->

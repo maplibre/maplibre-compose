@@ -70,6 +70,9 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun isSourceLoaded(id: String): Boolean
 
+  /** Reloads the loaded or errored tiles of [sourceId] whose canonical IDs are in [tileIds]. */
+  fun refreshTiles(sourceId: String, tileIds: Array<CanonicalTileId>)
+
   fun getRenderWorldCopies(): Boolean
 
   fun getImage(id: String): GlJsStyleImage?

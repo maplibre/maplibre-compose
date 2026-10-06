@@ -124,6 +124,12 @@ internal external interface GlJsGeoJsonSource : SourceHandle {
   ): Promise<Array<GeoJsonFeature>>
 }
 
+internal external interface CanonicalTileId {
+  var x: Int
+  var y: Int
+  var z: Int
+}
+
 internal external interface GlJsVectorSource : SourceHandle {
   /** Replaces the source's tile URL templates and reloads its tiles. */
   fun setTiles(tiles: Array<String>)
