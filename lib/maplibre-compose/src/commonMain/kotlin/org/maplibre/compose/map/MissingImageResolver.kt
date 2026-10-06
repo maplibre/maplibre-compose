@@ -30,11 +30,15 @@ public fun interface MissingImageResolver {
    * after the map discards unused images. On native maps, a resolved image may appear only after
    * the affected tiles are laid out again.
    *
-   * If this throws, the map logs the exception and treats the result as null. The map does not ask
-   * again for an ID that got null until the style reloads or the resolver is replaced.
+   * If this throws an exception other than [kotlinx.coroutines.CancellationException], the map logs
+   * the exception and treats the result as null. The map does not ask again for an ID that got null
+   * until the style reloads or the resolver is replaced. A `CancellationException` ends the call
+   * without a result; the map does not log it or remember a null result for the ID.
    *
-   * A style reload or closing the map cancels the calls that are running. Replacing or clearing
-   * [MapState.missingImageResolver] does not cancel them; the map still adds their results.
+   * A style reload or closing the map cancels the running calls of the current resolver. Replacing
+   * or clearing [MapState.missingImageResolver] does not cancel calls that are already running. The
+   * map stops tracking them, so a later style reload or map close does not cancel them either. The
+   * map adds their results only while the style that asked for the image is still loaded.
    */
   public suspend fun resolve(request: MissingImageRequest): ResolvedStyleImage?
 }
