@@ -286,7 +286,7 @@ class MlnFfiOfflinePackTest {
         storage.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
       }
 
-    // A pack that has been told nothing reads as Unknown, and a paused pack fetches nothing, so
+    // A pack that has been told nothing reads as NotReported, and a paused pack fetches nothing, so
     // registration issues an explicit status read.
     val initial = awaitHealthy(pack, "the new pack's status") { true }
     assertEquals(DownloadStatus.Paused, initial.status)

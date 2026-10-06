@@ -2830,19 +2830,19 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/offline/DownloadProgress$NotReported : org/maplibre/compose/offline/DownloadProgress {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadProgress$NotReported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/offline/DownloadProgress$TileLimitExceeded : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
 	public final fun component1 ()J
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getLimit ()J
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/offline/DownloadProgress$Unknown : org/maplibre/compose/offline/DownloadProgress {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadProgress$Unknown;
-	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

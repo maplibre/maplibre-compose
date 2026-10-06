@@ -80,7 +80,7 @@ private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadPr
       put("status", "TileLimitExceeded")
       put("tile_limit", progress.limit)
     }
-    DownloadProgress.Unknown,
+    DownloadProgress.NotReported,
     UnspecifiedDownloadProgress -> put("status", "Unknown")
   }
 

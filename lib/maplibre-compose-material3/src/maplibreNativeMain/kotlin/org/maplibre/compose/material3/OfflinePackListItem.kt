@@ -210,7 +210,7 @@ public object OfflinePackListItemDefaults {
             else -> warningIcon
           }
         is DownloadProgress.Error -> errorIcon
-        // TileLimitExceeded, Unknown, and any case this version does not name.
+        // TileLimitExceeded, NotReported, and any case this version does not name.
         else -> warningIcon
       }
     AnimatedContent(icon) { icon -> icon() }
@@ -233,7 +233,8 @@ public object OfflinePackListItemDefaults {
   /**
    * Displays the pack's download status and size, or its error or tile limit status.
    *
-   * A status that this version does not name is shown with [unknownContent].
+   * [unknownContent] shows progress that is not reported yet, and a status or progress that this
+   * version does not name.
    */
   @Composable
   public fun SupportingContent(
@@ -253,7 +254,7 @@ public object OfflinePackListItemDefaults {
     tileLimitExceededContent: @Composable (DownloadProgress.TileLimitExceeded) -> Unit = {
       Text(stringResource(Res.string.offline_pack_tile_limit_exceeded, it.limit))
     },
-    unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = {
+    unknownContent: @Composable (DownloadProgress.NotReported) -> Unit = {
       Text(stringResource(Res.string.offline_pack_unknown_status))
     },
   ) {
@@ -263,12 +264,12 @@ public object OfflinePackListItemDefaults {
           DownloadStatus.Complete -> completedContent(progress)
           DownloadStatus.Downloading -> downloadingContent(progress)
           DownloadStatus.Paused -> pausedContent(progress)
-          else -> unknownContent(DownloadProgress.Unknown)
+          else -> unknownContent(DownloadProgress.NotReported)
         }
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
-      is DownloadProgress.Unknown -> unknownContent(progress)
-      else -> unknownContent(DownloadProgress.Unknown)
+      is DownloadProgress.NotReported -> unknownContent(progress)
+      else -> unknownContent(DownloadProgress.NotReported)
     }
   }
 }

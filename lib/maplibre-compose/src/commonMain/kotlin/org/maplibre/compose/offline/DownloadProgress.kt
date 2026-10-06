@@ -9,7 +9,7 @@ import org.maplibre.compose.resource.MapResourceError
  */
 public sealed interface DownloadProgress {
   /** The SDK has not reported the download progress. */
-  public data object Unknown : DownloadProgress
+  public data object NotReported : DownloadProgress
 
   /** The download is in a known state. It can be progressing, paused, or complete. */
   public data class Healthy

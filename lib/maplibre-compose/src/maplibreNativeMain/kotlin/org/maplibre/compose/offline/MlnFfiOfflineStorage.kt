@@ -246,7 +246,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     packsById[info.id] = pack
     publishPacks()
 
-    // Status events only arrive for observed regions, and an unreported pack reads as Unknown.
+    // Status events only arrive for observed regions, and an unreported pack reads as NotReported.
     observe(info.id)
     refreshStatus(info.id)
     return pack
