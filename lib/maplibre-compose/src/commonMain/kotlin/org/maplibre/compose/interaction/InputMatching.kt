@@ -36,10 +36,8 @@ public value class PointerButton private constructor(private val name: String) {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-public class KeyModifier private constructor(private val name: String) {
-  // A class rather than a value class, because ModifierMatch takes a vararg and Kotlin rejects
-  // varargs of value classes. The private constructor keeps the named values the only instances.
-
+@JvmInline
+public value class KeyModifier private constructor(private val name: String) {
   override fun toString(): String = name
 
   public companion object {
@@ -67,7 +65,8 @@ public class KeyModifier private constructor(private val name: String) {
  */
 @Immutable
 public sealed class ModifierMatch private constructor() {
-  public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {
+  /** Matches when the pressed modifier keys are [modifiers] and no others. */
+  public class Exactly(modifiers: Set<KeyModifier> = emptySet()) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =
@@ -78,7 +77,8 @@ public sealed class ModifierMatch private constructor() {
     override fun toString(): String = formatToString("Exactly", "modifiers" to modifiers)
   }
 
-  public class Containing(vararg modifiers: KeyModifier) : ModifierMatch() {
+  /** Matches when every key in [modifiers] is pressed, whatever other modifier keys are pressed. */
+  public class Containing(modifiers: Set<KeyModifier>) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =

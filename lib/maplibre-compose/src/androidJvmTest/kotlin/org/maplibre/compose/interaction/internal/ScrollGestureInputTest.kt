@@ -141,7 +141,7 @@ class ScrollGestureInputTest {
             scroll {
               mappings {
                 on(
-                  modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+                  modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl)),
                   action = CameraAction.Zoom,
                 )
                 otherwise(CameraAction.Pan)

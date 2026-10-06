@@ -70,7 +70,7 @@ class MapInteractionsTest {
         scroll {
           mappings {
             on(
-              modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+              modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl)),
               action = InputAction.None,
             )
             otherwise(CameraAction.Zoom)

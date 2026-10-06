@@ -1490,16 +1490,23 @@ public final class org/maplibre/compose/interaction/KeyMappingsBuilder {
 }
 
 public final class org/maplibre/compose/interaction/KeyModifier {
-	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/interaction/KeyModifier$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/interaction/KeyModifier;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
 	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/KeyModifier$Companion {
-	public final fun getAlt ()Lorg/maplibre/compose/interaction/KeyModifier;
-	public final fun getCtrl ()Lorg/maplibre/compose/interaction/KeyModifier;
-	public final fun getMeta ()Lorg/maplibre/compose/interaction/KeyModifier;
-	public final fun getShift ()Lorg/maplibre/compose/interaction/KeyModifier;
+	public final fun getAlt-ipmKXyA ()Ljava/lang/String;
+	public final fun getCtrl-ipmKXyA ()Ljava/lang/String;
+	public final fun getMeta-ipmKXyA ()Ljava/lang/String;
+	public final fun getShift-ipmKXyA ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/LongClickCallbackBuilder {
@@ -1540,7 +1547,7 @@ public abstract class org/maplibre/compose/interaction/ModifierMatch {
 
 public final class org/maplibre/compose/interaction/ModifierMatch$Containing : org/maplibre/compose/interaction/ModifierMatch {
 	public static final field $stable I
-	public fun <init> ([Lorg/maplibre/compose/interaction/KeyModifier;)V
+	public fun <init> (Ljava/util/Set;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I
@@ -1549,7 +1556,9 @@ public final class org/maplibre/compose/interaction/ModifierMatch$Containing : o
 
 public final class org/maplibre/compose/interaction/ModifierMatch$Exactly : org/maplibre/compose/interaction/ModifierMatch {
 	public static final field $stable I
-	public fun <init> ([Lorg/maplibre/compose/interaction/KeyModifier;)V
+	public fun <init> ()V
+	public fun <init> (Ljava/util/Set;)V
+	public synthetic fun <init> (Ljava/util/Set;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I

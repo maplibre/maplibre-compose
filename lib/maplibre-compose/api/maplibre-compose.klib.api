@@ -70,33 +70,6 @@ final enum class org.maplibre.compose.interaction/HapticEmphasis : kotlin/Enum<o
     final fun values(): kotlin/Array<org.maplibre.compose.interaction/HapticEmphasis> // org.maplibre.compose.interaction/HapticEmphasis.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.interaction/KeyModifier : kotlin/Enum<org.maplibre.compose.interaction/KeyModifier> { // org.maplibre.compose.interaction/KeyModifier|null[0]
-    enum entry Alt // org.maplibre.compose.interaction/KeyModifier.Alt|null[0]
-    enum entry Ctrl // org.maplibre.compose.interaction/KeyModifier.Ctrl|null[0]
-    enum entry Meta // org.maplibre.compose.interaction/KeyModifier.Meta|null[0]
-    enum entry Shift // org.maplibre.compose.interaction/KeyModifier.Shift|null[0]
-
-    final val entries // org.maplibre.compose.interaction/KeyModifier.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/KeyModifier.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/KeyModifier.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.interaction/PointerButton : kotlin/Enum<org.maplibre.compose.interaction/PointerButton> { // org.maplibre.compose.interaction/PointerButton|null[0]
-    enum entry Back // org.maplibre.compose.interaction/PointerButton.Back|null[0]
-    enum entry Forward // org.maplibre.compose.interaction/PointerButton.Forward|null[0]
-    enum entry Primary // org.maplibre.compose.interaction/PointerButton.Primary|null[0]
-    enum entry Secondary // org.maplibre.compose.interaction/PointerButton.Secondary|null[0]
-    enum entry Tertiary // org.maplibre.compose.interaction/PointerButton.Tertiary|null[0]
-
-    final val entries // org.maplibre.compose.interaction/PointerButton.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.interaction/PointerButton> // org.maplibre.compose.interaction/PointerButton.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.interaction/PointerButton> // org.maplibre.compose.interaction/PointerButton.values|values#static(){}[0]
-}
-
 final enum class org.maplibre.compose.interaction/QuickZoomDirection : kotlin/Enum<org.maplibre.compose.interaction/QuickZoomDirection> { // org.maplibre.compose.interaction/QuickZoomDirection|null[0]
     enum entry DownZoomsIn // org.maplibre.compose.interaction/QuickZoomDirection.DownZoomsIn|null[0]
     enum entry UpZoomsIn // org.maplibre.compose.interaction/QuickZoomDirection.UpZoomsIn|null[0]
@@ -3533,6 +3506,42 @@ final value class org.maplibre.compose.expressions.value/TranslateAnchor : org.m
     }
 }
 
+final value class org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier|null[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.interaction/KeyModifier.Companion|null[0]
+        final val Alt // org.maplibre.compose.interaction/KeyModifier.Companion.Alt|{}Alt[0]
+            final fun <get-Alt>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Alt.<get-Alt>|<get-Alt>(){}[0]
+        final val Ctrl // org.maplibre.compose.interaction/KeyModifier.Companion.Ctrl|{}Ctrl[0]
+            final fun <get-Ctrl>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Ctrl.<get-Ctrl>|<get-Ctrl>(){}[0]
+        final val Meta // org.maplibre.compose.interaction/KeyModifier.Companion.Meta|{}Meta[0]
+            final fun <get-Meta>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Meta.<get-Meta>|<get-Meta>(){}[0]
+        final val Shift // org.maplibre.compose.interaction/KeyModifier.Companion.Shift|{}Shift[0]
+            final fun <get-Shift>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Shift.<get-Shift>|<get-Shift>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton|null[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.interaction/PointerButton.Companion|null[0]
+        final val Back // org.maplibre.compose.interaction/PointerButton.Companion.Back|{}Back[0]
+            final fun <get-Back>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Back.<get-Back>|<get-Back>(){}[0]
+        final val Forward // org.maplibre.compose.interaction/PointerButton.Companion.Forward|{}Forward[0]
+            final fun <get-Forward>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Forward.<get-Forward>|<get-Forward>(){}[0]
+        final val Primary // org.maplibre.compose.interaction/PointerButton.Companion.Primary|{}Primary[0]
+            final fun <get-Primary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Primary.<get-Primary>|<get-Primary>(){}[0]
+        final val Secondary // org.maplibre.compose.interaction/PointerButton.Companion.Secondary|{}Secondary[0]
+            final fun <get-Secondary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Secondary.<get-Secondary>|<get-Secondary>(){}[0]
+        final val Tertiary // org.maplibre.compose.interaction/PointerButton.Companion.Tertiary|{}Tertiary[0]
+            final fun <get-Tertiary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Tertiary.<get-Tertiary>|<get-Tertiary>(){}[0]
+    }
+}
+
 final value class org.maplibre.compose.resource/MapResourceKind { // org.maplibre.compose.resource/MapResourceKind|null[0]
     final val value // org.maplibre.compose.resource/MapResourceKind.value|{}value[0]
         final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceKind.value.<get-value>|<get-value>(){}[0]
@@ -3597,7 +3606,7 @@ final value class org.maplibre.compose.sources/TileScheme { // org.maplibre.comp
 
 sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch|null[0]
     final class Containing : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Containing|null[0]
-        constructor <init>(kotlin/Array<out org.maplibre.compose.interaction/KeyModifier>...) // org.maplibre.compose.interaction/ModifierMatch.Containing.<init>|<init>(kotlin.Array<out|org.maplibre.compose.interaction.KeyModifier>...){}[0]
+        constructor <init>(kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier>) // org.maplibre.compose.interaction/ModifierMatch.Containing.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.interaction.KeyModifier>){}[0]
 
         final val modifiers // org.maplibre.compose.interaction/ModifierMatch.Containing.modifiers|{}modifiers[0]
             final fun <get-modifiers>(): kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/ModifierMatch.Containing.modifiers.<get-modifiers>|<get-modifiers>(){}[0]
@@ -3608,7 +3617,7 @@ sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.co
     }
 
     final class Exactly : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Exactly|null[0]
-        constructor <init>(kotlin/Array<out org.maplibre.compose.interaction/KeyModifier>...) // org.maplibre.compose.interaction/ModifierMatch.Exactly.<init>|<init>(kotlin.Array<out|org.maplibre.compose.interaction.KeyModifier>...){}[0]
+        constructor <init>(kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> = ...) // org.maplibre.compose.interaction/ModifierMatch.Exactly.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.interaction.KeyModifier>){}[0]
 
         final val modifiers // org.maplibre.compose.interaction/ModifierMatch.Exactly.modifiers|{}modifiers[0]
             final fun <get-modifiers>(): kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/ModifierMatch.Exactly.modifiers.<get-modifiers>|<get-modifiers>(){}[0]

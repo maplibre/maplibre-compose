@@ -160,13 +160,13 @@ internal data class InteractionBindings(
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
-                    modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+                    modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl)),
                     action = CameraAction.RotatePitch,
                   )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
-                    modifiers = ModifierMatch.Containing(KeyModifier.Shift),
+                    modifiers = ModifierMatch.Containing(setOf(KeyModifier.Shift)),
                     action = CameraAction.FitBounds,
                   )
                   on(button = PointerButton.Primary, action = CameraAction.Pan)
@@ -189,7 +189,7 @@ internal data class InteractionBindings(
                 .apply {
                   on(
                     pointerTypes = mouse,
-                    modifiers = ModifierMatch.Containing(KeyModifier.Shift),
+                    modifiers = ModifierMatch.Containing(setOf(KeyModifier.Shift)),
                     action = CameraAction.ZoomOut,
                   )
                   otherwise(CameraAction.ZoomIn)
@@ -215,27 +215,31 @@ internal data class InteractionBindings(
                   on(Key.DirectionDown, action = CameraAction.PanDown)
                   on(
                     Key.DirectionLeft,
-                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    ModifierMatch.Exactly(setOf(KeyModifier.Shift)),
                     action = CameraAction.RotateLeft,
                   )
                   on(
                     Key.DirectionRight,
-                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    ModifierMatch.Exactly(setOf(KeyModifier.Shift)),
                     action = CameraAction.RotateRight,
                   )
                   on(
                     Key.DirectionUp,
-                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    ModifierMatch.Exactly(setOf(KeyModifier.Shift)),
                     action = CameraAction.PitchUp,
                   )
                   on(
                     Key.DirectionDown,
-                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    ModifierMatch.Exactly(setOf(KeyModifier.Shift)),
                     action = CameraAction.PitchDown,
                   )
                   for (key in listOf(Key.Plus, Key.Equals)) {
                     on(key, action = CameraAction.ZoomIn)
-                    on(key, ModifierMatch.Exactly(KeyModifier.Shift), action = CameraAction.ZoomIn)
+                    on(
+                      key,
+                      ModifierMatch.Exactly(setOf(KeyModifier.Shift)),
+                      action = CameraAction.ZoomIn,
+                    )
                   }
                   on(Key.Minus, action = CameraAction.ZoomOut)
                   for (key in listOf(Key.Enter, Key.NumPadEnter, Key.DirectionCenter)) {
