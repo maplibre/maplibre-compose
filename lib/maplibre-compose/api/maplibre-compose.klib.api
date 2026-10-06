@@ -4908,10 +4908,10 @@ final var org.maplibre.compose.map/padding // org.maplibre.compose.map/padding|@
     final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-padding>(kotlin/Boolean) // org.maplibre.compose.map/padding.<set-padding>|<set-padding>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
 
 // Targets: [js]
-final fun org.maplibre.compose.browser/configureMapLibreWorker(kotlin/String) // org.maplibre.compose.browser/configureMapLibreWorker|configureMapLibreWorker(kotlin.String){}[0]
+final fun org.maplibre.compose.browser/configureMaplibreWorker(kotlin/String) // org.maplibre.compose.browser/configureMaplibreWorker|configureMaplibreWorker(kotlin.String){}[0]
 
 // Targets: [js]
-final fun org.maplibre.compose.browser/installMapLibreCompose(kotlin/String = ...) // org.maplibre.compose.browser/installMapLibreCompose|installMapLibreCompose(kotlin.String){}[0]
+final fun org.maplibre.compose.browser/installMaplibreCompose(kotlin/String = ...) // org.maplibre.compose.browser/installMaplibreCompose|installMaplibreCompose(kotlin.String){}[0]
 
 // Targets: [js]
 final fun org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter(): kotlin/Int // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter|org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter(){}[0]

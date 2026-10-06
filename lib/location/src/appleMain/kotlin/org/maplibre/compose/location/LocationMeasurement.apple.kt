@@ -12,7 +12,7 @@ import platform.CoreLocation.CLLocation
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.timeIntervalSinceNow
 
-public fun CLLocation.asMapLibreLocationMeasurement(): LocationMeasurement =
+public fun CLLocation.asMaplibreLocationMeasurement(): LocationMeasurement =
   LocationMeasurement(
     position =
       coordinate.useContents {

@@ -7,7 +7,7 @@ import org.jetbrains.skia.DirectContext
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
-import org.maplibre.compose.browser.installMapLibreCompose
+import org.maplibre.compose.browser.installMaplibreCompose
 import web.gl.WebGL2RenderingContext
 import web.html.HTMLCanvasElement
 
@@ -56,7 +56,7 @@ internal fun createGpu(): BrowserGpu {
   registry.makeContextCurrent(handle)
 
   // The hook has to be installed before the context is made.
-  installMapLibreCompose()
+  installMaplibreCompose()
   val skia = DirectContext.makeGL()
   val hostContext = checkNotNull(EmscriptenGl.currentContext())
   check(SkikoGpuBridge.isReady(hostContext)) { SkikoGpuBridge.diagnostic(hostContext) }

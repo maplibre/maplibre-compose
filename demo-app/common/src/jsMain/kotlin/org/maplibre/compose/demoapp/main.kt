@@ -6,7 +6,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.jetbrains.skiko.wasm.onWasmReady
-import org.maplibre.compose.browser.installMapLibreCompose
+import org.maplibre.compose.browser.installMaplibreCompose
 import org.maplibre.compose.demoapp.ferry.FerryBoard
 import org.w3c.dom.url.URLSearchParams
 
@@ -26,7 +26,7 @@ fun main() {
   onWasmReady {
     // Must run before Compose builds its renderer, which creates the GPU context maps composite
     // into.
-    installMapLibreCompose()
+    installMaplibreCompose()
     val launch = DemoLaunch.parse { URLSearchParams(window.location.search).get(it) }
     ComposeViewport(document.body!!) { DemoApp(launch) }
   }

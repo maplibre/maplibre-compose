@@ -230,8 +230,8 @@ public final class org/maplibre/compose/location/LocationMeasurement$Companion {
 }
 
 public final class org/maplibre/compose/location/LocationMeasurement_androidKt {
-	public static final fun asMapLibreLocationMeasurement (Landroid/location/Location;)Lorg/maplibre/compose/location/LocationMeasurement;
-	public static final fun asMapLibreLocationUpdate (Landroid/location/Location;)Lorg/maplibre/compose/location/LocationEvent$Update;
+	public static final fun asMaplibreLocationMeasurement (Landroid/location/Location;)Lorg/maplibre/compose/location/LocationMeasurement;
+	public static final fun asMaplibreLocationUpdate (Landroid/location/Location;)Lorg/maplibre/compose/location/LocationEvent$Update;
 }
 
 public abstract interface class org/maplibre/compose/location/LocationPermission {

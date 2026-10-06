@@ -97,7 +97,7 @@ internal fun WindowsPositionStatus.asUnavailableReason(
     WindowsPositionStatus.Unknown -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun WindowsLocationMeasurement.asMapLibreLocationMeasurement(): LocationMeasurement? {
+internal fun WindowsLocationMeasurement.asMaplibreLocationMeasurement(): LocationMeasurement? {
   if (!latitude.isFinite() || latitude !in -90.0..90.0) return null
   if (!longitude.isFinite() || longitude !in -180.0..180.0) return null
   if (!horizontalAccuracyMeters.isFinite() || horizontalAccuracyMeters < 0.0) return null

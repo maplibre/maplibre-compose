@@ -66,5 +66,5 @@ element is removed. See <Api of="WebMapPresentation" /> for configuration,
 container ownership, and lifecycle contracts. The default worker is embedded in
 the library and uses a Blob URL. If your Content Security Policy excludes blob
 workers, serve `maplibre-gl/worker.mjs` from the library's JS KLIB and pass its URL
-to <Api of="configureMapLibreWorker" /> before creating maps. Use the worker from
+to <Api of="configureMaplibreWorker" /> before creating maps. Use the worker from
 the same Compose release so it includes the matching engine patches.
