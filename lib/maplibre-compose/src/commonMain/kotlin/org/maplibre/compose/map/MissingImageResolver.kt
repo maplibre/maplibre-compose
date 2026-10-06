@@ -33,7 +33,7 @@ public fun interface MissingImageResolver {
    * If this throws, the map logs the exception and treats the result as null. The map does not ask
    * again for an ID that got null until the style reloads or the resolver is replaced.
    *
-   * A style reload cancels the calls that are running. Replacing or clearing
+   * A style reload or closing the map cancels the calls that are running. Replacing or clearing
    * [MapState.missingImageResolver] does not cancel them; the map still adds their results.
    */
   public suspend fun resolve(request: MissingImageRequest): ResolvedStyleImage?
