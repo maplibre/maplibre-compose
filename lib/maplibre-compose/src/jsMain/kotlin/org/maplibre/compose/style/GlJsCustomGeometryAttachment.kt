@@ -2,6 +2,8 @@ package org.maplibre.compose.style
 
 import js.objects.unsafeJso
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.maplibre.compose.gljs.GeoJsonToTileOptions
 import org.maplibre.compose.gljs.VectorTileEncodingOptions
 import org.maplibre.compose.gljs.fromGeojsonVt
@@ -25,9 +27,10 @@ internal class GlJsCustomGeometryAttachment(
       loadTile = { tile ->
         try {
           encodeTile(provider.loadTile(tile), tile)
-        } catch (cancelled: CancellationException) {
-          throw cancelled
         } catch (error: Throwable) {
+          // A cancelled job means the request ended. The provider's own cancellation, such as a
+          // timeout, leaves the job active and fails like any other exception.
+          if (error is CancellationException) currentCoroutineContext().ensureActive()
           // Match native and keep the tile reloadable: GL JS cannot refetch an errored tile.
           MapLog.e(error) { "Custom geometry source '$sourceId' failed to load $tile" }
           byteArrayOf()
