@@ -1,6 +1,5 @@
 package org.maplibre.compose.location
 
-import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
@@ -204,78 +203,75 @@ internal data object UnspecifiedLocationEvent : LocationEvent
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-@JvmInline
-public value class LocationUnavailableReason private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface LocationUnavailableReason {
+  /**
+   * The device's location services are disabled.
+   *
+   * For example, the user turned off Location Services in system settings while the application was
+   * running.
+   */
+  public data object ServicesDisabled : LocationUnavailableReason
 
-  public companion object {
-    /**
-     * The device's location services are disabled.
-     *
-     * For example, the user turned off Location Services in system settings while the application
-     * was running.
-     */
-    public val ServicesDisabled: LocationUnavailableReason =
-      LocationUnavailableReason("ServicesDisabled")
+  /**
+   * The provider cannot deliver a location now, but a later location request may succeed.
+   *
+   * For example, a device in a tunnel may temporarily lose satellite positioning, or a browser
+   * request may time out before a position is available.
+   */
+  public data object TemporarilyUnavailable : LocationUnavailableReason
 
-    /**
-     * The provider cannot deliver a location now, but a later location request may succeed.
-     *
-     * For example, a device in a tunnel may temporarily lose satellite positioning, or a browser
-     * request may time out before a position is available.
-     */
-    public val TemporarilyUnavailable: LocationUnavailableReason =
-      LocationUnavailableReason("TemporarilyUnavailable")
+  /**
+   * An active request discovered that the target or host cannot provide location.
+   *
+   * For example, an initialized Windows provider may report that location is not available on the
+   * device.
+   */
+  public data object Unsupported : LocationUnavailableReason
 
-    /**
-     * An active request discovered that the target or host cannot provide location.
-     *
-     * For example, an initialized Windows provider may report that location is not available on the
-     * device.
-     */
-    public val Unsupported: LocationUnavailableReason = LocationUnavailableReason("Unsupported")
+  /**
+   * Foreground location permission has not been granted.
+   *
+   * For example, the user may deny the permission prompt or revoke permission in system settings
+   * while the application is running.
+   */
+  public data object PermissionDenied : LocationUnavailableReason
 
-    /**
-     * Foreground location permission has not been granted.
-     *
-     * For example, the user may deny the permission prompt or revoke permission in system settings
-     * while the application is running.
-     */
-    public val PermissionDenied: LocationUnavailableReason =
-      LocationUnavailableReason("PermissionDenied")
-
-    /**
-     * The provider failed for a reason that is not a normal availability condition.
-     *
-     * For example, a platform service may return malformed location data, or a custom provider may
-     * throw while its update flow is being collected.
-     */
-    public val UnexpectedFailure: LocationUnavailableReason =
-      LocationUnavailableReason("UnexpectedFailure")
-  }
+  /**
+   * The provider failed for a reason that is not a normal availability condition.
+   *
+   * For example, a platform service may return malformed location data, or a custom provider may
+   * throw while its update flow is being collected.
+   */
+  public data object UnexpectedFailure : LocationUnavailableReason
 }
+
+/**
+ * Keeps [LocationUnavailableReason] open: callers' `when` needs an `else` branch. No provider in
+ * this library reports it.
+ */
+internal data object UnspecifiedLocationUnavailableReason : LocationUnavailableReason
 
 /**
  * The accuracy level that the user authorized.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-@JvmInline
-public value class LocationAccuracyAuthorization private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface LocationAccuracyAuthorization {
+  /** Fine location on Android or full accuracy on iOS. */
+  public data object Precise : LocationAccuracyAuthorization
 
-  public companion object {
-    /** Fine location on Android or full accuracy on iOS. */
-    public val Precise: LocationAccuracyAuthorization = LocationAccuracyAuthorization("Precise")
+  /** Coarse location on Android or reduced accuracy on iOS. */
+  public data object Approximate : LocationAccuracyAuthorization
 
-    /** Coarse location on Android or reduced accuracy on iOS. */
-    public val Approximate: LocationAccuracyAuthorization =
-      LocationAccuracyAuthorization("Approximate")
-
-    /** The platform does not report whether precise location is authorized. */
-    public val Unknown: LocationAccuracyAuthorization = LocationAccuracyAuthorization("Unknown")
-  }
+  /** The platform does not report whether precise location is authorized. */
+  public data object Unknown : LocationAccuracyAuthorization
 }
+
+/**
+ * Keeps [LocationAccuracyAuthorization] open: callers' `when` needs an `else` branch. No provider
+ * in this library reports it.
+ */
+internal data object UnspecifiedLocationAccuracyAuthorization : LocationAccuracyAuthorization
 
 /**
  * Current foreground location authorization.

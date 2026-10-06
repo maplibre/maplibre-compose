@@ -2066,12 +2066,11 @@ public final class org/maplibre/compose/location/LocationTrackingStatus$Tracking
 
 public final class org/maplibre/compose/location/LocationTrackingStatus$Unavailable : org/maplibre/compose/location/LocationTrackingStatus {
 	public static final field $stable I
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-uLQqBCI ()Ljava/lang/String;
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationUnavailableReason;
 	public final fun component2 ()Ljava/lang/Throwable;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCause ()Ljava/lang/Throwable;
-	public final fun getReason-uLQqBCI ()Ljava/lang/String;
+	public final fun getReason ()Lorg/maplibre/compose/location/LocationUnavailableReason;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
