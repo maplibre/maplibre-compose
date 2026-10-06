@@ -214,7 +214,11 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   }
 }
 
-/** An independent non-UI map that captures images. */
+/**
+ * An independent non-UI map that captures images.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MapSnapshotter {
   /** Desired and applied style state for this snapshotter's engine map. */
   public val style: MapStyleState

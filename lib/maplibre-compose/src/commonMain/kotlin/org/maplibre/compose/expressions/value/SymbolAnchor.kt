@@ -2,7 +2,11 @@ package org.maplibre.compose.expressions.value
 
 import kotlin.jvm.JvmInline
 
-/** Part of the icon/text placed closest to the anchor. */
+/**
+ * Part of the icon/text placed closest to the anchor.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @JvmInline
 public value class SymbolAnchor private constructor(override val value: String) : EnumValue {
   public companion object : EnumType<SymbolAnchor> {

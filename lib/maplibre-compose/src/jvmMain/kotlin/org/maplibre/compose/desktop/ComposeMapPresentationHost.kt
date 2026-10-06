@@ -6,6 +6,8 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 /**
  * Supplies the window integrations a map uses on desktop.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * Create a host with [metal], [direct3D12], [openGl], or [angleD3D11], then install it with
  * [ProvideMapPresentationHost]. The factory determines the supported MapLibre producer bridges
  * before a GPU context exists. Each map gets its own bridge and rendering resources.

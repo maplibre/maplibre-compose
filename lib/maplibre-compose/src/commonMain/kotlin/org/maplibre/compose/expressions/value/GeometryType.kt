@@ -5,6 +5,8 @@ import kotlin.jvm.JvmInline
 /**
  * Type of a GeoJson feature, as returned by
  * [Feature.geometryType][org.maplibre.compose.expressions.dsl.Feature.geometryType].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @JvmInline
 public value class GeometryType private constructor(override val value: String) : EnumValue {

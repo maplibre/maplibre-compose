@@ -51,7 +51,11 @@ public fun LocationTrackingEffect(
   }
 }
 
-/** The measurements that triggered a [LocationTrackingEffect] callback. */
+/**
+ * The measurements that triggered a [LocationTrackingEffect] callback.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface LocationChangeScope {
   /** The location measurement from the previous callback, or `null` for the first callback. */
   public val previousLocation: LocationMeasurement?

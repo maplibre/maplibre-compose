@@ -3,6 +3,8 @@ package org.maplibre.compose.interaction
 /**
  * Relative emphasis. Platforms may use the same feedback for several levels, or remain silent.
  * macOS uses the trackpad alignment pattern for every level.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public enum class HapticEmphasis {
   Subtle,

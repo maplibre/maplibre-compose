@@ -2,7 +2,11 @@ package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
 
-/** What started the most recent camera movement. */
+/**
+ * What started the most recent camera movement.
+ *
+ * Closed.
+ */
 @Immutable
 public enum class CameraMoveReason {
   /** The map is detached or the camera has not moved yet. */

@@ -5,6 +5,8 @@ import kotlin.jvm.JvmInline
 /**
  * In combination with [SymbolPlacement], determines the rotation behavior of the individual glyphs
  * forming the text.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @JvmInline
 public value class TextRotationAlignment private constructor(override val value: String) :

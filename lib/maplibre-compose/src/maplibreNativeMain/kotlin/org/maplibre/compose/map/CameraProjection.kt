@@ -2,7 +2,11 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
 
-/** The camera projection that MapLibre Native uses to render the map. */
+/**
+ * The camera projection that MapLibre Native uses to render the map.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @Immutable
 public sealed interface CameraProjection {
   /** Renders the map with perspective projection. */

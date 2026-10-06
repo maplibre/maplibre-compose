@@ -13,6 +13,8 @@ import org.maplibre.compose.util.DpPadding
  * resolve to. Many of these types are never actually instantiated at runtime; they're only used as
  * type parameters to hint at the type of an
  * [Expression][org.maplibre.compose.expressions.ast.Expression].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ExpressionValue
 
@@ -21,6 +23,8 @@ public sealed interface ExpressionValue
  * such as a feature property read with
  * [feature.get][org.maplibre.compose.expressions.dsl.Feature.get]. Corresponds to the `value` type
  * in the style spec.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  *
  * A source that may also produce no value, such as a missing property, has the type `AnyValue?`.
  * See [Expression][org.maplibre.compose.expressions.ast.Expression] for what a nullable type means.
@@ -39,6 +43,8 @@ public sealed interface AnyValue : ExpressionValue, EquatableValue
 /**
  * Represents the `null` literal, created with [nil][org.maplibre.compose.expressions.dsl.nil].
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * MapLibre accepts a `null` literal only where it expects a value of unknown type: as an operand of
  * [eq][org.maplibre.compose.expressions.dsl.eq] or [neq][org.maplibre.compose.expressions.dsl.neq],
  * as an item of a list literal, or as a variable binding. A layer property or a typed function
@@ -51,6 +57,8 @@ public sealed interface NullValue : ExpressionValue, EquatableValue
 /**
  * Represents an [ExpressionValue] that resolves to a true or false value. See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface BooleanValue : ExpressionValue, EquatableValue
 
@@ -58,6 +66,8 @@ public sealed interface BooleanValue : ExpressionValue, EquatableValue
  * Represents an [ExpressionValue] that resolves to a numeric quantity. Corresponds to numbers in
  * the JSON style spec. Use [const][org.maplibre.compose.expressions.dsl.const] to create a literal
  * [NumberValue].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  *
  * @param U the unit type of the number. For dimensionless quantities, use [Number].
  */
@@ -78,6 +88,8 @@ public typealias FloatValue = NumberValue<Number>
 /**
  * Represents an [ExpressionValue] that resolves to an integer dimensionless quantity. See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface IntValue : NumberValue<Number>
 
@@ -104,6 +116,8 @@ public typealias MillisecondsValue = NumberValue<Duration>
 /**
  * Represents an [ExpressionValue] that resolves to a string value. See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface StringValue :
   ExpressionValue,
@@ -139,6 +153,8 @@ public sealed interface EnumType<out T : EnumValue> {
 /**
  * Represents an [ExpressionValue] that resolves to a [Color] value. See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ColorValue : ExpressionValue, InterpolatableValue<ColorValue>
 
@@ -147,24 +163,32 @@ public sealed interface ColorValue : ExpressionValue, InterpolatableValue<ColorV
  * [ProjectionTransition][org.maplibre.compose.style.ProjectionTransition] between two of them. See
  * [const][org.maplibre.compose.expressions.dsl.const] and
  * [interpolate][org.maplibre.compose.expressions.dsl.interpolate].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ProjectionValue : ExpressionValue, InterpolatableValue<ProjectionValue>
 
 /**
  * Represents an [ExpressionValue] that resolves to a map value (corresponds to a JSON object). See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface MapValue<@Suppress("unused") out T : ExpressionValue?> : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a list value (corresponds to a JSON array). See
  * [const][org.maplibre.compose.expressions.dsl.const].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ListValue<out T : ExpressionValue?> : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a list value (corresponds to a JSON array) of
  * alternating types.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface AlternatingListValue<
   @Suppress("unused")
@@ -185,6 +209,8 @@ public typealias TextVariableAnchorOffsetValue =
 /**
  * Represents an [ExpressionValue] that resolves to a list of numbers.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * @param U the unit type of the number. For dimensionless quantities, use [Number].
  */
 public sealed interface VectorValue<U> :
@@ -192,6 +218,8 @@ public sealed interface VectorValue<U> :
 
 /**
  * Represents an [ExpressionValue] that resolves to a 2D vector in some unit.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  *
  * @param U the unit type of the offset. For dimensionless quantities, use [Number].
  */
@@ -219,26 +247,38 @@ public typealias TextUnitOffsetValue = OffsetValue<TextUnit>
  * Represents an [ExpressionValue] that resolves to four-sided padding in device-independent pixels
  * ([DpPadding]). See [const][org.maplibre.compose.expressions.dsl.const] and
  * [padding][org.maplibre.compose.expressions.dsl.padding].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface DpPaddingValue : VectorValue<Dp>
 
 /**
  * Represents an [ExpressionValue] that resolves to a collator object for use in locale-dependent
  * comparison operations. See [collator][org.maplibre.compose.expressions.dsl.collator].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface CollatorValue : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a formatted string. See
  * [format][org.maplibre.compose.expressions.dsl.format].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface FormattedValue : ExpressionValue
 
-/** Represents an [ExpressionValue] that resolves to a geometry object. */
+/**
+ * Represents an [ExpressionValue] that resolves to a geometry object.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface GeoJsonValue : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to an image. See
  * [image][org.maplibre.compose.expressions.dsl.image].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ImageValue : ExpressionValue, FormattableValue

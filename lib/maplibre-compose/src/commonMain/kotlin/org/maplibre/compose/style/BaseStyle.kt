@@ -8,6 +8,11 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
+/**
+ * A MapLibre style document for the map to load, given by [Uri] or inline as [Json].
+ *
+ * Closed.
+ */
 @Immutable
 public sealed interface BaseStyle {
 

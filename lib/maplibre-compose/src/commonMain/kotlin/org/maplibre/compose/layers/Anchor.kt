@@ -14,6 +14,8 @@ internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalO
  * style: [Top], [Bottom], [Above], or [Below]. Layers that resolve to the same position keep their
  * order from the style content.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * See [Anchor.Companion] for the composable functions that apply an anchor to a block of layers.
  */
 @Immutable

@@ -1,6 +1,10 @@
 package org.maplibre.compose.logging
 
-/** The component that produced a [MapLogRecord]. */
+/**
+ * The component that produced a [MapLogRecord].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public enum class MapLogSource {
   /** MapLibre Compose itself. */
   Library,

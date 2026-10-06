@@ -6,6 +6,8 @@ import kotlin.jvm.JvmInline
  * Determines whether overlapping symbols in the same layer are rendered in the order that they
  * appear in the data source or by their y-position relative to the viewport. To control the order
  * and prioritization of symbols otherwise, use `sortKey`.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @JvmInline
 public value class SymbolZOrder private constructor(override val value: String) : EnumValue {

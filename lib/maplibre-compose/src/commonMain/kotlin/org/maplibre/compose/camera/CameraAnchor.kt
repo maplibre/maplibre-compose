@@ -10,6 +10,8 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * A point whose screen location is preserved by
  * [org.maplibre.compose.map.MapState.animateCameraAround].
+ *
+ * Closed.
  */
 @Immutable
 public sealed interface CameraAnchor {

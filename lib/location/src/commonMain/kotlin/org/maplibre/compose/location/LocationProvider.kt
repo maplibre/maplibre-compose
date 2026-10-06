@@ -76,6 +76,8 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
 /**
  * Whether a location implementation has a usable platform backend.
  *
+ * Closed.
+ *
  * This describes application and backend setup. It does not describe location permission, system
  * location services, or whether the next request can obtain a measurement.
  */
@@ -129,6 +131,8 @@ public data class LocationRequest(
 /**
  * Accuracy levels for [LocationRequest], which are mapped to platform accuracy and power levels.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * Use [High] to display the user's location, or [Balanced] to reduce power usage.
  */
 public enum class LocationAccuracy {
@@ -152,7 +156,11 @@ public enum class LocationAccuracy {
   Lowest,
 }
 
-/** Events emitted while collecting [LocationProvider.updates]. */
+/**
+ * Events emitted while collecting [LocationProvider.updates].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface LocationEvent {
   /**
    * A location measurement delivered by the provider.
@@ -178,7 +186,11 @@ public sealed interface LocationEvent {
   ) : LocationEvent
 }
 
-/** Reasons that a provider cannot currently deliver location measurements. */
+/**
+ * Reasons that a provider cannot currently deliver location measurements.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public enum class LocationUnavailableReason {
   /**
    * The device's location services are disabled.
@@ -221,7 +233,11 @@ public enum class LocationUnavailableReason {
   UnexpectedFailure,
 }
 
-/** The accuracy level that the user authorized. */
+/**
+ * The accuracy level that the user authorized.
+ *
+ * Closed.
+ */
 public enum class LocationAccuracyAuthorization {
   /** Fine location on Android or full accuracy on iOS. */
   Precise,
@@ -233,7 +249,11 @@ public enum class LocationAccuracyAuthorization {
   Unknown,
 }
 
-/** Current foreground location authorization. */
+/**
+ * Current foreground location authorization.
+ *
+ * Closed.
+ */
 public sealed interface LocationPermission {
   /**
    * Authorization has not been determined. Collecting [LocationProvider.updates] retries the

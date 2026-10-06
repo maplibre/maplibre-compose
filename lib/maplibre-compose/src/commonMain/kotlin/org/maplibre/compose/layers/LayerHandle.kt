@@ -8,6 +8,8 @@ import org.maplibre.compose.style.TransitionOptions
  * Reads a layer in one loaded style generation. Handles expire on removal, replacement, or a
  * base-style reload. Operations on an expired handle or an unready style throw
  * [StyleHandleException].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface LayerHandle {
   public val id: String
@@ -40,6 +42,8 @@ public sealed interface LayerHandle {
 /**
  * Definition writes for a layer that composition does not own. Writes do not wait for the engine;
  * rejected values are logged and retain the previous value. The view expires with its read handle.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface MutableLayerHandle : LayerHandle {
   /** Sets the layout property [name] for this loaded style. */

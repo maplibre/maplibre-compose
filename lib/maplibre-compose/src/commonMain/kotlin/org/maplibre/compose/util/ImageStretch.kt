@@ -6,7 +6,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 
-/** Stretch and content-box metadata for a style image used with `icon-text-fit`. */
+/**
+ * Stretch and content-box metadata for a style image used with `icon-text-fit`.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @Immutable
 public sealed class ImageStretch {
   public companion object {

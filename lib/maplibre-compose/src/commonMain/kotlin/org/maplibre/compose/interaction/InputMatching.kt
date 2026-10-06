@@ -3,7 +3,11 @@ package org.maplibre.compose.interaction
 import androidx.compose.runtime.Immutable
 import org.maplibre.compose.util.formatToString
 
-/** A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button. */
+/**
+ * A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button.
+ *
+ * Closed.
+ */
 public enum class PointerButton {
   Primary,
   Secondary,
@@ -12,7 +16,11 @@ public enum class PointerButton {
   Forward,
 }
 
-/** Keyboard modifiers reported with an input sample. */
+/**
+ * Keyboard modifiers reported with an input sample.
+ *
+ * Closed.
+ */
 public enum class KeyModifier {
   Shift,
   Ctrl,
@@ -20,7 +28,11 @@ public enum class KeyModifier {
   Meta,
 }
 
-/** Matches the complete modifier set or a subset. A null filter matches any modifiers. */
+/**
+ * Matches the complete modifier set or a subset. A null filter matches any modifiers.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @Immutable
 public sealed class ModifierMatch private constructor() {
   public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {

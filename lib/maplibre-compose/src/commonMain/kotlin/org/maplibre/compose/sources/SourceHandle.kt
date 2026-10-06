@@ -51,6 +51,8 @@ public sealed interface MutableSourceHandle : SourceHandle {
 /**
  * Access to a GeoJSON source in one loaded style generation.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * Cluster features must come from the source's current data.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
@@ -187,6 +189,8 @@ public sealed interface MutableCustomVectorTileSourceHandle :
 
 /**
  * Access to a custom geometry source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  *
  * MapLibre GL JS has no per-tile invalidation: an invalidation there reloads every tile of the
  * source, so the requested tile or bounds is advisory. An invalidation requested while provider

@@ -7,6 +7,8 @@ import org.maplibre.compose.style.checkStyleHandle
 /**
  * A style image in one loaded style generation. Operations on an expired handle or an unready style
  * throw [StyleHandleException].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface StyleImageHandle {
   public val id: String
@@ -14,7 +16,11 @@ public sealed interface StyleImageHandle {
   public val asMutable: MutableStyleImageHandle?
 }
 
-/** Permission to remove a style image. */
+/**
+ * Permission to remove a style image.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableStyleImageHandle : StyleImageHandle {
   /** Enqueues removal. Expired handles fail locally; native refusals are logged. */
   public fun remove()
