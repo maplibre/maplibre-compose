@@ -21,7 +21,7 @@ internal class GlJsCustomGeometryAttachment(
   private val options: CustomGeometrySourceOptions,
   private val provider: GeometryTileProvider,
 ) {
-  private val attachment =
+  val tiles =
     GlJsProtocolTileAttachment(
       name = "custom-geometry-$sourceId",
       loadTile = { tile ->
@@ -31,7 +31,7 @@ internal class GlJsCustomGeometryAttachment(
           // A cancelled job means the request ended. The provider's own cancellation, such as a
           // timeout, leaves the job active and fails like any other exception.
           if (error is CancellationException) currentCoroutineContext().ensureActive()
-          // Match native and keep the tile reloadable: GL JS cannot refetch an errored tile.
+          // Match native, which serves an empty tile when the provider fails.
           MapLog.e(error) { "Custom geometry source '$sourceId' failed to load $tile" }
           byteArrayOf()
         }
@@ -41,12 +41,7 @@ internal class GlJsCustomGeometryAttachment(
   /** The MVT layer name carried by every tile; GL JS matches layers to it by name. */
   val sourceLayerName: String = sourceId
 
-  val tileUrlTemplate: String
-    get() = attachment.tileUrlTemplate
-
-  fun invalidate(): String = attachment.invalidate()
-
-  fun close() = attachment.close()
+  fun close() = tiles.close()
 
   private fun encodeTile(features: FeatureCollection<*, *>, tile: TileCoordinate): ByteArray {
     val data: dynamic = JSON.parse(features.toJson())

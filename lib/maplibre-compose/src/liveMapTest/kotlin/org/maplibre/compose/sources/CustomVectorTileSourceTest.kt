@@ -42,7 +42,7 @@ class CustomVectorTileSourceTest {
           CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
         ) { tile ->
           requests += tile
-          PointTile
+          PointMvtTile
         }
       fixture.state.style.sources.add(source)
       val layer = TestLayer("custom-vector-points", "circle", source)
@@ -167,23 +167,23 @@ class CustomVectorTileSourceTest {
         """
           .trimIndent()
       )
+  }
+}
 
-    /** One point feature with id 1 and `name = center`, in a layer named `points`. */
-    val PointTile: ByteArray = protobuf {
-      message(3) {
-        string(1, SourceLayer)
-        message(2) {
-          varint(1, 1)
-          packed(2, 0, 0)
-          varint(3, 1)
-          packed(4, 9, 4096, 4096)
-        }
-        string(3, "name")
-        message(4) { string(1, "center") }
-        varint(5, 4096)
-        varint(15, 2)
-      }
+/** One point feature with id 1 and `name = center`, in a layer named `points`. */
+internal val PointMvtTile: ByteArray = protobuf {
+  message(3) {
+    string(1, "points")
+    message(2) {
+      varint(1, 1)
+      packed(2, 0, 0)
+      varint(3, 1)
+      packed(4, 9, 4096, 4096)
     }
+    string(3, "name")
+    message(4) { string(1, "center") }
+    varint(5, 4096)
+    varint(15, 2)
   }
 }
 

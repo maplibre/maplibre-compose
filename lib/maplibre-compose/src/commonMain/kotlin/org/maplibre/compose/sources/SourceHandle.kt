@@ -173,7 +173,10 @@ public sealed interface MutableVectorTileSourceHandle : VectorTileSourceHandle, 
 public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   override val asMutable: MutableCustomVectorTileSourceHandle?
 
-  /** Requests new data for [tile]. */
+  /**
+   * Requests new data for [tile]. Invalidation may also reload other tiles of this source. A tile
+   * whose provider call is in progress may show that call's result before it reloads.
+   */
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
 
@@ -188,9 +191,8 @@ public sealed interface MutableCustomVectorTileSourceHandle :
 /**
  * Access to a custom geometry source in one loaded style generation.
  *
- * MapLibre GL JS has no per-tile invalidation: an invalidation there reloads every tile of the
- * source, so the requested tile or bounds is advisory. An invalidation requested while provider
- * calls are still in flight is applied once those tiles settle, not synchronously.
+ * Invalidation may also reload tiles outside the requested tile or bounds. A tile whose provider
+ * call is in progress may show that call's result before it reloads.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
