@@ -3120,6 +3120,7 @@ public final class org/maplibre/compose/overlay/PlacedTowardsState {
 	public fun <init> ()V
 	public final fun getAngleDegrees ()F
 	public final fun isPlaced ()Z
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/overlay/PointerPinButtonDefaults {

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.IntSize
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.Position
 
 /** Layout operations for direct children of a map overlay or [GeographicLayout]. */
@@ -70,6 +71,9 @@ public class PlacedTowardsState {
   /** Whether the content is currently placed. */
   public var isPlaced: Boolean by mutableStateOf(false)
     internal set
+
+  override fun toString(): String =
+    formatToString("PlacedTowardsState", "angleDegrees" to angleDegrees, "isPlaced" to isPlaced)
 }
 
 /** Remembers a [PlacedTowardsState] for [MapOverlayScope.placedTowards]. */

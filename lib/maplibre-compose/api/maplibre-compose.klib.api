@@ -2340,6 +2340,8 @@ final class org.maplibre.compose.overlay/PlacedTowardsState { // org.maplibre.co
         final fun <get-angleDegrees>(): kotlin/Float // org.maplibre.compose.overlay/PlacedTowardsState.angleDegrees.<get-angleDegrees>|<get-angleDegrees>(){}[0]
     final var isPlaced // org.maplibre.compose.overlay/PlacedTowardsState.isPlaced|{}isPlaced[0]
         final fun <get-isPlaced>(): kotlin/Boolean // org.maplibre.compose.overlay/PlacedTowardsState.isPlaced.<get-isPlaced>|<get-isPlaced>(){}[0]
+
+    final fun toString(): kotlin/String // org.maplibre.compose.overlay/PlacedTowardsState.toString|toString(){}[0]
 }
 
 final class org.maplibre.compose.overlay/PointerPinButtonStyle { // org.maplibre.compose.overlay/PointerPinButtonStyle|null[0]

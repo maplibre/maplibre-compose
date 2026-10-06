@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
+import org.maplibre.compose.util.formatToString
 
 /**
  * A data source for map data.
@@ -24,7 +25,7 @@ public sealed class Source(internal val id: String) {
   public val attributionHtml: String
     get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
 
-  override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
+  override fun toString(): String = formatToString(this::class.simpleName.orEmpty(), "id" to id)
 }
 
 /** A source of vector features: tiled vector data, GeoJSON, or application-supplied tiles. */
