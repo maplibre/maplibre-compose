@@ -68,9 +68,8 @@ this guide.
 - Start `CompositionLocal` names with `Local`.
   [[1]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md#naming-compositionlocals)
 - When the MapLibre style spec has a term for something, use it, in camel case.
-- Name expression DSL functions after the style-spec operator they build, even
-  when the name isn't a verb (`const`, `coalesce`). Write operators that take no
-  arguments as functions, not constants: `pi()`, not `PI`.
+- In the expression DSL, write operators that take no arguments as functions,
+  not constants: `pi()`, not `PI`.
 - Name a component's defaults object after the component, with a `Defaults`
   suffix.
   [[2]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-component-api-guidelines.md#ComponentDefault-object)
