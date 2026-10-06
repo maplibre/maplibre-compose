@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
@@ -61,6 +62,8 @@ class MlnFfiTileRequestCoordinatorTest {
           secondFinished.complete(Unit)
         }
       }
+    val answers = RecordingList<Unit>()
+    binding.onDrop = { answers += Unit }
     val tile = CanonicalTileId(z = 0, x = 0, y = 0)
 
     coordinator.fetch(tile)
@@ -70,8 +73,11 @@ class MlnFfiTileRequestCoordinatorTest {
     withTimeout(5.seconds) {
       firstCancelled.await()
       secondFinished.await()
+      while (answers.size < 1) kotlinx.coroutines.yield()
     }
+    delay(100)
     assertEquals(2, invocations.size)
+    assertEquals(1, answers.size, "the replaced request must not be answered")
     coordinator.close()
   }
 
@@ -91,6 +97,8 @@ class MlnFfiTileRequestCoordinatorTest {
             firstCancelled.complete(Unit)
           }
         }
+      val answers = RecordingList<Unit>()
+      binding.onDrop = { answers += Unit }
       coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
       withTimeout(5.seconds) { firstStarted.await() }
 
@@ -100,6 +108,7 @@ class MlnFfiTileRequestCoordinatorTest {
 
       delay(100)
       assertEquals(1, starts.size, "a closed coordinator must not load")
+      assertEquals(0, answers.size, "a closed coordinator must not answer")
     }
 
   @Test
@@ -117,6 +126,18 @@ class MlnFfiTileRequestCoordinatorTest {
     coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
 
     withTimeout(5.seconds) { successful.await() }
+    coordinator.close()
+  }
+
+  @Test
+  fun a_provider_timeout_answers_the_tile() = withDroppingBinding { binding ->
+    val answered = CompletableDeferred<Unit>()
+    binding.onDrop = { answered.complete(Unit) }
+    val coordinator = coordinator(binding) { withTimeout(1.milliseconds) { awaitCancellation() } }
+
+    coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
+
+    withTimeout(5.seconds) { answered.await() }
     coordinator.close()
   }
 

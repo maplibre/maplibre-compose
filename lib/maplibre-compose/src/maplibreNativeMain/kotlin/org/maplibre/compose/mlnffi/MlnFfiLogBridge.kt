@@ -1,7 +1,7 @@
 package org.maplibre.compose.mlnffi
 
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
-import org.maplibre.compose.logging.MapLogRecord
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.logging.MapLogging
 import org.maplibre.nativeffi.Maplibre
@@ -11,7 +11,7 @@ import org.maplibre.nativeffi.log.LogRecord
 import org.maplibre.nativeffi.log.LogSeverity
 
 /**
- * Forwards MapLibre Native's process-global log stream to [MapLogging.logger].
+ * Forwards MapLibre Native's process-global log stream to [MapLogging.logger] through [MapLog].
  *
  * Installed once, when the first native runtime is created; `setLogCallback` loads the native
  * library itself. The callback reads the current logger at each record, so replacing the logger
@@ -31,13 +31,14 @@ internal object MlnFfiLogBridge {
   }
 
   private fun forward(record: LogRecord): Boolean {
-    val logger = MapLogging.logger ?: return true
-    val level = record.severity.toMapLogLevel()
-    if (level < logger.minLevel) return true
-    val message =
-      if (record.code >= 0) "${record.message} (code ${record.code})" else record.message
-    logger.log(
-      MapLogRecord(level, MapLogSource.NativeEngine, record.event.categoryName(), message, null)
+    MapLog.log(
+      level = record.severity.toMapLogLevel(),
+      throwable = null,
+      message = {
+        if (record.code >= 0) "${record.message} (code ${record.code})" else record.message
+      },
+      source = MapLogSource.NativeEngine,
+      category = record.event.categoryName(),
     )
     return true
   }

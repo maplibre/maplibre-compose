@@ -13,7 +13,7 @@ public object MapLogging {
   /**
    * The sink for every record. Null drops every record. Defaults to [platformLogger].
    *
-   * The logger runs on engine threads. See [MapLogger] for what an implementation may do.
+   * The logger can run on any thread. See [MapLogger] for what an implementation may do.
    */
   @Volatile @set:DelicateMaplibreComposeApi public var logger: MapLogger? = platformLogger
 }

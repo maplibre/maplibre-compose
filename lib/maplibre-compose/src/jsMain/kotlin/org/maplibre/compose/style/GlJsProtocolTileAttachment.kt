@@ -69,9 +69,10 @@ internal class GlJsProtocolTileAttachment(
               val data =
                 try {
                   loadTile(tile)
-                } catch (cancellation: CancellationException) {
-                  throw cancellation
                 } catch (error: Throwable) {
+                  // A cancelled job means the request ended. The provider's own cancellation,
+                  // such as a timeout, leaves the job active and fails the tile.
+                  if (error is CancellationException) currentCoroutineContext().ensureActive()
                   throw protocolFailure(error)
                 }
               currentCoroutineContext().ensureActive()

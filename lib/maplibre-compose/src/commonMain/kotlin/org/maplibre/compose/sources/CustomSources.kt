@@ -58,19 +58,38 @@ public data class TileCoordinate(
 /**
  * Supplies geographic features for one tile.
  *
- * Calls for different tiles can overlap. Cancellation means MapLibre no longer needs that request.
+ * On MapLibre Native, calls run on a background thread, and calls for different tiles can run at
+ * the same time; move blocking work to another dispatcher such as `Dispatchers.IO`. A new request
+ * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
+ * main thread and overlap only where they suspend, and requests from one source in one map for a
+ * tile that is already loading share that call.
  */
 public fun interface GeometryTileProvider {
+  /**
+   * Returns the features of [tile].
+   *
+   * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
+   * style. Any other exception, including a cancellation that the provider causes itself, such as
+   * its own timeout, is logged as an error, and the tile has no features.
+   */
   public suspend fun loadTile(tile: TileCoordinate): FeatureCollection<*, *>
 }
 
 /**
  * Supplies encoded vector data for one tile.
  *
- * Calls for different tiles can overlap. Cancellation means MapLibre no longer needs that request.
+ * Calls run on the same threads, and overlap the same way, as [GeometryTileProvider] calls.
  */
 public fun interface VectorTileProvider {
-  /** Returns an uncompressed MVT protobuf document. An empty array represents an empty tile. */
+  /**
+   * Returns an uncompressed MVT protobuf document for [tile]. An empty array represents an empty
+   * tile.
+   *
+   * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
+   * style. Any other exception, including a cancellation that the provider causes itself, such as
+   * its own timeout, fails the tile, with the exception message as the error that the engine
+   * reports.
+   */
   public suspend fun loadTile(tile: TileCoordinate): ByteArray
 }
 

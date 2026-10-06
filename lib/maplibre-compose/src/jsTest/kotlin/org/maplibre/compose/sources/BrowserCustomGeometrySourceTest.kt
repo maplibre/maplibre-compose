@@ -7,7 +7,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -85,6 +88,26 @@ class BrowserCustomGeometrySourceTest {
         assertNull(style.lastReportedError)
       }
     }
+
+  @Test
+  fun a_provider_timeout_completes_as_an_empty_tile(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source =
+        CustomGeometrySource("timing-out", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+          withTimeout(1.milliseconds) { awaitCancellation() }
+        }
+      val layer = TestLayer("timing-out-fill", "fill", source)
+      style.install(source)
+      style.install(layer)
+
+      fixture.pumpUntil("the timed-out tile to finish loading") {
+        style.withMap { it.isSourceLoaded(source.id) } == true
+      }
+      assertNull(style.lastReportedError)
+    }
+  }
 
   @Test
   fun invalidation_refreshes_both_loaded_and_in_flight_tiles(): MapTestResult = runMapTest {
