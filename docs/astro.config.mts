@@ -81,6 +81,7 @@ export default defineConfig({
         {
           label: "Development",
           items: [
+            { label: "API guidelines", slug: "api-guidelines" },
             { label: "Benchmarks", link: "/benchmarks/" },
             { label: "Code metrics", link: "/metrics/" },
           ],
