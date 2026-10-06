@@ -46,9 +46,11 @@ import org.maplibre.compose.util.MaplibreComposable
 /** Immutable inputs for one snapshot capture. */
 public data class MapSnapshotRequest(
   /**
-   * Size of the captured map. MapLibre lays out maps in whole dp, so each dimension is rounded to
-   * the nearest whole dp, and to at least 1 dp. Each image dimension in pixels is the rounded size
-   * multiplied by [density], rounded up.
+   * Size of the captured map. Both dimensions must be finite and positive.
+   *
+   * MapLibre lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and
+   * to at least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density],
+   * rounded up.
    */
   public val size: DpSize,
   /** Camera position used for this capture. */
@@ -68,10 +70,10 @@ public data class MapSnapshotRequest(
       "Snapshot height must be finite and positive, was ${size.height}"
     }
     require(density.density.isFinite() && density.density > 0f) {
-      "Snapshot density must be finite and positive, was ${density.density}"
+      "Snapshot density must be finite and positive"
     }
     require(density.fontScale.isFinite() && density.fontScale > 0f) {
-      "Snapshot font scale must be finite and positive, was ${density.fontScale}"
+      "Snapshot font scale must be finite and positive"
     }
   }
 }
