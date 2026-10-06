@@ -2161,30 +2161,24 @@ public final class org/maplibre/compose/location/UpdateCameraKt {
 	public static synthetic fun updateCamera$default (Lorg/maplibre/compose/location/LocationChangeScope;Lorg/maplibre/compose/map/MapState;Lorg/maplibre/compose/camera/CameraAnimation;Lorg/maplibre/compose/location/BearingUpdate;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
-public abstract interface class org/maplibre/compose/logging/MapLogLevel : java/lang/Comparable {
+public abstract class org/maplibre/compose/logging/MapLogLevel : java/lang/Comparable {
+	public static final field $stable I
+	public synthetic fun <init> (ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
+	public final fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 }
 
 public final class org/maplibre/compose/logging/MapLogLevel$Debug : org/maplibre/compose/logging/MapLogLevel {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Debug;
-	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/logging/MapLogLevel$DefaultImpls {
-	public static fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;Lorg/maplibre/compose/logging/MapLogLevel;)I
-}
-
 public final class org/maplibre/compose/logging/MapLogLevel$Error : org/maplibre/compose/logging/MapLogLevel {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Error;
-	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -2193,8 +2187,6 @@ public final class org/maplibre/compose/logging/MapLogLevel$Error : org/maplibre
 public final class org/maplibre/compose/logging/MapLogLevel$Info : org/maplibre/compose/logging/MapLogLevel {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Info;
-	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -2203,8 +2195,6 @@ public final class org/maplibre/compose/logging/MapLogLevel$Info : org/maplibre/
 public final class org/maplibre/compose/logging/MapLogLevel$Warning : org/maplibre/compose/logging/MapLogLevel {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Warning;
-	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

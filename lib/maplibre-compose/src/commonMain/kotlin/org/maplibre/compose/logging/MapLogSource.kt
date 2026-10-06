@@ -1,10 +1,13 @@
 package org.maplibre.compose.logging
 
+import androidx.compose.runtime.Immutable
+
 /**
  * The component that produced a [MapLogRecord].
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface MapLogSource {
   /** MapLibre Compose itself. */
   public data object Library : MapLogSource
