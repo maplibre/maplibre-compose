@@ -756,55 +756,6 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
     }
 }
 
-sealed interface org.maplibre.compose.offline/OfflineManager { // org.maplibre.compose.offline/OfflineManager|null[0]
-    abstract val state // org.maplibre.compose.offline/OfflineManager.state|{}state[0]
-        abstract fun <get-state>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.offline/OfflineManagerState> // org.maplibre.compose.offline/OfflineManager.state.<get-state>|<get-state>(){}[0]
-
-    abstract fun pause(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineManager.pause|pause(org.maplibre.compose.offline.OfflinePack){}[0]
-    abstract fun resume(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineManager.resume|resume(org.maplibre.compose.offline.OfflinePack){}[0]
-    abstract suspend fun clearAmbientCache() // org.maplibre.compose.offline/OfflineManager.clearAmbientCache|clearAmbientCache(){}[0]
-    abstract suspend fun create(org.maplibre.compose.offline/OfflinePackDefinition, kotlin/ByteArray = ...): org.maplibre.compose.offline/OfflinePack // org.maplibre.compose.offline/OfflineManager.create|create(org.maplibre.compose.offline.OfflinePackDefinition;kotlin.ByteArray){}[0]
-    abstract suspend fun delete(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineManager.delete|delete(org.maplibre.compose.offline.OfflinePack){}[0]
-    abstract suspend fun invalidate(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineManager.invalidate|invalidate(org.maplibre.compose.offline.OfflinePack){}[0]
-    abstract suspend fun invalidateAmbientCache() // org.maplibre.compose.offline/OfflineManager.invalidateAmbientCache|invalidateAmbientCache(){}[0]
-    abstract suspend fun mergeDatabase(kotlinx.io.files/Path): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineManager.mergeDatabase|mergeDatabase(kotlinx.io.files.Path){}[0]
-    abstract suspend fun setMaximumAmbientCacheSize(kotlin/Long) // org.maplibre.compose.offline/OfflineManager.setMaximumAmbientCacheSize|setMaximumAmbientCacheSize(kotlin.Long){}[0]
-}
-
-sealed interface org.maplibre.compose.offline/OfflineManagerState { // org.maplibre.compose.offline/OfflineManagerState|null[0]
-    final class Failed : org.maplibre.compose.offline/OfflineManagerState { // org.maplibre.compose.offline/OfflineManagerState.Failed|null[0]
-        constructor <init>(kotlin/Throwable) // org.maplibre.compose.offline/OfflineManagerState.Failed.<init>|<init>(kotlin.Throwable){}[0]
-
-        final val cause // org.maplibre.compose.offline/OfflineManagerState.Failed.cause|{}cause[0]
-            final fun <get-cause>(): kotlin/Throwable // org.maplibre.compose.offline/OfflineManagerState.Failed.cause.<get-cause>|<get-cause>(){}[0]
-
-        final fun component1(): kotlin/Throwable // org.maplibre.compose.offline/OfflineManagerState.Failed.component1|component1(){}[0]
-        final fun copy(kotlin/Throwable = ...): org.maplibre.compose.offline/OfflineManagerState.Failed // org.maplibre.compose.offline/OfflineManagerState.Failed.copy|copy(kotlin.Throwable){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineManagerState.Failed.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineManagerState.Failed.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineManagerState.Failed.toString|toString(){}[0]
-    }
-
-    final class Ready : org.maplibre.compose.offline/OfflineManagerState { // org.maplibre.compose.offline/OfflineManagerState.Ready|null[0]
-        constructor <init>(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack>) // org.maplibre.compose.offline/OfflineManagerState.Ready.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
-
-        final val packs // org.maplibre.compose.offline/OfflineManagerState.Ready.packs|{}packs[0]
-            final fun <get-packs>(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineManagerState.Ready.packs.<get-packs>|<get-packs>(){}[0]
-
-        final fun component1(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineManagerState.Ready.component1|component1(){}[0]
-        final fun copy(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> = ...): org.maplibre.compose.offline/OfflineManagerState.Ready // org.maplibre.compose.offline/OfflineManagerState.Ready.copy|copy(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineManagerState.Ready.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineManagerState.Ready.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineManagerState.Ready.toString|toString(){}[0]
-    }
-
-    final object Loading : org.maplibre.compose.offline/OfflineManagerState { // org.maplibre.compose.offline/OfflineManagerState.Loading|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineManagerState.Loading.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineManagerState.Loading.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineManagerState.Loading.toString|toString(){}[0]
-    }
-}
-
 sealed interface org.maplibre.compose.offline/OfflinePackDefinition { // org.maplibre.compose.offline/OfflinePackDefinition|null[0]
     abstract val maxZoom // org.maplibre.compose.offline/OfflinePackDefinition.maxZoom|{}maxZoom[0]
         abstract fun <get-maxZoom>(): kotlin/Double? // org.maplibre.compose.offline/OfflinePackDefinition.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
@@ -863,6 +814,55 @@ sealed interface org.maplibre.compose.offline/OfflinePackDefinition { // org.map
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflinePackDefinition.TilePyramid.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflinePackDefinition.TilePyramid.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflinePackDefinition.TilePyramid.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.offline/OfflineStorage { // org.maplibre.compose.offline/OfflineStorage|null[0]
+    abstract val state // org.maplibre.compose.offline/OfflineStorage.state|{}state[0]
+        abstract fun <get-state>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.offline/OfflineStorageState> // org.maplibre.compose.offline/OfflineStorage.state.<get-state>|<get-state>(){}[0]
+
+    abstract fun pause(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineStorage.pause|pause(org.maplibre.compose.offline.OfflinePack){}[0]
+    abstract fun resume(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineStorage.resume|resume(org.maplibre.compose.offline.OfflinePack){}[0]
+    abstract suspend fun clearAmbientCache() // org.maplibre.compose.offline/OfflineStorage.clearAmbientCache|clearAmbientCache(){}[0]
+    abstract suspend fun create(org.maplibre.compose.offline/OfflinePackDefinition, kotlin/ByteArray = ...): org.maplibre.compose.offline/OfflinePack // org.maplibre.compose.offline/OfflineStorage.create|create(org.maplibre.compose.offline.OfflinePackDefinition;kotlin.ByteArray){}[0]
+    abstract suspend fun delete(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineStorage.delete|delete(org.maplibre.compose.offline.OfflinePack){}[0]
+    abstract suspend fun invalidate(org.maplibre.compose.offline/OfflinePack) // org.maplibre.compose.offline/OfflineStorage.invalidate|invalidate(org.maplibre.compose.offline.OfflinePack){}[0]
+    abstract suspend fun invalidateAmbientCache() // org.maplibre.compose.offline/OfflineStorage.invalidateAmbientCache|invalidateAmbientCache(){}[0]
+    abstract suspend fun mergeDatabase(kotlinx.io.files/Path): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineStorage.mergeDatabase|mergeDatabase(kotlinx.io.files.Path){}[0]
+    abstract suspend fun setMaximumAmbientCacheSize(kotlin/Long) // org.maplibre.compose.offline/OfflineStorage.setMaximumAmbientCacheSize|setMaximumAmbientCacheSize(kotlin.Long){}[0]
+}
+
+sealed interface org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState|null[0]
+    final class Failed : org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState.Failed|null[0]
+        constructor <init>(kotlin/Throwable) // org.maplibre.compose.offline/OfflineStorageState.Failed.<init>|<init>(kotlin.Throwable){}[0]
+
+        final val cause // org.maplibre.compose.offline/OfflineStorageState.Failed.cause|{}cause[0]
+            final fun <get-cause>(): kotlin/Throwable // org.maplibre.compose.offline/OfflineStorageState.Failed.cause.<get-cause>|<get-cause>(){}[0]
+
+        final fun component1(): kotlin/Throwable // org.maplibre.compose.offline/OfflineStorageState.Failed.component1|component1(){}[0]
+        final fun copy(kotlin/Throwable = ...): org.maplibre.compose.offline/OfflineStorageState.Failed // org.maplibre.compose.offline/OfflineStorageState.Failed.copy|copy(kotlin.Throwable){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineStorageState.Failed.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineStorageState.Failed.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineStorageState.Failed.toString|toString(){}[0]
+    }
+
+    final class Ready : org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState.Ready|null[0]
+        constructor <init>(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack>) // org.maplibre.compose.offline/OfflineStorageState.Ready.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
+
+        final val packs // org.maplibre.compose.offline/OfflineStorageState.Ready.packs|{}packs[0]
+            final fun <get-packs>(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineStorageState.Ready.packs.<get-packs>|<get-packs>(){}[0]
+
+        final fun component1(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineStorageState.Ready.component1|component1(){}[0]
+        final fun copy(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> = ...): org.maplibre.compose.offline/OfflineStorageState.Ready // org.maplibre.compose.offline/OfflineStorageState.Ready.copy|copy(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineStorageState.Ready.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineStorageState.Ready.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineStorageState.Ready.toString|toString(){}[0]
+    }
+
+    final object Loading : org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState.Loading|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineStorageState.Loading.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineStorageState.Loading.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineStorageState.Loading.toString|toString(){}[0]
     }
 }
 
@@ -1824,8 +1824,8 @@ final class org.maplibre.compose.map/MapCleanupException : kotlin/RuntimeExcepti
 final class org.maplibre.compose.map/MapRuntime { // org.maplibre.compose.map/MapRuntime|null[0]
     final val isClosed // org.maplibre.compose.map/MapRuntime.isClosed|{}isClosed[0]
         final fun <get-isClosed>(): kotlin/Boolean // org.maplibre.compose.map/MapRuntime.isClosed.<get-isClosed>|<get-isClosed>(){}[0]
-    final val offlineManager // org.maplibre.compose.map/MapRuntime.offlineManager|{}offlineManager[0]
-        final fun <get-offlineManager>(): org.maplibre.compose.offline/OfflineManager // org.maplibre.compose.map/MapRuntime.offlineManager.<get-offlineManager>|<get-offlineManager>(){}[0]
+    final val offlineStorage // org.maplibre.compose.map/MapRuntime.offlineStorage|{}offlineStorage[0]
+        final fun <get-offlineStorage>(): org.maplibre.compose.offline/OfflineStorage // org.maplibre.compose.map/MapRuntime.offlineStorage.<get-offlineStorage>|<get-offlineStorage>(){}[0]
 
     final fun close() // org.maplibre.compose.map/MapRuntime.close|close(){}[0]
     final fun createMapState(org.maplibre.compose.style/BaseStyle, org.maplibre.compose.camera/CameraPosition = ..., kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapState // org.maplibre.compose.map/MapRuntime.createMapState|createMapState(org.maplibre.compose.style.BaseStyle;org.maplibre.compose.camera.CameraPosition;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
@@ -2249,10 +2249,6 @@ final class org.maplibre.compose.map/TileLodOptions { // org.maplibre.compose.ma
     final fun component2(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.component2|component2(){}[0]
 }
 
-final class org.maplibre.compose.offline/OfflineManagerException : kotlin/RuntimeException { // org.maplibre.compose.offline/OfflineManagerException|null[0]
-    constructor <init>(kotlin/String, kotlin/Throwable? = ...) // org.maplibre.compose.offline/OfflineManagerException.<init>|<init>(kotlin.String;kotlin.Throwable?){}[0]
-}
-
 final class org.maplibre.compose.offline/OfflinePack { // org.maplibre.compose.offline/OfflinePack|null[0]
     final val definition // org.maplibre.compose.offline/OfflinePack.definition|{}definition[0]
         final fun <get-definition>(): org.maplibre.compose.offline/OfflinePackDefinition // org.maplibre.compose.offline/OfflinePack.definition.<get-definition>|<get-definition>(){}[0]
@@ -2265,6 +2261,10 @@ final class org.maplibre.compose.offline/OfflinePack { // org.maplibre.compose.o
     final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflinePack.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflinePack.toString|toString(){}[0]
     final suspend fun setMetadata(kotlin/ByteArray) // org.maplibre.compose.offline/OfflinePack.setMetadata|setMetadata(kotlin.ByteArray){}[0]
+}
+
+final class org.maplibre.compose.offline/OfflineStorageException : kotlin/RuntimeException { // org.maplibre.compose.offline/OfflineStorageException|null[0]
+    constructor <init>(kotlin/String, kotlin/Throwable? = ...) // org.maplibre.compose.offline/OfflineStorageException.<init>|<init>(kotlin.String;kotlin.Throwable?){}[0]
 }
 
 final class org.maplibre.compose.overlay/AttributionStyle { // org.maplibre.compose.overlay/AttributionStyle|null[0]
@@ -3953,13 +3953,13 @@ final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProg
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop[0]
-final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerException$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerException$stableprop|#static{}org_maplibre_compose_offline_OfflineManagerException$stableprop[0]
-final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop|#static{}org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop[0]
-final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop|#static{}org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop[0]
-final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop|#static{}org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop|#static{}org_maplibre_compose_offline_OfflinePack$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop|#static{}org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop|#static{}org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageException$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageException$stableprop|#static{}org_maplibre_compose_offline_OfflineStorageException$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop|#static{}org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop|#static{}org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop|#static{}org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop[0]
 final val org.maplibre.compose.overlay/LocalViewportInsets // org.maplibre.compose.overlay/LocalViewportInsets|{}LocalViewportInsets[0]
     final fun <get-LocalViewportInsets>(): androidx.compose.runtime/ProvidableCompositionLocal<androidx.compose.foundation.layout/PaddingValues> // org.maplibre.compose.overlay/LocalViewportInsets.<get-LocalViewportInsets>|<get-LocalViewportInsets>(){}[0]
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_AttributionDefaults$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_AttributionDefaults$stableprop|#static{}org_maplibre_compose_overlay_AttributionDefaults$stableprop[0]
@@ -4396,13 +4396,13 @@ final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProg
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter(){}[0]
-final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerException$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerException$stableprop_getter|org_maplibre_compose_offline_OfflineManagerException$stableprop_getter(){}[0]
-final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop_getter|org_maplibre_compose_offline_OfflineManagerState_Failed$stableprop_getter(){}[0]
-final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop_getter|org_maplibre_compose_offline_OfflineManagerState_Loading$stableprop_getter(){}[0]
-final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop_getter|org_maplibre_compose_offline_OfflineManagerState_Ready$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop_getter|org_maplibre_compose_offline_OfflinePack$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter|org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter|org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageException$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageException$stableprop_getter|org_maplibre_compose_offline_OfflineStorageException$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop_getter|org_maplibre_compose_offline_OfflineStorageState_Failed$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop_getter|org_maplibre_compose_offline_OfflineStorageState_Loading$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop_getter|org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop_getter(){}[0]
 final fun org.maplibre.compose.overlay/AttributionLinks(kotlin.collections/List<kotlin/String>, androidx.compose.ui/Modifier?, androidx.compose.ui.text/TextStyle?, androidx.compose.ui.text/TextLinkStyles?, androidx.compose.ui.unit/Dp, kotlin/Boolean, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/AttributionLinks|AttributionLinks(kotlin.collections.List<kotlin.String>;androidx.compose.ui.Modifier?;androidx.compose.ui.text.TextStyle?;androidx.compose.ui.text.TextLinkStyles?;androidx.compose.ui.unit.Dp;kotlin.Boolean;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.overlay/CompassButton(androidx.compose.ui/Modifier?, kotlin/Function0<kotlin/Unit>?, org.maplibre.compose.overlay/CompassButtonStyle?, kotlin/String?, androidx.compose.ui.unit/Dp, androidx.compose.foundation.layout/PaddingValues?, androidx.compose.ui.graphics.painter/Painter?, kotlin/Function1<org.maplibre.compose.camera/CameraPosition, org.maplibre.compose.camera/CameraUpdate>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/CompassButton|CompassButton(androidx.compose.ui.Modifier?;kotlin.Function0<kotlin.Unit>?;org.maplibre.compose.overlay.CompassButtonStyle?;kotlin.String?;androidx.compose.ui.unit.Dp;androidx.compose.foundation.layout.PaddingValues?;androidx.compose.ui.graphics.painter.Painter?;kotlin.Function1<org.maplibre.compose.camera.CameraPosition,org.maplibre.compose.camera.CameraUpdate>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.overlay/DisappearingCompassButton(androidx.compose.ui/Modifier?, kotlin/Function0<kotlin/Unit>?, org.maplibre.compose.overlay/CompassButtonStyle?, kotlin/String?, androidx.compose.ui.unit/Dp, androidx.compose.foundation.layout/PaddingValues?, androidx.compose.ui.graphics.painter/Painter?, kotlin.time/Duration, androidx.compose.animation/EnterTransition?, androidx.compose.animation/ExitTransition?, kotlin/Function1<org.maplibre.compose.camera/CameraPosition, org.maplibre.compose.camera/CameraUpdate>?, kotlin/Double, androidx.compose.ui/Modifier?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/DisappearingCompassButton|DisappearingCompassButton(androidx.compose.ui.Modifier?;kotlin.Function0<kotlin.Unit>?;org.maplibre.compose.overlay.CompassButtonStyle?;kotlin.String?;androidx.compose.ui.unit.Dp;androidx.compose.foundation.layout.PaddingValues?;androidx.compose.ui.graphics.painter.Painter?;kotlin.time.Duration;androidx.compose.animation.EnterTransition?;androidx.compose.animation.ExitTransition?;kotlin.Function1<org.maplibre.compose.camera.CameraPosition,org.maplibre.compose.camera.CameraUpdate>?;kotlin.Double;androidx.compose.ui.Modifier?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int;kotlin.Int){}[0]

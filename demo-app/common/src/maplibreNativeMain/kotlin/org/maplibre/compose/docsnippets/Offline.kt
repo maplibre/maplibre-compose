@@ -13,26 +13,26 @@ import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
-import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
+import org.maplibre.compose.offline.OfflineStorageState
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 fun Offline() {
-  // #region manager
-  val offlineManager = DefaultMapRuntime.instance.offlineManager
-  // #endregion manager
+  // #region storage
+  val offlineStorage = DefaultMapRuntime.instance.offlineStorage
+  // #endregion storage
   val scope = rememberCoroutineScope()
   val pixelRatio = LocalDensity.current.density
 
   // #region create
-  val offlineState by offlineManager.state.collectAsState()
+  val offlineState by offlineStorage.state.collectAsState()
   Button(
-    enabled = offlineState is OfflineManagerState.Ready,
+    enabled = offlineState is OfflineStorageState.Ready,
     onClick = {
       scope.launch {
         val pack =
-          offlineManager.create(
+          offlineStorage.create(
             definition =
               OfflinePackDefinition.TilePyramid(
                 styleUrl = "https://tiles.openfreemap.org/styles/liberty",
@@ -43,7 +43,7 @@ fun Offline() {
               ),
             metadata = "Seattle".encodeToByteArray(),
           )
-        offlineManager.resume(pack)
+        offlineStorage.resume(pack)
       }
     },
   ) {
@@ -52,11 +52,11 @@ fun Offline() {
   // #endregion create
 
   // #region progress
-  val packs = (offlineState as? OfflineManagerState.Ready)?.packs.orEmpty()
+  val packs = (offlineState as? OfflineStorageState.Ready)?.packs.orEmpty()
   when (val state = offlineState) {
-    OfflineManagerState.Loading -> Text("Loading offline packs…")
-    is OfflineManagerState.Failed -> Text(state.cause.message ?: "Could not load offline packs")
-    is OfflineManagerState.Ready -> Unit
+    OfflineStorageState.Loading -> Text("Loading offline packs…")
+    is OfflineStorageState.Failed -> Text(state.cause.message ?: "Could not load offline packs")
+    is OfflineStorageState.Ready -> Unit
   }
   for (pack in packs) {
     key(pack) {
@@ -78,7 +78,7 @@ fun Offline() {
   for (pack in packs) {
     key(pack) {
       val metadata by pack.metadata.collectAsState()
-      Button(onClick = { scope.launch { offlineManager.delete(pack) } }) {
+      Button(onClick = { scope.launch { offlineStorage.delete(pack) } }) {
         Text("Delete ${metadata?.decodeToString()}")
       }
     }

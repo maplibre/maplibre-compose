@@ -21,18 +21,18 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.material3.OfflinePackListItem
-import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
+import org.maplibre.compose.offline.OfflineStorageState
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
-  val offlineManager = DefaultMapRuntime.instance.offlineManager
+  val offlineStorage = DefaultMapRuntime.instance.offlineStorage
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
-  val offlineState by offlineManager.state.collectAsState()
-  val packs = (offlineState as? OfflineManagerState.Ready)?.packs.orEmpty()
+  val offlineState by offlineStorage.state.collectAsState()
+  val packs = (offlineState as? OfflineStorageState.Ready)?.packs.orEmpty()
   val metadataByPack = packs.associateWith { key(it) { it.metadata.collectAsState().value } }
   val pack = metadataByPack.entries.firstOrNull { it.value?.contentEquals(metadata) == true }?.key
   var creating by remember { mutableStateOf(false) }
@@ -40,7 +40,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
 
   SectionHeader("Offline")
   if (pack != null) {
-    OfflinePackListItem(pack = pack, offlineManager = offlineManager) { Text(packName) }
+    OfflinePackListItem(pack = pack, offlineStorage = offlineStorage) { Text(packName) }
   } else {
     ListItem(
       headlineContent = { Text("Download this region") },
@@ -49,10 +49,10 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
           text =
             errorMessage
               ?: when (val state = offlineState) {
-                OfflineManagerState.Loading -> "Loading offline regions…"
-                is OfflineManagerState.Failed ->
+                OfflineStorageState.Loading -> "Loading offline regions…"
+                is OfflineStorageState.Failed ->
                   state.cause.message ?: "Could not load offline regions"
-                is OfflineManagerState.Ready -> "For use without a network"
+                is OfflineStorageState.Ready -> "For use without a network"
               },
           color =
             if (errorMessage != null) MaterialTheme.colorScheme.error
@@ -61,13 +61,13 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
       },
       colors = ListItemDefaults.colors(containerColor = Color.Transparent),
       modifier =
-        Modifier.clickable(enabled = !creating && offlineState is OfflineManagerState.Ready) {
+        Modifier.clickable(enabled = !creating && offlineState is OfflineStorageState.Ready) {
           creating = true
           errorMessage = null
           scope.launch {
             try {
               val newPack =
-                offlineManager.create(
+                offlineStorage.create(
                   definition =
                     OfflinePackDefinition.TilePyramid(
                       styleUrl = styleUrl,
@@ -78,7 +78,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                     ),
                   metadata = metadata,
                 )
-              offlineManager.resume(newPack)
+              offlineStorage.resume(newPack)
             } catch (e: CancellationException) {
               throw e
             } catch (e: Exception) {

@@ -15,51 +15,51 @@ import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.spatialk.geojson.BoundingBox
 
-class RuntimeBoundOfflineManagerTest {
+class RuntimeBoundOfflineStorageTest {
   @Test
   fun unsupported_backend_rejects_every_operation() = runTest {
-    val pack = RecordingOfflineManager().pack
-    val runtime = runtime(UnsupportedOfflineManager)
-    val manager = runtime.offlineManager
+    val pack = RecordingOfflineStorage().pack
+    val runtime = runtime(UnsupportedOfflineStorage)
+    val storage = runtime.offlineStorage
 
-    assertEquals(emptySet(), (manager.state.value as OfflineManagerState.Ready).packs)
-    assertFailsWith<UnsupportedOperationException> { manager.create(definition) }
-    assertFailsWith<UnsupportedOperationException> { manager.resume(pack) }
-    assertFailsWith<UnsupportedOperationException> { manager.pause(pack) }
-    assertFailsWith<UnsupportedOperationException> { manager.delete(pack) }
-    assertFailsWith<UnsupportedOperationException> { manager.invalidate(pack) }
-    assertFailsWith<UnsupportedOperationException> { manager.mergeDatabase(databaseFile) }
-    assertFailsWith<UnsupportedOperationException> { manager.invalidateAmbientCache() }
-    assertFailsWith<UnsupportedOperationException> { manager.clearAmbientCache() }
-    assertFailsWith<UnsupportedOperationException> { manager.setMaximumAmbientCacheSize(1) }
+    assertEquals(emptySet(), (storage.state.value as OfflineStorageState.Ready).packs)
+    assertFailsWith<UnsupportedOperationException> { storage.create(definition) }
+    assertFailsWith<UnsupportedOperationException> { storage.resume(pack) }
+    assertFailsWith<UnsupportedOperationException> { storage.pause(pack) }
+    assertFailsWith<UnsupportedOperationException> { storage.delete(pack) }
+    assertFailsWith<UnsupportedOperationException> { storage.invalidate(pack) }
+    assertFailsWith<UnsupportedOperationException> { storage.mergeDatabase(databaseFile) }
+    assertFailsWith<UnsupportedOperationException> { storage.invalidateAmbientCache() }
+    assertFailsWith<UnsupportedOperationException> { storage.clearAmbientCache() }
+    assertFailsWith<UnsupportedOperationException> { storage.setMaximumAmbientCacheSize(1) }
     runtime.close()
     runtime.awaitClosed()
   }
 
   @Test
   fun supported_backend_receives_every_operation() = runTest {
-    val backend = RecordingOfflineManager()
+    val backend = RecordingOfflineStorage()
     val runtime = runtime(backend)
-    val manager = runtime.offlineManager
+    val storage = runtime.offlineStorage
 
-    assertSame(backend.pack, (manager.state.value as OfflineManagerState.Ready).packs.single())
+    assertSame(backend.pack, (storage.state.value as OfflineStorageState.Ready).packs.single())
     val metadata = byteArrayOf(1, 2)
-    assertSame(backend.createdPack, manager.create(definition, metadata))
+    assertSame(backend.createdPack, storage.create(definition, metadata))
     assertEquals(definition, backend.createdDefinition)
     assertContentEquals(metadata, backend.createdMetadata)
-    manager.resume(backend.pack)
-    manager.pause(backend.pack)
-    manager.delete(backend.pack)
-    manager.invalidate(backend.pack)
-    assertEquals(setOf(backend.mergedPack), manager.mergeDatabase(databaseFile))
+    storage.resume(backend.pack)
+    storage.pause(backend.pack)
+    storage.delete(backend.pack)
+    storage.invalidate(backend.pack)
+    assertEquals(setOf(backend.mergedPack), storage.mergeDatabase(databaseFile))
     assertEquals(
       listOf("create", "resume", "pause", "delete", "invalidate", "merge"),
       backend.calls,
     )
 
-    manager.invalidateAmbientCache()
-    manager.clearAmbientCache()
-    manager.setMaximumAmbientCacheSize(1)
+    storage.invalidateAmbientCache()
+    storage.clearAmbientCache()
+    storage.setMaximumAmbientCacheSize(1)
     assertEquals(
       listOf(
         "create",
@@ -80,30 +80,30 @@ class RuntimeBoundOfflineManagerTest {
 
   @Test
   fun runtime_closure_rejects_every_offline_manager_operation() = runTest {
-    val backend = RecordingOfflineManager()
+    val backend = RecordingOfflineStorage()
     val releaseCleanup = CompletableDeferred<Unit>()
     val runtime =
       runtime(
         backend,
         closeResources = { releaseCleanup.await() },
       )
-    val manager = runtime.offlineManager
-    val retainedPack = (manager.state.value as OfflineManagerState.Ready).packs.single()
-    val createdPack = manager.create(definition)
+    val storage = runtime.offlineStorage
+    val retainedPack = (storage.state.value as OfflineStorageState.Ready).packs.single()
+    val createdPack = storage.create(definition)
     backend.calls.clear()
 
     runtime.close()
     assertTrue(backend.closed, "Backend startup must be rejected before physical cleanup finishes")
 
-    assertFailsWith<IllegalStateException> { manager.create(definition) }
-    assertFailsWith<IllegalStateException> { manager.resume(backend.pack) }
-    assertFailsWith<IllegalStateException> { manager.pause(backend.pack) }
-    assertFailsWith<IllegalStateException> { manager.delete(backend.pack) }
-    assertFailsWith<IllegalStateException> { manager.invalidate(backend.pack) }
-    assertFailsWith<IllegalStateException> { manager.mergeDatabase(databaseFile) }
-    assertFailsWith<IllegalStateException> { manager.invalidateAmbientCache() }
-    assertFailsWith<IllegalStateException> { manager.clearAmbientCache() }
-    assertFailsWith<IllegalStateException> { manager.setMaximumAmbientCacheSize(1) }
+    assertFailsWith<IllegalStateException> { storage.create(definition) }
+    assertFailsWith<IllegalStateException> { storage.resume(backend.pack) }
+    assertFailsWith<IllegalStateException> { storage.pause(backend.pack) }
+    assertFailsWith<IllegalStateException> { storage.delete(backend.pack) }
+    assertFailsWith<IllegalStateException> { storage.invalidate(backend.pack) }
+    assertFailsWith<IllegalStateException> { storage.mergeDatabase(databaseFile) }
+    assertFailsWith<IllegalStateException> { storage.invalidateAmbientCache() }
+    assertFailsWith<IllegalStateException> { storage.clearAmbientCache() }
+    assertFailsWith<IllegalStateException> { storage.setMaximumAmbientCacheSize(1) }
     assertFailsWith<IllegalStateException> { retainedPack.setMetadata(byteArrayOf(1)) }
     assertFailsWith<IllegalStateException> { createdPack.setMetadata(byteArrayOf(1)) }
     assertEquals(emptyList(), backend.calls)
@@ -113,18 +113,18 @@ class RuntimeBoundOfflineManagerTest {
   }
 
   private fun runtime(
-    backend: OfflineManagerBackend,
+    backend: OfflineStorageBackend,
     closeResources: suspend () -> Unit = {},
   ) =
     MapRuntime(
       platformContext = null,
       closeResources = closeResources,
       logger = null,
-      offlineManagerBackend = backend,
+      offlineStorageBackend = backend,
       mainDispatcher = TestMainDispatcher(),
     )
 
-  private class RecordingOfflineManager : OfflineManagerBackend, OfflinePackOwner {
+  private class RecordingOfflineStorage : OfflineStorageBackend, OfflinePackOwner {
     var closed = false
 
     override fun close() {
@@ -139,8 +139,8 @@ class RuntimeBoundOfflineManagerTest {
     val createdPack = pack(regionId = 2)
     val mergedPack = pack(regionId = 3)
 
-    override val state: StateFlow<OfflineManagerState> =
-      MutableStateFlow(OfflineManagerState.Ready(setOf(pack)))
+    override val state: StateFlow<OfflineStorageState> =
+      MutableStateFlow(OfflineStorageState.Ready(setOf(pack)))
 
     override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {
       this.requireRuntimeOpen = requireRuntimeOpen
@@ -183,7 +183,7 @@ class RuntimeBoundOfflineManagerTest {
 
     override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> =
       setOf(mergedPack).also {
-        assertEquals(RuntimeBoundOfflineManagerTest.databaseFile, databaseFile)
+        assertEquals(RuntimeBoundOfflineStorageTest.databaseFile, databaseFile)
         calls += "merge"
       }
 

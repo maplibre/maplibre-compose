@@ -10,8 +10,8 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
-/** Exercises the application cache's offline manager without a UI. */
-class MlnFfiOfflineManagerTest {
+/** Exercises the application cache's offline storage without a UI. */
+class MlnFfiOfflineStorageTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
@@ -26,15 +26,15 @@ class MlnFfiOfflineManagerTest {
   fun an_initial_cache_budget_failure_is_published_and_rejects_operations() = runBlocking {
     val configured = options.copy(maximumCacheSizeBytes = -1)
     val owner = MlnFfiRuntime(configured)
-    val manager = MlnFfiOfflineManager(owner)
+    val storage = MlnFfiOfflineStorage(owner)
     owner.start()
     try {
       withTimeout(5_000L) {
-        assertFailsWith<OfflineManagerException> { manager.clearAmbientCache() }
+        assertFailsWith<OfflineStorageException> { storage.clearAmbientCache() }
       }
-      assertIs<OfflineManagerState.Failed>(manager.state.value)
+      assertIs<OfflineStorageState.Failed>(storage.state.value)
     } finally {
-      manager.close()
+      storage.close()
       owner.close()
       withTimeout(5_000L) { owner.awaitClosed() }
     }

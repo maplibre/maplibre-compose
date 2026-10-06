@@ -6,20 +6,20 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
+import org.maplibre.compose.offline.OfflineStorageState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.BoundingBox
 
-class BrowserOfflineManagerTest {
+class BrowserOfflineStorageTest {
   @Test
   fun web_rejects_offline_operations_without_disabling_runtime_children() = runTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val manager = runtime.offlineManager
+    val storage = runtime.offlineStorage
 
-    assertTrue((manager.state.value as OfflineManagerState.Ready).packs.isEmpty())
+    assertTrue((storage.state.value as OfflineStorageState.Ready).packs.isEmpty())
     assertFailsWith<UnsupportedOperationException> {
-      manager.create(
+      storage.create(
         OfflinePackDefinition.TilePyramid(
           styleUrl = "https://example.test/style.json",
           bounds = BoundingBox(west = -1.0, south = -1.0, east = 1.0, north = 1.0),
@@ -27,7 +27,7 @@ class BrowserOfflineManagerTest {
         )
       )
     }
-    assertFailsWith<UnsupportedOperationException> { manager.clearAmbientCache() }
+    assertFailsWith<UnsupportedOperationException> { storage.clearAmbientCache() }
 
     val state = runtime.createMapState(BaseStyle.Demo)
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)

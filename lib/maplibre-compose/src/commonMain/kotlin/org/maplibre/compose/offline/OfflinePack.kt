@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 internal interface OfflinePackOwner {
-  /** Throws [IllegalStateException] when the runtime that owns this manager is closed. */
+  /** Throws [IllegalStateException] when the runtime that owns this pack is closed. */
   fun requireRuntimeOpen()
 
   suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray)
@@ -37,7 +37,7 @@ internal constructor(
    * Replaces the arbitrary metadata that is associated with this offline pack.
    *
    * @throws IllegalStateException if the pack's runtime is closed.
-   * @throws [OfflineManagerException] if the operation failed.
+   * @throws [OfflineStorageException] if the operation failed.
    */
   public suspend fun setMetadata(metadata: ByteArray) {
     owner.requireRuntimeOpen()

@@ -6,16 +6,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
-public sealed interface OfflineManager {
+public sealed interface OfflineStorage {
 
   /** Initialization and the current packs. Constructing a runtime never waits for its database. */
-  public val state: StateFlow<OfflineManagerState>
+  public val state: StateFlow<OfflineStorageState>
 
   /**
    * Creates a paused offline pack for [definition]. Call [resume] to start its download.
    *
    * @throws UnsupportedOperationException if the runtime does not support offline packs.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun create(
     definition: OfflinePackDefinition,
@@ -40,7 +40,7 @@ public sealed interface OfflineManager {
    * Unregisters [pack] and permits the cache to remove resources that no remaining pack needs.
    *
    * @throws UnsupportedOperationException if the runtime does not support offline packs.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun delete(pack: OfflinePack)
 
@@ -48,12 +48,12 @@ public sealed interface OfflineManager {
    * Checks the resources in [pack] against the server and downloads changed resources.
    *
    * @throws UnsupportedOperationException if the runtime does not support offline packs.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun invalidate(pack: OfflinePack)
 
   /**
-   * Merges the offline packs and their resources from [databaseFile] into this manager's database.
+   * Merges the offline packs and their resources from [databaseFile] into this storage's database.
    *
    * [databaseFile] must identify a readable MapLibre offline database with the same schema version
    * as this runtime's database. The merge does not modify the source database. Ambient-cache
@@ -64,7 +64,7 @@ public sealed interface OfflineManager {
    * incomplete when the source database does not contain every required resource.
    *
    * @throws UnsupportedOperationException if the runtime does not support offline packs.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack>
 
@@ -72,7 +72,7 @@ public sealed interface OfflineManager {
    * Checks ambient-cache resources against the server and downloads changed resources.
    *
    * @throws UnsupportedOperationException if the runtime does not support ambient-cache management.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun invalidateAmbientCache()
 
@@ -80,7 +80,7 @@ public sealed interface OfflineManager {
    * Deletes ambient-cache resources that no offline pack needs.
    *
    * @throws UnsupportedOperationException if the runtime does not support ambient-cache management.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun clearAmbientCache()
 
@@ -88,53 +88,53 @@ public sealed interface OfflineManager {
    * Sets the maximum ambient-cache size in bytes. A size of zero disables ambient caching.
    *
    * @throws UnsupportedOperationException if the runtime does not support ambient-cache management.
-   * @throws OfflineManagerException if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
    */
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 }
 
-/** The initialization result and current contents of an offline manager. */
-public sealed interface OfflineManagerState {
-  public data object Loading : OfflineManagerState
+/** The initialization result and current contents of an [OfflineStorage]. */
+public sealed interface OfflineStorageState {
+  public data object Loading : OfflineStorageState
 
   /**
    * Initialization succeeded, with the current [packs]. This state can remain after the runtime
-   * closes; it does not indicate whether the manager accepts operations.
+   * closes; it does not indicate whether the storage accepts operations.
    */
-  public data class Ready(public val packs: Set<OfflinePack>) : OfflineManagerState
+  public data class Ready(public val packs: Set<OfflinePack>) : OfflineStorageState
 
-  public data class Failed(public val cause: Throwable) : OfflineManagerState
+  public data class Failed(public val cause: Throwable) : OfflineStorageState
 }
 
-internal suspend fun OfflineManager.awaitReady() {
-  when (val current = state.first { it !is OfflineManagerState.Loading }) {
-    is OfflineManagerState.Ready -> Unit
-    is OfflineManagerState.Failed -> throw current.cause
-    OfflineManagerState.Loading -> error("Initialization has not completed")
+internal suspend fun OfflineStorage.awaitReady() {
+  when (val current = state.first { it !is OfflineStorageState.Loading }) {
+    is OfflineStorageState.Ready -> Unit
+    is OfflineStorageState.Failed -> throw current.cause
+    OfflineStorageState.Loading -> error("Initialization has not completed")
   }
 }
 
-/** The runtime-independent part of an [OfflineManager] implementation. */
-internal interface OfflineManagerBackend : OfflineManager, AutoCloseable {
+/** The runtime-independent part of an [OfflineStorage] implementation. */
+internal interface OfflineStorageBackend : OfflineStorage, AutoCloseable {
   /** Rejects startup and new work immediately; native resource release completes separately. */
   override fun close()
 
   /**
    * Installs the check that every pack operation runs before touching the backend. The runtime
-   * calls this once, before it hands the manager to callers.
+   * calls this once, before it hands the storage to callers.
    */
   fun bindToRuntime(requireRuntimeOpen: () -> Unit)
 }
 
-internal class RuntimeBoundOfflineManager(
-  private val delegate: OfflineManagerBackend,
+internal class RuntimeBoundOfflineStorage(
+  private val delegate: OfflineStorageBackend,
   private val requireRuntimeOpen: () -> Unit,
-) : OfflineManager {
+) : OfflineStorage {
   init {
     delegate.bindToRuntime(requireRuntimeOpen)
   }
 
-  override val state: StateFlow<OfflineManagerState>
+  override val state: StateFlow<OfflineStorageState>
     get() = delegate.state
 
   override suspend fun create(
@@ -186,11 +186,11 @@ internal class RuntimeBoundOfflineManager(
   }
 }
 
-internal object UnsupportedOfflineManager : OfflineManagerBackend {
+internal object UnsupportedOfflineStorage : OfflineStorageBackend {
   override fun close() = Unit
 
-  override val state: StateFlow<OfflineManagerState> =
-    MutableStateFlow(OfflineManagerState.Ready(emptySet()))
+  override val state: StateFlow<OfflineStorageState> =
+    MutableStateFlow(OfflineStorageState.Ready(emptySet()))
 
   override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {}
 

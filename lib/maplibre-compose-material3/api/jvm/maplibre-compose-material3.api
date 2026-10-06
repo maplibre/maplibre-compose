@@ -42,11 +42,11 @@ public final class org/maplibre/compose/material3/OfflinePackListItemDefaults {
 	public static final field INSTANCE Lorg/maplibre/compose/material3/OfflinePackListItemDefaults;
 	public final fun LeadingContent (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public final fun SupportingContent (Lorg/maplibre/compose/offline/DownloadProgress;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
-	public final fun TrailingContent (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineManager;Landroidx/compose/runtime/Composer;I)V
+	public final fun TrailingContent (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineStorage;Landroidx/compose/runtime/Composer;I)V
 }
 
 public final class org/maplibre/compose/material3/OfflinePackListItemKt {
-	public static final fun OfflinePackListItem (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineManager;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun OfflinePackListItem (Lorg/maplibre/compose/offline/OfflinePack;Lorg/maplibre/compose/offline/OfflineStorage;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class org/maplibre/compose/material3/PointerPinButtonKt {

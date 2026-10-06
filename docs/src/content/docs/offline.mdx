@@ -10,7 +10,7 @@ import { region } from "../../snippets";
 import offline from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/org/maplibre/compose/docsnippets/Offline.kt?raw";
 
 An offline pack holds the resources needed to show a region without a network:
-map tiles, the style, and other assets. The <Api of="OfflineManager" />
+map tiles, the style, and other assets. The <Api of="OfflineStorage" />
 creates, tracks, and deletes packs.
 
 <Aside type="note">
@@ -18,16 +18,16 @@ creates, tracks, and deletes packs.
   platform does not support them.
 </Aside>
 
-Get the manager from the map runtime. A composable, a view model, a background
-worker, or `main` can hold and use it:
+Get the offline storage from the map runtime. A composable, a view model, a
+background worker, or `main` can hold and use it:
 
-<Code code={region(offline, "manager")} lang="kotlin" title="App.kt" />
+<Code code={region(offline, "storage")} lang="kotlin" title="App.kt" />
 
 ## Download a region
 
 A pack is defined by a style URL, a bounding box, and a zoom range.
-<Api of="OfflineManager.create" /> registers the pack in a paused state; call
-<Api of="OfflineManager.resume" /> to start the download:
+<Api of="OfflineStorage.create" /> registers the pack in a paused state; call
+<Api of="OfflineStorage.resume" /> to start the download:
 
 <Code code={region(offline, "create")} lang="kotlin" title="App.kt" />
 
@@ -39,25 +39,26 @@ GeoJSON geometry instead of a bounding box.
 
 ## Track download progress
 
-<Api of="OfflineManager.state" /> and <Api of="OfflinePack.downloadProgress" />
+<Api of="OfflineStorage.state" /> and <Api of="OfflinePack.downloadProgress" />
 are `StateFlow`s. A composition collects them with `collectAsState` and
 recomposes as the download proceeds:
 
 <Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
 
 A background worker can collect `downloadProgress` until the pack reports
-`DownloadStatus.Complete`. The manager starts in `OfflineManagerState.Loading`
-while it lists stored packs. `OfflineManagerState.Ready` includes the packs from
-earlier sessions; `OfflineManagerState.Failed` reports initialization errors.
+`DownloadStatus.Complete`. Offline storage starts in
+`OfflineStorageState.Loading` while it lists stored packs.
+`OfflineStorageState.Ready` includes the packs from earlier sessions;
+`OfflineStorageState.Failed` reports initialization errors.
 Operations suspend until initialization completes.
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
-states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles
+states. <Api of="OfflineStorage.invalidate" /> re-checks a pack's tiles
 against the server and updates the ones that changed.
 
 ## Delete a pack
 
-<Api of="OfflineManager.delete" /> unregisters the pack and frees the
+<Api of="OfflineStorage.delete" /> unregisters the pack and frees the
 resources that no remaining pack requires:
 
 <Code code={region(offline, "delete")} lang="kotlin" title="App.kt" />
