@@ -25,7 +25,10 @@ private val Material3AttributionOnlyOverlay = MapOverlay {
 }
 
 private val Material3DefaultOverlay = MapOverlay {
-  val mapState = checkNotNull(LocalMapState.current)
+  val mapState =
+    checkNotNull(LocalMapState.current) {
+      "MapOverlay.Material3 must be included inside a MaplibreMap overlay"
+    }
   DefaultControls {
     DisappearingScaleBar(
       metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 },

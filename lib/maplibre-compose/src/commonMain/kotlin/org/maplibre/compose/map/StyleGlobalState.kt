@@ -37,7 +37,7 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
    */
   public fun setProperty(name: String, value: JsonElement) {
     require(!name.startsWith(INTERNAL_GLOBAL_STATE_PREFIX)) {
-      "Global-state names beginning with '$INTERNAL_GLOBAL_STATE_PREFIX' are reserved"
+      "Global-state names beginning with '$INTERNAL_GLOBAL_STATE_PREFIX' are reserved, was '$name'"
     }
     style.setGlobalStateProperty(name, value)
   }

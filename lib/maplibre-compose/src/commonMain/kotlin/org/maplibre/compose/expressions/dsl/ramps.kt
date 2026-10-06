@@ -128,7 +128,9 @@ public fun exponential(base: Float): Interpolation =
  */
 public fun cubicBezier(x1: Float, y1: Float, x2: Float, y2: Float): Interpolation {
   val points = listOf(x1, y1, x2, y2)
-  require(points.all { it in 0f..1f }) { "Cubic bezier control points must be between 0 and 1" }
+  require(points.all { it in 0f..1f }) {
+    "Cubic bezier control points must be between 0 and 1, were $points"
+  }
   return Interpolation(
     JsonArray(listOf(JsonPrimitive("cubic-bezier")) + points.map(::JsonPrimitive))
   )

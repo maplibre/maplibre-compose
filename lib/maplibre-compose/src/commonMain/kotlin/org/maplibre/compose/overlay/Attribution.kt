@@ -103,7 +103,10 @@ public fun ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   var expanded by remember { mutableStateOf(true) }
-  val currentMapState = checkNotNull(LocalMapState.current)
+  val currentMapState =
+    checkNotNull(LocalMapState.current) {
+      "ExpandingAttributionButton must be inside a MaplibreMap overlay"
+    }
 
   // Dismiss when a gesture starts, not on every camera update: a tap to expand during a gesture
   // stays expanded.

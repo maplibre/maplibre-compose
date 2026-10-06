@@ -22,7 +22,9 @@ public class BearingSnappingBuilder internal constructor(from: BearingSnapping) 
   public var tolerance: Double = from.tolerance
 
   internal fun build(): BearingSnapping {
-    require(tolerance.isFinite() && tolerance in 0.0..180.0) { "tolerance must be in [0, 180]" }
+    require(tolerance.isFinite() && tolerance in 0.0..180.0) {
+      "tolerance must be in [0, 180], was $tolerance"
+    }
     return BearingSnapping(enabled, targets, tolerance)
   }
 }

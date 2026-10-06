@@ -128,7 +128,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
   }
 
   internal fun unsupported(name: String, reason: String) {
-    check(open)
+    check(open) { "LayerProperties is only valid during its properties block" }
     val reasons = unsupported ?: mutableMapOf<String, String>().also { unsupported = it }
     reasons[name] = reason
   }
@@ -139,7 +139,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
     managedSourceId: String?,
     filterUnsupportedProperties: Boolean,
   ): LayerPropertySnapshot {
-    check(open)
+    check(open) { "LayerProperties was already finished" }
     close()
     if (layout.isNotEmpty()) root["layout"] = JsonObject(layout)
     if (paint.isNotEmpty()) root["paint"] = JsonObject(paint)

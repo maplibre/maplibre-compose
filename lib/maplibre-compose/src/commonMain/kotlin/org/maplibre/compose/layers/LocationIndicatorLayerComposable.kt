@@ -187,16 +187,16 @@ public fun LocationIndicatorLayer(
   require(
     accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0)
   ) {
-    "accuracyRadius must be finite and nonnegative"
+    "accuracyRadius must be finite and nonnegative, was $accuracyRadius"
   }
   require(
     bearingAccuracy == null ||
       (bearingAccuracy.inDegrees.isFinite() && bearingAccuracy.inDegrees >= 0)
   ) {
-    "bearingAccuracy must be finite and nonnegative"
+    "bearingAccuracy must be finite and nonnegative, was $bearingAccuracy"
   }
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
-    "hitPadding must be finite and nonnegative"
+    "hitPadding must be finite and nonnegative, was $hitPadding"
   }
   if (location == null) return
   key(id) {

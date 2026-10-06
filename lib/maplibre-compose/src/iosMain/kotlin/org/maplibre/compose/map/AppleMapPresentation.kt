@@ -370,17 +370,21 @@ internal constructor(
 }
 
 private fun layerExtent(width: Int, height: Int, density: Float): MapExtent {
-  require(width > 0 && height > 0) { "Layer dimensions must be positive" }
-  require(density.isFinite() && density > 0f) { "Density must be positive and finite" }
+  require(width > 0 && height > 0) {
+    "Layer dimensions must be positive, was ${width}x$height"
+  }
+  require(density.isFinite() && density > 0f) {
+    "Density must be positive and finite, was $density"
+  }
   return MapExtent.fromPhysical(width, height, density.toDouble())
 }
 
 private fun validateDensity(density: Density) {
   require(density.density.isFinite() && density.density > 0f) {
-    "Density must be positive and finite"
+    "Density must be positive and finite, was ${density.density}"
   }
   require(density.fontScale.isFinite() && density.fontScale > 0f) {
-    "Font scale must be positive and finite"
+    "Font scale must be positive and finite, was ${density.fontScale}"
   }
 }
 

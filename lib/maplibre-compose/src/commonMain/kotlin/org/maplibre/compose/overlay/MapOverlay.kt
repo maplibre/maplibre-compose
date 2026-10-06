@@ -103,7 +103,10 @@ public class MapOverlay(
      * them.
      */
     public val Default: MapOverlay = MapOverlay {
-      val mapState = checkNotNull(LocalMapState.current)
+      val mapState =
+        checkNotNull(LocalMapState.current) {
+          "MapOverlay.Default must be included inside a MaplibreMap overlay"
+        }
       DefaultControls {
         DisappearingScaleBar(
           metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 },

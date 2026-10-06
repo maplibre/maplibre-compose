@@ -26,11 +26,15 @@ public data class TileCoordinate(
 
   init {
     require(zoomLevel in MIN_ZOOM..MAX_ZOOM) {
-      "zoomLevel must be within $MIN_ZOOM..$MAX_ZOOM"
+      "zoomLevel must be within $MIN_ZOOM..$MAX_ZOOM, was $zoomLevel"
     }
     val tileCount = 1L shl zoomLevel
-    require(x in 0 until tileCount) { "x must be within 0 until $tileCount at zoom $zoomLevel" }
-    require(y in 0 until tileCount) { "y must be within 0 until $tileCount at zoom $zoomLevel" }
+    require(x in 0 until tileCount) {
+      "x must be within 0 until $tileCount at zoom $zoomLevel, was $x"
+    }
+    require(y in 0 until tileCount) {
+      "y must be within 0 until $tileCount at zoom $zoomLevel, was $y"
+    }
   }
 
   /** The geographic bounds of this tile. */
@@ -193,9 +197,11 @@ public fun rememberCustomVectorTileSource(
 }
 
 private fun validateZoomRange(minZoom: Int, maxZoom: Int) {
-  require(minZoom in 0..32) { "minZoom must be within 0..32" }
-  require(maxZoom in 0..32) { "maxZoom must be within 0..32" }
-  require(minZoom <= maxZoom) { "minZoom must be less than or equal to maxZoom" }
+  require(minZoom in 0..32) { "minZoom must be within 0..32, was $minZoom" }
+  require(maxZoom in 0..32) { "maxZoom must be within 0..32, was $maxZoom" }
+  require(minZoom <= maxZoom) {
+    "minZoom must be less than or equal to maxZoom, was $minZoom and $maxZoom"
+  }
 }
 
 private fun longitudeAt(column: Long, tileCount: Double): Double =

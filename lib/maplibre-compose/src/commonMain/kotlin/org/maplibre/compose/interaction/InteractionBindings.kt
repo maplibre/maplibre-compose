@@ -55,8 +55,12 @@ public class DragRotatePitchBuilder internal constructor(from: DragRotatePitchSe
   internal fun build(): DragRotatePitchSettings {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     requireNonnegativeFinite(mouseStartSlop.value.toDouble(), "mouseStartSlop")
-    require(bearingDegreesPerDp.isFinite()) { "bearingDegreesPerDp must be finite" }
-    require(pitchDegreesPerDp.isFinite()) { "pitchDegreesPerDp must be finite" }
+    require(bearingDegreesPerDp.isFinite()) {
+      "bearingDegreesPerDp must be finite, was $bearingDegreesPerDp"
+    }
+    require(pitchDegreesPerDp.isFinite()) {
+      "pitchDegreesPerDp must be finite, was $pitchDegreesPerDp"
+    }
     return DragRotatePitchSettings(
       startSlop,
       mouseStartSlop,
@@ -152,7 +156,7 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
 
   internal fun build(): TransformZoomBinding {
     requireNonnegativeFinite(startSpanSlop.value.toDouble(), "startSpanSlop")
-    require(zoomScale.isFinite()) { "zoomScale must be finite" }
+    require(zoomScale.isFinite()) { "zoomScale must be finite, was $zoomScale" }
     return TransformZoomBinding(
       enabled,
       pointerTypes?.toSet(),
@@ -177,7 +181,7 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
 
   internal fun build(): TransformRotateBinding {
     requireNonnegativeFinite(startAngle, "startAngle")
-    require(rotationScale.isFinite()) { "rotationScale must be finite" }
+    require(rotationScale.isFinite()) { "rotationScale must be finite, was $rotationScale" }
     return TransformRotateBinding(
       enabled,
       pointerTypes?.toSet(),
@@ -201,7 +205,9 @@ public class TransformPitchBuilder internal constructor(from: TransformPitchBind
 
   internal fun build(): TransformPitchBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
-    require(pitchDegreesPerDp.isFinite()) { "pitchDegreesPerDp must be finite" }
+    require(pitchDegreesPerDp.isFinite()) {
+      "pitchDegreesPerDp must be finite, was $pitchDegreesPerDp"
+    }
     return TransformPitchBinding(
       enabled,
       pointerTypes?.toSet(),
@@ -231,7 +237,9 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
 
   internal fun build(): TapDragBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
-    require(zoomLevelsPerViewport.isFinite()) { "zoomLevelsPerViewport must be finite" }
+    require(zoomLevelsPerViewport.isFinite()) {
+      "zoomLevelsPerViewport must be finite, was $zoomLevelsPerViewport"
+    }
     return TapDragBinding(
       enabled,
       pointerTypes?.toSet(),
@@ -302,7 +310,7 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
 
   internal fun build(): ScrollBinding {
     requireNonnegativeFinite(idleDuration, "idleDuration")
-    require(zoomPerDp.isFinite()) { "zoomPerDp must be finite" }
+    require(zoomPerDp.isFinite()) { "zoomPerDp must be finite, was $zoomPerDp" }
     return ScrollBinding(
       enabled,
       pointerTypes?.toSet(),
@@ -335,7 +343,7 @@ public class TapBindingBuilder internal constructor(from: TapBinding) {
   public var zoomStepLevels: Double = from.zoomStepLevels
 
   internal fun build(): TapBinding {
-    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite, was $zoomStepLevels" }
     return TapBinding(enabled, pointerTypes?.toSet(), rows, anchor, zoomStepLevels)
   }
 }
@@ -373,10 +381,10 @@ public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   public var pitchStepDegrees: Double = from.pitchStepDegrees
 
   internal fun build(): KeyBinding {
-    require(panStep.value.isFinite()) { "panStep must be finite" }
-    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
-    require(bearingStepDegrees.isFinite()) { "bearingStepDegrees must be finite" }
-    require(pitchStepDegrees.isFinite()) { "pitchStepDegrees must be finite" }
+    require(panStep.value.isFinite()) { "panStep must be finite, was $panStep" }
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite, was $zoomStepLevels" }
+    require(bearingStepDegrees.isFinite()) { "bearingStepDegrees must be finite, was $bearingStepDegrees" }
+    require(pitchStepDegrees.isFinite()) { "pitchStepDegrees must be finite, was $pitchStepDegrees" }
     return KeyBinding(
       enabled,
       rows,
@@ -402,7 +410,7 @@ public class RotaryBindingBuilder internal constructor(from: RotaryBinding) {
   public var idleDuration: Duration = from.idleDuration
 
   internal fun build(): RotaryBinding {
-    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite" }
+    require(zoomStepLevels.isFinite()) { "zoomStepLevels must be finite, was $zoomStepLevels" }
     requireNonnegativeFinite(idleDuration, "idleDuration")
     return RotaryBinding(enabled, zoomStepLevels, idleDuration)
   }

@@ -17,7 +17,9 @@ public sealed interface CameraAnchor {
   @Immutable
   public data class Screen(public val point: DpOffset) : CameraAnchor {
     init {
-      require(point.x.value.isFinite() && point.y.value.isFinite()) { "The anchor must be finite" }
+      require(point.x.value.isFinite() && point.y.value.isFinite()) {
+        "The anchor must be finite, was $point"
+      }
     }
   }
 
@@ -26,10 +28,10 @@ public sealed interface CameraAnchor {
   public data class Geographic(public val position: Position) : CameraAnchor {
     init {
       require(position.longitude.isFinite() && position.latitude.isFinite()) {
-        "The anchor must be finite"
+        "The anchor must be finite, was $position"
       }
       require(position.latitude in -85.0511287798066..85.0511287798066) {
-        "The anchor must be within Mercator latitudes"
+        "The anchor must be within Mercator latitudes, was $position"
       }
     }
   }
@@ -55,7 +57,7 @@ internal fun CameraAnchor.resolveScreenPoint(
       point.x <= size.width &&
       point.y <= size.height
   ) {
-    "The anchor must be inside the map viewport"
+    "The anchor must be inside the map viewport of size $size, was $point"
   }
   val location = unproject(point)
   require(location.longitude.isFinite() && location.latitude.isFinite()) {

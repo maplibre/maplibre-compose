@@ -335,8 +335,12 @@ public class AndroidMapPresentation(
 }
 
 private fun validateSurface(width: Int, height: Int, density: Float) {
-  require(width > 0 && height > 0) { "Surface dimensions must be positive" }
-  require(density.isFinite() && density > 0f) { "Density must be positive and finite" }
+  require(width > 0 && height > 0) {
+    "Surface dimensions must be positive, was ${width}x$height"
+  }
+  require(density.isFinite() && density > 0f) {
+    "Density must be positive and finite, was $density"
+  }
 }
 
 private fun checkMainThread() {

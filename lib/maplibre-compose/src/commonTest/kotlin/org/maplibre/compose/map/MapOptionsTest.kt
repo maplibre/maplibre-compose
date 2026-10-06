@@ -34,7 +34,10 @@ class MapOptionsTest {
       RenderOptions { tileLod = TileLodOptions.Performance }.tileLod,
     )
     assertEquals(TileLodOptions.Standard, TileLodOptions {})
-    assertFailsWith<IllegalArgumentException> { RenderOptions { maximumFps = 0 } }
+    assertEquals(
+      "maximumFps must be positive, was 0",
+      assertFailsWith<IllegalArgumentException> { RenderOptions { maximumFps = 0 } }.message,
+    )
 
     val red = MapUiOptions { loadColor = Color.Red }
     assertEquals(Color.Red, MapUiOptions(red) { bindings { scroll { enabled = false } } }.loadColor)

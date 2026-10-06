@@ -5,7 +5,7 @@ public sealed interface XdgPortalWindow {
   /** An X11 top-level window. */
   public data class X11(public val windowId: Long) : XdgPortalWindow {
     init {
-      require(windowId > 0) { "An X11 window ID must be positive" }
+      require(windowId > 0) { "An X11 window ID must be positive, was $windowId" }
     }
   }
 

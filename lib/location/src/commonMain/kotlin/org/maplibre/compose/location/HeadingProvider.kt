@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.Flow
 /** Preferences for device-heading updates. */
 public data class HeadingRequest(val minimumInterval: Duration = 1.seconds) {
   init {
-    require(!minimumInterval.isNegative()) { "minimumInterval must not be negative" }
+    require(!minimumInterval.isNegative()) {
+      "minimumInterval must not be negative, was $minimumInterval"
+    }
   }
 }
 

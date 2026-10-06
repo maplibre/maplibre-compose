@@ -130,7 +130,7 @@ private fun validateLayer(id: String, type: String, hitPadding: Dp) {
   require(id.isNotBlank()) { "Layer ID must not be blank" }
   require(type.isNotBlank()) { "Layer type must not be blank" }
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
-    "hitPadding must be finite and nonnegative"
+    "hitPadding must be finite and nonnegative, was $hitPadding"
   }
 }
 
@@ -140,11 +140,11 @@ internal fun layerSourceId(
 ): String? {
   val declared =
     properties["source"]?.let {
-      require(it is JsonPrimitive && it.isString) { "Layer source must be a string" }
+      require(it is JsonPrimitive && it.isString) { "Layer source must be a string, was $it" }
       it.content
     }
   require(managedSourceId == null || declared == null || managedSourceId == declared) {
-    "Layer source conflicts with its managed source"
+    "Layer source '$declared' conflicts with its managed source '$managedSourceId'"
   }
   return managedSourceId ?: declared
 }
