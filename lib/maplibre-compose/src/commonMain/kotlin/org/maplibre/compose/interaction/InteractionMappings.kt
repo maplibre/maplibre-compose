@@ -8,15 +8,18 @@ import org.maplibre.compose.interaction.internal.PointerPattern
 import org.maplibre.compose.interaction.internal.ScrollMapping
 import org.maplibre.compose.interaction.internal.TapMapping
 
-/** Ordered mappings; the first matching permitted action wins. */
+/**
+ * Ordered mappings. The first matching row selects its action, skipping rows whose camera action
+ * the camera settings in [MapInteractions] disable.
+ */
 @MapInteractionDsl
 public class DragMappingsBuilder internal constructor() {
   private val rows = mutableListOf<DragMapping>()
   private var hasOtherwise = false
 
   /**
-   * Adds a row that selects [action] when every pointer's type is in [pointerTypes], [button] is
-   * pressed, and the pressed modifier keys satisfy [modifiers]. A `null` criterion matches any
+   * Adds a row for [action] that matches when every pointer's type is in [pointerTypes], [button]
+   * is pressed, and the pressed modifier keys satisfy [modifiers]. A `null` criterion matches any
    * input. [PointerButton.Primary] also matches touch and stylus contact.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
@@ -36,7 +39,7 @@ public class DragMappingsBuilder internal constructor() {
   }
 
   /**
-   * Adds a final row that selects [action] for any drag.
+   * Adds a final row for [action] that matches any drag.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
@@ -49,15 +52,18 @@ public class DragMappingsBuilder internal constructor() {
   internal fun build(): List<DragMapping> = rows.toList()
 }
 
-/** Ordered mappings; the first matching permitted action wins. */
+/**
+ * Ordered mappings. The first matching row selects its action, skipping rows whose camera action
+ * the camera settings in [MapInteractions] disable.
+ */
 @MapInteractionDsl
 public class ScrollMappingsBuilder internal constructor() {
   private val rows = mutableListOf<ScrollMapping>()
   private var hasOtherwise = false
 
   /**
-   * Adds a row that selects [action] when every pointer's type is in [pointerTypes] and the pressed
-   * modifier keys satisfy [modifiers]. A `null` criterion matches any input.
+   * Adds a row for [action] that matches when every pointer's type is in [pointerTypes] and the
+   * pressed modifier keys satisfy [modifiers]. A `null` criterion matches any input.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
@@ -75,7 +81,7 @@ public class ScrollMappingsBuilder internal constructor() {
   }
 
   /**
-   * Adds a final row that selects [action] for any scroll.
+   * Adds a final row for [action] that matches any scroll.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
@@ -89,8 +95,9 @@ public class ScrollMappingsBuilder internal constructor() {
 }
 
 /**
- * Ordered mappings; the first matching permitted action wins. The enclosing tap binding selects the
- * mouse button: primary for tap and double tap, secondary for secondary click.
+ * Ordered mappings. The first matching row selects its action, skipping rows whose camera action
+ * the camera settings in [MapInteractions] disable. The enclosing tap binding selects the mouse
+ * button: primary for tap and double tap, secondary for secondary click.
  */
 @MapInteractionDsl
 public class TapMappingsBuilder internal constructor() {
@@ -98,8 +105,8 @@ public class TapMappingsBuilder internal constructor() {
   private var hasOtherwise = false
 
   /**
-   * Adds a row that selects [action] when every pointer's type is in [pointerTypes] and the pressed
-   * modifier keys satisfy [modifiers]. A `null` criterion matches any input.
+   * Adds a row for [action] that matches when every pointer's type is in [pointerTypes] and the
+   * pressed modifier keys satisfy [modifiers]. A `null` criterion matches any input.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
@@ -117,7 +124,7 @@ public class TapMappingsBuilder internal constructor() {
   }
 
   /**
-   * Adds a final row that selects [action] for any tap.
+   * Adds a final row for [action] that matches any tap.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
@@ -130,15 +137,18 @@ public class TapMappingsBuilder internal constructor() {
   internal fun build(): List<TapMapping> = rows.toList()
 }
 
-/** Ordered mappings; the first matching permitted action wins. */
+/**
+ * Ordered mappings. The first matching row selects its action, skipping rows whose camera action
+ * the camera settings in [MapInteractions] disable.
+ */
 @MapInteractionDsl
 public class KeyMappingsBuilder internal constructor() {
   private val rows = mutableListOf<KeyMapping>()
   private var hasOtherwise = false
 
   /**
-   * Adds a row that selects [action] when [key] is pressed and the pressed modifier keys satisfy
-   * [modifiers]. A `null` [modifiers] matches any modifier keys. Modifiers match exactly by
+   * Adds a row for [action] that matches when [key] is pressed and the pressed modifier keys
+   * satisfy [modifiers]. A `null` [modifiers] matches any modifier keys. Modifiers match exactly by
    * default, so unconfigured system shortcuts remain unclaimed.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
@@ -153,7 +163,7 @@ public class KeyMappingsBuilder internal constructor() {
   }
 
   /**
-   * Adds a final row that selects [action] for any key.
+   * Adds a final row for [action] that matches any key.
    *
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
