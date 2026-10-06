@@ -102,9 +102,9 @@ internal fun LocationAccuracy.toDesiredAccuracy(): Double =
 
 internal fun CoreLocationError.asUnavailableReason(
   locationServicesEnabled: Boolean
-): LocationUnavailableReason =
+): LocationUnavailableReason? =
   when {
-    domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure
+    domain != kCLErrorDomain -> null
     code == kCLErrorDenied ->
       if (locationServicesEnabled) {
         LocationUnavailableReason.PermissionDenied
@@ -114,7 +114,7 @@ internal fun CoreLocationError.asUnavailableReason(
     code == kCLErrorPromptDeclined -> LocationUnavailableReason.PermissionDenied
     code == kCLErrorLocationUnknown || code == kCLErrorNetwork ->
       LocationUnavailableReason.TemporarilyUnavailable
-    else -> LocationUnavailableReason.UnexpectedFailure
+    else -> null
   }
 
 internal fun CoreLocationMeasurement.asMaplibreLocationMeasurement(): LocationMeasurement =

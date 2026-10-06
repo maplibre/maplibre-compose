@@ -85,13 +85,33 @@ public final class org/maplibre/compose/location/HeadingProvider$DefaultImpls {
 	public static synthetic fun updates$default (Lorg/maplibre/compose/location/HeadingProvider;Lorg/maplibre/compose/location/HeadingRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
 }
 
-public final class org/maplibre/compose/location/HeadingReference : java/lang/Enum {
-	public static final field MagneticNorth Lorg/maplibre/compose/location/HeadingReference;
-	public static final field TrueNorth Lorg/maplibre/compose/location/HeadingReference;
-	public static final field TrueOrMagneticNorth Lorg/maplibre/compose/location/HeadingReference;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/HeadingReference;
-	public static fun values ()[Lorg/maplibre/compose/location/HeadingReference;
+public abstract interface class org/maplibre/compose/location/HeadingReference {
+	public static final field Companion Lorg/maplibre/compose/location/HeadingReference$Companion;
+}
+
+public final class org/maplibre/compose/location/HeadingReference$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class org/maplibre/compose/location/HeadingReference$MagneticNorth : org/maplibre/compose/location/HeadingReference {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingReference$MagneticNorth;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/HeadingReference$TrueNorth : org/maplibre/compose/location/HeadingReference {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingReference$TrueNorth;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/HeadingReference$TrueOrMagneticNorth : org/maplibre/compose/location/HeadingReference {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingReference$TrueOrMagneticNorth;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/location/HeadingRequest {
@@ -118,13 +138,21 @@ public final class org/maplibre/compose/location/LocationAccuracy : java/lang/En
 	public static fun values ()[Lorg/maplibre/compose/location/LocationAccuracy;
 }
 
-public final class org/maplibre/compose/location/LocationAccuracyAuthorization : java/lang/Enum {
-	public static final field Approximate Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
-	public static final field Precise Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
-	public static final field Unknown Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
-	public static fun values ()[Lorg/maplibre/compose/location/LocationAccuracyAuthorization;
+public abstract interface class org/maplibre/compose/location/LocationAccuracyAuthorization {
+}
+
+public final class org/maplibre/compose/location/LocationAccuracyAuthorization$Approximate : org/maplibre/compose/location/LocationAccuracyAuthorization {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationAccuracyAuthorization$Approximate;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationAccuracyAuthorization$Precise : org/maplibre/compose/location/LocationAccuracyAuthorization {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationAccuracyAuthorization$Precise;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/location/LocationBackendAvailability {
@@ -248,6 +276,13 @@ public final class org/maplibre/compose/location/LocationPermission$Granted : or
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/location/LocationPermission$NotDetermined : org/maplibre/compose/location/LocationPermission {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationPermission$NotDetermined;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/location/LocationPermission$NotGranted : org/maplibre/compose/location/LocationPermission {
 	public fun <init> (Ljava/lang/Boolean;Z)V
 	public synthetic fun <init> (Ljava/lang/Boolean;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -258,13 +293,6 @@ public final class org/maplibre/compose/location/LocationPermission$NotGranted :
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCanRequest ()Ljava/lang/Boolean;
 	public final fun getShouldShowRationale ()Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/location/LocationPermission$Unknown : org/maplibre/compose/location/LocationPermission {
-	public static final field INSTANCE Lorg/maplibre/compose/location/LocationPermission$Unknown;
-	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -305,15 +333,35 @@ public final class org/maplibre/compose/location/LocationRequest {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/location/LocationUnavailableReason : java/lang/Enum {
-	public static final field PermissionDenied Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static final field ServicesDisabled Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static final field TemporarilyUnavailable Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static final field UnexpectedFailure Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static final field Unsupported Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/location/LocationUnavailableReason;
-	public static fun values ()[Lorg/maplibre/compose/location/LocationUnavailableReason;
+public abstract interface class org/maplibre/compose/location/LocationUnavailableReason {
+}
+
+public final class org/maplibre/compose/location/LocationUnavailableReason$PermissionDenied : org/maplibre/compose/location/LocationUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$PermissionDenied;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationUnavailableReason$ServicesDisabled : org/maplibre/compose/location/LocationUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$ServicesDisabled;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationUnavailableReason$TemporarilyUnavailable : org/maplibre/compose/location/LocationUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$TemporarilyUnavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/LocationUnavailableReason$Unsupported : org/maplibre/compose/location/LocationUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/location/SystemSettingsLauncher {

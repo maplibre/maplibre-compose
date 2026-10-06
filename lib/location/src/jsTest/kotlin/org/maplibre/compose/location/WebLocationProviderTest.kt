@@ -87,7 +87,7 @@ class WebLocationProviderTest {
     assertEquals(
       listOf(
         LocationUnavailableReason.TemporarilyUnavailable,
-        LocationUnavailableReason.UnexpectedFailure,
+        null,
         LocationUnavailableReason.PermissionDenied,
       ),
       events.map { assertIs<LocationEvent.Unavailable>(it).reason },
@@ -149,7 +149,7 @@ class WebLocationProviderTest {
     boundary.permission.value = BrowserPermission.Granted
     runCurrent()
     assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      LocationPermission.Granted(accuracy = null),
       provider.permission.value,
     )
 
@@ -180,7 +180,7 @@ class WebLocationProviderTest {
     provider.requestPermission()
     runCurrent()
     assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      LocationPermission.Granted(accuracy = null),
       provider.permission.value,
     )
     assertNotNull(boundary.callback)
@@ -203,7 +203,7 @@ class WebLocationProviderTest {
     result.complete(position(milliseconds = 0, longitude = 0.0))
     runCurrent()
     assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      LocationPermission.Granted(accuracy = null),
       provider.permission.value,
     )
   }
@@ -229,7 +229,7 @@ class WebLocationProviderTest {
     runCurrent()
     assertEquals(2, boundary.requestedOptions.size)
     assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      LocationPermission.Granted(accuracy = null),
       provider.permission.value,
     )
   }
@@ -298,7 +298,7 @@ class WebLocationProviderTest {
     runCurrent()
     val event = assertIs<LocationEvent.Unavailable>(events.single())
     assertTrue(collection.isCompleted)
-    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertNull(event.reason)
     assertEquals(failure, event.cause)
     assertEquals(0, boundary.stopCount)
   }

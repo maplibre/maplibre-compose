@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
@@ -33,7 +34,6 @@ import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -128,7 +128,7 @@ class LinuxPortalLocationProviderTest {
 
     pendingResult.complete(true)
     runCurrent()
-    val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+    val granted = LocationPermission.Granted(accuracy = null)
     assertEquals(granted, provider.permission.value)
     provider.requestPermission()
     assertEquals(1, portal.permissionRequests)
@@ -187,9 +187,9 @@ class LinuxPortalLocationProviderTest {
         )
         .toLocationEvent()
 
-    assertEquals(null, event.measurement.position.altitude)
-    assertEquals(null, event.measurement.distancePerSecond)
-    assertEquals(null, event.measurement.course)
+    assertNull(event.measurement.position.altitude)
+    assertNull(event.measurement.distancePerSecond)
+    assertNull(event.measurement.course)
   }
 
   @Test
@@ -219,7 +219,7 @@ class LinuxPortalLocationProviderTest {
 
   @Test
   fun mapsStartResponseCodesToFailures() {
-    assertEquals(null, startFailure(0))
+    assertNull(startFailure(0))
     assertEquals(LocationUnavailableReason.PermissionDenied, startFailure(1))
     assertEquals(LocationUnavailableReason.TemporarilyUnavailable, startFailure(2))
   }
@@ -231,7 +231,7 @@ class LinuxPortalLocationProviderTest {
         DBusException("failed") to LocationUnavailableReason.TemporarilyUnavailable,
         DBusExecutionException("failed") to LocationUnavailableReason.TemporarilyUnavailable,
         IOException("failed") to LocationUnavailableReason.TemporarilyUnavailable,
-        IllegalStateException("failed") to LocationUnavailableReason.UnexpectedFailure,
+        IllegalStateException("failed") to null,
       )
 
     for ((error, reason) in expected) assertEquals(reason, error.asUnavailableReason())

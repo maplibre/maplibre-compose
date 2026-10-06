@@ -32,7 +32,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 public class LocationState
 internal constructor(
   initialAvailability: LocationBackendAvailability = LocationBackendAvailability.Available,
-  initialPermission: LocationPermission = LocationPermission.Unknown,
+  initialPermission: LocationPermission = LocationPermission.NotDetermined,
 ) {
   /** The user's last known location measurement. */
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
@@ -92,8 +92,7 @@ internal constructor(
 /**
  * Current state of device-heading collection managed by [rememberLocationState].
  *
- * Closed. A heading request is either not active, waiting for its first measurement, delivering
- * measurements, or ended by a failure.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface HeadingTrackingStatus {
   /** No platform heading request is active. */
@@ -114,10 +113,15 @@ public sealed interface HeadingTrackingStatus {
 }
 
 /**
+ * Keeps [HeadingTrackingStatus] open: callers' `when` needs an `else` branch. The library never
+ * reports it.
+ */
+internal data object UnspecifiedHeadingTrackingStatus : HeadingTrackingStatus
+
+/**
  * Current state of the foreground location updates managed by [rememberLocationState].
  *
- * Closed. A location request is either not active, waiting for its first measurement, delivering
- * measurements, or unable to deliver; [Unavailable.reason] classifies the last case.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface LocationTrackingStatus {
   /** No platform location request is active. */
@@ -132,15 +136,22 @@ public sealed interface LocationTrackingStatus {
   /**
    * An expected or unexpected condition prevents the active request from delivering a location.
    *
-   * @property reason Portable classification of the condition.
+   * @property reason Portable classification of the condition, or `null` when the provider has no
+   *   classification for it, such as an unexpected failure. [cause] then describes the failure.
    * @property cause Underlying platform or provider exception, when one is available.
    */
   public data class Unavailable
   internal constructor(
-    val reason: LocationUnavailableReason,
+    val reason: LocationUnavailableReason?,
     val cause: Throwable? = null,
   ) : LocationTrackingStatus
 }
+
+/**
+ * Keeps [LocationTrackingStatus] open: callers' `when` needs an `else` branch. The library never
+ * reports it.
+ */
+internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
 
 /**
  * Remembers foreground location and heading state.
@@ -152,8 +163,8 @@ public sealed interface LocationTrackingStatus {
  * provider setup, [LocationState.permission] reports foreground authorization, and
  * [LocationState.status] reports only the tracking session.
  *
- * Unknown permission allows collection to retry a non-prompting permission check. A known denial
- * stops location collection. Heading collection requires granted permission.
+ * Permission that is not determined allows collection to retry a non-prompting permission check. A
+ * known denial stops location collection. Heading collection requires granted permission.
  *
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
@@ -189,9 +200,10 @@ public fun rememberLocationState(
   val permission by provider.permission.collectAsState()
   val canCollectLocation =
     when (permission) {
-      LocationPermission.Unknown,
+      LocationPermission.NotDetermined,
       is LocationPermission.Granted -> true
       is LocationPermission.NotGranted -> false
+      else -> false
     }
   SideEffect {
     state.permission = permission
@@ -223,18 +235,14 @@ public fun rememberLocationState(
           .updates(request)
           .catch { error ->
             if (error is CancellationException) throw error
-            emit(
-              LocationEvent.Unavailable(
-                LocationUnavailableReason.UnexpectedFailure,
-                error,
-              )
-            )
+            emit(LocationEvent.Unavailable(reason = null, cause = error))
           }
           .collect { event ->
             when (event) {
               is LocationEvent.Update -> state.accept(event)
               is LocationEvent.Unavailable ->
                 state.status = LocationTrackingStatus.Unavailable(event.reason, event.cause)
+              else -> Unit
             }
           }
         if (

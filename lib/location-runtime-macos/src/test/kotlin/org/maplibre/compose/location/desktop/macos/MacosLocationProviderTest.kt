@@ -98,7 +98,7 @@ class MacosLocationProviderTest {
     assertEquals(LocationUnavailableReason.ServicesDisabled, denied.asUnavailableReason(false))
     assertEquals(LocationUnavailableReason.PermissionDenied, denied.asUnavailableReason(true))
     assertEquals(
-      LocationUnavailableReason.UnexpectedFailure,
+      null,
       CoreLocationError("example.error", kCLErrorDenied).asUnavailableReason(true),
     )
   }
@@ -223,7 +223,7 @@ class MacosLocationProviderTest {
     client.createFailure = IllegalStateException("native failed")
     val requester = MacosLocationPermissionRequester(client)
     client.createFailure = null
-    assertEquals(LocationPermission.Unknown, requester.status.value)
+    assertEquals(LocationPermission.NotDetermined, requester.status.value)
     backgroundScope.launch(Dispatchers.Unconfined) {
       requester.status.collect {
         if (it == LocationPermission.NotGranted(canRequest = true)) {
@@ -342,10 +342,10 @@ class MacosLocationProviderTest {
 
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
-    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     provider.requestPermission()
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
-    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertNull(event.reason)
     assertIs<IllegalStateException>(event.cause)
   }
 
@@ -354,12 +354,12 @@ class MacosLocationProviderTest {
     val failure = IllegalStateException("delegate failed")
     val client = FakeCoreLocationClient().apply { delegateFailure = failure }
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     assertEquals(1, client.managers.single().closeCount)
 
     val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
     assertEquals(failure, event.cause)
-    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     assertTrue(client.managers.all { it.closeCount == 1 })
 
     client.delegateFailure = null
@@ -380,9 +380,9 @@ class MacosLocationProviderTest {
     val collection = backgroundScope.launch { provider.updates().collect(events::add) }
     runCurrent()
     val failed = assertIs<LocationEvent.Unavailable>(events.single())
-    assertEquals(LocationUnavailableReason.UnexpectedFailure, failed.reason)
+    assertNull(failed.reason)
     assertEquals(createFailure, failed.cause)
-    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(LocationPermission.NotDetermined, provider.permission.value)
 
     client.createFailure = null
     client.nextLocation = sampleMeasurement()
@@ -400,9 +400,9 @@ class MacosLocationProviderTest {
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
     val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
-    assertEquals(LocationUnavailableReason.UnexpectedFailure, unavailable.reason)
+    assertNull(unavailable.reason)
     assertEquals(readFailure, unavailable.cause)
-    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     assertTrue(client.managers.last().closed)
 
     permissionManager.readFailure = null

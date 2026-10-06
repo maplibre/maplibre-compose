@@ -56,7 +56,7 @@ public class MacosLocationBackend : DesktopLocationBackend {
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
  * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
- * report [LocationUnavailableReason.UnexpectedFailure].
+ * report a `null` reason.
  */
 public class MacosLocationProvider
 internal constructor(
@@ -100,7 +100,7 @@ internal constructor(
               channel.close()
               this@launch.cancel()
             }
-            LocationPermission.Unknown -> refreshPermission().collect { send(it) }
+            LocationPermission.NotDetermined -> refreshPermission().collect { send(it) }
             is LocationPermission.NotGranted -> {
               val enabled = withContext(ioDispatcher) { client.locationServicesEnabled }
               send(
@@ -110,6 +110,8 @@ internal constructor(
                 )
               )
             }
+            // This provider reports only the permissions above.
+            else -> Unit
           }
         }
       } catch (error: Throwable) {
@@ -128,7 +130,7 @@ internal constructor(
     flow<LocationEvent> { requester.refreshPermission() }
       .retryWhen { error, _ ->
         if (error is CancellationException) return@retryWhen false
-        emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        emit(LocationEvent.Unavailable(reason = null, cause = error))
         delay(1.seconds)
         true
       }
@@ -146,7 +148,7 @@ internal constructor(
         client.createManager()
       } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        trySend(LocationEvent.Unavailable(reason = null, cause = error))
         close()
         return@callbackFlow
       }
@@ -162,7 +164,7 @@ internal constructor(
       awaitClose()
     } catch (error: Throwable) {
       if (error is CancellationException) throw error
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+      trySend(LocationEvent.Unavailable(reason = null, cause = error))
       close()
     } finally {
       manager.close()
@@ -226,9 +228,9 @@ internal constructor(
  * [`requestWhenInUseAuthorization()`](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestwheninuseauthorization())
  * and starts location updates so macOS can present the system prompt.
  *
- * If permission initialization fails, [status] reports [LocationPermission.Unknown]. Collecting
- * location updates retries initialization without requesting permission. Persistent failures report
- * [LocationUnavailableReason.UnexpectedFailure].
+ * If permission initialization fails, [status] reports [LocationPermission.NotDetermined].
+ * Collecting location updates retries initialization without requesting permission. Persistent
+ * failures report a `null` reason with the failure as the cause.
  */
 public class MacosLocationPermissionRequester
 internal constructor(private val client: CoreLocationClient) : AutoCloseable {
@@ -236,7 +238,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
 
   /** Whether the process has a usable Core Location implementation. */
   public val backendAvailability: LocationBackendAvailability = client.backendAvailability
-  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
 
   /** Current foreground location permission, updated when Core Location reports a change. */
   public val status: StateFlow<LocationPermission> = mutableStatus
@@ -318,7 +320,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
       try {
         manager()
       } catch (error: Throwable) {
-        mutableStatus.value = LocationPermission.Unknown
+        mutableStatus.value = LocationPermission.NotDetermined
         throw error
       }
     readAndPublishPermission(manager)
@@ -329,7 +331,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
       try {
         readPermission(source.authorizationStatus, source.accuracyAuthorization)
       } catch (error: Throwable) {
-        mutableStatus.value = LocationPermission.Unknown
+        mutableStatus.value = LocationPermission.NotDetermined
         throw error
       }
     mutableStatus.value = permission

@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -41,8 +40,8 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  * [LocationUnavailableReason.TemporarilyUnavailable]. A disabled service reports
  * [LocationUnavailableReason.PermissionDenied] when access is denied, and
  * [LocationUnavailableReason.ServicesDisabled] otherwise. Unavailable hardware reports
- * [LocationUnavailableReason.Unsupported]. Other failures report
- * [LocationUnavailableReason.UnexpectedFailure].
+ * [LocationUnavailableReason.Unsupported]. Other failures report a `null` reason with the failure
+ * as the cause, when one is available.
  */
 public class WindowsLocationProvider
 internal constructor(private val client: WindowsLocationClient) : LocationProvider {
@@ -96,13 +95,13 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
         }
 
         override fun onStatus(status: WindowsPositionStatus) {
-          status.asUnavailableReason(permission.value)?.let {
-            trySend(LocationEvent.Unavailable(it))
+          if (status != WindowsPositionStatus.Ready) {
+            trySend(LocationEvent.Unavailable(status.asUnavailableReason(permission.value)))
           }
         }
 
         override fun onFailure(error: Throwable) {
-          trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+          trySend(LocationEvent.Unavailable(reason = null, cause = error))
         }
       }
     val session = Session { close() }
@@ -131,7 +130,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
         }
       if (!retained) nativeSession.close()
     } catch (error: Throwable) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+      trySend(LocationEvent.Unavailable(reason = null, cause = error))
       closeSession(session)
     } finally {
       finishOperation()
@@ -197,7 +196,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
  * [WindowsLocationProvider] delegates [LocationProvider.permission] and
  * [LocationProvider.requestPermission] to this class. Custom providers can use it directly.
  * `AppCapability.Create("location").CheckAccess()` maps `Allowed` to [LocationPermission.Granted]
- * with [LocationAccuracyAuthorization.Unknown], `UserPromptRequired` to a requestable
+ * with a `null` accuracy authorization, `UserPromptRequired` to a requestable
  * [LocationPermission.NotGranted], user or system denial and a missing packaged capability to a
  * non-requestable value, and unknown failures to `canRequest = null`. `AccessChanged` keeps
  * [status] synchronized with changes made in Windows Settings.

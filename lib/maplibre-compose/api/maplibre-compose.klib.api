@@ -623,9 +623,9 @@ sealed interface org.maplibre.compose.location/LocationTrackingStatus { // org.m
         final val cause // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
         final val reason // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.reason|{}reason[0]
-            final fun <get-reason>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
+            final fun <get-reason>(): org.maplibre.compose.location/LocationUnavailableReason? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
 
-        final fun component1(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.component1|component1(){}[0]
+        final fun component1(): org.maplibre.compose.location/LocationUnavailableReason? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.component1|component1(){}[0]
         final fun component2(): kotlin/Throwable? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.component2|component2(){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.hashCode|hashCode(){}[0]

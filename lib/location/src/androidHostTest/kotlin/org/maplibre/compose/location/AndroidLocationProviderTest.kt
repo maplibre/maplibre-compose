@@ -13,6 +13,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
@@ -130,7 +131,7 @@ class AndroidLocationProviderTest {
         runCurrent()
         val event = assertIs<LocationEvent.Unavailable>(events.single())
         assertTrue(collection.isCompleted)
-        assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+        assertNull(event.reason)
         assertTrue(shadowOf(manager).locationUpdateListeners.isEmpty())
       } finally {
         provider.close()

@@ -39,7 +39,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Missing
  * permission reports [LocationUnavailableReason.PermissionDenied]. Invalid provider registration
- * reports [LocationUnavailableReason.UnexpectedFailure].
+ * reports a `null` reason with the failure as the cause.
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *
@@ -145,7 +145,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
           try {
             refreshRegistration()
           } catch (error: IllegalArgumentException) {
-            trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+            trySend(LocationEvent.Unavailable(reason = null, cause = error))
             close()
           } catch (error: SecurityException) {
             close(error)
@@ -157,7 +157,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       context.registerLocationSettingsReceiver(settingsReceiver)
       refreshRegistration()
     } catch (error: IllegalArgumentException) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+      trySend(LocationEvent.Unavailable(reason = null, cause = error))
       close()
     } catch (error: SecurityException) {
       close(error)

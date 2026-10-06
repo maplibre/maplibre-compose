@@ -90,12 +90,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
             runCatching { signal.location.toLocationEvent() }
               .onSuccess(::trySend)
               .onFailure { error ->
-                trySend(
-                  LocationEvent.Unavailable(
-                    LocationUnavailableReason.UnexpectedFailure,
-                    error,
-                  )
-                )
+                trySend(LocationEvent.Unavailable(reason = null, cause = error))
               }
           }
         }
@@ -231,12 +226,12 @@ internal fun startFailure(response: Long): LocationUnavailableReason? =
     else -> LocationUnavailableReason.TemporarilyUnavailable
   }
 
-internal fun Throwable.asUnavailableReason(): LocationUnavailableReason =
+internal fun Throwable.asUnavailableReason(): LocationUnavailableReason? =
   when (this) {
     is DBusException,
     is DBusExecutionException,
     is IOException -> LocationUnavailableReason.TemporarilyUnavailable
-    else -> LocationUnavailableReason.UnexpectedFailure
+    else -> null
   }
 
 private val LocationAccuracy.portalValue: Long
