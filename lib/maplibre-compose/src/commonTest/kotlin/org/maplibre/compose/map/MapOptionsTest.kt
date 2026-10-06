@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.InteractionBindings
 
@@ -40,6 +41,24 @@ class MapOptionsTest {
     assertEquals(InteractionBindings.standard(), red.bindings)
     assertEquals(InteractionBindings.none(), MapUiOptions.None.bindings)
     assertNotEquals(MapUiOptions.Standard, red)
+  }
+
+  @Test
+  fun options_to_string_shows_settings() {
+    val render = RenderOptions {
+      maximumFps = 30
+      debug { tileBorders = true }
+    }
+      .toString()
+    assertTrue(render.startsWith("RenderOptions(maximumFps=30, "), render)
+    assertTrue("debug=DebugOverlays(tileBorders=true, collisionBoxes=false" in render, render)
+
+    val interactions = MapInteractions {
+      callbacks { click { onEvent { ClickResult.Pass } } }
+    }
+      .toString()
+    assertTrue(interactions.startsWith("MapInteractions(camera="), interactions)
+    assertTrue("callbacks=[click]" in interactions, interactions)
   }
 
   @Test

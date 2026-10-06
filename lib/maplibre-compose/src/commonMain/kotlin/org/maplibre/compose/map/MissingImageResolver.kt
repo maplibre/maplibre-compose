@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import org.maplibre.compose.style.renderPainter
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
+import org.maplibre.compose.util.formatToString
 import org.maplibre.compose.util.prepareInEngineContext
 
 /**
@@ -52,6 +53,9 @@ public class ResolvedStyleImage(
 
   override fun hashCode(): Int =
     31 * (31 * image.hashCode() + sdf.hashCode()) + (stretch?.hashCode() ?: 0)
+
+  override fun toString(): String =
+    formatToString("ResolvedStyleImage", "image" to image, "sdf" to sdf, "stretch" to stretch)
 
   public companion object {
     /**

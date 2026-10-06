@@ -26,6 +26,9 @@ internal actual class PlatformRenderOptions actual constructor() {
   actual override fun equals(other: Any?): Boolean = other is PlatformRenderOptions
 
   actual override fun hashCode(): Int = 0
+
+  actual val fields: List<Pair<String, Any?>>
+    get() = emptyList()
 }
 
 internal actual data class PlatformDebugOverlays(
@@ -33,4 +36,7 @@ internal actual data class PlatformDebugOverlays(
   val overdrawInspector: Boolean,
 ) {
   actual constructor() : this(padding = false, overdrawInspector = false)
+
+  actual val fields: List<Pair<String, Any?>>
+    get() = listOf("padding" to padding, "overdrawInspector" to overdrawInspector)
 }

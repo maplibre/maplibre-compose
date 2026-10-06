@@ -1,6 +1,7 @@
 package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
+import org.maplibre.compose.util.formatToString
 
 /** A physical mouse button. Touch and stylus match [Primary] without reporting a mouse button. */
 public enum class PointerButton {
@@ -29,6 +30,8 @@ public sealed class ModifierMatch private constructor() {
       other is Exactly && modifiers == other.modifiers
 
     override fun hashCode(): Int = modifiers.hashCode()
+
+    override fun toString(): String = formatToString("Exactly", "modifiers" to modifiers)
   }
 
   public class Containing(vararg modifiers: KeyModifier) : ModifierMatch() {
@@ -38,6 +41,8 @@ public sealed class ModifierMatch private constructor() {
       other is Containing && modifiers == other.modifiers
 
     override fun hashCode(): Int = modifiers.hashCode()
+
+    override fun toString(): String = formatToString("Containing", "modifiers" to modifiers)
   }
 
   internal fun matches(actual: Set<KeyModifier>): Boolean =

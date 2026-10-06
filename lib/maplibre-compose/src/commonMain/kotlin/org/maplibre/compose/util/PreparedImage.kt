@@ -30,7 +30,8 @@ public class PreparedImage internal constructor(internal val pixels: EnginePixel
    */
   public fun toImageBitmap(): ImageBitmap = pixels.toStraightArgb().toImageBitmap(width, height)
 
-  override fun toString(): String = "PreparedImage(${width}x$height)"
+  override fun toString(): String =
+    formatToString("PreparedImage", "width" to width, "height" to height)
 
   public companion object {
     /**

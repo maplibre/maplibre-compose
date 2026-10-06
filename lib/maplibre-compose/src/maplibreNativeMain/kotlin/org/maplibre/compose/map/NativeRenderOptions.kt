@@ -35,6 +35,9 @@ public val DebugOverlays.tileParseStatus: Boolean
 
 internal actual data class PlatformRenderOptions(val cameraProjection: CameraProjection) {
   actual constructor() : this(CameraProjection.Perspective)
+
+  actual val fields: List<Pair<String, Any?>>
+    get() = listOf("cameraProjection" to cameraProjection)
 }
 
 internal actual data class PlatformDebugOverlays(
@@ -42,4 +45,7 @@ internal actual data class PlatformDebugOverlays(
   val tileParseStatus: Boolean,
 ) {
   actual constructor() : this(tileTimestamps = false, tileParseStatus = false)
+
+  actual val fields: List<Pair<String, Any?>>
+    get() = listOf("tileTimestamps" to tileTimestamps, "tileParseStatus" to tileParseStatus)
 }

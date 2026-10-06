@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.interaction.InteractionBindingsBuilder
 import org.maplibre.compose.interaction.internal.InteractionBindings
+import org.maplibre.compose.util.formatToString
 
 /**
  * Settings for the Compose UI that shows the map: what shows before the first frame, and what
@@ -36,6 +37,14 @@ private constructor(
       platform == other.platform
 
   override fun hashCode(): Int = listOf(loadColor, bindings, platform).hashCode()
+
+  override fun toString(): String =
+    formatToString(
+      "MapUiOptions",
+      "loadColor" to loadColor,
+      "bindings" to bindings,
+      *platform.fields.toTypedArray(),
+    )
 
   @MapOptionsDsl
   public class Builder internal constructor(from: MapUiOptions) {

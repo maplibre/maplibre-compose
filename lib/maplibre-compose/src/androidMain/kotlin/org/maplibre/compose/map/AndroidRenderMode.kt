@@ -28,4 +28,7 @@ public val MapUiOptions.renderMode: AndroidRenderMode
 
 internal actual data class PlatformUiOptions(val renderMode: AndroidRenderMode) {
   actual constructor() : this(AndroidRenderMode.Surface)
+
+  actual val fields: List<Pair<String, Any?>>
+    get() = listOf("renderMode" to renderMode)
 }
