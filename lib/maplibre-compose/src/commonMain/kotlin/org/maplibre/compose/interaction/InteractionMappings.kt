@@ -14,6 +14,13 @@ public class DragMappingsBuilder internal constructor() {
   private val rows = mutableListOf<DragMapping>()
   private var hasOtherwise = false
 
+  /**
+   * Adds a row that selects [action] when every pointer's type is in [pointerTypes], [button] is
+   * pressed, and the pressed modifier keys satisfy [modifiers]. A `null` criterion matches any
+   * input. [PointerButton.Primary] also matches touch and stylus contact.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun on(
     pointerTypes: Set<PointerType>? = null,
     button: PointerButton? = null,
@@ -28,6 +35,11 @@ public class DragMappingsBuilder internal constructor() {
       )
   }
 
+  /**
+   * Adds a final row that selects [action] for any drag.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun otherwise(action: DragAction) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     hasOtherwise = true
@@ -43,6 +55,12 @@ public class ScrollMappingsBuilder internal constructor() {
   private val rows = mutableListOf<ScrollMapping>()
   private var hasOtherwise = false
 
+  /**
+   * Adds a row that selects [action] when every pointer's type is in [pointerTypes] and the pressed
+   * modifier keys satisfy [modifiers]. A `null` criterion matches any input.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun on(
     pointerTypes: Set<PointerType>? = null,
     modifiers: ModifierMatch? = null,
@@ -56,6 +74,11 @@ public class ScrollMappingsBuilder internal constructor() {
       )
   }
 
+  /**
+   * Adds a final row that selects [action] for any scroll.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun otherwise(action: ScrollAction) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     hasOtherwise = true
@@ -74,6 +97,12 @@ public class TapMappingsBuilder internal constructor() {
   private val rows = mutableListOf<TapMapping>()
   private var hasOtherwise = false
 
+  /**
+   * Adds a row that selects [action] when every pointer's type is in [pointerTypes] and the pressed
+   * modifier keys satisfy [modifiers]. A `null` criterion matches any input.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun on(
     pointerTypes: Set<PointerType>? = null,
     modifiers: ModifierMatch? = null,
@@ -87,6 +116,11 @@ public class TapMappingsBuilder internal constructor() {
       )
   }
 
+  /**
+   * Adds a final row that selects [action] for any tap.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun otherwise(action: TapAction) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     hasOtherwise = true
@@ -102,7 +136,13 @@ public class KeyMappingsBuilder internal constructor() {
   private val rows = mutableListOf<KeyMapping>()
   private var hasOtherwise = false
 
-  /** Modifiers match exactly by default, so unconfigured system shortcuts remain unclaimed. */
+  /**
+   * Adds a row that selects [action] when [key] is pressed and the pressed modifier keys satisfy
+   * [modifiers]. A `null` [modifiers] matches any modifier keys. Modifiers match exactly by
+   * default, so unconfigured system shortcuts remain unclaimed.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun on(
     key: Key,
     modifiers: ModifierMatch? = ModifierMatch.Exactly(),
@@ -112,6 +152,11 @@ public class KeyMappingsBuilder internal constructor() {
     rows += KeyMapping(key, modifiers, action)
   }
 
+  /**
+   * Adds a final row that selects [action] for any key.
+   *
+   * @throws IllegalArgumentException if [otherwise] was already called.
+   */
   public fun otherwise(action: KeyAction) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     hasOtherwise = true

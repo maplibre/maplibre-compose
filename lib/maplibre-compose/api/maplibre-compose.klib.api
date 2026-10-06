@@ -393,7 +393,121 @@ sealed interface org.maplibre.compose.expressions.value/ProjectionValue : org.ma
 
 sealed interface org.maplibre.compose.expressions.value/StringValue : org.maplibre.compose.expressions.value/ComparableValue<org.maplibre.compose.expressions.value/StringValue>, org.maplibre.compose.expressions.value/EquatableValue, org.maplibre.compose.expressions.value/ExpressionValue, org.maplibre.compose.expressions.value/FormattableValue, org.maplibre.compose.expressions.value/FormattedValue, org.maplibre.compose.expressions.value/MatchableValue // org.maplibre.compose.expressions.value/StringValue|null[0]
 
+sealed interface org.maplibre.compose.interaction/CameraAction { // org.maplibre.compose.interaction/CameraAction|null[0]
+    final object FitBounds : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/DragAction { // org.maplibre.compose.interaction/CameraAction.FitBounds|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.FitBounds.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.FitBounds.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.FitBounds.toString|toString(){}[0]
+    }
+
+    final object Pan : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/DragAction, org.maplibre.compose.interaction/ScrollAction { // org.maplibre.compose.interaction/CameraAction.Pan|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.Pan.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.Pan.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.Pan.toString|toString(){}[0]
+    }
+
+    final object PanDown : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanDown|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanDown.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanDown.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanDown.toString|toString(){}[0]
+    }
+
+    final object PanLeft : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanLeft|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanLeft.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanLeft.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanLeft.toString|toString(){}[0]
+    }
+
+    final object PanRight : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanRight|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanRight.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanRight.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanRight.toString|toString(){}[0]
+    }
+
+    final object PanUp : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanUp|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanUp.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanUp.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanUp.toString|toString(){}[0]
+    }
+
+    final object PitchDown : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PitchDown|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PitchDown.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PitchDown.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PitchDown.toString|toString(){}[0]
+    }
+
+    final object PitchUp : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PitchUp|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PitchUp.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PitchUp.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PitchUp.toString|toString(){}[0]
+    }
+
+    final object RotateLeft : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.RotateLeft|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotateLeft.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotateLeft.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotateLeft.toString|toString(){}[0]
+    }
+
+    final object RotatePitch : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/DragAction { // org.maplibre.compose.interaction/CameraAction.RotatePitch|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotatePitch.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotatePitch.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotatePitch.toString|toString(){}[0]
+    }
+
+    final object RotateRight : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.RotateRight|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotateRight.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotateRight.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotateRight.toString|toString(){}[0]
+    }
+
+    final object Zoom : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/ScrollAction { // org.maplibre.compose.interaction/CameraAction.Zoom|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.Zoom.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.Zoom.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.Zoom.toString|toString(){}[0]
+    }
+
+    final object ZoomIn : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/CameraAction.ZoomIn|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.ZoomIn.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.ZoomIn.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.ZoomIn.toString|toString(){}[0]
+    }
+
+    final object ZoomOut : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/CameraAction.ZoomOut|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.ZoomOut.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.ZoomOut.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.ZoomOut.toString|toString(){}[0]
+    }
+}
+
 sealed interface org.maplibre.compose.interaction/DragAction // org.maplibre.compose.interaction/DragAction|null[0]
+
+sealed interface org.maplibre.compose.interaction/FocusAction { // org.maplibre.compose.interaction/FocusAction|null[0]
+    final object Back : org.maplibre.compose.interaction/FocusAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Back|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Back.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Back.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Back.toString|toString(){}[0]
+    }
+
+    final object Disengage : org.maplibre.compose.interaction/FocusAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Disengage|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Disengage.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Disengage.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Disengage.toString|toString(){}[0]
+    }
+
+    final object Engage : org.maplibre.compose.interaction/FocusAction, org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Engage|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Engage.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Engage.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Engage.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.interaction/InputAction { // org.maplibre.compose.interaction/InputAction|null[0]
+    final object None : org.maplibre.compose.interaction/DragAction, org.maplibre.compose.interaction/InputAction, org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/ScrollAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/InputAction.None|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/InputAction.None.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/InputAction.None.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/InputAction.None.toString|toString(){}[0]
+    }
+}
 
 sealed interface org.maplibre.compose.interaction/KeyAction // org.maplibre.compose.interaction/KeyAction|null[0]
 
@@ -3506,120 +3620,6 @@ final object org.maplibre.compose.expressions.dsl/Feature { // org.maplibre.comp
     final fun within(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/GeoJsonValue>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/Feature.within|within(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.GeoJsonValue>){}[0]
 }
 
-final object org.maplibre.compose.interaction/CameraAction { // org.maplibre.compose.interaction/CameraAction|null[0]
-    final object FitBounds : org.maplibre.compose.interaction/DragAction { // org.maplibre.compose.interaction/CameraAction.FitBounds|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.FitBounds.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.FitBounds.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.FitBounds.toString|toString(){}[0]
-    }
-
-    final object Pan : org.maplibre.compose.interaction/DragAction, org.maplibre.compose.interaction/ScrollAction { // org.maplibre.compose.interaction/CameraAction.Pan|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.Pan.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.Pan.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.Pan.toString|toString(){}[0]
-    }
-
-    final object PanDown : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanDown|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanDown.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanDown.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanDown.toString|toString(){}[0]
-    }
-
-    final object PanLeft : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanLeft|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanLeft.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanLeft.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanLeft.toString|toString(){}[0]
-    }
-
-    final object PanRight : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanRight|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanRight.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanRight.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanRight.toString|toString(){}[0]
-    }
-
-    final object PanUp : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PanUp|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PanUp.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PanUp.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PanUp.toString|toString(){}[0]
-    }
-
-    final object PitchDown : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PitchDown|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PitchDown.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PitchDown.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PitchDown.toString|toString(){}[0]
-    }
-
-    final object PitchUp : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.PitchUp|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.PitchUp.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.PitchUp.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.PitchUp.toString|toString(){}[0]
-    }
-
-    final object RotateLeft : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.RotateLeft|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotateLeft.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotateLeft.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotateLeft.toString|toString(){}[0]
-    }
-
-    final object RotatePitch : org.maplibre.compose.interaction/DragAction { // org.maplibre.compose.interaction/CameraAction.RotatePitch|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotatePitch.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotatePitch.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotatePitch.toString|toString(){}[0]
-    }
-
-    final object RotateRight : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/CameraAction.RotateRight|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.RotateRight.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.RotateRight.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.RotateRight.toString|toString(){}[0]
-    }
-
-    final object Zoom : org.maplibre.compose.interaction/ScrollAction { // org.maplibre.compose.interaction/CameraAction.Zoom|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.Zoom.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.Zoom.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.Zoom.toString|toString(){}[0]
-    }
-
-    final object ZoomIn : org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/CameraAction.ZoomIn|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.ZoomIn.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.ZoomIn.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.ZoomIn.toString|toString(){}[0]
-    }
-
-    final object ZoomOut : org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/CameraAction.ZoomOut|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/CameraAction.ZoomOut.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/CameraAction.ZoomOut.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/CameraAction.ZoomOut.toString|toString(){}[0]
-    }
-}
-
-final object org.maplibre.compose.interaction/FocusAction { // org.maplibre.compose.interaction/FocusAction|null[0]
-    final object Back : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Back|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Back.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Back.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Back.toString|toString(){}[0]
-    }
-
-    final object Disengage : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Disengage|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Disengage.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Disengage.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Disengage.toString|toString(){}[0]
-    }
-
-    final object Engage : org.maplibre.compose.interaction/KeyAction { // org.maplibre.compose.interaction/FocusAction.Engage|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/FocusAction.Engage.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/FocusAction.Engage.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/FocusAction.Engage.toString|toString(){}[0]
-    }
-}
-
-final object org.maplibre.compose.interaction/InputAction { // org.maplibre.compose.interaction/InputAction|null[0]
-    final object None : org.maplibre.compose.interaction/DragAction, org.maplibre.compose.interaction/KeyAction, org.maplibre.compose.interaction/ScrollAction, org.maplibre.compose.interaction/TapAction { // org.maplibre.compose.interaction/InputAction.None|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/InputAction.None.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/InputAction.None.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.interaction/InputAction.None.toString|toString(){}[0]
-    }
-}
-
 final object org.maplibre.compose.layers/LayerDefaults { // org.maplibre.compose.layers/LayerDefaults|null[0]
     final val ColorReliefColors // org.maplibre.compose.layers/LayerDefaults.ColorReliefColors|{}ColorReliefColors[0]
         final fun <get-ColorReliefColors>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ColorValue> // org.maplibre.compose.layers/LayerDefaults.ColorReliefColors.<get-ColorReliefColors>|<get-ColorReliefColors>(){}[0]
@@ -3791,7 +3791,6 @@ final val org.maplibre.compose.interaction.internal/org_maplibre_compose_interac
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop|#static{}org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop|#static{}org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingTargets$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingTargets$stableprop|#static{}org_maplibre_compose_interaction_BearingTargets$stableprop[0]
-final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction$stableprop|#static{}org_maplibre_compose_interaction_CameraAction$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop|#static{}org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_Pan$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_Pan$stableprop|#static{}org_maplibre_compose_interaction_CameraAction_Pan$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_PanDown$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_PanDown$stableprop|#static{}org_maplibre_compose_interaction_CameraAction_PanDown$stableprop[0]
@@ -3815,11 +3814,9 @@ final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_Drag
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragMappingsBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragMappingsBuilder$stableprop|#static{}org_maplibre_compose_interaction_DragMappingsBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragPanBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragPanBuilder$stableprop|#static{}org_maplibre_compose_interaction_DragPanBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop|#static{}org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop[0]
-final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction$stableprop|#static{}org_maplibre_compose_interaction_FocusAction$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Back$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Back$stableprop|#static{}org_maplibre_compose_interaction_FocusAction_Back$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Disengage$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Disengage$stableprop|#static{}org_maplibre_compose_interaction_FocusAction_Disengage$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Engage$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Engage$stableprop|#static{}org_maplibre_compose_interaction_FocusAction_Engage$stableprop[0]
-final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction$stableprop|#static{}org_maplibre_compose_interaction_InputAction$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction_None$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction_None$stableprop|#static{}org_maplibre_compose_interaction_InputAction_None$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop|#static{}org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop|#static{}org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop[0]
@@ -4220,7 +4217,6 @@ final fun org.maplibre.compose.interaction.internal/org_maplibre_compose_interac
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop_getter|org_maplibre_compose_interaction_BearingHapticsBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop_getter|org_maplibre_compose_interaction_BearingSnappingBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingTargets$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_BearingTargets$stableprop_getter|org_maplibre_compose_interaction_BearingTargets$stableprop_getter(){}[0]
-final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction$stableprop_getter|org_maplibre_compose_interaction_CameraAction$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop_getter|org_maplibre_compose_interaction_CameraAction_FitBounds$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_Pan$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_Pan$stableprop_getter|org_maplibre_compose_interaction_CameraAction_Pan$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_PanDown$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_CameraAction_PanDown$stableprop_getter|org_maplibre_compose_interaction_CameraAction_PanDown$stableprop_getter(){}[0]
@@ -4244,11 +4240,9 @@ final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_Drag
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragMappingsBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragMappingsBuilder$stableprop_getter|org_maplibre_compose_interaction_DragMappingsBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragPanBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragPanBuilder$stableprop_getter|org_maplibre_compose_interaction_DragPanBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop_getter|org_maplibre_compose_interaction_DragRotatePitchBuilder$stableprop_getter(){}[0]
-final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction$stableprop_getter|org_maplibre_compose_interaction_FocusAction$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Back$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Back$stableprop_getter|org_maplibre_compose_interaction_FocusAction_Back$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Disengage$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Disengage$stableprop_getter|org_maplibre_compose_interaction_FocusAction_Disengage$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Engage$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_FocusAction_Engage$stableprop_getter|org_maplibre_compose_interaction_FocusAction_Engage$stableprop_getter(){}[0]
-final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction$stableprop_getter|org_maplibre_compose_interaction_InputAction$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction_None$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InputAction_None$stableprop_getter|org_maplibre_compose_interaction_InputAction_None$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop_getter|org_maplibre_compose_interaction_InteractionBindingsBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter|org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter(){}[0]

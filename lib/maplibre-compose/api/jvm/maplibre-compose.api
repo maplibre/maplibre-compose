@@ -1182,12 +1182,10 @@ public final class org/maplibre/compose/interaction/BearingTargets$Companion {
 	public static synthetic fun evenlySpaced$default (Lorg/maplibre/compose/interaction/BearingTargets$Companion;IDILjava/lang/Object;)Lorg/maplibre/compose/interaction/BearingTargets;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction;
+public abstract interface class org/maplibre/compose/interaction/CameraAction {
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$FitBounds : org/maplibre/compose/interaction/DragAction {
+public final class org/maplibre/compose/interaction/CameraAction$FitBounds : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/DragAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$FitBounds;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1195,7 +1193,7 @@ public final class org/maplibre/compose/interaction/CameraAction$FitBounds : org
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$Pan : org/maplibre/compose/interaction/DragAction, org/maplibre/compose/interaction/ScrollAction {
+public final class org/maplibre/compose/interaction/CameraAction$Pan : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/DragAction, org/maplibre/compose/interaction/ScrollAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$Pan;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1203,7 +1201,7 @@ public final class org/maplibre/compose/interaction/CameraAction$Pan : org/mapli
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PanDown : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PanDown : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PanDown;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1211,7 +1209,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PanDown : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PanLeft : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PanLeft : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PanLeft;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1219,7 +1217,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PanLeft : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PanRight : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PanRight : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PanRight;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1227,7 +1225,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PanRight : org/
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PanUp : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PanUp : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PanUp;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1235,7 +1233,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PanUp : org/map
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PitchDown : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PitchDown : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PitchDown;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1243,7 +1241,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PitchDown : org
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$PitchUp : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$PitchUp : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$PitchUp;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1251,7 +1249,7 @@ public final class org/maplibre/compose/interaction/CameraAction$PitchUp : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$RotateLeft : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$RotateLeft : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$RotateLeft;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1259,7 +1257,7 @@ public final class org/maplibre/compose/interaction/CameraAction$RotateLeft : or
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$RotatePitch : org/maplibre/compose/interaction/DragAction {
+public final class org/maplibre/compose/interaction/CameraAction$RotatePitch : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/DragAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$RotatePitch;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1267,7 +1265,7 @@ public final class org/maplibre/compose/interaction/CameraAction$RotatePitch : o
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$RotateRight : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/CameraAction$RotateRight : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$RotateRight;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1275,7 +1273,7 @@ public final class org/maplibre/compose/interaction/CameraAction$RotateRight : o
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$Zoom : org/maplibre/compose/interaction/ScrollAction {
+public final class org/maplibre/compose/interaction/CameraAction$Zoom : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/ScrollAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$Zoom;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1283,7 +1281,7 @@ public final class org/maplibre/compose/interaction/CameraAction$Zoom : org/mapl
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$ZoomIn : org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/TapAction {
+public final class org/maplibre/compose/interaction/CameraAction$ZoomIn : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/TapAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$ZoomIn;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1291,7 +1289,7 @@ public final class org/maplibre/compose/interaction/CameraAction$ZoomIn : org/ma
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/CameraAction$ZoomOut : org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/TapAction {
+public final class org/maplibre/compose/interaction/CameraAction$ZoomOut : org/maplibre/compose/interaction/CameraAction, org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/TapAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/CameraAction$ZoomOut;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1388,12 +1386,10 @@ public final class org/maplibre/compose/interaction/DragRotatePitchBuilder {
 	public final fun setStartSlop-0680j_4 (F)V
 }
 
-public final class org/maplibre/compose/interaction/FocusAction {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/interaction/FocusAction;
+public abstract interface class org/maplibre/compose/interaction/FocusAction {
 }
 
-public final class org/maplibre/compose/interaction/FocusAction$Back : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/FocusAction$Back : org/maplibre/compose/interaction/FocusAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/FocusAction$Back;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1401,7 +1397,7 @@ public final class org/maplibre/compose/interaction/FocusAction$Back : org/mapli
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/FocusAction$Disengage : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/FocusAction$Disengage : org/maplibre/compose/interaction/FocusAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/FocusAction$Disengage;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1409,7 +1405,7 @@ public final class org/maplibre/compose/interaction/FocusAction$Disengage : org/
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/interaction/FocusAction$Engage : org/maplibre/compose/interaction/KeyAction {
+public final class org/maplibre/compose/interaction/FocusAction$Engage : org/maplibre/compose/interaction/FocusAction, org/maplibre/compose/interaction/KeyAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/FocusAction$Engage;
 	public fun equals (Ljava/lang/Object;)Z
@@ -1434,12 +1430,10 @@ public final class org/maplibre/compose/interaction/HapticEmphasis : java/lang/E
 	public static fun values ()[Lorg/maplibre/compose/interaction/HapticEmphasis;
 }
 
-public final class org/maplibre/compose/interaction/InputAction {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/interaction/InputAction;
+public abstract interface class org/maplibre/compose/interaction/InputAction {
 }
 
-public final class org/maplibre/compose/interaction/InputAction$None : org/maplibre/compose/interaction/DragAction, org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/ScrollAction, org/maplibre/compose/interaction/TapAction {
+public final class org/maplibre/compose/interaction/InputAction$None : org/maplibre/compose/interaction/DragAction, org/maplibre/compose/interaction/InputAction, org/maplibre/compose/interaction/KeyAction, org/maplibre/compose/interaction/ScrollAction, org/maplibre/compose/interaction/TapAction {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/interaction/InputAction$None;
 	public fun equals (Ljava/lang/Object;)Z
