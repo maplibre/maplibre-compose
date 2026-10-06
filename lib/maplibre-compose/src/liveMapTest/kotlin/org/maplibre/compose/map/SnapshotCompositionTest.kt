@@ -33,7 +33,10 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -104,6 +107,36 @@ class SnapshotCompositionTest {
       assertFailsWith<StyleHandleException> { imageHandle.asMutable }
       snapshotter.style.sources.add(source)
       snapshotter.style.setImage(imageId, bitmap)
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
+  @Test
+  fun a_throwing_anchor_predicate_does_not_fail_the_capture() = runTest {
+    val binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
+    val reconciler = StyleReconciler()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ -> binding },
+            capture = { request, revision ->
+              reconciler.apply(binding, revision)
+              FakeImageBitmap(request.extent().width, request.extent().height)
+            },
+          )
+        }
+      )
+    try {
+      val snapshotter =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
+          Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
+        }
+      snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp)))
+      assertEquals(listOf("over", "base", "under"), binding.layerIds())
     } finally {
       runtime.close()
       runtime.awaitClosed()

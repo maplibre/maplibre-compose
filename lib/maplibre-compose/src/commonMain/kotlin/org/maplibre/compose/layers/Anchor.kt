@@ -40,16 +40,14 @@ public sealed interface Anchor {
    * composition and capture the values. See [Anchor.Companion.Above] to use this in the style
    * content.
    *
-   * The library calls [predicate] each time it applies the style content to a loaded style. For a
-   * map, and for a [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on the
-   * browser, calls run on the main thread, one at a time. For a snapshot capture on MapLibre
-   * Native, calls run on a background thread. An anchor used by several maps or snapshotters can
-   * receive calls at the same time. The predicate must return quickly and call no map API.
+   * The library calls [predicate] each time it applies the style content to a loaded style. Calls
+   * can run on any thread, and an anchor used by several maps or snapshotters can receive calls at
+   * the same time. The predicate must be a fast, pure function of its argument and must call no map
+   * API.
    *
-   * If [predicate] throws, the style content is not applied: a map logs a warning and sets
-   * [MapStyleState.loadState][org.maplibre.compose.map.MapStyleState.loadState] to
-   * [StyleLoadState.Failed][org.maplibre.compose.map.StyleLoadState.Failed], and a snapshot capture
-   * fails.
+   * If [predicate] throws an exception, the library logs a warning and places the layers at the
+   * bottom of the stack, as when it accepts no layer. The rest of the style content is applied as
+   * usual.
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
@@ -75,7 +73,8 @@ public sealed interface Anchor {
    * composition and capture the values. See [Anchor.Companion.Below] to use this in the style
    * content.
    *
-   * [predicate] is called, and its exceptions are handled, as described for [Above].
+   * [predicate] is called as described for [Above]. If it throws an exception, the library logs a
+   * warning and places the layers at the top of the stack, as when it accepts no layer.
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
