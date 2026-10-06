@@ -16,6 +16,7 @@ import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.UnspecifiedBaseStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
@@ -412,6 +413,7 @@ private class NativeSnapshotterAdapter(
         when (baseStyle) {
           is BaseStyle.Uri -> map.setStyleUrl(baseStyle.uri)
           is BaseStyle.Json -> map.setStyleJson(baseStyle.json.encodeToByteArray())
+          UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
         }
       } catch (_: MaplibreException) {
         // A rejected inline style also queues MAP_LOADING_FAILED. That event owns completion so it

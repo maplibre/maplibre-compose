@@ -336,8 +336,7 @@ fun DemoMap(
     when (state.mapState.style.loadState) {
       StyleLoadState.Ready,
       is StyleLoadState.Failed -> state.noteStyleLoad(appliedBase)
-      StyleLoadState.Loading,
-      StyleLoadState.Pending -> Unit
+      else -> Unit
     }
   }
   LaunchedEffect(state.mapState) {

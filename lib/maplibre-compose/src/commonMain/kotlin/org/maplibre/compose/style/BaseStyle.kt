@@ -8,6 +8,11 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
+/**
+ * A MapLibre style document for the map to load, given by [Uri] or inline as [Json].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @Immutable
 public sealed interface BaseStyle {
 
@@ -34,3 +39,6 @@ public sealed interface BaseStyle {
     }
   }
 }
+
+/** Keeps [BaseStyle] open: callers' `when` needs an `else` branch. The library never creates it. */
+internal data object UnspecifiedBaseStyle : BaseStyle
