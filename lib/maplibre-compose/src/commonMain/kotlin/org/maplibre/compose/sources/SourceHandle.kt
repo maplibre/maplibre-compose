@@ -95,7 +95,11 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
   public fun resetFeatureStates(): Unit
 }
 
-/** Definition writes and removal for a GeoJSON source. */
+/**
+ * Definition writes and removal for a GeoJSON source.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, MutableSourceHandle {
   /**
    * Submits [data] to replace the source data for this loaded style.
@@ -117,7 +121,11 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
   public fun setData(data: GeoJsonData): Unit
 }
 
-/** Access to a vector tile source in one loaded style generation. */
+/**
+ * Access to a vector tile source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface VectorTileSourceHandle : SourceHandle {
   override val asMutable: MutableVectorTileSourceHandle?
 
@@ -150,10 +158,18 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
   public fun resetFeatureStates(sourceLayerId: String): Unit
 }
 
-/** Removal for a vector tile source in its loaded style generation. */
+/**
+ * Removal for a vector tile source in its loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableVectorTileSourceHandle : VectorTileSourceHandle, MutableSourceHandle
 
-/** Access to a custom vector tile source in one loaded style generation. */
+/**
+ * Access to a custom vector tile source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   override val asMutable: MutableCustomVectorTileSourceHandle?
 
@@ -161,7 +177,11 @@ public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
 
-/** Removal for a custom vector tile source in its loaded style generation. */
+/**
+ * Removal for a custom vector tile source in its loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableCustomVectorTileSourceHandle :
   CustomVectorTileSourceHandle, MutableVectorTileSourceHandle
 
@@ -184,11 +204,19 @@ public sealed interface CustomGeometrySourceHandle : SourceHandle {
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
 
-/** Removal for a custom geometry source in its loaded style generation. */
+/**
+ * Removal for a custom geometry source in its loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableCustomGeometrySourceHandle :
   CustomGeometrySourceHandle, MutableSourceHandle
 
-/** Access to an image source in one loaded style generation. */
+/**
+ * Access to an image source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface ImageSourceHandle : SourceHandle {
   override val asMutable: MutableImageSourceHandle?
 }
@@ -197,6 +225,8 @@ public sealed interface ImageSourceHandle : SourceHandle {
  * Definition writes and removal for an image source. Image, URI, and bounds writes return without
  * waiting for the engine and apply in call order. Rejected writes are logged and retain the
  * previous value.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSourceHandle {
   /**
@@ -221,19 +251,35 @@ public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSou
   public fun setUri(uri: String): Unit
 }
 
-/** Access to a raster tile source in one loaded style generation. */
+/**
+ * Access to a raster tile source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface RasterTileSourceHandle : SourceHandle {
   override val asMutable: MutableRasterTileSourceHandle?
 }
 
-/** Removal for a raster tile source in its loaded style generation. */
+/**
+ * Removal for a raster tile source in its loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableRasterTileSourceHandle : RasterTileSourceHandle, MutableSourceHandle
 
-/** Access to a raster DEM tile source in one loaded style generation. */
+/**
+ * Access to a raster DEM tile source in one loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface RasterDemTileSourceHandle : SourceHandle {
   override val asMutable: MutableRasterDemTileSourceHandle?
 }
 
-/** Removal for a raster DEM tile source in its loaded style generation. */
+/**
+ * Removal for a raster DEM tile source in its loaded style generation.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MutableRasterDemTileSourceHandle :
   RasterDemTileSourceHandle, MutableSourceHandle
