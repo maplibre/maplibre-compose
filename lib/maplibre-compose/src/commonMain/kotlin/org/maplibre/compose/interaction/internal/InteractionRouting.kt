@@ -9,6 +9,7 @@ import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.KeyAction
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.ReportedKeyModifiers
 import org.maplibre.compose.interaction.ScrollAction
 import org.maplibre.compose.interaction.TapAction
 import org.maplibre.compose.interaction.UnspecifiedAction
@@ -142,9 +143,9 @@ internal fun KeyBinding.hasCameraBindings(camera: CameraSettings): Boolean {
   while (Key(unmatched) in explicitKeys) unmatched--
   val keys = explicitKeys + Key(unmatched)
   return keys.any { key ->
-    (0 until (1 shl KeyModifier.entries.size)).any { mask ->
+    (0 until (1 shl ReportedKeyModifiers.size)).any { mask ->
       val modifiers =
-        KeyModifier.entries.filterIndexed { index, _ -> mask and (1 shl index) != 0 }.toSet()
+        ReportedKeyModifiers.filterIndexed { index, _ -> mask and (1 shl index) != 0 }.toSet()
       select(key, modifiers, camera)?.isCamera == true
     }
   }

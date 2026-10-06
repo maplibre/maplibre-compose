@@ -471,6 +471,64 @@ sealed interface org.maplibre.compose.interaction/InputAction { // org.maplibre.
 
 sealed interface org.maplibre.compose.interaction/KeyAction // org.maplibre.compose.interaction/KeyAction|null[0]
 
+sealed interface org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier|null[0]
+    final object Alt : org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier.Alt|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.Alt.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.Alt.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.Alt.toString|toString(){}[0]
+    }
+
+    final object Ctrl : org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier.Ctrl|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.Ctrl.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.Ctrl.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.Ctrl.toString|toString(){}[0]
+    }
+
+    final object Meta : org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier.Meta|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.Meta.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.Meta.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.Meta.toString|toString(){}[0]
+    }
+
+    final object Shift : org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier.Shift|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.Shift.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.Shift.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.Shift.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton|null[0]
+    final object Back : org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton.Back|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.Back.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.Back.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.Back.toString|toString(){}[0]
+    }
+
+    final object Forward : org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton.Forward|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.Forward.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.Forward.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.Forward.toString|toString(){}[0]
+    }
+
+    final object Primary : org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton.Primary|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.Primary.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.Primary.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.Primary.toString|toString(){}[0]
+    }
+
+    final object Secondary : org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton.Secondary|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.Secondary.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.Secondary.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.Secondary.toString|toString(){}[0]
+    }
+
+    final object Tertiary : org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton.Tertiary|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.Tertiary.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.Tertiary.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.Tertiary.toString|toString(){}[0]
+    }
+}
+
 sealed interface org.maplibre.compose.interaction/ScrollAction // org.maplibre.compose.interaction/ScrollAction|null[0]
 
 sealed interface org.maplibre.compose.interaction/TapAction // org.maplibre.compose.interaction/TapAction|null[0]
@@ -3506,42 +3564,6 @@ final value class org.maplibre.compose.expressions.value/TranslateAnchor : org.m
     }
 }
 
-final value class org.maplibre.compose.interaction/KeyModifier { // org.maplibre.compose.interaction/KeyModifier|null[0]
-    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/KeyModifier.equals|equals(kotlin.Any?){}[0]
-    final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/KeyModifier.hashCode|hashCode(){}[0]
-    final fun toString(): kotlin/String // org.maplibre.compose.interaction/KeyModifier.toString|toString(){}[0]
-
-    final object Companion { // org.maplibre.compose.interaction/KeyModifier.Companion|null[0]
-        final val Alt // org.maplibre.compose.interaction/KeyModifier.Companion.Alt|{}Alt[0]
-            final fun <get-Alt>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Alt.<get-Alt>|<get-Alt>(){}[0]
-        final val Ctrl // org.maplibre.compose.interaction/KeyModifier.Companion.Ctrl|{}Ctrl[0]
-            final fun <get-Ctrl>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Ctrl.<get-Ctrl>|<get-Ctrl>(){}[0]
-        final val Meta // org.maplibre.compose.interaction/KeyModifier.Companion.Meta|{}Meta[0]
-            final fun <get-Meta>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Meta.<get-Meta>|<get-Meta>(){}[0]
-        final val Shift // org.maplibre.compose.interaction/KeyModifier.Companion.Shift|{}Shift[0]
-            final fun <get-Shift>(): org.maplibre.compose.interaction/KeyModifier // org.maplibre.compose.interaction/KeyModifier.Companion.Shift.<get-Shift>|<get-Shift>(){}[0]
-    }
-}
-
-final value class org.maplibre.compose.interaction/PointerButton { // org.maplibre.compose.interaction/PointerButton|null[0]
-    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/PointerButton.equals|equals(kotlin.Any?){}[0]
-    final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/PointerButton.hashCode|hashCode(){}[0]
-    final fun toString(): kotlin/String // org.maplibre.compose.interaction/PointerButton.toString|toString(){}[0]
-
-    final object Companion { // org.maplibre.compose.interaction/PointerButton.Companion|null[0]
-        final val Back // org.maplibre.compose.interaction/PointerButton.Companion.Back|{}Back[0]
-            final fun <get-Back>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Back.<get-Back>|<get-Back>(){}[0]
-        final val Forward // org.maplibre.compose.interaction/PointerButton.Companion.Forward|{}Forward[0]
-            final fun <get-Forward>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Forward.<get-Forward>|<get-Forward>(){}[0]
-        final val Primary // org.maplibre.compose.interaction/PointerButton.Companion.Primary|{}Primary[0]
-            final fun <get-Primary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Primary.<get-Primary>|<get-Primary>(){}[0]
-        final val Secondary // org.maplibre.compose.interaction/PointerButton.Companion.Secondary|{}Secondary[0]
-            final fun <get-Secondary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Secondary.<get-Secondary>|<get-Secondary>(){}[0]
-        final val Tertiary // org.maplibre.compose.interaction/PointerButton.Companion.Tertiary|{}Tertiary[0]
-            final fun <get-Tertiary>(): org.maplibre.compose.interaction/PointerButton // org.maplibre.compose.interaction/PointerButton.Companion.Tertiary.<get-Tertiary>|<get-Tertiary>(){}[0]
-    }
-}
-
 final value class org.maplibre.compose.resource/MapResourceKind { // org.maplibre.compose.resource/MapResourceKind|null[0]
     final val value // org.maplibre.compose.resource/MapResourceKind.value|{}value[0]
         final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceKind.value.<get-value>|<get-value>(){}[0]
@@ -3865,6 +3887,10 @@ final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_Inte
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop|#static{}org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyBindingBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyBindingBuilder$stableprop|#static{}org_maplibre_compose_interaction_KeyBindingBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop|#static{}org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Alt$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Alt$stableprop|#static{}org_maplibre_compose_interaction_KeyModifier_Alt$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop|#static{}org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Meta$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Meta$stableprop|#static{}org_maplibre_compose_interaction_KeyModifier_Meta$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Shift$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Shift$stableprop|#static{}org_maplibre_compose_interaction_KeyModifier_Shift$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop|#static{}org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions$stableprop|#static{}org_maplibre_compose_interaction_MapInteractions$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions_Builder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions_Builder$stableprop|#static{}org_maplibre_compose_interaction_MapInteractions_Builder$stableprop[0]
@@ -3875,6 +3901,11 @@ final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanC
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanMomentumBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanMomentumBuilder$stableprop|#static{}org_maplibre_compose_interaction_PanMomentumBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchCameraBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchCameraBuilder$stableprop|#static{}org_maplibre_compose_interaction_PitchCameraBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop|#static{}org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Back$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Back$stableprop|#static{}org_maplibre_compose_interaction_PointerButton_Back$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Forward$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Forward$stableprop|#static{}org_maplibre_compose_interaction_PointerButton_Forward$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Primary$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Primary$stableprop|#static{}org_maplibre_compose_interaction_PointerButton_Primary$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Secondary$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Secondary$stableprop|#static{}org_maplibre_compose_interaction_PointerButton_Secondary$stableprop[0]
+final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop|#static{}org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop|#static{}org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotateCameraBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotateCameraBuilder$stableprop|#static{}org_maplibre_compose_interaction_RotateCameraBuilder$stableprop[0]
 final val org.maplibre.compose.interaction/org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop // org.maplibre.compose.interaction/org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop|#static{}org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop[0]
@@ -4287,6 +4318,10 @@ final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_Inte
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter|org_maplibre_compose_interaction_InteractionCallbacksBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyBindingBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyBindingBuilder$stableprop_getter|org_maplibre_compose_interaction_KeyBindingBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop_getter|org_maplibre_compose_interaction_KeyMappingsBuilder$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Alt$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Alt$stableprop_getter|org_maplibre_compose_interaction_KeyModifier_Alt$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop_getter|org_maplibre_compose_interaction_KeyModifier_Ctrl$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Meta$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Meta$stableprop_getter|org_maplibre_compose_interaction_KeyModifier_Meta$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Shift$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_KeyModifier_Shift$stableprop_getter|org_maplibre_compose_interaction_KeyModifier_Shift$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop_getter|org_maplibre_compose_interaction_LongClickCallbackBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions$stableprop_getter|org_maplibre_compose_interaction_MapInteractions$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_MapInteractions_Builder$stableprop_getter|org_maplibre_compose_interaction_MapInteractions_Builder$stableprop_getter(){}[0]
@@ -4297,6 +4332,11 @@ final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanC
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanMomentumBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PanMomentumBuilder$stableprop_getter|org_maplibre_compose_interaction_PanMomentumBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchCameraBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchCameraBuilder$stableprop_getter|org_maplibre_compose_interaction_PitchCameraBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop_getter|org_maplibre_compose_interaction_PitchMomentumBuilder$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Back$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Back$stableprop_getter|org_maplibre_compose_interaction_PointerButton_Back$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Forward$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Forward$stableprop_getter|org_maplibre_compose_interaction_PointerButton_Forward$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Primary$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Primary$stableprop_getter|org_maplibre_compose_interaction_PointerButton_Primary$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Secondary$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Secondary$stableprop_getter|org_maplibre_compose_interaction_PointerButton_Secondary$stableprop_getter(){}[0]
+final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop_getter|org_maplibre_compose_interaction_PointerButton_Tertiary$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop_getter|org_maplibre_compose_interaction_RotaryBindingBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotateCameraBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_RotateCameraBuilder$stableprop_getter|org_maplibre_compose_interaction_RotateCameraBuilder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.interaction/org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop_getter(): kotlin/Int // org.maplibre.compose.interaction/org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop_getter|org_maplibre_compose_interaction_ScrollBindingBuilder$stableprop_getter(){}[0]

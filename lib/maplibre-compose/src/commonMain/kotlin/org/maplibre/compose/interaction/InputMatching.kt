@@ -1,7 +1,6 @@
 package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
-import kotlin.jvm.JvmInline
 import org.maplibre.compose.util.formatToString
 
 /**
@@ -9,54 +8,55 @@ import org.maplibre.compose.util.formatToString
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-@JvmInline
-public value class PointerButton private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface PointerButton {
+  /** The left mouse button. */
+  public data object Primary : PointerButton
 
-  public companion object {
-    /** The left mouse button. */
-    public val Primary: PointerButton = PointerButton("Primary")
+  /** The right mouse button. */
+  public data object Secondary : PointerButton
 
-    /** The right mouse button. */
-    public val Secondary: PointerButton = PointerButton("Secondary")
+  /** The middle mouse button, often the scroll wheel pressed down. */
+  public data object Tertiary : PointerButton
 
-    /** The middle mouse button, often the scroll wheel pressed down. */
-    public val Tertiary: PointerButton = PointerButton("Tertiary")
+  /** The side mouse button that navigates back. */
+  public data object Back : PointerButton
 
-    /** The side mouse button that navigates back. */
-    public val Back: PointerButton = PointerButton("Back")
-
-    /** The side mouse button that navigates forward. */
-    public val Forward: PointerButton = PointerButton("Forward")
-  }
+  /** The side mouse button that navigates forward. */
+  public data object Forward : PointerButton
 }
+
+/**
+ * Keeps [PointerButton] open: callers' `when` needs an `else` branch. The library never reports it.
+ */
+internal data object UnspecifiedPointerButton : PointerButton
 
 /**
  * A keyboard modifier key reported with an input sample.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-@JvmInline
-public value class KeyModifier private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface KeyModifier {
+  /** The Shift key. */
+  public data object Shift : KeyModifier
 
-  public companion object {
-    /** The Shift key. */
-    public val Shift: KeyModifier = KeyModifier("Shift")
+  /** The Control key. */
+  public data object Ctrl : KeyModifier
 
-    /** The Control key. */
-    public val Ctrl: KeyModifier = KeyModifier("Ctrl")
+  /** The Alt key, labeled Option on Apple keyboards. */
+  public data object Alt : KeyModifier
 
-    /** The Alt key, labeled Option on Apple keyboards. */
-    public val Alt: KeyModifier = KeyModifier("Alt")
-
-    /** The Meta key: Command on Apple keyboards and the Windows key on others. */
-    public val Meta: KeyModifier = KeyModifier("Meta")
-
-    /** Every modifier this library reports, for code that enumerates modifier combinations. */
-    internal val entries: List<KeyModifier> = listOf(Shift, Ctrl, Alt, Meta)
-  }
+  /** The Meta key: Command on Apple keyboards and the Windows key on others. */
+  public data object Meta : KeyModifier
 }
+
+/**
+ * Keeps [KeyModifier] open: callers' `when` needs an `else` branch. The library never reports it.
+ */
+internal data object UnspecifiedKeyModifier : KeyModifier
+
+/** Every modifier this library reports, for code that enumerates modifier combinations. */
+internal val ReportedKeyModifiers: List<KeyModifier> =
+  listOf(KeyModifier.Shift, KeyModifier.Ctrl, KeyModifier.Alt, KeyModifier.Meta)
 
 /**
  * Matches the complete modifier set or a subset. A null filter matches any modifiers.
