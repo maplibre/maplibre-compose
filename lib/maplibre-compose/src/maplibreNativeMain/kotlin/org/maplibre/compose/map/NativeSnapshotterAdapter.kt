@@ -433,9 +433,6 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private fun MapSnapshotRequest.extent(): MapExtent =
-    MapExtent.fromLogical(width, height, density.density.toDouble())
-
   /** One request step that snapshot events or the owner thread complete. */
   private class NativeSnapshotOperation(val awaits: Awaits) {
     val completion = CompletableDeferred<Result<Unit>>()

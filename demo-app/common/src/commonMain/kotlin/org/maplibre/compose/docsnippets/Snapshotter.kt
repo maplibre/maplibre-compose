@@ -5,7 +5,9 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.map.MapRuntime
@@ -29,8 +31,7 @@ suspend fun captureCurrentMap(
   return try {
     snapshotter.capture(
       MapSnapshotRequest(
-        width = 640,
-        height = 360,
+        size = DpSize(640.dp, 360.dp),
         cameraPosition = mapState.cameraPosition,
         density = density,
         layoutDirection = layoutDirection,

@@ -2335,23 +2335,21 @@ public final class org/maplibre/compose/map/MapSnapshotException : java/lang/Run
 
 public final class org/maplibre/compose/map/MapSnapshotRequest {
 	public static final field $stable I
-	public fun <init> (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)V
-	public synthetic fun <init> (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component2 ()I
-	public final fun component3 ()Lorg/maplibre/compose/camera/CameraPosition;
-	public final fun component4 ()Landroidx/compose/ui/unit/Density;
-	public final fun component5 ()Landroidx/compose/ui/unit/LayoutDirection;
-	public final fun component6 ()Z
-	public final fun copy (IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)Lorg/maplibre/compose/map/MapSnapshotRequest;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/map/MapSnapshotRequest;IILorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotRequest;
+	public synthetic fun <init> (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MYxV2XQ ()J
+	public final fun component2 ()Lorg/maplibre/compose/camera/CameraPosition;
+	public final fun component3 ()Landroidx/compose/ui/unit/Density;
+	public final fun component4 ()Landroidx/compose/ui/unit/LayoutDirection;
+	public final fun component5 ()Z
+	public final fun copy-IbIYxLY (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)Lorg/maplibre/compose/map/MapSnapshotRequest;
+	public static synthetic fun copy-IbIYxLY$default (Lorg/maplibre/compose/map/MapSnapshotRequest;JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotRequest;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
 	public final fun getDensity ()Landroidx/compose/ui/unit/Density;
-	public final fun getHeight ()I
 	public final fun getLayoutDirection ()Landroidx/compose/ui/unit/LayoutDirection;
+	public final fun getSize-MYxV2XQ ()J
 	public final fun getTransparent ()Z
-	public final fun getWidth ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

@@ -124,7 +124,7 @@ internal fun SnapshotSheet(state: SnapshotterDemoState) {
           modifier =
             Modifier.fillMaxWidth()
               .heightIn(max = 480.dp)
-              .aspectRatio(shot.request.width.toFloat() / shot.request.height),
+              .aspectRatio(shot.request.size.width / shot.request.size.height),
         )
       }
       Text(

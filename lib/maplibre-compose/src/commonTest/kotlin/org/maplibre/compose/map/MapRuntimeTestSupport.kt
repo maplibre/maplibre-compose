@@ -1,7 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +45,7 @@ internal fun mapRuntimeForTest(
 internal fun viewportFor(request: MapSnapshotRequest): Viewport =
   Viewport(
     cameraPosition = request.cameraPosition,
-    size = DpSize(request.width.dp, request.height.dp),
+    size = request.size,
     visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =
       VisibleRegion(

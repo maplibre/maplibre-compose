@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -168,7 +170,7 @@ class StyleResourceCommandTest {
     val parked = TestLatch(1)
     val release = TestLatch(1)
     try {
-      snapshotter.capture(MapSnapshotRequest(8, 8))
+      snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
       val imageSource = snapshotter.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
       val holdOwner =

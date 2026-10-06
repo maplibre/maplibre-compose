@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -62,8 +63,7 @@ class NativeMapSnapshotterTest {
         val densityOne =
           snapshotter.capture(
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition =
                 CameraPosition(
                   target = Position(longitude = 0.0, latitude = 0.0),
@@ -75,8 +75,7 @@ class NativeMapSnapshotterTest {
         val densityTwo =
           snapshotter.capture(
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               density = Density(2f),
               cameraPosition =
                 CameraPosition(
@@ -121,8 +120,7 @@ class NativeMapSnapshotterTest {
         )
       val request =
         MapSnapshotRequest(
-          width = SIZE,
-          height = SIZE,
+          size = DpSize(SIZE.dp, SIZE.dp),
           cameraPosition =
             CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
         )
@@ -166,8 +164,7 @@ class NativeMapSnapshotterTest {
         try {
           val request =
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           snapshotter.capture(request)
@@ -199,11 +196,13 @@ class NativeMapSnapshotterTest {
     try {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
       try {
-        val rejected = runCatching { snapshotter.capture(MapSnapshotRequest(SIZE, SIZE)) }
+        val rejected = runCatching {
+          snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp)))
+        }
         assertTrue(rejected.isFailure)
 
         snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
-        val captured = snapshotter.capture(MapSnapshotRequest(SIZE, SIZE))
+        val captured = snapshotter.capture(MapSnapshotRequest(DpSize(SIZE.dp, SIZE.dp)))
 
         assertEquals(BACKGROUND, captured.readPixel(0, 0))
       } finally {
@@ -232,8 +231,7 @@ class NativeMapSnapshotterTest {
         try {
           val request =
             MapSnapshotRequest(
-              width = SIZE,
-              height = SIZE,
+              size = DpSize(SIZE.dp, SIZE.dp),
               cameraPosition = CameraPosition(zoom = 2.0),
             )
           assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }

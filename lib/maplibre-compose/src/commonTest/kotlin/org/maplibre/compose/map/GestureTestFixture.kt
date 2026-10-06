@@ -2,6 +2,8 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineDispatcher
 import org.maplibre.compose.camera.internal.BoxZoomFit
@@ -52,7 +54,7 @@ internal class RecordingGestureTarget(
   private val pending = ArrayDeque<() -> Unit>()
 
   init {
-    currentViewport = viewportFor(MapSnapshotRequest(100, 100))
+    currentViewport = viewportFor(MapSnapshotRequest(DpSize(100.dp, 100.dp)))
     state.publishPresentation(state.reservePresentation(), this)
     state.attachmentAuthority.synchronizeCamera(this)
   }

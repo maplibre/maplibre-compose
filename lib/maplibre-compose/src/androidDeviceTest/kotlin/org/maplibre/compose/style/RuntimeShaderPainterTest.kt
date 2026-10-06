@@ -7,7 +7,9 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
@@ -78,7 +80,7 @@ class RuntimeShaderPainterTest {
             SymbolLayer(id = "shader", source = source, iconImage = image(painter))
           }
         val pixels = IntArray(16)
-        snapshotter.capture(MapSnapshotRequest(4, 4)).readPixels(pixels)
+        snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp))).readPixels(pixels)
         assertEquals(List(16) { 0xffff0000.toInt() }, pixels.toList())
       } finally {
         runtime.close()
