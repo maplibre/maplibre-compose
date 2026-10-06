@@ -58,19 +58,40 @@ public data class TileCoordinate(
 /**
  * Supplies geographic features for one tile.
  *
- * Calls for different tiles can overlap. Cancellation means MapLibre no longer needs that request.
+ * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles run at the
+ * same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request for
+ * a tile cancels the call that is still loading it. On the browser, calls run on the page's main
+ * thread and overlap only where they suspend, and requests for a tile that is already loading share
+ * that call.
  */
 public fun interface GeometryTileProvider {
+  /**
+   * Returns the features of [tile].
+   *
+   * Cancellation means that MapLibre no longer needs the tile, or that the source left the style.
+   * An exception other than cancellation is logged as an error, and the tile has no features.
+   */
   public suspend fun loadTile(tile: TileCoordinate): FeatureCollection<*, *>
 }
 
 /**
  * Supplies encoded vector data for one tile.
  *
- * Calls for different tiles can overlap. Cancellation means MapLibre no longer needs that request.
+ * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles run at the
+ * same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request for
+ * a tile cancels the call that is still loading it. On the browser, calls run on the page's main
+ * thread and overlap only where they suspend, and requests for a tile that is already loading share
+ * that call.
  */
 public fun interface VectorTileProvider {
-  /** Returns an uncompressed MVT protobuf document. An empty array represents an empty tile. */
+  /**
+   * Returns an uncompressed MVT protobuf document for [tile]. An empty array represents an empty
+   * tile.
+   *
+   * Cancellation means that MapLibre no longer needs the tile, or that the source left the style.
+   * An exception other than cancellation fails the tile, with the exception message as the error
+   * that the engine reports.
+   */
   public suspend fun loadTile(tile: TileCoordinate): ByteArray
 }
 

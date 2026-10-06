@@ -41,9 +41,16 @@ internal constructor(
 /**
  * Rewrites the URL of a resource request, or adds HTTP headers to it. Override either function.
  *
+ * On MapLibre Native, both functions run on the engine's worker and network threads, and calls for
+ * different requests can run at the same time on several threads. On the browser, both run on the
+ * page's main thread while MapLibre GL JS creates the request, one call at a time.
+ *
  * Callbacks must return quickly, be safe to call concurrently, and call no map API. They may be
  * called repeatedly; return the same result while the request and application state are unchanged.
  * Read changing credentials from a thread-safe store.
+ *
+ * If a function throws an exception, the library logs a warning and uses the default result: the
+ * URL is not rewritten, or the request gets no added headers.
  *
  * Use [MapResourceProvider] to supply resource data directly.
  */
@@ -66,7 +73,12 @@ public interface MapRequestInterceptor {
   public fun headers(request: MapResourceRequest): Map<String, String> = emptyMap()
 }
 
-/** Returns an interceptor that calls [rewriteUrl] and [headers]. */
+/**
+ * Returns an interceptor that calls [rewriteUrl] and [headers].
+ *
+ * Each function runs on the threads, and with the failure handling, of the [MapRequestInterceptor]
+ * member with the same name.
+ */
 public fun MapRequestInterceptor(
   rewriteUrl: (MapResourceRequest) -> String? = { null },
   headers: (MapResourceRequest) -> Map<String, String> = { emptyMap() },
@@ -266,22 +278,46 @@ public sealed interface MapResourceLoad {
 /**
  * Loads resources for the requests that the application accepts.
  *
- * [accepts] receives the URL after [MapRequestInterceptor.rewriteUrl]. It runs on a network thread
- * and must return quickly. Return true only for requests that this provider loads. [load] may
- * suspend; cancellation means that the engine no longer needs the resource. An exception from
- * [load] becomes a [MapResourceLoad.Failed] with reason [MapResourceError.Other].
- *
  * A true [accepts] result replaces the engine HTTP client for that request. MapLibre Native stores
  * the result in its ambient cache. After the cached entry expires, the engine requests the resource
  * again with the prior validators set on the request.
  */
 public interface MapResourceProvider {
+  /**
+   * Returns whether this provider loads [request]. Return true only for requests that [load]
+   * handles.
+   *
+   * [MapResourceRequest.url] is the URL after [MapRequestInterceptor.rewriteUrl]. This function
+   * runs where [MapRequestInterceptor.rewriteUrl] runs: on MapLibre Native, on the engine's worker
+   * and network threads, where calls for different requests can run at the same time; on the
+   * browser, on the page's main thread, one call at a time. It must return quickly, be safe to call
+   * concurrently, and call no map API.
+   *
+   * If it throws an exception, the library logs a warning and treats the result as false, so the
+   * engine HTTP client fetches the request.
+   */
   public fun accepts(request: MapResourceRequest): Boolean
 
+  /**
+   * Loads the resource for a request that [accepts] returned true for.
+   *
+   * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different requests run at
+   * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. On the
+   * browser, calls run on the page's main thread and overlap only where they suspend.
+   *
+   * Cancellation means that the engine no longer needs the resource, or that the map runtime
+   * closed. An exception other than cancellation becomes a [MapResourceLoad.Failed] with reason
+   * [MapResourceError.Other].
+   */
   public suspend fun load(request: MapResourceLoadRequest): MapResourceLoad
 }
 
-/** Returns a provider that calls [accepts] and [load]. */
+/**
+ * Returns a provider that calls [accepts] and [load].
+ *
+ * Each function runs on the threads, and with the failure handling, of the [MapResourceProvider]
+ * member with the same name.
+ */
 public fun MapResourceProvider(
   accepts: (MapResourceRequest) -> Boolean,
   load: suspend (MapResourceLoadRequest) -> MapResourceLoad,
@@ -295,7 +331,8 @@ public fun MapResourceProvider(
 /**
  * Returns a provider that serves URLs whose scheme is [scheme].
  *
- * [scheme] is the scheme name without a trailing colon, such as `app`.
+ * [scheme] is the scheme name without a trailing colon, such as `app`. [load] runs as
+ * [MapResourceProvider.load] does, and an exception from it fails the request the same way.
  */
 public fun MapResourceProvider(
   scheme: String,
