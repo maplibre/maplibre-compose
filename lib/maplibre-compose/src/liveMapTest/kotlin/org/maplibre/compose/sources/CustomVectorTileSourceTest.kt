@@ -1,6 +1,8 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.test.Test
@@ -10,23 +12,28 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
+import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.captureWarnings
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.withTestMapRuntime
 
 class CustomVectorTileSourceTest {
 
@@ -129,6 +136,69 @@ class CustomVectorTileSourceTest {
     }
   }
 
+  /**
+   * MapLibre Native fails a whole still image on a tile error, so a snapshot draws a failed tile
+   * empty instead, and both engines log the provider's exception.
+   */
+  @Test
+  fun a_failing_mvt_provider_leaves_a_snapshot_with_its_other_tiles(): MapTestResult = runMapTest {
+    val options = CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)
+    val working = CustomVectorTileSource("working", options) { PointTile }
+    val failing =
+      CustomVectorTileSource("failing", options) { error("provider failure for the test") }
+    withTestMapRuntime { runtime ->
+      val snapshotter =
+        runtime.createSnapshotter(BlackStyle) {
+          CircleLayer(
+            id = "failing-points",
+            source = failing,
+            sourceLayer = SourceLayer,
+            color = const(Color.Red),
+            radius = const(16.dp),
+          )
+          CircleLayer(
+            id = "working-points",
+            source = working,
+            sourceLayer = SourceLayer,
+            color = const(Color.Blue),
+            radius = const(16.dp),
+          )
+        }
+      try {
+        captureWarnings { warnings ->
+          val image =
+            snapshotter.capture(
+              MapSnapshotRequest(
+                size = DpSize(SnapshotSize.dp, SnapshotSize.dp),
+                cameraPosition = CameraPosition(zoom = 0.0),
+              )
+            )
+
+          assertEquals(Blue, image.readPixel(SnapshotSize / 2, SnapshotSize / 2))
+          assertTrue(
+            warnings.any { "'failing'" in it },
+            "Expected a logged failure for source 'failing', got $warnings",
+          )
+        }
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+      }
+    }
+  }
+
+  private fun ImageBitmap.readPixel(x: Int, y: Int): RgbaPixel {
+    val pixel = IntArray(1)
+    readPixels(buffer = pixel, startX = x, startY = y, width = 1, height = 1)
+    val argb = pixel.single()
+    return RgbaPixel(
+      red = argb ushr 16 and 0xff,
+      green = argb ushr 8 and 0xff,
+      blue = argb and 0xff,
+      alpha = argb ushr 24 and 0xff,
+    )
+  }
+
   private class CancellationState {
     @Volatile var started = false
     @Volatile var cancelled = false
@@ -138,6 +208,7 @@ class CustomVectorTileSourceTest {
     const val SourceId = "custom-vector"
     const val SourceLayer = "points"
     const val Center = 256
+    const val SnapshotSize = 64
     val Blue = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
 
     val BlackStyle =

@@ -10,8 +10,12 @@ import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.TestMain
+import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
@@ -108,6 +112,22 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
 
 internal actual fun createMapFixture(extent: MapExtent): MapFixture =
   MlnFfiMapFixture(BridgeMapFixture.create(extent), extent)
+
+internal actual suspend fun withTestMapRuntime(block: suspend (MapRuntime) -> Unit) {
+  FfiTestPlatform.initialize()
+  val cacheFile = FfiTestPlatform.createCacheFile()
+  val runtime =
+    createNativeMapRuntime(
+      MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+    )
+  try {
+    block(runtime)
+  } finally {
+    runtime.close()
+    runtime.awaitClosed()
+    FfiTestPlatform.deleteCacheFile(cacheFile)
+  }
+}
 
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.Native
 

@@ -87,7 +87,10 @@ internal class GlJsSnapshotterAdapter(
         currentMap.loadBaseStyle(
           baseStyle,
           onLoaded = {
-            val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
+            val binding =
+              GlJsStyleBinding(currentMap, logger, emptyFailedCustomTiles = true) {
+                currentDensity
+              }
             styleBinding?.invalidate()
             styleBinding = binding
             loadedBaseStyleRevision = baseStyleRevision

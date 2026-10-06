@@ -362,6 +362,7 @@ private class NativeSnapshotterAdapter(
             source.loop.await { source.resources.withSessionOrNull(action) }
         },
       getScale = { currentDensity },
+      emptyFailedCustomTiles = true,
     )
 
   private suspend fun readImage(request: MapSnapshotRequest): ImageBitmap {

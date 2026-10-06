@@ -108,6 +108,12 @@ internal open class MlnFfiStyleBinding(
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
+  /**
+   * Whether a custom vector tile whose provider fails is logged and answered as an empty tile
+   * instead of as a tile error. A snapshot sets this, because MapLibre fails a whole still image on
+   * any tile error.
+   */
+  private val emptyFailedCustomTiles: Boolean = false,
 ) : StyleBinding {
   @Volatile private var loaded = true
   private val geoJsonCoordinators =
@@ -422,11 +428,18 @@ internal open class MlnFfiStyleBinding(
         load = provider::loadTile,
         deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
-          map.setCustomMvtVectorSourceTileError(
-            sourceId,
-            tile,
-            error.message ?: "Tile loading failed",
-          )
+          if (emptyFailedCustomTiles) {
+            logger?.e(error) {
+              "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
+            }
+            map.setCustomMvtVectorSourceTileData(sourceId, tile, EmptyVectorTile)
+          } else {
+            map.setCustomMvtVectorSourceTileError(
+              sourceId,
+              tile,
+              error.message ?: "Tile loading failed",
+            )
+          }
         },
       )
     val callback =
@@ -939,6 +952,9 @@ internal open class MlnFfiStyleBinding(
     /** Delivered for a tile whose provider failed, so the map's load can finish. */
     private val EmptyFeatureCollection =
       """{"type":"FeatureCollection","features":[]}""".encodeToByteArray()
+
+    /** An MVT document with no layers. */
+    private val EmptyVectorTile = ByteArray(0)
 
     private const val ExpansionZoomField = "expansion-zoom"
     private const val ChildrenField = "children"

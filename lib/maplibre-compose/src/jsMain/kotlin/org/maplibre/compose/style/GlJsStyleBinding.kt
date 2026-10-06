@@ -7,6 +7,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -77,6 +79,12 @@ import org.maplibre.spatialk.geojson.Position
 internal class GlJsStyleBinding(
   private val map: MaplibreMap,
   override val logger: MapLog?,
+  /**
+   * Whether a custom vector tile whose provider fails is logged and answered as an empty tile
+   * instead of as a tile error. A snapshot sets this, so a failed tile renders as it does in a
+   * MapLibre Native snapshot.
+   */
+  private val emptyFailedCustomTiles: Boolean = false,
   private val getScale: () -> Float,
 ) : StyleBinding {
 
@@ -432,7 +440,9 @@ internal class GlJsStyleBinding(
     val attachment =
       GlJsProtocolTileAttachment(
         name = "custom-vector-$sourceId",
-        loadTile = provider::loadTile,
+        loadTile =
+          if (emptyFailedCustomTiles) { tile -> loadTileOrEmpty(sourceId, provider, tile) }
+          else provider::loadTile,
       )
     customVectorAttachments[sourceId] = attachment
     val added =
@@ -453,6 +463,21 @@ internal class GlJsStyleBinding(
     if (!added) customVectorAttachments.remove(sourceId)?.close()
     return added
   }
+
+  private suspend fun loadTileOrEmpty(
+    sourceId: String,
+    provider: VectorTileProvider,
+    tile: TileCoordinate,
+  ): ByteArray =
+    try {
+      provider.loadTile(tile)
+    } catch (error: Throwable) {
+      // A cancelled job means the request ended. The provider's own cancellation, such as a
+      // timeout, leaves the job active and fails like any other exception.
+      if (error is CancellationException) currentCoroutineContext().ensureActive()
+      logger?.e(error) { "Loading tile $tile of source '$sourceId' failed" }
+      byteArrayOf()
+    }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate): Unit =
     throw UnsupportedOperationException(

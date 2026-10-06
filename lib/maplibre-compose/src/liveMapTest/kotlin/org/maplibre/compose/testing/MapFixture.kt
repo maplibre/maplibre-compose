@@ -16,6 +16,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.style.BaseStyle
@@ -125,6 +126,9 @@ internal suspend fun MapFixture.pumpUntilPixel(
 }
 
 internal expect fun createMapFixture(extent: MapExtent = MapFixture.DefaultExtent): MapFixture
+
+/** Runs [block] with a real runtime on disposable storage, and closes the runtime afterward. */
+internal expect suspend fun withTestMapRuntime(block: suspend (MapRuntime) -> Unit)
 
 /** Evaluates real composables, then publishes and reconciles through the map's production paths. */
 internal suspend fun MapFixture.declare(

@@ -33,6 +33,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
@@ -224,6 +226,9 @@ public sealed interface MapSnapshotter {
    *
    * Cancelling the caller removes a queued request or abandons an active result. After active
    * cancellation, the next request waits until platform rendering and terminal cleanup end.
+   *
+   * When a [VectorTileProvider] or [GeometryTileProvider] call fails, the capture still succeeds:
+   * the failure is logged as an error, and that tile is drawn with no features.
    *
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
