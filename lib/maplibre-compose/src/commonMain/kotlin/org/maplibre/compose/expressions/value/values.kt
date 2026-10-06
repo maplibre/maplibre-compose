@@ -125,13 +125,13 @@ public sealed interface StringValue :
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast] when the input is already known to
  * belong to the style type; a cast does not check the value at runtime.
  */
-public interface EnumValue : StringValue {
+public sealed interface EnumValue : StringValue {
   /** The string used in the MapLibre style specification. */
   public val value: String
 }
 
 /** Describes the named values of a style expression type. */
-public interface EnumType<out T : EnumValue> {
+public sealed interface EnumType<out T : EnumValue> {
   /** The named values supported by this version of the library. */
   public val entries: List<T>
 }
