@@ -1265,6 +1265,7 @@ final class org.maplibre.compose.interaction/BearingSnappingBuilder { // org.map
 final class org.maplibre.compose.interaction/BearingTargets { // org.maplibre.compose.interaction/BearingTargets|null[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/BearingTargets.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/BearingTargets.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.interaction/BearingTargets.toString|toString(){}[0]
 
     final object Companion { // org.maplibre.compose.interaction/BearingTargets.Companion|null[0]
         final fun at(kotlin/DoubleArray...): org.maplibre.compose.interaction/BearingTargets // org.maplibre.compose.interaction/BearingTargets.Companion.at|at(kotlin.DoubleArray...){}[0]
@@ -1415,6 +1416,7 @@ final class org.maplibre.compose.interaction/MapInteractions { // org.maplibre.c
 
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/MapInteractions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/MapInteractions.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.interaction/MapInteractions.toString|toString(){}[0]
 
     final class Builder { // org.maplibre.compose.interaction/MapInteractions.Builder|null[0]
         final var animationDuration // org.maplibre.compose.interaction/MapInteractions.Builder.animationDuration|{}animationDuration[0]
@@ -1794,6 +1796,7 @@ final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map
 
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/DebugOverlays.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/DebugOverlays.toString|toString(){}[0]
 
     final class Builder { // org.maplibre.compose.map/DebugOverlays.Builder|null[0]
         final var collisionBoxes // org.maplibre.compose.map/DebugOverlays.Builder.collisionBoxes|{}collisionBoxes[0]
@@ -1819,6 +1822,7 @@ final class org.maplibre.compose.map/MapRuntime { // org.maplibre.compose.map/Ma
     final fun close() // org.maplibre.compose.map/MapRuntime.close|close(){}[0]
     final fun createMapState(org.maplibre.compose.style/BaseStyle, org.maplibre.compose.camera/CameraPosition = ..., kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapState // org.maplibre.compose.map/MapRuntime.createMapState|createMapState(org.maplibre.compose.style.BaseStyle;org.maplibre.compose.camera.CameraPosition;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
     final fun createSnapshotter(org.maplibre.compose.style/BaseStyle, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapSnapshotter // org.maplibre.compose.map/MapRuntime.createSnapshotter|createSnapshotter(org.maplibre.compose.style.BaseStyle;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/MapRuntime.toString|toString(){}[0]
     final suspend fun awaitClosed() // org.maplibre.compose.map/MapRuntime.awaitClosed|awaitClosed(){}[0]
 }
 
@@ -1943,6 +1947,7 @@ final class org.maplibre.compose.map/MapState { // org.maplibre.compose.map/MapS
     final fun screenLocationFromPosition(org.maplibre.spatialk.geojson/Position): androidx.compose.ui.unit/DpOffset? // org.maplibre.compose.map/MapState.screenLocationFromPosition|screenLocationFromPosition(org.maplibre.spatialk.geojson.Position){}[0]
     final fun setCameraPosition(org.maplibre.compose.camera/CameraPosition) // org.maplibre.compose.map/MapState.setCameraPosition|setCameraPosition(org.maplibre.compose.camera.CameraPosition){}[0]
     final fun stopCameraMovement() // org.maplibre.compose.map/MapState.stopCameraMovement|stopCameraMovement(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/MapState.toString|toString(){}[0]
     final suspend fun animateCamera(org.maplibre.compose.camera/CameraUpdate, org.maplibre.compose.camera/CameraAnimation = ...) // org.maplibre.compose.map/MapState.animateCamera|animateCamera(org.maplibre.compose.camera.CameraUpdate;org.maplibre.compose.camera.CameraAnimation){}[0]
     final suspend fun animateCameraAround(org.maplibre.compose.camera/CameraAnchor, kotlin/Double? = ..., kotlin/Double? = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CameraAnimation.Ease = ...) // org.maplibre.compose.map/MapState.animateCameraAround|animateCameraAround(org.maplibre.compose.camera.CameraAnchor;kotlin.Double?;kotlin.Double?;kotlin.Double?;org.maplibre.compose.camera.CameraAnimation.Ease){}[0]
     final suspend fun animateCameraToBounds(org.maplibre.spatialk.geojson/BoundingBox, kotlin/Double = ..., kotlin/Double = ..., org.maplibre.compose.util/DpPadding? = ..., org.maplibre.compose.util/DpPadding = ..., org.maplibre.compose.camera/CameraAnimation = ...) // org.maplibre.compose.map/MapState.animateCameraToBounds|animateCameraToBounds(org.maplibre.spatialk.geojson.BoundingBox;kotlin.Double;kotlin.Double;org.maplibre.compose.util.DpPadding?;org.maplibre.compose.util.DpPadding;org.maplibre.compose.camera.CameraAnimation){}[0]
@@ -1980,6 +1985,8 @@ final class org.maplibre.compose.map/MapStyleState { // org.maplibre.compose.map
 
     final var loadState // org.maplibre.compose.map/MapStyleState.loadState|{}loadState[0]
         final fun <get-loadState>(): org.maplibre.compose.map/StyleLoadState // org.maplibre.compose.map/MapStyleState.loadState.<get-loadState>|<get-loadState>(){}[0]
+
+    final fun toString(): kotlin/String // org.maplibre.compose.map/MapStyleState.toString|toString(){}[0]
 }
 
 final class org.maplibre.compose.map/MapUiOptions { // org.maplibre.compose.map/MapUiOptions|null[0]
@@ -1990,6 +1997,7 @@ final class org.maplibre.compose.map/MapUiOptions { // org.maplibre.compose.map/
 
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapUiOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapUiOptions.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/MapUiOptions.toString|toString(){}[0]
 
     final class Builder { // org.maplibre.compose.map/MapUiOptions.Builder|null[0]
         final var loadColor // org.maplibre.compose.map/MapUiOptions.Builder.loadColor|{}loadColor[0]
@@ -2041,6 +2049,7 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
 
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/RenderOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/RenderOptions.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/RenderOptions.toString|toString(){}[0]
 
     final class Builder { // org.maplibre.compose.map/RenderOptions.Builder|null[0]
         final var maximumFps // org.maplibre.compose.map/RenderOptions.Builder.maximumFps|{}maximumFps[0]
@@ -2115,6 +2124,7 @@ final class org.maplibre.compose.map/ResolvedStyleImage { // org.maplibre.compos
 
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/ResolvedStyleImage.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/ResolvedStyleImage.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.map/ResolvedStyleImage.toString|toString(){}[0]
 
     final object Companion { // org.maplibre.compose.map/ResolvedStyleImage.Companion|null[0]
         final fun fromBitmap(androidx.compose.ui.graphics/ImageBitmap, kotlin/Boolean = ..., org.maplibre.compose.util/ImageStretch? = ...): org.maplibre.compose.map/ResolvedStyleImage // org.maplibre.compose.map/ResolvedStyleImage.Companion.fromBitmap|fromBitmap(androidx.compose.ui.graphics.ImageBitmap;kotlin.Boolean;org.maplibre.compose.util.ImageStretch?){}[0]
@@ -3454,6 +3464,7 @@ sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.co
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/ModifierMatch.Containing.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/ModifierMatch.Containing.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/ModifierMatch.Containing.toString|toString(){}[0]
     }
 
     final class Exactly : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Exactly|null[0]
@@ -3464,6 +3475,7 @@ sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.co
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/ModifierMatch.Exactly.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/ModifierMatch.Exactly.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.interaction/ModifierMatch.Exactly.toString|toString(){}[0]
     }
 }
 

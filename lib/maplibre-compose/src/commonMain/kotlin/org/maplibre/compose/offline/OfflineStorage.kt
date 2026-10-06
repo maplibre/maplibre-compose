@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
+import org.maplibre.compose.util.formatToString
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public sealed interface OfflineStorage {
@@ -184,6 +185,16 @@ internal class RuntimeBoundOfflineStorage(
     requireRuntimeOpen()
     delegate.setMaximumAmbientCacheSize(size)
   }
+
+  // Packs are counted, not listed: a pack definition's style URL can contain an access token.
+  override fun toString(): String =
+    when (val current = state.value) {
+      OfflineStorageState.Loading -> formatToString("OfflineStorage", "state" to "Loading")
+      is OfflineStorageState.Ready ->
+        formatToString("OfflineStorage", "state" to "Ready", "packs" to current.packs.size)
+      is OfflineStorageState.Failed ->
+        formatToString("OfflineStorage", "state" to "Failed", "cause" to current.cause)
+    }
 }
 
 internal object UnsupportedOfflineStorage : OfflineStorageBackend {

@@ -1174,6 +1174,7 @@ public final class org/maplibre/compose/interaction/BearingTargets {
 	public static final field Companion Lorg/maplibre/compose/interaction/BearingTargets$Companion;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/BearingTargets$Companion {
@@ -1520,6 +1521,7 @@ public final class org/maplibre/compose/interaction/MapInteractions {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAnimationDuration-UwyO8pc ()J
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/MapInteractions$Builder {
@@ -1545,6 +1547,7 @@ public final class org/maplibre/compose/interaction/ModifierMatch$Containing : o
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/ModifierMatch$Exactly : org/maplibre/compose/interaction/ModifierMatch {
@@ -1553,6 +1556,7 @@ public final class org/maplibre/compose/interaction/ModifierMatch$Exactly : org/
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/interaction/PanCameraBuilder {
@@ -2198,6 +2202,7 @@ public final class org/maplibre/compose/map/DebugOverlays {
 	public final fun getCollisionBoxes ()Z
 	public final fun getTileBorders ()Z
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/DebugOverlays$Builder {
@@ -2312,6 +2317,7 @@ public final class org/maplibre/compose/map/MapRuntime {
 	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
 	public final fun getOfflineStorage ()Lorg/maplibre/compose/offline/OfflineStorage;
 	public final fun isClosed ()Z
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/MapRuntimeKt {
@@ -2423,6 +2429,7 @@ public final class org/maplibre/compose/map/MapState {
 	public final fun setCameraPosition (Lorg/maplibre/compose/camera/CameraPosition;)V
 	public final fun setMissingImageResolver (Lkotlin/jvm/functions/Function2;)V
 	public final fun stopCameraMovement ()V
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/MapStyleState {
@@ -2438,6 +2445,7 @@ public final class org/maplibre/compose/map/MapStyleState {
 	public final fun getSky ()Lorg/maplibre/compose/map/StyleSky;
 	public final fun getSources ()Lorg/maplibre/compose/map/StyleSources;
 	public final fun getTransition ()Lorg/maplibre/compose/map/StyleTransition;
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/MapUiOptions {
@@ -2448,6 +2456,7 @@ public final class org/maplibre/compose/map/MapUiOptions {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getLoadColor-0d7_KjU ()J
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/MapUiOptions$Builder {
@@ -2513,6 +2522,7 @@ public final class org/maplibre/compose/map/RenderOptions {
 	public final fun getMaximumFps ()Ljava/lang/Integer;
 	public final fun getTileLod ()Lorg/maplibre/compose/map/TileLodOptions;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/RenderOptions$Builder {
@@ -2570,6 +2580,7 @@ public final class org/maplibre/compose/map/ResolvedStyleImage {
 	public final fun getSdf ()Z
 	public final fun getStretch ()Lorg/maplibre/compose/util/ImageStretch;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/ResolvedStyleImage$Companion {

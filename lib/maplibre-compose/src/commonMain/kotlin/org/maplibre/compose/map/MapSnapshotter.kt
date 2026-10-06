@@ -38,6 +38,7 @@ import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.compose.util.formatToString
 
 /** Immutable inputs for one snapshot capture. */
 public data class MapSnapshotRequest(
@@ -285,6 +286,9 @@ internal class MapSnapshotterImplementation(
   override suspend fun awaitClosed() {
     closure.await().getOrThrow()
   }
+
+  override fun toString(): String =
+    formatToString("MapSnapshotter", "closed" to lock.withLock { closed }, "style" to style)
 
   private suspend fun runQueue() {
     while (true) {

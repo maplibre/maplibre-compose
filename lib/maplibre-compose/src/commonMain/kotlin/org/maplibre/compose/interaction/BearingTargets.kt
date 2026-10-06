@@ -2,6 +2,7 @@ package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
 import kotlin.math.abs
+import org.maplibre.compose.util.formatToString
 
 /** An immutable set of bearings in degrees clockwise from north. */
 @Immutable
@@ -9,6 +10,8 @@ public class BearingTargets private constructor(internal val bearings: List<Doub
   override fun equals(other: Any?): Boolean = other is BearingTargets && bearings == other.bearings
 
   override fun hashCode(): Int = bearings.hashCode()
+
+  override fun toString(): String = formatToString("BearingTargets", "bearings" to bearings)
 
   internal fun nearestDelta(bearing: Double): Double =
     bearings.map { bearingDelta(bearing, it) }.minBy { abs(it) }

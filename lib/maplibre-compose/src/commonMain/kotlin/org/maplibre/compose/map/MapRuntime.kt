@@ -101,6 +101,7 @@ import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.formatToString
 import org.maplibre.compose.util.positions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -267,6 +268,15 @@ internal constructor(
   internal fun childClosed(child: MapSnapshotterImplementation) {
     lock.withLock { snapshotters.remove(child) }
   }
+
+  override fun toString(): String = lock.withLock {
+    formatToString(
+      "MapRuntime",
+      "closed" to closed,
+      "maps" to children.size,
+      "snapshotters" to snapshotters.size,
+    )
+  }
 }
 
 /** Reports the load state for the desired base style of one logical map. */
@@ -374,6 +384,9 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       loadStateState.value = value
       loadStates.value = value
     }
+
+  // The base style is left out: a style URL or JSON can contain an access token.
+  override fun toString(): String = formatToString("MapStyleState", "loadState" to loadState)
 
   /** Suspends while a style is loading. Source and layer handles are published when it ends. */
   internal suspend fun awaitLoaded() {
@@ -1024,6 +1037,14 @@ internal constructor(
 
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
+
+  override fun toString(): String =
+    formatToString(
+      "MapState",
+      "closed" to isClosed,
+      "cameraPosition" to cameraPosition,
+      "style" to style,
+    )
 
   /**
    * Waits until map-surface cleanup has completed.

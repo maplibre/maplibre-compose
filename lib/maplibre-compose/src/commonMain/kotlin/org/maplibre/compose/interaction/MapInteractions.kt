@@ -6,6 +6,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.InteractionCallbacks
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
+import org.maplibre.compose.util.formatToString
 
 /** Keeps configuration blocks scoped to their current input or camera component. */
 @DslMarker
@@ -47,6 +48,22 @@ private constructor(
       animationDuration == other.animationDuration
 
   override fun hashCode(): Int = listOf(camera, callbacks, animationDuration).hashCode()
+
+  // Callbacks are functions, so only their presence is shown.
+  override fun toString(): String =
+    formatToString(
+      "MapInteractions",
+      "camera" to camera.settings,
+      "cameraStartCallbacks" to camera.onStart.keys,
+      "callbacks" to
+        listOfNotNull(
+          callbacks.click?.let { "click" },
+          callbacks.unhandledClick?.let { "unhandledClick" },
+          callbacks.doubleClick?.let { "doubleClick" },
+          callbacks.longClick?.let { "longClick" },
+        ),
+      "animationDuration" to animationDuration,
+    )
 
   init {
     requireNonnegativeFinite(animationDuration, "animationDuration")
