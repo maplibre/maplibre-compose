@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
@@ -14,6 +15,8 @@ import org.maplibre.compose.map.MlnFfiMapRuntimeLoop
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.geo.CanonicalTileId
@@ -40,6 +43,29 @@ class MlnFfiTileRequestCoordinatorTest {
     assertEquals(setOf(TileCoordinate(1, 0, 0), TileCoordinate(1, 1, 0)), started.toSet())
     release.complete(Unit)
     coordinator.close()
+  }
+
+  @Test
+  fun blocking_loads_leave_default_dispatcher_work_running() = withDroppingBinding { binding ->
+    // More than a pool sized to the CPU count, such as Dispatchers.Default, runs at once.
+    val loads = 32
+    val started = TestLatch(loads)
+    val release = TestLatch(1)
+    val coordinator =
+      coordinator(binding) {
+        started.countDown()
+        release.await()
+      }
+    try {
+      repeat(loads) { coordinator.fetch(CanonicalTileId(z = 6, x = it.toLong(), y = 0)) }
+      assertTrue(started.await(5_000), "blocking loads did not all run at once")
+      val defaultWork = TestLatch(1)
+      launchTestTask { defaultWork.countDown() }
+      assertTrue(defaultWork.await(5_000), "blocking loads starved Default")
+    } finally {
+      release.countDown()
+      coordinator.close()
+    }
   }
 
   @Test

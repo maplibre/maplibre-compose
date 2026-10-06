@@ -64,13 +64,13 @@ internal class MlnFfiResourceProvider(
 
   private val accepting = AtomicBoolean(true)
   private val userJob = SupervisorJob(userCoroutineScope?.coroutineContext?.get(Job))
+
+  /** Application [MapResourceProvider] loads, on the IO dispatcher because they may block. */
   private val userScope =
     if (userCoroutineScope != null) {
       CoroutineScope(userCoroutineScope.coroutineContext + userJob)
     } else {
-      CoroutineScope(
-        userJob + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
-      )
+      CoroutineScope(userJob + Dispatchers.IO + CoroutineName("maplibre-compose-resource-provider"))
     }
 
   /**
