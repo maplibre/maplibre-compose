@@ -51,6 +51,7 @@ import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.error.MaplibreException
+import org.maplibre.nativeffi.error.NativeErrorException
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
@@ -683,7 +684,7 @@ internal open class MlnFfiStyleBinding(
 
   /**
    * Runs one supercluster query against the render session. Returns null when the feature carries
-   * no cluster id, when no render session is attached yet, or when the query failed.
+   * no cluster id, when no render session is attached yet, or when the engine reports no cluster.
    */
   private suspend fun queryClusterExtension(
     sourceId: String,
@@ -692,8 +693,21 @@ internal open class MlnFfiStyleBinding(
     arguments: ByteArray? = null,
   ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
-    return awaitRenderSession { session ->
-      session.queryFeatureExtension(sourceId, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
+    return try {
+      awaitRenderSession { session ->
+        session.queryFeatureExtension(
+          sourceId,
+          ffiFeature,
+          SUPERCLUSTER_EXTENSION,
+          field,
+          arguments,
+        )
+      }
+    } catch (error: NativeErrorException) {
+      // Supercluster exposes no typed missing-cluster error through the C API.
+      if (error.diagnostic != "No cluster with the specified id.") throw error
+      logger?.w { "Cluster '$field' query matched no cluster in source '$sourceId'" }
+      null
     }
   }
 
@@ -710,10 +724,7 @@ internal open class MlnFfiStyleBinding(
     return collection
   }
 
-  /**
-   * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
-   * collection, even an empty one, and a failed one with a null value.
-   */
+  /** Reports a cluster query whose result does not contain the requested value. */
   private fun reportClusterMiss(sourceId: String, field: String, result: ByteArray) {
     logger?.w {
       "Cluster '$field' query matched no cluster in source '$sourceId'; the feature's cluster_id " +

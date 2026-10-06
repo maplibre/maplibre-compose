@@ -88,7 +88,7 @@ class DeclaredStyleOwnershipTest {
           fixture.state.queryRenderedFeatures(area).any(handle::isCluster)
         }
         val cluster = fixture.state.queryRenderedFeatures(area).first(handle::isCluster)
-        assertTrue(handle.getClusterExpansionZoom(cluster) > 0.0)
+        assertTrue(assertNotNull(handle.getClusterExpansionZoom(cluster)) > 0.0)
         assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
         assertEquals(3, handle.getClusterLeaves(cluster, 10, 0).features.size)
 

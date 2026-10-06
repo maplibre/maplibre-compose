@@ -42,22 +42,29 @@ public sealed interface MutableSourceHandle : SourceHandle {
   public fun remove()
 }
 
-/** Access to a GeoJSON source in one loaded style generation. */
+/**
+ * Access to a GeoJSON source in one loaded style generation.
+ *
+ * Cluster features must come from the source's current data.
+ */
 public sealed interface GeoJsonSourceHandle : SourceHandle {
   override val asMutable: MutableGeoJsonSourceHandle?
 
-  /** Returns true if [feature] represents a cluster created by this source. */
+  /** Returns true if [feature] carries a cluster ID. */
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean
 
-  /** Returns the cluster expansion zoom for [feature], or zero if [feature] is not a cluster. */
-  public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
+  /**
+   * Returns the cluster expansion zoom for [feature], or null when the feature has no cluster ID or
+   * the engine reports that the cluster is unavailable.
+   */
+  public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double?
 
-  /** Returns the cluster children for [feature], or an empty collection for a non-cluster. */
+  /** Returns the cluster children for [feature], or an empty collection when unavailable. */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<Geometry, JsonObject?>
 
-  /** Returns the cluster leaves for [feature], or an empty collection for a non-cluster. */
+  /** Returns the cluster leaves for [feature], or an empty collection when unavailable. */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,

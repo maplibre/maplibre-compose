@@ -5,14 +5,18 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
+import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.mapLibreFlavor
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -22,10 +26,9 @@ import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
-/** The rendered query preserves the engine-specific numeric type of the cluster identifier. */
 class GeoJsonClusterTest {
   @Test
-  fun a_geojson_handle_answers_cluster_queries(): MapTestResult = runMapTest {
+  fun cluster_queries_resolve_features_and_report_missing_clusters(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = ZOOM))
@@ -50,10 +53,26 @@ class GeoJsonClusterTest {
       fixture.pumpUntil("a cluster to render") { rendered().any(handle::isCluster) }
       val cluster = rendered().first(handle::isCluster)
 
-      assertTrue(handle.getClusterExpansionZoom(cluster) > ZOOM)
+      assertTrue(assertNotNull(handle.getClusterExpansionZoom(cluster)) > ZOOM)
       assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
       assertEquals(2, handle.getClusterLeaves(cluster, limit = 2, offset = 0).features.size)
       assertEquals(POINT_COUNT - 1, handle.getClusterLeaves(cluster, 10, 1).features.size)
+
+      handle.asMutable!!.setData(
+        GeoJsonData.Features(
+          buildFeatureCollection<Geometry, JsonObject?> { addFeature(Point(Position(0.0, 0.0))) }
+        )
+      )
+      fixture.pumpUntil("the single point to replace the cluster") {
+        val features = rendered()
+        features.isNotEmpty() && features.none(handle::isCluster)
+      }
+      // GL JS computes expansion zoom from the ID without validating it.
+      if (mapLibreFlavor == MapLibreFlavor.Native) {
+        assertNull(handle.getClusterExpansionZoom(cluster))
+      }
+      assertEquals(emptyList(), handle.getClusterChildren(cluster).features)
+      assertEquals(emptyList(), handle.getClusterLeaves(cluster, 10, 0).features)
     }
   }
 

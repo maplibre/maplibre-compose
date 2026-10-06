@@ -138,9 +138,9 @@ internal constructor(
   override fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
 
-  override suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double =
+  override suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double? =
     suspendingOperation {
-      style.clusterExpansionZoom(id, feature) ?: 0.0
+      style.clusterExpansionZoom(id, feature)
     }
 
   override suspend fun getClusterChildren(
