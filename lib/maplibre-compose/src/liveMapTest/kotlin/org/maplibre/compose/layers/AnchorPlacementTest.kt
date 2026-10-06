@@ -3,9 +3,11 @@ package org.maplibre.compose.layers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.captureWarnings
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.runMapTest
@@ -62,6 +64,32 @@ class AnchorPlacementTest {
             .filter { it in expected },
         )
         assertEquals(expected, fixture.state.style.layers.map { it.id })
+      }
+    }
+
+  /** A predicate that throws places its layers as if it matched nothing, and the style stays up. */
+  @Test
+  fun a_throwing_predicate_places_its_layers_and_keeps_the_style_ready(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(baseStyle("base-bottom", "base-top"))
+        captureWarnings { warnings ->
+          fixture.declare {
+            Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
+            Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
+          }
+
+          assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+          assertEquals(
+            listOf("over", "base-bottom", "base-top", "under"),
+            fixture.state.style.layers.map { it.id },
+          )
+          assertEquals(
+            2,
+            warnings.count { it.startsWith("The predicate of anchor") },
+            "Warnings: $warnings",
+          )
+        }
       }
     }
 

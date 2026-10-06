@@ -135,6 +135,28 @@ class StyleCompositionOrderTest {
     )
   }
 
+  @Test
+  fun a_throwing_predicate_lands_where_a_predicate_with_no_match_does() {
+    val style = RecordingStyleBinding(layers = labelledBase())
+    val below = Anchor.Below { if (it.id == "water") error("bad predicate") else false }
+    val above = Anchor.Above { if (it.id == "water") error("bad predicate") else false }
+
+    StyleReconciler()
+      .apply(
+        style,
+        revision(
+          background("under") to below,
+          background("over") to above,
+          background("placed") to Anchor.Below("road-labels"),
+        ),
+      )
+
+    assertEquals(
+      listOf("over", "bg", "water-labels", "water", "placed", "road-labels", "top", "under"),
+      style.layerIds(),
+    )
+  }
+
   /**
    * MapLibre GL JS has no layers of its own, so an empty base style has nothing between the top and
    * the bottom of the stack. The two must stay apart, and a scan with no match must reach its end.
