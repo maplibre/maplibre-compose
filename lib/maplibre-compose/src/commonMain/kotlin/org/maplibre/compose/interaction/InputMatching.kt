@@ -8,6 +8,7 @@ import org.maplibre.compose.util.formatToString
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface PointerButton {
   /** The left mouse button. */
   public data object Primary : PointerButton
@@ -35,6 +36,7 @@ internal data object UnspecifiedPointerButton : PointerButton
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface KeyModifier {
   /** The Shift key. */
   public data object Shift : KeyModifier

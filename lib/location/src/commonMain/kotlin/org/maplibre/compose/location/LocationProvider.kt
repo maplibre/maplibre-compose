@@ -1,5 +1,6 @@
 package org.maplibre.compose.location
 
+import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
@@ -81,6 +82,7 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationBackendAvailability {
   /** A platform implementation is installed and initialized. */
   public data object Available : LocationBackendAvailability
@@ -119,6 +121,7 @@ internal data object UnspecifiedLocationBackendAvailability : LocationBackendAva
  * @property minimumInterval Preferred minimum time between delivered locations.
  * @property minimumDistance Preferred minimum movement between delivered locations.
  */
+@Immutable
 public data class LocationRequest(
   val accuracy: LocationAccuracy = LocationAccuracy.High,
   val minimumInterval: Duration = 1.seconds,
@@ -169,6 +172,7 @@ public enum class LocationAccuracy {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationEvent {
   /**
    * A location measurement delivered by the provider.
@@ -207,6 +211,7 @@ internal data object UnspecifiedLocationEvent : LocationEvent
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationUnavailableReason {
   /**
    * The device's location services are disabled.
@@ -252,6 +257,7 @@ internal data object UnspecifiedLocationUnavailableReason : LocationUnavailableR
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationAccuracyAuthorization {
   /** Fine location on Android or full accuracy on iOS. */
   public data object Precise : LocationAccuracyAuthorization
@@ -273,6 +279,7 @@ internal data object UnspecifiedLocationAccuracyAuthorization : LocationAccuracy
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationPermission {
   /**
    * Authorization has not been determined. Collecting [LocationProvider.updates] retries the

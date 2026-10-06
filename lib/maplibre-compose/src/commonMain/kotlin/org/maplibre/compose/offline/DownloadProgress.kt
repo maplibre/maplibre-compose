@@ -1,5 +1,6 @@
 package org.maplibre.compose.offline
 
+import androidx.compose.runtime.Immutable
 import org.maplibre.compose.resource.MapResourceError
 
 /**
@@ -7,6 +8,7 @@ import org.maplibre.compose.resource.MapResourceError
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface DownloadProgress {
   /** The SDK has not reported the download progress. */
   public data object NotReported : DownloadProgress

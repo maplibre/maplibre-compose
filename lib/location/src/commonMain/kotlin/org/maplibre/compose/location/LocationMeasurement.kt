@@ -1,5 +1,6 @@
 package org.maplibre.compose.location
 
+import androidx.compose.runtime.Immutable
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import org.maplibre.spatialk.geojson.Position
@@ -22,6 +23,7 @@ import org.maplibre.spatialk.units.Rotation
  * @property courseAccuracy Estimated course error, or `null` when unknown.
  * @property measuredAt Wall-clock instant when the location was measured.
  */
+@Immutable
 @Serializable
 public data class LocationMeasurement(
   val position: Position,

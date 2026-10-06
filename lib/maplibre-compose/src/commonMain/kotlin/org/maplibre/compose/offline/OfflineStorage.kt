@@ -1,5 +1,6 @@
 package org.maplibre.compose.offline
 
+import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -106,6 +107,7 @@ public sealed interface OfflineStorage {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface OfflineStorageState {
   /** Initialization has not finished. */
   public data object Loading : OfflineStorageState

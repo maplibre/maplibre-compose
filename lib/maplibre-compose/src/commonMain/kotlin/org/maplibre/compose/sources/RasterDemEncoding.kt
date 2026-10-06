@@ -1,5 +1,6 @@
 package org.maplibre.compose.sources
 
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 
 /**
@@ -14,6 +15,7 @@ import kotlin.jvm.JvmInline
  *
  * @property value The style spec's name for this encoding, such as `mapbox`.
  */
+@Immutable
 @JvmInline
 public value class RasterDemEncoding internal constructor(public val value: String) {
   public companion object {

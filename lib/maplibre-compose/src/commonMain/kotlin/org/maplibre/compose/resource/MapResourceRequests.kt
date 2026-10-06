@@ -1,5 +1,6 @@
 package org.maplibre.compose.resource
 
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import kotlin.time.Instant
 
@@ -11,6 +12,7 @@ import kotlin.time.Instant
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 @JvmInline
 public value class MapResourceKind internal constructor(public val value: String) {
   public companion object {
@@ -121,6 +123,7 @@ internal constructor(
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
+  @Immutable
   @JvmInline
   public value class LoadingMethod internal constructor(public val value: String) {
     public companion object {
@@ -138,6 +141,7 @@ internal constructor(
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
+  @Immutable
   @JvmInline
   public value class Priority internal constructor(public val value: String) {
     public companion object {
@@ -154,6 +158,7 @@ internal constructor(
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
+  @Immutable
   @JvmInline
   public value class Usage internal constructor(public val value: String) {
     public companion object {
@@ -170,6 +175,7 @@ internal constructor(
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
+  @Immutable
   @JvmInline
   public value class StoragePolicy internal constructor(public val value: String) {
     public companion object {
@@ -190,6 +196,7 @@ internal constructor(
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 @JvmInline
 public value class MapResourceError internal constructor(public val value: String) {
   public companion object {

@@ -1,5 +1,6 @@
 package org.maplibre.compose.location
 
+import androidx.compose.runtime.Immutable
 import kotlin.time.Instant
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -19,6 +20,7 @@ import org.maplibre.spatialk.units.Rotation
  * @property accuracy Estimated bearing error, or `null` when unknown.
  * @property measuredAt Wall-clock instant when the heading was measured.
  */
+@Immutable
 @Serializable
 public data class HeadingMeasurement(
   val bearing: Bearing,
@@ -34,6 +36,7 @@ public data class HeadingMeasurement(
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 @Serializable(with = HeadingReferenceSerializer::class)
 public sealed interface HeadingReference {
   /** Geographic true north. */

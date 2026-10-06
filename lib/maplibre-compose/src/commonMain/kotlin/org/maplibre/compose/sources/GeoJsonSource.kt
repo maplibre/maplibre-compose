@@ -81,6 +81,7 @@ public class GeoJsonSource : VectorSource {
  * collection and property as immutable after submission. Create a new value for each update. Native
  * engines serialize and prepare inline data on a background thread.
  */
+@Immutable
 public sealed interface GeoJsonData {
   public data class Uri(val uri: String) : GeoJsonData
 
