@@ -422,7 +422,10 @@ public class BrowserMapPresentation
 - Use a typed value when one exists for the quantity (see the table).
   [[4]](https://kotlinlang.org/docs/api-guidelines-simplicity.html#reuse-existing-concepts)
 - For plain numbers, choose the type by how the value is used: an integer for
-  discrete values, `Double` for continuous ones.
+  discrete values, and a floating-point type for continuous ones. Use the type
+  that the value is processed as, so values round-trip unchanged: `Float` where
+  Compose or the engine uses `Float`, such as a pixel ratio, and `Double`
+  otherwise.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#use-numeric-types-appropriately)
 - Don't use number types for identifiers.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#use-numeric-types-appropriately)
