@@ -74,12 +74,12 @@ class UnitArithmeticTest {
 
   @Test
   fun powers_logs_trigonometry_and_constants_compose() {
-    val expression = sqrt(zoom()).pow(2f) + log2(zoom()) * LN_2 - PI / E
+    val expression = sqrt(zoom()).pow(2f) + log2(zoom()) * ln2() - pi() / e()
     assertEquals(
       """["-",["+",["^",["sqrt",["zoom"]],2],["*",["log2",["zoom"]],["ln2"]]],["/",["pi"],["e"]]]""",
       styleJson(expression),
     )
-    val radians = zoom() * PI / const(180f)
+    val radians = zoom() * pi() / const(180f)
     assertEquals("""["sin",["/",["*",["zoom"],["pi"]],180]]""", styleJson(sin(radians)))
     assertEquals("""["atan",["ln",["log10",["zoom"]]]]""", styleJson(atan(ln(log10(zoom())))))
   }

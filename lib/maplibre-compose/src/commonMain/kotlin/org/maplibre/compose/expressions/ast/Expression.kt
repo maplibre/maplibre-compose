@@ -80,8 +80,8 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *   [abs][org.maplibre.compose.expressions.dsl.abs] - rounding and absolute value
  * - [min][org.maplibre.compose.expressions.dsl.min], [max][org.maplibre.compose.expressions.dsl.max] -
  *   minimum and maximum
- * - [LN_2][org.maplibre.compose.expressions.dsl.LN_2], [PI][org.maplibre.compose.expressions.dsl.PI],
- *   [E][org.maplibre.compose.expressions.dsl.E] - constants
+ * - [ln2][org.maplibre.compose.expressions.dsl.ln2], [pi][org.maplibre.compose.expressions.dsl.pi],
+ *   [e][org.maplibre.compose.expressions.dsl.e] - constants
  *
  * ### Inputs, feature data
  * - [zoom][org.maplibre.compose.expressions.dsl.zoom] - get current zoom level

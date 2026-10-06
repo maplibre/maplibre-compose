@@ -6,14 +6,14 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.IntValue
 import org.maplibre.compose.expressions.value.NumberValue
 
-/** Returns mathematical constant ln(2) = natural logarithm of 2. */
-public val LN_2: Expression<FloatValue> = call("ln2")
+/** Returns the mathematical constant ln(2), the natural logarithm of 2. */
+public fun ln2(): Expression<FloatValue> = call("ln2")
 
-/** Returns the mathematical constant π */
-public val PI: Expression<FloatValue> = call("pi")
+/** Returns the mathematical constant π. */
+public fun pi(): Expression<FloatValue> = call("pi")
 
-/** Returns the mathematical constant e */
-public val E: Expression<FloatValue> = call("e")
+/** Returns the mathematical constant e, the base of the natural logarithm. */
+public fun e(): Expression<FloatValue> = call("e")
 
 /** Returns the sum of this number expression with [other]. */
 public operator fun <U, V : NumberValue<U>> Expression<V>.plus(
