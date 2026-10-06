@@ -229,7 +229,11 @@ public object OfflinePackListItemDefaults {
     DeleteButton(pack, offlineStorage)
   }
 
-  /** Displays the pack's download status and size, or its error or tile limit status. */
+  /**
+   * Displays the pack's download status and size, or its error or tile limit status.
+   *
+   * A status that this version does not name is shown with [unknownContent].
+   */
   @Composable
   public fun SupportingContent(
     progress: DownloadProgress,
