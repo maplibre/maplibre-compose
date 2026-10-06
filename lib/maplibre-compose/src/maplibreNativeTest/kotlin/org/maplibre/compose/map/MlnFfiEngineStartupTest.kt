@@ -21,7 +21,7 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.offline.OfflineManagerException
+import org.maplibre.compose.offline.OfflineStorageException
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.camera.AnimationOptions
@@ -74,7 +74,7 @@ class MlnFfiEngineStartupTest {
         var ran = false
         session.loop.submit(onDropped = { abandoned.complete(Unit) }) { ran = true }
 
-        assertFailsWith<OfflineManagerException> { session.attachPresentation() }
+        assertFailsWith<OfflineStorageException> { session.attachPresentation() }
         assertTrue(abandoned.isCompleted, "Queued work was not released when initialization failed")
         assertFalse(ran)
       } finally {

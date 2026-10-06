@@ -70,8 +70,8 @@ import org.maplibre.compose.material3.generated.sync
 import org.maplibre.compose.material3.generated.warning_filled
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
-import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePack
+import org.maplibre.compose.offline.OfflineStorage
 
 /**
  * A [ListItem] to manage an [OfflinePack].
@@ -84,7 +84,7 @@ import org.maplibre.compose.offline.OfflinePack
  * Swipe the item from end to start to request deletion. The default trailing delete button and the
  * swipe gesture both require confirmation before deleting the pack.
  *
- * Pass the [OfflineManager] from the [org.maplibre.compose.map.MapRuntime] that created [pack].
+ * Pass the [OfflineStorage] from the [org.maplibre.compose.map.MapRuntime] that created [pack].
  *
  * You can customize each part of the [ListItem] by supplying alternate [leadingContent],
  * [supportingContent], and [trailingContent].
@@ -92,7 +92,7 @@ import org.maplibre.compose.offline.OfflinePack
 @Composable
 public fun OfflinePackListItem(
   pack: OfflinePack,
-  offlineManager: OfflineManager,
+  offlineStorage: OfflineStorage,
   modifier: Modifier = Modifier,
   leadingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.LeadingContent(pack)
@@ -101,13 +101,13 @@ public fun OfflinePackListItem(
     OfflinePackListItemDefaults.SupportingContent(pack.downloadProgress.collectAsState().value)
   },
   trailingContent: @Composable () -> Unit = {
-    OfflinePackListItemDefaults.TrailingContent(pack, offlineManager)
+    OfflinePackListItemDefaults.TrailingContent(pack, offlineStorage)
   },
   headlineContent: @Composable () -> Unit,
 ) {
   ConfirmedOfflinePackSwipeToDelete(
     deleteKey = pack,
-    onDelete = { offlineManager.delete(pack) },
+    onDelete = { offlineStorage.delete(pack) },
     modifier = modifier,
   ) { requestDelete ->
     CompositionLocalProvider(LocalDeleteRequest provides requestDelete) {
@@ -223,10 +223,10 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager,
+    offlineStorage: OfflineStorage,
   ): Unit = Row {
-    PauseResumeUpdateButton(pack, offlineManager)
-    DeleteButton(pack, offlineManager)
+    PauseResumeUpdateButton(pack, offlineStorage)
+    DeleteButton(pack, offlineStorage)
   }
 
   /** Displays the pack's download status and size, or its error or tile limit status. */
@@ -267,14 +267,14 @@ public object OfflinePackListItemDefaults {
 }
 
 @Composable
-private fun DeleteButton(pack: OfflinePack, offlineManager: OfflineManager) {
+private fun DeleteButton(pack: OfflinePack, offlineStorage: OfflineStorage) {
   val sharedDeleteRequest = LocalDeleteRequest.current
   if (sharedDeleteRequest != null) {
     DeleteIconButton(onClick = sharedDeleteRequest)
   } else {
     OfflinePackDeleteConfirmation(
       deleteKey = pack,
-      onDelete = { offlineManager.delete(pack) },
+      onDelete = { offlineStorage.delete(pack) },
     ) { requestDelete, deleting, _ ->
       DeleteIconButton(requestDelete, enabled = !deleting)
     }
@@ -407,16 +407,16 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
 }
 
 @Composable
-private fun PauseResumeUpdateButton(pack: OfflinePack, offlineManager: OfflineManager) {
+private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineStorage) {
   val progress by pack.downloadProgress.collectAsState()
   val status = (progress as? DownloadProgress.Healthy)?.status ?: return
   val coroutineScope = rememberCoroutineScope()
 
   fun onClick() {
     when (status) {
-      DownloadStatus.Paused -> offlineManager.resume(pack)
-      DownloadStatus.Downloading -> offlineManager.pause(pack)
-      DownloadStatus.Complete -> coroutineScope.launch { offlineManager.invalidate(pack) }
+      DownloadStatus.Paused -> offlineStorage.resume(pack)
+      DownloadStatus.Downloading -> offlineStorage.pause(pack)
+      DownloadStatus.Complete -> coroutineScope.launch { offlineStorage.invalidate(pack) }
     }
   }
 

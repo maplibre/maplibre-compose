@@ -53,7 +53,7 @@ class DesktopRuntimeConfigurationTest {
     val firstState = first.createMapState(BaseStyle.Demo)
     val secondState = second.createMapState(BaseStyle.Demo)
 
-    assertNotSame(first.offlineManager, second.offlineManager)
+    assertNotSame(first.offlineStorage, second.offlineStorage)
 
     first.close()
     first.awaitClosed()

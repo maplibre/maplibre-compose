@@ -12,7 +12,7 @@ import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
-import org.maplibre.compose.offline.OfflineManagerState
+import org.maplibre.compose.offline.OfflineStorageState
 
 @Composable internal expect fun benchmarkCacheDirectory(): String
 
@@ -48,12 +48,12 @@ internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String,
           create = { createMapRuntime(options) },
           awaitReady = { runtime ->
             when (
-              val state = runtime.offlineManager.state.first { it !is OfflineManagerState.Loading }
+              val state = runtime.offlineStorage.state.first { it !is OfflineStorageState.Loading }
             ) {
-              is OfflineManagerState.Ready ->
+              is OfflineStorageState.Ready ->
                 check(state.packs.isEmpty()) { "Benchmark cache must contain no offline packs" }
-              is OfflineManagerState.Failed -> throw state.cause
-              OfflineManagerState.Loading -> error("Runtime is still loading")
+              is OfflineStorageState.Failed -> throw state.cause
+              OfflineStorageState.Loading -> error("Runtime is still loading")
             }
           },
           close = { it.close() },

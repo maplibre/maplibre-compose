@@ -34,8 +34,8 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
-import org.maplibre.compose.offline.OfflineManagerState
 import org.maplibre.compose.offline.OfflinePackDefinition
+import org.maplibre.compose.offline.OfflineStorageState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.MapTestResult
@@ -69,7 +69,7 @@ class SharedMapRuntimeTest {
           }
         val cancelled =
           async(start = CoroutineStart.UNDISPATCHED) {
-            runtime.offlineManager.create(
+            runtime.offlineStorage.create(
               OfflinePackDefinition.TilePyramid(
                 "file:///unused-style.json",
                 BoundingBox(-1.0, -1.0, 1.0, 1.0),
@@ -103,9 +103,9 @@ class SharedMapRuntimeTest {
       try {
         val state =
           withTimeout(5_000) {
-            reopened.offlineManager.state.first { it !is OfflineManagerState.Loading }
+            reopened.offlineStorage.state.first { it !is OfflineStorageState.Loading }
           }
-        assertTrue(assertIs<OfflineManagerState.Ready>(state).packs.isEmpty())
+        assertTrue(assertIs<OfflineStorageState.Ready>(state).packs.isEmpty())
       } finally {
         reopened.close()
         withTimeout(5_000) { reopened.awaitClosed() }
@@ -222,7 +222,7 @@ class SharedMapRuntimeTest {
                   it.writeString("""{"version":8,"sources":{},"layers":[]}""")
                 }
                 val pack =
-                  runtime.offlineManager.create(
+                  runtime.offlineStorage.create(
                     OfflinePackDefinition.TilePyramid(
                       fileUrlOf(styleFile),
                       BoundingBox(-1.0, -1.0, 1.0, 1.0),
@@ -230,7 +230,7 @@ class SharedMapRuntimeTest {
                       maxZoom = 0.0,
                     )
                   )
-                runtime.offlineManager.resume(pack)
+                runtime.offlineStorage.resume(pack)
                 val download = async {
                   pack.downloadProgress.first {
                     it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
@@ -302,7 +302,7 @@ class SharedMapRuntimeTest {
                   second.state.cameraPosition.zoom == 7.0
                 }
                 assertEquals(7.0, second.session.loop.await { it.camera.zoom })
-                runtime.offlineManager.delete(pack)
+                runtime.offlineStorage.delete(pack)
                 assertTrue(second.errors.isEmpty())
                 // The runtime closes a still attached renderer and its retained map, then its
                 // owner.

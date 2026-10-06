@@ -18,7 +18,7 @@ public object DefaultMapRuntime {
   /**
    * Sets the options [instance] uses when it creates the runtime.
    *
-   * Call this before the first map, snapshotter, or offline manager, such as from `Application`
+   * Call this before the first map, snapshotter, or offline storage, such as from `Application`
    * creation or `main`. Throws [IllegalStateException] once the runtime exists.
    */
   public fun configure(options: MapRuntimeOptions): Unit = lock.withLock {

@@ -43,7 +43,7 @@ internal class MlnFfiOfflineOperations(
     open = false
     owner.post(
       MlnFfiRuntime.Task(
-        run = { finishClose(OfflineManagerException("The offline manager is closed")) },
+        run = { finishClose(OfflineStorageException("The offline storage is closed")) },
         reject = {},
       )
     )
@@ -71,7 +71,7 @@ internal class MlnFfiOfflineOperations(
           // Check at the execution boundary so a queued cancellation cannot start a destructive
           // native operation whose result nobody is waiting for.
           if (!open) {
-            reject(OfflineManagerException("The offline manager is closed"))
+            reject(OfflineStorageException("The offline storage is closed"))
           } else if (isCancelled()) {
             reject(CancellationException("The offline operation was cancelled before it started"))
           } else {

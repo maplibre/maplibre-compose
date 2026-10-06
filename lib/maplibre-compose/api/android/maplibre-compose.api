@@ -2305,7 +2305,7 @@ public final class org/maplibre/compose/map/MapRuntime {
 	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
 	public final fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
 	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
-	public final fun getOfflineManager ()Lorg/maplibre/compose/offline/OfflineManager;
+	public final fun getOfflineStorage ()Lorg/maplibre/compose/offline/OfflineStorage;
 	public final fun isClosed ()Z
 }
 
@@ -2854,65 +2854,6 @@ public final class org/maplibre/compose/offline/DownloadStatus : java/lang/Enum 
 	public static fun values ()[Lorg/maplibre/compose/offline/DownloadStatus;
 }
 
-public abstract interface class org/maplibre/compose/offline/OfflineManager {
-	public abstract fun clearAmbientCache (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun create (Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun create$default (Lorg/maplibre/compose/offline/OfflineManager;Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-	public abstract fun delete (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun getState ()Lkotlinx/coroutines/flow/StateFlow;
-	public abstract fun invalidate (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun invalidateAmbientCache (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun mergeDatabase (Lkotlinx/io/files/Path;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun pause (Lorg/maplibre/compose/offline/OfflinePack;)V
-	public abstract fun resume (Lorg/maplibre/compose/offline/OfflinePack;)V
-	public abstract fun setMaximumAmbientCacheSize (JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
-public final class org/maplibre/compose/offline/OfflineManager$DefaultImpls {
-	public static synthetic fun create$default (Lorg/maplibre/compose/offline/OfflineManager;Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-}
-
-public final class org/maplibre/compose/offline/OfflineManagerException : java/lang/RuntimeException {
-	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-}
-
-public abstract interface class org/maplibre/compose/offline/OfflineManagerState {
-}
-
-public final class org/maplibre/compose/offline/OfflineManagerState$Failed : org/maplibre/compose/offline/OfflineManagerState {
-	public static final field $stable I
-	public fun <init> (Ljava/lang/Throwable;)V
-	public final fun component1 ()Ljava/lang/Throwable;
-	public final fun copy (Ljava/lang/Throwable;)Lorg/maplibre/compose/offline/OfflineManagerState$Failed;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineManagerState$Failed;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineManagerState$Failed;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getCause ()Ljava/lang/Throwable;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/offline/OfflineManagerState$Loading : org/maplibre/compose/offline/OfflineManagerState {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/offline/OfflineManagerState$Loading;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/offline/OfflineManagerState$Ready : org/maplibre/compose/offline/OfflineManagerState {
-	public static final field $stable I
-	public fun <init> (Ljava/util/Set;)V
-	public final fun component1 ()Ljava/util/Set;
-	public final fun copy (Ljava/util/Set;)Lorg/maplibre/compose/offline/OfflineManagerState$Ready;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineManagerState$Ready;Ljava/util/Set;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineManagerState$Ready;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getPacks ()Ljava/util/Set;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class org/maplibre/compose/offline/OfflinePack {
 	public static final field $stable I
 	public fun equals (Ljava/lang/Object;)Z
@@ -2969,6 +2910,65 @@ public final class org/maplibre/compose/offline/OfflinePackDefinition$TilePyrami
 	public fun getMinZoom ()D
 	public fun getPixelRatio ()F
 	public fun getStyleUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/offline/OfflineStorage {
+	public abstract fun clearAmbientCache (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun create (Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun create$default (Lorg/maplibre/compose/offline/OfflineStorage;Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public abstract fun delete (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun getState ()Lkotlinx/coroutines/flow/StateFlow;
+	public abstract fun invalidate (Lorg/maplibre/compose/offline/OfflinePack;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun invalidateAmbientCache (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun mergeDatabase (Lkotlinx/io/files/Path;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun pause (Lorg/maplibre/compose/offline/OfflinePack;)V
+	public abstract fun resume (Lorg/maplibre/compose/offline/OfflinePack;)V
+	public abstract fun setMaximumAmbientCacheSize (JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class org/maplibre/compose/offline/OfflineStorage$DefaultImpls {
+	public static synthetic fun create$default (Lorg/maplibre/compose/offline/OfflineStorage;Lorg/maplibre/compose/offline/OfflinePackDefinition;[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class org/maplibre/compose/offline/OfflineStorageException : java/lang/RuntimeException {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public abstract interface class org/maplibre/compose/offline/OfflineStorageState {
+}
+
+public final class org/maplibre/compose/offline/OfflineStorageState$Failed : org/maplibre/compose/offline/OfflineStorageState {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/Throwable;)V
+	public final fun component1 ()Ljava/lang/Throwable;
+	public final fun copy (Ljava/lang/Throwable;)Lorg/maplibre/compose/offline/OfflineStorageState$Failed;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineStorageState$Failed;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineStorageState$Failed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCause ()Ljava/lang/Throwable;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/offline/OfflineStorageState$Loading : org/maplibre/compose/offline/OfflineStorageState {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/OfflineStorageState$Loading;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/offline/OfflineStorageState$Ready : org/maplibre/compose/offline/OfflineStorageState {
+	public static final field $stable I
+	public fun <init> (Ljava/util/Set;)V
+	public final fun component1 ()Ljava/util/Set;
+	public final fun copy (Ljava/util/Set;)Lorg/maplibre/compose/offline/OfflineStorageState$Ready;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/offline/OfflineStorageState$Ready;Ljava/util/Set;ILjava/lang/Object;)Lorg/maplibre/compose/offline/OfflineStorageState$Ready;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPacks ()Ljava/util/Set;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

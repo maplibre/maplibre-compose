@@ -72,10 +72,10 @@ import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.offline.OfflineManager
-import org.maplibre.compose.offline.OfflineManagerBackend
-import org.maplibre.compose.offline.RuntimeBoundOfflineManager
-import org.maplibre.compose.offline.UnsupportedOfflineManager
+import org.maplibre.compose.offline.OfflineStorage
+import org.maplibre.compose.offline.OfflineStorageBackend
+import org.maplibre.compose.offline.RuntimeBoundOfflineStorage
+import org.maplibre.compose.offline.UnsupportedOfflineStorage
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.SourceHandle
@@ -155,7 +155,7 @@ internal constructor(
   internal val platformContext: Any?,
   private val closeResources: suspend () -> Unit,
   internal val logger: MapLog?,
-  private val offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
+  private val offlineStorageBackend: OfflineStorageBackend = UnsupportedOfflineStorage,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   /** The one thread that uses map states. Engine callbacks are posted to it. */
@@ -169,9 +169,9 @@ internal constructor(
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) {
   /** The offline packs and ambient cache managed by this runtime. */
-  public val offlineManager: OfflineManager =
-    RuntimeBoundOfflineManager(
-      delegate = offlineManagerBackend,
+  public val offlineStorage: OfflineStorage =
+    RuntimeBoundOfflineStorage(
+      delegate = offlineStorageBackend,
       requireRuntimeOpen = ::requireOpen,
     )
   private val lock = reentrantLock()
@@ -229,7 +229,7 @@ internal constructor(
       children.toList() to snapshotters.toList()
     }
     val (closingStates, closingSnapshotters) = closingChildren
-    val offlineCloseFailure = runCatching { offlineManagerBackend.close() }.exceptionOrNull()
+    val offlineCloseFailure = runCatching { offlineStorageBackend.close() }.exceptionOrNull()
     closingStates.forEach(MapState::close)
     closingSnapshotters.forEach(MapSnapshotterImplementation::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {

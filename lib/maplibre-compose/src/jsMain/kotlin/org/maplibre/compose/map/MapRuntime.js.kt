@@ -2,7 +2,7 @@ package org.maplibre.compose.map
 
 import kotlinx.coroutines.CoroutineDispatcher
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.offline.UnsupportedOfflineManager
+import org.maplibre.compose.offline.UnsupportedOfflineStorage
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
@@ -32,7 +32,7 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
     platformContext = requests,
     closeResources = { requests.close() },
     logger = logger,
-    offlineManagerBackend = UnsupportedOfflineManager,
+    offlineStorageBackend = UnsupportedOfflineStorage,
     mainDispatcher = options.mainDispatcher ?: platformMainDispatcher(),
     createSnapshotterAdapter = { GlJsSnapshotterAdapter(logger, requests) },
     resourceConfig = resourceConfig,
