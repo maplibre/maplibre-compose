@@ -190,17 +190,6 @@ final enum class org.maplibre.compose.resource/MapResourceKind : kotlin/Enum<org
     final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceKind> // org.maplibre.compose.resource/MapResourceKind.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.sources/TileCoordinateSystem : kotlin/Enum<org.maplibre.compose.sources/TileCoordinateSystem> { // org.maplibre.compose.sources/TileCoordinateSystem|null[0]
-    enum entry Tms // org.maplibre.compose.sources/TileCoordinateSystem.Tms|null[0]
-    enum entry Xyz // org.maplibre.compose.sources/TileCoordinateSystem.Xyz|null[0]
-
-    final val entries // org.maplibre.compose.sources/TileCoordinateSystem.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.sources/TileCoordinateSystem> // org.maplibre.compose.sources/TileCoordinateSystem.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.sources/TileCoordinateSystem // org.maplibre.compose.sources/TileCoordinateSystem.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.sources/TileCoordinateSystem> // org.maplibre.compose.sources/TileCoordinateSystem.values|values#static(){}[0]
-}
-
 abstract fun interface org.maplibre.compose.logging/MapLogger { // org.maplibre.compose.logging/MapLogger|null[0]
     open val minLevel // org.maplibre.compose.logging/MapLogger.minLevel|{}minLevel[0]
         open fun <get-minLevel>(): org.maplibre.compose.logging/MapLogLevel // org.maplibre.compose.logging/MapLogger.minLevel.<get-minLevel>|<get-minLevel>(){}[0]
@@ -2650,7 +2639,7 @@ final class org.maplibre.compose.sources/TileCoordinate { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.sources/TileSetOptions { // org.maplibre.compose.sources/TileSetOptions|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileCoordinateSystem = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...) // org.maplibre.compose.sources/TileSetOptions.<init>|<init>(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileCoordinateSystem;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileScheme = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...) // org.maplibre.compose.sources/TileSetOptions.<init>|<init>(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileScheme;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
 
     final val attributionHtml // org.maplibre.compose.sources/TileSetOptions.attributionHtml|{}attributionHtml[0]
         final fun <get-attributionHtml>(): kotlin/String? // org.maplibre.compose.sources/TileSetOptions.attributionHtml.<get-attributionHtml>|<get-attributionHtml>(){}[0]
@@ -2660,15 +2649,15 @@ final class org.maplibre.compose.sources/TileSetOptions { // org.maplibre.compos
         final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
     final val minZoom // org.maplibre.compose.sources/TileSetOptions.minZoom|{}minZoom[0]
         final fun <get-minZoom>(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
-    final val tileCoordinateSystem // org.maplibre.compose.sources/TileSetOptions.tileCoordinateSystem|{}tileCoordinateSystem[0]
-        final fun <get-tileCoordinateSystem>(): org.maplibre.compose.sources/TileCoordinateSystem // org.maplibre.compose.sources/TileSetOptions.tileCoordinateSystem.<get-tileCoordinateSystem>|<get-tileCoordinateSystem>(){}[0]
+    final val scheme // org.maplibre.compose.sources/TileSetOptions.scheme|{}scheme[0]
+        final fun <get-scheme>(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileSetOptions.scheme.<get-scheme>|<get-scheme>(){}[0]
 
     final fun component1(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.component1|component1(){}[0]
     final fun component2(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.component2|component2(){}[0]
-    final fun component3(): org.maplibre.compose.sources/TileCoordinateSystem // org.maplibre.compose.sources/TileSetOptions.component3|component3(){}[0]
+    final fun component3(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileSetOptions.component3|component3(){}[0]
     final fun component4(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.sources/TileSetOptions.component4|component4(){}[0]
     final fun component5(): kotlin/String? // org.maplibre.compose.sources/TileSetOptions.component5|component5(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileCoordinateSystem = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...): org.maplibre.compose.sources/TileSetOptions // org.maplibre.compose.sources/TileSetOptions.copy|copy(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileCoordinateSystem;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileScheme = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...): org.maplibre.compose.sources/TileSetOptions // org.maplibre.compose.sources/TileSetOptions.copy|copy(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileScheme;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/TileSetOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/TileSetOptions.toString|toString(){}[0]
@@ -3437,6 +3426,22 @@ final value class org.maplibre.compose.expressions.value/TranslateAnchor : org.m
             final fun <get-Viewport>(): org.maplibre.compose.expressions.value/TranslateAnchor // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.Viewport.<get-Viewport>|<get-Viewport>(){}[0]
         final val entries // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.entries|{}entries[0]
             final fun <get-entries>(): kotlin.collections/List<org.maplibre.compose.expressions.value/TranslateAnchor> // org.maplibre.compose.expressions.value/TranslateAnchor.Companion.entries.<get-entries>|<get-entries>(){}[0]
+    }
+}
+
+final value class org.maplibre.compose.sources/TileScheme { // org.maplibre.compose.sources/TileScheme|null[0]
+    final val value // org.maplibre.compose.sources/TileScheme.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.sources/TileScheme.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/TileScheme.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/TileScheme.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.sources/TileScheme.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.sources/TileScheme.Companion|null[0]
+        final val Tms // org.maplibre.compose.sources/TileScheme.Companion.Tms|{}Tms[0]
+            final fun <get-Tms>(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileScheme.Companion.Tms.<get-Tms>|<get-Tms>(){}[0]
+        final val Xyz // org.maplibre.compose.sources/TileScheme.Companion.Xyz|{}Xyz[0]
+            final fun <get-Xyz>(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileScheme.Companion.Xyz.<get-Xyz>|<get-Xyz>(){}[0]
     }
 }
 
