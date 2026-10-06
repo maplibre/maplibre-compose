@@ -514,7 +514,7 @@ class ClickInputTest {
             doubleTap {
               mappings {
                 on(
-                  modifiers = ModifierMatch.Containing(setOf(KeyModifier.Shift)),
+                  modifiers = ModifierMatch.Containing(KeyModifier.Shift),
                   action = CameraAction.ZoomIn,
                 )
               }

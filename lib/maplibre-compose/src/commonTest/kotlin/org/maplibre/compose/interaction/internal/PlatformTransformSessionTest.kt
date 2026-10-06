@@ -251,9 +251,7 @@ class MapPlatformTransformTest {
       Fixture(
         backgroundScope,
         InputConfiguration {
-          bindings {
-            transform { zoom { modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl)) } }
-          }
+          bindings { transform { zoom { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) } } }
         },
       )
     assertFalse(unmatched.input.onInput(PointerEventType.ScaleStart, sample(0)))

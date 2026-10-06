@@ -66,7 +66,7 @@ internal val ReportedKeyModifiers: List<KeyModifier> =
 @Immutable
 public sealed class ModifierMatch private constructor() {
   /** Matches when the pressed modifier keys are [modifiers] and no others. */
-  public class Exactly(modifiers: Set<KeyModifier> = emptySet()) : ModifierMatch() {
+  public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =
@@ -78,7 +78,7 @@ public sealed class ModifierMatch private constructor() {
   }
 
   /** Matches when every key in [modifiers] is pressed, whatever other modifier keys are pressed. */
-  public class Containing(modifiers: Set<KeyModifier>) : ModifierMatch() {
+  public class Containing(vararg modifiers: KeyModifier) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =

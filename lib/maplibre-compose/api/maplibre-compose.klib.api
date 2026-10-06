@@ -3628,7 +3628,7 @@ final value class org.maplibre.compose.sources/TileScheme { // org.maplibre.comp
 
 sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch|null[0]
     final class Containing : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Containing|null[0]
-        constructor <init>(kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier>) // org.maplibre.compose.interaction/ModifierMatch.Containing.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.interaction.KeyModifier>){}[0]
+        constructor <init>(kotlin/Array<out org.maplibre.compose.interaction/KeyModifier>...) // org.maplibre.compose.interaction/ModifierMatch.Containing.<init>|<init>(kotlin.Array<out|org.maplibre.compose.interaction.KeyModifier>...){}[0]
 
         final val modifiers // org.maplibre.compose.interaction/ModifierMatch.Containing.modifiers|{}modifiers[0]
             final fun <get-modifiers>(): kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/ModifierMatch.Containing.modifiers.<get-modifiers>|<get-modifiers>(){}[0]
@@ -3639,7 +3639,7 @@ sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.co
     }
 
     final class Exactly : org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.compose.interaction/ModifierMatch.Exactly|null[0]
-        constructor <init>(kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> = ...) // org.maplibre.compose.interaction/ModifierMatch.Exactly.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.interaction.KeyModifier>){}[0]
+        constructor <init>(kotlin/Array<out org.maplibre.compose.interaction/KeyModifier>...) // org.maplibre.compose.interaction/ModifierMatch.Exactly.<init>|<init>(kotlin.Array<out|org.maplibre.compose.interaction.KeyModifier>...){}[0]
 
         final val modifiers // org.maplibre.compose.interaction/ModifierMatch.Exactly.modifiers|{}modifiers[0]
             final fun <get-modifiers>(): kotlin.collections/Set<org.maplibre.compose.interaction/KeyModifier> // org.maplibre.compose.interaction/ModifierMatch.Exactly.modifiers.<get-modifiers>|<get-modifiers>(){}[0]

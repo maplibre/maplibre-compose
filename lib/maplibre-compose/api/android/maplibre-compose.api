@@ -1518,7 +1518,7 @@ public abstract class org/maplibre/compose/interaction/ModifierMatch {
 
 public final class org/maplibre/compose/interaction/ModifierMatch$Containing : org/maplibre/compose/interaction/ModifierMatch {
 	public static final field $stable I
-	public fun <init> (Ljava/util/Set;)V
+	public fun <init> ([Lorg/maplibre/compose/interaction/KeyModifier;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I
@@ -1527,9 +1527,7 @@ public final class org/maplibre/compose/interaction/ModifierMatch$Containing : o
 
 public final class org/maplibre/compose/interaction/ModifierMatch$Exactly : org/maplibre/compose/interaction/ModifierMatch {
 	public static final field $stable I
-	public fun <init> ()V
-	public fun <init> (Ljava/util/Set;)V
-	public synthetic fun <init> (Ljava/util/Set;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> ([Lorg/maplibre/compose/interaction/KeyModifier;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getModifiers ()Ljava/util/Set;
 	public fun hashCode ()I

@@ -19,12 +19,12 @@ class InputMatchingTest {
     assertTrue(
       PointerPattern().matches(setOf(PointerType.Unknown), emptySet(), ctrlShift, contact = true)
     )
-    assertFalse(ModifierMatch.Exactly(setOf(KeyModifier.Ctrl)).matches(ctrlShift))
-    assertTrue(ModifierMatch.Containing(setOf(KeyModifier.Ctrl)).matches(ctrlShift))
+    assertFalse(ModifierMatch.Exactly(KeyModifier.Ctrl).matches(ctrlShift))
+    assertTrue(ModifierMatch.Containing(KeyModifier.Ctrl).matches(ctrlShift))
     assertFalse(ModifierMatch.Exactly().matches(ctrlShift))
     assertTrue(ModifierMatch.Exactly().matches(emptySet()))
-    assertTrue(ModifierMatch.Containing(emptySet()).matches(ctrlShift))
-    assertFalse(ModifierMatch.Containing(setOf(KeyModifier.Alt)).matches(ctrlShift))
+    assertTrue(ModifierMatch.Containing().matches(ctrlShift))
+    assertFalse(ModifierMatch.Containing(KeyModifier.Alt).matches(ctrlShift))
   }
 
   @Test

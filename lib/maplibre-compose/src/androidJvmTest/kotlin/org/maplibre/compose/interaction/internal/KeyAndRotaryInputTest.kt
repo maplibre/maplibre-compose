@@ -134,7 +134,7 @@ class KeyAndRotaryInputTest {
               enabled = true
               mappings {
                 on(
-                  modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl)),
+                  modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
                   action = CameraAction.Pan,
                 )
               }

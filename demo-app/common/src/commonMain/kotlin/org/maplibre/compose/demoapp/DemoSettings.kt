@@ -116,7 +116,7 @@ class DemoSettings {
           bindings {
             scroll {
               mappings {
-                on(modifiers = Containing(setOf(KeyModifier.Ctrl)), action = CameraAction.Zoom)
+                on(modifiers = Containing(KeyModifier.Ctrl), action = CameraAction.Zoom)
                 otherwise(CameraAction.Pan)
               }
             }

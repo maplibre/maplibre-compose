@@ -165,7 +165,7 @@ class PointerPairGestureTest {
     for (filter in
       listOf(
         PointerPattern(pointerTypes = setOf(PointerType.Touch)),
-        PointerPattern(modifiers = ModifierMatch.Containing(setOf(KeyModifier.Ctrl))),
+        PointerPattern(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)),
       )) {
       val input =
         PairInput(
