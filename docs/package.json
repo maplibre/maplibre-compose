@@ -20,7 +20,7 @@
     "mdxlint": "1.0.0",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
-    "smol-toml": "^1.4.2",
+    "smol-toml": "^1.9.0",
     "unist-util-visit": "^5.1.0"
   }
 }
