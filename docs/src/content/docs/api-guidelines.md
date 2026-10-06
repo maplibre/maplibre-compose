@@ -40,10 +40,11 @@ this guide.
   [[1]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md#extensibility-of-hoisted-state-types).
   Map state is backed by the engine, so a caller's implementations couldn't
   work, and each new member would break every implementation.
-- Data classes are allowed when their fields are fixed by definition or their
-  constructor is internal, contrary to the Kotlin library guidelines
-  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api).
-  Their generated `componentN` functions still make field order part of the API.
+- Data classes are allowed, contrary to the Kotlin library guidelines
+  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api),
+  when their fields are fixed by definition, when their constructor is internal,
+  or when new fields are added last with `@IntroducedAt` (section 12). Their
+  generated `componentN` functions still make field order part of the API.
 
 ## 2. Naming
 
@@ -56,8 +57,9 @@ this guide.
 - Start the name of a composable that remembers and returns a mutable object
   with `remember`.
   [[1]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md#naming-composable-functions-that-remember-the-objects-they-return)
-- Treat acronyms and initialisms as words in code, including two-letter ones. In
-  prose and KDoc, use the usual spelling: MapLibre, GeoJSON, UI. Departs from
+- Treat acronyms and initialisms as words in code, including two-letter ones and
+  ones with digits: `Maplibre`, `GeoJson`, `D3d11`. In prose and KDoc, use the
+  usual spelling: MapLibre, GeoJSON, UI. Departs from
   [[3]](https://kotlinlang.org/docs/coding-conventions.html#naming-rules).
 - Use PascalCase for constants, singleton objects, and enum entries.
   [[1]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md#singletons-constants-sealed-class-and-enum-class-values)
@@ -66,6 +68,9 @@ this guide.
 - Start `CompositionLocal` names with `Local`.
   [[1]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-api-guidelines.md#naming-compositionlocals)
 - When the MapLibre style spec has a term for something, use it, in camel case.
+- Name expression DSL functions after the style-spec operator they build, even
+  when the name isn't a verb (`const`, `coalesce`). Write operators that take no
+  arguments as functions, not constants: `pi()`, not `PI`.
 - Name a component's defaults object after the component, with a `Defaults`
   suffix.
   [[2]](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/docs/compose-component-api-guidelines.md#ComponentDefault-object)
@@ -77,11 +82,14 @@ this guide.
 - Use lowercase, singular package names.
   [[3]](https://kotlinlang.org/docs/coding-conventions.html#naming-rules)
 - Put internal code in an `.internal` subpackage of the package it supports.
+- Name packages after features. Don't add catch-all packages such as `util`.
 
 ```kotlin
 // Do
 class GeoJsonOptions
 class UiKitMapHost
+fun installMaplibreCompose()
+fun pi(): Expression<FloatValue>
 fun rememberMapState(): MapState
 val LocalViewport = staticCompositionLocalOf<Viewport> { error("No viewport") }
 enum class QuickZoomDirection { UpZoomsIn, DownZoomsIn }
@@ -95,12 +103,15 @@ object LocationIndicatorDefaults
 // Don't
 class GeoJSONOptions
 class UIKitMapHost
+fun installMapLibreCompose()
+val PI: Expression<FloatValue>
 fun mapState(): MapState
 val ViewportLocal = staticCompositionLocalOf<Viewport> { error("No viewport") }
 enum class QuickZoomDirection { UP_ZOOMS_IN, DOWN_ZOOMS_IN }
 val tilt: Double
 class OfflineManager
 // package org.maplibre.compose.layers
+// package org.maplibre.compose.util
 ```
 
 ## 3. General API design
@@ -122,11 +133,21 @@ class OfflineManager
   `Boolean` builder properties are fine.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#avoid-using-the-boolean-type-as-an-argument)
 - Reject invalid arguments with `require` and invalid state with `check`, with a
-  message that describes the problem.
+  message that describes the problem and includes the rejected value.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#validate-inputs-and-state)
 - Return `null` when data can't be found or computed. Don't use exceptions for
   control flow.
   [[4]](https://kotlinlang.org/docs/api-guidelines-consistency.html#choose-the-appropriate-error-handling-mechanism)
+- When state can change outside the caller's control, and the caller can't check
+  it first without a race, return `null` or an empty result instead of throwing.
+  For example, a base-style layer handle expires when the engine reloads the
+  style: its reads return `null`, and its writes do nothing and log a warning.
+  Using an object after the caller closed it is a programming error, and throws.
+- Throw a library exception type only for failures that callers handle
+  specifically, such as `MapSnapshotException`. Library exception types extend
+  `RuntimeException` and have internal constructors.
+- Make behavior unsurprising instead of documenting a surprise. When behavior is
+  wrong, fix it instead of documenting it.
 - Give stateful types a `toString` that shows their contents in a consistent
   format, without secrets such as access tokens.
   [[4]](https://kotlinlang.org/docs/api-guidelines-debuggability.html#provide-a-tostring-method-for-stateful-types)
@@ -178,7 +199,9 @@ shape later is a breaking change.
 - Give an open structure an internal subtype, so that callers' `when` needs an
   `else` branch.
 - Group named values on a companion object or a sealed interface, not a plain
-  `object`.
+  `object`. When a value belongs to several sealed types, nest it in one and
+  implement the others:
+  `sealed interface CameraAction { data object Pan : CameraAction, DragAction }`.
 
 ```kotlin
 // Open identity: can hold values with no named constant in this version
@@ -203,9 +226,9 @@ internal object UnspecifiedMapEvent : MapEvent
 
 Settings objects that might gain fields use the shape shown below.
 
-- Use a final class with a builder, not a data class. Write `equals`,
-  `hashCode`, and `toString`; leave out `copy` and `componentN`.
-  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api)
+- Use a class with a private or internal constructor and a builder, so that new
+  options don't change any constructor. It may be a data class (section 1);
+  otherwise write `equals`, `hashCode`, and `toString`.
 - Take a `from` parameter in the builder instead of providing `copy`, and
   default it to a standard preset on the companion object.
 - Take required values with no sensible default, such as an ID, as constructor
@@ -221,9 +244,9 @@ Settings objects that might gain fields use the shape shown below.
   Provide presets as companion `val`s named for their purpose, so that callers
   in common code can still select one.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#do-the-right-thing-by-default)
-- Use a data class only when its fields are fixed by definition, such as the
-  four edges of `DpPadding`. Departs from
-  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-using-data-classes-in-your-api).
+- A small value that callers construct directly, such as the four edges of
+  `DpPadding`, can be a data class with a public constructor. If it might gain
+  fields, add them last with `@IntroducedAt` (section 12).
 
 ```kotlin
 @Immutable
@@ -298,10 +321,7 @@ val options = RenderOptions(from = RenderOptions.Standard) {
 ### Changing a signature
 
 - To add a parameter, put it at the end (before any trailing lambda) with a
-  default value, and annotate it with `@IntroducedAt` and the release version.
-  The compiler generates hidden overloads for callers compiled against earlier
-  releases.
-  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#use-overloads-to-preserve-binary-compatibility)
+  default value, and annotate it with `@IntroducedAt` (section 12).
 
 ```kotlin
 @Composable
@@ -336,7 +356,11 @@ public fun MapButton(
 - Give a callback no parameters, or one parameter of a library type with an
   internal constructor, so that the type can gain fields.
 - Don't give callbacks a receiver. Inside a callback with a receiver, `this`
-  refers to the receiver instead of the enclosing class.
+  refers to the receiver instead of the enclosing class. This covers callbacks
+  that the library calls later. DSL builder blocks and blocks that run before
+  the function returns, such as `withPlatformMap { }`, may use a receiver.
+- Lambdas that run work for the library or supply a value, such as
+  `(Runnable) -> Unit` or `() -> T?`, can be plain function types.
 - Name the callback parameters of composables `onX`.
 - Declare every named callback type as a `fun interface`, not a typealias, so
   that they're consistent and each has its own KDoc.
@@ -346,6 +370,15 @@ public fun MapButton(
 - Document which thread each callback runs on, whether it can run in parallel or
   reentrantly, and what happens if it throws.
   [[4]](https://kotlinlang.org/docs/api-guidelines-informative-documentation.html#document-lambda-parameters)
+- Handle an exception from a callback by what the callback does:
+  - A callback that does I/O, such as a resource or tile provider, can fail. Its
+    exception means that one request, tile, or image failed, and the library
+    reports it the way it reports that kind of failure.
+  - In any other callback, such as a predicate or a builder block, an exception
+    is a bug. Let it fail the operation that ran the callback.
+  - A logger's exceptions are dropped, because logging must never break the app.
+- Make an operation that produces a final result, such as a snapshot, fail as a
+  whole when part of it fails, instead of returning an incomplete result.
 - Keep interfaces that callers implement small, and give any new member a
   default implementation.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#allow-opportunities-for-extension)
@@ -412,7 +445,14 @@ public sealed interface MapSnapshotter
 - Put a platform-specific declaration in its feature's package, with a platform
   prefix.
 - Use one prefix per platform: `Android`, `Apple` (iOS and macOS), `Ios`,
-  `Macos`, `Desktop` (JVM), `Linux`, `Windows`, or `Web`.
+  `Macos`, `Desktop` (JVM), `Linux`, `Windows`, or `Web`. A backend or toolkit
+  name follows the platform prefix: `DesktopMetalGpuContext`.
+- Declarations in a source set shared by several platforms, such as the MapLibre
+  Native one, take no prefix.
+- Leave a feature out of the source set of a platform that doesn't support it,
+  instead of adding a `canX` check. When it must stay in common code, reads
+  return an empty result, and writes throw `UnsupportedOperationException` or do
+  nothing, as documented.
 - Don't name public packages after platforms or engine bindings.
 - For extra platform arguments, add an overload of a common factory function.
 - In artifacts that only provide a runtime, put public declarations in the
@@ -440,6 +480,7 @@ public class BrowserMapPresentation
 - Don't use number types for identifiers.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#use-numeric-types-appropriately)
 - When a plain number's type doesn't show its unit, end its name with the unit.
+- The table lists common quantities. For others, apply the rules above.
 
 | Quantity                              | Type                                                          |
 | ------------------------------------- | ------------------------------------------------------------- |
@@ -522,8 +563,17 @@ To keep these guarantees:
   one of the others, because existing uses on constructor properties could move
   to a different element.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-changing-annotation-targets)
-- Keep the serialized names of fields. When renaming a property, keep its old
-  serialized name with `@SerialName`.
+- To add a parameter to a public function or constructor, put it last with a
+  default value and annotate it with `@IntroducedAt` and the release version.
+  The compiler generates hidden overloads for callers compiled against earlier
+  releases, including overloads of a data class's `copy`.
+  [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#use-overloads-to-preserve-binary-compatibility)
+- Keep the serialized names of fields. When renaming a property, keep reading
+  its old name with `@JsonNames`.
+- Prefer sealed types over interfaces that callers implement. When callers must
+  implement an interface and implementing it is easy to get wrong, require
+  opt-in for implementations with `@SubclassOptInRequired` instead of for every
+  use.
 
 ### Stability annotations
 
