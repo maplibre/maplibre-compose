@@ -50,7 +50,8 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
     is XdgPortalWindow.X11 -> action("x11:${window.windowId.toString(16)}")
     is XdgPortalWindow.Wayland ->
       window.withXdgForeignHandle { handle -> action(handle?.let { "wayland:$it" }.orEmpty()) }
-    null -> action("")
+    // No window, or a kind this runtime can't name to the portal: the dialog has no parent.
+    else -> action("")
   }
 
 /**
