@@ -485,9 +485,11 @@ source, and behavior compatibility:
 [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#compatibility-types)
 
 - Code compiled against an earlier release keeps linking and running.
-- Source code keeps compiling, except for deprecated declarations and for a
-  `when` with no `else` branch over a type that may grow (section 4).
+- Source code keeps compiling, except for deprecated declarations.
 - Documented behavior and serialized formats don't change.
+
+These guarantees don't cover a `when` with no `else` branch over a type that may
+grow (section 4).
 
 To keep these guarantees:
 
