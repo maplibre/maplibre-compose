@@ -27,8 +27,7 @@ public fun interface MissingImageResolver {
    * run at the same time, interleaved at their suspension points.
    *
    * The map adds the returned image to the loaded style. Be prepared to supply the same ID again
-   * after the map discards unused images. On native maps, a resolved image may appear only after
-   * the affected tiles are laid out again.
+   * after the map discards unused images.
    *
    * If this throws an exception other than [kotlinx.coroutines.CancellationException], the map logs
    * the exception and treats the result as null. The map does not ask again for an ID that got null
