@@ -10,6 +10,7 @@ import org.maplibre.nativeffi.render.OpenGLContextOwnership
  * A borrowed pointer address or 64-bit Vulkan handle. The host owns the resource; MapLibre Compose
  * never frees, retains, or dereferences it.
  */
+@Immutable
 @JvmInline
 public value class NativeHandle(public val address: Long) {
   public val isNull: Boolean

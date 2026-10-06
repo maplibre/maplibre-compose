@@ -1,5 +1,6 @@
 package org.maplibre.compose.expressions.dsl
 
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
@@ -23,6 +24,7 @@ public fun <V : ExpressionValue?, R : ExpressionValue?> withVariable(
 public fun <T : ExpressionValue?> Variable<T>.use(): Expression<T> = call("var", const(name))
 
 /** Represents a variable bound with [withVariable]. Reference the bound expression with [use]. */
+@Immutable
 @JvmInline
 public value class Variable<@Suppress("unused") T : ExpressionValue?>
 internal constructor(public val name: String)

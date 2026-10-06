@@ -1,5 +1,6 @@
 package org.maplibre.compose.offline
 
+import androidx.compose.runtime.Immutable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -8,6 +9,7 @@ import org.maplibre.spatialk.geojson.Geometry
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface OfflinePackDefinition {
   public val styleUrl: String
 

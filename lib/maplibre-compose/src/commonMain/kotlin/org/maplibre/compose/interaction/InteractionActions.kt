@@ -1,10 +1,13 @@
 package org.maplibre.compose.interaction
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Actions shared by every input binding.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface InputAction {
   /**
    * Leaves matching input unclaimed and stops trying later mapping rows. Tap callbacks and feature
@@ -18,21 +21,21 @@ public sealed interface InputAction {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-public sealed interface DragAction
+@Immutable public sealed interface DragAction
 
 /**
  * A built-in action for scrolling.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-public sealed interface ScrollAction
+@Immutable public sealed interface ScrollAction
 
 /**
  * A built-in action executed after tap callbacks and feature click handlers leave a tap unhandled.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-public sealed interface TapAction
+@Immutable public sealed interface TapAction
 
 /**
  * Camera steps, [FocusAction] commands, and [InputAction.None] available to a key binding. Camera
@@ -41,7 +44,7 @@ public sealed interface TapAction
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-public sealed interface KeyAction
+@Immutable public sealed interface KeyAction
 
 /**
  * Built-in camera movements, restricted by the camera settings in [MapInteractions]. Movement
@@ -49,6 +52,7 @@ public sealed interface KeyAction
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface CameraAction {
   /** Moves map content by drag or scroll displacement. */
   public data object Pan : CameraAction, DragAction, ScrollAction
@@ -100,6 +104,7 @@ public sealed interface CameraAction {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface FocusAction {
   /** Engages the focused map so camera keys move it rather than traverse Compose focus. */
   public data object Engage : FocusAction, KeyAction

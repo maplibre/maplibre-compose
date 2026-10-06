@@ -48,6 +48,8 @@ kotlin {
       }
 
     commonMain.dependencies {
+      // Only the stability annotations, not the Compose runtime.
+      api(libs.androidx.composeRuntime.annotation)
       api(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)

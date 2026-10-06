@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 
@@ -95,6 +96,7 @@ internal constructor(
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
+  @Immutable
   @JvmInline
   public value class Mode internal constructor(public val value: String) {
     public companion object {
