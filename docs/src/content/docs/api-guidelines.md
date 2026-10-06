@@ -151,12 +151,12 @@ Every enum, sealed type, and set of named values is one of four kinds. Choose
 the kind by what any later minor release might expose, because changing the
 shape later is a breaking change.
 
-| Kind           | Use when                                                                                                                     | Declare as                                                                              | Example              |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------- |
-| Closed         | The values can never change, because they describe math, a fixed protocol, or a complete split                               | `enum class`                                                                            | `QuickZoomDirection` |
-| Open input     | Callers only pass values in, and the library won't return them in any later minor release                                    | `enum class`, or a `sealed` type when cases carry data                                  | `TileLodAlgorithm`   |
-| Open identity  | A named value that the library, platform, engine, or style JSON reports, possibly one with no named constant in this version | `value class` with an internal or private constructor and named values on the companion | `LineCap`            |
-| Open structure | The library returns it, and cases carry different data                                                                       | `sealed interface` with an internal subtype                                             | `MapEvent`           |
+| Kind           | Use when                                                                                                                       | Declare as                                                                                      | Example              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | -------------------- |
+| Closed         | The values can never change, because they describe math, a fixed protocol, or a complete split                                 | `enum class`                                                                                    | `QuickZoomDirection` |
+| Open input     | Callers only pass values in, and the library won't return them in any later minor release                                      | `enum class`, or a `sealed` type when cases carry data                                          | `TileLodAlgorithm`   |
+| Open identity  | A raw value from outside the library, such as a style-spec or engine name, possibly one with no named constant in this version | `value class` with an internal constructor, a public `value`, and named values on the companion | `LineCap`            |
+| Open structure | The library returns it, including sets of names the library defines                                                            | `sealed interface` with an internal subtype, and a `data object` for each case without data     | `MapEvent`           |
 
 - State the kind in KDoc: "Closed." or "Values may be added in minor releases;
   use an `else` branch when matching."
@@ -168,10 +168,9 @@ shape later is a breaking change.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#prevent-unwanted-and-invalid-extensions)
 - Keep unrecognized values in an open identity. Don't map them to a named value
   such as `Unknown`.
-- Make an open identity's wrapped value public only when it has a spelling
-  outside the library, such as a style-spec or engine name. Otherwise keep it
-  private and show it in `toString`, so that callers match on the named values
-  instead of on raw strings.
+- Use a value class only to wrap a raw value from outside the library. When the
+  library defines the names itself, use an open structure instead of inventing a
+  raw value.
 - Give an open structure an internal subtype, so that callers' `when` needs an
   `else` branch.
 - Group named values on a companion object or a sealed interface, not a plain
