@@ -429,6 +429,7 @@ private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineSt
       DownloadStatus.Paused -> offlineStorage.resume(pack)
       DownloadStatus.Downloading -> offlineStorage.pause(pack)
       DownloadStatus.Complete -> coroutineScope.launch { offlineStorage.invalidate(pack) }
+      else -> Unit
     }
   }
 
@@ -441,6 +442,7 @@ private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineSt
           Icon(vectorResource(Res.drawable.pause), stringResource(Res.string.offline_pack_pause))
         DownloadStatus.Complete ->
           Icon(vectorResource(Res.drawable.sync), stringResource(Res.string.offline_pack_update))
+        else -> Unit
       }
     }
   }

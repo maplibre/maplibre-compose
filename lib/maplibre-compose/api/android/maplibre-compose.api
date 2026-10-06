@@ -2810,7 +2810,7 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 	public final fun component2 ()J
 	public final fun component3 ()J
 	public final fun component4 ()J
-	public final fun component5-MxttChA ()Ljava/lang/String;
+	public final fun component5 ()Lorg/maplibre/compose/offline/DownloadStatus;
 	public final fun component6 ()Z
 	public final fun component7 ()J
 	public fun equals (Ljava/lang/Object;)Z
@@ -2819,7 +2819,7 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 	public final fun getCompletedTileBytes ()J
 	public final fun getCompletedTileCount ()J
 	public final fun getRequiredResourceCount ()J
-	public final fun getStatus-MxttChA ()Ljava/lang/String;
+	public final fun getStatus ()Lorg/maplibre/compose/offline/DownloadStatus;
 	public fun hashCode ()I
 	public final fun isRequiredResourceCountPrecise ()Z
 	public fun toString ()Ljava/lang/String;
@@ -2842,24 +2842,31 @@ public final class org/maplibre/compose/offline/DownloadProgress$Unknown : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/offline/DownloadStatus {
-	public static final field Companion Lorg/maplibre/compose/offline/DownloadStatus$Companion;
-	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/offline/DownloadStatus;
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
-	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
-	public final fun getValue ()Ljava/lang/String;
-	public fun hashCode ()I
-	public static fun hashCode-impl (Ljava/lang/String;)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()Ljava/lang/String;
+public abstract interface class org/maplibre/compose/offline/DownloadStatus {
 }
 
-public final class org/maplibre/compose/offline/DownloadStatus$Companion {
-	public final fun getComplete-MxttChA ()Ljava/lang/String;
-	public final fun getDownloading-MxttChA ()Ljava/lang/String;
-	public final fun getPaused-MxttChA ()Ljava/lang/String;
+public final class org/maplibre/compose/offline/DownloadStatus$Complete : org/maplibre/compose/offline/DownloadStatus {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Complete;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/offline/DownloadStatus$Downloading : org/maplibre/compose/offline/DownloadStatus {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Downloading;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/offline/DownloadStatus$Paused : org/maplibre/compose/offline/DownloadStatus {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Paused;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/offline/OfflinePack {

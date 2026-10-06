@@ -65,7 +65,7 @@ fun Offline() {
       val name = metadata?.decodeToString() ?: "Unnamed"
       when (val current = progress) {
         is DownloadProgress.Healthy ->
-          Text("$name: ${current.completedResourceCount} resources, ${current.status.value}")
+          Text("$name: ${current.completedResourceCount} resources, ${current.status}")
         is DownloadProgress.Error -> Text("$name: ${current.message}")
         is DownloadProgress.TileLimitExceeded -> Text("$name: tile limit ${current.limit}")
         is DownloadProgress.Unknown -> Text("$name: waiting for status")

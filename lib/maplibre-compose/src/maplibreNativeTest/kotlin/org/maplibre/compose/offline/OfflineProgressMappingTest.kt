@@ -57,7 +57,7 @@ class OfflineProgressMappingTest {
   fun an_unrecognized_download_state_keeps_its_number() {
     val progress = status(OfflineRegionDownloadState(999), complete = false).toDownloadProgress()
 
-    assertEquals("999", (progress as DownloadProgress.Healthy).status.value)
+    assertEquals(UnrecognizedDownloadStatus(999), (progress as DownloadProgress.Healthy).status)
   }
 
   @Test

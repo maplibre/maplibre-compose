@@ -86,7 +86,7 @@ internal fun OfflineRegionStatus.toDownloadProgress(): DownloadProgress =
         downloadState == OfflineRegionDownloadState.INACTIVE -> DownloadStatus.Paused
         // Download states are value classes over Int rather than enums, so a newer native runtime
         // can report one this build has never seen.
-        else -> DownloadStatus(downloadState.nativeValue.toString())
+        else -> UnrecognizedDownloadStatus(downloadState.nativeValue)
       },
     isRequiredResourceCountPrecise = requiredResourceCountIsPrecise,
     requiredResourceCount = requiredResourceCount,
