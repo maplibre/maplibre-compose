@@ -48,7 +48,7 @@ import web.permissions.query
  * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
  * location updates reports [LocationUnavailableReason.UnexpectedFailure].
  */
-public class BrowserLocationProvider
+public class WebLocationProvider
 internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   coroutineScope: CoroutineScope,
@@ -56,7 +56,7 @@ internal constructor(
   /** Creates a provider that observes permission in [coroutineScope]. */
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
 
-  private val requester = BrowserLocationPermissionRequester(boundary, coroutineScope)
+  private val requester = WebLocationPermissionRequester(boundary, coroutineScope)
 
   override val backendAvailability: LocationBackendAvailability =
     if (boundary.supported) {
@@ -136,7 +136,7 @@ internal constructor(
 /**
  * Observes and requests browser geolocation permission.
  *
- * [BrowserLocationProvider] delegates [LocationProvider.permission] and
+ * [WebLocationProvider] delegates [LocationProvider.permission] and
  * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
  * [CoroutineScope] to back a custom [LocationProvider].
  *
@@ -146,7 +146,7 @@ internal constructor(
  * reports `canRequest = null` until an explicit request determines the result. A missing
  * Geolocation API maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
  */
-public class BrowserLocationPermissionRequester
+public class WebLocationPermissionRequester
 internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   private val coroutineScope: CoroutineScope,
@@ -241,7 +241,7 @@ internal constructor(
 }
 
 /**
- * Browser Permissions API states that [BrowserLocationPermissionRequester] maps to
+ * Browser Permissions API states that [WebLocationPermissionRequester] maps to
  * [LocationPermission].
  */
 internal enum class BrowserPermission {
