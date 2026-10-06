@@ -79,6 +79,19 @@ class RuntimeBoundOfflineStorageTest {
   }
 
   @Test
+  fun negative_ambient_cache_size_is_rejected_before_the_backend() = runTest {
+    val backend = RecordingOfflineStorage()
+    val runtime = runtime(backend)
+
+    assertFailsWith<IllegalArgumentException> {
+      runtime.offlineStorage.setMaximumAmbientCacheSize(-1)
+    }
+    assertEquals(emptyList(), backend.calls)
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
   fun runtime_closure_rejects_every_offline_manager_operation() = runTest {
     val backend = RecordingOfflineStorage()
     val releaseCleanup = CompletableDeferred<Unit>()
@@ -195,8 +208,8 @@ class RuntimeBoundOfflineStorageTest {
       calls += "clear ambient"
     }
 
-    override suspend fun setMaximumAmbientCacheSize(size: Long) {
-      assertEquals(1L, size)
+    override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long) {
+      assertEquals(1L, sizeBytes)
       calls += "set ambient size"
     }
 

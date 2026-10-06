@@ -12,8 +12,10 @@ public sealed interface OfflinePackDefinition {
   public val styleUrl: String
 
   /**
-   * The scale used to resolve `{ratio}` in tile URL templates. MapLibre selects the 2x tile variant
-   * for values greater than 1.
+   * The ratio of physical pixels to density-independent pixels that the pack's resources are
+   * downloaded for, usually the screen's `Density.density`. MapLibre uses it to resolve `{ratio}`
+   * in tile URL templates, selecting the 2x tile variant for values greater than 1. Packs always
+   * include both the 1x and 2x sprites.
    */
   public val pixelRatio: Float
 

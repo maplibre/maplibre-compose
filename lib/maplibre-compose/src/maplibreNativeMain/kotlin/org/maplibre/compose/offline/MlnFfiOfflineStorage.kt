@@ -188,12 +188,12 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     runAmbientCacheOperation("clear the ambient cache", AmbientCacheOperation.CLEAR)
   }
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long) {
+  override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
     cacheBudgetMutex.withLock {
       runOperation(
-        description = "set the maximum ambient cache size to $size bytes",
-        start = { it.startSetMaximumAmbientCacheSize(size) },
+        description = "set the maximum ambient cache size to $sizeBytes bytes",
+        start = { it.startSetMaximumAmbientCacheSize(sizeBytes) },
         finish = { _, _ -> },
       )
     }
