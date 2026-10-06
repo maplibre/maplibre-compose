@@ -61,8 +61,8 @@ public data class TileCoordinate(
  * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles can run at
  * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request
  * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
- * main thread and overlap only where they suspend, and requests for a tile that is already loading
- * share that call.
+ * main thread and overlap only where they suspend, and requests from one source in one map for a
+ * tile that is already loading share that call.
  */
 public fun interface GeometryTileProvider {
   /**
@@ -80,8 +80,8 @@ public fun interface GeometryTileProvider {
  * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles can run at
  * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request
  * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
- * main thread and overlap only where they suspend, and requests for a tile that is already loading
- * share that call.
+ * main thread and overlap only where they suspend, and requests from one source in one map for a
+ * tile that is already loading share that call.
  */
 public fun interface VectorTileProvider {
   /**
