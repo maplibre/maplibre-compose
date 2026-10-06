@@ -62,9 +62,9 @@ class LayerClickOrderTest {
     runLayerClickTest(composeFrontLayerFirst = false) { center ->
       performMouseInputOnUiThread(onRoot()) { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { clicked.isNotEmpty() }
       waitForIdle()
-      assertEquals(listOf(FRONT), clicked)
+      assertEquals(listOf(Front), clicked)
     }
 
   /**
@@ -78,9 +78,9 @@ class LayerClickOrderTest {
     runLayerClickTest(composeFrontLayerFirst = true) { center ->
       performMouseInputOnUiThread(onRoot()) { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { clicked.isNotEmpty() }
       waitForIdle()
-      assertEquals(listOf(FRONT), clicked)
+      assertEquals(listOf(Front), clicked)
     }
 
   @Test
@@ -88,9 +88,9 @@ class LayerClickOrderTest {
     runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center ->
       performMouseInputOnUiThread(onRoot()) { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.size == 2 }
+      waitUntil(timeoutMillis = Timeout) { clicked.size == 2 }
       waitForIdle()
-      assertEquals(listOf(FRONT, BACK), clicked)
+      assertEquals(listOf(Front, Back), clicked)
     }
 
   @Test
@@ -99,11 +99,11 @@ class LayerClickOrderTest {
       val map = onRoot()
       performTouchInputOnUiThread(map) { down(0, center) }
       mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicked.isNotEmpty() }
+      waitUntil(timeoutMillis = Timeout) { longClicked.isNotEmpty() }
       performTouchInputOnUiThread(map) { up(0) }
       waitForIdle()
 
-      assertEquals(listOf(FRONT), longClicked)
+      assertEquals(listOf(Front), longClicked)
       assertEquals(emptyList<String>(), clicked, "the long click also reported a click")
     }
 
@@ -113,19 +113,19 @@ class LayerClickOrderTest {
       val map = onRoot()
       performTouchInputOnUiThread(map) { down(0, center) }
       mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicked.size == 2 }
+      waitUntil(timeoutMillis = Timeout) { longClicked.size == 2 }
       performTouchInputOnUiThread(map) { up(0) }
       waitForIdle()
 
-      assertEquals(listOf(FRONT, BACK), longClicked)
+      assertEquals(listOf(Front, Back), longClicked)
     }
 
   /**
    * Composes two fill layers of the same world-covering polygon, waits until both are rendered and
    * queryable, then runs [body] with the centre of the map.
    *
-   * [composeFrontLayerFirst] only changes the composition; either way [FRONT] ends up in front of
-   * [BACK] in the style. [frontResult] is what [FRONT]'s handlers return, so a test can either stop
+   * [composeFrontLayerFirst] only changes the composition; either way [Front] ends up in front of
+   * [Back] in the style. [frontResult] is what [Front]'s handlers return, so a test can either stop
    * the event there or let it fall through.
    */
   private fun runLayerClickTest(
@@ -140,37 +140,37 @@ class LayerClickOrderTest {
       scope = rememberCoroutineScope()
       mapState =
         rememberMapState(
-          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = StartZoom),
           baseStyle = BaseStyle.Empty,
         ) {
-          val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
+          val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WorldPolygon))
 
           val front: @Composable () -> Unit = {
             FillLayer(
-              id = FRONT,
+              id = Front,
               source = source,
               color = const(Color.Red),
               onClick = {
-                clicked += FRONT
+                clicked += Front
                 frontResult
               },
               onLongClick = {
-                longClicked += FRONT
+                longClicked += Front
                 frontResult
               },
             )
           }
           val back: @Composable () -> Unit = {
             FillLayer(
-              id = BACK,
+              id = Back,
               source = source,
               color = const(Color.Blue),
               onClick = {
-                clicked += BACK
+                clicked += Back
                 ClickResult.Consume
               },
               onLongClick = {
-                longClicked += BACK
+                longClicked += Back
                 ClickResult.Consume
               },
             )
@@ -188,7 +188,7 @@ class LayerClickOrderTest {
       MaplibreMap(state = mapState, modifier = Modifier.fillMaxSize())
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { mapState.currentMapAttachment != null }
+    waitUntil(timeoutMillis = Timeout) { mapState.currentMapAttachment != null }
     assertNotNull(mapState.currentMapAttachment, "the map never published a lease")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }
@@ -199,29 +199,29 @@ class LayerClickOrderTest {
     // and presentation can publish it while the query is suspended.
     val layersHittable = scope.async {
       while (
-        !listOf(FRONT, BACK).all { id ->
+        !listOf(Front, Back).all { id ->
           mapState.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)).isNotEmpty()
         }
       ) {
         withFrameNanos {}
       }
     }
-    waitUntil(timeoutMillis = TIMEOUT) { layersHittable.isCompleted }
+    waitUntil(timeoutMillis = Timeout) { layersHittable.isCompleted }
     layersHittable.await()
 
     body(Offset(size.width / 2f, size.height / 2f))
   }
 
   private companion object {
-    const val TIMEOUT = 30_000L
+    const val Timeout = 30_000L
 
-    /** Zoomed in far enough that [WORLD_POLYGON] covers the viewport edge to edge. */
-    const val START_ZOOM = 2.0
+    /** Zoomed in far enough that [WorldPolygon] covers the viewport edge to edge. */
+    const val StartZoom = 2.0
 
-    const val FRONT = "front"
-    const val BACK = "back"
+    const val Front = "front"
+    const val Back = "back"
 
-    val WORLD_POLYGON =
+    val WorldPolygon =
       """
       {
         "type": "Feature",

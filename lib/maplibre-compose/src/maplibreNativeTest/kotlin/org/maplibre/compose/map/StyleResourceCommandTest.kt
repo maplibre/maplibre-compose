@@ -172,7 +172,7 @@ class StyleResourceCommandTest {
     try {
       snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
-      val imageSource = snapshotter.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val imageSource = snapshotter.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
       val holdOwner =
         async(Dispatchers.Default) {
           binding.readMap {
@@ -183,7 +183,7 @@ class StyleResourceCommandTest {
       assertTrue(parked.await(5_000))
       snapshotter.style.images.remove("absent")
       // Snapshotter handles are not confined to the main thread.
-      withContext(Dispatchers.Default) { imageSource.setImage(image(OPAQUE_GREEN)) }
+      withContext(Dispatchers.Default) { imageSource.setImage(image(OpaqueGreen)) }
       release.countDown()
       holdOwner.await()
       snapshotter.style.awaitCommands()
@@ -202,7 +202,7 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val handle = fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val handle = fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
       val parked = TestLatch(1)
       val release = TestLatch(1)
       val ownerReleased = CompletableDeferred<Boolean>()
@@ -213,16 +213,16 @@ class StyleResourceCommandTest {
             ownerReleased.complete(release.await(5_000))
           }
           assertTrue(parked.await(5_000))
-          handle.setImage(image(OPAQUE_GREEN))
+          handle.setImage(image(OpaqueGreen))
           handle.setUri("https://example.invalid/image.png")
-          handle.setImage(image(OPAQUE_RED))
-          handle.setBounds(MOVED)
+          handle.setImage(image(OpaqueRed))
+          handle.setBounds(Moved)
           assertFalse(ownerReleased.isCompleted, "writes must return while the owner stays parked")
         } finally {
           release.countDown()
         }
         assertTrue(ownerReleased.await())
-        assertEquals(MOVED.corners(), binding.readMap { it.imageSourceCorners("image") })
+        assertEquals(Moved.corners(), binding.readMap { it.imageSourceCorners("image") })
         assertEquals(emptyList(), records.problems())
       }
     }
@@ -233,14 +233,14 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val handle = fixture.state.style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val handle = fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
       val ran = TestLatch(1)
       recordingLogs { records ->
         // The unload lands after the task passed its loaded and identity checks.
         handle.implementation.definitionOperation {
           binding.invalidate()
           try {
-            binding.setImageSourceImage("image", image(OPAQUE_GREEN))
+            binding.setImageSourceImage("image", image(OpaqueGreen))
           } finally {
             ran.countDown()
           }
@@ -260,7 +260,7 @@ class StyleResourceCommandTest {
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
       val style = fixture.state.style
-      val handle = style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+      val handle = style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
       val parked = TestLatch(1)
       val release = TestLatch(1)
       recordingLogs { records ->
@@ -271,18 +271,18 @@ class StyleResourceCommandTest {
           }
           assertTrue(parked.await(5_000))
           handle.remove()
-          handle.setBounds(MOVED)
-          handle.setImage(image(OPAQUE_GREEN))
+          handle.setBounds(Moved)
+          handle.setImage(image(OpaqueGreen))
           val replacement =
             async(start = CoroutineStart.UNDISPATCHED) {
-              style.sources.add(ImageSource("image", QUAD, image(OPAQUE_RED)))
+              style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
             }
           release.countDown()
           replacement.await()
         } finally {
           release.countDown()
         }
-        assertEquals(QUAD.corners(), binding.readMap { it.imageSourceCorners("image") })
+        assertEquals(Quad.corners(), binding.readMap { it.imageSourceCorners("image") })
         assertEquals(emptyList(), records.problems())
       }
     }
@@ -381,16 +381,16 @@ class StyleResourceCommandTest {
     .map { it.message }
 
   private companion object {
-    const val OPAQUE_RED = 0xffff0000.toInt()
-    const val OPAQUE_GREEN = 0xff00ff00.toInt()
+    const val OpaqueRed = 0xffff0000.toInt()
+    const val OpaqueGreen = 0xff00ff00.toInt()
 
-    val QUAD =
+    val Quad =
       PositionQuad(
         Position(-1.0, 1.0),
         Position(1.0, 1.0),
         Position(1.0, -1.0),
         Position(-1.0, -1.0),
       )
-    val MOVED = QUAD.copy(topLeft = Position(-2.0, 1.0))
+    val Moved = Quad.copy(topLeft = Position(-2.0, 1.0))
   }
 }

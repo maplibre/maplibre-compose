@@ -401,13 +401,13 @@ private object WinRtCallbacks {
 
   private fun vtable(event: Boolean): MemorySegment {
     val table = stubs.allocate(ADDRESS, 4)
-    table.setAtIndex(ADDRESS, 0, stub("queryInterface", QUERY_INTERFACE))
-    table.setAtIndex(ADDRESS, 1, stub("addRef", ADD_REF))
-    table.setAtIndex(ADDRESS, 2, stub("release", ADD_REF))
+    table.setAtIndex(ADDRESS, 0, stub("queryInterface", QueryInterface))
+    table.setAtIndex(ADDRESS, 1, stub("addRef", AddRef))
+    table.setAtIndex(ADDRESS, 2, stub("release", AddRef))
     table.setAtIndex(
       ADDRESS,
       3,
-      if (event) stub("invokeEvent", INVOKE_EVENT) else stub("invokeAsync", INVOKE_ASYNC),
+      if (event) stub("invokeEvent", InvokeEvent) else stub("invokeAsync", InvokeAsync),
     )
     return table
   }
@@ -482,8 +482,8 @@ private object WinRtCallbacks {
       E_FAIL
     }
 
-  private val QUERY_INTERFACE = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
-  private val ADD_REF = FunctionDescriptor.of(JAVA_INT, ADDRESS)
-  private val INVOKE_EVENT = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
-  private val INVOKE_ASYNC = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT)
+  private val QueryInterface = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
+  private val AddRef = FunctionDescriptor.of(JAVA_INT, ADDRESS)
+  private val InvokeEvent = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS)
+  private val InvokeAsync = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT)
 }

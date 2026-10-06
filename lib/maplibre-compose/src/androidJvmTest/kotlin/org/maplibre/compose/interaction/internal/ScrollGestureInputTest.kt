@@ -60,7 +60,7 @@ class ScrollGestureInputTest {
         waitForIdle()
         assertEquals(1, target.startedCount)
         assertEquals(2, target.scaleCalls.size)
-        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+        mainClock.advanceTimeBy(ScrollHoldMillis + FrameMillis)
       } finally {
         mainClock.autoAdvance = true
       }
@@ -123,7 +123,7 @@ class ScrollGestureInputTest {
         assertTrue(target.moveCalls.any { it.y != 0f })
         assertTrue(target.scaleCalls.isEmpty())
         assertEquals(1, target.startedCount)
-        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+        mainClock.advanceTimeBy(ScrollHoldMillis + FrameMillis)
         waitForIdle()
         assertEquals(1, target.endedCount)
       } finally {
@@ -223,7 +223,7 @@ class ScrollGestureInputTest {
         assertEquals(1, target.startedCount)
         assertEquals(0, target.endedCount)
         assertEquals(2, target.scaleCalls.size)
-        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+        mainClock.advanceTimeBy(ScrollHoldMillis + FrameMillis)
         waitForIdle()
         assertEquals(1, target.endedCount)
         assertEquals(2, target.scaleCalls.size)
@@ -282,8 +282,8 @@ class ScrollGestureInputTest {
       waitForIdle()
       assertEquals(0, target.endedCount, "a hover ended the scroll hold")
 
-      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
-      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
+      mainClock.advanceTimeBy(ScrollHoldMillis + FrameMillis)
+      waitUntil(timeoutMillis = Timeout) { target.endedCount == 1 }
     } finally {
       mainClock.autoAdvance = true
     }
@@ -307,7 +307,7 @@ class ScrollGestureInputTest {
         assertEquals(0, target.endedCount, "a 400 ms gap ended a move held open for 600 ms")
 
         mainClock.advanceTimeBy(300)
-        waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
+        waitUntil(timeoutMillis = Timeout) { target.endedCount == 1 }
       } finally {
         mainClock.autoAdvance = true
       }

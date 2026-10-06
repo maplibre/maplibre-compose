@@ -39,7 +39,7 @@ import org.maplibre.spatialk.geojson.Position
 
 internal object FerrySchedule {
   /** Mobility Database refreshes this browser-accessible mirror from WSDOT each day. */
-  private const val FEED_URI = "https://files.mobilitydatabase.org/mdb-283/latest.zip"
+  private const val FeedUri = "https://files.mobilitydatabase.org/mdb-283/latest.zip"
 
   // WSF's routes.txt assigns no colors, so the demo assigns its own.
   private val palette =
@@ -89,7 +89,7 @@ internal object FerrySchedule {
 
   suspend fun loadNetwork(): Network =
     withContext(Dispatchers.Default) {
-      val zipBytes = HttpClient().use { client -> client.get(FEED_URI).bodyAsBytes() }
+      val zipBytes = HttpClient().use { client -> client.get(FeedUri).bodyAsBytes() }
       val files = unzip(zipBytes)
       fun table(name: String) = files.getValue(name).decodeToString()
 

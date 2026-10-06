@@ -165,7 +165,7 @@ class AppleMlnFfiSurfaceControllerTest {
       controller.requestFrame()
     }
     renderer.awaitFrameOrFailure()
-    controller.surfaceLayoutChanged(CAMetalLayer(), EXTENT)
+    controller.surfaceLayoutChanged(CAMetalLayer(), Extent)
     controller.withRendererAccess {
       assertEquals(1, renderer.attachments)
       assertEquals(1, renderer.failures.size)
@@ -191,7 +191,7 @@ class AppleMlnFfiSurfaceControllerTest {
         if (replaceLayer && attempt < 3) {
           controller.surfaceDestroyed(layer).await().getOrThrow()
           layer = CAMetalLayer()
-          controller.surfaceLayoutChanged(layer, EXTENT)
+          controller.surfaceLayoutChanged(layer, Extent)
           renderer.awaitFrameOrFailure()
         }
       }
@@ -226,7 +226,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
   private fun attachLayer(controller: AppleMlnFfiSurfaceController): CAMetalLayer {
     val layer = CAMetalLayer()
-    controller.surfaceLayoutChanged(layer, EXTENT)
+    controller.surfaceLayoutChanged(layer, Extent)
     controller.withRendererAccess {}
     return layer
   }
@@ -289,6 +289,6 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   private companion object {
-    val EXTENT = MapExtent.fromLogical(32, 32, 1.0)
+    val Extent = MapExtent.fromLogical(32, 32, 1.0)
   }
 }

@@ -3,15 +3,15 @@ package org.maplibre.compose.expressions.ast
 import kotlin.math.roundToInt
 
 internal class FloatCache<T>(val init: (Float) -> T) {
-  private val smallInts = List(SIZE) { init(it.toFloat()) }
-  private val smallFloats = List(SIZE) { init(it.toFloat() * RESOLUTION) }
+  private val smallInts = List(Size) { init(it.toFloat()) }
+  private val smallFloats = List(Size) { init(it.toFloat() * Resolution) }
 
   operator fun get(float: Float): T {
     if (float.isNaN()) return init(float)
-    val floatIndex = (float / RESOLUTION).roundToInt()
+    val floatIndex = (float / Resolution).roundToInt()
     return when {
       float.isSmallInt() -> smallInts[float.toInt()]
-      floatIndex.isSmallInt() && floatIndex.toFloat() * RESOLUTION == float ->
+      floatIndex.isSmallInt() && floatIndex.toFloat() * Resolution == float ->
         smallFloats[floatIndex]
 
       else -> init(float)
@@ -19,11 +19,11 @@ internal class FloatCache<T>(val init: (Float) -> T) {
   }
 
   companion object {
-    const val SIZE = 512
-    const val RESOLUTION = 0.05f
+    const val Size = 512
+    const val Resolution = 0.05f
 
     internal fun Float.isSmallInt() = toInt().toFloat() == this && toInt().isSmallInt()
 
-    internal fun Int.isSmallInt() = this in 0..<SIZE
+    internal fun Int.isSmallInt() = this in 0..<Size
   }
 }

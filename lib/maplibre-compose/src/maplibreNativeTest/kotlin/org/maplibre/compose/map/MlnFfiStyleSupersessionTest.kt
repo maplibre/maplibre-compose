@@ -29,11 +29,11 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS), "the first document did not start")
+      assertTrue(first.started.await(TimeoutMillis), "the first document did not start")
 
       fixture.loadStyle(style("replacement"), timeout = 5.seconds)
 
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS), "the old provider was not cancelled")
+      assertTrue(first.cancelled.await(TimeoutMillis), "the old provider was not cancelled")
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }
@@ -52,12 +52,12 @@ class MlnFfiStyleSupersessionTest {
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
-      assertTrue(second.started.await(TIMEOUT_MILLIS))
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(second.started.await(TimeoutMillis))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       fixture.loadStyle(style("third"), timeout = 5.seconds)
-      assertTrue(second.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(second.cancelled.await(TimeoutMillis))
 
       fixture.pump()
       assertEquals(1, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
@@ -86,7 +86,7 @@ class MlnFfiStyleSupersessionTest {
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.loop.submit { map ->
         // Produce a real old native terminal event without letting the runtime drain it yet.
         // The raw setter controls timing only; Compose still owns the old request identity.
@@ -94,7 +94,7 @@ class MlnFfiStyleSupersessionTest {
         fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
       }
 
-      assertTrue(second.started.await(TIMEOUT_MILLIS))
+      assertTrue(second.started.await(TimeoutMillis))
       fixture.pump()
       assertEquals(0, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
@@ -115,12 +115,12 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
       fixture.pumpUntil("the replacement failure", timeout = 5.seconds) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       fixture.loadStyle(style("recovered"), timeout = 5.seconds)
       fixture.pump()
       assertEquals(1, fixture.errors.size)
@@ -135,7 +135,7 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.setBaseStyle(BaseStyle.Uri("held://invalid\u0000url"))
       fixture.pumpUntil("the setter rejection", timeout = 5.seconds) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
@@ -161,12 +161,12 @@ class MlnFfiStyleSupersessionTest {
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.setBaseStyle(BaseStyle.Uri("held://failure"))
       fixture.pumpUntil("the provider failure", timeout = 5.seconds) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       assertTrue(fixture.errors.single().contains("replacement document failed"))
       fixture.loadStyle(style("recovered"), timeout = 5.seconds)
       assertEquals(1, fixture.engineEvents.count { it is MapEvent.StyleLoadFailed })
@@ -179,7 +179,7 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.loop.submit {
         fixture.session.setBaseStyle(BaseStyle.Json("{invalid intermediate"))
         fixture.session.setBaseStyle(style("latest"))
@@ -188,7 +188,7 @@ class MlnFfiStyleSupersessionTest {
       fixture.pumpUntil("only the latest queued request to load", timeout = 5.seconds) {
         fixture.engineEvents.count { it == MapEvent.StyleLoaded } == 1
       }
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       assertTrue("latest" in fixture.session.currentStyleLayerIds())
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }
@@ -297,7 +297,7 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       val callbacks = fixture.session.callbacks
       fixture.session.callbacks =
         object : MapAdapter.Callbacks by callbacks {
@@ -308,7 +308,7 @@ class MlnFfiStyleSupersessionTest {
         }
       fixture.session.setBaseStyle(style("abandoned"))
       runBlocking { fixture.session.awaitClosed() }
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       assertEquals(0, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
     }
   }
@@ -319,10 +319,10 @@ class MlnFfiStyleSupersessionTest {
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      assertTrue(first.started.await(TIMEOUT_MILLIS))
+      assertTrue(first.started.await(TimeoutMillis))
       fixture.session.detachPresentation()
       fixture.session.setBaseStyle(style("detached"))
-      assertTrue(first.cancelled.await(TIMEOUT_MILLIS))
+      assertTrue(first.cancelled.await(TimeoutMillis))
       fixture.pumpUntil("the detached map's native style", timeout = 5.seconds) {
         "detached" in fixture.session.currentStyleLayerIds() &&
           fixture.session.loadedStyleIdentity != null
@@ -347,7 +347,7 @@ class MlnFfiStyleSupersessionTest {
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 5_000L
+    const val TimeoutMillis = 5_000L
 
     fun style(id: String) =
       BaseStyle.Json("""{"version":8,"sources":{},"layers":[{"id":"$id","type":"background"}]}""")

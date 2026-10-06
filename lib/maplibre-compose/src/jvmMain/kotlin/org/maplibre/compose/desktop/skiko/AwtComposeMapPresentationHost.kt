@@ -93,11 +93,11 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
         when (operatingSystem) {
           HostOperatingSystem.Macos ->
             layer?.let {
-              SkikoReflection.requireRenderLock(it, SkikoReflection.METAL_REDRAWER_CLASS)
+              SkikoReflection.requireRenderLock(it, SkikoReflection.MetalRedrawerClass)
             }
           HostOperatingSystem.Windows ->
             layer?.let {
-              SkikoReflection.requireRenderLock(it, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
+              SkikoReflection.requireRenderLock(it, SkikoReflection.Direct3dRedrawerClass)
             }
           HostOperatingSystem.Linux,
           HostOperatingSystem.Unsupported -> null
@@ -113,16 +113,16 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
     // Skiko's device object is its own wrapper; `adapter` holds the real `id<MTLDevice>`, which is
     // what MapLibre's texture has to be allocated on.
     val adapter =
-      ObjectiveC.sendPointer(device.ptr, SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER).takeIf {
+      ObjectiveC.sendPointer(device.ptr, SkikoReflection.SkikoMetalDeviceAdapter).takeIf {
         it != 0L
       } ?: return null
     return MetalComposeGpuContext(skiaContext = skiaContext, device = NativeHandle(adapter))
   }
 
   private fun direct3D12Context(layer: Any): Direct3D12ComposeGpuContext? {
-    val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
+    val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.Direct3dRedrawerClass)
     val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
+      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.Direct3dRedrawerClass)
     val skiaContext = handler.directContext(makeContext = "makeContext") ?: return null
     val device = SkikoReflection.findDirect3DDevice(redrawer) ?: return null
     val rawDevice = SkikoDirect3DDeviceLayout.rawDevice(device).takeIf { it != 0L } ?: return null
@@ -130,10 +130,9 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
   }
 
   private fun openGlContext(layer: Any): OpenGlComposeGpuContext? {
-    val redrawer =
-      SkikoReflection.requireRedrawer(layer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
+    val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.LinuxOpenGlRedrawerClass)
     val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
+      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.LinuxOpenGlRedrawerClass)
     val skiaContext = handler.directContext() ?: return null
     return OpenGlComposeGpuContext(
       skiaContext = skiaContext,
@@ -148,16 +147,16 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
   private fun withOpenGlContextCurrent(layer: Any, redrawer: Any, action: Runnable) {
     val backedLayer =
       layer.getField("backedLayer")
-        ?: error("${SkikoReflection.SKIA_LAYER_CLASS}.backedLayer was null")
+        ?: error("${SkikoReflection.SkiaLayerClass}.backedLayer was null")
     val context =
       redrawer.getField("context") as? Long
-        ?: error("${SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS}.context was null")
-    check(context != 0L) { "${SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS}.context was zero" }
+        ?: error("${SkikoReflection.LinuxOpenGlRedrawerClass}.context was null")
+    check(context != 0L) { "${SkikoReflection.LinuxOpenGlRedrawerClass}.context was zero" }
 
-    val surfaceHelpers = Class.forName(SkikoReflection.AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS)
+    val surfaceHelpers = Class.forName(SkikoReflection.AwtLinuxDrawingSurfaceHelpersClass)
     val drawingSurface = surfaceHelpers.staticInvoke("lockLinuxDrawingSurface", backedLayer)
     try {
-      Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_HELPERS_CLASS)
+      Class.forName(SkikoReflection.LinuxOpenGlRedrawerHelpersClass)
         .staticInvoke("access\$makeCurrent", drawingSurface, context)
       action.run()
     } finally {

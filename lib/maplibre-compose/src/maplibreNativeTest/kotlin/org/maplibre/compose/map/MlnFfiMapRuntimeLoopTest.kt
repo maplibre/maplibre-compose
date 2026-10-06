@@ -58,7 +58,7 @@ class MlnFfiMapRuntimeLoopTest {
           finalizerWasOnOwner.store(loop.isOwnerThread())
           finalizerSawPublishedMap.store(loop.map === map)
           finalized.countDown()
-          finalizerReleased.complete(releaseFinalizer.await(TIMEOUT_MILLIS))
+          finalizerReleased.complete(releaseFinalizer.await(TimeoutMillis))
         },
         onEvent = { _, _ -> },
         onEventsDrained = {},
@@ -67,11 +67,11 @@ class MlnFfiMapRuntimeLoopTest {
       )
     try {
       loop.start()
-      assertTrue(failed.await(TIMEOUT_MILLIS), "the loop did not report its failure")
+      assertTrue(failed.await(TimeoutMillis), "the loop did not report its failure")
 
       loop.close()
 
-      assertTrue(finalized.await(TIMEOUT_MILLIS), "the loop did not run its finalizer")
+      assertTrue(finalized.await(TimeoutMillis), "the loop did not run its finalizer")
       val closed = async(start = CoroutineStart.UNDISPATCHED) { loop.awaitClosed() }
       assertFalse(closed.isCompleted, "Owner cleanup has not completed")
       var refused = false
@@ -82,16 +82,16 @@ class MlnFfiMapRuntimeLoopTest {
         finalizerReleased.await(),
         "close blocked the caller until the finalizer timed out",
       )
-      withTimeout(TIMEOUT_MILLIS) { closed.await() }
+      withTimeout(TimeoutMillis) { closed.await() }
       assertTrue(finalizerWasOnOwner.load(), "the finalizer ran outside the map owner thread")
       assertTrue(finalizerSawPublishedMap.load(), "the finalizer ran after the map was unpublished")
       assertSame(expectedFailure, loop.failure)
     } finally {
       releaseFinalizer.countDown()
       loop.close()
-      withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      withTimeout(TimeoutMillis) { loop.awaitClosed() }
       owner.close()
-      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
+      withTimeout(TimeoutMillis) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
@@ -122,7 +122,7 @@ class MlnFfiMapRuntimeLoopTest {
         )
       try {
         loop.start()
-        assertTrue(published.await(TIMEOUT_MILLIS))
+        assertTrue(published.await(TimeoutMillis))
         assertNotNull(
           loop.readBlocking { map ->
             renderUpdateSeen.store(false)
@@ -135,7 +135,7 @@ class MlnFfiMapRuntimeLoopTest {
             }
           }
         )
-        assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
+        assertTrue(readFinished.await(TimeoutMillis), "the queued read did not run")
         assertTrue(readSawRenderUpdate.load(), "the queued read ran before native render feedback")
         val nextReadFinished = TestLatch(1)
         assertNotNull(
@@ -148,13 +148,13 @@ class MlnFfiMapRuntimeLoopTest {
             }
           }
         )
-        assertTrue(nextReadFinished.await(TIMEOUT_MILLIS))
+        assertTrue(nextReadFinished.await(TimeoutMillis))
         assertTrue(readSawRenderUpdate.load(), "the queued read overtook the awaited call's events")
       } finally {
         loop.close()
-        withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+        withTimeout(TimeoutMillis) { loop.awaitClosed() }
         owner.close()
-        withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
+        withTimeout(TimeoutMillis) { owner.awaitClosed() }
         FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
@@ -166,7 +166,7 @@ class MlnFfiMapRuntimeLoopTest {
       loop.submit(action = action)
       queued.countDown()
     }
-    check(queued.await(TIMEOUT_MILLIS)) { "the worker did not queue its action" }
+    check(queued.await(TimeoutMillis)) { "the worker did not queue its action" }
   }
 
   @Test
@@ -191,12 +191,12 @@ class MlnFfiMapRuntimeLoopTest {
       )
     try {
       loop.start()
-      assertTrue(published.await(TIMEOUT_MILLIS))
+      assertTrue(published.await(TimeoutMillis))
       loop.submit {
         parked.countDown()
-        check(release.await(TIMEOUT_MILLIS)) { "caller blocked instead of suspending" }
+        check(release.await(TimeoutMillis)) { "caller blocked instead of suspending" }
       }
-      assertTrue(parked.await(TIMEOUT_MILLIS))
+      assertTrue(parked.await(TimeoutMillis))
       val cancelled =
         launch(start = CoroutineStart.UNDISPATCHED) {
           loop.await { ran.store(true) }
@@ -217,9 +217,9 @@ class MlnFfiMapRuntimeLoopTest {
     } finally {
       release.countDown()
       loop.close()
-      withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      withTimeout(TimeoutMillis) { loop.awaitClosed() }
       owner.close()
-      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
+      withTimeout(TimeoutMillis) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
@@ -233,7 +233,7 @@ class MlnFfiMapRuntimeLoopTest {
       loop.submit { order += "third" }
       loop.start()
       loop.submit { order += "after start" }
-      assertNotNull(withTimeout(TIMEOUT_MILLIS) { awaited.await() })
+      assertNotNull(withTimeout(TimeoutMillis) { awaited.await() })
       assertNotNull(loop.await { order += "last" })
       assertEquals(listOf("first", "second", "third", "after start", "last"), order.toList())
     }
@@ -245,7 +245,7 @@ class MlnFfiMapRuntimeLoopTest {
       loop.submit(ordered = true, onDropped = released::countDown) {
         throw IllegalStateException("expected failure")
       }
-      assertTrue(released.await(TIMEOUT_MILLIS), "a throwing action did not run onDropped")
+      assertTrue(released.await(TimeoutMillis), "a throwing action did not run onDropped")
       assertEquals(true, loop.await { true }, "the loop stopped after a failed task")
     }
 
@@ -271,8 +271,8 @@ class MlnFfiMapRuntimeLoopTest {
           }
         }
       }
-      assertTrue(released.await(TIMEOUT_MILLIS), "a throwing action did not run onDropped")
-      assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
+      assertTrue(released.await(TimeoutMillis), "a throwing action did not run onDropped")
+      assertTrue(readFinished.await(TimeoutMillis), "the queued read did not run")
       assertTrue(
         readSawRenderUpdate.load(),
         "work queued behind a failed ordered submit ran before its events",
@@ -283,7 +283,7 @@ class MlnFfiMapRuntimeLoopTest {
   fun await_returns_null_without_running_once_the_loop_has_stopped(): MapTestResult =
     withLoop { loop, _ ->
       loop.close()
-      withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      withTimeout(TimeoutMillis) { loop.awaitClosed() }
       var ran = false
       assertNull(loop.await { ran = true })
       assertNull(loop.await(cancellable = false) { ran = true })
@@ -334,14 +334,14 @@ class MlnFfiMapRuntimeLoopTest {
       block(loop, events)
     } finally {
       loop.close()
-      withTimeout(TIMEOUT_MILLIS) { loop.awaitClosed() }
+      withTimeout(TimeoutMillis) { loop.awaitClosed() }
       owner.close()
-      withTimeout(TIMEOUT_MILLIS) { owner.awaitClosed() }
+      withTimeout(TimeoutMillis) { owner.awaitClosed() }
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 5_000L
+    const val TimeoutMillis = 5_000L
   }
 }

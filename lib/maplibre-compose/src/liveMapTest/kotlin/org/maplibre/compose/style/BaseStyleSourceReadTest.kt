@@ -12,7 +12,7 @@ class BaseStyleSourceReadTest {
   @Test
   fun a_base_style_source_is_acquired_by_id_after_the_style_is_ready(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(ATTRIBUTED_STYLE)
+      fixture.loadStyle(AttributedStyle)
 
       val source = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["attributed"])
 
@@ -22,7 +22,7 @@ class BaseStyleSourceReadTest {
   }
 
   private companion object {
-    val ATTRIBUTED_STYLE =
+    val AttributedStyle =
       BaseStyle.Json(
         """
         {

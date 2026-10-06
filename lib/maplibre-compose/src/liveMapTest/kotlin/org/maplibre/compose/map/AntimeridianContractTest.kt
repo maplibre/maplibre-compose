@@ -117,7 +117,7 @@ class AntimeridianContractTest {
     runMapTest {
       val extent = MapExtent.fromLogical(width = 1600, height = 512, scaleFactor = 1.0)
       createMapFixture(extent).use {
-        it.loadStyle(BaseStyle.Json(STRADDLING_FILL_STYLE))
+        it.loadStyle(BaseStyle.Json(StraddlingFillStyle))
         it.awaitMapReady()
         it.state.setCameraPosition(CameraPosition(target = Position(180.0, 0.0), zoom = 0.0))
         // Cross the tile boundary: a point exactly on it can hit only one copy in WebKit.
@@ -146,7 +146,7 @@ class AntimeridianContractTest {
 
   private companion object {
     /** A small fill straddling the antimeridian, lon 178..182. */
-    val STRADDLING_FILL_STYLE =
+    val StraddlingFillStyle =
       """
       {
         "version": 8,

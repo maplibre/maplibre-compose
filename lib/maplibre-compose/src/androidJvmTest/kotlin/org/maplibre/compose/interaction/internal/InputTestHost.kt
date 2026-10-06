@@ -37,9 +37,9 @@ import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
-internal const val RECOGNITION_MAP_TAG = "recognition-map"
-internal const val BEFORE_MAP_TAG = "before-map"
-internal const val AFTER_MAP_TAG = "after-map"
+internal const val RecognitionMapTag = "recognition-map"
+internal const val BeforeMapTag = "before-map"
+internal const val AfterMapTag = "after-map"
 
 /** Skips tests when the Compose test host cannot inject pan and scale events. */
 internal expect fun assumeTrackpadEventInjectionSupported()
@@ -50,11 +50,10 @@ internal expect fun assumeTrackpadEventInjectionSupported()
  */
 internal fun composeGestureFixture(): GestureTestFixture = GestureTestFixture(UnconfinedMain)
 
-const val TIMEOUT = 5_000L
-const val FRAME_MILLIS = 16L
-const val SECOND_TAP_GAP_MILLIS = 80L
-val SCROLL_HOLD_MILLIS =
-  InputConfiguration.Standard.bindings.scroll.idleDuration.inWholeMilliseconds
+const val Timeout = 5_000L
+const val FrameMillis = 16L
+const val SecondTapGapMillis = 80L
+val ScrollHoldMillis = InputConfiguration.Standard.bindings.scroll.idleDuration.inWholeMilliseconds
 
 /**
  * Places the map between two focusables and records every key press or release that reaches the
@@ -75,11 +74,11 @@ internal fun GestureTestFixture.runFocusTest(
         false
       }
     ) {
-      Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
+      Box(Modifier.size(40.dp).testTag(BeforeMapTag).focusable())
       Box(Modifier.size(200.dp)) {
         GestureHost(target, optionsProvider(), rotaryNotchPixels)
       }
-      Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
+      Box(Modifier.size(40.dp).testTag(AfterMapTag).focusable())
     }
   }
   waitForIdle()
@@ -138,12 +137,12 @@ internal fun UnitDensity(content: @Composable () -> Unit) {
 }
 
 internal fun ComposeUiTest.awaitClicks(target: RecordingGestureTarget, count: Int) {
-  waitUntil(timeoutMillis = TIMEOUT) { target.clicks == count }
+  waitUntil(timeoutMillis = Timeout) { target.clicks == count }
 }
 
 /** Parent clickable nodes merge semantics. The map tag is only in the unmerged tree. */
 internal fun ComposeUiTest.mapNode(): SemanticsNodeInteraction =
-  onNodeWithTag(RECOGNITION_MAP_TAG, useUnmergedTree = true)
+  onNodeWithTag(RecognitionMapTag, useUnmergedTree = true)
 
 @Composable
 internal fun GestureHost(
@@ -167,7 +166,7 @@ internal fun GestureHost(
   }
   Box(
     Modifier.fillMaxSize()
-      .testTag(RECOGNITION_MAP_TAG)
+      .testTag(RecognitionMapTag)
       .drawBoxZoom(boxZoom)
       .mapInput(
         target,

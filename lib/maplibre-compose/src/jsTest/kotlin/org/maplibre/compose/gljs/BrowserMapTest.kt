@@ -26,7 +26,7 @@ import org.maplibre.compose.camera.CameraPosition
 internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise<*> =
   Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }
     .then {
-      GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
+      GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
       runComposeUiTest(block = block)
     }
     .then {}

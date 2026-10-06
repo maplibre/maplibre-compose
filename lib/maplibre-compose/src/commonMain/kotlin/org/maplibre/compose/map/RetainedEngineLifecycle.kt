@@ -156,7 +156,7 @@ internal class RetainedEngineLifecycle(
   suspend fun ensureEngine(): EngineMapIdentity {
     mainThread.requireMain()
     while (true) {
-      if (isClosing) throw CancellationException(CLOSED_BEFORE_ACCESS)
+      if (isClosing) throw CancellationException(ClosedBeforeAccess)
       forgetFailedAttach()
       val attaching = presentation?.takeUnless { it.attached }
       if (attaching != null) {
@@ -180,7 +180,7 @@ internal class RetainedEngineLifecycle(
       // An attachment that would have created the engine ended before it started.
       if (failure is MapLeaseInvalidatedException && !isClosing) continue
       if (failure != null) throw engineAccessFailure(failure)
-      if (isClosing) throw CancellationException(CLOSED_BEFORE_ACCESS)
+      if (isClosing) throw CancellationException(ClosedBeforeAccess)
       return record.identity
     }
   }
@@ -205,7 +205,7 @@ internal class RetainedEngineLifecycle(
 
   private fun engineAccessFailure(failure: Throwable): Throwable =
     if (isClosing && failure !is CancellationException && failure !is Error) {
-      CancellationException(CLOSED_BEFORE_ACCESS, failure)
+      CancellationException(ClosedBeforeAccess, failure)
     } else {
       failure
     }
@@ -243,7 +243,7 @@ internal class RetainedEngineLifecycle(
   private suspend fun engineStep(record: EngineRecord) {
     // Closure can be requested after ensureEngine checked it, and its cleanup can run before this.
     if (isClosing) {
-      record.complete(CancellationException(CLOSED_BEFORE_ACCESS))
+      record.complete(CancellationException(ClosedBeforeAccess))
       return
     }
     val identity = record.identity
@@ -406,6 +406,6 @@ internal class RetainedEngineLifecycle(
   }
 
   private companion object {
-    const val CLOSED_BEFORE_ACCESS = "The map closed before engine access could begin"
+    const val ClosedBeforeAccess = "The map closed before engine access could begin"
   }
 }

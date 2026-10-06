@@ -291,11 +291,11 @@ private object WindowsDirect3DInterop {
   private const val D3D12_RESOURCE_STATE_COMMON = 0
   private const val D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET = 0x1
   private const val D3D12_TEXTURE_LAYOUT_UNKNOWN = 0
-  private const val ID3D12_DEVICE_CHILD_GET_DEVICE_INDEX = 7
-  private const val ID3D12_DEVICE_CREATE_COMMITTED_RESOURCE_INDEX = 27
-  private const val ID3D12_DEVICE_CREATE_SHARED_HANDLE_INDEX = 31
-  private const val ID3D12_DEVICE_GET_ADAPTER_LUID_INDEX = 43
-  private const val IUNKNOWN_RELEASE_INDEX = 2
+  private const val ID3d12DeviceChildGetDeviceIndex = 7
+  private const val ID3d12DeviceCreateCommittedResourceIndex = 27
+  private const val ID3d12DeviceCreateSharedHandleIndex = 31
+  private const val ID3d12DeviceGetAdapterLuidIndex = 43
+  private const val IUnknownReleaseIndex = 2
 
   private val linker = Linker.nativeLinker()
   private val kernel32 = SymbolLookup.libraryLookup("kernel32", Arena.global())
@@ -311,7 +311,7 @@ private object WindowsDirect3DInterop {
       // The Windows C ABI returns LUID through an explicit output pointer (d3d12.h).
       linker
         .downcallHandle(
-          comMethod(device.address, ID3D12_DEVICE_GET_ADAPTER_LUID_INDEX),
+          comMethod(device.address, ID3d12DeviceGetAdapterLuidIndex),
           FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
         )
         .invokeWithArguments(address(device.address), luid)
@@ -332,7 +332,7 @@ private object WindowsDirect3DInterop {
       val resourceOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeHResult(
-          comMethod(rawDevice, ID3D12_DEVICE_CREATE_COMMITTED_RESOURCE_INDEX),
+          comMethod(rawDevice, ID3d12DeviceCreateCommittedResourceIndex),
           address(rawDevice),
           heapProperties(arena),
           D3D12_HEAP_FLAG_SHARED,
@@ -360,7 +360,7 @@ private object WindowsDirect3DInterop {
       val deviceOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeHResult(
-          comMethod(resource.address, ID3D12_DEVICE_CHILD_GET_DEVICE_INDEX),
+          comMethod(resource.address, ID3d12DeviceChildGetDeviceIndex),
           address(resource.address),
           iidId3D12Device(arena),
           deviceOut,
@@ -372,7 +372,7 @@ private object WindowsDirect3DInterop {
         val handleOut = arena.allocate(ValueLayout.ADDRESS)
         checkHResult(
           invokeHResult(
-            comMethod(device, ID3D12_DEVICE_CREATE_SHARED_HANDLE_INDEX),
+            comMethod(device, ID3d12DeviceCreateSharedHandleIndex),
             address(device),
             address(resource.address),
             MemorySegment.NULL,
@@ -492,7 +492,7 @@ private object WindowsDirect3DInterop {
   private fun release(instance: Long) {
     if (instance != NULL) {
       invokeInt(
-        comMethod(instance, IUNKNOWN_RELEASE_INDEX),
+        comMethod(instance, IUnknownReleaseIndex),
         FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
         address(instance),
       )

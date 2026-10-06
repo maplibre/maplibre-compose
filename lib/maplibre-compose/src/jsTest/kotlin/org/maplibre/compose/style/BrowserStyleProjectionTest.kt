@@ -18,7 +18,7 @@ class BrowserStyleProjectionTest {
   @Test
   fun every_projection_form_writes_and_reads_back(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       val projection = fixture.state.style.projection
       assertNull(projection.getProperty("type"))
 
@@ -63,14 +63,14 @@ class BrowserStyleProjectionTest {
   @Test
   fun a_declared_projection_reads_back(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(GLOBE_STYLE)
+      fixture.loadStyle(GlobeStyle)
       assertEquals(JsonPrimitive("globe"), fixture.state.style.projection.getProperty("type"))
     }
   }
 
   private companion object {
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val GLOBE_STYLE =
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val GlobeStyle =
       BaseStyle.Json("""{"version":8,"projection":{"type":"globe"},"sources":{},"layers":[]}""")
   }
 }

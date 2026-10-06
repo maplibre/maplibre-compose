@@ -87,7 +87,7 @@ class BrowserMapStyleStateTest {
       isRequested = { resolveTileJson != null },
       resolve = {
         checkNotNull(resolveTileJson) { "MapLibre has not requested the TileJSON" }
-          .invoke(makeJsonResponse(TILE_JSON))
+          .invoke(makeJsonResponse(TileJson))
       },
     )
   }
@@ -104,7 +104,7 @@ class BrowserMapStyleStateTest {
     var resolveStyle: ((dynamic) -> Unit)? = null
     global.fetch = { input: dynamic, init: dynamic ->
       val url = if (jsTypeOf(input) == "string") input as String else input.url as String
-      if (url == DEFERRED_STYLE_URL) {
+      if (url == DeferredStyleUrl) {
         Promise<dynamic> { resolve, _ -> resolveStyle = resolve }
       } else {
         original.call(global, input, init)
@@ -115,7 +115,7 @@ class BrowserMapStyleStateTest {
       isRequested = { resolveStyle != null },
       resolve = {
         checkNotNull(resolveStyle) { "MapLibre has not requested the style" }
-          .invoke(makeJsonResponse(STYLE_B_JSON))
+          .invoke(makeJsonResponse(StyleBJson))
       },
     )
   }
@@ -136,7 +136,7 @@ class BrowserMapStyleStateTest {
     val presented = mutableStateOf(true)
     val useLatestRevision = mutableStateOf(false)
     val state =
-      runtime.createMapState(baseStyle = STYLE_A) {
+      runtime.createMapState(baseStyle = StyleA) {
         val suffix = if (useLatestRevision.value) "latest" else "initial"
         RasterLayer(
           id = "$suffix-overlay",
@@ -161,10 +161,10 @@ class BrowserMapStyleStateTest {
     waitUntilMap("the Web map to detach") { state.currentMapAttachment == null }
     runOnIdle {
       useLatestRevision.value = true
-      state.style.asMutable!!.baseStyle = STYLE_B
+      state.style.asMutable!!.baseStyle = StyleB
     }
 
-    assertEquals(STYLE_B, state.style.baseStyle)
+    assertEquals(StyleB, state.style.baseStyle)
     assertEquals(StyleLoadState.Pending, state.style.loadState)
 
     val layerAdditions = mutableListOf<String>()
@@ -210,7 +210,7 @@ class BrowserMapStyleStateTest {
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = STYLE_A)
+      val state = runtime.createMapState(baseStyle = StyleA)
       val size = mutableStateOf(0.dp)
 
       setBrowserMapContent { MaplibreMap(state = state, modifier = Modifier.size(size.value)) }
@@ -229,7 +229,7 @@ class BrowserMapStyleStateTest {
       assertNotNull(session.engineMapForTest())
       assertTrue(session.canPresentFrames)
 
-      runOnIdle { state.style.asMutable!!.baseStyle = INVALID_STYLE }
+      runOnIdle { state.style.asMutable!!.baseStyle = InvalidStyle }
       waitUntilMap("the replacement style request to fail") {
         state.style.loadState is StyleLoadState.Failed
       }
@@ -247,7 +247,7 @@ class BrowserMapStyleStateTest {
     Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val state =
-      runtime.createMapState(baseStyle = STYLE_A) {
+      runtime.createMapState(baseStyle = StyleA) {
         BackgroundLayer(id = "application", color = const(Color.Red))
       }
 
@@ -282,7 +282,7 @@ class BrowserMapStyleStateTest {
         renderedLayerSets += ids.split(',').filter(String::isNotEmpty).toSet()
       }
     try {
-      runOnIdle { state.style.asMutable!!.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
+      runOnIdle { state.style.asMutable!!.baseStyle = BaseStyle.Uri(DeferredStyleUrl) }
       waitUntilMap("MapLibre to request the replacement style") { deferredStyle.isRequested() }
       assertEquals(StyleLoadState.Loading, state.style.loadState)
       assertTrue(session.canPresentFrames, "the previous frame must remain visible during loading")
@@ -440,19 +440,19 @@ class BrowserMapStyleStateTest {
   }
 
   private companion object {
-    val STYLE_A =
+    val StyleA =
       BaseStyle.Json(
         """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}"""
       )
-    val STYLE_B =
+    val StyleB =
       BaseStyle.Json(
         """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
       )
-    val INVALID_STYLE = BaseStyle.Json("""{"version":7,"sources":{},"layers":[]}""")
-    const val DEFERRED_STYLE_URL = "https://deferred-style.test/style.json"
-    const val STYLE_B_JSON =
+    val InvalidStyle = BaseStyle.Json("""{"version":7,"sources":{},"layers":[]}""")
+    const val DeferredStyleUrl = "https://deferred-style.test/style.json"
+    const val StyleBJson =
       """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
-    const val TILE_JSON =
+    const val TileJson =
       """{"tilejson":"2.2.0","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"],""" +
         """"attribution":"fetched attribution"}"""
   }

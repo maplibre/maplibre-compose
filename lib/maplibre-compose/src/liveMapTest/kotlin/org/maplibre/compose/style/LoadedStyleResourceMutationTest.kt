@@ -22,7 +22,7 @@ class LoadedStyleResourceMutationTest {
   @Test
   fun public_commands_mutate_a_live_source_and_style_image(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       val source =
         GeoJsonSource(
           id = "imperative",
@@ -50,7 +50,7 @@ class LoadedStyleResourceMutationTest {
   fun a_partial_reconciliation_stays_failed_until_a_complete_revision_is_published():
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(EMPTY_STYLE)
+      fixture.loadStyle(EmptyStyle)
       val binding = assertNotNull(fixture.style)
       val source =
         GeoJsonSource(
@@ -89,6 +89,6 @@ class LoadedStyleResourceMutationTest {
   }
 
   private companion object {
-    val EMPTY_STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
   }
 }

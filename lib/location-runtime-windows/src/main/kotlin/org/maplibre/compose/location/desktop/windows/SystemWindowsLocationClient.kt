@@ -40,7 +40,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
       try {
         blocking {
           createAppCapability().close()
-          WinRt.activate(GEOLOCATOR_CLASS).use { inspectable ->
+          WinRt.activate(GeolocatorClass).use { inspectable ->
             WinRt.queryInterface(inspectable.value, IID_GEOLOCATOR).close()
           }
         }
@@ -67,13 +67,13 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
           }
         }
       try {
-        val token = addEventHandler(capability.value, APP_CAPABILITY_ADD_ACCESS_CHANGED, callback)
+        val token = addEventHandler(capability.value, AppCapabilityAddAccessChanged, callback)
         val observationClosed = AtomicBoolean()
         AutoCloseable {
           if (!observationClosed.compareAndSet(false, true)) return@AutoCloseable
           blocking {
             try {
-              removeEventHandler(capability.value, APP_CAPABILITY_REMOVE_ACCESS_CHANGED, token)
+              removeEventHandler(capability.value, AppCapabilityRemoveAccessChanged, token)
             } finally {
               callback.close()
               capability.close()
@@ -105,8 +105,8 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
                 }
               ) {
                 try {
-                  if (status == ASYNC_COMPLETED) {
-                    WinRt.intResult(operation.value, ASYNC_OPERATION_GET_RESULTS)
+                  if (status == AsyncCompleted) {
+                    WinRt.intResult(operation.value, AsyncOperationGetResults)
                     if (!closed.get()) onCompleted(checkAccessNative())
                   } else if (!closed.get()) {
                     onCompleted(WindowsAccessStatus.Unknown)
@@ -120,7 +120,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
           try {
             WinRt.callHresult(
               operation.value,
-              ASYNC_OPERATION_PUT_COMPLETED,
+              AsyncOperationPutCompleted,
               FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS),
               callback.segment,
             )
@@ -200,7 +200,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
 
   private fun checkAccessNative(): WindowsAccessStatus =
     createAppCapability().use { capability ->
-      when (WinRt.intResult(capability.value, APP_CAPABILITY_CHECK_ACCESS)) {
+      when (WinRt.intResult(capability.value, AppCapabilityCheckAccess)) {
         0 -> WindowsAccessStatus.DeniedBySystem
         1 -> WindowsAccessStatus.NotDeclared
         2 -> WindowsAccessStatus.DeniedByUser
@@ -211,13 +211,13 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
     }
 
   private fun createAppCapability(): ComPtr =
-    WinRt.activationFactory(APP_CAPABILITY_CLASS, IID_APP_CAPABILITY_STATICS).use { factory ->
+    WinRt.activationFactory(AppCapabilityClass, IID_APP_CAPABILITY_STATICS).use { factory ->
       WinRtHString.create("location").use { location ->
         Arena.ofConfined().use { arena ->
           val output = arena.allocate(ADDRESS)
           WinRt.callHresult(
             factory.value,
-            APP_CAPABILITY_CREATE,
+            AppCapabilityCreate,
             FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS),
             location.segment(),
             output,
@@ -228,8 +228,8 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
     }
 
   private fun requestAccessOperation(): ComPtr =
-    WinRt.activationFactory(GEOLOCATOR_CLASS, IID_GEOLOCATOR_STATICS).use { factory ->
-      WinRt.pointerResult(factory.value, GEOLOCATOR_REQUEST_ACCESS)
+    WinRt.activationFactory(GeolocatorClass, IID_GEOLOCATOR_STATICS).use { factory ->
+      WinRt.pointerResult(factory.value, GeolocatorRequestAccess)
     }
 
   private fun checkAvailable() {
@@ -254,10 +254,10 @@ private constructor(
     if (!closed.compareAndSet(false, true)) return
     client.blocking {
       try {
-        removeEventHandler(geolocator.value, GEOLOCATOR_REMOVE_POSITION_CHANGED, positionToken)
+        removeEventHandler(geolocator.value, GeolocatorRemovePositionChanged, positionToken)
       } finally {
         try {
-          removeEventHandler(geolocator.value, GEOLOCATOR_REMOVE_STATUS_CHANGED, statusToken)
+          removeEventHandler(geolocator.value, GeolocatorRemoveStatusChanged, statusToken)
         } finally {
           positionCallback.close()
           statusCallback.close()
@@ -274,7 +274,7 @@ private constructor(
       configuration: WindowsLocationConfiguration,
       listener: WindowsLocationListener,
     ): SystemWindowsLocationSession {
-      val inspectable = WinRt.activate(GEOLOCATOR_CLASS)
+      val inspectable = WinRt.activate(GeolocatorClass)
       val geolocator =
         try {
           WinRt.queryInterface(inspectable.value, IID_GEOLOCATOR)
@@ -300,7 +300,7 @@ private constructor(
             }
           }
         positionToken =
-          addEventHandler(geolocator.value, GEOLOCATOR_ADD_POSITION_CHANGED, positionCallback)
+          addEventHandler(geolocator.value, GeolocatorAddPositionChanged, positionCallback)
         statusCallback =
           WinRtEventCallback.create(IID_STATUS_CHANGED_HANDLER) { _, arguments ->
             WinRt.addRef(arguments)
@@ -313,9 +313,8 @@ private constructor(
               ownedArguments.close()
             }
           }
-        statusToken =
-          addEventHandler(geolocator.value, GEOLOCATOR_ADD_STATUS_CHANGED, statusCallback)
-        listener.onStatus(readPositionStatus(WinRt.intResult(geolocator.value, GEOLOCATOR_STATUS)))
+        statusToken = addEventHandler(geolocator.value, GeolocatorAddStatusChanged, statusCallback)
+        listener.onStatus(readPositionStatus(WinRt.intResult(geolocator.value, GeolocatorStatus)))
         return SystemWindowsLocationSession(
           client,
           geolocator,
@@ -327,12 +326,12 @@ private constructor(
       } catch (error: Throwable) {
         if (statusToken != null) {
           runCatching {
-            removeEventHandler(geolocator.value, GEOLOCATOR_REMOVE_STATUS_CHANGED, statusToken)
+            removeEventHandler(geolocator.value, GeolocatorRemoveStatusChanged, statusToken)
           }
         }
         if (positionToken != null) {
           runCatching {
-            removeEventHandler(geolocator.value, GEOLOCATOR_REMOVE_POSITION_CHANGED, positionToken)
+            removeEventHandler(geolocator.value, GeolocatorRemovePositionChanged, positionToken)
           }
         }
         statusCallback?.close()
@@ -348,12 +347,12 @@ private fun configureGeolocator(
   geolocator: ComPtr,
   configuration: WindowsLocationConfiguration,
 ) {
-  WinRt.activationFactory(PROPERTY_VALUE_CLASS, IID_PROPERTY_VALUE_STATICS).use { factory ->
+  WinRt.activationFactory(PropertyValueClass, IID_PROPERTY_VALUE_STATICS).use { factory ->
     Arena.ofConfined().use { arena ->
       val boxedOutput = arena.allocate(ADDRESS)
       WinRt.callHresult(
         factory.value,
-        PROPERTY_VALUE_CREATE_UINT32,
+        PropertyValueCreateUInt32,
         FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS),
         configuration.desiredAccuracyMeters,
         boxedOutput,
@@ -363,7 +362,7 @@ private fun configureGeolocator(
           geolocator.queryInterface(IID_GEOLOCATOR_SCALAR_ACCURACY).use { scalarAccuracy ->
             WinRt.callHresult(
               scalarAccuracy.value,
-              GEOLOCATOR_SCALAR_PUT_ACCURACY,
+              GeolocatorScalarPutAccuracy,
               FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS),
               reference.value,
             )
@@ -374,7 +373,7 @@ private fun configureGeolocator(
   }
   WinRt.callHresult(
     geolocator.value,
-    GEOLOCATOR_PUT_REPORT_INTERVAL,
+    GeolocatorPutReportInterval,
     FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT),
     configuration.reportIntervalMilliseconds,
   )
@@ -382,22 +381,22 @@ private fun configureGeolocator(
 
 private fun readPosition(arguments: MemorySegment): WindowsLocationMeasurement =
   WinRt.queryInterface(arguments, IID_POSITION_CHANGED_ARGS).use { typedArguments ->
-    WinRt.pointerResult(typedArguments.value, POSITION_CHANGED_ARGS_POSITION).use { position ->
+    WinRt.pointerResult(typedArguments.value, PositionChangedArgsPosition).use { position ->
       WinRt.queryInterface(position.value, IID_GEOPOSITION).use { typedPosition ->
-        WinRt.pointerResult(typedPosition.value, GEOPOSITION_COORDINATE).use { coordinate ->
+        WinRt.pointerResult(typedPosition.value, GeopositionCoordinate).use { coordinate ->
           WinRt.queryInterface(coordinate.value, IID_GEOCOORDINATE).use { typedCoordinate ->
             WindowsLocationMeasurement(
-              latitude = WinRt.doubleResult(typedCoordinate.value, GEOCOORDINATE_LATITUDE),
-              longitude = WinRt.doubleResult(typedCoordinate.value, GEOCOORDINATE_LONGITUDE),
-              altitudeMeters = readOptionalDouble(typedCoordinate.value, GEOCOORDINATE_ALTITUDE),
+              latitude = WinRt.doubleResult(typedCoordinate.value, GeocoordinateLatitude),
+              longitude = WinRt.doubleResult(typedCoordinate.value, GeocoordinateLongitude),
+              altitudeMeters = readOptionalDouble(typedCoordinate.value, GeocoordinateAltitude),
               horizontalAccuracyMeters =
-                WinRt.doubleResult(typedCoordinate.value, GEOCOORDINATE_ACCURACY),
+                WinRt.doubleResult(typedCoordinate.value, GeocoordinateAccuracy),
               verticalAccuracyMeters =
-                readOptionalDouble(typedCoordinate.value, GEOCOORDINATE_ALTITUDE_ACCURACY),
-              headingDegrees = readOptionalDouble(typedCoordinate.value, GEOCOORDINATE_HEADING),
-              speedMetersPerSecond = readOptionalDouble(typedCoordinate.value, GEOCOORDINATE_SPEED),
+                readOptionalDouble(typedCoordinate.value, GeocoordinateAltitudeAccuracy),
+              headingDegrees = readOptionalDouble(typedCoordinate.value, GeocoordinateHeading),
+              speedMetersPerSecond = readOptionalDouble(typedCoordinate.value, GeocoordinateSpeed),
               windowsTimestampTicks =
-                WinRt.longResult(typedCoordinate.value, GEOCOORDINATE_TIMESTAMP),
+                WinRt.longResult(typedCoordinate.value, GeocoordinateTimestamp),
             )
           }
         }
@@ -407,12 +406,12 @@ private fun readPosition(arguments: MemorySegment): WindowsLocationMeasurement =
 
 private fun readOptionalDouble(instance: MemorySegment, slot: Int): Double? =
   WinRt.nullablePointerResult(instance, slot)?.use { reference ->
-    WinRt.doubleResult(reference.value, REFERENCE_VALUE)
+    WinRt.doubleResult(reference.value, ReferenceValue)
   }
 
 private fun readStatus(arguments: MemorySegment): WindowsPositionStatus =
   WinRt.queryInterface(arguments, IID_STATUS_CHANGED_ARGS).use { typedArguments ->
-    readPositionStatus(WinRt.intResult(typedArguments.value, STATUS_CHANGED_ARGS_STATUS))
+    readPositionStatus(WinRt.intResult(typedArguments.value, StatusChangedArgsStatus))
   }
 
 private fun readPositionStatus(status: Int): WindowsPositionStatus =
@@ -445,23 +444,23 @@ private fun addEventHandler(
 
 private fun removeEventHandler(instance: MemorySegment, slot: Int, token: Long) {
   Arena.ofConfined().use { arena ->
-    val nativeToken = arena.allocate(EVENT_REGISTRATION_TOKEN)
+    val nativeToken = arena.allocate(EventRegistrationToken)
     nativeToken.set(JAVA_LONG, 0, token)
     WinRt.callHresult(
       instance,
       slot,
-      FunctionDescriptor.of(JAVA_INT, ADDRESS, EVENT_REGISTRATION_TOKEN),
+      FunctionDescriptor.of(JAVA_INT, ADDRESS, EventRegistrationToken),
       nativeToken,
     )
   }
 }
 
-private val EVENT_REGISTRATION_TOKEN = structLayout(JAVA_LONG)
+private val EventRegistrationToken = structLayout(JAVA_LONG)
 
-private const val APP_CAPABILITY_CLASS =
+private const val AppCapabilityClass =
   "Windows.Security.Authorization.AppCapabilityAccess.AppCapability"
-private const val GEOLOCATOR_CLASS = "Windows.Devices.Geolocation.Geolocator"
-private const val PROPERTY_VALUE_CLASS = "Windows.Foundation.PropertyValue"
+private const val GeolocatorClass = "Windows.Devices.Geolocation.Geolocator"
+private const val PropertyValueClass = "Windows.Foundation.PropertyValue"
 
 private const val IID_APP_CAPABILITY_STATICS = "7c353e2a-46ee-44e5-af3d-6ad3fc49bd22"
 private const val IID_GEOLOCATOR = "a9c3bf62-4524-4989-8aa9-de019d2e551f"
@@ -478,31 +477,31 @@ private const val IID_POSITION_CHANGED_HANDLER = "df3c6164-4e7b-5e8e-9a7e-13da05
 private const val IID_STATUS_CHANGED_HANDLER = "97fcf582-de6b-5cd3-9690-e2ecbb66da4d"
 private const val IID_GEOLOCATION_ACCESS_COMPLETED_HANDLER = "f3524c93-e5c7-5b88-bedb-d3e637cff271"
 
-private const val APP_CAPABILITY_CREATE = 8
-private const val APP_CAPABILITY_CHECK_ACCESS = 9
-private const val APP_CAPABILITY_ADD_ACCESS_CHANGED = 10
-private const val APP_CAPABILITY_REMOVE_ACCESS_CHANGED = 11
-private const val GEOLOCATOR_REQUEST_ACCESS = 6
-private const val ASYNC_OPERATION_PUT_COMPLETED = 6
-private const val ASYNC_OPERATION_GET_RESULTS = 8
-private const val ASYNC_COMPLETED = 1
-private const val PROPERTY_VALUE_CREATE_UINT32 = 11
-private const val GEOLOCATOR_SCALAR_PUT_ACCURACY = 7
-private const val GEOLOCATOR_PUT_REPORT_INTERVAL = 11
-private const val GEOLOCATOR_STATUS = 12
-private const val GEOLOCATOR_ADD_POSITION_CHANGED = 15
-private const val GEOLOCATOR_REMOVE_POSITION_CHANGED = 16
-private const val GEOLOCATOR_ADD_STATUS_CHANGED = 17
-private const val GEOLOCATOR_REMOVE_STATUS_CHANGED = 18
-private const val POSITION_CHANGED_ARGS_POSITION = 6
-private const val STATUS_CHANGED_ARGS_STATUS = 6
-private const val GEOPOSITION_COORDINATE = 6
-private const val GEOCOORDINATE_LATITUDE = 6
-private const val GEOCOORDINATE_LONGITUDE = 7
-private const val GEOCOORDINATE_ALTITUDE = 8
-private const val GEOCOORDINATE_ACCURACY = 9
-private const val GEOCOORDINATE_ALTITUDE_ACCURACY = 10
-private const val GEOCOORDINATE_HEADING = 11
-private const val GEOCOORDINATE_SPEED = 12
-private const val GEOCOORDINATE_TIMESTAMP = 13
-private const val REFERENCE_VALUE = 6
+private const val AppCapabilityCreate = 8
+private const val AppCapabilityCheckAccess = 9
+private const val AppCapabilityAddAccessChanged = 10
+private const val AppCapabilityRemoveAccessChanged = 11
+private const val GeolocatorRequestAccess = 6
+private const val AsyncOperationPutCompleted = 6
+private const val AsyncOperationGetResults = 8
+private const val AsyncCompleted = 1
+private const val PropertyValueCreateUInt32 = 11
+private const val GeolocatorScalarPutAccuracy = 7
+private const val GeolocatorPutReportInterval = 11
+private const val GeolocatorStatus = 12
+private const val GeolocatorAddPositionChanged = 15
+private const val GeolocatorRemovePositionChanged = 16
+private const val GeolocatorAddStatusChanged = 17
+private const val GeolocatorRemoveStatusChanged = 18
+private const val PositionChangedArgsPosition = 6
+private const val StatusChangedArgsStatus = 6
+private const val GeopositionCoordinate = 6
+private const val GeocoordinateLatitude = 6
+private const val GeocoordinateLongitude = 7
+private const val GeocoordinateAltitude = 8
+private const val GeocoordinateAccuracy = 9
+private const val GeocoordinateAltitudeAccuracy = 10
+private const val GeocoordinateHeading = 11
+private const val GeocoordinateSpeed = 12
+private const val GeocoordinateTimestamp = 13
+private const val ReferenceValue = 6

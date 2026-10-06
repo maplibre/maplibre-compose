@@ -221,7 +221,7 @@ class LayerTransitionWiringTest {
           ),
         "circles-untimed" to emptyMap(),
       ),
-      LAYER_IDS.associateWith { style.transitionDurations(it) },
+      LayerIds.associateWith { style.transitionDurations(it) },
     )
   }
 
@@ -287,9 +287,9 @@ class LayerTransitionWiringTest {
 
   private companion object {
     /** Unresolvable on purpose: tests must not reach the network. */
-    const val TILE_TEMPLATE = "https://example.invalid/{z}/{x}/{y}.png"
+    const val TileTemplate = "https://example.invalid/{z}/{x}/{y}.png"
 
-    val LAYER_IDS =
+    val LayerIds =
       listOf(
         "labels",
         "lines",
@@ -310,7 +310,7 @@ class LayerTransitionWiringTest {
     fun rasterSource() =
       RasterTileSource(
         id = "raster",
-        tiles = listOf(TILE_TEMPLATE),
+        tiles = listOf(TileTemplate),
         options = TileSetOptions(),
         tileSize = 256,
       )
@@ -318,7 +318,7 @@ class LayerTransitionWiringTest {
     fun demSource() =
       RasterDemTileSource(
         id = "dem",
-        tiles = listOf(TILE_TEMPLATE),
+        tiles = listOf(TileTemplate),
         options = TileSetOptions(),
         tileSize = 256,
         demEncoding = RasterDemEncoding.Terrarium,

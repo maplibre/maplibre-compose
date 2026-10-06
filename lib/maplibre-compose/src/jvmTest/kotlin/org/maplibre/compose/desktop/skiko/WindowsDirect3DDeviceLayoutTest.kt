@@ -25,11 +25,11 @@ class WindowsDirect3DDeviceLayoutTest {
     val skiko = SkikoDirect3DDeviceLayout.classpathSkikoVersion()
 
     assertEquals(
-      SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION,
+      SkikoDirect3DDeviceLayout.VerifiedSkikoVersion,
       skiko,
       "The Windows map host reads Compose's ID3D12Device out of Skiko's DirectXDevice at a fixed " +
         "byte offset, derived by reading the C++ source of Skiko " +
-        "${SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION}. Skiko $skiko is a different struct " +
+        "${SkikoDirect3DDeviceLayout.VerifiedSkikoVersion}. Skiko $skiko is a different struct " +
         "until someone re-reads it; see SkikoDirect3DDeviceLayout.",
     )
   }
@@ -57,7 +57,7 @@ class WindowsDirect3DDeviceLayoutTest {
 
       val error = assertFailsWith<MlnFfiHostException> { SkikoDirect3DDeviceLayout.read(struct) }
       assertTrue(
-        error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION),
+        error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VerifiedSkikoVersion),
         "The mismatch has one likely cause and the message should name it, but it said: " +
           "${error.message}",
       )
@@ -73,7 +73,7 @@ class WindowsDirect3DDeviceLayoutTest {
 
       val error = assertFailsWith<MlnFfiHostException> { SkikoDirect3DDeviceLayout.read(struct) }
       assertTrue(
-        !error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION),
+        !error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VerifiedSkikoVersion),
         "An unfilled device should not be blamed on a Skiko upgrade, but it said: ${error.message}",
       )
     }

@@ -154,7 +154,7 @@ internal class AppleMlnFfiSurfaceController(
   @OptIn(BetaInteropApi::class)
   override fun renderTarget(surface: CAMetalLayer, extent: MapExtent, generation: Long) =
     MetalSurfaceTarget(
-      device = DEFAULT_METAL_DEVICE,
+      device = DefaultMetalDevice,
       layer = NativeHandle(surface.objcPtr().toLong()),
       extent = extent,
       generation = generation,
@@ -223,7 +223,7 @@ internal class AppleMlnFfiSurfaceController(
 
   private companion object {
     /** A null device handle, which the FFI runtime reads as the system default Metal device. */
-    val DEFAULT_METAL_DEVICE = NativeHandle(0L)
+    val DefaultMetalDevice = NativeHandle(0L)
 
     fun uptimeSeconds(): Double = NSProcessInfo.processInfo.systemUptime
   }

@@ -39,11 +39,11 @@ internal fun mainClassNameFromFrames(frames: List<StackTraceElement>): String? =
     .firstOrNull { frame -> frame.methodName == "main" && isApplicationClass(frame.className) }
     ?.className
 
-internal fun isApplicationClass(className: String): Boolean = LAUNCHER_PREFIXES.none {
+internal fun isApplicationClass(className: String): Boolean = LauncherPrefixes.none {
   className.startsWith(it)
 }
 
-private val LAUNCHER_PREFIXES =
+private val LauncherPrefixes =
   arrayOf(
     "java.",
     "javax.",

@@ -44,7 +44,7 @@ class MlnFfiRenderSessionTeardownTest {
   fun detaching_and_closing_behind_queued_frames_destroys_the_map_and_runtime() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyleBeforeRendering(STYLE)
+      it.loadStyleBeforeRendering(Style)
       it.whileRenderingOnRendererThread {
         awaitFirstFrame(it)
         runBlocking { it.session.detachPresentation() }
@@ -69,7 +69,7 @@ class MlnFfiRenderSessionTeardownTest {
 
   private companion object {
     /** Inline and layer-only, so the test needs no network. */
-    val STYLE =
+    val Style =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[

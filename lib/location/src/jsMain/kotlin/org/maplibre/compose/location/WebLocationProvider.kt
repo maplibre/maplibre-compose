@@ -213,7 +213,7 @@ internal constructor(
         when (
           val result =
             boundary.requestPosition(
-              BrowserOptions(highAccuracy = true, timeout = PERMISSION_PROBE_TIMEOUT)
+              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout)
             )
         ) {
           is BrowserResult.Position ->
@@ -236,7 +236,7 @@ internal constructor(
   }
 
   private companion object {
-    private val PERMISSION_PROBE_TIMEOUT = 1.seconds
+    private val PermissionProbeTimeout = 1.seconds
   }
 }
 

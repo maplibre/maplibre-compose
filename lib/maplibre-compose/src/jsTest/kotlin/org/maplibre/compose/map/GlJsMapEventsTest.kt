@@ -25,5 +25,5 @@ class GlJsMapEventsTest {
   }
 
   private fun translate(type: String, event: GlJsMapEvent = unsafeJso()) =
-    (ENGINE_GL_JS_EVENTS + PRESENTATION_GL_JS_EVENTS).getValue(type)(event)
+    (EngineGlJsEvents + PresentationGlJsEvents).getValue(type)(event)
 }

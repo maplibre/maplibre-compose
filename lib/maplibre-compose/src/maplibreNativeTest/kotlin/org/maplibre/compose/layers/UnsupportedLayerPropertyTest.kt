@@ -48,9 +48,9 @@ class UnsupportedLayerPropertyTest {
 
   @BeforeTest
   fun captureWarnings() {
-    CAPTURED.clear()
+    Captured.clear()
     MapLogging.logger = MapLogger { record ->
-      if (record.level >= MapLogLevel.Warning) CAPTURED += record.message
+      if (record.level >= MapLogLevel.Warning) Captured += record.message
       previousLogger?.log(record)
     }
   }
@@ -243,7 +243,7 @@ class UnsupportedLayerPropertyTest {
     }
   }
 
-  private fun warnings(): List<String> = CAPTURED.filter { it.startsWith("Layer ") }
+  private fun warnings(): List<String> = Captured.filter { it.startsWith("Layer ") }
 
   private fun addSource(style: MlnFfiStyleBinding): GeoJsonSource =
     GeoJsonSource(
@@ -255,6 +255,6 @@ class UnsupportedLayerPropertyTest {
 
   private companion object {
     /** Warnings the library logged. */
-    val CAPTURED = RecordingList<String>()
+    val Captured = RecordingList<String>()
   }
 }

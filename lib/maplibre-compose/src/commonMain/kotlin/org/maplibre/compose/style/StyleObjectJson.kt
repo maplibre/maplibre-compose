@@ -17,14 +17,14 @@ import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.util.toStyleJson
 
 /** The style spec's suffix for a property's own transition. */
-internal const val TRANSITION_SUFFIX: String = "-transition"
+internal const val TransitionSuffix: String = "-transition"
 
 /**
  * Clears a `<property>-transition` key. MapLibre Native rejects a null transition and keeps the
  * previous one; an empty object returns the property to the style's global transition on both
  * engines.
  */
-internal val CLEARED_TRANSITION: JsonObject = JsonObject(emptyMap())
+internal val ClearedTransition: JsonObject = JsonObject(emptyMap())
 
 /**
  * Writes [expression] under [name], omitting a null literal because the style spec permits no null
@@ -75,5 +75,5 @@ private fun JsonObject.transitionMillis(name: String): Duration? =
  * it is set. [property] is the spec name without the suffix.
  */
 internal fun JsonObjectBuilder.putTransition(property: String, options: TransitionOptions?) {
-  if (options != null) put(property + TRANSITION_SUFFIX, options.toTransitionJson())
+  if (options != null) put(property + TransitionSuffix, options.toTransitionJson())
 }

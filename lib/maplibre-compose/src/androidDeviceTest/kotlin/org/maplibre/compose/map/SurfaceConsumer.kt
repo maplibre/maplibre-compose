@@ -58,7 +58,7 @@ internal class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
   /** Waits for a frame later than [after] whose center pixel is [expectedArgb]. */
   suspend fun awaitColor(expectedArgb: Int, after: Long = 0L) {
     try {
-      withTimeout(TIMEOUT_MILLIS) {
+      withTimeout(TimeoutMillis) {
         while (true) {
           failure.get()?.let { throw AssertionError("Could not consume Surface pixels", it) }
           if (frames.get() > after && centerArgb.get() == expectedArgb) return@withTimeout
@@ -82,7 +82,7 @@ internal class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
   override fun close() {
     reader.setOnImageAvailableListener(null, null)
     thread.quitSafely()
-    thread.join(TIMEOUT_MILLIS)
+    thread.join(TimeoutMillis)
     assertFalse(thread.isAlive, "Image consumer thread did not stop")
     reader.close()
     surface.release()
@@ -90,6 +90,6 @@ internal class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
   }
 
   private companion object {
-    const val TIMEOUT_MILLIS = 10_000L
+    const val TimeoutMillis = 10_000L
   }
 }

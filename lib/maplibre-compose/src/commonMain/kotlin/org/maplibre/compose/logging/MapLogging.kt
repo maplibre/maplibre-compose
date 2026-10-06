@@ -20,11 +20,11 @@ public object MapLogging {
 
 internal expect fun platformMapLogger(): MapLogger
 
-internal const val MAP_LOG_TAG: String = "maplibre-compose"
+internal const val MapLogTag: String = "maplibre-compose"
 
 /** The message, prefixed with the category when the engine reported one. */
 internal fun MapLogRecord.categorizedMessage(): String =
   if (category == null) message else "[$category] $message"
 
 /** The platform log line: the tag and the categorized message. */
-internal fun MapLogRecord.toPlatformLine(): String = "$MAP_LOG_TAG: ${categorizedMessage()}"
+internal fun MapLogRecord.toPlatformLine(): String = "$MapLogTag: ${categorizedMessage()}"

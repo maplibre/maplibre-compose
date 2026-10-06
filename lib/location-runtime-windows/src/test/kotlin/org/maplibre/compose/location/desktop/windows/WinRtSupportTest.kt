@@ -18,12 +18,12 @@ class WinRtSupportTest {
       }
     val nativeReference = callback.segment
 
-    assertEquals(2, callReferenceMethod(nativeReference, ADD_REF))
+    assertEquals(2, callReferenceMethod(nativeReference, AddRef))
     callback.close()
 
     assertEquals(S_OK, invokeEvent(nativeReference))
     assertEquals(1, invocations.get())
-    assertEquals(0, callReferenceMethod(nativeReference, RELEASE))
+    assertEquals(0, callReferenceMethod(nativeReference, Release))
     assertEquals(E_FAIL, invokeEvent(nativeReference))
   }
 
@@ -33,7 +33,7 @@ class WinRtSupportTest {
   private fun invokeEvent(instance: MemorySegment): Int =
     WinRt.call(
       instance,
-      INVOKE,
+      Invoke,
       FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS),
       MemorySegment.NULL,
       MemorySegment.NULL,
@@ -42,8 +42,8 @@ class WinRtSupportTest {
   private companion object {
     const val S_OK = 0
     const val E_FAIL = -2_147_467_259
-    const val ADD_REF = 1
-    const val RELEASE = 2
-    const val INVOKE = 3
+    const val AddRef = 1
+    const val Release = 2
+    const val Invoke = 3
   }
 }

@@ -22,7 +22,7 @@ class LayerHandlePropertyTest {
   @Test
   fun a_layer_handle_updates_and_reads_a_paint_property(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       val handle = assertNotNull(fixture.state.style.layers["background"])
 
       handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive(0.25))
@@ -38,7 +38,7 @@ class LayerHandlePropertyTest {
   @Test
   fun a_layer_handle_writes_and_reads_a_typed_paint_transition(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       val handle = assertNotNull(fixture.state.style.layers["background"])
       val timing = TransitionOptions(700.milliseconds, 50.milliseconds)
 
@@ -60,7 +60,7 @@ class LayerHandlePropertyTest {
   fun a_rejected_layer_property_is_logged_and_keeps_the_previous_value(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
-        fixture.loadStyle(STYLE)
+        fixture.loadStyle(Style)
         val handle = assertNotNull(fixture.state.style.layers["background"])
         handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive(0.25))
 
@@ -80,7 +80,7 @@ class LayerHandlePropertyTest {
   @Test
   fun root_properties_are_readable_and_rejected_writes_are_logged(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(STYLE)
+      fixture.loadStyle(Style)
       val handle = assertNotNull(fixture.state.style.layers["background"])
       val circle = assertNotNull(fixture.state.style.layers["points"])
 
@@ -115,7 +115,7 @@ class LayerHandlePropertyTest {
   }
 
   private companion object {
-    val STYLE =
+    val Style =
       BaseStyle.Json(
         """{"version":8,"sources":{"points-source":{"type":"vector","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}"""
       )

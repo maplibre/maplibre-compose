@@ -37,7 +37,7 @@ class FeatureStateTest {
   @Test
   fun a_geojson_handle_updates_feature_state_and_the_rendered_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BLACK_STYLE)
+      fixture.loadStyle(BlackStyle)
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
       val binding = checkNotNull(fixture.style)
       val source =
@@ -69,7 +69,7 @@ class FeatureStateTest {
       binding.install(layer)
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
 
-      fixture.pumpUntilPixel("the default circle", CENTER, CENTER, BLUE)
+      fixture.pumpUntilPixel("the default circle", Center, Center, Blue)
       handle.setFeatureState(
         "1",
         buildJsonObject {
@@ -81,7 +81,7 @@ class FeatureStateTest {
       assertEquals(true, handle.getFeatureState("1")["selected"]?.jsonPrimitive?.boolean)
       assertEquals(1, handle.getFeatureState("1")["rank"]?.jsonPrimitive?.content?.toInt())
       assertEquals("chosen", handle.getFeatureState("1")["label"]?.jsonPrimitive?.content)
-      fixture.pumpUntilPixel("the selected circle", CENTER, CENTER, RED)
+      fixture.pumpUntilPixel("the selected circle", Center, Center, Red)
 
       handle.removeFeatureState("1", "rank")
       assertEquals(null, handle.getFeatureState("1")["rank"])
@@ -90,16 +90,16 @@ class FeatureStateTest {
       assertEquals(JsonObject(emptyMap()), handle.getFeatureState("1"))
       handle.setFeatureState("1", buildJsonObject { put("selected", true) })
       handle.resetFeatureStates()
-      fixture.pumpUntilPixel("the reset circle", CENTER, CENTER, BLUE)
+      fixture.pumpUntilPixel("the reset circle", Center, Center, Blue)
       assertEquals(JsonObject(emptyMap()), handle.getFeatureState("1"))
     }
   }
 
   private companion object {
-    const val CENTER = 256
-    val RED = RgbaPixel(255, 0, 0, 255)
-    val BLUE = RgbaPixel(0, 0, 255, 255)
-    val BLACK_STYLE =
+    const val Center = 256
+    val Red = RgbaPixel(255, 0, 0, 255)
+    val Blue = RgbaPixel(0, 0, 255, 255)
+    val BlackStyle =
       BaseStyle.Json(
         """
         {"version":8,"sources":{},"layers":[

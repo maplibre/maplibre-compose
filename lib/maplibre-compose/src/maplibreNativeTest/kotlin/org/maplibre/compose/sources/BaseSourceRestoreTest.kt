@@ -24,20 +24,20 @@ class BaseSourceRestoreTest {
   fun re_adding_a_base_style_source_keeps_its_tiles() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
+      it.loadStyle(BaseStyle.Json(VectorStyle))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val source = assertIs<VectorTileSource>(style.readMap { style.getSource(SOURCE_ID) })
+      val source = assertIs<VectorTileSource>(style.readMap { style.getSource(SourceId) })
       runBlocking { style.uninstall(source) }
       runBlocking { style.install(source) }
 
-      val restored = assertIs<VectorTileSource>(style.readMap { style.getSource(SOURCE_ID) })
+      val restored = assertIs<VectorTileSource>(style.readMap { style.getSource(SourceId) })
       assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
         (restored.toJson()["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
       )
-      assertEquals(ATTRIBUTION, restored.attributionHtml)
+      assertEquals(Attribution, restored.attributionHtml)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
@@ -46,11 +46,11 @@ class BaseSourceRestoreTest {
   fun every_source_in_the_base_style_is_reported() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
+      it.loadStyle(BaseStyle.Json(VectorStyle))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       assertEquals(
-        mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
+        mapOf(SourceId to "vector", RasterSourceId to "raster"),
         checkNotNull(style.readMap { style.sourceIds().mapNotNull(style::getSource) }).associate {
           source ->
           source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
@@ -60,16 +60,16 @@ class BaseSourceRestoreTest {
   }
 
   private companion object {
-    const val SOURCE_ID = "vec"
-    const val RASTER_SOURCE_ID = "sat"
+    const val SourceId = "vec"
+    const val RasterSourceId = "sat"
 
-    const val ATTRIBUTION = "&copy; Nobody"
+    const val Attribution = "&copy; Nobody"
 
     /**
      * No layer draws from either source: MapLibre will not remove a source a layer still draws
      * from. The hosts do not resolve, so no tile is ever requested.
      */
-    val VECTOR_STYLE =
+    val VectorStyle =
       """
       {
         "version": 8,
@@ -80,7 +80,7 @@ class BaseSourceRestoreTest {
             "tiles": ["https://example.invalid/{z}/{x}/{y}.pbf"],
             "minzoom": 0,
             "maxzoom": 14,
-            "attribution": "$ATTRIBUTION"
+            "attribution": "$Attribution"
           },
           "sat": {
             "type": "raster",

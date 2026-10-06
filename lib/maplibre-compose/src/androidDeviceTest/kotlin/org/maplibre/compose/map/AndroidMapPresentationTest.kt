@@ -55,10 +55,10 @@ class AndroidMapPresentationTest {
         fixture.withConsumer(256, 192) { first ->
           fixture.withConsumer(320, 240) { second ->
             val oldBinding = fixture.onMain { presenter.attachSurface(first.surface, 256, 192, 1f) }
-            first.awaitColor(RED)
+            first.awaitColor(Red)
 
             fixture.onMain { color = Color.Green }
-            first.awaitColor(GREEN)
+            first.awaitColor(Green)
 
             val current = fixture.onMain { presenter.attachSurface(second.surface, 320, 240, 1f) }
             fixture.onMain {
@@ -66,14 +66,14 @@ class AndroidMapPresentationTest {
               oldBinding.close()
               oldBinding.close()
             }
-            second.awaitColor(GREEN)
+            second.awaitColor(Green)
             fixture.awaitViewport(320f, 240f)
             assertTrue(first.surface.isValid, "Replacing a binding must not release its Surface")
 
             val beforeDensity = second.frames.get()
             fixture.onMain { current.update(320, 240, 2f) }
             fixture.awaitViewport(160f, 120f)
-            second.awaitColor(GREEN, after = beforeDensity)
+            second.awaitColor(Green, after = beforeDensity)
 
             // Font scale changes composition locals without changing native engine compatibility.
             val originalConfiguration = fixture.configuration
@@ -82,10 +82,10 @@ class AndroidMapPresentationTest {
                 Configuration(originalConfiguration).apply { fontScale = 1.5f }
               )
             }
-            second.awaitColor(YELLOW)
+            second.awaitColor(Yellow)
             fixture.awaitViewport(160f, 120f)
             fixture.onMain { presenter.updateConfiguration(originalConfiguration) }
-            second.awaitColor(GREEN)
+            second.awaitColor(Green)
 
             val dayConfiguration =
               Configuration(originalConfiguration).apply {
@@ -97,7 +97,7 @@ class AndroidMapPresentationTest {
               checkNightConfiguration = true
               presenter.updateConfiguration(dayConfiguration)
             }
-            second.awaitColor(GREEN)
+            second.awaitColor(Green)
             val nightConfiguration =
               Configuration(dayConfiguration).apply {
                 uiMode =
@@ -107,22 +107,22 @@ class AndroidMapPresentationTest {
             fixture.onMain {
               presenter.updateConfiguration(nightConfiguration)
             }
-            second.awaitColor(MAGENTA)
+            second.awaitColor(Magenta)
             fixture.onMain {
               checkNightConfiguration = false
               presenter.updateConfiguration(originalConfiguration)
             }
-            second.awaitColor(GREEN)
+            second.awaitColor(Green)
 
             val beforeResize = second.frames.get()
             fixture.onMain { current.update(240, 160, 2f) }
             fixture.awaitViewport(120f, 80f)
-            second.awaitColor(GREEN, after = beforeResize)
+            second.awaitColor(Green, after = beforeResize)
 
             fixture.onMain { lifecycle.currentState = Lifecycle.State.CREATED }
             fixture.onMain { color = Color.Blue }
             fixture.onMain { lifecycle.currentState = Lifecycle.State.STARTED }
-            second.awaitColor(BLUE)
+            second.awaitColor(Blue)
 
             fixture.onMain {
               current.close()
@@ -137,7 +137,7 @@ class AndroidMapPresentationTest {
             val beforeReattach = second.frames.get()
             fixture.onMain { presenter = newPresenter() }
             fixture.onMain { presenter.attachSurface(second.surface, 320, 240, 1f) }
-            second.awaitColor(BLUE, after = beforeReattach)
+            second.awaitColor(Blue, after = beforeReattach)
             fixture.awaitViewport(320f, 240f)
             fixture.onMain { assertNull(presenter.failure) }
           }
@@ -150,12 +150,12 @@ class AndroidMapPresentationTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(320, 240) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 320, 240, 2f) }
-        consumer.awaitColor(RED)
+        consumer.awaitColor(Red)
         fixture.awaitViewport(160f, 120f)
         val initial = fixture.onMain { state.cameraPosition }
 
         fixture.onMain { showPoint = true }
-        consumer.awaitColor(GREEN)
+        consumer.awaitColor(Green)
         fixture.onMain { state.click(DpOffset(80.dp, 60.dp)) }
         fixture.await("map and layer click dispatch") { clickedFeatures == 1 }
         fixture.onMain {
@@ -225,7 +225,7 @@ class AndroidMapPresentationTest {
       withSurfaceMap { fixture ->
         fixture.withConsumer(256, 192) { consumer ->
           fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
-          consumer.awaitColor(RED)
+          consumer.awaitColor(Red)
           val retainedCamera = CameraPosition(zoom = 4.0)
           fixture.onMain { state.setCameraPosition(retainedCamera) }
           fixture.await("the camera update before leaving the direct host") {
@@ -250,7 +250,7 @@ class AndroidMapPresentationTest {
             presenter = newPresenter()
             presenter.attachSurface(consumer.surface, 256, 192, 1f)
           }
-          consumer.awaitColor(BLUE, after = beforeReattach)
+          consumer.awaitColor(Blue, after = beforeReattach)
           fixture.onMain {
             assertCameraPosition(retainedCamera, state.cameraPosition)
             assertNull(presenter.failure)
@@ -264,9 +264,9 @@ class AndroidMapPresentationTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(256, 192) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
-        consumer.awaitColor(RED)
+        consumer.awaitColor(Red)
         fixture.onMain { state.close() }
-        withTimeout(TIMEOUT_MILLIS) { fixture.state.awaitClosed() }
+        withTimeout(TimeoutMillis) { fixture.state.awaitClosed() }
         fixture.onMain {
           presenter.close()
           assertTrue(state.isClosed)
@@ -303,7 +303,7 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
       if (showPoint) {
         CircleLayer(
           "point",
-          source = rememberGeoJsonSource(GeoJsonData.JsonString(POINT)),
+          source = rememberGeoJsonSource(GeoJsonData.JsonString(Point)),
           color = const(Color.Green),
           radius = const(12.dp),
           onClick = { features ->
@@ -364,7 +364,7 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
 
   suspend fun await(description: String, predicate: SurfaceMapFixture.() -> Boolean) {
     try {
-      withTimeout(TIMEOUT_MILLIS) {
+      withTimeout(TimeoutMillis) {
         while (!onMain(predicate)) {
           onMain { presenter.failure?.let { throw AssertionError("Presentation failed", it) } }
           delay(10)
@@ -394,21 +394,21 @@ private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) 
   } finally {
     runtime.close()
     try {
-      withTimeout(TIMEOUT_MILLIS) { runtime.awaitClosed() }
+      withTimeout(TimeoutMillis) { runtime.awaitClosed() }
     } finally {
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 }
 
-private const val POINT =
+private const val Point =
   """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{}}"""
-private const val TIMEOUT_MILLIS = 10_000L
-private const val RED = android.graphics.Color.RED
-private const val GREEN = android.graphics.Color.GREEN
-private const val BLUE = android.graphics.Color.BLUE
-private const val YELLOW = android.graphics.Color.YELLOW
-private const val MAGENTA = android.graphics.Color.MAGENTA
+private const val TimeoutMillis = 10_000L
+private const val Red = android.graphics.Color.RED
+private const val Green = android.graphics.Color.GREEN
+private const val Blue = android.graphics.Color.BLUE
+private const val Yellow = android.graphics.Color.YELLOW
+private const val Magenta = android.graphics.Color.MAGENTA
 
 // Intentionally inspect resources as well as LocalConfiguration: the host must configure both.
 @Suppress("LocalContextConfigurationRead")
@@ -443,7 +443,7 @@ class SurfaceHandoffActivity : ComponentActivity() {
 private suspend fun awaitScreenColor(expected: Int) {
   var actual: Int? = null
   try {
-    withTimeout(TIMEOUT_MILLIS) {
+    withTimeout(TimeoutMillis) {
       while (true) {
         val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         if (screenshot != null) {

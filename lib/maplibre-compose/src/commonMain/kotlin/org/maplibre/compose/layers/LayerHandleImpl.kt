@@ -2,15 +2,15 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import org.maplibre.compose.style.CLEARED_TRANSITION
+import org.maplibre.compose.style.ClearedTransition
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.LayerPropertyWrite
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
-import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.TransitionSuffix
 import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
@@ -42,16 +42,16 @@ internal constructor(
 
   internal fun setPaintTransition(property: String, options: TransitionOptions?) {
     setPaintProperty(
-      property + TRANSITION_SUFFIX,
-      options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: CLEARED_TRANSITION,
+      property + TransitionSuffix,
+      options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: ClearedTransition,
     )
   }
 
   override suspend fun getPaintTransition(property: String): TransitionOptions? =
-    getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()
+    getProperty(property + TransitionSuffix)?.toTransitionOptions()
 
   internal fun setRootProperty(name: String, value: JsonElement) {
-    if (name in FIXED_ROOT_PROPERTIES) {
+    if (name in FixedRootProperties) {
       throw StyleHandleException("'$name' is fixed for the generation of $type layer '$id'")
     }
     setProperty(name, value, LayerPropertyKind.Root)
@@ -96,7 +96,7 @@ internal constructor(
   }
 
   private companion object {
-    val FIXED_ROOT_PROPERTIES = setOf("source", "source-layer")
+    val FixedRootProperties = setOf("source", "source-layer")
   }
 }
 

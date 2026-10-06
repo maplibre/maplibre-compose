@@ -19,7 +19,7 @@ import org.maplibre.compose.util.rethrowIfFatal
  * Compose-drawn desktop surface is the exception: its hosts rebuild on purpose after each
  * graphics-device change, so it restarts the count once a rebuilt session presents an image.
  */
-internal const val MAX_RENDER_RECOVERY_ATTEMPTS = 3
+internal const val MaxRenderRecoveryAttempts = 3
 
 /**
  * Renders a map from a dedicated render thread into a surface that the platform presents itself,
@@ -29,7 +29,7 @@ internal const val MAX_RENDER_RECOVERY_ATTEMPTS = 3
  * state belongs to the render thread. [requestFrame], [setActive], [setMaximumFps],
  * [withRendererAccess], and [enqueueRenderer] may be called from any thread.
  *
- * A failure that is not recoverable, or a recoverable one after [MAX_RENDER_RECOVERY_ATTEMPTS]
+ * A failure that is not recoverable, or a recoverable one after [MaxRenderRecoveryAttempts]
  * rebuilds, is terminal: the controller releases its surface, reports the failure through
  * [onTerminalFailure], and ignores later surfaces, resizes, and activation changes.
  */
@@ -279,8 +279,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     } catch (error: Throwable) {
       rethrowIfFatal(error)
       if (
-        error !is MlnFfiRecoverableFrameException ||
-          recoveryAttempts >= MAX_RENDER_RECOVERY_ATTEMPTS
+        error !is MlnFfiRecoverableFrameException || recoveryAttempts >= MaxRenderRecoveryAttempts
       ) {
         fail("$platformName map frame $frameId could not recover", error)
         return
@@ -288,7 +287,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
       recoveryAttempts++
       logger?.w(error) {
         "$platformName map frame $frameId failed; rebuilding the render session " +
-          "(attempt $recoveryAttempts of $MAX_RENDER_RECOVERY_ATTEMPTS)"
+          "(attempt $recoveryAttempts of $MaxRenderRecoveryAttempts)"
       }
 
       // A lost context invalidates the session but not the surface or the map runtime.

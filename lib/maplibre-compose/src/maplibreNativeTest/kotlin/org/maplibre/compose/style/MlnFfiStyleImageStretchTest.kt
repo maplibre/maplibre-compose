@@ -19,16 +19,16 @@ class MlnFfiStyleImageStretchTest {
 
   @Test
   fun independent_stretch_ranges_on_a_retina_map_scale_with_the_bitmap() {
-    val fixture = BridgeMapFixture.create(BridgeMapFixture.RETINA_EXTENT)
+    val fixture = BridgeMapFixture.create(BridgeMapFixture.RetinaExtent)
     fixture.use {
-      it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
+      it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RetinaExtent)
       val style =
         assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.readMap {
         style.setImage(
           StyleImageDefinition(
-            IMAGE_ID,
+            ImageId,
             PreparedImage.fromBitmap(ImageBitmap(140, 120)),
             sdf = false,
             stretch =
@@ -41,20 +41,20 @@ class MlnFfiStyleImageStretchTest {
         )
       }
 
-      val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info = assertNotNull(it.session.styleImageInfo(ImageId), "the image should be uploaded")
       assertEquals(2f, info.pixelRatio, "pixel ratio")
       assertEquals(140, info.width, "the uploaded bitmap remains unscaled")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to
           listOf(FfiImageStretch(25f, 100f)),
-        style.imageStretches(IMAGE_ID),
+        style.imageStretches(ImageId),
         "stretch intervals",
       )
     }
   }
 
   private companion object {
-    const val IMAGE_ID = "stretch-test"
+    const val ImageId = "stretch-test"
   }
 }

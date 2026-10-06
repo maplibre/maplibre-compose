@@ -81,7 +81,7 @@ object LiveTrackingDemo : Demo {
     )
 
   // The real ferry's ~8 m/s is imperceptible with the whole crossing in the viewport.
-  private const val SPEED_METERS_PER_SECOND = 250.0
+  private const val SpeedMetersPerSecond = 250.0
 
   // Off by default so the initial flight runs uninterrupted.
   private var followVehicle by mutableStateOf(false)
@@ -150,7 +150,7 @@ object LiveTrackingDemo : Demo {
       val startMillis = withFrameMillis { it }
       while (true) {
         withFrameMillis { frameMillis ->
-          val traveled = (frameMillis - startMillis) / 1000.0 * SPEED_METERS_PER_SECOND
+          val traveled = (frameMillis - startMillis) / 1000.0 * SpeedMetersPerSecond
           // Reverse direction at each terminal.
           val phase = traveled % (2 * routeLength)
           val outbound = phase < routeLength

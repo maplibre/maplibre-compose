@@ -100,7 +100,7 @@ public fun MapOverlayScope.PointerPinButton(
     ) {
       Box(
         // Keeps the content inside the round part of the pin, centered in the pin's bounds.
-        Modifier.proportionalPadding(PointerPinShape.POINTY_SIZE).padding(contentPadding),
+        Modifier.proportionalPadding(PointerPinShape.PointySize).padding(contentPadding),
         contentAlignment = Alignment.Center,
         content = content,
       )
@@ -142,17 +142,17 @@ private data class PointerPinShape(val angleDegrees: Float) : Shape {
     m.translate(x = size.width / 2, y = size.height / 2)
     m.rotateZ(angleDegrees)
     m.translate(x = -size.width / 2, y = -size.height / 2)
-    m.scale(x = size.width / PATH_SIZE, y = size.height / PATH_SIZE)
-    val p = PATH.toPath()
+    m.scale(x = size.width / PathSize, y = size.height / PathSize)
+    val p = Path.toPath()
     p.transform(m)
     return Outline.Generic(p)
   }
 
   companion object {
     val Upright = PointerPinShape(0f)
-    const val PATH_SIZE = 76f
-    const val POINTY_SIZE = 14f / 76f
-    val PATH =
+    const val PathSize = 76f
+    const val PointySize = 14f / 76f
+    val Path =
       PathParser()
         .parsePathString(
           "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z"

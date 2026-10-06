@@ -61,7 +61,7 @@ class LayerPropertyRoundTripTest {
       val source =
         GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       style.install(source)
-      for ((index, case) in CASES.withIndex()) {
+      for ((index, case) in Cases.withIndex()) {
         val before = TestLayer("before-$index", "symbol", source)
         case.apply(before)
         style.install(before)
@@ -219,7 +219,7 @@ class LayerPropertyRoundTripTest {
   private companion object {
     fun <T : ExpressionValue?> Expression<T>.c() = compile(ExpressionContext.None)
 
-    val CASES =
+    val Cases =
       listOf<Case>(
         Case("symbol-spacing", "30.0") {
           it.layout("symbol-spacing", const(30.dp).c().asLayerProperty())

@@ -46,7 +46,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.style.FONT_SCALE_GLOBAL_STATE
+import org.maplibre.compose.style.FontScaleGlobalState
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.composeStyle
@@ -187,7 +187,7 @@ class SymbolLayerCompositionTest {
     assertEquals(originalLayers, binding.layers)
     assertEquals(originalWrites, binding.layerPropertyWrites)
     assertEquals(listOf(1.0, 2.0), binding.globalStateWrites.map { it.second.jsonPrimitive.double })
-    assertTrue(binding.globalStateWrites.all { it.first == FONT_SCALE_GLOBAL_STATE })
+    assertTrue(binding.globalStateWrites.all { it.first == FontScaleGlobalState })
     val normal = binding.layers.getValue("normal").getValue("layout") as JsonObject
     val override = binding.layers.getValue("override").getValue("layout") as JsonObject
     assertEquals(32.0, normal.getValue("text-size").numberValue(binding.globalStateValues))

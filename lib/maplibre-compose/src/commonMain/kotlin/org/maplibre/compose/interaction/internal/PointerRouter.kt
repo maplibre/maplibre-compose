@@ -101,7 +101,7 @@ internal class PointerRouter(
         )
       if (claimedPlatform) event.changes.forEach(PointerInputChange::consume)
     }
-    if (!platform.isActive && !routing.hasContacts && event.type in PLATFORM_ENDS)
+    if (!platform.isActive && !routing.hasContacts && event.type in PlatformEnds)
       platformActive = false
   }
 
@@ -112,7 +112,7 @@ internal class PointerRouter(
   }
 
   private companion object {
-    val PLATFORM_ENDS =
+    val PlatformEnds =
       setOf(PointerEventType.ScaleEnd, PointerEventType.PanEnd, PointerEventType.Release)
   }
 }

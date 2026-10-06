@@ -29,7 +29,7 @@ internal class TransformRecognitionPolicy(
     GestureMath.hasStablePressure(current.pressure, previous.pressure)
 
   fun needsRebase(previous: PairSample, current: PairSample): Boolean =
-    current.distance < GestureMath.MINIMUM_TWO_FINGER_SPAN_DP * density.density ||
+    current.distance < GestureMath.MinimumTwoFingerSpanDp * density.density ||
       previous.distance <= 0
 
   fun recognize(motion: PairMotion, active: Set<CameraComponent>): TransformDecision {
@@ -51,7 +51,7 @@ internal class TransformRecognitionPolicy(
     val scaleSpan =
       if (rotating) (current.distance - rotationSpan) * 2 / density.density else spanFromStartDp
     val scaleThreshold =
-      if (rotating) maxOf(scaleSlop, GestureMath.SCALE_START_WHILE_ROTATING_DP) else scaleSlop
+      if (rotating) maxOf(scaleSlop, GestureMath.ScaleStartWhileRotatingDp) else scaleSlop
     val startPinch =
       scaleSpan != 0.0 &&
         pinch != null &&
@@ -71,7 +71,7 @@ internal class TransformRecognitionPolicy(
       if (zooming || startPinch)
         maxOf(
           rotate?.startAngle ?: 0.0,
-          GestureMath.ROTATE_START_WHILE_ZOOMING_ARC_DP * density.density * 360.0 /
+          GestureMath.RotateStartWhileZoomingArcDp * density.density * 360.0 /
             (PI * minimumRotationSpan),
         )
       else rotate?.startAngle ?: 0.0

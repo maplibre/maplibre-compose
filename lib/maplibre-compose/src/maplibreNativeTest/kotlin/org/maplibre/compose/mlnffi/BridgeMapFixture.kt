@@ -220,7 +220,7 @@ private constructor(
   /** Waits one poll interval, then runs what engine threads posted to the map's main thread. */
   private fun pause() {
     // A tight loop would starve the network and worker threads.
-    parkForTest(POLL_INTERVAL_MILLIS)
+    parkForTest(PollIntervalMillis)
     testMain.drain()
   }
 
@@ -323,7 +323,7 @@ private constructor(
       }
       frame(extent)
       frames++
-      delay(POLL_INTERVAL_MILLIS)
+      delay(PollIntervalMillis)
       testMain.drain()
     }
   }
@@ -337,7 +337,7 @@ private constructor(
   suspend fun awaitFrames(frames: Int = 30) {
     repeat(frames) {
       frame()
-      delay(POLL_INTERVAL_MILLIS)
+      delay(PollIntervalMillis)
       testMain.drain()
     }
   }
@@ -348,7 +348,7 @@ private constructor(
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
       if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
-      delay(POLL_INTERVAL_MILLIS)
+      delay(PollIntervalMillis)
       testMain.drain()
     }
     return rendered
@@ -368,13 +368,13 @@ private constructor(
   suspend fun awaitStyle(
     style: BaseStyle,
     timeout: Duration = 60.seconds,
-    extent: MapExtent = DEFAULT_EXTENT,
+    extent: MapExtent = DefaultExtent,
   ) {
-    val styleLoadsBefore = events.count { it == STYLE_LOADED }
+    val styleLoadsBefore = events.count { it == StyleLoaded }
     session.setBaseStyle(style)
     if (this.style?.isLoaded != true) {
       awaitUntil("style $style to load", timeout, extent) {
-        events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+        events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
       }
     }
     check(!stylePublishedBeforeSessionReady.load()) {
@@ -400,18 +400,18 @@ private constructor(
    * Applies a style and pumps until that load finishes.
    *
    * [MlnFfiMapSession.setBaseStyle] clears the live style before the new document loads, so this
-   * waits for a `STYLE_LOADED` that arrives after the call.
+   * waits for a `StyleLoaded` that arrives after the call.
    */
   fun loadStyle(
     style: BaseStyle,
     timeout: Duration = 60.seconds,
-    extent: MapExtent = DEFAULT_EXTENT,
+    extent: MapExtent = DefaultExtent,
   ) {
-    val styleLoadsBefore = events.count { it == STYLE_LOADED }
+    val styleLoadsBefore = events.count { it == StyleLoaded }
     session.setBaseStyle(style)
     if (this.style?.isLoaded != true) {
       pumpUntil("style $style to load", timeout, extent) {
-        events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+        events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
       }
     }
     check(!stylePublishedBeforeSessionReady.load()) {
@@ -423,10 +423,10 @@ private constructor(
    * Loads [style] while leaving the render session unattached until the caller requests a frame.
    */
   fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
-    val styleLoadsBefore = events.count { it == STYLE_LOADED }
+    val styleLoadsBefore = events.count { it == StyleLoaded }
     session.setBaseStyle(style)
     val deadline = TimeSource.Monotonic.markNow() + timeout
-    while (events.count { it == STYLE_LOADED } <= styleLoadsBefore || this.style == null) {
+    while (events.count { it == StyleLoaded } <= styleLoadsBefore || this.style == null) {
       check(deadline.hasNotPassedNow()) {
         "Timed out waiting for style $style to load before rendering. Errors: $errors"
       }
@@ -494,7 +494,7 @@ private constructor(
     /** Stops the thread and returns what failed on it, if anything. */
     fun stop(): Throwable? {
       stopRequested = true
-      check(finished.await(STOP_TIMEOUT_MILLIS)) { "The test renderer thread did not stop" }
+      check(finished.await(StopTimeoutMillis)) { "The test renderer thread did not stop" }
       return failure
     }
 
@@ -545,22 +545,22 @@ private constructor(
     }
 
     private companion object {
-      const val STOP_TIMEOUT_MILLIS = 30_000L
+      const val StopTimeoutMillis = 30_000L
     }
   }
 
   companion object {
-    const val STYLE_LOADED: String = MapFixture.STYLE_LOADED
+    const val StyleLoaded: String = MapFixture.StyleLoaded
 
-    private const val POLL_INTERVAL_MILLIS = 8L
+    private const val PollIntervalMillis = 8L
 
-    val DEFAULT_EXTENT: MapExtent = MapFixture.DEFAULT_EXTENT
+    val DefaultExtent: MapExtent = MapFixture.DefaultExtent
 
-    val RETINA_EXTENT: MapExtent = MapFixture.RETINA_EXTENT
+    val RetinaExtent: MapExtent = MapFixture.RetinaExtent
 
     /** Creates a fixture for the one native runtime packaged into this test process. */
     fun create(
-      initialExtent: MapExtent = DEFAULT_EXTENT,
+      initialExtent: MapExtent = DefaultExtent,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
       runtime: MapRuntime? = null,
     ): BridgeMapFixture {

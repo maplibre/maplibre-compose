@@ -67,7 +67,7 @@ internal fun JsonObject.withScaledTransitions(scale: Float): JsonObject {
   if (scale == 1f) return this
   return JsonObject(
     mapValues { (name, value) ->
-      if (name.endsWith(TRANSITION_SUFFIX) && value is JsonObject) value.scaledTransition(scale)
+      if (name.endsWith(TransitionSuffix) && value is JsonObject) value.scaledTransition(scale)
       else value
     }
   )

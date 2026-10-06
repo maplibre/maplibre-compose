@@ -31,7 +31,7 @@ class EngineEventTest {
   @Test
   fun an_unreachable_style_reports_a_failure_with_a_reason(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.session.setBaseStyle(BaseStyle.Uri(UNREACHABLE_STYLE_URI))
+      fixture.session.setBaseStyle(BaseStyle.Uri(UnreachableStyleUri))
       fixture.pumpUntil("the style load to fail") {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
@@ -69,8 +69,8 @@ class EngineEventTest {
 
       fixture.awaitWhileRendering("the camera animation to finish") {
         fixture.session.animateCamera(
-          DESTINATION.toCameraUpdate(),
-          CameraAnimation.Fly(ANIMATION_DURATION),
+          Destination.toCameraUpdate(),
+          CameraAnimation.Fly(AnimationDuration),
         )
       }
 
@@ -92,15 +92,15 @@ class EngineEventTest {
   }
 
   private companion object {
-    val UNREACHABLE_STYLE_URI: String =
+    val UnreachableStyleUri: String =
       when (mapLibreFlavor) {
         // The browser resolves a relative path against the test server, which answers 404.
         MapLibreFlavor.GlJs -> "/missing-maplibre-compose-style.json"
         MapLibreFlavor.Native -> "https://example.invalid/style.json"
       }
 
-    val DESTINATION = CameraPosition(target = Position(10.0, 10.0), zoom = 4.0)
+    val Destination = CameraPosition(target = Position(10.0, 10.0), zoom = 4.0)
 
-    val ANIMATION_DURATION = 1.seconds
+    val AnimationDuration = 1.seconds
   }
 }

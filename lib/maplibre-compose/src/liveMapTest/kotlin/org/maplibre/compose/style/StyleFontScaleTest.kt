@@ -61,48 +61,48 @@ class StyleFontScaleTest {
             )
           }
         }
-        fixture.loadStyle(BLACK_STYLE)
+        fixture.loadStyle(BlackStyle)
         declare(1f)
         val binding = assertNotNull(fixture.style)
         val expression = binding.awaitOwner { binding.layerProperty("circle", "circle-radius") }
-        fixture.pumpUntilPixel("initial circle", 256, 256, RED)
-        fixture.pumpUntilPixel("outside the initial radius", 292, 256, BLACK)
+        fixture.pumpUntilPixel("initial circle", 256, 256, Red)
+        fixture.pumpUntilPixel("outside the initial radius", 292, 256, Black)
         fixture.state.style.globalState.setProperty("theme", JsonPrimitive("dark"))
         declare(2f)
         binding.onOwner {
           assertEquals(expression, binding.layerProperty("circle", "circle-radius"))
           assertEquals(
             2.0,
-            binding.globalState()?.get(FONT_SCALE_GLOBAL_STATE)?.jsonPrimitive?.double,
+            binding.globalState()?.get(FontScaleGlobalState)?.jsonPrimitive?.double,
           )
         }
-        fixture.pumpUntilPixel("scaled circle", 292, 256, RED)
+        fixture.pumpUntilPixel("scaled circle", 292, 256, Red)
         assertEquals(
           JsonObject(mapOf("theme" to JsonPrimitive("dark"))),
           fixture.state.style.globalState.get(),
         )
         assertFailsWith<IllegalArgumentException> {
-          fixture.state.style.globalState.setProperty(FONT_SCALE_GLOBAL_STATE, JsonPrimitive(9))
+          fixture.state.style.globalState.setProperty(FontScaleGlobalState, JsonPrimitive(9))
         }
         assertFailsWith<IllegalArgumentException> {
-          fixture.state.style.globalState.resetProperty(FONT_SCALE_GLOBAL_STATE)
+          fixture.state.style.globalState.resetProperty(FontScaleGlobalState)
         }
 
         fixture.loadStyle(BaseStyle.Empty)
         assertNull(
-          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FONT_SCALE_GLOBAL_STATE)
+          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FontScaleGlobalState)
         )
-        fixture.loadStyle(BLACK_STYLE)
+        fixture.loadStyle(BlackStyle)
         declare(2f)
-        fixture.pumpUntilPixel("scale restored on the new style", 292, 256, RED)
+        fixture.pumpUntilPixel("scale restored on the new style", 292, 256, Red)
         assertEquals(emptyList(), fixture.errors.toList())
       }
     }
 
   private companion object {
-    val RED = RgbaPixel(255, 0, 0, 255)
-    val BLACK = RgbaPixel(0, 0, 0, 255)
-    val BLACK_STYLE =
+    val Red = RgbaPixel(255, 0, 0, 255)
+    val Black = RgbaPixel(0, 0, 0, 255)
+    val BlackStyle =
       BaseStyle.Json(
         """{"version":8,"transition":{"duration":0},"sources":{},"layers":[
         {"id":"background","type":"background","paint":{"background-color":"black"}}

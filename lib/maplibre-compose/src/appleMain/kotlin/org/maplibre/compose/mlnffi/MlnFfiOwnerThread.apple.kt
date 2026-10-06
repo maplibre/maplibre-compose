@@ -35,7 +35,7 @@ private val ownerThreadEntry =
     context.thread = pthread_self()
     // Darwin's pthread_setname_np names only the calling thread, so the thread names itself
     // first; a crash report from before this line shows an unnamed thread.
-    pthread_setname_np(context.name.take(MAX_THREAD_NAME_LENGTH))
+    pthread_setname_np(context.name.take(MaxThreadNameLength))
     try {
       context.body()
     } catch (error: Throwable) {
@@ -49,7 +49,7 @@ private val ownerThreadEntry =
     null
   }
 
-private const val MAX_THREAD_NAME_LENGTH = 63
+private const val MaxThreadNameLength = 63
 
 internal actual class MlnFfiOwnerThread actual constructor(name: String, body: () -> Unit) {
   private val context = MlnFfiOwnerThreadContext(name, body)
@@ -83,8 +83,8 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
 }
 
 internal actual fun currentMlnFfiThreadName(): String = memScoped {
-  val name = allocArray<ByteVar>(MAX_THREAD_NAME_LENGTH + 1)
-  if (pthread_getname_np(pthread_self(), name, (MAX_THREAD_NAME_LENGTH + 1).convert()) != 0) {
+  val name = allocArray<ByteVar>(MaxThreadNameLength + 1)
+  if (pthread_getname_np(pthread_self(), name, (MaxThreadNameLength + 1).convert()) != 0) {
     return@memScoped ""
   }
   name.toKString()

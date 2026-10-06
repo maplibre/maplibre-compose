@@ -24,7 +24,7 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `SkiaLayer exposes the redrawer and backing layer the host needs`() {
-    val skiaLayer = Class.forName(SkikoReflection.SKIA_LAYER_CLASS)
+    val skiaLayer = Class.forName(SkikoReflection.SkiaLayerClass)
     assertMethod(skiaLayer, "getRedrawer\$skiko")
     assertMethod(skiaLayer, "getWindowHandle")
     assertField(skiaLayer, "backedLayer")
@@ -32,16 +32,16 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `ComposeWindow exposes the panel the host walks to find the layer`() {
-    assertField(Class.forName(SkikoReflection.COMPOSE_WINDOW_CLASS), "composePanel")
+    assertField(Class.forName(SkikoReflection.ComposeWindowClass), "composePanel")
   }
 
   @Test
   fun `each redrawer exposes its context handler`() {
     for (redrawer in
       listOf(
-        SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS,
-        SkikoReflection.METAL_REDRAWER_CLASS,
-        SkikoReflection.DIRECT3D_REDRAWER_CLASS,
+        SkikoReflection.LinuxOpenGlRedrawerClass,
+        SkikoReflection.MetalRedrawerClass,
+        SkikoReflection.Direct3dRedrawerClass,
       )) {
       assertField(Class.forName(redrawer), "contextHandler")
     }
@@ -49,35 +49,35 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `the Linux OpenGL redrawer exposes its native context`() {
-    assertField(Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS), "context")
+    assertField(Class.forName(SkikoReflection.LinuxOpenGlRedrawerClass), "context")
   }
 
   @Test
   fun `the Direct3D redrawer exposes its device and context factory`() {
-    assertField(Class.forName(SkikoReflection.DIRECT3D_REDRAWER_CLASS), "device")
-    assertMethod(Class.forName(SkikoReflection.DIRECT3D_CONTEXT_HANDLER_CLASS), "makeContext")
+    assertField(Class.forName(SkikoReflection.Direct3dRedrawerClass), "device")
+    assertMethod(Class.forName(SkikoReflection.Direct3dContextHandlerClass), "makeContext")
   }
 
   @Test
   fun `the Metal context handler exposes the device and context the host reads`() {
-    assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
-    assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
-    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")
+    assertField(Class.forName(SkikoReflection.MetalContextHandlerClass), "device")
+    assertField(Class.forName(SkikoReflection.ContextHandlerClass), "context")
+    assertMethod(Class.forName(SkikoReflection.ContextHandlerClass), "getContext")
     // Declared abstract on ContextHandler and implemented on ContextBasedContextHandler; the
     // lookup walks superclasses, so asserting on the base is enough.
-    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "initContext")
+    assertMethod(Class.forName(SkikoReflection.ContextHandlerClass), "initContext")
   }
 
   @Test
   fun `the Linux drawing surface helpers are callable`() {
-    val helpers = Class.forName(SkikoReflection.AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS)
+    val helpers = Class.forName(SkikoReflection.AwtLinuxDrawingSurfaceHelpersClass)
     assertStaticMethod(helpers, "lockLinuxDrawingSurface", parameterCount = 1)
     assertStaticMethod(helpers, "unlockLinuxDrawingSurface", parameterCount = 1)
 
     // Skiko generates this synthetic accessor for an internal member; it is the only way to make
     // the window's GL context current from outside Skiko.
     assertStaticMethod(
-      Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_HELPERS_CLASS),
+      Class.forName(SkikoReflection.LinuxOpenGlRedrawerHelpersClass),
       "access\$makeCurrent",
       parameterCount = 2,
     )

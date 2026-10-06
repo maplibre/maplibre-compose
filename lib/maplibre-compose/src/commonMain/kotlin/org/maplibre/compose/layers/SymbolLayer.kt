@@ -46,12 +46,12 @@ import org.maplibre.compose.style.styleFontScale
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 
-private const val ASSUMED_SP = 16f // MapLibre's default text size
+private const val AssumedSp = 16f // MapLibre's default text size
 
 @Composable
 private fun rememberDpContext() =
   LayerExpressionContext(
-    emScale = UnitConversion(const(ASSUMED_SP), styleFontScale()),
+    emScale = UnitConversion(const(AssumedSp), styleFontScale()),
     spScale = styleFontScale(),
   )
 
@@ -59,7 +59,7 @@ private fun rememberDpContext() =
 private fun rememberEmContext(textSize: Expression<TextUnitValue>): LayerExpressionContext {
   val textSizeSp =
     remember(textSize) {
-      TextUnitContextExpression(textSize, emScale = const(ASSUMED_SP), spScale = const(1f))
+      TextUnitContextExpression(textSize, emScale = const(AssumedSp), spScale = const(1f))
     }
   val spScale = remember(textSizeSp) { UnitConversion(const(1f), textSizeSp.cast(), divide = true) }
   return LayerExpressionContext(emScale = const(1f), spScale = spScale)

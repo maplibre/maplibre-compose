@@ -79,7 +79,7 @@ class MlnFfiSharedCacheDatabaseTest {
     val operation = runtime.startAmbientCacheOperation(AmbientCacheOperation.INVALIDATE)
     try {
       val started = TimeSource.Monotonic.markNow()
-      while (started.elapsedNow() < CACHE_OPERATION_TIMEOUT) {
+      while (started.elapsedNow() < CacheOperationTimeout) {
         runtime.pump(100)
         val completion = runtime.completionFor(operation) ?: continue
         assertEquals(RuntimeEventType.OFFLINE_OPERATION_COMPLETED, completion.first)
@@ -102,6 +102,6 @@ class MlnFfiSharedCacheDatabaseTest {
     }
 
   private companion object {
-    val CACHE_OPERATION_TIMEOUT = 30.seconds
+    val CacheOperationTimeout = 30.seconds
   }
 }

@@ -237,16 +237,16 @@ class StyleReconcilerTest {
         layers = emptyList(),
         images = emptyList(),
       )
-    val first = image(OPAQUE_RED)
+    val first = image(OpaqueRed)
 
-    reconciler.apply(style, revisionWith(QUAD, first))
+    reconciler.apply(style, revisionWith(Quad, first))
     assertSame(first, style.addedImageSourceImages["image"], "the add takes the prepared image")
 
-    reconciler.apply(style, revisionWith(QUAD, first))
+    reconciler.apply(style, revisionWith(Quad, first))
     assertTrue(style.imageSourceWrites.isEmpty(), "the same prepared image writes nothing")
 
-    val next = image(OPAQUE_GREEN)
-    val moved = QUAD.copy(topLeft = Position(-2.0, 1.0))
+    val next = image(OpaqueGreen)
+    val moved = Quad.copy(topLeft = Position(-2.0, 1.0))
     reconciler.apply(style, revisionWith(moved, next))
     assertEquals(
       listOf(
@@ -310,10 +310,10 @@ class StyleReconcilerTest {
     )
 
   private companion object {
-    const val OPAQUE_RED = 0xffff0000.toInt()
-    const val OPAQUE_GREEN = 0xff00ff00.toInt()
+    const val OpaqueRed = 0xffff0000.toInt()
+    const val OpaqueGreen = 0xff00ff00.toInt()
 
-    val QUAD =
+    val Quad =
       PositionQuad(
         Position(-1.0, 1.0),
         Position(1.0, 1.0),

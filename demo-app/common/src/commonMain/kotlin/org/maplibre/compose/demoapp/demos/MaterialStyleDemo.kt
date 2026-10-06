@@ -25,7 +25,7 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoStyle
-import org.maplibre.compose.demoapp.PROTOMAPS_API_KEY
+import org.maplibre.compose.demoapp.ProtomapsApiKey
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.all
@@ -98,7 +98,7 @@ object MaterialStyleDemo : Demo {
   // A worldwide basemap, so keep the camera wherever it is.
   override val destination = DemoDestination.None
 
-  private const val TILES = "https://api.protomaps.com/tiles/v4.json"
+  private const val Tiles = "https://api.protomaps.com/tiles/v4.json"
 
   private val kind = feature["kind"].asString()
   private val kindDetail = feature["kind_detail"].asString()
@@ -121,7 +121,7 @@ object MaterialStyleDemo : Demo {
 
   @Composable
   override fun MapContent(style: DemoStyle) {
-    val tiles = rememberVectorTileSource("$TILES?key=$PROTOMAPS_API_KEY")
+    val tiles = rememberVectorTileSource("$Tiles?key=$ProtomapsApiKey")
     val colors = MaterialTheme.colorScheme
 
     Terrain(tiles, colors)

@@ -107,7 +107,7 @@ class BrowserCameraTransitionLifecycleTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         val animation =
           launch(start = CoroutineStart.UNDISPATCHED) {
-            it.session.animateCamera(STALE_CAMERA.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
+            it.session.animateCamera(StaleCamera.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
@@ -134,17 +134,17 @@ class BrowserCameraTransitionLifecycleTest {
           val animation =
             launch(start = CoroutineStart.UNDISPATCHED) {
               fixture.state.animateCamera(
-                STALE_CAMERA.toCameraUpdate(),
+                StaleCamera.toCameraUpdate(),
                 CameraAnimation.Fly(60.seconds),
               )
             }
           assertFalse(animation.isCompleted)
-          fixture.state.setCameraPosition(CURRENT_CAMERA)
+          fixture.state.setCameraPosition(CurrentCamera)
           withTimeout(5.seconds) { animation.join() }
           fixture.loadStyle(BaseStyle.Empty)
           fixture.settle()
           assertTrue(animation.isCancelled)
-          assertTrue(fixture.state.cameraPosition.isNear(CURRENT_CAMERA))
+          assertTrue(fixture.state.cameraPosition.isNear(CurrentCamera))
         }
       }
     }
@@ -155,7 +155,7 @@ class BrowserCameraTransitionLifecycleTest {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       val animation =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          it.session.animateCamera(STALE_CAMERA.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
+          it.session.animateCamera(StaleCamera.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
         }
 
       assertFalse(animation.isCompleted, "the animation should wait for the initial style result")
@@ -171,7 +171,7 @@ class BrowserCameraTransitionLifecycleTest {
   fun a_destroyed_web_map_cannot_move_the_logical_map_or_a_cached_presentation(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(cameraPosition = CURRENT_CAMERA, baseStyle = STYLE)
+      val state = runtime.createMapState(cameraPosition = CurrentCamera, baseStyle = Style)
       val presented = mutableStateOf(true)
 
       setBrowserMapContent { if (presented.value) MaplibreMap(state = state) }
@@ -187,11 +187,11 @@ class BrowserCameraTransitionLifecycleTest {
         state.currentMapAttachment == null && departedSession.engineMapForTest() == null
       }
 
-      departedSession.setCameraPosition(STALE_CAMERA)
+      departedSession.setCameraPosition(StaleCamera)
       departedEngine.fire("move", unsafeJso<GlJsMapEvent>())
       waitForIdle()
 
-      assertTrue(state.cameraPosition.isNear(CURRENT_CAMERA))
+      assertTrue(state.cameraPosition.isNear(CurrentCamera))
 
       runtime.close()
       runtime.awaitClosed()
@@ -264,8 +264,8 @@ class BrowserCameraTransitionLifecycleTest {
     }
 
   private companion object {
-    val STYLE = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val CURRENT_CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
-    val STALE_CAMERA = CameraPosition(target = Position(-122.4, 37.8), zoom = 12.0)
+    val Style = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+    val CurrentCamera = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+    val StaleCamera = CameraPosition(target = Position(-122.4, 37.8), zoom = 12.0)
   }
 }

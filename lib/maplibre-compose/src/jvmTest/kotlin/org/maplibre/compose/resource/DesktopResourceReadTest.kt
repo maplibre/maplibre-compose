@@ -109,7 +109,7 @@ class DesktopResourceReadTest {
   }
 
   @Test
-  fun `a URL that is not a URI is reported rather than thrown`() {
+  fun `a Url that is not a URI is reported rather than thrown`() {
     // An unencoded space: a caller pasted a path into a `file:` URL instead of asking a Path.
     val response = read("file:/home/someone/my styles/style.json")
 

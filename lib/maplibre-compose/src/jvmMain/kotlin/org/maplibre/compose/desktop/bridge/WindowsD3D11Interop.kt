@@ -28,14 +28,14 @@ internal object WindowsD3D11Interop {
   private const val D3D11_RESOURCE_MISC_SHARED = 0x2
   private const val D3D11_RESOURCE_MISC_SHARED_NTHANDLE = 0x800
   private const val GENERIC_ALL = 0x10000000
-  private const val IUNKNOWN_QUERY_INTERFACE_INDEX = 0
-  private const val IUNKNOWN_RELEASE_INDEX = 2
-  private const val ID3D11_DEVICE_CREATE_TEXTURE_2D_INDEX = 5
-  private const val IDXGI_DEVICE_GET_ADAPTER_INDEX = 7
-  private const val IDXGI_ADAPTER_GET_DESC_INDEX = 8
-  private const val IDXGI_RESOURCE1_CREATE_SHARED_HANDLE_INDEX = 13
-  private const val DXGI_ADAPTER_DESC_LUID_OFFSET = 296L
-  private const val DXGI_ADAPTER_DESC_SIZE = 304L
+  private const val IUnknownQueryInterfaceIndex = 0
+  private const val IUnknownReleaseIndex = 2
+  private const val ID3d11DeviceCreateTexture2dIndex = 5
+  private const val IDxgiDeviceGetAdapterIndex = 7
+  private const val IDxgiAdapterGetDescIndex = 8
+  private const val IDxgiResource1CreateSharedHandleIndex = 13
+  private const val DxgiAdapterDescLuidOffset = 296L
+  private const val DxgiAdapterDescSize = 304L
 
   private val linker = Linker.nativeLinker()
   private val closeHandle =
@@ -66,7 +66,7 @@ internal object WindowsD3D11Interop {
       val dxgiOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeHResult(
-          comMethod(device, IUNKNOWN_QUERY_INTERFACE_INDEX),
+          comMethod(device, IUnknownQueryInterfaceIndex),
           address(device),
           iid(arena, 0x54ec77fa, 0x1377, 0x44e6, 0x8c, 0x32, 0x88, 0xfd, 0x5f, 0x44, 0xc8, 0x4c),
           dxgiOut,
@@ -78,7 +78,7 @@ internal object WindowsD3D11Interop {
         val adapterOut = arena.allocate(ValueLayout.ADDRESS)
         checkHResult(
           invokeInt(
-            comMethod(dxgi, IDXGI_DEVICE_GET_ADAPTER_INDEX),
+            comMethod(dxgi, IDxgiDeviceGetAdapterIndex),
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
             address(dxgi),
             adapterOut,
@@ -87,17 +87,17 @@ internal object WindowsD3D11Interop {
         )
         val adapter = adapterOut.get(ValueLayout.ADDRESS, 0).address()
         try {
-          val desc = arena.allocate(DXGI_ADAPTER_DESC_SIZE)
+          val desc = arena.allocate(DxgiAdapterDescSize)
           checkHResult(
             invokeInt(
-              comMethod(adapter, IDXGI_ADAPTER_GET_DESC_INDEX),
+              comMethod(adapter, IDxgiAdapterGetDescIndex),
               FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
               address(adapter),
               desc,
             ),
             "IDXGIAdapter::GetDesc",
           )
-          val luid = desc.get(ValueLayout.JAVA_LONG, DXGI_ADAPTER_DESC_LUID_OFFSET)
+          val luid = desc.get(ValueLayout.JAVA_LONG, DxgiAdapterDescLuidOffset)
           check(luid != 0L) { "IDXGIAdapter::GetDesc returned a zero LUID" }
           return luid
         } finally {
@@ -116,7 +116,7 @@ internal object WindowsD3D11Interop {
   fun release(instance: Long) {
     if (instance != NULL) {
       invokeInt(
-        comMethod(instance, IUNKNOWN_RELEASE_INDEX),
+        comMethod(instance, IUnknownReleaseIndex),
         FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
         address(instance),
       )
@@ -143,7 +143,7 @@ internal object WindowsD3D11Interop {
     val textureOut = arena.allocate(ValueLayout.ADDRESS)
     checkHResult(
       invokeHResult(
-        comMethod(device, ID3D11_DEVICE_CREATE_TEXTURE_2D_INDEX),
+        comMethod(device, ID3d11DeviceCreateTexture2dIndex),
         address(device),
         desc,
         MemorySegment.NULL,
@@ -160,7 +160,7 @@ internal object WindowsD3D11Interop {
     val resourceOut = arena.allocate(ValueLayout.ADDRESS)
     checkHResult(
       invokeHResult(
-        comMethod(texture, IUNKNOWN_QUERY_INTERFACE_INDEX),
+        comMethod(texture, IUnknownQueryInterfaceIndex),
         address(texture),
         iid(arena, 0x30961379, 0x4609, 0x4a41, 0x99, 0x8e, 0x54, 0xfe, 0x56, 0x7e, 0xe0, 0xc1),
         resourceOut,
@@ -172,7 +172,7 @@ internal object WindowsD3D11Interop {
       val handleOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeInt(
-          comMethod(resource, IDXGI_RESOURCE1_CREATE_SHARED_HANDLE_INDEX),
+          comMethod(resource, IDxgiResource1CreateSharedHandleIndex),
           FunctionDescriptor.of(
             ValueLayout.JAVA_INT,
             ValueLayout.ADDRESS,

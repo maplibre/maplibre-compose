@@ -18,7 +18,7 @@ private val copyLocks = ConcurrentHashMap<String, Mutex>()
 private val copiesInUse: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
 /** A copy that no call has used for this long is deleted. */
-private val UNUSED_COPY_LIFETIME = 30.days
+private val UnusedCopyLifetime = 30.days
 
 /**
  * Returns a copy of the packaged resource that [open] reads, in [directory].
@@ -27,7 +27,7 @@ private val UNUSED_COPY_LIFETIME = 30.days
  * whenever it exists, a changed resource gets a new copy, and two processes that copy the same
  * resource at the same time write the same file. Every call reads the resource once to identify it,
  * and a call that finds no copy reads it a second time to write one. Copies that no call has used
- * for [UNUSED_COPY_LIFETIME] are deleted, except copies this process has returned.
+ * for [UnusedCopyLifetime] are deleted, except copies this process has returned.
  */
 internal suspend fun copyPackagedFile(
   uri: String,
@@ -86,7 +86,7 @@ private fun InputStream.sha256Hex(to: OutputStream?): String {
 }
 
 private fun deleteUnusedCopies(directory: File) {
-  val cutoff = System.currentTimeMillis() - UNUSED_COPY_LIFETIME.inWholeMilliseconds
+  val cutoff = System.currentTimeMillis() - UnusedCopyLifetime.inWholeMilliseconds
   directory
     .listFiles { file ->
       file.isFile && file.absolutePath !in copiesInUse && file.lastModified() < cutoff

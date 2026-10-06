@@ -10,7 +10,7 @@ internal class PointerDragVelocity(maximumVelocity: Float) {
 
   fun begin(change: PointerInputChange, afterContactChange: Boolean = false) {
     resetTracking()
-    if (afterContactChange) notBefore = change.uptimeMillis + CONTACT_RELEASE_MILLIS
+    if (afterContactChange) notBefore = change.uptimeMillis + ContactReleaseMillis
     addPointerInputChange(change)
   }
 
@@ -33,6 +33,6 @@ internal class PointerDragVelocity(maximumVelocity: Float) {
 
   private companion object {
     // Brief movement between finger lifts belongs to releasing the old contact group.
-    const val CONTACT_RELEASE_MILLIS = 100L
+    const val ContactReleaseMillis = 100L
   }
 }

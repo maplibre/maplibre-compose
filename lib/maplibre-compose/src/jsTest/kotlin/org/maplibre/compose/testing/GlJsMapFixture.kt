@@ -15,7 +15,7 @@ import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputTarget
-import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
+import org.maplibre.compose.gljs.DefaultWorkerUrl
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSurfaceSession
@@ -88,11 +88,11 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.styleAuthority.updateLoadedStyle(glJsSession, null)
-    val styleLoadsBefore = events.count { it == MapFixture.STYLE_LOADED }
+    val styleLoadsBefore = events.count { it == MapFixture.StyleLoaded }
     glJsSession.setBaseStyle(style)
     if (recorder.style?.isLoaded != true) {
       pumpUntil("style $style to load", timeout) {
-        events.count { it == MapFixture.STYLE_LOADED } > styleLoadsBefore
+        events.count { it == MapFixture.StyleLoaded } > styleLoadsBefore
       }
     }
     glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
@@ -191,7 +191,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
 internal actual fun createMapFixture(extent: MapExtent): MapFixture {
   // `pointAtWorker` keeps the first call. Pin the locally served worker here so a MapFixture
   // test that runs before `runBrowserMapTest` still keeps the suite off the CDN.
-  GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
+  GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
   return GlJsMapFixture(extent)
 }
 
@@ -205,7 +205,7 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GlJs
 actual typealias MapTestResult = JsPromise
 
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult {
-  GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
+  GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
   return MainScope()
     .promise {
       // Style declarations use a Skia graphics context, even on a map with its own WebGL canvas.

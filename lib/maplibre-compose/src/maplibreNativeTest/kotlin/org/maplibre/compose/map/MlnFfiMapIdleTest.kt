@@ -23,10 +23,10 @@ class MlnFfiMapIdleTest {
       fixture.pumpUntilRendered()
       fixture.settle()
 
-      val drawn = fixture.renderOnDemand(IDLE_WINDOW)
+      val drawn = fixture.renderOnDemand(IdleWindow)
       assertTrue(
-        drawn <= IDLE_FRAME_ALLOWANCE,
-        "A settled map drew $drawn frames across $IDLE_WINDOW with nothing asking it to.",
+        drawn <= IdleFrameAllowance,
+        "A settled map drew $drawn frames across $IdleWindow with nothing asking it to.",
       )
     }
   }
@@ -49,10 +49,10 @@ class MlnFfiMapIdleTest {
         }
       }
 
-      val drawn = fixture.renderOnDemand(IDLE_WINDOW)
+      val drawn = fixture.renderOnDemand(IdleWindow)
       assertTrue(
-        drawn <= IDLE_FRAME_ALLOWANCE,
-        "Style reads made a settled map draw $drawn frames across $IDLE_WINDOW.",
+        drawn <= IdleFrameAllowance,
+        "Style reads made a settled map draw $drawn frames across $IdleWindow.",
       )
     }
   }
@@ -71,22 +71,22 @@ class MlnFfiMapIdleTest {
       )
       fixture.settle()
 
-      val drawn = fixture.renderOnDemand(IDLE_WINDOW)
+      val drawn = fixture.renderOnDemand(IdleWindow)
       assertTrue(
-        drawn <= IDLE_FRAME_ALLOWANCE,
-        "A map drew $drawn frames across $IDLE_WINDOW after its camera came to rest.",
+        drawn <= IdleFrameAllowance,
+        "A map drew $drawn frames across $IdleWindow after its camera came to rest.",
       )
     }
   }
 
   private companion object {
     /** How long the map is watched for after it has settled. */
-    val IDLE_WINDOW: Duration = 3.seconds
+    val IdleWindow: Duration = 3.seconds
 
     /**
      * Frames a settled map may still draw across the window. Not zero, because settling is observed
      * rather than announced: work in flight when the quiet period elapses can still land a frame.
      */
-    const val IDLE_FRAME_ALLOWANCE = 2
+    const val IdleFrameAllowance = 2
   }
 }

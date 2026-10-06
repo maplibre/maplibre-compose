@@ -70,7 +70,7 @@ internal object NgonEarthquakeHexbins : EarthquakeHexbins {
     // Derived so that camera motion within a level does not recompose.
     val level by
       remember(mapState) { derivedStateOf { round(mapState.cameraPosition.zoom).toInt() } }
-    val bins = remember(loaded, level) { hexbin(loaded, level, CELL_RADIUS_DP) }
+    val bins = remember(loaded, level) { hexbin(loaded, level, CellRadiusDp) }
     val source = rememberGeoJsonSource(GeoJsonData.Features(bins.cells))
 
     NgonLayer(
@@ -117,8 +117,8 @@ private class Hexbins(val cells: FeatureCollection<Point, JsonObject>, val radiu
  */
 private fun hexbin(quakes: List<Position>, level: Int, cellRadiusDp: Float): Hexbins {
   val columns =
-    (WORLD_SIZE / (sqrt(3.0) * cellRadiusDp / 2.0.pow(level))).roundToInt().coerceAtLeast(1)
-  val radius = WORLD_SIZE / (sqrt(3.0) * columns)
+    (WorldSize / (sqrt(3.0) * cellRadiusDp / 2.0.pow(level))).roundToInt().coerceAtLeast(1)
+  val radius = WorldSize / (sqrt(3.0) * columns)
   val counts = HashMap<Pair<Int, Int>, Int>()
   for (quake in quakes) {
     val (x, y) = project(quake)
@@ -129,7 +129,7 @@ private fun hexbin(quakes: List<Position>, level: Int, cellRadiusDp: Float): Hex
   val features = counts.map { (cell, count) ->
     val (x, y) = hexCenter(cell, radius)
     Feature(
-      geometry = Point(unproject(x.mod(WORLD_SIZE), y)),
+      geometry = Point(unproject(x.mod(WorldSize), y)),
       properties = buildJsonObject { put("share", ln(1.0 + count) / ln(1.0 + busiest)) },
     )
   }
@@ -155,19 +155,19 @@ private fun hexCenter(cell: Pair<Int, Int>, radius: Double): Pair<Double, Double
   return radius * (sqrt(3.0) * q + sqrt(3.0) / 2 * r) to radius * 1.5 * r
 }
 
-private const val CELL_RADIUS_DP = 24f
+private const val CellRadiusDp = 24f
 
-private const val WORLD_SIZE = 512.0
+private const val WorldSize = 512.0
 
 private fun project(position: Position): Pair<Double, Double> {
-  val x = (position.longitude + 180) / 360 * WORLD_SIZE
+  val x = (position.longitude + 180) / 360 * WorldSize
   val latitude = position.latitude.coerceIn(-85.05, 85.05) * PI / 180
-  val y = (1 - ln(tan(PI / 4 + latitude / 2)) / PI) / 2 * WORLD_SIZE
+  val y = (1 - ln(tan(PI / 4 + latitude / 2)) / PI) / 2 * WorldSize
   return x to y
 }
 
 private fun unproject(x: Double, y: Double): Position =
   Position(
-    longitude = x / WORLD_SIZE * 360 - 180,
-    latitude = atan(sinh(PI * (1 - 2 * y / WORLD_SIZE))) * 180 / PI,
+    longitude = x / WorldSize * 360 - 180,
+    latitude = atan(sinh(PI * (1 - 2 * y / WorldSize))) * 180 / PI,
   )

@@ -50,13 +50,13 @@ class BrowserImageSourceTest {
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       fun source(): dynamic = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
 
-      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      val handle = fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red)))
       val added = source()
       assertIs<ImageData>(added.image, "the pixels arrive with the source")
       assertEquals(255, added.image.data[0] as Int, "red")
       assertEquals(undefined, added.serialize().url, "no URL stands in for the pixels")
 
-      handle.setUri(GREEN_IMAGE)
+      handle.setUri(GreenImage)
       handle.setImage(solid(Color.Green))
       val updated = source()
       assertEquals(0, updated.image.data[0] as Int, "no red after the update")
@@ -69,16 +69,16 @@ class BrowserImageSourceTest {
   fun pixels_survive_url_replacements_and_lost_webgl_context(): MapTestResult = runMapTest {
     awaitSkia()
     createMapFixture().use { fixture ->
-      fixture.loadStyle(BLACK_STYLE)
+      fixture.loadStyle(BlackStyle)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val source = ImageSource("image", WORLD, solid(Color.Red))
+      val source = ImageSource("image", World, solid(Color.Red))
       val handle = fixture.state.style.sources.add(source)
       style.install(
         TestLayer("image-layer", "raster", source).apply {
           paint("raster-fade-duration", JsonPrimitive(0))
         }
       )
-      fixture.pumpUntilPixel("the image before context loss", 256, 256, RED)
+      fixture.pumpUntilPixel("the image before context loss", 256, 256, Red)
 
       val map = assertNotNull(style.withMap { it })
       val extension =
@@ -89,7 +89,7 @@ class BrowserImageSourceTest {
       try {
         handle.setUri("data:image/png;base64,aW52YWxpZA==")
         fixture.pumpUntil("the failed replacement URL") { replacementFailed }
-        fixture.pumpUntilPixel("the old pixels after the rejected URL", 256, 256, RED)
+        fixture.pumpUntilPixel("the old pixels after the rejected URL", 256, 256, Red)
       } finally {
         failures.cancel()
       }
@@ -109,10 +109,10 @@ class BrowserImageSourceTest {
         restoreContext()
         val restored = map.getSource<GlJsImageSource>("image").asDynamic()
         assertIs<ImageData>(restored.image, "the rebuilt source has its pixels again")
-        fixture.pumpUntilPixel("the image after context restoration", 256, 256, RED)
+        fixture.pumpUntilPixel("the image after context restoration", 256, 256, Red)
 
         // Hold the successful replacement until the style has been rebuilt with fallback pixels.
-        val png = Base64.decode(GREEN_IMAGE.substringAfter(','))
+        val png = Base64.decode(GreenImage.substringAfter(','))
         val bytes = Uint8Array<ArrayBuffer>(png.size)
         png.forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
         val response = unsafeJso<ProtocolResponse> { data = bytes.buffer }
@@ -135,7 +135,7 @@ class BrowserImageSourceTest {
             if (released) respond() else pending.add(respond)
           }
         }
-        val urlOnly = fixture.state.style.sources.add(ImageSource("url-only", WORLD, GREEN_IMAGE))
+        val urlOnly = fixture.state.style.sources.add(ImageSource("url-only", World, GreenImage))
         var urlOnlyLoads = 0
         val urlOnlyLoading =
           map.subscribe("sourcedataloading") {
@@ -152,13 +152,13 @@ class BrowserImageSourceTest {
             map.isSourceLoaded("url-only") == true
           }
           assertEquals(2, urlOnlyLoads, "only GL JS reloads the source without fallback pixels")
-          fixture.pumpUntilPixel("the successful URL after context restoration", 256, 256, GREEN)
+          fixture.pumpUntilPixel("the successful URL after context restoration", 256, 256, Green)
           restoreContext()
           fixture.pumpUntilPixel(
             "the successful URL after another context restoration",
             256,
             256,
-            GREEN,
+            Green,
           )
         } finally {
           urlOnlyLoading.cancel()
@@ -177,17 +177,17 @@ class BrowserImageSourceTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val handle = fixture.state.style.sources.add(ImageSource("image", WORLD, solid(Color.Red)))
+      val handle = fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red)))
       val source = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
       val before = js("JSON.stringify")(source.coordinates) as String
 
-      val rejected = WORLD.copy(topLeft = Position(0.0, 91.0))
+      val rejected = World.copy(topLeft = Position(0.0, 91.0))
       handle.setBounds(rejected)
 
       assertEquals(before, js("JSON.stringify")(source.coordinates) as String)
 
       val image = solid(Color.Red)
-      val initial = ImageSource("declarative", WORLD, image).definition()
+      val initial = ImageSource("declarative", World, image).definition()
       val installation = SourceInstallation(style, initial)
       val next = ImageSource("declarative", rejected, image).definition()
       repeat(2) {
@@ -195,7 +195,7 @@ class BrowserImageSourceTest {
         assertEquals(initial, installation.definition)
       }
       val accepted =
-        ImageSource("declarative", WORLD.copy(topLeft = Position(0.0, 80.0)), image).definition()
+        ImageSource("declarative", World.copy(topLeft = Position(0.0, 80.0)), image).definition()
       installation.update(accepted)
       assertEquals(accepted, installation.definition)
     }
@@ -212,12 +212,12 @@ class BrowserImageSourceTest {
   }
 
   private companion object {
-    const val GREEN_IMAGE =
+    const val GreenImage =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg=="
-    val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
-    val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
+    val Green = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
+    val Red = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
 
-    val WORLD =
+    val World =
       PositionQuad(
         topLeft = Position(-180.0, 85.0),
         topRight = Position(180.0, 85.0),
@@ -225,7 +225,7 @@ class BrowserImageSourceTest {
         bottomLeft = Position(-180.0, -85.0),
       )
 
-    val BLACK_STYLE =
+    val BlackStyle =
       BaseStyle.Json(
         """
         {

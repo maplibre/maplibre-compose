@@ -40,7 +40,7 @@ import org.maplibre.spatialk.geojson.Position
 class CustomGeometrySourceTest {
   private val requests = RecordingList<TileCoordinate>()
 
-  @Volatile private var featureName = FIRST_NAME
+  @Volatile private var featureName = FirstName
 
   @Test
   fun a_custom_geometry_source_renders_features_a_query_can_hit(): MapTestResult = runMapTest {
@@ -49,7 +49,7 @@ class CustomGeometrySourceTest {
       fixture.pumpUntil("the answered tile to be queryable") { fixture.queryCenter().isNotEmpty() }
 
       val feature = fixture.queryCenter().first()
-      assertEquals(buildJsonObject { put("name", FIRST_NAME) }, feature.properties)
+      assertEquals(buildJsonObject { put("name", FirstName) }, feature.properties)
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())
     }
@@ -88,7 +88,7 @@ class CustomGeometrySourceTest {
     createMapFixture().use { fixture ->
       fixture.attachPendingSource(state)
 
-      fixture.loadStyle(REPLACEMENT_STYLE)
+      fixture.loadStyle(ReplacementStyle)
 
       fixture.pumpUntil("the detached custom geometry provider to be cancelled") {
         state.cancelled
@@ -104,8 +104,8 @@ class CustomGeometrySourceTest {
       val style = assertNotNull(fixture.style)
 
       style.onOwner {
-        style.removeLayer(LAYER_ID)
-        style.removeSource(SOURCE_ID)
+        style.removeLayer(LayerId)
+        style.removeSource(SourceId)
       }
 
       fixture.pumpUntil("the removed custom geometry provider to be cancelled") { state.cancelled }
@@ -113,56 +113,56 @@ class CustomGeometrySourceTest {
   }
 
   /**
-   * Adds a source whose fill is blue, or red once the provider names its features [SECOND_NAME],
-   * and renders its first features.
+   * Adds a source whose fill is blue, or red once the provider names its features [SecondName], and
+   * renders its first features.
    */
   private suspend fun MapFixture.attachSource(
     sourceLayer: String? = null
   ): CustomGeometrySourceHandle {
-    loadStyle(BLACK_STYLE)
+    loadStyle(BlackStyle)
     val source =
-      CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) { tile
+      CustomGeometrySource(SourceId, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) { tile
         ->
         requests += tile
         cover(tile.bounds, featureName)
       }
     val handle = assertIs<CustomGeometrySourceHandle>(state.style.sources.add(source))
-    val layer = TestLayer(LAYER_ID, "fill", source)
+    val layer = TestLayer(LayerId, "fill", source)
     sourceLayer?.let { layer.sourceLayer = it }
     layer.paint(
       "fill-color",
       (switch(
-            condition(test = feature["name"] eq const(SECOND_NAME), output = const(Color.Red)),
+            condition(test = feature["name"] eq const(SecondName), output = const(Color.Red)),
             fallback = const(Color.Blue),
           )
           .compile(ExpressionContext.None))
         .asLayerProperty(),
     )
     assertNotNull(style).install(layer)
-    pumpUntilPixel("the provider's first features to render", CENTER, CENTER, BLUE)
+    pumpUntilPixel("the provider's first features to render", Center, Center, Blue)
     return handle
   }
 
   /** Invalidates through [invalidate] and waits for the provider's renamed features. */
   private suspend fun MapFixture.awaitReload(invalidate: () -> Unit) {
     val answered = requests.size
-    featureName = SECOND_NAME
+    featureName = SecondName
 
     invalidate()
 
     pumpUntil("the invalidated tile to be requested again") { requests.size > answered }
-    pumpUntilPixel("the provider's new features to render", CENTER, CENTER, RED)
+    pumpUntilPixel("the provider's new features to render", Center, Center, Red)
     pumpUntil("the provider's new features to be queryable") {
-      queryCenter().any { it.properties?.get("name")?.jsonPrimitive?.content == SECOND_NAME }
+      queryCenter().any { it.properties?.get("name")?.jsonPrimitive?.content == SecondName }
     }
   }
 
   /** Adds a source whose provider never answers, and waits for the provider to start. */
   private suspend fun MapFixture.attachPendingSource(state: CancellationState) {
-    loadStyle(BLACK_STYLE)
+    loadStyle(BlackStyle)
     val style = assertNotNull(style)
     val source =
-      CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+      CustomGeometrySource(SourceId, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
         state.started = true
         try {
           awaitCancellation()
@@ -171,12 +171,12 @@ class CustomGeometrySourceTest {
         }
       }
     style.install(source)
-    style.install(TestLayer(LAYER_ID, "fill", source))
+    style.install(TestLayer(LayerId, "fill", source))
     pumpUntil("the custom geometry provider to start") { state.started }
   }
 
   private suspend fun MapFixture.queryCenter() =
-    state.queryRenderedFeatures(offset = DpOffset(CENTER.dp, CENTER.dp))
+    state.queryRenderedFeatures(offset = DpOffset(Center.dp, Center.dp))
 
   private class CancellationState {
     @Volatile var started = false
@@ -184,15 +184,15 @@ class CustomGeometrySourceTest {
   }
 
   private companion object {
-    const val SOURCE_ID = "custom-geometry"
-    const val LAYER_ID = "custom-geometry-fill"
-    const val CENTER = 256
-    const val FIRST_NAME = "first"
-    const val SECOND_NAME = "second"
-    val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
-    val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
+    const val SourceId = "custom-geometry"
+    const val LayerId = "custom-geometry-fill"
+    const val Center = 256
+    const val FirstName = "first"
+    const val SecondName = "second"
+    val Blue = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
+    val Red = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
 
-    val BLACK_STYLE =
+    val BlackStyle =
       BaseStyle.Json(
         """
         {
@@ -207,7 +207,7 @@ class CustomGeometrySourceTest {
           .trimIndent()
       )
 
-    val REPLACEMENT_STYLE =
+    val ReplacementStyle =
       BaseStyle.Json(
         """
         {

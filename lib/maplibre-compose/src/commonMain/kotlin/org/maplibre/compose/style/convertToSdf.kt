@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 // initially copied from https://github.com/mapbox/tiny-sdf/blob/main/index.js and then made to
 // work with a simple ARGB IntArray and simplified
 
-private const val INF = 1e20
+private const val Inf = 1e20
 
 internal fun convertToSdf(
   bitmap: IntArray,
@@ -20,7 +20,7 @@ internal fun convertToSdf(
   val gridOuter =
     DoubleArray(bitmap.size) { i ->
       when (val a = bitmap[i].ushr(24)) {
-        0 -> INF
+        0 -> Inf
         255 -> 0.0
         else -> {
           val d = 0.5f - (a.toDouble() / 255.0)
@@ -33,7 +33,7 @@ internal fun convertToSdf(
     DoubleArray(bitmap.size) { i ->
       when (val a = bitmap[i].ushr(24)) {
         0 -> 0.0
-        255 -> INF
+        255 -> Inf
         else -> {
           val d = 0.5f - (a.toDouble() / 255.0)
           if (d < 0) d * d else 0.0
@@ -79,8 +79,8 @@ private fun edt1d(
   z: DoubleArray,
 ) {
   v[0] = 0
-  z[0] = -INF
-  z[1] = INF
+  z[0] = -Inf
+  z[1] = Inf
   f[0] = grid[offset]
 
   var k = 0
@@ -96,7 +96,7 @@ private fun edt1d(
     k++
     v[k] = q
     z[k] = s
-    z[k + 1] = INF
+    z[k + 1] = Inf
   }
 
   k = 0

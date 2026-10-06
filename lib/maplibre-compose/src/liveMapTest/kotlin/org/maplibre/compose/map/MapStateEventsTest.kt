@@ -29,7 +29,7 @@ class MapStateEventsTest {
             async(start = CoroutineStart.UNDISPATCHED) {
               fixture.state.events.first { it is MapEvent.FrameRendered }
             }
-          fixture.state.style.asMutable!!.baseStyle = EVENT_TEST_STYLE
+          fixture.state.style.asMutable!!.baseStyle = EventTestStyle
 
           assertEquals(MapEvent.StyleLoaded, styleLoaded.await())
           frameRendered.await()
@@ -39,5 +39,5 @@ class MapStateEventsTest {
   }
 }
 
-private val EVENT_TEST_STYLE =
+private val EventTestStyle =
   BaseStyle.Json("""{"version":8,"name":"MapState events","sources":{},"layers":[]}""")

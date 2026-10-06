@@ -31,7 +31,7 @@ class GeoJsonClusterTest {
   fun cluster_queries_resolve_features_and_report_missing_clusters(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = ZOOM))
+      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = Zoom))
       val binding = checkNotNull(fixture.style)
       val source =
         GeoJsonSource(
@@ -53,10 +53,10 @@ class GeoJsonClusterTest {
       fixture.pumpUntil("a cluster to render") { rendered().any(handle::isCluster) }
       val cluster = rendered().first(handle::isCluster)
 
-      assertTrue(assertNotNull(handle.getClusterExpansionZoom(cluster)) > ZOOM)
+      assertTrue(assertNotNull(handle.getClusterExpansionZoom(cluster)) > Zoom)
       assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
       assertEquals(2, handle.getClusterLeaves(cluster, limit = 2, offset = 0).features.size)
-      assertEquals(POINT_COUNT - 1, handle.getClusterLeaves(cluster, 10, 1).features.size)
+      assertEquals(PointCount - 1, handle.getClusterLeaves(cluster, 10, 1).features.size)
 
       handle.asMutable!!.setData(
         GeoJsonData.Features(
@@ -77,13 +77,13 @@ class GeoJsonClusterTest {
   }
 
   private fun nearbyPoints(): FeatureCollection<Geometry, JsonObject?> = buildFeatureCollection {
-    repeat(POINT_COUNT) { index ->
+    repeat(PointCount) { index ->
       addFeature(geometry = Point(Position(index * 0.001, 0.0)))
     }
   }
 
   private companion object {
-    const val POINT_COUNT = 3
-    const val ZOOM = 4.0
+    const val PointCount = 3
+    const val Zoom = 4.0
   }
 }

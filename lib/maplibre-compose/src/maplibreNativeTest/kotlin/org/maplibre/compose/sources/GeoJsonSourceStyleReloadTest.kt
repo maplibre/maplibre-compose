@@ -24,7 +24,7 @@ class GeoJsonSourceStyleReloadTest {
         )
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
 
-      fixture.loadStyle(REPLACEMENT_STYLE)
+      fixture.loadStyle(ReplacementStyle)
 
       assertFailsWith<IllegalStateException> {
         handle.asMutable!!.setData(
@@ -35,7 +35,7 @@ class GeoJsonSourceStyleReloadTest {
   }
 
   private companion object {
-    val REPLACEMENT_STYLE =
+    val ReplacementStyle =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
       )

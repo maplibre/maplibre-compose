@@ -43,7 +43,7 @@ class NativeProcessExitTest {
       val exited = process.waitFor(30, TimeUnit.SECONDS)
       val log = Files.readString(output)
       assertTrue(
-        log.lineSequence().any { it == READY_TO_EXIT },
+        log.lineSequence().any { it == ReadyToExit },
         "Child did not finish cleanup:\n$log",
       )
       assertTrue(exited, "JVM hung during native shutdown:\n$log")
@@ -101,10 +101,9 @@ internal object NativeProcessExitProbe {
         fixture.pumpUntilRendered()
       }
     }
-    println(READY_TO_EXIT)
+    println(ReadyToExit)
     exitProcess(0)
   }
 }
 
-private const val READY_TO_EXIT =
-  "Native callback and runtime cleanup finished; requesting JVM exit"
+private const val ReadyToExit = "Native callback and runtime cleanup finished; requesting JVM exit"

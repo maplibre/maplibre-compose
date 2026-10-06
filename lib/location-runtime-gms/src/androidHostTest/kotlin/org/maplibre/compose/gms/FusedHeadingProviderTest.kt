@@ -91,7 +91,7 @@ class FusedHeadingProviderTest {
             onRemove = { removed.complete(Unit) },
           ),
         elapsedRealtimeNanos = { 0L },
-        executor = DIRECT_EXECUTOR,
+        executor = DirectExecutor,
       )
     val collection = launch { provider.updates(HeadingRequest(Duration.ZERO)).collect {} }
 
@@ -143,6 +143,6 @@ class FusedHeadingProviderTest {
   }
 
   private companion object {
-    val DIRECT_EXECUTOR = Executor { it.run() }
+    val DirectExecutor = Executor { it.run() }
   }
 }
