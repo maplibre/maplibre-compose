@@ -3,7 +3,7 @@ title: Getting started
 description: Add MapLibre Compose to a Compose Multiplatform project and display your first map.
 ---
 
-import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
@@ -196,6 +196,12 @@ Enable native access when you run the desktop app:
     ```shell
     kotlin run --module desktop-app --jvm-args="--enable-native-access=ALL-UNNAMED"
     ```
+
+    <Aside type="caution">
+      Kotlin Toolchain can't add this flag to a packaged app. Pass it yourself
+      when you run the JAR:
+      `java --enable-native-access=ALL-UNNAMED -jar desktop-app-jvm-executable.jar`.
+    </Aside>
   </TabItem>
 </Tabs>
 
