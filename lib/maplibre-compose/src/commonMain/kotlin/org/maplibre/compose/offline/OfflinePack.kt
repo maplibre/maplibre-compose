@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 internal interface OfflinePackOwner {
-  /** Throws [IllegalStateException] when the runtime that owns this pack is closed. */
+  /** Throws [IllegalStateException] when the runtime that owns this storage is closed. */
   fun requireRuntimeOpen()
 
   suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray)
