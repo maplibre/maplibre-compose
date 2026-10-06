@@ -221,7 +221,7 @@ class RuntimeBoundOfflineStorageTest {
       OfflinePackDefinition.TilePyramid(
         styleUrl = "https://example.test/style.json",
         bounds = BoundingBox(west = -1.0, south = -1.0, east = 1.0, north = 1.0),
-        pixelRatio = 1.0,
+        pixelRatio = 1f,
       )
 
     val databaseFile = Path("source-offline.db")

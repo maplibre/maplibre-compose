@@ -28,7 +28,7 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
         bounds = bounds.toLatLngBounds(),
         minZoom = minZoom,
         maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-        pixelRatio = pixelRatio.toFloat(),
+        pixelRatio = pixelRatio,
         includeIdeographs = INCLUDE_IDEOGRAPHS,
       )
     is OfflinePackDefinition.Shape ->
@@ -37,7 +37,7 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
         geometry = shape.toJson().encodeToByteArray(),
         minZoom = minZoom,
         maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-        pixelRatio = pixelRatio.toFloat(),
+        pixelRatio = pixelRatio,
         includeIdeographs = INCLUDE_IDEOGRAPHS,
       )
     is UnspecifiedOfflinePackDefinition ->
@@ -55,7 +55,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
       OfflinePackDefinition.TilePyramid(
         styleUrl = styleUrl,
         bounds = bounds.toBoundingBox(),
-        pixelRatio = pixelRatio.toDouble(),
+        pixelRatio = pixelRatio,
         minZoom = minZoom,
         // MapLibre stores an unlimited maximum as infinity.
         maxZoom = maxZoom.takeIf { it.isFinite() },
@@ -64,7 +64,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
       OfflinePackDefinition.Shape(
         styleUrl = styleUrl,
         shape = geometry.toGeoJsonGeometry(logger),
-        pixelRatio = pixelRatio.toDouble(),
+        pixelRatio = pixelRatio,
         minZoom = minZoom,
         maxZoom = maxZoom.takeIf { it.isFinite() },
       )

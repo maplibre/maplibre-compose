@@ -53,7 +53,7 @@ class MlnFfiOfflinePackTest {
   fun a_created_pack_is_listed_with_the_definition_and_metadata_it_was_created_with() =
     runBlocking {
       val storage = storage()
-      val definition = tilePyramid(writeStyle("listed.json"), pixelRatio = 2.0)
+      val definition = tilePyramid(writeStyle("listed.json"), pixelRatio = 2f)
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
       val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { storage.create(definition, metadata) }
@@ -169,7 +169,7 @@ class MlnFfiOfflinePackTest {
                 )
               )
             ),
-          pixelRatio = 1.0,
+          pixelRatio = 1f,
           minZoom = 5.5,
           maxZoom = 12.75,
         ),
@@ -205,7 +205,7 @@ class MlnFfiOfflinePackTest {
               )
             )
           ),
-        pixelRatio = 2.0,
+        pixelRatio = 2f,
         minZoom = 2.0,
         maxZoom = null,
       )
@@ -401,7 +401,7 @@ class MlnFfiOfflinePackTest {
 
   private fun tilePyramid(
     styleUrl: String,
-    pixelRatio: Double = 1.0,
+    pixelRatio: Float = 1f,
   ): OfflinePackDefinition.TilePyramid =
     OfflinePackDefinition.TilePyramid(
       styleUrl = styleUrl,
