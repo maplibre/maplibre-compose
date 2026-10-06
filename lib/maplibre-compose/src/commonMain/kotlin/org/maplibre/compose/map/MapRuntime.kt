@@ -282,8 +282,7 @@ internal constructor(
 /**
  * Reports the load state for the desired base style of one logical map.
  *
- * Closed. The cases cover every stage of a load: waiting for a map surface, loading, ready, and
- * failed.
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface StyleLoadState {
   /** No map surface can currently load the desired style. */
@@ -305,6 +304,12 @@ public sealed interface StyleLoadState {
    */
   public data class Failed internal constructor(public val reason: String?) : StyleLoadState
 }
+
+/**
+ * Keeps [StyleLoadState] open: callers' `when` needs an `else` branch. The library never reports
+ * it.
+ */
+internal data object UnspecifiedStyleLoadState : StyleLoadState
 
 internal interface MapStyleStateOwner {
   fun setBaseStyle(value: BaseStyle)

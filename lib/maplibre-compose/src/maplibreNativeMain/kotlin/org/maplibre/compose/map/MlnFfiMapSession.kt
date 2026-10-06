@@ -50,6 +50,7 @@ import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.UnspecifiedBaseStyle
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.mercatorPixelDistance
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -671,6 +672,7 @@ internal class MlnFfiMapSession(
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
+        UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
       }
     } catch (error: MaplibreException) {
       val reason = error.message ?: "Failed to apply the base style"

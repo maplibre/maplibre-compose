@@ -11,6 +11,7 @@ import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.UnspecifiedBaseStyle
 import web.html.HTMLElement
 
 /**
@@ -70,6 +71,7 @@ internal fun MaplibreMap.loadBaseStyle(
     when (style) {
       is BaseStyle.Uri -> setStyle(styleUrl(style.uri), options)
       is BaseStyle.Json -> setStyle(styleJson(style.json), options)
+      UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
     }
   } catch (error: Throwable) {
     subscription.cancel()
