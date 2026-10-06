@@ -2,9 +2,8 @@ package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.util.concurrent.ConcurrentLinkedQueue
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
-import org.maplibre.compose.desktop.onGpuThread
+import org.maplibre.compose.desktop.MetalPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -20,7 +19,7 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 
 /** All map producers share Metal allocation, presentation, and frame ownership. */
 internal class MetalMapHost(
-  presentationHost: ComposeMapPresentationHost,
+  presentationHost: MetalPresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Metal,
 ) :
   SharedTextureMapHost<MetalComposeGpuContext, MetalMapHost.SharedTexture>(
@@ -140,13 +139,6 @@ internal class MetalMapHost(
     }
     deferred?.let(pendingMetalDisposals::add)
   }
-
-  override fun <R> withComposeContext(action: (MetalComposeGpuContext) -> R): R? =
-    presentationHost.onGpuThread {
-      val context = presentationHost.gpuContext() ?: return@onGpuThread null
-      check(context is MetalComposeGpuContext) { "The host no longer reports a Metal context" }
-      action(context)
-    }
 
   override fun contextReplaced() {
     presenter.closeAll()

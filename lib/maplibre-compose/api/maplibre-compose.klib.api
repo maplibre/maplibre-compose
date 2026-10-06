@@ -4514,19 +4514,6 @@ final suspend fun <#A: kotlin/Any?> (org.maplibre.compose.map/MapState).org.mapl
 final suspend fun org.maplibre.compose.sources/mbtilesUrl(kotlin/String): kotlin/String // org.maplibre.compose.sources/mbtilesUrl|mbtilesUrl(kotlin.String){}[0]
 
 // Targets: [apple]
-final enum class org.maplibre.compose.mlnffi/ComposeRenderBackend : kotlin/Enum<org.maplibre.compose.mlnffi/ComposeRenderBackend> { // org.maplibre.compose.mlnffi/ComposeRenderBackend|null[0]
-    enum entry Direct3D12 // org.maplibre.compose.mlnffi/ComposeRenderBackend.Direct3D12|null[0]
-    enum entry Metal // org.maplibre.compose.mlnffi/ComposeRenderBackend.Metal|null[0]
-    enum entry OpenGl // org.maplibre.compose.mlnffi/ComposeRenderBackend.OpenGl|null[0]
-
-    final val entries // org.maplibre.compose.mlnffi/ComposeRenderBackend.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.mlnffi/ComposeRenderBackend> // org.maplibre.compose.mlnffi/ComposeRenderBackend.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.mlnffi/ComposeRenderBackend // org.maplibre.compose.mlnffi/ComposeRenderBackend.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.mlnffi/ComposeRenderBackend> // org.maplibre.compose.mlnffi/ComposeRenderBackend.values|values#static(){}[0]
-}
-
-// Targets: [apple]
 sealed interface org.maplibre.compose.map/CameraProjection { // org.maplibre.compose.map/CameraProjection|null[0]
     final class Axonometric : org.maplibre.compose.map/CameraProjection { // org.maplibre.compose.map/CameraProjection.Axonometric|null[0]
         constructor <init>(kotlin/Double = ..., kotlin/Double = ...) // org.maplibre.compose.map/CameraProjection.Axonometric.<init>|<init>(kotlin.Double;kotlin.Double){}[0]

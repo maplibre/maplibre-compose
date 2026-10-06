@@ -66,9 +66,8 @@ import org.lwjgl.system.MemoryUtil.memGetAddress
 import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.system.Pointer.POINTER_SIZE
 import org.lwjgl.system.libffi.LibFFI.ffi_type_pointer
-import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.OpenGlPresentationHost
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
@@ -76,7 +75,6 @@ import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
-import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -96,7 +94,7 @@ class LinuxOpenGlInteropTest {
   fun `an inherited GL error does not poison the first memory import`() =
     onLinux("importing a Vulkan memory fd into OpenGL is a Linux-only path") {
       EglTestContext.create().use { egl ->
-        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
         try {
           egl.withCurrent {
             clearGlErrors()
@@ -116,7 +114,7 @@ class LinuxOpenGlInteropTest {
   fun `a resize can still present the last completed generation`() =
     onLinux("the Linux OpenGL bridge this resizes exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
         try {
           val first =
             InteropMap(host).use { map ->
@@ -143,7 +141,7 @@ class LinuxOpenGlInteropTest {
       EglTestContext.create().use { firstEgl ->
         EglTestContext.create().use { secondEgl ->
           val presentationHost = EglPresentationHost(firstEgl)
-          val host = LinuxOpenGlMapHost(presentationHost, packagedProducer())
+          val host = LinuxOpenGlMapHost(presentationHost.host, packagedProducer())
           try {
             InteropMap(host).use { map ->
               val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
@@ -177,7 +175,7 @@ class LinuxOpenGlInteropTest {
   fun `reusing the shared target presents the new pixels`() =
     onLinux("the Linux OpenGL bridge this reuses exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
         try {
           InteropMap(host).use { map ->
             egl.withCurrent {
@@ -216,20 +214,17 @@ class LinuxOpenGlInteropTest {
     )
   }
 
-  private class EglPresentationHost(egl: EglTestContext) : ComposeMapPresentationHost {
+  private class EglPresentationHost(egl: EglTestContext) {
     private val ownerThread = Thread.currentThread()
     private var context = egl.asComposeContext()
 
-    override val description: String = "the test EGL OpenGL context"
-    override val backend: ComposeRenderBackend = ComposeRenderBackend.OpenGl
-
-    override fun gpuContext(): ComposeGpuContext = context
+    val host = OpenGlPresentationHost("the test EGL OpenGL context", { context }, ::runOnGpuThread)
 
     fun replaceContext(egl: EglTestContext) {
       context = egl.asComposeContext()
     }
 
-    override fun runOnGpuThread(action: Runnable) {
+    private fun runOnGpuThread(action: Runnable) {
       check(Thread.currentThread() === ownerThread) {
         "EGL test context used from the wrong thread"
       }
@@ -237,7 +232,9 @@ class LinuxOpenGlInteropTest {
     }
 
     private fun EglTestContext.asComposeContext() =
-      OpenGlComposeGpuContext(directContext) { action -> withCurrent { action.run() } }
+      OpenGlComposeGpuContext(directContext) { action ->
+        withCurrent { action.run() }
+      }
   }
 
   private class InteropMap(private val host: LinuxOpenGlMapHost) : AutoCloseable {

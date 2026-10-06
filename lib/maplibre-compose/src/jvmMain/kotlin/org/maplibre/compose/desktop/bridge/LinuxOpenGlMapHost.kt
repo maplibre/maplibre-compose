@@ -37,8 +37,8 @@ import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
 import org.lwjgl.vulkan.VkMemoryGetFdInfoKHR
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.OpenGlPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -56,7 +56,7 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
 internal class LinuxOpenGlMapHost(
-  presentationHost: ComposeMapPresentationHost,
+  presentationHost: OpenGlPresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<OpenGlComposeGpuContext, LinuxOpenGlMapHost.LinuxSharedTexture>(
@@ -122,9 +122,6 @@ internal class LinuxOpenGlMapHost(
     texture.close()
   }
 
-  override fun <R> withComposeContext(action: (OpenGlComposeGpuContext) -> R): R? =
-    presentationHost.withOpenGlContextOrNull(action)
-
   /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
   override fun contextReplaced() {
     presenter.abandonAll()
@@ -139,10 +136,12 @@ internal class LinuxOpenGlMapHost(
     // At window close the Compose surface may already be gone; the driver reclaims the GL objects
     // along with the context.
     runCatching {
-      presentationHost.withOpenGlContext {
-        textures.releaseAll()
-        presenter.closeAll()
-      }
+      checkNotNull(
+        presentationHost.withContext {
+          textures.releaseAll()
+          presenter.closeAll()
+        }
+      )
     }
       .onFailure {
         contextReplaced()

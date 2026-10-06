@@ -130,7 +130,12 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   }
 
   private fun composeBackend(): ComposeRenderBackend =
-    checkNotNull(HostOperatingSystem.current().composeBackend)
+    when (HostOperatingSystem.current()) {
+      HostOperatingSystem.Macos -> ComposeRenderBackend.Metal
+      HostOperatingSystem.Windows -> ComposeRenderBackend.Direct3D12
+      HostOperatingSystem.Linux -> ComposeRenderBackend.OpenGl
+      HostOperatingSystem.Unsupported -> error("Unsupported test platform")
+    }
 
   companion object {
     fun prepare(presentationCount: Int): CurrentRuntimeTestMapHostFactory {

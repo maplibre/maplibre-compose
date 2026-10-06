@@ -18,13 +18,11 @@ import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
 import org.lwjgl.vulkan.VK10.VK_SUCCESS
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT
 import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
-import org.maplibre.compose.desktop.onGpuThread
+import org.maplibre.compose.desktop.Direct3D12PresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
@@ -61,7 +59,7 @@ internal data class Direct3DTextureTarget(
  * texture origin.
  */
 internal class Direct3D12MapHost(
-  presentationHost: ComposeMapPresentationHost,
+  presentationHost: Direct3D12PresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<Direct3D12ComposeGpuContext, Direct3D12MapHost.SharedTexture>(
@@ -197,18 +195,6 @@ internal class Direct3D12MapHost(
     presentationHost.runOnGpuThread { presenter.forget(direct3DTexture.address) }
     WindowsDirect3DInterop.release(direct3DTexture)
   }
-
-  override fun <R> withComposeContext(action: (Direct3D12ComposeGpuContext) -> R): R? =
-    presentationHost.onGpuThread {
-      val context = presentationHost.gpuContext() ?: return@onGpuThread null
-      val direct3DContext =
-        context as? Direct3D12ComposeGpuContext
-          ?: throw MlnFfiHostException(
-            "${presentationHost.description} switched from Direct3D12ComposeGpuContext to " +
-              context::class.simpleName
-          )
-      action(direct3DContext)
-    }
 
   override fun contextReplaced() {
     presenter.closeAll()

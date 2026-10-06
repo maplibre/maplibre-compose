@@ -7,8 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
-import org.maplibre.compose.desktop.OpenGlInterop
-import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -29,19 +27,9 @@ actual fun PlatformRenderSettingsItems(settings: DemoSettings) {
       .getOrDefault("unavailable")
   }
   val host = LocalComposeMapPresentationHost.current
-  val composeBackend =
-    when (host.backend) {
-      ComposeRenderBackend.Metal -> "Metal"
-      ComposeRenderBackend.Direct3D12 -> "Direct3D 12"
-      ComposeRenderBackend.OpenGl ->
-        when (host.openGlInterop) {
-          OpenGlInterop.Native -> "OpenGL"
-          OpenGlInterop.AngleD3D11 -> "ANGLE / Direct3D 11"
-        }
-    }
   ListItem(
     headlineContent = { Text("Rendering bridge") },
-    supportingContent = { Text("MapLibre $mapBackends → Compose $composeBackend") },
+    supportingContent = { Text("MapLibre $mapBackends → ${host.description}") },
     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
   )
 }

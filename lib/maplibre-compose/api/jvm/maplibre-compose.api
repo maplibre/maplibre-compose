@@ -199,29 +199,26 @@ public final class org/maplibre/compose/camera/Viewport {
 	public fun toString ()Ljava/lang/String;
 }
 
-public abstract interface class org/maplibre/compose/desktop/ComposeGpuContext {
-	public abstract fun getBackend ()Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public abstract fun getSkiaContext ()Lorg/jetbrains/skia/DirectContext;
-}
-
 public abstract interface class org/maplibre/compose/desktop/ComposeMapPresentationHost {
-	public abstract fun getBackend ()Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
+	public static final field Companion Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;
 	public abstract fun getDescription ()Ljava/lang/String;
-	public fun getOpenGlInterop ()Lorg/maplibre/compose/desktop/OpenGlInterop;
-	public fun getXdgPortalWindow ()Lorg/maplibre/compose/location/XdgPortalWindow;
-	public abstract fun gpuContext ()Lorg/maplibre/compose/desktop/ComposeGpuContext;
-	public abstract fun runOnGpuThread (Ljava/lang/Runnable;)V
+	public abstract fun getXdgPortalWindow ()Lorg/maplibre/compose/location/XdgPortalWindow;
 }
 
-public final class org/maplibre/compose/desktop/ComposeMapPresentationHost$DefaultImpls {
-	public static fun getOpenGlInterop (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;)Lorg/maplibre/compose/desktop/OpenGlInterop;
-	public static fun getXdgPortalWindow (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;)Lorg/maplibre/compose/location/XdgPortalWindow;
+public final class org/maplibre/compose/desktop/ComposeMapPresentationHost$Companion {
+	public final fun angleD3D11 (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public static synthetic fun angleD3D11$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun direct3D12 (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public static synthetic fun direct3D12$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun metal (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public static synthetic fun metal$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun openGl (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public static synthetic fun openGl$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
 }
 
 public final class org/maplibre/compose/desktop/Direct3D12ComposeGpuContext : org/maplibre/compose/desktop/ComposeGpuContext {
 	public static final field $stable I
 	public synthetic fun <init> (Lorg/jetbrains/skia/DirectContext;JLkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun getBackend ()Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
 	public final fun getDevice-4nG8iGE ()J
 	public fun getSkiaContext ()Lorg/jetbrains/skia/DirectContext;
 }
@@ -235,7 +232,6 @@ public final class org/maplibre/compose/desktop/LocalComposeMapPresentationHostK
 public final class org/maplibre/compose/desktop/MetalComposeGpuContext : org/maplibre/compose/desktop/ComposeGpuContext {
 	public static final field $stable I
 	public synthetic fun <init> (Lorg/jetbrains/skia/DirectContext;JLkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun getBackend ()Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
 	public final fun getDevice-4nG8iGE ()J
 	public fun getSkiaContext ()Lorg/jetbrains/skia/DirectContext;
 }
@@ -243,17 +239,8 @@ public final class org/maplibre/compose/desktop/MetalComposeGpuContext : org/map
 public final class org/maplibre/compose/desktop/OpenGlComposeGpuContext : org/maplibre/compose/desktop/ComposeGpuContext {
 	public static final field $stable I
 	public fun <init> (Lorg/jetbrains/skia/DirectContext;Lkotlin/jvm/functions/Function1;)V
-	public fun getBackend ()Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
 	public fun getSkiaContext ()Lorg/jetbrains/skia/DirectContext;
 	public final fun getWithContextCurrent ()Lkotlin/jvm/functions/Function1;
-}
-
-public final class org/maplibre/compose/desktop/OpenGlInterop : java/lang/Enum {
-	public static final field AngleD3D11 Lorg/maplibre/compose/desktop/OpenGlInterop;
-	public static final field Native Lorg/maplibre/compose/desktop/OpenGlInterop;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/desktop/OpenGlInterop;
-	public static fun values ()[Lorg/maplibre/compose/desktop/OpenGlInterop;
 }
 
 public abstract interface class org/maplibre/compose/expressions/ast/CallArgument {
@@ -2785,15 +2772,6 @@ public final class org/maplibre/compose/map/TileLodOptions$Companion {
 	public final fun getHighDetail ()Lorg/maplibre/compose/map/TileLodOptions;
 	public final fun getPerformance ()Lorg/maplibre/compose/map/TileLodOptions;
 	public final fun getStandard ()Lorg/maplibre/compose/map/TileLodOptions;
-}
-
-public final class org/maplibre/compose/mlnffi/ComposeRenderBackend : java/lang/Enum {
-	public static final field Direct3D12 Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static final field Metal Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static final field OpenGl Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
-	public static fun values ()[Lorg/maplibre/compose/mlnffi/ComposeRenderBackend;
 }
 
 public final class org/maplibre/compose/mlnffi/NativeHandle {

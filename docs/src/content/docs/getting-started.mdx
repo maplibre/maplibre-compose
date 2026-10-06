@@ -161,9 +161,15 @@ drivers with external-memory support.
 On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
 graphics context. For Java AWT windows, use
 <Api of="rememberAwtComposeMapPresentationHost" />. For an alternative Compose
-host, implement `ComposeMapPresentationHost` yourself.
+host, use `ComposeMapPresentationHost.metal`, `direct3D12`, `openGl` (Linux), or
+`angleD3D11` (Windows). Supply the typed GPU context callback and synchronous
+exclusive GPU access callback. The context may be unavailable during initialization.
 
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
+
+A custom Metal host supplies its window callbacks:
+
+<Code code={region(desktopGettingStarted, "custom-host")} lang="kotlin" />
 
 Enable native access when you run the desktop app:
 

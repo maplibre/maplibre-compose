@@ -36,7 +36,7 @@ public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMa
  */
 @Composable
 public fun rememberAwtComposeMapPresentationHost(window: Window): ComposeMapPresentationHost =
-  remember(window) { AwtComposeMapPresentationHost(window) }
+  remember(window) { AwtComposeMapPresentationHost(window).presentationHost }
 
 /**
  * Renders maps in [content] against [host].

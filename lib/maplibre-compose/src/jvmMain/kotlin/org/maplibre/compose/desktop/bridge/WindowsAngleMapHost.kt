@@ -1,7 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import org.maplibre.compose.desktop.ComposeMapPresentationHost
+import org.maplibre.compose.desktop.AngleD3D11PresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -19,7 +19,7 @@ import org.maplibre.compose.mlnffi.TextureOrigin
  * handle; Compose samples the same texture via `EGL_ANGLE_d3d_texture_client_buffer`.
  */
 internal class WindowsAngleMapHost(
-  presentationHost: ComposeMapPresentationHost,
+  presentationHost: AngleD3D11PresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<OpenGlComposeGpuContext, WindowsAngleMapHost.WindowsOpenGlSharedTexture>(
@@ -82,9 +82,6 @@ internal class WindowsAngleMapHost(
     texture.close()
   }
 
-  override fun <R> withComposeContext(action: (OpenGlComposeGpuContext) -> R): R? =
-    presentationHost.withOpenGlContextOrNull(action)
-
   override fun contextReplaced() {
     presenter.abandonAll()
     textures.retireCurrent()
@@ -94,10 +91,12 @@ internal class WindowsAngleMapHost(
   override fun closeTextures() {
     val closing = textures.removeAll()
     val closedWithContext = runCatching {
-      presentationHost.withOpenGlContext {
-        closing.forEach(WindowsOpenGlSharedTexture::closeImported)
-        presenter.closeAll()
-      }
+      checkNotNull(
+        presentationHost.withContext {
+          closing.forEach(WindowsOpenGlSharedTexture::closeImported)
+          presenter.closeAll()
+        }
+      )
     }
       .isSuccess
     if (!closedWithContext) {
