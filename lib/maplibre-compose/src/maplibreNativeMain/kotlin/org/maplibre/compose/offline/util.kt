@@ -6,7 +6,6 @@ import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.offline.OfflineRegionDefinition as FfiRegionDefinition
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
 import org.maplibre.nativeffi.offline.OfflineRegionStatus
-import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.toJson
@@ -74,7 +73,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
     }
   }
 
-internal fun OfflineRegionStatus.toDownloadProgress(logger: MapLog?): DownloadProgress =
+internal fun OfflineRegionStatus.toDownloadProgress(): DownloadProgress =
   DownloadProgress.Healthy(
     completedResourceCount = completedResourceCount,
     completedResourceBytes = completedResourceSize,
@@ -85,30 +84,13 @@ internal fun OfflineRegionStatus.toDownloadProgress(logger: MapLog?): DownloadPr
         complete -> DownloadStatus.Complete
         downloadState == OfflineRegionDownloadState.ACTIVE -> DownloadStatus.Downloading
         downloadState == OfflineRegionDownloadState.INACTIVE -> DownloadStatus.Paused
-        else -> {
-          // Download states are value classes over Int rather than enums, so a newer native runtime
-          // can report one this build has never seen.
-          logger?.w { "Unrecognized offline download state $downloadState; reporting it as paused" }
-          DownloadStatus.Paused
-        }
+        // Download states are value classes over Int rather than enums, so a newer native runtime
+        // can report one this build has never seen.
+        else -> UnrecognizedDownloadStatus(downloadState.nativeValue)
       },
     isRequiredResourceCountPrecise = requiredResourceCountIsPrecise,
     requiredResourceCount = requiredResourceCount,
   )
-
-/**
- * The failure reason as [DownloadProgress.Error] spells it: the MapLibre Android SDK's
- * `OfflineRegionError` reason strings, so common code sees the same values on every platform.
- */
-internal fun ResourceErrorReason.toDownloadErrorReason(): String =
-  when (this) {
-    ResourceErrorReason.NONE -> "REASON_SUCCESS"
-    ResourceErrorReason.NOT_FOUND -> "REASON_NOT_FOUND"
-    ResourceErrorReason.SERVER -> "REASON_SERVER"
-    ResourceErrorReason.CONNECTION -> "REASON_CONNECTION"
-    ResourceErrorReason.RATE_LIMIT -> "REASON_RATE_LIMIT"
-    else -> "REASON_OTHER"
-  }
 
 private fun ByteArray.toGeoJsonGeometry(logger: MapLog?): Geometry = runCatching {
   Geometry.fromJson(decodeToString())

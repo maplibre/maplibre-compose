@@ -2795,11 +2795,11 @@ public abstract interface class org/maplibre/compose/offline/DownloadProgress {
 
 public final class org/maplibre/compose/offline/DownloadProgress$Error : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
-	public final fun component1 ()Ljava/lang/String;
+	public final fun component1-Nn0UANU ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getMessage ()Ljava/lang/String;
-	public final fun getReason ()Ljava/lang/String;
+	public final fun getReason-Nn0UANU ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -2825,6 +2825,14 @@ public final class org/maplibre/compose/offline/DownloadProgress$Healthy : org/m
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/offline/DownloadProgress$NotReported : org/maplibre/compose/offline/DownloadProgress {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadProgress$NotReported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/offline/DownloadProgress$TileLimitExceeded : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
 	public final fun component1 ()J
@@ -2834,21 +2842,31 @@ public final class org/maplibre/compose/offline/DownloadProgress$TileLimitExceed
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/offline/DownloadProgress$Unknown : org/maplibre/compose/offline/DownloadProgress {
+public abstract interface class org/maplibre/compose/offline/DownloadStatus {
+}
+
+public final class org/maplibre/compose/offline/DownloadStatus$Complete : org/maplibre/compose/offline/DownloadStatus {
 	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadProgress$Unknown;
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Complete;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/offline/DownloadStatus : java/lang/Enum {
-	public static final field Complete Lorg/maplibre/compose/offline/DownloadStatus;
-	public static final field Downloading Lorg/maplibre/compose/offline/DownloadStatus;
-	public static final field Paused Lorg/maplibre/compose/offline/DownloadStatus;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/offline/DownloadStatus;
-	public static fun values ()[Lorg/maplibre/compose/offline/DownloadStatus;
+public final class org/maplibre/compose/offline/DownloadStatus$Downloading : org/maplibre/compose/offline/DownloadStatus {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Downloading;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/offline/DownloadStatus$Paused : org/maplibre/compose/offline/DownloadStatus {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadStatus$Paused;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/offline/OfflinePack {
@@ -3260,15 +3278,26 @@ public final class org/maplibre/compose/resource/MapRequestInterceptor$DefaultIm
 	public static fun rewriteUrl (Lorg/maplibre/compose/resource/MapRequestInterceptor;Lorg/maplibre/compose/resource/MapResourceRequest;)Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/resource/MapResourceError : java/lang/Enum {
-	public static final field Connection Lorg/maplibre/compose/resource/MapResourceError;
-	public static final field NotFound Lorg/maplibre/compose/resource/MapResourceError;
-	public static final field Other Lorg/maplibre/compose/resource/MapResourceError;
-	public static final field RateLimit Lorg/maplibre/compose/resource/MapResourceError;
-	public static final field Server Lorg/maplibre/compose/resource/MapResourceError;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/resource/MapResourceError;
-	public static fun values ()[Lorg/maplibre/compose/resource/MapResourceError;
+public final class org/maplibre/compose/resource/MapResourceError {
+	public static final field Companion Lorg/maplibre/compose/resource/MapResourceError$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/resource/MapResourceError;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/resource/MapResourceError$Companion {
+	public final fun getConnection-Nn0UANU ()Ljava/lang/String;
+	public final fun getNotFound-Nn0UANU ()Ljava/lang/String;
+	public final fun getOther-Nn0UANU ()Ljava/lang/String;
+	public final fun getRateLimit-Nn0UANU ()Ljava/lang/String;
+	public final fun getServer-Nn0UANU ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/resource/MapResourceKind {
@@ -3314,12 +3343,12 @@ public final class org/maplibre/compose/resource/MapResourceLoad$Bytes : org/map
 
 public final class org/maplibre/compose/resource/MapResourceLoad$Failed : org/maplibre/compose/resource/MapResourceLoad {
 	public static final field $stable I
-	public fun <init> (Lorg/maplibre/compose/resource/MapResourceError;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lkotlin/time/Instant;)V
-	public synthetic fun <init> (Lorg/maplibre/compose/resource/MapResourceError;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lkotlin/time/Instant;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getExpires ()Lkotlin/time/Instant;
 	public final fun getMessage ()Ljava/lang/String;
 	public fun getModified ()Lkotlin/time/Instant;
-	public final fun getReason ()Lorg/maplibre/compose/resource/MapResourceError;
+	public final fun getReason-Nn0UANU ()Ljava/lang/String;
 	public final fun getRetryAfter ()Lkotlin/time/Instant;
 }
 

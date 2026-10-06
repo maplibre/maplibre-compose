@@ -52,7 +52,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                 OfflineStorageState.Loading -> "Loading offline regions…"
                 is OfflineStorageState.Failed ->
                   state.cause.message ?: "Could not load offline regions"
-                is OfflineStorageState.Ready -> "For use without a network"
+                else -> "For use without a network"
               },
           color =
             if (errorMessage != null) MaterialTheme.colorScheme.error

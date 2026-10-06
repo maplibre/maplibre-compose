@@ -403,13 +403,26 @@ internal fun MapResourceLoad.toResourceResponse(): ResourceResponse {
   return response
 }
 
-private fun MapResourceError.toFfi(): ResourceErrorReason =
+internal fun MapResourceError.toFfi(): ResourceErrorReason =
   when (this) {
     MapResourceError.NotFound -> ResourceErrorReason.NOT_FOUND
     MapResourceError.Server -> ResourceErrorReason.SERVER
     MapResourceError.Connection -> ResourceErrorReason.CONNECTION
     MapResourceError.RateLimit -> ResourceErrorReason.RATE_LIMIT
     MapResourceError.Other -> ResourceErrorReason.OTHER
+    // Only ResourceErrorReason.toCommon creates an unnamed reason, and it stores the FFI number.
+    else -> value.toIntOrNull()?.let(::ResourceErrorReason) ?: ResourceErrorReason.OTHER
+  }
+
+/** The reason with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun ResourceErrorReason.toCommon(): MapResourceError =
+  when (this) {
+    ResourceErrorReason.NOT_FOUND -> MapResourceError.NotFound
+    ResourceErrorReason.SERVER -> MapResourceError.Server
+    ResourceErrorReason.CONNECTION -> MapResourceError.Connection
+    ResourceErrorReason.RATE_LIMIT -> MapResourceError.RateLimit
+    ResourceErrorReason.OTHER -> MapResourceError.Other
+    else -> MapResourceError(nativeValue.toString())
   }
 
 /** The method with the same name in MapLibre Native, or the native number as decimal text. */

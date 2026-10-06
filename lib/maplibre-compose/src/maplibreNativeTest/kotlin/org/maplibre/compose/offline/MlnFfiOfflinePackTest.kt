@@ -23,6 +23,7 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.mlnffi.unusedLoopbackPort
+import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -285,7 +286,7 @@ class MlnFfiOfflinePackTest {
         storage.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
       }
 
-    // A pack that has been told nothing reads as Unknown, and a paused pack fetches nothing, so
+    // A pack that has been told nothing reads as NotReported, and a paused pack fetches nothing, so
     // registration issues an explicit status read.
     val initial = awaitHealthy(pack, "the new pack's status") { true }
     assertEquals(DownloadStatus.Paused, initial.status)
@@ -300,7 +301,7 @@ class MlnFfiOfflinePackTest {
       pack.downloadProgress.value is DownloadProgress.Error
     }
     assertEquals(
-      "REASON_CONNECTION",
+      MapResourceError.Connection,
       (pack.downloadProgress.value as DownloadProgress.Error).reason,
     )
 

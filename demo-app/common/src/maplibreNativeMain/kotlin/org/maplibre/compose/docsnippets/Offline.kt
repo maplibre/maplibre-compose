@@ -56,7 +56,7 @@ fun Offline() {
   when (val state = offlineState) {
     OfflineStorageState.Loading -> Text("Loading offline packs…")
     is OfflineStorageState.Failed -> Text(state.cause.message ?: "Could not load offline packs")
-    is OfflineStorageState.Ready -> Unit
+    else -> Unit
   }
   for (pack in packs) {
     key(pack) {
@@ -68,7 +68,7 @@ fun Offline() {
           Text("$name: ${current.completedResourceCount} resources, ${current.status}")
         is DownloadProgress.Error -> Text("$name: ${current.message}")
         is DownloadProgress.TileLimitExceeded -> Text("$name: tile limit ${current.limit}")
-        is DownloadProgress.Unknown -> Text("$name: waiting for status")
+        is DownloadProgress.NotReported -> Text("$name: waiting for status")
         else -> Text(name)
       }
     }

@@ -147,32 +147,6 @@ final enum class org.maplibre.compose.logging/MapLogSource : kotlin/Enum<org.map
     final fun values(): kotlin/Array<org.maplibre.compose.logging/MapLogSource> // org.maplibre.compose.logging/MapLogSource.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.offline/DownloadStatus : kotlin/Enum<org.maplibre.compose.offline/DownloadStatus> { // org.maplibre.compose.offline/DownloadStatus|null[0]
-    enum entry Complete // org.maplibre.compose.offline/DownloadStatus.Complete|null[0]
-    enum entry Downloading // org.maplibre.compose.offline/DownloadStatus.Downloading|null[0]
-    enum entry Paused // org.maplibre.compose.offline/DownloadStatus.Paused|null[0]
-
-    final val entries // org.maplibre.compose.offline/DownloadStatus.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.offline/DownloadStatus> // org.maplibre.compose.offline/DownloadStatus.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.offline/DownloadStatus // org.maplibre.compose.offline/DownloadStatus.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.offline/DownloadStatus> // org.maplibre.compose.offline/DownloadStatus.values|values#static(){}[0]
-}
-
-final enum class org.maplibre.compose.resource/MapResourceError : kotlin/Enum<org.maplibre.compose.resource/MapResourceError> { // org.maplibre.compose.resource/MapResourceError|null[0]
-    enum entry Connection // org.maplibre.compose.resource/MapResourceError.Connection|null[0]
-    enum entry NotFound // org.maplibre.compose.resource/MapResourceError.NotFound|null[0]
-    enum entry Other // org.maplibre.compose.resource/MapResourceError.Other|null[0]
-    enum entry RateLimit // org.maplibre.compose.resource/MapResourceError.RateLimit|null[0]
-    enum entry Server // org.maplibre.compose.resource/MapResourceError.Server|null[0]
-
-    final val entries // org.maplibre.compose.resource/MapResourceError.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.resource/MapResourceError> // org.maplibre.compose.resource/MapResourceError.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.resource/MapResourceError> // org.maplibre.compose.resource/MapResourceError.values|values#static(){}[0]
-}
-
 abstract fun interface org.maplibre.compose.logging/MapLogger { // org.maplibre.compose.logging/MapLogger|null[0]
     open val minLevel // org.maplibre.compose.logging/MapLogger.minLevel|{}minLevel[0]
         open fun <get-minLevel>(): org.maplibre.compose.logging/MapLogLevel // org.maplibre.compose.logging/MapLogger.minLevel.<get-minLevel>|<get-minLevel>(){}[0]
@@ -774,9 +748,9 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
         final val message // org.maplibre.compose.offline/DownloadProgress.Error.message|{}message[0]
             final fun <get-message>(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.message.<get-message>|<get-message>(){}[0]
         final val reason // org.maplibre.compose.offline/DownloadProgress.Error.reason|{}reason[0]
-            final fun <get-reason>(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.reason.<get-reason>|<get-reason>(){}[0]
+            final fun <get-reason>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.offline/DownloadProgress.Error.reason.<get-reason>|<get-reason>(){}[0]
 
-        final fun component1(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.component1|component1(){}[0]
+        final fun component1(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.offline/DownloadProgress.Error.component1|component1(){}[0]
         final fun component2(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.component2|component2(){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Error.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.Error.hashCode|hashCode(){}[0]
@@ -821,10 +795,30 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
         final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.toString|toString(){}[0]
     }
 
-    final object Unknown : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.Unknown|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Unknown.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.Unknown.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Unknown.toString|toString(){}[0]
+    final object NotReported : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.NotReported|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.NotReported.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.NotReported.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.NotReported.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.offline/DownloadStatus { // org.maplibre.compose.offline/DownloadStatus|null[0]
+    final object Complete : org.maplibre.compose.offline/DownloadStatus { // org.maplibre.compose.offline/DownloadStatus.Complete|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadStatus.Complete.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadStatus.Complete.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadStatus.Complete.toString|toString(){}[0]
+    }
+
+    final object Downloading : org.maplibre.compose.offline/DownloadStatus { // org.maplibre.compose.offline/DownloadStatus.Downloading|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadStatus.Downloading.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadStatus.Downloading.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadStatus.Downloading.toString|toString(){}[0]
+    }
+
+    final object Paused : org.maplibre.compose.offline/DownloadStatus { // org.maplibre.compose.offline/DownloadStatus.Paused|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadStatus.Paused.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadStatus.Paused.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadStatus.Paused.toString|toString(){}[0]
     }
 }
 
@@ -3533,6 +3527,28 @@ final value class org.maplibre.compose.expressions.value/TranslateAnchor : org.m
     }
 }
 
+final value class org.maplibre.compose.resource/MapResourceError { // org.maplibre.compose.resource/MapResourceError|null[0]
+    final val value // org.maplibre.compose.resource/MapResourceError.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceError.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceError.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceError.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.resource/MapResourceError.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.resource/MapResourceError.Companion|null[0]
+        final val Connection // org.maplibre.compose.resource/MapResourceError.Companion.Connection|{}Connection[0]
+            final fun <get-Connection>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.Companion.Connection.<get-Connection>|<get-Connection>(){}[0]
+        final val NotFound // org.maplibre.compose.resource/MapResourceError.Companion.NotFound|{}NotFound[0]
+            final fun <get-NotFound>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.Companion.NotFound.<get-NotFound>|<get-NotFound>(){}[0]
+        final val Other // org.maplibre.compose.resource/MapResourceError.Companion.Other|{}Other[0]
+            final fun <get-Other>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.Companion.Other.<get-Other>|<get-Other>(){}[0]
+        final val RateLimit // org.maplibre.compose.resource/MapResourceError.Companion.RateLimit|{}RateLimit[0]
+            final fun <get-RateLimit>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.Companion.RateLimit.<get-RateLimit>|<get-RateLimit>(){}[0]
+        final val Server // org.maplibre.compose.resource/MapResourceError.Companion.Server|{}Server[0]
+            final fun <get-Server>(): org.maplibre.compose.resource/MapResourceError // org.maplibre.compose.resource/MapResourceError.Companion.Server.<get-Server>|<get-Server>(){}[0]
+    }
+}
+
 final value class org.maplibre.compose.resource/MapResourceKind { // org.maplibre.compose.resource/MapResourceKind|null[0]
     final val value // org.maplibre.compose.resource/MapResourceKind.value|{}value[0]
         final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceKind.value.<get-value>|<get-value>(){}[0]
@@ -3949,8 +3965,11 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions$stabl
 final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions_Builder$stableprop|#static{}org_maplibre_compose_map_TileLodOptions_Builder$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Error$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop[0]
-final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Complete$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Complete$stableprop|#static{}org_maplibre_compose_offline_DownloadStatus_Complete$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop|#static{}org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop[0]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Paused$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Paused$stableprop|#static{}org_maplibre_compose_offline_DownloadStatus_Paused$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop|#static{}org_maplibre_compose_offline_OfflinePack$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop|#static{}org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop[0]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop|#static{}org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop[0]
@@ -4388,8 +4407,11 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions_Build
 final fun org.maplibre.compose.map/rememberMapState(org.maplibre.compose.map/MapRuntime?, org.maplibre.compose.style/BaseStyle?, org.maplibre.compose.camera/CameraPosition?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.map/MapState // org.maplibre.compose.map/rememberMapState|rememberMapState(org.maplibre.compose.map.MapRuntime?;org.maplibre.compose.style.BaseStyle?;org.maplibre.compose.camera.CameraPosition?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Healthy$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_NotReported$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_TileLimitExceeded$stableprop_getter(){}[0]
-final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Unknown$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Complete$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Complete$stableprop_getter|org_maplibre_compose_offline_DownloadStatus_Complete$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop_getter|org_maplibre_compose_offline_DownloadStatus_Downloading$stableprop_getter(){}[0]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Paused$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadStatus_Paused$stableprop_getter|org_maplibre_compose_offline_DownloadStatus_Paused$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePack$stableprop_getter|org_maplibre_compose_offline_OfflinePack$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter|org_maplibre_compose_offline_OfflinePackDefinition_Shape$stableprop_getter(){}[0]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter|org_maplibre_compose_offline_OfflinePackDefinition_TilePyramid$stableprop_getter(){}[0]

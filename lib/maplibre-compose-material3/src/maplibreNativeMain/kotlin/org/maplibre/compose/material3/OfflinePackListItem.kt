@@ -207,9 +207,10 @@ public object OfflinePackListItemDefaults {
             DownloadStatus.Complete -> completedIcon
             DownloadStatus.Paused -> pausedIcon
             DownloadStatus.Downloading -> downloadingIcon
+            else -> warningIcon
           }
         is DownloadProgress.Error -> errorIcon
-        // TileLimitExceeded, Unknown, and any case this version does not name.
+        // TileLimitExceeded, NotReported, and any case this version does not name.
         else -> warningIcon
       }
     AnimatedContent(icon) { icon -> icon() }
@@ -232,7 +233,8 @@ public object OfflinePackListItemDefaults {
   /**
    * Displays the pack's download status and size, or its error or tile limit status.
    *
-   * A status that this version does not name is shown with [unknownContent].
+   * [unknownContent] shows progress that is not reported yet, and a status or progress that this
+   * version does not name.
    */
   @Composable
   public fun SupportingContent(
@@ -252,7 +254,7 @@ public object OfflinePackListItemDefaults {
     tileLimitExceededContent: @Composable (DownloadProgress.TileLimitExceeded) -> Unit = {
       Text(stringResource(Res.string.offline_pack_tile_limit_exceeded, it.limit))
     },
-    unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = {
+    unknownContent: @Composable (DownloadProgress.NotReported) -> Unit = {
       Text(stringResource(Res.string.offline_pack_unknown_status))
     },
   ) {
@@ -262,11 +264,12 @@ public object OfflinePackListItemDefaults {
           DownloadStatus.Complete -> completedContent(progress)
           DownloadStatus.Downloading -> downloadingContent(progress)
           DownloadStatus.Paused -> pausedContent(progress)
+          else -> unknownContent(DownloadProgress.NotReported)
         }
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
-      is DownloadProgress.Unknown -> unknownContent(progress)
-      else -> unknownContent(DownloadProgress.Unknown)
+      is DownloadProgress.NotReported -> unknownContent(progress)
+      else -> unknownContent(DownloadProgress.NotReported)
     }
   }
 }
@@ -411,10 +414,15 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
   CircularProgressIndicator(progress = { animatedProgressRatio })
 }
 
+private val ActionableStatuses =
+  setOf(DownloadStatus.Paused, DownloadStatus.Downloading, DownloadStatus.Complete)
+
 @Composable
 private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineStorage) {
   val progress by pack.downloadProgress.collectAsState()
   val status = (progress as? DownloadProgress.Healthy)?.status ?: return
+  // A status that this version does not name has no action.
+  if (status !in ActionableStatuses) return
   val coroutineScope = rememberCoroutineScope()
 
   fun onClick() {
@@ -422,6 +430,7 @@ private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineSt
       DownloadStatus.Paused -> offlineStorage.resume(pack)
       DownloadStatus.Downloading -> offlineStorage.pause(pack)
       DownloadStatus.Complete -> coroutineScope.launch { offlineStorage.invalidate(pack) }
+      else -> Unit
     }
   }
 
@@ -434,6 +443,7 @@ private fun PauseResumeUpdateButton(pack: OfflinePack, offlineStorage: OfflineSt
           Icon(vectorResource(Res.drawable.pause), stringResource(Res.string.offline_pack_pause))
         DownloadStatus.Complete ->
           Icon(vectorResource(Res.drawable.sync), stringResource(Res.string.offline_pack_update))
+        else -> Unit
       }
     }
   }

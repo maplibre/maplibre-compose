@@ -21,7 +21,7 @@ internal constructor(
   initialMetadata: ByteArray?,
 ) {
   internal val metadataState = MutableStateFlow(initialMetadata)
-  internal val progressState = MutableStateFlow<DownloadProgress>(DownloadProgress.Unknown)
+  internal val progressState = MutableStateFlow<DownloadProgress>(DownloadProgress.NotReported)
 
   /** Arbitrary data stored alongside the downloaded resources. */
   public val metadata: StateFlow<ByteArray?> = metadataState.asStateFlow()
@@ -29,7 +29,7 @@ internal constructor(
   /**
    * The pack's current download progress.
    *
-   * A pack reads as [DownloadProgress.Unknown] until MapLibre reports its first status.
+   * A pack reads as [DownloadProgress.NotReported] until MapLibre reports its first status.
    */
   public val downloadProgress: StateFlow<DownloadProgress> = progressState.asStateFlow()
 

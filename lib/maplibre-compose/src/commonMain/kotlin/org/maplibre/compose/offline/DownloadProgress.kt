@@ -1,5 +1,7 @@
 package org.maplibre.compose.offline
 
+import org.maplibre.compose.resource.MapResourceError
+
 /**
  * Reports the current download state of one [OfflinePack].
  *
@@ -7,7 +9,7 @@ package org.maplibre.compose.offline
  */
 public sealed interface DownloadProgress {
   /** The SDK has not reported the download progress. */
-  public data object Unknown : DownloadProgress
+  public data object NotReported : DownloadProgress
 
   /** The download is in a known state. It can be progressing, paused, or complete. */
   public data class Healthy
@@ -31,12 +33,12 @@ public sealed interface DownloadProgress {
   /**
    * The download has failed.
    *
-   * @property reason The category of the failure, such as `REASON_NOT_FOUND`, `REASON_SERVER`,
-   *   `REASON_CONNECTION`, `REASON_RATE_LIMIT`, or `REASON_OTHER`.
+   * @property reason The cause of the failed resource load.
    * @property message A description of the failure.
    */
   public data class Error
-  internal constructor(public val reason: String, public val message: String) : DownloadProgress
+  internal constructor(public val reason: MapResourceError, public val message: String) :
+    DownloadProgress
 
   /**
    * The download exceeded the maximum number of offline tiles.

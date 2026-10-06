@@ -63,7 +63,7 @@ public fun rememberOfflinePacksSource(
 private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadProgress) =
   when (progress) {
     is DownloadProgress.Healthy -> {
-      put("status", progress.status.name)
+      put("status", progress.status.geoJsonName)
       put("completed_resource_count", progress.completedResourceCount)
       put("required_resource_count", progress.requiredResourceCount)
       put("completed_resource_bytes", progress.completedResourceBytes)
@@ -73,16 +73,25 @@ private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadPr
     }
     is DownloadProgress.Error -> {
       put("status", "Error")
-      put("error_reason", progress.reason)
+      put("error_reason", progress.reason.value)
       put("error_message", progress.message)
     }
     is DownloadProgress.TileLimitExceeded -> {
       put("status", "TileLimitExceeded")
       put("tile_limit", progress.limit)
     }
-    DownloadProgress.Unknown,
+    DownloadProgress.NotReported,
     UnspecifiedDownloadProgress -> put("status", "Unknown")
   }
+
+private val DownloadStatus.geoJsonName
+  get() =
+    when (this) {
+      DownloadStatus.Paused -> "Paused"
+      DownloadStatus.Downloading -> "Downloading"
+      DownloadStatus.Complete -> "Complete"
+      is UnrecognizedDownloadStatus -> "Unknown"
+    }
 
 private val OfflinePackDefinition.geometry
   get() =
