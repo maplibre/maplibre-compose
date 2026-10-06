@@ -75,16 +75,7 @@ public sealed interface Anchor {
    * composition and capture the values. See [Anchor.Companion.Below] to use this in the style
    * content.
    *
-   * The library calls [predicate] each time it applies the style content to a loaded style. For a
-   * map, and for a [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on the
-   * browser, calls run on the main thread, one at a time. For a snapshot capture on MapLibre
-   * Native, calls run on a background thread. An anchor used by several maps or snapshotters can
-   * receive calls at the same time. The predicate must return quickly and call no map API.
-   *
-   * If [predicate] throws, the style content is not applied: a map logs a warning and sets
-   * [MapStyleState.loadState][org.maplibre.compose.map.MapStyleState.loadState] to
-   * [StyleLoadState.Failed][org.maplibre.compose.map.StyleLoadState.Failed], and a snapshot capture
-   * fails.
+   * [predicate] is called, and its exceptions are handled, as described for [Above].
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))

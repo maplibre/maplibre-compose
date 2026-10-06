@@ -41,9 +41,8 @@ internal constructor(
 /**
  * Rewrites the URL of a resource request, or adds HTTP headers to it. Override either function.
  *
- * On MapLibre Native, both functions run on the engine's worker and network threads, and calls for
- * different requests can run at the same time on several threads. On the browser, both run on the
- * page's main thread while MapLibre GL JS creates the request, one call at a time.
+ * On MapLibre Native, both functions run on background threads, and calls for different requests
+ * can run at the same time. On the browser, both run on the page's main thread, one call at a time.
  *
  * Callbacks must return quickly, be safe to call concurrently, and call no map API. They may be
  * called repeatedly; return the same result while the request and application state are unchanged.
@@ -288,10 +287,8 @@ public interface MapResourceProvider {
    * handles.
    *
    * [MapResourceRequest.url] is the URL after [MapRequestInterceptor.rewriteUrl]. This function
-   * runs where [MapRequestInterceptor.rewriteUrl] runs: on MapLibre Native, on the engine's worker
-   * and network threads, where calls for different requests can run at the same time; on the
-   * browser, on the page's main thread, one call at a time. It must return quickly, be safe to call
-   * concurrently, and call no map API.
+   * runs on the same threads as [MapRequestInterceptor.rewriteUrl]. It must return quickly, be safe
+   * to call concurrently, and call no map API.
    *
    * If it throws an exception, the library logs a warning and treats the result as false: the
    * request loads as if this provider had not accepted it.
@@ -301,9 +298,9 @@ public interface MapResourceProvider {
   /**
    * Loads the resource for a request that [accepts] returned true for.
    *
-   * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different requests can
-   * run at the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. On
-   * the browser, calls run on the page's main thread and overlap only where they suspend.
+   * On MapLibre Native, calls run on a background thread, and calls for different requests can run
+   * at the same time; move blocking work to another dispatcher such as `Dispatchers.IO`. On the
+   * browser, calls run on the page's main thread and overlap only where they suspend.
    *
    * The library cancels a call when the engine no longer needs the resource or the map runtime
    * closes. Any other exception, including a cancellation that the provider causes itself, such as
