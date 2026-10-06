@@ -628,7 +628,7 @@ internal class PointerGesture(
           generation,
           command = { token ->
             inputScaleByAwaitingTransition(
-              zoomLevelsToScale(direction * binding.zoomStep),
+              zoomLevelsToScale(direction * binding.zoomStepLevels),
               binding.anchor.location(sample),
               options.scaledAnimationDuration(),
               token,

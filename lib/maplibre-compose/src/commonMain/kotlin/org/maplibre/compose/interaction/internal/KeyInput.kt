@@ -337,15 +337,15 @@ internal class KeyInput(
       if (x != 0.0 || y != 0.0) inputPanByAwaitingTransition(x * pan, y * pan, duration, token)
       if (zoom != 0.0)
         inputScaleByAwaitingTransition(
-          zoomLevelsToScale(zoom * keys.zoomStep * fraction),
+          zoomLevelsToScale(zoom * keys.zoomStepLevels * fraction),
           null,
           duration,
           token,
         )
       if (bearing != 0.0 || pitch != 0.0)
         inputRotateAndPitchByAwaitingTransition(
-          bearing * keys.rotateStep * fraction,
-          pitch * keys.pitchStep * fraction,
+          bearing * keys.bearingStepDegrees * fraction,
+          pitch * keys.pitchStepDegrees * fraction,
           duration,
           token,
         )
@@ -356,10 +356,11 @@ internal class KeyInput(
     val pan = keys.panStep.value * fraction
     with(target) {
       inputPanBy(x * pan, y * pan, token)
-      if (zoom != 0.0) inputScaleBy(zoomLevelsToScale(zoom * keys.zoomStep * fraction), null, token)
+      if (zoom != 0.0)
+        inputScaleBy(zoomLevelsToScale(zoom * keys.zoomStepLevels * fraction), null, token)
       inputRotateAndPitchBy(
-        bearing * keys.rotateStep * fraction,
-        pitch * keys.pitchStep * fraction,
+        bearing * keys.bearingStepDegrees * fraction,
+        pitch * keys.pitchStepDegrees * fraction,
         gestureToken = token,
         feedback = false,
       )

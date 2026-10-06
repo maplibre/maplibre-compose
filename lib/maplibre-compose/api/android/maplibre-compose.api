@@ -1424,17 +1424,17 @@ public abstract interface class org/maplibre/compose/interaction/KeyAction {
 
 public final class org/maplibre/compose/interaction/KeyBindingBuilder {
 	public static final field $stable I
+	public final fun getBearingStepDegrees ()D
 	public final fun getEnabled ()Z
 	public final fun getPanStep-D9Ej5fM ()F
-	public final fun getPitchStep ()D
-	public final fun getRotateStep ()D
-	public final fun getZoomStep ()D
+	public final fun getPitchStepDegrees ()D
+	public final fun getZoomStepLevels ()D
 	public final fun mappings (Lkotlin/jvm/functions/Function1;)V
+	public final fun setBearingStepDegrees (D)V
 	public final fun setEnabled (Z)V
 	public final fun setPanStep-0680j_4 (F)V
-	public final fun setPitchStep (D)V
-	public final fun setRotateStep (D)V
-	public final fun setZoomStep (D)V
+	public final fun setPitchStepDegrees (D)V
+	public final fun setZoomStepLevels (D)V
 }
 
 public final class org/maplibre/compose/interaction/KeyMappingsBuilder {
@@ -1518,11 +1518,11 @@ public final class org/maplibre/compose/interaction/PanMomentumBuilder {
 	public final fun getBaseTime-UwyO8pc ()J
 	public final fun getDurationScale ()D
 	public final fun getEnabled ()Z
-	public final fun getMinimumSpeed ()D
+	public final fun getMinimumSpeedDpPerSecond ()D
 	public final fun setBaseTime-LRDsOJo (J)V
 	public final fun setDurationScale (D)V
 	public final fun setEnabled (Z)V
-	public final fun setMinimumSpeed (D)V
+	public final fun setMinimumSpeedDpPerSecond (D)V
 }
 
 public final class org/maplibre/compose/interaction/PitchCameraBuilder {
@@ -1537,10 +1537,10 @@ public final class org/maplibre/compose/interaction/PitchMomentumBuilder {
 	public static final field $stable I
 	public final fun getDuration-UwyO8pc ()J
 	public final fun getEnabled ()Z
-	public final fun getMinimumSpeed ()D
+	public final fun getMinimumSpeedDegreesPerSecond ()D
 	public final fun setDuration-LRDsOJo (J)V
 	public final fun setEnabled (Z)V
-	public final fun setMinimumSpeed (D)V
+	public final fun setMinimumSpeedDegreesPerSecond (D)V
 }
 
 public final class org/maplibre/compose/interaction/PointerButton : java/lang/Enum {
@@ -1566,10 +1566,10 @@ public final class org/maplibre/compose/interaction/RotaryBindingBuilder {
 	public static final field $stable I
 	public final fun getEnabled ()Z
 	public final fun getIdleDuration-UwyO8pc ()J
-	public final fun getZoomStep ()D
+	public final fun getZoomStepLevels ()D
 	public final fun setEnabled (Z)V
 	public final fun setIdleDuration-LRDsOJo (J)V
-	public final fun setZoomStep (D)V
+	public final fun setZoomStepLevels (D)V
 }
 
 public final class org/maplibre/compose/interaction/RotateCameraBuilder {
@@ -1616,12 +1616,12 @@ public final class org/maplibre/compose/interaction/TapBindingBuilder {
 	public final fun getAnchor ()Lorg/maplibre/compose/interaction/GestureAnchor;
 	public final fun getEnabled ()Z
 	public final fun getPointerTypes ()Ljava/util/Set;
-	public final fun getZoomStep ()D
+	public final fun getZoomStepLevels ()D
 	public final fun mappings (Lkotlin/jvm/functions/Function1;)V
 	public final fun setAnchor (Lorg/maplibre/compose/interaction/GestureAnchor;)V
 	public final fun setEnabled (Z)V
 	public final fun setPointerTypes (Ljava/util/Set;)V
-	public final fun setZoomStep (D)V
+	public final fun setZoomStepLevels (D)V
 }
 
 public final class org/maplibre/compose/interaction/TapDragBuilder {

@@ -523,7 +523,7 @@ class KeyAndRotaryInputTest {
           pressKey(Key.Plus)
         }
       }
-      val zoomStep = InputConfiguration.Standard.bindings.keys.zoomStep
+      val zoomStep = InputConfiguration.Standard.bindings.keys.zoomStepLevels
       waitUntil(timeoutMillis = TIMEOUT) { target.zoomed() >= 2 * zoomStep - 1e-6 }
       assertFalse(Key.Equals in unconsumed)
       assertFalse(Key.Plus in unconsumed)
