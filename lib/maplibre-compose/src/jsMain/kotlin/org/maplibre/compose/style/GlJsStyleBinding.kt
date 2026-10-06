@@ -7,6 +7,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -432,7 +434,19 @@ internal class GlJsStyleBinding(
     val attachment =
       GlJsProtocolTileAttachment(
         name = "custom-vector-$sourceId",
-        loadTile = provider::loadTile,
+        loadTile = { tile ->
+          try {
+            provider.loadTile(tile)
+          } catch (error: Throwable) {
+            // A cancelled job means the request ended. The provider's own cancellation, such as a
+            // timeout, leaves the job active and fails like any other exception.
+            if (error is CancellationException) currentCoroutineContext().ensureActive()
+            // MapLibre reports the tile error as an `error` event with the message alone; this
+            // record carries the exception.
+            logger?.w(error) { "Custom vector tile source '$sourceId' failed to load $tile" }
+            throw error
+          }
+        },
       )
     customVectorAttachments[sourceId] = attachment
     val added =

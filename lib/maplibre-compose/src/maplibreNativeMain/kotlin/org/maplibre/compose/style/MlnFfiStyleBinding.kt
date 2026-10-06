@@ -422,6 +422,11 @@ internal open class MlnFfiStyleBinding(
         load = provider::loadTile,
         deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
+          // MapLibre logs the tile error as an error with the message alone; this record carries
+          // the exception.
+          logger?.w(error) {
+            "Custom vector tile source '$sourceId' failed to load ${tile.toTileCoordinate()}"
+          }
           map.setCustomMvtVectorSourceTileError(
             sourceId,
             tile,
