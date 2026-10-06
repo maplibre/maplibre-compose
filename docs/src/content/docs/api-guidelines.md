@@ -84,7 +84,7 @@ class GeoJsonOptions
 class UiKitMapHost
 fun rememberMapState(): MapState
 val LocalViewport = staticCompositionLocalOf<Viewport> { error("No viewport") }
-enum class CameraMoveReason { Gesture, Programmatic }
+enum class QuickZoomDirection { UpZoomsIn, DownZoomsIn }
 val pitch: Double                      // style spec term
 object LocationIndicatorDefaults
 @Composable fun BasicCompassButton()  // overlay
@@ -97,7 +97,7 @@ class GeoJSONOptions
 class UIKitMapHost
 fun mapState(): MapState
 val ViewportLocal = staticCompositionLocalOf<Viewport> { error("No viewport") }
-enum class CameraMoveReason { GESTURE, PROGRAMMATIC }
+enum class QuickZoomDirection { UP_ZOOMS_IN, DOWN_ZOOMS_IN }
 val tilt: Double
 class OfflineManager
 // package org.maplibre.compose.layers
@@ -151,15 +151,18 @@ Every enum, sealed type, and set of named values is one of four kinds. Choose
 the kind by what any later minor release might expose, because changing the
 shape later is a breaking change.
 
-| Kind           | Use when                                                                                         | Declare as                                                                   | Example            |
-| -------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ------------------ |
-| Closed         | The values can never change, because they describe hardware, math, or a fixed protocol           | `enum class`                                                                 | `PointerButton`    |
-| Open input     | Callers only pass values in, and the library won't return them in any later minor release        | `enum class`, or a `sealed` type when cases carry data                       | `TileLodAlgorithm` |
-| Open identity  | A named value from the engine or style JSON, possibly one with no named constant in this version | `value class` with an internal constructor and named values on the companion | `LineCap`          |
-| Open structure | The library returns it, and cases carry different data                                           | `sealed interface` with an internal subtype                                  | `MapEvent`         |
+| Kind           | Use when                                                                                         | Declare as                                                                   | Example              |
+| -------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------- |
+| Closed         | The values can never change, because they describe math, a fixed protocol, or a complete split   | `enum class`                                                                 | `QuickZoomDirection` |
+| Open input     | Callers only pass values in, and the library won't return them in any later minor release        | `enum class`, or a `sealed` type when cases carry data                       | `TileLodAlgorithm`   |
+| Open identity  | A named value from the engine or style JSON, possibly one with no named constant in this version | `value class` with an internal constructor and named values on the companion | `LineCap`            |
+| Open structure | The library returns it, and cases carry different data                                           | `sealed interface` with an internal subtype                                  | `MapEvent`           |
 
 - State the kind in KDoc: "Closed." or "Values may be added in minor releases;
   use an `else` branch when matching."
+- Closed promises that no value is added before the next major release. Choose
+  it only when you can't name a value a later release might add; when in doubt,
+  choose an open kind.
 - Use sealed types, internal subtypes, and internal constructors so that callers
   can't create unexpected values.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#prevent-unwanted-and-invalid-extensions)
@@ -422,7 +425,10 @@ public class BrowserMapPresentation
 - Use a typed value when one exists for the quantity (see the table).
   [[4]](https://kotlinlang.org/docs/api-guidelines-simplicity.html#reuse-existing-concepts)
 - For plain numbers, choose the type by how the value is used: an integer for
-  discrete values, `Double` for continuous ones.
+  discrete values, and a floating-point type for continuous ones. Use the type
+  that the value is processed as, so values round-trip unchanged: `Float` where
+  Compose or the engine uses `Float`, such as a pixel ratio, and `Double`
+  otherwise.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#use-numeric-types-appropriately)
 - Don't use number types for identifiers.
   [[4]](https://kotlinlang.org/docs/api-guidelines-readability.html#use-numeric-types-appropriately)
