@@ -48,8 +48,9 @@ kotlin {
       }
 
     commonMain.dependencies {
-      // Only the stability annotations, not the Compose runtime.
-      api(libs.androidx.composeRuntime.annotation)
+      // Stability annotations for Compose apps, which already have them. Compile-only keeps them
+      // off the classpath of consumers without Compose, which need not resolve them on any target.
+      compileOnly(libs.androidx.composeRuntime.annotation)
       api(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
