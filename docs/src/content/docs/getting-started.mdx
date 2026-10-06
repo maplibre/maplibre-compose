@@ -138,10 +138,18 @@ Alongside the library, add a runtime for your platform and one render backend.
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    <Aside type="caution">
-      Use Gradle for the desktop target. Kotlin Toolchain 0.12.0 cannot fetch the
-      native runtime.
-    </Aside>
+    Requires Kotlin Toolchain 0.13.0 or later.
+
+    ```yaml title="desktop-app/module.yaml"
+    dependencies:
+      - //shared
+      - $compose.desktop.currentOs
+      - $libs.maplibre.compose
+
+      # Linux x64 with Vulkan, for example.
+      - org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}:
+          scope: runtime-only
+    ```
   </TabItem>
 </Tabs>
 
@@ -185,9 +193,14 @@ Enable native access when you run the desktop app:
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```shell
+    kotlin run --module desktop-app --jvm-args="--enable-native-access=ALL-UNNAMED"
+    ```
+
     <Aside type="caution">
-      Use Gradle for the desktop target. Kotlin Toolchain 0.12.0 cannot fetch the
-      native runtime.
+      Kotlin Toolchain can't add this flag to a packaged app. Pass it yourself
+      when you run the JAR:
+      `java --enable-native-access=ALL-UNNAMED -jar desktop-app-jvm-executable.jar`.
     </Aside>
   </TabItem>
 </Tabs>
