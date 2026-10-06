@@ -20,7 +20,11 @@ public enum class KeyModifier {
   Meta,
 }
 
-/** Matches the complete modifier set or a subset. A null filter matches any modifiers. */
+/**
+ * Matches the complete modifier set or a subset. A null filter matches any modifiers.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @Immutable
 public sealed class ModifierMatch private constructor() {
   public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {

@@ -51,7 +51,11 @@ public suspend fun LocationChangeScope.updateCamera(
     )
 }
 
-/** How [updateCamera] updates camera bearing. */
+/**
+ * How [updateCamera] updates camera bearing.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public enum class BearingUpdate {
   /** Ignore changes in bearing and keep the current orientation. */
   Ignore,

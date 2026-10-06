@@ -2,7 +2,11 @@ package org.maplibre.compose.expressions.value
 
 import kotlin.jvm.JvmInline
 
-/** Scales the icon to fit around the associated text. */
+/**
+ * Scales the icon to fit around the associated text.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @JvmInline
 public value class IconTextFit private constructor(override val value: String) : EnumValue {
   public companion object : EnumType<IconTextFit> {

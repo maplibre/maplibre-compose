@@ -189,6 +189,8 @@ public enum class MapResourceError {
 /**
  * The result of [MapResourceProvider.load].
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * Each case corresponds to one HTTP response, and the engine handles the case as it handles that
  * response. [modified] and [expires] are cache metadata that every case can include.
  */

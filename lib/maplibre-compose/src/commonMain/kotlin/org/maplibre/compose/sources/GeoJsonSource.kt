@@ -75,6 +75,8 @@ public class GeoJsonSource : VectorSource {
 /**
  * Supplies a URL, JSON document, or immutable GeoJSON object to a source.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * [Features] retains the supplied object without copying it. Treat the object and every nested
  * collection and property as immutable after submission. Create a new value for each update. Native
  * engines serialize and prepare inline data on a background thread.

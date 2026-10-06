@@ -5,6 +5,8 @@ import kotlin.jvm.JvmInline
 /**
  * The resampling/interpolation method to use for overscaling, also known as texture magnification
  * filter
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
  */
 @JvmInline
 public value class RasterResampling private constructor(override val value: String) : EnumValue {

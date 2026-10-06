@@ -5,6 +5,8 @@ import org.maplibre.compose.layers.FeaturesClickHandler
 /**
  * Whether map click handling continues after a map callback or [FeaturesClickHandler].
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * This controls delivery within the map, including layer handlers and the camera response. It does
  * not control Compose pointer propagation or pass input to parent composables.
  */

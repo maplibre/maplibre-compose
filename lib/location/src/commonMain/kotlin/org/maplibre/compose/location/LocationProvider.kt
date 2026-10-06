@@ -129,6 +129,8 @@ public data class LocationRequest(
 /**
  * Accuracy levels for [LocationRequest], which are mapped to platform accuracy and power levels.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * Use [High] to display the user's location, or [Balanced] to reduce power usage.
  */
 public enum class LocationAccuracy {

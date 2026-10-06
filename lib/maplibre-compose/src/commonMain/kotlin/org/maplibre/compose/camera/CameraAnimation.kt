@@ -7,6 +7,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * How the camera moves from its current position to a new one.
  *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ *
  * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. MapLibre Native and
  * MapLibre GL JS each implement both transitions with the same controls. Their paths and timing are
  * close but not identical: the engines interpolate the center differently and GL JS measures the

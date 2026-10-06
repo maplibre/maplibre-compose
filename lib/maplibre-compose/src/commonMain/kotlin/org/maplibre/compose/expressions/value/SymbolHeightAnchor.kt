@@ -2,7 +2,11 @@ package org.maplibre.compose.expressions.value
 
 import kotlin.jvm.JvmInline
 
-/** What `symbol-height-offset` is measured from. */
+/**
+ * What `symbol-height-offset` is measured from.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 @JvmInline
 public value class SymbolHeightAnchor private constructor(override val value: String) : EnumValue {
   public companion object : EnumType<SymbolHeightAnchor> {
