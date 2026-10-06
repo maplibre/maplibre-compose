@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -38,7 +39,9 @@ internal class MapStyleAuthority(
     )
 
   private var baseStyleCommandRevision = 0L
-  private var missingImageResolverState: MissingImageResolver? by mutableStateOf(null)
+  // Referential: an equal but distinct resolver still replaces the current one.
+  private var missingImageResolverState: MissingImageResolver? by
+    mutableStateOf(null, referentialEqualityPolicy())
   /** Resolutions started for the loaded style, by image id. */
   private val missingImageResolutions = mutableMapOf<String, MissingImageResolution>()
   internal var missingImageResolver: MissingImageResolver?
