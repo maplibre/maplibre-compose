@@ -9,6 +9,7 @@ import kotlin.time.Duration
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface MapEvent {
 
   /**

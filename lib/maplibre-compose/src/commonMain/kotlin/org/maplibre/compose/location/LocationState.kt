@@ -1,6 +1,7 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -94,6 +95,7 @@ internal constructor(
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface HeadingTrackingStatus {
   /** No platform heading request is active. */
   public data object Stopped : HeadingTrackingStatus
@@ -123,6 +125,7 @@ internal data object UnspecifiedHeadingTrackingStatus : HeadingTrackingStatus
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationTrackingStatus {
   /** No platform location request is active. */
   public data object Stopped : LocationTrackingStatus

@@ -82,6 +82,7 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationBackendAvailability {
   /** A platform implementation is installed and initialized. */
   public data object Available : LocationBackendAvailability
@@ -171,6 +172,7 @@ public enum class LocationAccuracy {
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
+@Immutable
 public sealed interface LocationEvent {
   /**
    * A location measurement delivered by the provider.
