@@ -32,7 +32,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 public class LocationState
 internal constructor(
   initialAvailability: LocationBackendAvailability = LocationBackendAvailability.Available,
-  initialPermission: LocationPermission = LocationPermission.Unknown,
+  initialPermission: LocationPermission = LocationPermission.NotDetermined,
 ) {
   /** The user's last known location measurement. */
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
@@ -136,12 +136,13 @@ public sealed interface LocationTrackingStatus {
   /**
    * An expected or unexpected condition prevents the active request from delivering a location.
    *
-   * @property reason Portable classification of the condition.
+   * @property reason Portable classification of the condition, or `null` when the provider has no
+   *   classification for it, such as an unexpected failure. [cause] then describes the failure.
    * @property cause Underlying platform or provider exception, when one is available.
    */
   public data class Unavailable
   internal constructor(
-    val reason: LocationUnavailableReason,
+    val reason: LocationUnavailableReason?,
     val cause: Throwable? = null,
   ) : LocationTrackingStatus
 }
@@ -162,8 +163,8 @@ internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
  * provider setup, [LocationState.permission] reports foreground authorization, and
  * [LocationState.status] reports only the tracking session.
  *
- * Unknown permission allows collection to retry a non-prompting permission check. A known denial
- * stops location collection. Heading collection requires granted permission.
+ * Permission that is not determined allows collection to retry a non-prompting permission check. A
+ * known denial stops location collection. Heading collection requires granted permission.
  *
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
@@ -199,7 +200,7 @@ public fun rememberLocationState(
   val permission by provider.permission.collectAsState()
   val canCollectLocation =
     when (permission) {
-      LocationPermission.Unknown,
+      LocationPermission.NotDetermined,
       is LocationPermission.Granted -> true
       is LocationPermission.NotGranted -> false
       else -> false
@@ -234,12 +235,7 @@ public fun rememberLocationState(
           .updates(request)
           .catch { error ->
             if (error is CancellationException) throw error
-            emit(
-              LocationEvent.Unavailable(
-                LocationUnavailableReason.UnexpectedFailure,
-                error,
-              )
-            )
+            emit(LocationEvent.Unavailable(reason = null, cause = error))
           }
           .collect { event ->
             when (event) {

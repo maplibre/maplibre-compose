@@ -19,7 +19,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -49,7 +48,7 @@ class WindowsLocationProviderTest {
 
     client.completeAccessRequest(WindowsAccessStatus.Allowed)
     assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      LocationPermission.Granted(accuracy = null),
       requester.status.value,
     )
     requester.requestForegroundPermission()
@@ -79,7 +78,7 @@ class WindowsLocationProviderTest {
     assertEquals(
       LocationUnavailableReason.ServicesDisabled,
       WindowsPositionStatus.Disabled.asUnavailableReason(
-        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+        LocationPermission.Granted(accuracy = null)
       ),
     )
     assertEquals(
@@ -178,19 +177,20 @@ class WindowsLocationProviderTest {
     assertEquals(2_000, session.configuration.reportIntervalMilliseconds)
 
     session.listener.onPosition(sampleMeasurement())
+    session.listener.onStatus(WindowsPositionStatus.Ready)
     session.listener.onStatus(WindowsPositionStatus.NoData)
     session.listener.onFailure(IllegalStateException("native failure"))
+    session.listener.onStatus(WindowsPositionStatus.Unknown)
 
+    assertEquals(4, events.size)
     assertIs<LocationEvent.Update>(events[0])
     assertEquals(
       LocationUnavailableReason.TemporarilyUnavailable,
       assertIs<LocationEvent.Unavailable>(events[1]).reason,
     )
-    assertEquals(
-      LocationUnavailableReason.UnexpectedFailure,
-      assertIs<LocationEvent.Unavailable>(events[2]).reason,
-    )
+    assertNull(assertIs<LocationEvent.Unavailable>(events[2]).reason)
     assertIs<IllegalStateException>(assertIs<LocationEvent.Unavailable>(events[2]).cause)
+    assertNull(assertIs<LocationEvent.Unavailable>(events[3]).reason)
 
     job.cancelAndJoin()
     assertEquals(1, session.closeCount)
@@ -309,7 +309,7 @@ class WindowsLocationProviderTest {
     val provider = WindowsLocationProvider(client)
 
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
-    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertNull(event.reason)
     assertIs<IllegalStateException>(event.cause)
   }
 }

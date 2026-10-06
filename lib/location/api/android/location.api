@@ -155,13 +155,6 @@ public final class org/maplibre/compose/location/LocationAccuracyAuthorization$P
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/location/LocationAccuracyAuthorization$Unknown : org/maplibre/compose/location/LocationAccuracyAuthorization {
-	public static final field INSTANCE Lorg/maplibre/compose/location/LocationAccuracyAuthorization$Unknown;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
 public abstract interface class org/maplibre/compose/location/LocationBackendAvailability {
 }
 
@@ -283,6 +276,13 @@ public final class org/maplibre/compose/location/LocationPermission$Granted : or
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/location/LocationPermission$NotDetermined : org/maplibre/compose/location/LocationPermission {
+	public static final field INSTANCE Lorg/maplibre/compose/location/LocationPermission$NotDetermined;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/location/LocationPermission$NotGranted : org/maplibre/compose/location/LocationPermission {
 	public fun <init> (Ljava/lang/Boolean;Z)V
 	public synthetic fun <init> (Ljava/lang/Boolean;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -293,13 +293,6 @@ public final class org/maplibre/compose/location/LocationPermission$NotGranted :
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCanRequest ()Ljava/lang/Boolean;
 	public final fun getShouldShowRationale ()Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/location/LocationPermission$Unknown : org/maplibre/compose/location/LocationPermission {
-	public static final field INSTANCE Lorg/maplibre/compose/location/LocationPermission$Unknown;
-	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -359,13 +352,6 @@ public final class org/maplibre/compose/location/LocationUnavailableReason$Servi
 
 public final class org/maplibre/compose/location/LocationUnavailableReason$TemporarilyUnavailable : org/maplibre/compose/location/LocationUnavailableReason {
 	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$TemporarilyUnavailable;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/location/LocationUnavailableReason$UnexpectedFailure : org/maplibre/compose/location/LocationUnavailableReason {
-	public static final field INSTANCE Lorg/maplibre/compose/location/LocationUnavailableReason$UnexpectedFailure;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

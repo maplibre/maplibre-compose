@@ -31,9 +31,9 @@ public interface LocationProvider : AutoCloseable {
    *
    * This value also reflects changes made outside the application when the platform reports them.
    *
-   * The default is always [LocationPermission.Granted] at [LocationAccuracyAuthorization.Unknown].
-   * A source where permission is not a concept, such as an external receiver or a network feed,
-   * keeps the default and needs no permission handling.
+   * The default is always [LocationPermission.Granted] with a `null` accuracy authorization. A
+   * source where permission is not a concept, such as an external receiver or a network feed, keeps
+   * the default and needs no permission handling.
    */
   public val permission: StateFlow<LocationPermission>
     get() = AlwaysGrantedLocationPermission
@@ -71,7 +71,7 @@ public interface LocationProvider : AutoCloseable {
 }
 
 private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
-  MutableStateFlow(LocationPermission.Granted(LocationAccuracyAuthorization.Unknown))
+  MutableStateFlow(LocationPermission.Granted(accuracy = null))
 
 /**
  * Whether a location implementation has a usable platform backend.
@@ -183,11 +183,13 @@ public sealed interface LocationEvent {
   /**
    * A condition or failure that currently prevents location delivery.
    *
-   * @property reason Portable classification of the condition.
+   * @property reason Portable classification of the condition, or `null` when the provider has no
+   *   classification for it, such as an unexpected platform failure. [cause] then describes the
+   *   failure.
    * @property cause Underlying platform or provider exception, when one is available.
    */
   public data class Unavailable(
-    val reason: LocationUnavailableReason,
+    val reason: LocationUnavailableReason?,
     val cause: Throwable? = null,
   ) : LocationEvent
 }
@@ -235,14 +237,6 @@ public sealed interface LocationUnavailableReason {
    * while the application is running.
    */
   public data object PermissionDenied : LocationUnavailableReason
-
-  /**
-   * The provider failed for a reason that is not a normal availability condition.
-   *
-   * For example, a platform service may return malformed location data, or a custom provider may
-   * throw while its update flow is being collected.
-   */
-  public data object UnexpectedFailure : LocationUnavailableReason
 }
 
 /**
@@ -262,9 +256,6 @@ public sealed interface LocationAccuracyAuthorization {
 
   /** Coarse location on Android or reduced accuracy on iOS. */
   public data object Approximate : LocationAccuracyAuthorization
-
-  /** The platform does not report whether precise location is authorized. */
-  public data object Unknown : LocationAccuracyAuthorization
 }
 
 /**
@@ -276,7 +267,7 @@ internal data object UnspecifiedLocationAccuracyAuthorization : LocationAccuracy
 /**
  * Current foreground location authorization.
  *
- * A custom provider reports [Unknown], [Granted], and [NotGranted].
+ * A custom provider reports [NotDetermined], [Granted], and [NotGranted].
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
@@ -286,10 +277,15 @@ public sealed interface LocationPermission {
    * permission check without prompting. The provider must determine authorization before delivering
    * measurements and report check failures through [LocationEvent.Unavailable].
    */
-  public data object Unknown : LocationPermission
+  public data object NotDetermined : LocationPermission
 
-  /** Foreground authorization is granted at [accuracy]. */
-  public data class Granted(val accuracy: LocationAccuracyAuthorization) : LocationPermission
+  /**
+   * Foreground authorization is granted.
+   *
+   * @property accuracy The accuracy level that the user authorized, or `null` when the platform
+   *   does not report whether precise location is authorized.
+   */
+  public data class Granted(val accuracy: LocationAccuracyAuthorization?) : LocationPermission
 
   /**
    * Foreground authorization is not granted.

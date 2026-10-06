@@ -185,7 +185,7 @@ class AppleLocationProviderTest {
       coreLocationError(kCLErrorNetwork).asUnavailableReason { true },
     )
     assertEquals(
-      LocationUnavailableReason.UnexpectedFailure,
+      null,
       NSError.errorWithDomain("example.error", 1, null).asUnavailableReason { true },
     )
   }

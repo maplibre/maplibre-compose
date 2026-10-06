@@ -12,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -61,7 +62,7 @@ class LocationStateTest {
   fun unknownPermissionRetriesFailureWithoutRestartingOnGrant() = withMainDispatcher {
     runComposeUiTest {
       val failure = IllegalStateException("permission initialization failed")
-      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
       val locationProvider = ActiveLocationProvider(location(13.0))
       var attempts = 0
       var permissionRequests = 0
@@ -76,7 +77,7 @@ class LocationStateTest {
           override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
             attempts++
             if (attempts == 1) {
-              emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, failure))
+              emit(LocationEvent.Unavailable(null, failure))
             } else {
               permission.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
               emitAll(locationProvider.updates(request))
@@ -96,7 +97,7 @@ class LocationStateTest {
       }
 
       waitUntil { state?.status is LocationTrackingStatus.Unavailable }
-      assertEquals(LocationPermission.Unknown, state?.permission)
+      assertEquals(LocationPermission.NotDetermined, state?.permission)
       assertSame(failure, assertIs<LocationTrackingStatus.Unavailable>(state?.status).cause)
       assertEquals(0, headingProvider.activeCollectors)
       runOnIdle { state?.retry() }
@@ -117,7 +118,7 @@ class LocationStateTest {
   @Test
   fun unknownPermissionStopsWhenAuthorizationIsDeniedWithoutRequestingIt() = withMainDispatcher {
     runComposeUiTest {
-      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
       var attempts = 0
       var permissionRequests = 0
       var stopped = false
@@ -262,7 +263,7 @@ class LocationStateTest {
 
       waitUntil { provider.active && state?.lastLocation == provider.location }
       assertEquals(
-        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+        LocationPermission.Granted(accuracy = null),
         state?.permission,
       )
     }
@@ -437,7 +438,7 @@ class LocationStateTest {
       runOnIdle { headingProvider.headings.tryEmit(expected) }
 
       waitUntil { state?.lastHeading == expected }
-      assertEquals(null, originalState?.lastHeading)
+      assertNull(originalState?.lastHeading)
     }
   }
 

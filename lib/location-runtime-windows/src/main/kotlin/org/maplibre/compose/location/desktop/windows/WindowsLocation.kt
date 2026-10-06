@@ -9,7 +9,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationUnavailableReason
@@ -71,7 +70,7 @@ internal fun Duration.toReportIntervalMilliseconds(): Int =
 
 internal fun WindowsAccessStatus.asLocationPermission(): LocationPermission =
   when (this) {
-    WindowsAccessStatus.Allowed -> LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+    WindowsAccessStatus.Allowed -> LocationPermission.Granted(accuracy = null)
     WindowsAccessStatus.UserPromptRequired -> LocationPermission.NotGranted(canRequest = true)
     WindowsAccessStatus.DeniedBySystem,
     WindowsAccessStatus.NotDeclared,
@@ -79,6 +78,9 @@ internal fun WindowsAccessStatus.asLocationPermission(): LocationPermission =
     WindowsAccessStatus.Unknown -> LocationPermission.NotGranted(canRequest = null)
   }
 
+/**
+ * The reason a status other than [WindowsPositionStatus.Ready] reports, or `null` if unclassified.
+ */
 internal fun WindowsPositionStatus.asUnavailableReason(
   permission: LocationPermission
 ): LocationUnavailableReason? =
@@ -94,7 +96,7 @@ internal fun WindowsPositionStatus.asUnavailableReason(
         LocationUnavailableReason.PermissionDenied
       }
     WindowsPositionStatus.NotAvailable -> LocationUnavailableReason.Unsupported
-    WindowsPositionStatus.Unknown -> LocationUnavailableReason.UnexpectedFailure
+    WindowsPositionStatus.Unknown -> null
   }
 
 internal fun WindowsLocationMeasurement.asMaplibreLocationMeasurement(): LocationMeasurement? {

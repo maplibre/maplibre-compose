@@ -76,12 +76,6 @@ sealed interface org.maplibre.compose.location/LocationAccuracyAuthorization { /
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationAccuracyAuthorization.Precise.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationAccuracyAuthorization.Precise.toString|toString(){}[0]
     }
-
-    final object Unknown : org.maplibre.compose.location/LocationAccuracyAuthorization { // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationAccuracyAuthorization.Unknown.toString|toString(){}[0]
-    }
 }
 
 sealed interface org.maplibre.compose.location/LocationBackendAvailability { // org.maplibre.compose.location/LocationBackendAvailability|null[0]
@@ -113,16 +107,16 @@ sealed interface org.maplibre.compose.location/LocationBackendAvailability { // 
 
 sealed interface org.maplibre.compose.location/LocationEvent { // org.maplibre.compose.location/LocationEvent|null[0]
     final class Unavailable : org.maplibre.compose.location/LocationEvent { // org.maplibre.compose.location/LocationEvent.Unavailable|null[0]
-        constructor <init>(org.maplibre.compose.location/LocationUnavailableReason, kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationEvent.Unavailable.<init>|<init>(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
+        constructor <init>(org.maplibre.compose.location/LocationUnavailableReason?, kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationEvent.Unavailable.<init>|<init>(org.maplibre.compose.location.LocationUnavailableReason?;kotlin.Throwable?){}[0]
 
         final val cause // org.maplibre.compose.location/LocationEvent.Unavailable.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/LocationEvent.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
         final val reason // org.maplibre.compose.location/LocationEvent.Unavailable.reason|{}reason[0]
-            final fun <get-reason>(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationEvent.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
+            final fun <get-reason>(): org.maplibre.compose.location/LocationUnavailableReason? // org.maplibre.compose.location/LocationEvent.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
 
-        final fun component1(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationEvent.Unavailable.component1|component1(){}[0]
+        final fun component1(): org.maplibre.compose.location/LocationUnavailableReason? // org.maplibre.compose.location/LocationEvent.Unavailable.component1|component1(){}[0]
         final fun component2(): kotlin/Throwable? // org.maplibre.compose.location/LocationEvent.Unavailable.component2|component2(){}[0]
-        final fun copy(org.maplibre.compose.location/LocationUnavailableReason = ..., kotlin/Throwable? = ...): org.maplibre.compose.location/LocationEvent.Unavailable // org.maplibre.compose.location/LocationEvent.Unavailable.copy|copy(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
+        final fun copy(org.maplibre.compose.location/LocationUnavailableReason? = ..., kotlin/Throwable? = ...): org.maplibre.compose.location/LocationEvent.Unavailable // org.maplibre.compose.location/LocationEvent.Unavailable.copy|copy(org.maplibre.compose.location.LocationUnavailableReason?;kotlin.Throwable?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationEvent.Unavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationEvent.Unavailable.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationEvent.Unavailable.toString|toString(){}[0]
@@ -147,13 +141,13 @@ sealed interface org.maplibre.compose.location/LocationEvent { // org.maplibre.c
 
 sealed interface org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission|null[0]
     final class Granted : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.Granted|null[0]
-        constructor <init>(org.maplibre.compose.location/LocationAccuracyAuthorization) // org.maplibre.compose.location/LocationPermission.Granted.<init>|<init>(org.maplibre.compose.location.LocationAccuracyAuthorization){}[0]
+        constructor <init>(org.maplibre.compose.location/LocationAccuracyAuthorization?) // org.maplibre.compose.location/LocationPermission.Granted.<init>|<init>(org.maplibre.compose.location.LocationAccuracyAuthorization?){}[0]
 
         final val accuracy // org.maplibre.compose.location/LocationPermission.Granted.accuracy|{}accuracy[0]
-            final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationPermission.Granted.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
+            final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracyAuthorization? // org.maplibre.compose.location/LocationPermission.Granted.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
 
-        final fun component1(): org.maplibre.compose.location/LocationAccuracyAuthorization // org.maplibre.compose.location/LocationPermission.Granted.component1|component1(){}[0]
-        final fun copy(org.maplibre.compose.location/LocationAccuracyAuthorization = ...): org.maplibre.compose.location/LocationPermission.Granted // org.maplibre.compose.location/LocationPermission.Granted.copy|copy(org.maplibre.compose.location.LocationAccuracyAuthorization){}[0]
+        final fun component1(): org.maplibre.compose.location/LocationAccuracyAuthorization? // org.maplibre.compose.location/LocationPermission.Granted.component1|component1(){}[0]
+        final fun copy(org.maplibre.compose.location/LocationAccuracyAuthorization? = ...): org.maplibre.compose.location/LocationPermission.Granted // org.maplibre.compose.location/LocationPermission.Granted.copy|copy(org.maplibre.compose.location.LocationAccuracyAuthorization?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.Granted.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.Granted.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.Granted.toString|toString(){}[0]
@@ -175,10 +169,10 @@ sealed interface org.maplibre.compose.location/LocationPermission { // org.mapli
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.NotGranted.toString|toString(){}[0]
     }
 
-    final object Unknown : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.Unknown|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.Unknown.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.Unknown.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.Unknown.toString|toString(){}[0]
+    final object NotDetermined : org.maplibre.compose.location/LocationPermission { // org.maplibre.compose.location/LocationPermission.NotDetermined|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationPermission.NotDetermined.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationPermission.NotDetermined.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationPermission.NotDetermined.toString|toString(){}[0]
     }
 }
 
@@ -199,12 +193,6 @@ sealed interface org.maplibre.compose.location/LocationUnavailableReason { // or
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationUnavailableReason.TemporarilyUnavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationUnavailableReason.TemporarilyUnavailable.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationUnavailableReason.TemporarilyUnavailable.toString|toString(){}[0]
-    }
-
-    final object UnexpectedFailure : org.maplibre.compose.location/LocationUnavailableReason { // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.location/LocationUnavailableReason.UnexpectedFailure.toString|toString(){}[0]
     }
 
     final object Unsupported : org.maplibre.compose.location/LocationUnavailableReason { // org.maplibre.compose.location/LocationUnavailableReason.Unsupported|null[0]

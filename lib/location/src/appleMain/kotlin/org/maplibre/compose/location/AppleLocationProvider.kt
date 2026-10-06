@@ -43,7 +43,7 @@ import platform.darwin.NSObject
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
  * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
- * report [LocationUnavailableReason.UnexpectedFailure].
+ * report a `null` reason.
  */
 public class AppleLocationProvider
 internal constructor(
@@ -149,9 +149,9 @@ private sealed interface AppleLocationCallback {
 
 internal suspend fun NSError.asUnavailableReason(
   locationServicesEnabled: suspend () -> Boolean
-): LocationUnavailableReason =
+): LocationUnavailableReason? =
   when {
-    domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure
+    domain != kCLErrorDomain -> null
     code == kCLErrorDenied ->
       if (locationServicesEnabled()) {
         LocationUnavailableReason.PermissionDenied
@@ -161,5 +161,5 @@ internal suspend fun NSError.asUnavailableReason(
     code == kCLErrorPromptDeclined -> LocationUnavailableReason.PermissionDenied
     code == kCLErrorLocationUnknown || code == kCLErrorNetwork ->
       LocationUnavailableReason.TemporarilyUnavailable
-    else -> LocationUnavailableReason.UnexpectedFailure
+    else -> null
   }
