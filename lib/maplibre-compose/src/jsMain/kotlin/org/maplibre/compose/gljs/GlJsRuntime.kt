@@ -22,12 +22,12 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
         if (!loc) return workerUrl;
         var resolvedWorkerUrl;
         try {
-          resolvedWorkerUrl = new Url(workerUrl, loc.href);
+          resolvedWorkerUrl = new URL(workerUrl, loc.href);
           if (resolvedWorkerUrl.origin === loc.origin) return workerUrl;
         } catch (e) {
           return workerUrl;
         }
-        return Url.createObjectURL(
+        return URL.createObjectURL(
           new Blob(
             ["import " + JSON.stringify(resolvedWorkerUrl.href)],
             {type: "text/javascript"}

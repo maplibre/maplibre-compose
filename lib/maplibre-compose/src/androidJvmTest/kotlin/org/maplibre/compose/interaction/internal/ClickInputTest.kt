@@ -494,7 +494,7 @@ class ClickInputTest {
     ) { target ->
       mapNode().performTouchInput {
         click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        advanceEventTime(SecondTapGapMillis)
         down(center)
         moveBy(Offset(0f, -60f))
         up()

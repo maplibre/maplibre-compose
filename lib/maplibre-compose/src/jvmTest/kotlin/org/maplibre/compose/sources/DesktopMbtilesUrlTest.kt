@@ -117,7 +117,7 @@ class DesktopMbtilesUrlTest {
   }
 
   @Test
-  fun `the Url decodes back to the path`() {
+  fun `the URL decodes back to the path`() {
     val path = "/tmp/ké 地図/city.mbtiles"
 
     val url = mbtilesUrlForPath(path)

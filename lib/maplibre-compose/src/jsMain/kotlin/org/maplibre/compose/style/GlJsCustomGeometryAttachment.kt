@@ -78,7 +78,7 @@ internal class GlJsCustomGeometryAttachment(
   }
 
   private companion object {
-    /** MapLibre Native's `util::Extent`, the tile extent it encodes custom geometry at. */
+    /** MapLibre Native's `util::EXTENT`, the tile extent it encodes custom geometry at. */
     const val Extent = 8192
 
     /** The tile size the source's options are measured against. */
