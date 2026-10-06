@@ -41,10 +41,10 @@ public sealed interface Anchor {
    * content.
    *
    * The library calls [predicate] each time it applies the style content to a loaded style. For a
-   * map, calls run on the map's main thread, one at a time. For a
-   * [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on MapLibre Native, calls run
-   * on a background thread. An anchor used by several maps or snapshotters can receive calls at the
-   * same time. The predicate must return quickly and call no map API.
+   * map, and for a [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on the
+   * browser, calls run on the main thread, one at a time. For a snapshot capture on MapLibre
+   * Native, calls run on a background thread. An anchor used by several maps or snapshotters can
+   * receive calls at the same time. The predicate must return quickly and call no map API.
    *
    * If [predicate] throws, the style content is not applied: a map logs a warning and sets
    * [MapStyleState.loadState][org.maplibre.compose.map.MapStyleState.loadState] to
@@ -76,10 +76,10 @@ public sealed interface Anchor {
    * content.
    *
    * The library calls [predicate] each time it applies the style content to a loaded style. For a
-   * map, calls run on the map's main thread, one at a time. For a
-   * [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on MapLibre Native, calls run
-   * on a background thread. An anchor used by several maps or snapshotters can receive calls at the
-   * same time. The predicate must return quickly and call no map API.
+   * map, and for a [MapSnapshotter][org.maplibre.compose.map.MapSnapshotter] capture on the
+   * browser, calls run on the main thread, one at a time. For a snapshot capture on MapLibre
+   * Native, calls run on a background thread. An anchor used by several maps or snapshotters can
+   * receive calls at the same time. The predicate must return quickly and call no map API.
    *
    * If [predicate] throws, the style content is not applied: a map logs a warning and sets
    * [MapStyleState.loadState][org.maplibre.compose.map.MapStyleState.loadState] to

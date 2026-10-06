@@ -76,8 +76,8 @@ public interface MapRequestInterceptor {
 /**
  * Returns an interceptor that calls [rewriteUrl] and [headers].
  *
- * Each function runs on the threads, and with the failure handling, of the [MapRequestInterceptor]
- * member with the same name.
+ * [rewriteUrl] and [headers] run on the same threads as the [MapRequestInterceptor] functions with
+ * the same names, and the library handles their exceptions the same way.
  */
 public fun MapRequestInterceptor(
   rewriteUrl: (MapResourceRequest) -> String? = { null },
@@ -301,9 +301,9 @@ public interface MapResourceProvider {
   /**
    * Loads the resource for a request that [accepts] returned true for.
    *
-   * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different requests run at
-   * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. On the
-   * browser, calls run on the page's main thread and overlap only where they suspend.
+   * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different requests can
+   * run at the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. On
+   * the browser, calls run on the page's main thread and overlap only where they suspend.
    *
    * Cancellation means that the engine no longer needs the resource, or that the map runtime
    * closed. An exception other than cancellation becomes a [MapResourceLoad.Failed] with reason
@@ -315,8 +315,8 @@ public interface MapResourceProvider {
 /**
  * Returns a provider that calls [accepts] and [load].
  *
- * Each function runs on the threads, and with the failure handling, of the [MapResourceProvider]
- * member with the same name.
+ * [accepts] and [load] run on the same threads as the [MapResourceProvider] functions with the same
+ * names, and the library handles their exceptions the same way.
  */
 public fun MapResourceProvider(
   accepts: (MapResourceRequest) -> Boolean,

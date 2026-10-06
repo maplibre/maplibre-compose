@@ -58,11 +58,11 @@ public data class TileCoordinate(
 /**
  * Supplies geographic features for one tile.
  *
- * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles run at the
- * same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request for
- * a tile cancels the call that is still loading it. On the browser, calls run on the page's main
- * thread and overlap only where they suspend, and requests for a tile that is already loading share
- * that call.
+ * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles can run at
+ * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request
+ * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
+ * main thread and overlap only where they suspend, and requests for a tile that is already loading
+ * share that call.
  */
 public fun interface GeometryTileProvider {
   /**
@@ -77,11 +77,11 @@ public fun interface GeometryTileProvider {
 /**
  * Supplies encoded vector data for one tile.
  *
- * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles run at the
- * same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request for
- * a tile cancels the call that is still loading it. On the browser, calls run on the page's main
- * thread and overlap only where they suspend, and requests for a tile that is already loading share
- * that call.
+ * On MapLibre Native, calls run on `Dispatchers.Default`, and calls for different tiles can run at
+ * the same time; move blocking work to another dispatcher, such as `Dispatchers.IO`. A new request
+ * for a tile cancels the call that is still loading it. On the browser, calls run on the page's
+ * main thread and overlap only where they suspend, and requests for a tile that is already loading
+ * share that call.
  */
 public fun interface VectorTileProvider {
   /**
