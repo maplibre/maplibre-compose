@@ -3704,53 +3704,32 @@ public abstract interface class org/maplibre/compose/sources/MutableSourceHandle
 public abstract interface class org/maplibre/compose/sources/MutableVectorTileSourceHandle : org/maplibre/compose/sources/MutableSourceHandle, org/maplibre/compose/sources/VectorTileSourceHandle {
 }
 
-public abstract class org/maplibre/compose/sources/RasterDemEncoding {
-	public static final field $stable I
-	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class org/maplibre/compose/sources/RasterDemEncoding {
+	public static final field Companion Lorg/maplibre/compose/sources/RasterDemEncoding$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/sources/RasterDemEncoding;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/sources/RasterDemEncoding$Custom : org/maplibre/compose/sources/RasterDemEncoding {
-	public static final field $stable I
-	public fun <init> ()V
-	public fun <init> (FFFF)V
-	public synthetic fun <init> (FFFFILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()F
-	public final fun component2 ()F
-	public final fun component3 ()F
-	public final fun component4 ()F
-	public final fun copy (FFFF)Lorg/maplibre/compose/sources/RasterDemEncoding$Custom;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/sources/RasterDemEncoding$Custom;FFFFILjava/lang/Object;)Lorg/maplibre/compose/sources/RasterDemEncoding$Custom;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getBaseShift ()F
-	public final fun getBlueFactor ()F
-	public final fun getGreenFactor ()F
-	public final fun getRedFactor ()F
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/sources/RasterDemEncoding$Mapbox : org/maplibre/compose/sources/RasterDemEncoding {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/sources/RasterDemEncoding$Mapbox;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class org/maplibre/compose/sources/RasterDemEncoding$Terrarium : org/maplibre/compose/sources/RasterDemEncoding {
-	public static final field $stable I
-	public static final field INSTANCE Lorg/maplibre/compose/sources/RasterDemEncoding$Terrarium;
-	public fun equals (Ljava/lang/Object;)Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
+public final class org/maplibre/compose/sources/RasterDemEncoding$Companion {
+	public final fun getCustom-ZQ5H52c ()Ljava/lang/String;
+	public final fun getMapbox-ZQ5H52c ()Ljava/lang/String;
+	public final fun getTerrarium-ZQ5H52c ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/sources/RasterDemTileSource : org/maplibre/compose/sources/Source {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;I)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Ljava/lang/String;Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILorg/maplibre/compose/sources/RasterDemEncoding;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILorg/maplibre/compose/sources/RasterDemEncoding;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILjava/lang/String;FFFFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILjava/lang/String;FFFFLkotlin/jvm/internal/DefaultConstructorMarker;)V
 }
 
 public abstract interface class org/maplibre/compose/sources/RasterDemTileSourceHandle : org/maplibre/compose/sources/SourceHandle {
@@ -3760,7 +3739,8 @@ public abstract interface class org/maplibre/compose/sources/RasterDemTileSource
 
 public final class org/maplibre/compose/sources/RasterDemTileSourceKt {
 	public static final fun rememberRasterDemTileSource (Ljava/lang/String;ILandroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/sources/RasterDemTileSource;
-	public static final fun rememberRasterDemTileSource (Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILorg/maplibre/compose/sources/RasterDemEncoding;Landroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/sources/RasterDemTileSource;
+	public static final synthetic fun rememberRasterDemTileSource-IYmiS1k (Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILjava/lang/String;FFFFLandroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/sources/RasterDemTileSource;
+	public static final fun rememberRasterDemTileSource-XLYumbE (Ljava/util/List;Lorg/maplibre/compose/sources/TileSetOptions;ILjava/lang/String;FFFFLandroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/sources/RasterDemTileSource;
 }
 
 public abstract class org/maplibre/compose/sources/RasterSource : org/maplibre/compose/sources/Source {

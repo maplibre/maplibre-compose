@@ -2718,7 +2718,7 @@ final class org.maplibre.compose.sources/ImageSource : org.maplibre.compose.sour
 }
 
 final class org.maplibre.compose.sources/RasterDemTileSource : org.maplibre.compose.sources/Source { // org.maplibre.compose.sources/RasterDemTileSource|null[0]
-    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Int = ..., org.maplibre.compose.sources/RasterDemEncoding = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding){}[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Int = ..., org.maplibre.compose.sources/RasterDemEncoding = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     constructor <init>(kotlin/String, kotlin/String, kotlin/Int = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.String;kotlin.Int){}[0]
 }
 
@@ -3561,6 +3561,24 @@ final value class org.maplibre.compose.resource/MapResourceKind { // org.maplibr
     }
 }
 
+final value class org.maplibre.compose.sources/RasterDemEncoding { // org.maplibre.compose.sources/RasterDemEncoding|null[0]
+    final val value // org.maplibre.compose.sources/RasterDemEncoding.value|{}value[0]
+        final fun <get-value>(): kotlin/String // org.maplibre.compose.sources/RasterDemEncoding.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/RasterDemEncoding.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/RasterDemEncoding.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.sources/RasterDemEncoding.toString|toString(){}[0]
+
+    final object Companion { // org.maplibre.compose.sources/RasterDemEncoding.Companion|null[0]
+        final val Custom // org.maplibre.compose.sources/RasterDemEncoding.Companion.Custom|{}Custom[0]
+            final fun <get-Custom>(): org.maplibre.compose.sources/RasterDemEncoding // org.maplibre.compose.sources/RasterDemEncoding.Companion.Custom.<get-Custom>|<get-Custom>(){}[0]
+        final val Mapbox // org.maplibre.compose.sources/RasterDemEncoding.Companion.Mapbox|{}Mapbox[0]
+            final fun <get-Mapbox>(): org.maplibre.compose.sources/RasterDemEncoding // org.maplibre.compose.sources/RasterDemEncoding.Companion.Mapbox.<get-Mapbox>|<get-Mapbox>(){}[0]
+        final val Terrarium // org.maplibre.compose.sources/RasterDemEncoding.Companion.Terrarium|{}Terrarium[0]
+            final fun <get-Terrarium>(): org.maplibre.compose.sources/RasterDemEncoding // org.maplibre.compose.sources/RasterDemEncoding.Companion.Terrarium.<get-Terrarium>|<get-Terrarium>(){}[0]
+    }
+}
+
 final value class org.maplibre.compose.sources/TileScheme { // org.maplibre.compose.sources/TileScheme|null[0]
     final val value // org.maplibre.compose.sources/TileScheme.value|{}value[0]
         final fun <get-value>(): kotlin/String // org.maplibre.compose.sources/TileScheme.value.<get-value>|<get-value>(){}[0]
@@ -3598,42 +3616,6 @@ sealed class org.maplibre.compose.interaction/ModifierMatch { // org.maplibre.co
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/ModifierMatch.Exactly.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/ModifierMatch.Exactly.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.interaction/ModifierMatch.Exactly.toString|toString(){}[0]
-    }
-}
-
-sealed class org.maplibre.compose.sources/RasterDemEncoding { // org.maplibre.compose.sources/RasterDemEncoding|null[0]
-    final class Custom : org.maplibre.compose.sources/RasterDemEncoding { // org.maplibre.compose.sources/RasterDemEncoding.Custom|null[0]
-        constructor <init>(kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...) // org.maplibre.compose.sources/RasterDemEncoding.Custom.<init>|<init>(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
-
-        final val baseShift // org.maplibre.compose.sources/RasterDemEncoding.Custom.baseShift|{}baseShift[0]
-            final fun <get-baseShift>(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.baseShift.<get-baseShift>|<get-baseShift>(){}[0]
-        final val blueFactor // org.maplibre.compose.sources/RasterDemEncoding.Custom.blueFactor|{}blueFactor[0]
-            final fun <get-blueFactor>(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.blueFactor.<get-blueFactor>|<get-blueFactor>(){}[0]
-        final val greenFactor // org.maplibre.compose.sources/RasterDemEncoding.Custom.greenFactor|{}greenFactor[0]
-            final fun <get-greenFactor>(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.greenFactor.<get-greenFactor>|<get-greenFactor>(){}[0]
-        final val redFactor // org.maplibre.compose.sources/RasterDemEncoding.Custom.redFactor|{}redFactor[0]
-            final fun <get-redFactor>(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.redFactor.<get-redFactor>|<get-redFactor>(){}[0]
-
-        final fun component1(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.component1|component1(){}[0]
-        final fun component2(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.component2|component2(){}[0]
-        final fun component3(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.component3|component3(){}[0]
-        final fun component4(): kotlin/Float // org.maplibre.compose.sources/RasterDemEncoding.Custom.component4|component4(){}[0]
-        final fun copy(kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...): org.maplibre.compose.sources/RasterDemEncoding.Custom // org.maplibre.compose.sources/RasterDemEncoding.Custom.copy|copy(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/RasterDemEncoding.Custom.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/RasterDemEncoding.Custom.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.sources/RasterDemEncoding.Custom.toString|toString(){}[0]
-    }
-
-    final object Mapbox : org.maplibre.compose.sources/RasterDemEncoding { // org.maplibre.compose.sources/RasterDemEncoding.Mapbox|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/RasterDemEncoding.Mapbox.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/RasterDemEncoding.Mapbox.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.sources/RasterDemEncoding.Mapbox.toString|toString(){}[0]
-    }
-
-    final object Terrarium : org.maplibre.compose.sources/RasterDemEncoding { // org.maplibre.compose.sources/RasterDemEncoding.Terrarium|null[0]
-        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/RasterDemEncoding.Terrarium.equals|equals(kotlin.Any?){}[0]
-        final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/RasterDemEncoding.Terrarium.hashCode|hashCode(){}[0]
-        final fun toString(): kotlin/String // org.maplibre.compose.sources/RasterDemEncoding.Terrarium.toString|toString(){}[0]
     }
 }
 
@@ -4013,10 +3995,6 @@ final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptio
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop|#static{}org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop|#static{}org_maplibre_compose_sources_GeoJsonSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop|#static{}org_maplibre_compose_sources_ImageSource$stableprop[0]
-final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding$stableprop|#static{}org_maplibre_compose_sources_RasterDemEncoding$stableprop[0]
-final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop|#static{}org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop[0]
-final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop|#static{}org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop[0]
-final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop|#static{}org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTileSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTileSource$stableprop|#static{}org_maplibre_compose_sources_RasterDemTileSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop|#static{}org_maplibre_compose_sources_RasterSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop|#static{}org_maplibre_compose_sources_RasterTileSource$stableprop[0]
@@ -4470,10 +4448,6 @@ final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptio
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter|org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop_getter|org_maplibre_compose_sources_GeoJsonSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop_getter|org_maplibre_compose_sources_ImageSource$stableprop_getter(){}[0]
-final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding$stableprop_getter|org_maplibre_compose_sources_RasterDemEncoding$stableprop_getter(){}[0]
-final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop_getter|org_maplibre_compose_sources_RasterDemEncoding_Custom$stableprop_getter(){}[0]
-final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop_getter|org_maplibre_compose_sources_RasterDemEncoding_Mapbox$stableprop_getter(){}[0]
-final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop_getter|org_maplibre_compose_sources_RasterDemEncoding_Terrarium$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTileSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterDemTileSource$stableprop_getter|org_maplibre_compose_sources_RasterDemTileSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterSource$stableprop_getter|org_maplibre_compose_sources_RasterSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSource$stableprop_getter|org_maplibre_compose_sources_RasterTileSource$stableprop_getter(){}[0]
@@ -4488,7 +4462,8 @@ final fun org.maplibre.compose.sources/rememberGeoJsonSource(org.maplibre.compos
 final fun org.maplibre.compose.sources/rememberImageSource(org.maplibre.compose.util/PositionQuad, kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/ImageSource // org.maplibre.compose.sources/rememberImageSource|rememberImageSource(org.maplibre.compose.util.PositionQuad;kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberImageSource(org.maplibre.compose.util/PositionQuad, org.maplibre.compose.util/PreparedImage, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/ImageSource // org.maplibre.compose.sources/rememberImageSource|rememberImageSource(org.maplibre.compose.util.PositionQuad;org.maplibre.compose.util.PreparedImage;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberMbtilesUrl(kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.runtime/State<kotlin/String?> // org.maplibre.compose.sources/rememberMbtilesUrl|rememberMbtilesUrl(kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding?, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding?;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin/String, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.String;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberRasterTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterTileSource // org.maplibre.compose.sources/rememberRasterTileSource|rememberRasterTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberRasterTileSource(kotlin/String, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterTileSource // org.maplibre.compose.sources/rememberRasterTileSource|rememberRasterTileSource(kotlin.String;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]

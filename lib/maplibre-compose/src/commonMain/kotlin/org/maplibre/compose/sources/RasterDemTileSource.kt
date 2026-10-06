@@ -48,7 +48,15 @@ public class RasterDemTileSource : Source {
    *   adding such a source to a MapLibre GL JS map fails.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source. Defaults to 512, the style spec default.
-   * @param demEncoding The encoding used by this source. Mapbox Terrain RGB is used by default.
+   * @param demEncoding How the tiles store elevation. Defaults to [RasterDemEncoding.Mapbox].
+   * @param redFactor The number MapLibre multiplies the red channel by when decoding elevation.
+   *   Used only with [RasterDemEncoding.Custom]. Defaults to 1.
+   * @param greenFactor The number MapLibre multiplies the green channel by when decoding elevation.
+   *   Used only with [RasterDemEncoding.Custom]. Defaults to 1.
+   * @param blueFactor The number MapLibre multiplies the blue channel by when decoding elevation.
+   *   Used only with [RasterDemEncoding.Custom]. Defaults to 1.
+   * @param baseShift The number MapLibre subtracts from the sum of the scaled channels when
+   *   decoding elevation. Used only with [RasterDemEncoding.Custom]. Defaults to 0.
    */
   public constructor(
     id: String,
@@ -56,15 +64,25 @@ public class RasterDemTileSource : Source {
     options: TileSetOptions = TileSetOptions(),
     tileSize: Int = 512,
     demEncoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
+    redFactor: Float = 1f,
+    greenFactor: Float = 1f,
+    blueFactor: Float = 1f,
+    baseShift: Float = 0f,
   ) : super(id) {
-    val tileSet = TileSet(tiles.toList(), options, tileSize, demEncoding)
+    val tileSet =
+      TileSet(
+        tiles.toList(),
+        options,
+        tileSize,
+        RasterDemDecoding(demEncoding, redFactor, greenFactor, blueFactor, baseShift),
+      )
     this.tileSet = tileSet
     json =
       rasterDemSourceJson(
         tiles = tileSet.tiles,
         options = tileSet.options,
         tileSize = tileSet.tileSize,
-        demEncoding = tileSet.demEncoding,
+        decoding = tileSet.decoding,
         capabilities =
           RasterDemCapabilities(
             supportsCustomDemEncoding = true,
@@ -87,7 +105,7 @@ public class RasterDemTileSource : Source {
       tiles = tileSet.tiles,
       options = tileSet.options,
       tileSize = tileSet.tileSize,
-      demEncoding = tileSet.demEncoding,
+      decoding = tileSet.decoding,
     )
   }
 
@@ -95,15 +113,24 @@ public class RasterDemTileSource : Source {
     val tiles: List<String>,
     val options: TileSetOptions,
     val tileSize: Int,
-    val demEncoding: RasterDemEncoding,
+    val decoding: RasterDemDecoding,
   )
 }
+
+/** The style spec's `encoding` and the custom factors that go with it. */
+internal data class RasterDemDecoding(
+  val encoding: RasterDemEncoding,
+  val redFactor: Float,
+  val greenFactor: Float,
+  val blueFactor: Float,
+  val baseShift: Float,
+)
 
 internal fun rasterDemSourceJson(
   tiles: List<String>,
   options: TileSetOptions,
   tileSize: Int,
-  demEncoding: RasterDemEncoding,
+  decoding: RasterDemDecoding,
   capabilities: RasterDemCapabilities,
 ): JsonObject {
   if (!capabilities.supportsRasterDemScheme && options.scheme != TileScheme.Xyz) {
@@ -113,58 +140,25 @@ internal fun rasterDemSourceJson(
       null,
     )
   }
-  val customEncoding = capabilities.supportsCustomDemEncoding
   val includeScheme = capabilities.supportsRasterDemScheme
+  val custom = decoding.encoding == RasterDemEncoding.Custom
+  val customSupported = capabilities.supportsCustomDemEncoding
   return buildJsonObject {
     put("type", "raster-dem")
     putJsonArray("tiles") { tiles.forEach { add(it) } }
     put("tileSize", tileSize)
-    val custom = demEncoding as? RasterDemEncoding.Custom
     put(
       "encoding",
-      if (custom != null && !customEncoding) RasterDemEncoding.Mapbox.value else demEncoding.value,
+      if (custom && !customSupported) RasterDemEncoding.Mapbox.value else decoding.encoding.value,
     )
-    if (custom != null && customEncoding) {
-      put("redFactor", custom.redFactor)
-      put("greenFactor", custom.greenFactor)
-      put("blueFactor", custom.blueFactor)
-      put("baseShift", custom.baseShift)
+    if (custom && customSupported) {
+      put("redFactor", decoding.redFactor)
+      put("greenFactor", decoding.greenFactor)
+      put("blueFactor", decoding.blueFactor)
+      put("baseShift", decoding.baseShift)
     }
     putTileSetOptions(options, includeScheme = includeScheme)
   }
-}
-
-/** The encoding used by a Raster DEM source. */
-public sealed class RasterDemEncoding(internal val value: String) {
-  /**
-   * Mapbox Terrain RGB tiles. See
-   * https://www.mapbox.com/help/access-elevation-data/#mapbox-terrain-rgb for more info
-   */
-  public data object Mapbox : RasterDemEncoding("mapbox")
-
-  /**
-   * Terrarium format PNG tiles. See https://aws.amazon.com/es/public-datasets/terrain/ for more
-   * info.
-   */
-  public data object Terrarium : RasterDemEncoding("terrarium")
-
-  /**
-   * Custom format using the given [redFactor], [blueFactor], [greenFactor] and [baseShift]
-   * parameters.
-   *
-   * Unsupported on Android, iOS, and Desktop
-   * [#2783](https://github.com/maplibre/maplibre-native/issues/2783).
-   */
-  public data class Custom(
-    /** Value that will be multiplied by the red channel value when decoding. */
-    public val redFactor: Float = 1f,
-    /** Value that will be multiplied by the blue channel value when decoding. */
-    public val blueFactor: Float = 1f,
-    /** Value that will be multiplied by the green channel value when decoding. */
-    public val greenFactor: Float = 1f,
-    /** Value that will be added to the encoding mix when decoding. */
-    public val baseShift: Float = 0f,
-  ) : RasterDemEncoding("custom")
 }
 
 /** Remember a new [RasterDemTileSource] with the given [tileSize] from the given [uri]. */
@@ -177,14 +171,22 @@ public fun rememberRasterDemTileSource(
     rememberUserSource { RasterDemTileSource(id = it, uri = uri, tileSize = tileSize) }
   }
 
+/**
+ * Remember a new [RasterDemTileSource] from the given [tiles]. The parameters are those of the
+ * [RasterDemTileSource] constructor; [encoding] is its `demEncoding`.
+ */
 @Composable
 public fun rememberRasterDemTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
   tileSize: Int = 512,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
+  redFactor: Float = 1f,
+  greenFactor: Float = 1f,
+  blueFactor: Float = 1f,
+  baseShift: Float = 0f,
 ): RasterDemTileSource =
-  key(tiles, options, tileSize, encoding) {
+  key(tiles, options, tileSize, encoding, redFactor, greenFactor, blueFactor, baseShift) {
     rememberUserSource {
       RasterDemTileSource(
         id = it,
@@ -192,6 +194,10 @@ public fun rememberRasterDemTileSource(
         options = options,
         tileSize = tileSize,
         demEncoding = encoding,
+        redFactor = redFactor,
+        greenFactor = greenFactor,
+        blueFactor = blueFactor,
+        baseShift = baseShift,
       )
     }
   }

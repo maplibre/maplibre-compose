@@ -7,7 +7,7 @@ import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
-import org.maplibre.compose.sources.RasterDemEncoding
+import org.maplibre.compose.sources.RasterDemDecoding
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.util.ImageStretch
@@ -50,7 +50,7 @@ internal sealed interface SourceDefinition {
     val tiles: List<String>,
     val options: TileSetOptions,
     val tileSize: Int,
-    val demEncoding: RasterDemEncoding,
+    val decoding: RasterDemDecoding,
   ) : SourceDefinition
 }
 
