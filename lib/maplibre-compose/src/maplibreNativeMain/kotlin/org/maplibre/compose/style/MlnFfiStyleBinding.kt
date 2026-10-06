@@ -133,7 +133,7 @@ internal open class MlnFfiStyleBinding(
     map.styleLayers().map { layer ->
       LayerSummary(layer.id, layer.type, layer.sourceId, layer.sourceLayer)
     }
-  override val baseSources: Map<String, Source?> =
+  override val baseSources: Map<String, Source> =
     map.styleSourceIds().associateWith { reconstructSource(map, it) }
 
   /** Runs [action] through [MlnFfiMapRuntimeLoop.await]. */
@@ -218,7 +218,7 @@ internal open class MlnFfiStyleBinding(
     map.styleLayers().map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
   }
 
-  private fun reconstructSource(map: MapHandle, id: String): Source? =
+  private fun reconstructSource(map: MapHandle, id: String): Source =
     reconstructedSource(id, sourceDefinition(map, id))
 
   private fun sourceDefinition(map: MapHandle, id: String): JsonObject {

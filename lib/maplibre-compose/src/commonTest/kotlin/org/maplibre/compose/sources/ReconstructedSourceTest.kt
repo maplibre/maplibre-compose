@@ -3,7 +3,6 @@ package org.maplibre.compose.sources
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -22,8 +21,17 @@ class ReconstructedSourceTest {
   }
 
   @Test
-  fun a_type_without_a_class_is_not_reconstructed() {
-    assertNull(reconstructedSource("clip", buildJsonObject { put("type", "video") }))
-    assertNull(reconstructedSource("blank", buildJsonObject {}))
+  fun a_type_without_a_public_class_is_kept() {
+    val clip = buildJsonObject {
+      put("type", "video")
+      put("attribution", "© nobody")
+    }
+    val video = assertIs<UnmodeledRasterSource>(reconstructedSource("clip", clip))
+    assertEquals("© nobody", video.attributionHtml)
+    val canvas = buildJsonObject { put("type", "canvas") }
+    assertIs<UnmodeledRasterSource>(reconstructedSource("paint", canvas))
+    val future = buildJsonObject { put("type", "future") }
+    assertIs<UnmodeledSource>(reconstructedSource("next", future))
+    assertIs<UnmodeledSource>(reconstructedSource("blank", buildJsonObject {}))
   }
 }

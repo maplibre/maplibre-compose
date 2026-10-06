@@ -44,7 +44,7 @@ internal interface StyleBinding {
   val identity: StyleIdentity
 
   /** Immutable base resources captured before the binding is published or composition runs. */
-  val baseSources: Map<String, Source?>
+  val baseSources: Map<String, Source>
 
   /** Base-style layers in stack order. */
   val baseLayers: List<LayerSummary>
