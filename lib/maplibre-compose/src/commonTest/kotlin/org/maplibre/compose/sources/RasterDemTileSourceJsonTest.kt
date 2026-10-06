@@ -21,7 +21,8 @@ class RasterDemTileSourceJsonTest {
           id = "dem",
           tiles = listOf(TileTemplate),
           options = TileSetOptions(scheme = TileScheme.Tms),
-          demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
+          demEncoding = RasterDemEncoding.Custom,
+          redFactor = 2f,
         )
         .toJson()
 
@@ -37,7 +38,8 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
+        demEncoding = RasterDemEncoding.Custom,
+        redFactor = 2f,
       )
 
     SourceInstallation(binding, source.definition())
@@ -54,7 +56,9 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        demEncoding = RasterDemEncoding.Custom(redFactor = 2f, baseShift = 3f),
+        demEncoding = RasterDemEncoding.Custom,
+        redFactor = 2f,
+        baseShift = 3f,
       )
 
     SourceInstallation(binding, source.definition())
@@ -63,6 +67,21 @@ class RasterDemTileSourceJsonTest {
     assertEquals("custom", json["encoding"]?.jsonPrimitive?.content)
     assertEquals(2f, json["redFactor"]?.jsonPrimitive?.content?.toFloat())
     assertEquals(3f, json["baseShift"]?.jsonPrimitive?.content?.toFloat())
+  }
+
+  @Test
+  fun a_named_encoding_ignores_the_custom_factors() {
+    val json =
+      RasterDemTileSource(
+          id = "dem",
+          tiles = listOf(TileTemplate),
+          demEncoding = RasterDemEncoding.Terrarium,
+          redFactor = 2f,
+        )
+        .toJson()
+
+    assertEquals("terrarium", json["encoding"]?.jsonPrimitive?.content)
+    assertFalse("redFactor" in json)
   }
 
   @Test

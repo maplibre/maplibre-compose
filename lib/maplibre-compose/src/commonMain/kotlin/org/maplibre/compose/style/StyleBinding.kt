@@ -315,7 +315,7 @@ internal interface StyleBinding {
             tiles = definition.tiles,
             options = definition.options,
             tileSize = definition.tileSize,
-            demEncoding = definition.demEncoding,
+            decoding = definition.decoding,
             capabilities =
               RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
           ),
