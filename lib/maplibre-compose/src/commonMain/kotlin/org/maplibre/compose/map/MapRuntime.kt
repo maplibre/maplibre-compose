@@ -596,7 +596,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
                 },
                 operations = operationGuard(current),
               )
-              ?: return@mapNotNull null
           id to handle
         }
         .toMap()

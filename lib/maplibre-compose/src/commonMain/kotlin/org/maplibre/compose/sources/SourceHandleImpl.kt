@@ -43,6 +43,7 @@ protected constructor(
       is VectorTileSourceHandleImpl -> MutableVectorTileSourceHandleImpl(this)
       is RasterTileSourceHandleImpl -> MutableRasterTileSourceHandleImpl(this)
       is RasterDemTileSourceHandleImpl -> MutableRasterDemTileSourceHandleImpl(this)
+      is UnmodeledSourceHandleImpl -> MutableUnmodeledSourceHandleImpl(this)
     }
 
   internal fun remove() = operation {
@@ -322,6 +323,21 @@ internal constructor(
     get() = super.asMutable as? MutableRasterDemTileSourceHandle
 }
 
+/**
+ * A handle for a source whose style-spec type has no public handle interface in this version, such
+ * as a GL JS video or canvas source. It also keeps [SourceHandle] and [MutableSourceHandle] open:
+ * callers' `when` needs an `else` branch.
+ */
+internal class UnmodeledSourceHandleImpl
+internal constructor(
+  id: String,
+  attributionHtml: String,
+  style: StyleBinding,
+  kind: String,
+  currentKind: () -> String?,
+  operations: StyleHandleOperationGuard,
+) : SourceHandleImpl(id, attributionHtml, style, kind, currentKind, operations)
+
 /** Builds a handle from metadata already captured on the engine owner. */
 internal fun StyleBinding.sourceHandle(
   id: String,
@@ -330,7 +346,7 @@ internal fun StyleBinding.sourceHandle(
   options: GeoJsonOptions,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-): SourceHandle? {
+): SourceHandle {
   return when (kind) {
     "geojson" ->
       GeoJsonSourceHandleImpl(
@@ -357,7 +373,7 @@ internal fun StyleBinding.sourceHandle(
         currentKind = currentKind,
         operations = operations,
       )
-    else -> null
+    else -> UnmodeledSourceHandleImpl(id, attributionHtml, this, kind, currentKind, operations)
   }
 }
 
@@ -416,6 +432,11 @@ private class MutableRasterDemTileSourceHandleImpl(val source: RasterDemTileSour
   override fun remove() = source.remove()
 }
 
+private class MutableUnmodeledSourceHandleImpl(val source: UnmodeledSourceHandleImpl) :
+  MutableSourceHandle, SourceHandle by source {
+  override fun remove() = source.remove()
+}
+
 internal val SourceHandle.implementation: SourceHandleImpl
   get() =
     when (this) {
@@ -427,4 +448,5 @@ internal val SourceHandle.implementation: SourceHandleImpl
       is MutableCustomGeometrySourceHandleImpl -> source
       is MutableRasterTileSourceHandleImpl -> source
       is MutableRasterDemTileSourceHandleImpl -> source
+      is MutableUnmodeledSourceHandleImpl -> source
     }

@@ -222,7 +222,8 @@ internal class GlJsStyleBinding(
   override val supportsRasterDemScheme: Boolean = false
 
   override val baseLayers: List<LayerSummary> = layerSummaries()
-  override val baseSources: Map<String, Source?> = sourceIds().associateWith(::getSource)
+  override val baseSources: Map<String, Source> =
+    sourceIds().mapNotNull { id -> getSource(id)?.let { id to it } }.toMap()
 
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
