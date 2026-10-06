@@ -15,7 +15,7 @@ import kotlin.jvm.JvmInline
  * @property value The style spec's name for this encoding, such as `mapbox`.
  */
 @JvmInline
-public value class RasterDemEncoding private constructor(public val value: String) {
+public value class RasterDemEncoding internal constructor(public val value: String) {
   public companion object {
     /**
      * Mapbox Terrain RGB tiles. See
