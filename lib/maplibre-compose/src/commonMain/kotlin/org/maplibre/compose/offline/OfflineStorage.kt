@@ -95,15 +95,23 @@ public sealed interface OfflineStorage {
 
 /** The initialization result and current contents of an [OfflineStorage]. */
 public sealed interface OfflineStorageState {
+  /** Initialization has not finished. */
   public data object Loading : OfflineStorageState
 
   /**
    * Initialization succeeded, with the current [packs]. This state can remain after the runtime
    * closes; it does not indicate whether the storage accepts operations.
    */
-  public data class Ready(public val packs: Set<OfflinePack>) : OfflineStorageState
+  public data class Ready internal constructor(public val packs: Set<OfflinePack>) :
+    OfflineStorageState
 
-  public data class Failed(public val cause: Throwable) : OfflineStorageState
+  /**
+   * Initialization failed, or the storage closed before initialization finished. The storage
+   * accepts no operations in this state.
+   *
+   * @property cause Why initialization did not succeed.
+   */
+  public data class Failed internal constructor(public val cause: Throwable) : OfflineStorageState
 }
 
 internal suspend fun OfflineStorage.awaitReady() {

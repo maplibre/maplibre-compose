@@ -9,7 +9,8 @@ import org.maplibre.spatialk.geojson.Position
  * Longitudes preserve the visible world copy and may extend past ±180°. A viewport wider than one
  * world can span more than 360° of longitude.
  */
-public data class VisibleRegion(
+public data class VisibleRegion
+internal constructor(
   /** Position corresponding to the top-left corner of the map composable */
   val farLeft: Position,
   /** Position corresponding to the top-right corner of the map composable */

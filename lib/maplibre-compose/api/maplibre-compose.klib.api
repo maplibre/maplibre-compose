@@ -475,13 +475,10 @@ sealed interface org.maplibre.compose.layers/MutableLayerHandle : org.maplibre.c
 
 sealed interface org.maplibre.compose.location/HeadingTrackingStatus { // org.maplibre.compose.location/HeadingTrackingStatus|null[0]
     final class Unavailable : org.maplibre.compose.location/HeadingTrackingStatus { // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable|null[0]
-        constructor <init>(kotlin/Throwable) // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.<init>|<init>(kotlin.Throwable){}[0]
-
         final val cause // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
 
         final fun component1(): kotlin/Throwable // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.component1|component1(){}[0]
-        final fun copy(kotlin/Throwable = ...): org.maplibre.compose.location/HeadingTrackingStatus.Unavailable // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.copy|copy(kotlin.Throwable){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingTrackingStatus.Unavailable.toString|toString(){}[0]
@@ -517,8 +514,6 @@ sealed interface org.maplibre.compose.location/LocationChangeScope { // org.mapl
 
 sealed interface org.maplibre.compose.location/LocationTrackingStatus { // org.maplibre.compose.location/LocationTrackingStatus|null[0]
     final class Unavailable : org.maplibre.compose.location/LocationTrackingStatus { // org.maplibre.compose.location/LocationTrackingStatus.Unavailable|null[0]
-        constructor <init>(org.maplibre.compose.location/LocationUnavailableReason, kotlin/Throwable? = ...) // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.<init>|<init>(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
-
         final val cause // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
         final val reason // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.reason|{}reason[0]
@@ -526,7 +521,6 @@ sealed interface org.maplibre.compose.location/LocationTrackingStatus { // org.m
 
         final fun component1(): org.maplibre.compose.location/LocationUnavailableReason // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.component1|component1(){}[0]
         final fun component2(): kotlin/Throwable? // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.component2|component2(){}[0]
-        final fun copy(org.maplibre.compose.location/LocationUnavailableReason = ..., kotlin/Throwable? = ...): org.maplibre.compose.location/LocationTrackingStatus.Unavailable // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.copy|copy(org.maplibre.compose.location.LocationUnavailableReason;kotlin.Throwable?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/LocationTrackingStatus.Unavailable.toString|toString(){}[0]
@@ -646,13 +640,10 @@ sealed interface org.maplibre.compose.map/StyleImageHandle { // org.maplibre.com
 
 sealed interface org.maplibre.compose.map/StyleLoadState { // org.maplibre.compose.map/StyleLoadState|null[0]
     final class Failed : org.maplibre.compose.map/StyleLoadState { // org.maplibre.compose.map/StyleLoadState.Failed|null[0]
-        constructor <init>(kotlin/String?) // org.maplibre.compose.map/StyleLoadState.Failed.<init>|<init>(kotlin.String?){}[0]
-
         final val reason // org.maplibre.compose.map/StyleLoadState.Failed.reason|{}reason[0]
             final fun <get-reason>(): kotlin/String? // org.maplibre.compose.map/StyleLoadState.Failed.reason.<get-reason>|<get-reason>(){}[0]
 
         final fun component1(): kotlin/String? // org.maplibre.compose.map/StyleLoadState.Failed.component1|component1(){}[0]
-        final fun copy(kotlin/String? = ...): org.maplibre.compose.map/StyleLoadState.Failed // org.maplibre.compose.map/StyleLoadState.Failed.copy|copy(kotlin.String?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/StyleLoadState.Failed.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/StyleLoadState.Failed.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.map/StyleLoadState.Failed.toString|toString(){}[0]
@@ -679,8 +670,6 @@ sealed interface org.maplibre.compose.map/StyleLoadState { // org.maplibre.compo
 
 sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress|null[0]
     final class Error : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.Error|null[0]
-        constructor <init>(kotlin/String, kotlin/String) // org.maplibre.compose.offline/DownloadProgress.Error.<init>|<init>(kotlin.String;kotlin.String){}[0]
-
         final val message // org.maplibre.compose.offline/DownloadProgress.Error.message|{}message[0]
             final fun <get-message>(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.message.<get-message>|<get-message>(){}[0]
         final val reason // org.maplibre.compose.offline/DownloadProgress.Error.reason|{}reason[0]
@@ -688,15 +677,12 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
 
         final fun component1(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.component1|component1(){}[0]
         final fun component2(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.component2|component2(){}[0]
-        final fun copy(kotlin/String = ..., kotlin/String = ...): org.maplibre.compose.offline/DownloadProgress.Error // org.maplibre.compose.offline/DownloadProgress.Error.copy|copy(kotlin.String;kotlin.String){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Error.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.Error.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Error.toString|toString(){}[0]
     }
 
     final class Healthy : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.Healthy|null[0]
-        constructor <init>(kotlin/Long, kotlin/Long, kotlin/Long, kotlin/Long, org.maplibre.compose.offline/DownloadStatus, kotlin/Boolean, kotlin/Long) // org.maplibre.compose.offline/DownloadProgress.Healthy.<init>|<init>(kotlin.Long;kotlin.Long;kotlin.Long;kotlin.Long;org.maplibre.compose.offline.DownloadStatus;kotlin.Boolean;kotlin.Long){}[0]
-
         final val completedResourceBytes // org.maplibre.compose.offline/DownloadProgress.Healthy.completedResourceBytes|{}completedResourceBytes[0]
             final fun <get-completedResourceBytes>(): kotlin/Long // org.maplibre.compose.offline/DownloadProgress.Healthy.completedResourceBytes.<get-completedResourceBytes>|<get-completedResourceBytes>(){}[0]
         final val completedResourceCount // org.maplibre.compose.offline/DownloadProgress.Healthy.completedResourceCount|{}completedResourceCount[0]
@@ -719,20 +705,16 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
         final fun component5(): org.maplibre.compose.offline/DownloadStatus // org.maplibre.compose.offline/DownloadProgress.Healthy.component5|component5(){}[0]
         final fun component6(): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Healthy.component6|component6(){}[0]
         final fun component7(): kotlin/Long // org.maplibre.compose.offline/DownloadProgress.Healthy.component7|component7(){}[0]
-        final fun copy(kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ..., org.maplibre.compose.offline/DownloadStatus = ..., kotlin/Boolean = ..., kotlin/Long = ...): org.maplibre.compose.offline/DownloadProgress.Healthy // org.maplibre.compose.offline/DownloadProgress.Healthy.copy|copy(kotlin.Long;kotlin.Long;kotlin.Long;kotlin.Long;org.maplibre.compose.offline.DownloadStatus;kotlin.Boolean;kotlin.Long){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Healthy.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.Healthy.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Healthy.toString|toString(){}[0]
     }
 
     final class TileLimitExceeded : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded|null[0]
-        constructor <init>(kotlin/Long) // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.<init>|<init>(kotlin.Long){}[0]
-
         final val limit // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.limit|{}limit[0]
             final fun <get-limit>(): kotlin/Long // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.limit.<get-limit>|<get-limit>(){}[0]
 
         final fun component1(): kotlin/Long // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.component1|component1(){}[0]
-        final fun copy(kotlin/Long = ...): org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.copy|copy(kotlin.Long){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.toString|toString(){}[0]
@@ -823,26 +805,20 @@ sealed interface org.maplibre.compose.offline/OfflineStorage { // org.maplibre.c
 
 sealed interface org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState|null[0]
     final class Failed : org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState.Failed|null[0]
-        constructor <init>(kotlin/Throwable) // org.maplibre.compose.offline/OfflineStorageState.Failed.<init>|<init>(kotlin.Throwable){}[0]
-
         final val cause // org.maplibre.compose.offline/OfflineStorageState.Failed.cause|{}cause[0]
             final fun <get-cause>(): kotlin/Throwable // org.maplibre.compose.offline/OfflineStorageState.Failed.cause.<get-cause>|<get-cause>(){}[0]
 
         final fun component1(): kotlin/Throwable // org.maplibre.compose.offline/OfflineStorageState.Failed.component1|component1(){}[0]
-        final fun copy(kotlin/Throwable = ...): org.maplibre.compose.offline/OfflineStorageState.Failed // org.maplibre.compose.offline/OfflineStorageState.Failed.copy|copy(kotlin.Throwable){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineStorageState.Failed.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineStorageState.Failed.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineStorageState.Failed.toString|toString(){}[0]
     }
 
     final class Ready : org.maplibre.compose.offline/OfflineStorageState { // org.maplibre.compose.offline/OfflineStorageState.Ready|null[0]
-        constructor <init>(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack>) // org.maplibre.compose.offline/OfflineStorageState.Ready.<init>|<init>(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
-
         final val packs // org.maplibre.compose.offline/OfflineStorageState.Ready.packs|{}packs[0]
             final fun <get-packs>(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineStorageState.Ready.packs.<get-packs>|<get-packs>(){}[0]
 
         final fun component1(): kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> // org.maplibre.compose.offline/OfflineStorageState.Ready.component1|component1(){}[0]
-        final fun copy(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack> = ...): org.maplibre.compose.offline/OfflineStorageState.Ready // org.maplibre.compose.offline/OfflineStorageState.Ready.copy|copy(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/OfflineStorageState.Ready.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/OfflineStorageState.Ready.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.offline/OfflineStorageState.Ready.toString|toString(){}[0]
@@ -1745,8 +1721,6 @@ final class org.maplibre.compose.location/LocationState { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.logging/MapLogRecord { // org.maplibre.compose.logging/MapLogRecord|null[0]
-    constructor <init>(org.maplibre.compose.logging/MapLogLevel, org.maplibre.compose.logging/MapLogSource, kotlin/String? = ..., kotlin/String, kotlin/Throwable? = ...) // org.maplibre.compose.logging/MapLogRecord.<init>|<init>(org.maplibre.compose.logging.MapLogLevel;org.maplibre.compose.logging.MapLogSource;kotlin.String?;kotlin.String;kotlin.Throwable?){}[0]
-
     final val category // org.maplibre.compose.logging/MapLogRecord.category|{}category[0]
         final fun <get-category>(): kotlin/String? // org.maplibre.compose.logging/MapLogRecord.category.<get-category>|<get-category>(){}[0]
     final val level // org.maplibre.compose.logging/MapLogRecord.level|{}level[0]
@@ -2874,8 +2848,6 @@ final class org.maplibre.compose.util/PreparedImage { // org.maplibre.compose.ut
 }
 
 final class org.maplibre.compose.util/VisibleBounds { // org.maplibre.compose.util/VisibleBounds|null[0]
-    constructor <init>(org.maplibre.spatialk.geojson/Position, org.maplibre.spatialk.geojson/Position) // org.maplibre.compose.util/VisibleBounds.<init>|<init>(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position){}[0]
-
     final val east // org.maplibre.compose.util/VisibleBounds.east|{}east[0]
         final fun <get-east>(): kotlin/Double // org.maplibre.compose.util/VisibleBounds.east.<get-east>|<get-east>(){}[0]
     final val north // org.maplibre.compose.util/VisibleBounds.north|{}north[0]
@@ -2891,7 +2863,6 @@ final class org.maplibre.compose.util/VisibleBounds { // org.maplibre.compose.ut
 
     final fun component1(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleBounds.component1|component1(){}[0]
     final fun component2(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleBounds.component2|component2(){}[0]
-    final fun copy(org.maplibre.spatialk.geojson/Position = ..., org.maplibre.spatialk.geojson/Position = ...): org.maplibre.compose.util/VisibleBounds // org.maplibre.compose.util/VisibleBounds.copy|copy(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.util/VisibleBounds.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.util/VisibleBounds.hashCode|hashCode(){}[0]
     final fun toBoundingBox(): org.maplibre.spatialk.geojson/BoundingBox // org.maplibre.compose.util/VisibleBounds.toBoundingBox|toBoundingBox(){}[0]
@@ -2899,8 +2870,6 @@ final class org.maplibre.compose.util/VisibleBounds { // org.maplibre.compose.ut
 }
 
 final class org.maplibre.compose.util/VisibleRegion { // org.maplibre.compose.util/VisibleRegion|null[0]
-    constructor <init>(org.maplibre.spatialk.geojson/Position, org.maplibre.spatialk.geojson/Position, org.maplibre.spatialk.geojson/Position, org.maplibre.spatialk.geojson/Position) // org.maplibre.compose.util/VisibleRegion.<init>|<init>(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position){}[0]
-
     final val farLeft // org.maplibre.compose.util/VisibleRegion.farLeft|{}farLeft[0]
         final fun <get-farLeft>(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleRegion.farLeft.<get-farLeft>|<get-farLeft>(){}[0]
     final val farRight // org.maplibre.compose.util/VisibleRegion.farRight|{}farRight[0]
@@ -2914,7 +2883,6 @@ final class org.maplibre.compose.util/VisibleRegion { // org.maplibre.compose.ut
     final fun component2(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleRegion.component2|component2(){}[0]
     final fun component3(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleRegion.component3|component3(){}[0]
     final fun component4(): org.maplibre.spatialk.geojson/Position // org.maplibre.compose.util/VisibleRegion.component4|component4(){}[0]
-    final fun copy(org.maplibre.spatialk.geojson/Position = ..., org.maplibre.spatialk.geojson/Position = ..., org.maplibre.spatialk.geojson/Position = ..., org.maplibre.spatialk.geojson/Position = ...): org.maplibre.compose.util/VisibleRegion // org.maplibre.compose.util/VisibleRegion.copy|copy(org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position;org.maplibre.spatialk.geojson.Position){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.util/VisibleRegion.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.util/VisibleRegion.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.util/VisibleRegion.toString|toString(){}[0]

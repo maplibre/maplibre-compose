@@ -100,8 +100,12 @@ public sealed interface HeadingTrackingStatus {
   /** The active heading request has delivered a measurement. */
   public data object Tracking : HeadingTrackingStatus
 
-  /** The heading provider failed unexpectedly. */
-  public data class Unavailable(val cause: Throwable) : HeadingTrackingStatus
+  /**
+   * The heading provider failed unexpectedly.
+   *
+   * @property cause The exception that ended heading collection.
+   */
+  public data class Unavailable internal constructor(val cause: Throwable) : HeadingTrackingStatus
 }
 
 /** Current state of the foreground location updates managed by [rememberLocationState]. */
@@ -115,8 +119,14 @@ public sealed interface LocationTrackingStatus {
   /** The active location request has delivered at least one measurement. */
   public data object Tracking : LocationTrackingStatus
 
-  /** An expected or unexpected condition prevents the active request from delivering a location. */
-  public data class Unavailable(
+  /**
+   * An expected or unexpected condition prevents the active request from delivering a location.
+   *
+   * @property reason Portable classification of the condition.
+   * @property cause Underlying platform or provider exception, when one is available.
+   */
+  public data class Unavailable
+  internal constructor(
     val reason: LocationUnavailableReason,
     val cause: Throwable? = null,
   ) : LocationTrackingStatus

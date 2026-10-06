@@ -18,7 +18,8 @@ import org.maplibre.spatialk.geojson.Position
  * convert to that representation.
  */
 @Immutable
-public data class VisibleBounds(
+public data class VisibleBounds
+internal constructor(
   /** The southwest corner: the smallest longitude and latitude of the bounds. */
   public val southwest: Position,
   /** The northeast corner: the largest longitude and latitude of the bounds. */
