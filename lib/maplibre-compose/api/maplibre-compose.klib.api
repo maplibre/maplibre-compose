@@ -205,16 +205,6 @@ abstract fun interface org.maplibre.compose.sources/VectorTileProvider { // org.
     abstract suspend fun loadTile(org.maplibre.compose.sources/TileCoordinate): kotlin/ByteArray // org.maplibre.compose.sources/VectorTileProvider.loadTile|loadTile(org.maplibre.compose.sources.TileCoordinate){}[0]
 }
 
-abstract interface <#A: out org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.value/EnumType { // org.maplibre.compose.expressions.value/EnumType|null[0]
-    abstract val entries // org.maplibre.compose.expressions.value/EnumType.entries|{}entries[0]
-        abstract fun <get-entries>(): kotlin.collections/List<#A> // org.maplibre.compose.expressions.value/EnumType.entries.<get-entries>|<get-entries>(){}[0]
-}
-
-abstract interface org.maplibre.compose.expressions.value/EnumValue : org.maplibre.compose.expressions.value/StringValue { // org.maplibre.compose.expressions.value/EnumValue|null[0]
-    abstract val value // org.maplibre.compose.expressions.value/EnumValue.value|{}value[0]
-        abstract fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/EnumValue.value.<get-value>|<get-value>(){}[0]
-}
-
 abstract interface org.maplibre.compose.overlay/ScaleBarMeasure { // org.maplibre.compose.overlay/ScaleBarMeasure|null[0]
     abstract val stops // org.maplibre.compose.overlay/ScaleBarMeasure.stops|{}stops[0]
         abstract fun <get-stops>(): kotlin.collections/List<org.maplibre.spatialk.units/Length> // org.maplibre.compose.overlay/ScaleBarMeasure.stops.<get-stops>|<get-stops>(){}[0]
@@ -272,6 +262,11 @@ sealed interface <#A: kotlin/Any?> org.maplibre.compose.expressions.value/Offset
 sealed interface <#A: kotlin/Any?> org.maplibre.compose.expressions.value/VectorValue : org.maplibre.compose.expressions.value/FloatOrVectorValue<#A>, org.maplibre.compose.expressions.value/InterpolatableValue<org.maplibre.compose.expressions.value/VectorValue<#A>>, org.maplibre.compose.expressions.value/ListValue<org.maplibre.compose.expressions.value/NumberValue<#A>> // org.maplibre.compose.expressions.value/VectorValue|null[0]
 
 sealed interface <#A: out kotlin/Any?> org.maplibre.compose.expressions.value/FloatOrVectorValue : org.maplibre.compose.expressions.value/ExpressionValue // org.maplibre.compose.expressions.value/FloatOrVectorValue|null[0]
+
+sealed interface <#A: out org.maplibre.compose.expressions.value/EnumValue> org.maplibre.compose.expressions.value/EnumType { // org.maplibre.compose.expressions.value/EnumType|null[0]
+    abstract val entries // org.maplibre.compose.expressions.value/EnumType.entries|{}entries[0]
+        abstract fun <get-entries>(): kotlin.collections/List<#A> // org.maplibre.compose.expressions.value/EnumType.entries.<get-entries>|<get-entries>(){}[0]
+}
 
 sealed interface <#A: out org.maplibre.compose.expressions.value/ExpressionValue, #B: out org.maplibre.compose.expressions.value/ExpressionValue> org.maplibre.compose.expressions.value/AlternatingListValue : org.maplibre.compose.expressions.value/ListValue<org.maplibre.compose.expressions.value/ExpressionValue> // org.maplibre.compose.expressions.value/AlternatingListValue|null[0]
 
@@ -370,6 +365,11 @@ sealed interface org.maplibre.compose.expressions.value/CollatorValue : org.mapl
 sealed interface org.maplibre.compose.expressions.value/ColorValue : org.maplibre.compose.expressions.value/ExpressionValue, org.maplibre.compose.expressions.value/InterpolatableValue<org.maplibre.compose.expressions.value/ColorValue> // org.maplibre.compose.expressions.value/ColorValue|null[0]
 
 sealed interface org.maplibre.compose.expressions.value/DpPaddingValue : org.maplibre.compose.expressions.value/VectorValue<androidx.compose.ui.unit/Dp> // org.maplibre.compose.expressions.value/DpPaddingValue|null[0]
+
+sealed interface org.maplibre.compose.expressions.value/EnumValue : org.maplibre.compose.expressions.value/StringValue { // org.maplibre.compose.expressions.value/EnumValue|null[0]
+    abstract val value // org.maplibre.compose.expressions.value/EnumValue.value|{}value[0]
+        abstract fun <get-value>(): kotlin/String // org.maplibre.compose.expressions.value/EnumValue.value.<get-value>|<get-value>(){}[0]
+}
 
 sealed interface org.maplibre.compose.expressions.value/EquatableValue : org.maplibre.compose.expressions.value/ExpressionValue // org.maplibre.compose.expressions.value/EquatableValue|null[0]
 
