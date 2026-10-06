@@ -1,7 +1,6 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
-import kotlin.jvm.JvmInline
 
 /**
  * What started the most recent camera movement.
@@ -9,21 +8,22 @@ import kotlin.jvm.JvmInline
  * Values may be added in minor releases; use an `else` branch when matching.
  */
 @Immutable
-@JvmInline
-public value class CameraMoveReason private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface CameraMoveReason {
+  /** The map is detached or the camera has not moved yet. */
+  public data object None : CameraMoveReason
 
-  public companion object {
-    /** The map is detached or the camera has not moved yet. */
-    public val None: CameraMoveReason = CameraMoveReason("None")
+  /** A gesture on the map moved the camera: a pan, a zoom, a rotation, or a pitch. */
+  public data object Gesture : CameraMoveReason
 
-    /** A gesture on the map moved the camera: a pan, a zoom, a rotation, or a pitch. */
-    public val Gesture: CameraMoveReason = CameraMoveReason("Gesture")
-
-    /**
-     * Something other than a gesture moved the camera: a call to the map's API, such as one an
-     * overlay control made, or a camera change that the engine started itself.
-     */
-    public val Programmatic: CameraMoveReason = CameraMoveReason("Programmatic")
-  }
+  /**
+   * Something other than a gesture moved the camera: a call to the map's API, such as one an
+   * overlay control made, or a camera change that the engine started itself.
+   */
+  public data object Programmatic : CameraMoveReason
 }
+
+/**
+ * Keeps [CameraMoveReason] open: callers' `when` needs an `else` branch. The library never reports
+ * it.
+ */
+internal data object UnspecifiedCameraMoveReason : CameraMoveReason

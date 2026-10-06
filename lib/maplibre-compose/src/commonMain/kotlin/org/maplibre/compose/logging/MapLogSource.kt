@@ -1,24 +1,22 @@
 package org.maplibre.compose.logging
 
-import kotlin.jvm.JvmInline
-
 /**
  * The component that produced a [MapLogRecord].
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
-@JvmInline
-public value class MapLogSource private constructor(private val name: String) {
-  override fun toString(): String = name
+public sealed interface MapLogSource {
+  /** MapLibre Compose itself. */
+  public data object Library : MapLogSource
 
-  public companion object {
-    /** MapLibre Compose itself. */
-    public val Library: MapLogSource = MapLogSource("Library")
+  /** MapLibre Native, on Android, iOS, and desktop. */
+  public data object NativeEngine : MapLogSource
 
-    /** MapLibre Native, on Android, iOS, and desktop. */
-    public val NativeEngine: MapLogSource = MapLogSource("NativeEngine")
-
-    /** MapLibre GL JS, in the browser. */
-    public val WebEngine: MapLogSource = MapLogSource("WebEngine")
-  }
+  /** MapLibre GL JS, in the browser. */
+  public data object WebEngine : MapLogSource
 }
+
+/**
+ * Keeps [MapLogSource] open: callers' `when` needs an `else` branch. The library never reports it.
+ */
+internal data object UnspecifiedMapLogSource : MapLogSource

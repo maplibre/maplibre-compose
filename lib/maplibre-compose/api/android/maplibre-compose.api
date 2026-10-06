@@ -70,23 +70,31 @@ public final class org/maplibre/compose/camera/CameraAnimation$Fly : org/maplibr
 public final class org/maplibre/compose/camera/CameraAnimation$Fly$Companion {
 }
 
-public final class org/maplibre/compose/camera/CameraMoveReason {
-	public static final field Companion Lorg/maplibre/compose/camera/CameraMoveReason$Companion;
-	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/camera/CameraMoveReason;
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
-	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
-	public fun hashCode ()I
-	public static fun hashCode-impl (Ljava/lang/String;)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()Ljava/lang/String;
+public abstract interface class org/maplibre/compose/camera/CameraMoveReason {
 }
 
-public final class org/maplibre/compose/camera/CameraMoveReason$Companion {
-	public final fun getGesture-WM2EGrI ()Ljava/lang/String;
-	public final fun getNone-WM2EGrI ()Ljava/lang/String;
-	public final fun getProgrammatic-WM2EGrI ()Ljava/lang/String;
+public final class org/maplibre/compose/camera/CameraMoveReason$Gesture : org/maplibre/compose/camera/CameraMoveReason {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/camera/CameraMoveReason$Gesture;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/camera/CameraMoveReason$None : org/maplibre/compose/camera/CameraMoveReason {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/camera/CameraMoveReason$None;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/camera/CameraMoveReason$Programmatic : org/maplibre/compose/camera/CameraMoveReason {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/camera/CameraMoveReason$Programmatic;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/camera/CameraPosition {
@@ -2109,66 +2117,99 @@ public final class org/maplibre/compose/location/UpdateCameraKt {
 	public static synthetic fun updateCamera$default (Lorg/maplibre/compose/location/LocationChangeScope;Lorg/maplibre/compose/map/MapState;Lorg/maplibre/compose/camera/CameraAnimation;Lorg/maplibre/compose/location/BearingUpdate;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
-public final class org/maplibre/compose/logging/MapLogLevel : java/lang/Comparable {
-	public static final field Companion Lorg/maplibre/compose/logging/MapLogLevel$Companion;
-	public static final synthetic fun box-impl (I)Lorg/maplibre/compose/logging/MapLogLevel;
+public abstract interface class org/maplibre/compose/logging/MapLogLevel : java/lang/Comparable {
 	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo-u2fLKHs (I)I
-	public static fun compareTo-u2fLKHs (II)I
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (ILjava/lang/Object;)Z
-	public static final fun equals-impl0 (II)Z
-	public fun hashCode ()I
-	public static fun hashCode-impl (I)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (I)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()I
+	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
 }
 
-public final class org/maplibre/compose/logging/MapLogLevel$Companion {
-	public final fun getDebug-2P4ZF4Y ()I
-	public final fun getError-2P4ZF4Y ()I
-	public final fun getInfo-2P4ZF4Y ()I
-	public final fun getWarning-2P4ZF4Y ()I
+public final class org/maplibre/compose/logging/MapLogLevel$Debug : org/maplibre/compose/logging/MapLogLevel {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Debug;
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/logging/MapLogLevel$DefaultImpls {
+	public static fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;Lorg/maplibre/compose/logging/MapLogLevel;)I
+}
+
+public final class org/maplibre/compose/logging/MapLogLevel$Error : org/maplibre/compose/logging/MapLogLevel {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Error;
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/logging/MapLogLevel$Info : org/maplibre/compose/logging/MapLogLevel {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Info;
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/logging/MapLogLevel$Warning : org/maplibre/compose/logging/MapLogLevel {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogLevel$Warning;
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun compareTo (Lorg/maplibre/compose/logging/MapLogLevel;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/logging/MapLogRecord {
 	public static final field $stable I
-	public synthetic fun <init> (ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getCategory ()Ljava/lang/String;
-	public final fun getLevel-2P4ZF4Y ()I
+	public final fun getLevel ()Lorg/maplibre/compose/logging/MapLogLevel;
 	public final fun getMessage ()Ljava/lang/String;
-	public final fun getSource-k2qspto ()Ljava/lang/String;
+	public final fun getSource ()Lorg/maplibre/compose/logging/MapLogSource;
 	public final fun getThrowable ()Ljava/lang/Throwable;
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/logging/MapLogSource {
-	public static final field Companion Lorg/maplibre/compose/logging/MapLogSource$Companion;
-	public static final synthetic fun box-impl (Ljava/lang/String;)Lorg/maplibre/compose/logging/MapLogSource;
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
-	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
-	public fun hashCode ()I
-	public static fun hashCode-impl (Ljava/lang/String;)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()Ljava/lang/String;
+public abstract interface class org/maplibre/compose/logging/MapLogSource {
 }
 
-public final class org/maplibre/compose/logging/MapLogSource$Companion {
-	public final fun getLibrary-k2qspto ()Ljava/lang/String;
-	public final fun getNativeEngine-k2qspto ()Ljava/lang/String;
-	public final fun getWebEngine-k2qspto ()Ljava/lang/String;
+public final class org/maplibre/compose/logging/MapLogSource$Library : org/maplibre/compose/logging/MapLogSource {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogSource$Library;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/logging/MapLogSource$NativeEngine : org/maplibre/compose/logging/MapLogSource {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogSource$NativeEngine;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/logging/MapLogSource$WebEngine : org/maplibre/compose/logging/MapLogSource {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/logging/MapLogSource$WebEngine;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class org/maplibre/compose/logging/MapLogger {
-	public fun getMinLevel-2P4ZF4Y ()I
+	public fun getMinLevel ()Lorg/maplibre/compose/logging/MapLogLevel;
 	public abstract fun log (Lorg/maplibre/compose/logging/MapLogRecord;)V
 }
 
 public final class org/maplibre/compose/logging/MapLogger$DefaultImpls {
-	public static fun getMinLevel-2P4ZF4Y (Lorg/maplibre/compose/logging/MapLogger;)I
+	public static fun getMinLevel (Lorg/maplibre/compose/logging/MapLogger;)Lorg/maplibre/compose/logging/MapLogLevel;
 }
 
 public final class org/maplibre/compose/logging/MapLogging {
@@ -2474,7 +2515,7 @@ public final class org/maplibre/compose/map/MapState {
 	public final fun fitCameraToBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun fitCameraToBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun fling-jo-Fl9I (J)V
-	public final fun getCameraMoveReason-WM2EGrI ()Ljava/lang/String;
+	public final fun getCameraMoveReason ()Lorg/maplibre/compose/camera/CameraMoveReason;
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
 	public final fun getEvents ()Lkotlinx/coroutines/flow/Flow;
 	public final fun getMissingImageResolver ()Lorg/maplibre/compose/map/MissingImageResolver;
