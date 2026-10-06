@@ -20,6 +20,7 @@ internal class GlJsCustomGeometryAttachment(
   sourceId: String,
   private val options: CustomGeometrySourceOptions,
   private val provider: GeometryTileProvider,
+  private val logger: MapLog?,
 ) {
   val tiles =
     GlJsProtocolTileAttachment(
@@ -31,9 +32,10 @@ internal class GlJsCustomGeometryAttachment(
           // A cancelled job means the request ended. The provider's own cancellation, such as a
           // timeout, leaves the job active and fails like any other exception.
           if (error is CancellationException) currentCoroutineContext().ensureActive()
-          // Match native, which serves an empty tile when the provider fails.
-          MapLog.e(error) { "Custom geometry source '$sourceId' failed to load $tile" }
-          byteArrayOf()
+          // Rethrowing fails the tile. MapLibre reports the tile error as an `error` event with the
+          // message alone; this record carries the exception.
+          logger?.w(error) { "Custom geometry source '$sourceId' failed to load $tile" }
+          throw error
         }
       },
     )

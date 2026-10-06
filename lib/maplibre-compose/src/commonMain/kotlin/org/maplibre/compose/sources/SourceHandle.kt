@@ -176,6 +176,9 @@ public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   /**
    * Requests new data for [tile]. Invalidation may also reload other tiles of this source. A tile
    * whose provider call is in progress may show that call's result before it reloads.
+   *
+   * On MapLibre Native, invalidating a tile that failed to load has no effect. The tile stays
+   * failed until MapLibre requests it again because it is needed again.
    */
   public fun invalidateTile(tile: TileCoordinate): Unit
 }

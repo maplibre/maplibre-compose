@@ -144,16 +144,20 @@ internal class GlJsStyleBinding(
 
   private val pendingCustomSourceReloads = mutableSetOf<String>()
 
-  // Reload only after outstanding tiles settle. GL JS otherwise re-parses their old responses.
-  private val customSourceReloads: GlJsSubscription =
-    map.subscribe("sourcedata") { event ->
-      val sourceId = event.sourceId ?: return@subscribe
-      if (!loaded || sourceId !in pendingCustomSourceReloads) return@subscribe
-      if (map.getSource<GlJsVectorSource>(sourceId) == null || map.isSourceLoaded(sourceId) != true)
-        return@subscribe
-      pendingCustomSourceReloads.remove(sourceId)
-      postWrite("Custom source '$sourceId'") { reloadCustomSource(sourceId) }
+  // Reload only after outstanding tiles settle. GL JS otherwise re-parses their old responses. A
+  // tile settles with `sourcedata` when it loads and with `error` when it fails.
+  private val customSourceReloads: List<GlJsSubscription> =
+    listOf("sourcedata", "error").map { type ->
+      map.subscribe(type) { event -> reloadPendingCustomSource(event.sourceId) }
     }
+
+  private fun reloadPendingCustomSource(sourceId: String?) {
+    if (sourceId == null || !loaded || sourceId !in pendingCustomSourceReloads) return
+    if (map.getSource<GlJsVectorSource>(sourceId) == null || map.isSourceLoaded(sourceId) != true)
+      return
+    pendingCustomSourceReloads.remove(sourceId)
+    postWrite("Custom source '$sourceId'") { reloadCustomSource(sourceId) }
+  }
 
   // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer
   // positions before it destroys the style, then reattach them after the restored style loads.
@@ -209,7 +213,7 @@ internal class GlJsStyleBinding(
     contextLost.cancel()
     contextStyleLoaded.cancel()
     errors.forEach { it.cancel() }
-    customSourceReloads.cancel()
+    customSourceReloads.forEach { it.cancel() }
     pendingCustomSourceReloads.clear()
     val vectorAttachments = customVectorAttachments.values.toList()
     val geometryAttachments = customGeometryAttachments.values.toList()
@@ -384,7 +388,7 @@ internal class GlJsStyleBinding(
     provider: GeometryTileProvider,
   ): Boolean {
     requireCurrent()
-    val attachment = GlJsCustomGeometryAttachment(sourceId, options, provider)
+    val attachment = GlJsCustomGeometryAttachment(sourceId, options, provider, logger)
     val added =
       try {
         addSource(

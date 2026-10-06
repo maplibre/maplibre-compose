@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
@@ -59,38 +59,71 @@ class BrowserCustomGeometrySourceTest {
   }
 
   @Test
-  fun a_failed_request_completes_as_empty_and_allows_pending_invalidation(): MapTestResult =
-    runMapTest {
-      var requests = 0
-      val fail = CompletableDeferred<Unit>()
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Empty)
-        val style = assertIs<GlJsStyleBinding>(fixture.style)
-        val source =
-          CustomGeometrySource("failing", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
-            requests++
-            if (requests == 1) {
-              fail.await()
-              error("fixture protocol failure")
-            }
-            noFeatures()
-          }
-        val layer = TestLayer("failing-fill", "fill", source)
-        val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
-        style.install(layer)
-        fixture.pumpUntil("the provider to start") { requests == 1 }
-        handle.invalidateTile(TileCoordinate(0, 0, 0))
-        fail.complete(Unit)
-
-        fixture.pumpUntil("the invalidated tile to load after the failure") {
-          requests > 1 && style.withMap { it.isSourceLoaded(source.id) } == true
+  fun a_failed_tile_reports_an_error_and_reloads_after_invalidation(): MapTestResult = runMapTest {
+    var failing = true
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source =
+        CustomGeometrySource("retried", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+          tile ->
+          if (failing) error("fixture provider failure")
+          pointIn(tile)
         }
-        assertNull(style.lastReportedError)
+      val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
+      style.install(TestLayer("retried-points", "circle", source))
+      fixture.pumpUntil("the tile to fail") {
+        style.lastReportedError != null && style.withMap { it.isSourceLoaded(source.id) } == true
+      }
+      val reported = assertNotNull(style.lastReportedError)
+      assertTrue(
+        reported.contains("fixture provider failure"),
+        "the reported error should carry the provider failure, was: $reported",
+      )
+      failing = false
+      fixture.pump(frames = 60)
+      assertEquals(0, style.sourceFeatureCount(source))
+
+      handle.invalidateTile(TileCoordinate(0, 0, 0))
+
+      fixture.pumpUntil("the invalidated tile to load its features") {
+        style.sourceFeatureCount(source) > 0
       }
     }
+  }
 
   @Test
-  fun a_provider_timeout_completes_as_an_empty_tile(): MapTestResult = runMapTest {
+  fun a_tile_that_fails_during_a_pending_invalidation_reloads(): MapTestResult = runMapTest {
+    var requests = 0
+    val fail = CompletableDeferred<Unit>()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
+      val source =
+        CustomGeometrySource("failing", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+          tile ->
+          requests++
+          if (requests == 1) {
+            fail.await()
+            error("fixture provider failure")
+          }
+          pointIn(tile)
+        }
+      val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
+      style.install(TestLayer("failing-points", "circle", source))
+      fixture.pumpUntil("the provider to start") { requests == 1 }
+      handle.invalidateBounds(TileCoordinate(0, 0, 0).bounds)
+      fail.complete(Unit)
+
+      fixture.pumpUntil("the invalidated tile to load its features after the failure") {
+        style.sourceFeatureCount(source) > 0
+      }
+      assertNotNull(style.lastReportedError)
+    }
+  }
+
+  @Test
+  fun a_provider_timeout_fails_the_tile(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
@@ -102,10 +135,9 @@ class BrowserCustomGeometrySourceTest {
       style.install(source)
       style.install(layer)
 
-      fixture.pumpUntil("the timed-out tile to finish loading") {
-        style.withMap { it.isSourceLoaded(source.id) } == true
+      fixture.pumpUntil("the timed-out tile to fail") {
+        style.lastReportedError != null && style.withMap { it.isSourceLoaded(source.id) } == true
       }
-      assertNull(style.lastReportedError)
     }
   }
 
@@ -175,4 +207,32 @@ class BrowserCustomGeometrySourceTest {
 
   private fun noFeatures(): FeatureCollection<*, *> =
     FeatureCollection<Geometry, JsonObject?>(emptyList())
+
+  /** One point feature at the center of [tile]. */
+  private fun pointIn(tile: TileCoordinate): FeatureCollection<*, *> =
+    FeatureCollection(
+      listOf(
+        Feature(
+          geometry =
+            Point(
+              Position(
+                (tile.bounds.southwest.longitude + tile.bounds.northeast.longitude) / 2,
+                (tile.bounds.southwest.latitude + tile.bounds.northeast.latitude) / 2,
+              )
+            ),
+          properties = null,
+        )
+      )
+    )
+
+  /** The number of features GL JS holds in the loaded tiles of [source]. */
+  private fun GlJsStyleBinding.sourceFeatureCount(source: CustomGeometrySource): Int =
+    withMap { map ->
+      map
+        .querySourceFeatures(
+          source.id,
+          unsafeJso<QuerySourceFeatureOptions> { sourceLayer = source.id },
+        )
+        .size
+    } ?: 0
 }
