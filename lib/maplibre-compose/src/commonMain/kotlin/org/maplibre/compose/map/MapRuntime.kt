@@ -1000,17 +1000,8 @@ internal constructor(
   public val events: Flow<MapEvent> = attachmentAuthority.events
 
   /**
-   * Supplies missing style images on demand. Null (the default) disables resolution.
-   *
-   * Return a [ResolvedStyleImage] for the [MissingImageRequest.id], suspending if it needs to be
-   * loaded. Be prepared to supply the same ID again after the map discards unused images. On native
-   * maps, resolved images may appear only after the affected tiles are laid out again.
-   *
-   * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
-   * base style reloads or the resolver is replaced.
-   *
-   * The resolver is called on the main thread. Replacing or clearing this property does not cancel
-   * calls already running.
+   * Supplies images that the loaded style uses but does not contain. Null (the default) disables
+   * resolution. See [MissingImageResolver] for when the map calls it.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver

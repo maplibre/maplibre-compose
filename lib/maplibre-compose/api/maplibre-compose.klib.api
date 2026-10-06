@@ -208,6 +208,10 @@ abstract fun interface org.maplibre.compose.logging/MapLogger { // org.maplibre.
     abstract fun log(org.maplibre.compose.logging/MapLogRecord) // org.maplibre.compose.logging/MapLogger.log|log(org.maplibre.compose.logging.MapLogRecord){}[0]
 }
 
+abstract fun interface org.maplibre.compose.map/MissingImageResolver { // org.maplibre.compose.map/MissingImageResolver|null[0]
+    abstract suspend fun resolve(org.maplibre.compose.map/MissingImageRequest): org.maplibre.compose.map/ResolvedStyleImage? // org.maplibre.compose.map/MissingImageResolver.resolve|resolve(org.maplibre.compose.map.MissingImageRequest){}[0]
+}
+
 abstract fun interface org.maplibre.compose.sources/GeometryTileProvider { // org.maplibre.compose.sources/GeometryTileProvider|null[0]
     abstract suspend fun loadTile(org.maplibre.compose.sources/TileCoordinate): org.maplibre.spatialk.geojson/FeatureCollection<*, *> // org.maplibre.compose.sources/GeometryTileProvider.loadTile|loadTile(org.maplibre.compose.sources.TileCoordinate){}[0]
 }
@@ -1939,8 +1943,8 @@ final class org.maplibre.compose.map/MapState { // org.maplibre.compose.map/MapS
         final fun <get-viewport>(): org.maplibre.compose.camera/Viewport? // org.maplibre.compose.map/MapState.viewport.<get-viewport>|<get-viewport>(){}[0]
 
     final var missingImageResolver // org.maplibre.compose.map/MapState.missingImageResolver|{}missingImageResolver[0]
-        final fun <get-missingImageResolver>(): kotlin.coroutines/SuspendFunction1<org.maplibre.compose.map/MissingImageRequest, org.maplibre.compose.map/ResolvedStyleImage?>? // org.maplibre.compose.map/MapState.missingImageResolver.<get-missingImageResolver>|<get-missingImageResolver>(){}[0]
-        final fun <set-missingImageResolver>(kotlin.coroutines/SuspendFunction1<org.maplibre.compose.map/MissingImageRequest, org.maplibre.compose.map/ResolvedStyleImage?>?) // org.maplibre.compose.map/MapState.missingImageResolver.<set-missingImageResolver>|<set-missingImageResolver>(kotlin.coroutines.SuspendFunction1<org.maplibre.compose.map.MissingImageRequest,org.maplibre.compose.map.ResolvedStyleImage?>?){}[0]
+        final fun <get-missingImageResolver>(): org.maplibre.compose.map/MissingImageResolver? // org.maplibre.compose.map/MapState.missingImageResolver.<get-missingImageResolver>|<get-missingImageResolver>(){}[0]
+        final fun <set-missingImageResolver>(org.maplibre.compose.map/MissingImageResolver?) // org.maplibre.compose.map/MapState.missingImageResolver.<set-missingImageResolver>|<set-missingImageResolver>(org.maplibre.compose.map.MissingImageResolver?){}[0]
 
     final fun click(androidx.compose.ui.unit/DpOffset) // org.maplibre.compose.map/MapState.click|click(androidx.compose.ui.unit.DpOffset){}[0]
     final fun close() // org.maplibre.compose.map/MapState.close|close(){}[0]

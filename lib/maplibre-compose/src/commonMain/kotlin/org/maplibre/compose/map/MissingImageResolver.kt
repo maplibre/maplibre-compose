@@ -14,13 +14,30 @@ import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.prepareInEngineContext
 
 /**
- * Supplies the image that the engine asks for in a [MissingImageRequest], or null when the resolver
- * has none.
- *
- * See [MapState.missingImageResolver].
+ * Supplies images that the loaded style uses but does not contain. Set one on
+ * [MapState.missingImageResolver].
  */
-public typealias MissingImageResolver =
-  suspend (request: MissingImageRequest) -> ResolvedStyleImage?
+public fun interface MissingImageResolver {
+  /**
+   * Returns the image for [MissingImageRequest.id], or null when this resolver cannot supply it.
+   * Suspend while the image loads.
+   *
+   * The map calls this on the main thread. Switch to another dispatcher for blocking work. While a
+   * call for an ID is running, the map does not call it again for that ID. Calls for different IDs
+   * run at the same time, interleaved at their suspension points.
+   *
+   * The map adds the returned image to the loaded style. Be prepared to supply the same ID again
+   * after the map discards unused images. On native maps, a resolved image may appear only after
+   * the affected tiles are laid out again.
+   *
+   * If this throws, the map logs the exception and treats the result as null. The map does not ask
+   * again for an ID that got null until the style reloads or the resolver is replaced.
+   *
+   * A style reload cancels the calls that are running. Replacing or clearing
+   * [MapState.missingImageResolver] does not cancel them; the map still adds their results.
+   */
+  public suspend fun resolve(request: MissingImageRequest): ResolvedStyleImage?
+}
 
 /** An image that the loaded style uses but does not contain, passed to a [MissingImageResolver]. */
 public class MissingImageRequest

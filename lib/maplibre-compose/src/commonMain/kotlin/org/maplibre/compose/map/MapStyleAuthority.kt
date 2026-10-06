@@ -219,7 +219,7 @@ internal class MapStyleAuthority(
       if (binding.awaitOwner { binding.imageExists(imageId) } == true) return
       val resolved =
         try {
-          resolver(MissingImageRequest(imageId))
+          resolver.resolve(MissingImageRequest(imageId))
         } catch (error: CancellationException) {
           throw error
         } catch (error: Throwable) {
