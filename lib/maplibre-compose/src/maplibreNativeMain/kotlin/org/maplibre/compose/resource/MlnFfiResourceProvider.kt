@@ -19,12 +19,16 @@ import kotlinx.coroutines.selects.select
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
+import org.maplibre.nativeffi.resource.ResourceLoadingMethod
+import org.maplibre.nativeffi.resource.ResourcePriority
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
 import org.maplibre.nativeffi.resource.ResourceRequest
 import org.maplibre.nativeffi.resource.ResourceRequestHandle
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
+import org.maplibre.nativeffi.resource.ResourceStoragePolicy
+import org.maplibre.nativeffi.resource.ResourceUsage
 
 /**
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
@@ -364,10 +368,10 @@ internal fun ResourceRequest.toLoadRequest(url: String = resolvedUrl): MapResour
     url = url,
     kind = kind.toCommon(),
     requestedUrl = requestedUrl,
-    loadingMethod = MapResourceLoadRequest.LoadingMethod(loadingMethod.nativeValue),
-    priority = MapResourceLoadRequest.Priority(priority.nativeValue),
-    usage = MapResourceLoadRequest.Usage(usage.nativeValue),
-    storagePolicy = MapResourceLoadRequest.StoragePolicy(storagePolicy.nativeValue),
+    loadingMethod = loadingMethod.toCommon(),
+    priority = priority.toCommon(),
+    usage = usage.toCommon(),
+    storagePolicy = storagePolicy.toCommon(),
     range = range?.let { it.start..it.end },
     priorEtag = priorEtag,
     priorModified = priorModifiedUnixMs?.let(Instant::fromEpochMilliseconds),
@@ -406,4 +410,37 @@ private fun MapResourceError.toFfi(): ResourceErrorReason =
     MapResourceError.Connection -> ResourceErrorReason.CONNECTION
     MapResourceError.RateLimit -> ResourceErrorReason.RATE_LIMIT
     MapResourceError.Other -> ResourceErrorReason.OTHER
+  }
+
+/** The method with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun ResourceLoadingMethod.toCommon(): MapResourceLoadRequest.LoadingMethod =
+  when (this) {
+    ResourceLoadingMethod.ALL -> MapResourceLoadRequest.LoadingMethod.All
+    ResourceLoadingMethod.CACHE_ONLY -> MapResourceLoadRequest.LoadingMethod.CacheOnly
+    ResourceLoadingMethod.NETWORK_ONLY -> MapResourceLoadRequest.LoadingMethod.NetworkOnly
+    else -> MapResourceLoadRequest.LoadingMethod(nativeValue.toString())
+  }
+
+/** The priority with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun ResourcePriority.toCommon(): MapResourceLoadRequest.Priority =
+  when (this) {
+    ResourcePriority.REGULAR -> MapResourceLoadRequest.Priority.Regular
+    ResourcePriority.LOW -> MapResourceLoadRequest.Priority.Low
+    else -> MapResourceLoadRequest.Priority(nativeValue.toString())
+  }
+
+/** The usage with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun ResourceUsage.toCommon(): MapResourceLoadRequest.Usage =
+  when (this) {
+    ResourceUsage.ONLINE -> MapResourceLoadRequest.Usage.Online
+    ResourceUsage.OFFLINE -> MapResourceLoadRequest.Usage.Offline
+    else -> MapResourceLoadRequest.Usage(nativeValue.toString())
+  }
+
+/** The policy with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun ResourceStoragePolicy.toCommon(): MapResourceLoadRequest.StoragePolicy =
+  when (this) {
+    ResourceStoragePolicy.PERMANENT -> MapResourceLoadRequest.StoragePolicy.Permanent
+    ResourceStoragePolicy.VOLATILE -> MapResourceLoadRequest.StoragePolicy.Volatile
+    else -> MapResourceLoadRequest.StoragePolicy(nativeValue.toString())
   }

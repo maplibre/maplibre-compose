@@ -2174,7 +2174,7 @@ final class org.maplibre.compose.map/RenderStats { // org.maplibre.compose.map/R
 
     final value class Mode { // org.maplibre.compose.map/RenderStats.Mode|null[0]
         final val value // org.maplibre.compose.map/RenderStats.Mode.value|{}value[0]
-            final fun <get-value>(): kotlin/Int // org.maplibre.compose.map/RenderStats.Mode.value.<get-value>|<get-value>(){}[0]
+            final fun <get-value>(): kotlin/String // org.maplibre.compose.map/RenderStats.Mode.value.<get-value>|<get-value>(){}[0]
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/RenderStats.Mode.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.map/RenderStats.Mode.hashCode|hashCode(){}[0]
@@ -2517,7 +2517,7 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 
     final value class LoadingMethod { // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod|null[0]
         final val value // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.value|{}value[0]
-            final fun <get-value>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.value.<get-value>|<get-value>(){}[0]
+            final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.value.<get-value>|<get-value>(){}[0]
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.LoadingMethod.hashCode|hashCode(){}[0]
@@ -2535,7 +2535,7 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 
     final value class Priority { // org.maplibre.compose.resource/MapResourceLoadRequest.Priority|null[0]
         final val value // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.value|{}value[0]
-            final fun <get-value>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.value.<get-value>|<get-value>(){}[0]
+            final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.value.<get-value>|<get-value>(){}[0]
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Priority.hashCode|hashCode(){}[0]
@@ -2551,7 +2551,7 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 
     final value class StoragePolicy { // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy|null[0]
         final val value // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.value|{}value[0]
-            final fun <get-value>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.value.<get-value>|<get-value>(){}[0]
+            final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.value.<get-value>|<get-value>(){}[0]
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.StoragePolicy.hashCode|hashCode(){}[0]
@@ -2567,7 +2567,7 @@ final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplib
 
     final value class Usage { // org.maplibre.compose.resource/MapResourceLoadRequest.Usage|null[0]
         final val value // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.value|{}value[0]
-            final fun <get-value>(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.value.<get-value>|<get-value>(){}[0]
+            final fun <get-value>(): kotlin/String // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.value.<get-value>|<get-value>(){}[0]
 
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapResourceLoadRequest.Usage.hashCode|hashCode(){}[0]

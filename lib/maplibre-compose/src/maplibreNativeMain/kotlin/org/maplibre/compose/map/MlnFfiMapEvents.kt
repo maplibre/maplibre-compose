@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import kotlin.time.Duration.Companion.seconds
+import org.maplibre.nativeffi.render.RenderMode
 import org.maplibre.nativeffi.runtime.CameraChangeMode
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
@@ -30,7 +31,7 @@ private fun RuntimeEvent.isAnimatedChange(): Boolean =
 
 private fun RuntimeEventPayload.RenderFrame.toRenderStats(): RenderStats =
   RenderStats(
-    mode = RenderStats.Mode(mode.nativeValue),
+    mode = mode.toCommon(),
     needsRepaint = needsRepaint,
     placementChanged = placementChanged,
     encodingTime = stats.encodingTime.seconds,
@@ -39,3 +40,11 @@ private fun RuntimeEventPayload.RenderFrame.toRenderStats(): RenderStats =
     drawCallCount = stats.drawCallCount,
     totalDrawCallCount = stats.totalDrawCallCount,
   )
+
+/** The mode with the same name in MapLibre Native, or the native number as decimal text. */
+internal fun RenderMode.toCommon(): RenderStats.Mode =
+  when (this) {
+    RenderMode.PARTIAL -> RenderStats.Mode.Partial
+    RenderMode.FULL -> RenderStats.Mode.Full
+    else -> RenderStats.Mode(nativeValue.toString())
+  }

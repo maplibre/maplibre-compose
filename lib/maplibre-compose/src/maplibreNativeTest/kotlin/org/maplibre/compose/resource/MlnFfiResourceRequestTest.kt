@@ -314,8 +314,8 @@ class MlnFfiResourceRequestTest {
   fun the_load_request_names_the_default_ffi_values() {
     val load =
       ResourceRequest(
-          requestedUrl = URL,
-          resolvedUrl = URL,
+          requestedUrl = Url,
+          resolvedUrl = Url,
           kind = ResourceKind.STYLE,
           loadingMethod = ResourceLoadingMethod.ALL,
           priority = ResourcePriority.REGULAR,
@@ -335,11 +335,11 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun the_load_request_keeps_ffi_values_with_no_name() {
+  fun the_load_request_keeps_unnamed_values_as_their_number() {
     val load =
       ResourceRequest(
-          requestedUrl = URL,
-          resolvedUrl = URL,
+          requestedUrl = Url,
+          resolvedUrl = Url,
           kind = ResourceKind.STYLE,
           loadingMethod = ResourceLoadingMethod(9),
           priority = ResourcePriority(9),
@@ -352,10 +352,10 @@ class MlnFfiResourceRequestTest {
           priorData = ByteArray(0),
         )
         .toLoadRequest()
-    assertEquals(9, load.loadingMethod.value)
-    assertEquals(9, load.priority.value)
-    assertEquals(9, load.usage.value)
-    assertEquals(9, load.storagePolicy.value)
+    assertEquals("9", load.loadingMethod.value)
+    assertEquals("9", load.priority.value)
+    assertEquals("9", load.usage.value)
+    assertEquals("9", load.storagePolicy.value)
   }
 
   @Test

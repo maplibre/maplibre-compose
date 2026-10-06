@@ -61,7 +61,7 @@ class MlnFfiMapEventsTest {
 
   @Test
   fun a_frame_in_an_unnamed_render_mode_keeps_its_number() {
-    assertEquals(99, frameStats(RenderMode(99)).mode.value)
+    assertEquals("99", frameStats(RenderMode(99)).mode.value)
   }
 
   @Test

@@ -105,61 +105,65 @@ internal constructor(
   /**
    * Limits the load to the cache or to the network. [All] allows both.
    *
-   * [value] is the number that MapLibre Native reports.
+   * [value] is MapLibre Native's name for the method, such as `CacheOnly`. A method that has no
+   * name here holds the number that MapLibre Native reports, as decimal text.
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
   @JvmInline
-  public value class LoadingMethod internal constructor(public val value: Int) {
+  public value class LoadingMethod internal constructor(public val value: String) {
     public companion object {
-      public val All: LoadingMethod = LoadingMethod(0)
-      public val CacheOnly: LoadingMethod = LoadingMethod(1)
-      public val NetworkOnly: LoadingMethod = LoadingMethod(2)
+      public val All: LoadingMethod = LoadingMethod("All")
+      public val CacheOnly: LoadingMethod = LoadingMethod("CacheOnly")
+      public val NetworkOnly: LoadingMethod = LoadingMethod("NetworkOnly")
     }
   }
 
   /**
    * The priority of the load.
    *
-   * [value] is the number that MapLibre Native reports.
+   * [value] is MapLibre Native's name for the priority, such as `Low`. A priority that has no name
+   * here holds the number that MapLibre Native reports, as decimal text.
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
   @JvmInline
-  public value class Priority internal constructor(public val value: Int) {
+  public value class Priority internal constructor(public val value: String) {
     public companion object {
-      public val Regular: Priority = Priority(0)
-      public val Low: Priority = Priority(1)
+      public val Regular: Priority = Priority("Regular")
+      public val Low: Priority = Priority("Low")
     }
   }
 
   /**
    * The consumer of the resource: a map, or an offline pack download.
    *
-   * [value] is the number that MapLibre Native reports.
+   * [value] is MapLibre Native's name for the usage, such as `Offline`. A usage that has no name
+   * here holds the number that MapLibre Native reports, as decimal text.
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
   @JvmInline
-  public value class Usage internal constructor(public val value: Int) {
+  public value class Usage internal constructor(public val value: String) {
     public companion object {
-      public val Online: Usage = Usage(0)
-      public val Offline: Usage = Usage(1)
+      public val Online: Usage = Usage("Online")
+      public val Offline: Usage = Usage("Offline")
     }
   }
 
   /**
    * The cache retention policy for the resource.
    *
-   * [value] is the number that MapLibre Native reports.
+   * [value] is MapLibre Native's name for the policy, such as `Volatile`. A policy that has no name
+   * here holds the number that MapLibre Native reports, as decimal text.
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
   @JvmInline
-  public value class StoragePolicy internal constructor(public val value: Int) {
+  public value class StoragePolicy internal constructor(public val value: String) {
     public companion object {
-      public val Permanent: StoragePolicy = StoragePolicy(0)
-      public val Volatile: StoragePolicy = StoragePolicy(1)
+      public val Permanent: StoragePolicy = StoragePolicy("Permanent")
+      public val Volatile: StoragePolicy = StoragePolicy("Volatile")
     }
   }
 

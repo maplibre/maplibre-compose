@@ -90,18 +90,19 @@ internal constructor(
   /**
    * Whether everything the frame needed had loaded when the engine drew it.
    *
-   * [value] is the number that MapLibre Native reports.
+   * [value] is MapLibre Native's name for the mode, such as `Full`. A mode that has no name here
+   * holds the number that MapLibre Native reports, as decimal text.
    *
    * Values may be added in minor releases; use an `else` branch when matching.
    */
   @JvmInline
-  public value class Mode internal constructor(public val value: Int) {
+  public value class Mode internal constructor(public val value: String) {
     public companion object {
       /** The engine drew before every tile and image the frame needed had loaded. */
-      public val Partial: Mode = Mode(0)
+      public val Partial: Mode = Mode("Partial")
 
       /** The engine drew with everything the frame needed. */
-      public val Full: Mode = Mode(1)
+      public val Full: Mode = Mode("Full")
     }
   }
 }
