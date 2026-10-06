@@ -18,17 +18,28 @@ import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
 
 internal class GlJsRequestController(private val config: MapResourceConfig) : AutoCloseable {
-  val scheme: String by lazy { newResourceProtocolScheme() }
+  private val token: String by lazy { newProtocolToken() }
+
+  /** The protocol that loads requests through the [MapResourceProvider]. */
+  val scheme: String by lazy { "mlc-res-$token" }
+
+  /** The protocol that fails a request whose [MapRequestInterceptor] threw. */
+  val failureScheme: String by lazy { "mlc-failed-$token" }
+
   private val scope =
     CoroutineScope(
       SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource")
     )
   private val protocolInstalled = config.provider != null
+  private val failureProtocolInstalled = config.interceptor != null
   private var open = true
 
   init {
     if (protocolInstalled) {
       addProtocol(scheme) { request, abortController -> loadProtocol(request, abortController) }
+    }
+    if (failureProtocolInstalled) {
+      addProtocol(failureScheme) { request, _ -> failProtocol(request) }
     }
   }
 
@@ -38,19 +49,36 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     return when (val route = config.route(MapResourceRequest(url, kind))) {
       is MapResourceRoute.Load ->
         requestParameters(protocolUrl(route.request.url, kind), emptyMap())
+      is MapResourceRoute.Fail -> requestParameters(failureUrl(route.request.url, kind), emptyMap())
       is MapResourceRoute.Fetch -> {
-        val headers = interceptor.headersOrNone(route.request, config.logger)
+        val headers =
+          interceptor.headersOrNull(route.request, config.logger)
+            ?: return requestParameters(failureUrl(route.request.url, kind), emptyMap())
         if (route.request.url == url && headers.isEmpty()) return undefined
         requestParameters(route.request.url, headers)
       }
     }
   }
 
+  /**
+   * Rejects a [failureUrl] request without sending it. The interceptor's exception is already
+   * logged.
+   */
+  internal fun failProtocol(request: RequestParameters): Promise<ProtocolResponse> {
+    val url = parseProtocolUrl(request.url, failureScheme).url
+    return Promise.reject(
+      ResourceLoadError(
+        "The request interceptor failed for $url, so the request was not sent",
+        status = null,
+      )
+    )
+  }
+
   internal fun loadProtocol(
     request: RequestParameters,
     abortController: Any,
   ): Promise<ProtocolResponse> {
-    val parsed = parseProtocolUrl(request.url)
+    val parsed = parseProtocolUrl(request.url, scheme)
     val work = scope.async {
       val provider =
         config.provider ?: throw IllegalStateException("No resource provider is installed")
@@ -66,10 +94,15 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     return work.asPromise()
   }
 
-  fun protocolUrl(url: String, kind: MapResourceKind): String =
+  fun protocolUrl(url: String, kind: MapResourceKind): String = protocolUrl(scheme, url, kind)
+
+  /** A URL in [failureScheme] that names the request whose interceptor threw. */
+  fun failureUrl(url: String, kind: MapResourceKind): String = protocolUrl(failureScheme, url, kind)
+
+  private fun protocolUrl(scheme: String, url: String, kind: MapResourceKind): String =
     "$scheme://${encodeResourceUrl(kind.value)}/${encodeResourceUrl(url)}"
 
-  fun parseProtocolUrl(protocolUrl: String): MapResourceRequest {
+  fun parseProtocolUrl(protocolUrl: String, scheme: String = this.scheme): MapResourceRequest {
     val prefix = "$scheme://"
     require(protocolUrl.startsWith(prefix)) { "Invalid resource protocol URL: $protocolUrl" }
     val remainder = protocolUrl.substring(prefix.length)
@@ -84,16 +117,17 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     open = false
     scope.cancel()
     if (protocolInstalled) removeProtocol(scheme)
+    if (failureProtocolInstalled) removeProtocol(failureScheme)
   }
 }
 
 /**
- * A per-runtime scheme that another map on the page cannot guess.
+ * A per-runtime token for protocol schemes that another map on the page cannot guess.
  *
  * Uses `crypto.getRandomValues`, which is present in non-secure HTTP contexts where
  * `crypto.randomUUID` is not.
  */
-private fun newResourceProtocolScheme(): String {
+private fun newProtocolToken(): String {
   val bytes = Uint8Array<ArrayBuffer>(16)
   js("crypto.getRandomValues")(bytes)
   val token =
@@ -104,7 +138,7 @@ private fun newResourceProtocolScheme(): String {
         append("0123456789abcdef"[value and 0x0f])
       }
     }
-  return "mlc-res-$token"
+  return token
 }
 
 private val undefined: Any? = js("undefined")

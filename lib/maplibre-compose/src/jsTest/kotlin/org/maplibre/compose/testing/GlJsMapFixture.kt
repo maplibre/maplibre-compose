@@ -26,12 +26,19 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 
-/** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
-internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
+/**
+ * A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. [requests]
+ * handles the session's resource requests, and the caller closes it.
+ */
+internal class GlJsMapFixture(
+  private var extent: MapExtent,
+  requests: GlJsRequestController? = null,
+) : MapFixture {
 
   private val recorder = RecordingMapCallbacks()
   private val runtime = mapRuntimeForTest()
@@ -40,7 +47,8 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
       cameraPosition = CameraPosition(zoom = 0.0),
       baseStyle = BaseStyle.Empty,
     )
-  private val glJsSession = GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr)
+  private val glJsSession =
+    GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr, requests = requests)
   private val token = state.reservePresentation()
 
   override val session: MapAdapter

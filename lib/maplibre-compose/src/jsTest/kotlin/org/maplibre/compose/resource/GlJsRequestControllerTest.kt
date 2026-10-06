@@ -179,6 +179,58 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun a_rewrite_exception_routes_the_request_to_the_failure_protocol() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor = MapRequestInterceptor(rewriteUrl = { error("token store exploded") })
+        )
+      )
+    val result = controller.transformRequest("https://tiles.example.com/style.json", "Style")
+    val url = result.asDynamic().url as String
+    assertTrue(url.startsWith("${controller.failureScheme}://"))
+    assertNull(result.asDynamic().headers)
+    val parsed = controller.parseProtocolUrl(url, controller.failureScheme)
+    assertEquals("https://tiles.example.com/style.json", parsed.url)
+    controller.close()
+  }
+
+  @Test
+  fun a_headers_exception_routes_the_rewritten_request_to_the_failure_protocol() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor =
+            MapRequestInterceptor(
+              rewriteUrl = { "https://cdn.example/style.json" },
+              headers = { error("token store exploded") },
+            )
+        )
+      )
+    val result = controller.transformRequest("custom://style.json", "Style")
+    val url = result.asDynamic().url as String
+    assertTrue(url.startsWith("${controller.failureScheme}://"))
+    val parsed = controller.parseProtocolUrl(url, controller.failureScheme)
+    assertEquals("https://cdn.example/style.json", parsed.url)
+    controller.close()
+  }
+
+  @Test
+  fun the_failure_protocol_rejects_without_a_status() = runTest {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(interceptor = MapRequestInterceptor(rewriteUrl = { null }))
+      )
+    val request = js("({})").unsafeCast<RequestParameters>()
+    request.asDynamic().url =
+      controller.failureUrl("https://tiles.example.com/0/0/0.pbf", MapResourceKind.Tile)
+    val error = assertFails { controller.failProtocol(request).await() }
+    controller.close()
+    assertEquals(null, error.asDynamic().status)
+    assertTrue(error.message.orEmpty().contains("https://tiles.example.com/0/0/0.pbf"))
+  }
+
+  @Test
   fun bytes_resolve_with_the_body_and_expiry() = runTest {
     val expires = Instant.fromEpochMilliseconds(1_000)
     val response =

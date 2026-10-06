@@ -3,6 +3,7 @@ package org.maplibre.compose.resource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.logging.MapLog
@@ -16,25 +17,44 @@ class MapRequestInterceptorTest {
   @Test
   fun a_blank_rewrite_keeps_the_incoming_url() {
     val interceptor = MapRequestInterceptor(rewriteUrl = { "   " })
-    assertEquals(Request.url, interceptor.rewrittenUrl(Request, null))
+    assertEquals(Request.url, interceptor.rewrittenUrlOrNull(Request, null))
   }
 
   @Test
   fun a_null_interceptor_keeps_the_url_and_adds_no_headers() {
     val interceptor: MapRequestInterceptor? = null
-    assertEquals(Request.url, interceptor.rewrittenUrl(Request, null))
-    assertEquals(emptyMap(), interceptor.headersOrNone(Request, null))
+    assertEquals(Request.url, interceptor.rewrittenUrlOrNull(Request, null))
+    assertEquals(emptyMap(), interceptor.headersOrNull(Request, null))
   }
 
   @Test
-  fun an_interceptor_exception_keeps_the_original_request() {
+  fun an_interceptor_exception_fails_the_request() {
     val interceptor =
       MapRequestInterceptor(
         rewriteUrl = { error("token store exploded") },
         headers = { error("token store exploded") },
       )
-    assertEquals(Request.url, interceptor.rewrittenUrl(Request, null))
-    assertEquals(emptyMap(), interceptor.headersOrNone(Request, null))
+    assertNull(interceptor.rewrittenUrlOrNull(Request, null))
+    assertNull(interceptor.headersOrNull(Request, null))
+  }
+
+  @Test
+  fun a_rewrite_exception_routes_the_request_to_fail_before_the_provider_sees_it() {
+    var accepted = false
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { error("token store exploded") }),
+        provider =
+          MapResourceProvider(
+            accepts = {
+              accepted = true
+              true
+            },
+            load = { error("unused") },
+          ),
+      )
+    assertEquals(MapResourceRoute.Fail(Request), config.route(Request))
+    assertFalse(accepted, "the provider classified a request whose interceptor threw")
   }
 
   @Test
@@ -44,7 +64,7 @@ class MapRequestInterceptorTest {
     MapLogging.logger = MapLogger { records += it }
     try {
       val interceptor = MapRequestInterceptor(rewriteUrl = { error("token store exploded") })
-      assertEquals(Request.url, interceptor.rewrittenUrl(Request, MapLog))
+      assertNull(interceptor.rewrittenUrlOrNull(Request, MapLog))
     } finally {
       MapLogging.logger = previous
     }
@@ -58,7 +78,7 @@ class MapRequestInterceptorTest {
   fun a_fatal_interceptor_error_propagates() {
     val interceptor = MapRequestInterceptor(rewriteUrl = { throw FatalTestError() })
     try {
-      interceptor.rewrittenUrl(Request, null)
+      interceptor.rewrittenUrlOrNull(Request, null)
       error("expected FatalTestError")
     } catch (_: FatalTestError) {}
   }

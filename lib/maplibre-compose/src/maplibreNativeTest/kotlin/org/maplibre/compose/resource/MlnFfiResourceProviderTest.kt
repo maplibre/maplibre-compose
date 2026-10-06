@@ -1,6 +1,7 @@
 package org.maplibre.compose.resource
 
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -114,6 +115,61 @@ class MlnFfiResourceProviderTest {
       NativeResourceRoute.Read("file:/styles/rewritten.json"),
       config.nativeRoute(request("custom://style.json")),
     )
+  }
+
+  @Test
+  fun a_rewrite_exception_fails_the_request_instead_of_fetching_the_original_url() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { error("token store exploded") })
+      )
+    assertEquals(
+      NativeResourceRoute.Fail("https://tiles.example.com/style.json"),
+      config.nativeRoute(request("https://tiles.example.com/style.json")),
+    )
+  }
+
+  @Test
+  fun a_headers_exception_fails_a_network_request() {
+    val config =
+      MapResourceConfig(
+        interceptor =
+          MapRequestInterceptor(
+            rewriteUrl = { "https://tiles.example.com/style.json" },
+            headers = { error("token store exploded") },
+          )
+      )
+    assertEquals(
+      NativeResourceRoute.Fail("https://tiles.example.com/style.json"),
+      config.nativeRoute(request("custom://style.json")),
+    )
+  }
+
+  @Test
+  fun a_packaged_read_does_not_ask_for_headers() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(headers = { error("token store exploded") })
+      )
+    assertEquals(
+      NativeResourceRoute.Read("file:/styles/style.json"),
+      config.nativeRoute(request("file:/styles/style.json")),
+    )
+  }
+
+  @Test
+  fun a_transform_exception_rewrites_to_a_url_no_transport_fetches() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { error("token store exploded") })
+      )
+    val url =
+      transformedUrl(
+        config,
+        MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style),
+      )
+    assertEquals(FailedRequestScheme, url?.let(::schemeOf))
+    assertContains(url.orEmpty(), "tiles.example.com")
   }
 
   private fun request(url: String): ResourceRequest =

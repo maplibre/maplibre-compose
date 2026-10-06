@@ -42,7 +42,7 @@ internal typealias MlnFfiResourceProviderFactory =
 /**
  * Routes each request by its rewritten URL. Requests that the application provider accepts use that
  * provider. HTTP and HTTPS requests use MapLibre's loader. Remaining URLs use the packaged-resource
- * reader.
+ * reader. A request whose interceptor throws fails without being sent.
  *
  * Installed with the runtime. Provider-owned [ResourceRequestHandle] instances remain valid
  * independently of runtime teardown, so accepted reads can safely finish after [close].
@@ -96,6 +96,31 @@ internal class MlnFfiResourceProvider(
         take(FfiResourceRequest(handle), route.url, request.requestedUrl)
         ResourceProviderDecision.HANDLE
       }
+      is NativeResourceRoute.Fail -> {
+        failInterceptedRequest(FfiResourceRequest(handle), route.url, request.requestedUrl)
+        ResourceProviderDecision.HANDLE
+      }
+    }
+  }
+
+  /**
+   * Answers a request whose interceptor threw, on MapLibre's thread, without sending it. The
+   * interceptor's exception is already logged. MapLibre caches no error response.
+   */
+  private fun failInterceptedRequest(
+    request: TakenResourceRequest,
+    url: String,
+    requestedUrl: String,
+  ) {
+    answer(request, url) {
+      failure(
+        url,
+        requestedUrl,
+        ResourceErrorReason.OTHER,
+        "was not sent because the request interceptor failed",
+        error = null,
+        logger = null,
+      )
     }
   }
 
@@ -315,6 +340,9 @@ internal sealed interface NativeResourceRoute {
   data object Fetch : NativeResourceRoute
 
   data class Read(val url: String) : NativeResourceRoute
+
+  /** The interceptor threw for [url], so the request fails without being sent. */
+  data class Fail(val url: String) : NativeResourceRoute
 }
 
 /** Chooses the loader for [request]. */
@@ -323,9 +351,16 @@ internal fun MapResourceConfig.nativeRoute(request: ResourceRequest): NativeReso
   return when (val route = route(incoming)) {
     is MapResourceRoute.Load ->
       NativeResourceRoute.Load(route.provider, request.toLoadRequest(url = route.request.url))
+    is MapResourceRoute.Fail -> NativeResourceRoute.Fail(route.request.url)
     is MapResourceRoute.Fetch ->
-      if (isMapLibresToFetch(route.request.url)) NativeResourceRoute.Fetch
-      else NativeResourceRoute.Read(route.request.url)
+      when {
+        !isMapLibresToFetch(route.request.url) -> NativeResourceRoute.Read(route.request.url)
+        // MapLibre applies the headers later, through a transform that cannot fail the request, so
+        // a throwing headers callback fails it here.
+        interceptor.headersOrNull(route.request, logger) == null ->
+          NativeResourceRoute.Fail(route.request.url)
+        else -> NativeResourceRoute.Fetch
+      }
   }
 }
 

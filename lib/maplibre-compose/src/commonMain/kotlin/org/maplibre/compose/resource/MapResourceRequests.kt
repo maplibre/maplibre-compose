@@ -48,8 +48,10 @@ internal constructor(
  * called repeatedly; return the same result while the request and application state are unchanged.
  * Read changing credentials from a thread-safe store.
  *
- * If a function throws an exception, the library logs a warning and uses the default result: the
- * URL is not rewritten, or the request gets no added headers.
+ * If a function throws an exception, the library logs a warning and fails the request the same way
+ * as a [MapResourceLoad.Failed] with reason [MapResourceError.Other]. The request is not sent
+ * without the interceptor's changes, except for the MapLibre Native retries that [headers]
+ * describes.
  *
  * Use [MapResourceProvider] to supply resource data directly.
  */
@@ -68,6 +70,10 @@ public interface MapRequestInterceptor {
    * Returns the HTTP headers for a request that the engine HTTP client fetches.
    *
    * [MapResourceRequest.url] is the URL after [rewriteUrl].
+   *
+   * On MapLibre Native, the engine calls this function again before it retries a failed request. An
+   * exception from that call cannot fail the retry: the library logs a warning and sends the retry
+   * without the added headers.
    */
   public fun headers(request: MapResourceRequest): Map<String, String> = emptyMap()
 }
