@@ -209,8 +209,8 @@ public object OfflinePackListItemDefaults {
             DownloadStatus.Downloading -> downloadingIcon
           }
         is DownloadProgress.Error -> errorIcon
-        is DownloadProgress.TileLimitExceeded,
-        is DownloadProgress.Unknown -> warningIcon
+        // TileLimitExceeded, Unknown, and any case this version does not name.
+        else -> warningIcon
       }
     AnimatedContent(icon) { icon -> icon() }
   }
@@ -229,7 +229,11 @@ public object OfflinePackListItemDefaults {
     DeleteButton(pack, offlineStorage)
   }
 
-  /** Displays the pack's download status and size, or its error or tile limit status. */
+  /**
+   * Displays the pack's download status and size, or its error or tile limit status.
+   *
+   * A status that this version does not name is shown with [unknownContent].
+   */
   @Composable
   public fun SupportingContent(
     progress: DownloadProgress,
@@ -262,6 +266,7 @@ public object OfflinePackListItemDefaults {
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
       is DownloadProgress.Unknown -> unknownContent(progress)
+      else -> unknownContent(DownloadProgress.Unknown)
     }
   }
 }

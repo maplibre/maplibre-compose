@@ -3,7 +3,11 @@ package org.maplibre.compose.offline
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Geometry
 
-/** Defines a region that an [OfflinePack] stores. */
+/**
+ * Defines a region that an [OfflinePack] stores.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface OfflinePackDefinition {
   public val styleUrl: String
 
@@ -42,3 +46,9 @@ public sealed interface OfflinePackDefinition {
     override val maxZoom: Double? = null,
   ) : OfflinePackDefinition
 }
+
+/**
+ * Keeps [OfflinePackDefinition] open: callers' `when` needs an `else` branch. It has no instances.
+ */
+internal abstract class UnspecifiedOfflinePackDefinition private constructor() :
+  OfflinePackDefinition

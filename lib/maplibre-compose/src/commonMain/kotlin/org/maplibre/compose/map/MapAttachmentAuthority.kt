@@ -123,6 +123,7 @@ internal class MapAttachmentAuthority(
         is MapEvent.StyleLoadFailed,
         is MapEvent.SourceDataFailed,
         MapEvent.Idle -> lifecycle.acceptsAdapter(adapter)
+        UnspecifiedMapEvent -> false
       }
     if (accepted) eventsFlow.tryEmit(event)
   }

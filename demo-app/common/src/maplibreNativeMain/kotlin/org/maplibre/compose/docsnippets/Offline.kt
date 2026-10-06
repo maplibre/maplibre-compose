@@ -69,6 +69,7 @@ fun Offline() {
         is DownloadProgress.Error -> Text("$name: ${current.message}")
         is DownloadProgress.TileLimitExceeded -> Text("$name: tile limit ${current.limit}")
         is DownloadProgress.Unknown -> Text("$name: waiting for status")
+        else -> Text(name)
       }
     }
   }

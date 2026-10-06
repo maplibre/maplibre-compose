@@ -1,6 +1,10 @@
 package org.maplibre.compose.offline
 
-/** Reports the current download state of one [OfflinePack]. */
+/**
+ * Reports the current download state of one [OfflinePack].
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface DownloadProgress {
   /** The SDK has not reported the download progress. */
   public data object Unknown : DownloadProgress
@@ -42,3 +46,9 @@ public sealed interface DownloadProgress {
   public data class TileLimitExceeded internal constructor(public val limit: Long) :
     DownloadProgress
 }
+
+/**
+ * Keeps [DownloadProgress] open: callers' `when` needs an `else` branch. The library never reports
+ * it.
+ */
+internal data object UnspecifiedDownloadProgress : DownloadProgress
