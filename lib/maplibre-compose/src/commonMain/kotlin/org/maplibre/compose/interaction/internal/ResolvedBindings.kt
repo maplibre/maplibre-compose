@@ -85,7 +85,7 @@ internal data class TapDragBinding(
   val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
-  val direction: QuickZoomDirection = QuickZoomDirection.DownZoomsIn,
+  val direction: QuickZoomDirection = platformQuickZoomDirection,
   val zoomLevelsPerViewport: Double = 4.0,
 )
 

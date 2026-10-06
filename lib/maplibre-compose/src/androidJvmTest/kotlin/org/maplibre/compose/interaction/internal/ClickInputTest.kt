@@ -33,6 +33,7 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -474,6 +475,33 @@ class ClickInputTest {
       waitForIdle()
       assertTrue(target.scaleCalls.isNotEmpty())
       assertEquals(0, target.clicks)
+    }
+  }
+
+  @Test
+  fun an_up_zooms_in_quick_zoom_zooms_in_when_dragged_up() {
+    fixture.runRecognitionTest(
+      options =
+        InputConfiguration(InputConfiguration.NoBindings) {
+          camera { zoom { momentum { enabled = false } } }
+          bindings {
+            tapDrag {
+              enabled = true
+              direction = QuickZoomDirection.UpZoomsIn
+            }
+          }
+        }
+    ) { target ->
+      mapNode().performTouchInput {
+        click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center)
+        moveBy(Offset(0f, -60f))
+        up()
+      }
+      waitForIdle()
+      assertTrue(target.scaleCalls.isNotEmpty(), "the quick zoom did not scale")
+      assertTrue(target.scaleCalls.all { it.scale > 1.0 }, "dragging up zoomed out")
     }
   }
 
