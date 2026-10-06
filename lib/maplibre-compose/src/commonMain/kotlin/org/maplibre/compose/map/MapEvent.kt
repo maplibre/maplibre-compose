@@ -2,7 +2,11 @@ package org.maplibre.compose.map
 
 import kotlin.time.Duration
 
-/** One fact reported by the MapLibre engine behind a map. */
+/**
+ * One fact reported by the MapLibre engine behind a map.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
 public sealed interface MapEvent {
 
   /**
@@ -59,6 +63,9 @@ public sealed interface MapEvent {
    */
   public data class FrameRendered internal constructor(val stats: RenderStats?) : MapEvent
 }
+
+/** Keeps [MapEvent] open: callers' `when` needs an `else` branch. The library never emits it. */
+internal data object UnspecifiedMapEvent : MapEvent
 
 /** The engine's measurements of one rendered frame. */
 public data class RenderStats

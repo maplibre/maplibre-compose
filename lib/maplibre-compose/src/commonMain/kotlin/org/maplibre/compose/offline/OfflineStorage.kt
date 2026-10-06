@@ -93,7 +93,11 @@ public sealed interface OfflineStorage {
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 }
 
-/** The initialization result and current contents of an [OfflineStorage]. */
+/**
+ * The initialization result and current contents of an [OfflineStorage].
+ *
+ * Closed. Initialization happens once, and it is either unfinished, succeeded, or failed.
+ */
 public sealed interface OfflineStorageState {
   /** Initialization has not finished. */
   public data object Loading : OfflineStorageState

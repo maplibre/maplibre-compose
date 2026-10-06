@@ -209,8 +209,8 @@ public object OfflinePackListItemDefaults {
             DownloadStatus.Downloading -> downloadingIcon
           }
         is DownloadProgress.Error -> errorIcon
-        is DownloadProgress.TileLimitExceeded,
-        is DownloadProgress.Unknown -> warningIcon
+        // TileLimitExceeded, Unknown, and any case this version does not name.
+        else -> warningIcon
       }
     AnimatedContent(icon) { icon -> icon() }
   }
@@ -262,6 +262,7 @@ public object OfflinePackListItemDefaults {
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
       is DownloadProgress.Unknown -> unknownContent(progress)
+      else -> unknownContent(DownloadProgress.Unknown)
     }
   }
 }

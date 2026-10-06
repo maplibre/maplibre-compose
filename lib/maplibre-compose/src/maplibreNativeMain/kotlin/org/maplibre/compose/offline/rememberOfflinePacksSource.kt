@@ -80,7 +80,8 @@ private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadPr
       put("status", "TileLimitExceeded")
       put("tile_limit", progress.limit)
     }
-    DownloadProgress.Unknown -> put("status", "Unknown")
+    DownloadProgress.Unknown,
+    UnspecifiedDownloadProgress -> put("status", "Unknown")
   }
 
 private val OfflinePackDefinition.geometry
@@ -88,6 +89,8 @@ private val OfflinePackDefinition.geometry
     when (this) {
       is OfflinePackDefinition.TilePyramid -> bounds.toPolygon()
       is OfflinePackDefinition.Shape -> shape
+      is UnspecifiedOfflinePackDefinition ->
+        error("UnspecifiedOfflinePackDefinition has no instances")
     }
 
 private fun BoundingBox.toPolygon() =

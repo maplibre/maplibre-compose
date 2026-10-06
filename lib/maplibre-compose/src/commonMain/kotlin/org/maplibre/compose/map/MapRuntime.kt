@@ -269,7 +269,12 @@ internal constructor(
   }
 }
 
-/** Reports the load state for the desired base style of one logical map. */
+/**
+ * Reports the load state for the desired base style of one logical map.
+ *
+ * Closed. The cases cover every stage of a load: waiting for a map surface, loading, ready, and
+ * failed.
+ */
 public sealed interface StyleLoadState {
   /** No map surface can currently load the desired style. */
   public data object Pending : StyleLoadState

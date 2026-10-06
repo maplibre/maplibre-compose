@@ -40,6 +40,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
         pixelRatio = pixelRatio,
         includeIdeographs = INCLUDE_IDEOGRAPHS,
       )
+    is UnspecifiedOfflinePackDefinition ->
+      error("UnspecifiedOfflinePackDefinition has no instances")
   }
 
 /**

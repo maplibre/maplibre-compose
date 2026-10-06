@@ -89,7 +89,12 @@ internal constructor(
   }
 }
 
-/** Current state of device-heading collection managed by [rememberLocationState]. */
+/**
+ * Current state of device-heading collection managed by [rememberLocationState].
+ *
+ * Closed. A heading request is either not active, waiting for its first measurement, delivering
+ * measurements, or ended by a failure.
+ */
 public sealed interface HeadingTrackingStatus {
   /** No platform heading request is active. */
   public data object Stopped : HeadingTrackingStatus
@@ -108,7 +113,12 @@ public sealed interface HeadingTrackingStatus {
   public data class Unavailable internal constructor(val cause: Throwable) : HeadingTrackingStatus
 }
 
-/** Current state of the foreground location updates managed by [rememberLocationState]. */
+/**
+ * Current state of the foreground location updates managed by [rememberLocationState].
+ *
+ * Closed. A location request is either not active, waiting for its first measurement, delivering
+ * measurements, or unable to deliver; [Unavailable.reason] classifies the last case.
+ */
 public sealed interface LocationTrackingStatus {
   /** No platform location request is active. */
   public data object Stopped : LocationTrackingStatus
