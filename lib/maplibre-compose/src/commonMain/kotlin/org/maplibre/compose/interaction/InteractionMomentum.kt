@@ -10,7 +10,8 @@ import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
  * Pan momentum after normal release; cancellation starts no momentum.
  *
  * The momentum lasts [baseTime] plus 1 ms for each 10.5 dp/second of release speed, multiplied by
- * [durationScale]. Every value must be finite and not negative. Building the options throws
+ * [durationScale]. When a release also starts zoom momentum, the pan instead lasts as long as the
+ * zoom momentum. Every value must be finite and not negative. Building the options throws
  * [IllegalArgumentException] otherwise.
  */
 @MapInteractionDsl
