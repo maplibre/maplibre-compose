@@ -2386,7 +2386,7 @@ public final class org/maplibre/compose/map/MapState {
 	public final fun getCameraMoveReason ()Lorg/maplibre/compose/camera/CameraMoveReason;
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
 	public final fun getEvents ()Lkotlinx/coroutines/flow/Flow;
-	public final fun getMissingImageResolver ()Lkotlin/jvm/functions/Function2;
+	public final fun getMissingImageResolver ()Lorg/maplibre/compose/map/MissingImageResolver;
 	public final fun getStyle ()Lorg/maplibre/compose/map/MapStyleState;
 	public final fun getViewport ()Lorg/maplibre/compose/camera/Viewport;
 	public final fun getVisibleBounds ()Lorg/maplibre/compose/util/VisibleBounds;
@@ -2405,7 +2405,7 @@ public final class org/maplibre/compose/map/MapState {
 	public static synthetic fun scaleBy-3C1MFA8$default (Lorg/maplibre/compose/map/MapState;DLandroidx/compose/ui/unit/DpOffset;ILjava/lang/Object;)V
 	public final fun screenLocationFromPosition-qJJM2lo (Lorg/maplibre/spatialk/geojson/Position;)Landroidx/compose/ui/unit/DpOffset;
 	public final fun setCameraPosition (Lorg/maplibre/compose/camera/CameraPosition;)V
-	public final fun setMissingImageResolver (Lkotlin/jvm/functions/Function2;)V
+	public final fun setMissingImageResolver (Lorg/maplibre/compose/map/MissingImageResolver;)V
 	public final fun stopCameraMovement ()V
 	public fun toString ()Ljava/lang/String;
 }
@@ -2457,6 +2457,10 @@ public final class org/maplibre/compose/map/MissingImageRequest {
 	public static final field $stable I
 	public final fun getId ()Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/map/MissingImageResolver {
+	public abstract fun resolve (Lorg/maplibre/compose/map/MissingImageRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class org/maplibre/compose/map/MutableMapStyleState {
