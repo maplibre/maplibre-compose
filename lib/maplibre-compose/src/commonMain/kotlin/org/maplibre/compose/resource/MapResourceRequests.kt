@@ -268,8 +268,8 @@ public sealed interface MapResourceLoad {
   /**
    * A failed load.
    *
-   * [reason] is the HTTP status that the engine handles. MapLibre Native reports a tile error for a
-   * [MapResourceError.NotFound] tile, and the browser skips the tile. Return [NoContent] for a tile
+   * [reason] is the HTTP status that the engine handles. MapLibre reports no error for a
+   * [MapResourceError.NotFound] tile and draws no data for it. Return [NoContent] for a tile
    * outside the data set.
    */
   public class Failed(

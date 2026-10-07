@@ -83,6 +83,8 @@ internal external interface SourceSpecification
 internal external interface RequestParameters {
   val url: String
   val headers: Any?
+  /** How MapLibre GL JS reads the response, such as `arrayBuffer` or `image`. */
+  val type: String?
 }
 
 internal external interface ProtocolResponse {

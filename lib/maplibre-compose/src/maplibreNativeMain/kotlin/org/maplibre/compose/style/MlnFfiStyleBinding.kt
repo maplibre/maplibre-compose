@@ -110,6 +110,8 @@ internal open class MlnFfiStyleBinding(
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
+  /** Receives the exception of a failed custom source provider call. Owner thread. */
+  private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
   @Volatile private var loaded = true
   private val geoJsonCoordinators =
@@ -372,6 +374,7 @@ internal open class MlnFfiStyleBinding(
           logger?.e(error) {
             "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
           }
+          customTileFailed(error)
           map.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
         },
       )
@@ -438,6 +441,7 @@ internal open class MlnFfiStyleBinding(
         },
         deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
         fail = { map, tile, error ->
+          customTileFailed(error)
           map.setCustomMvtVectorSourceTileError(
             sourceId,
             tile,

@@ -10,10 +10,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.gljs.CanvasContextAttributes
 import org.maplibre.compose.gljs.DefaultWorkerUrl
+import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.gljs.failedTile
+import org.maplibre.compose.gljs.failedUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.GlJsRequestController
@@ -44,6 +47,15 @@ internal class GlJsSnapshotterAdapter(
   private var styleSubscription: GlJsSubscription? = null
   private var renderSubscription: GlJsSubscription? = null
   private var terminalOperation: CompletableDeferred<Result<Unit>>? = null
+
+  /**
+   * The first tile or resource of the loaded style that failed to load. GL JS keeps a failed tile
+   * failed, so a failure fails every capture until the style loads again.
+   */
+  private var loadFailure: Throwable? = null
+
+  /** Fails the capture that is waiting for the map to finish loading. */
+  private var loadFailed: ((Throwable) -> Unit)? = null
   private val reconciler = StyleReconciler()
   private val cleanupFailures = mutableListOf<Throwable>()
 
@@ -82,12 +94,16 @@ internal class GlJsSnapshotterAdapter(
     cancelStyleSubscription()
     val loading = CompletableDeferred<Result<Unit>>()
     terminalOperation = loading
+    loadFailure = null
     try {
       styleSubscription =
         currentMap.loadBaseStyle(
           baseStyle,
           onLoaded = {
-            val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
+            val binding =
+              GlJsStyleBinding(currentMap, logger, customTileFailed = ::recordLoadFailure) {
+                currentDensity
+              }
             styleBinding?.invalidate()
             styleBinding = binding
             loadedBaseStyleRevision = baseStyleRevision
@@ -137,6 +153,9 @@ internal class GlJsSnapshotterAdapter(
 
     val rendering = CompletableDeferred<Result<Unit>>()
     terminalOperation = rendering
+    // GL JS fires no idle after a tile fails, so the failure ends the wait.
+    loadFailure?.let { rendering.complete(Result.failure(it)) }
+    loadFailed = { rendering.complete(Result.failure(it)) }
     lateinit var idleSubscription: GlJsSubscription
     idleSubscription =
       currentMap.subscribe("idle") {
@@ -147,14 +166,49 @@ internal class GlJsSnapshotterAdapter(
     renderSubscription = idleSubscription
     currentMap.redraw()
     try {
-      rendering.await().getOrThrow()
+      rendering.await().onFailure { unloadStyle() }.getOrThrow()
       currentMap.redraw()
       return readImage(currentMap, request)
     } finally {
+      loadFailed = null
       idleSubscription.cancel()
       if (renderSubscription === idleSubscription) renderSubscription = null
       if (terminalOperation === rendering) terminalOperation = null
     }
+  }
+
+  /** Makes the next capture load the style again, which loads its failed tiles again. */
+  private fun unloadStyle() {
+    runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(cleanupFailures::add)
+    styleBinding = null
+    loadedBaseStyleRevision = null
+    loadedDensity = null
+  }
+
+  /**
+   * Records an `error` event that names a source or a request URL: a tile, TileJSON or sprite that
+   * failed to load. A refused style write names neither.
+   */
+  private fun recordLoadError(event: GlJsMapEvent) {
+    val sourceId = event.sourceId
+    val url = event.failedUrl()
+    val failed =
+      when {
+        sourceId != null ->
+          event.failedTile()?.let { "Tile $it of source '$sourceId'" } ?: "Source '$sourceId'"
+        url != null -> "'$url'"
+        else -> return
+      }
+    val cause = event.error as? Throwable
+    recordLoadFailure(
+      IllegalStateException("$failed failed to load: ${event.error?.message}", cause)
+    )
+  }
+
+  private fun recordLoadFailure(failure: Throwable) {
+    if (loadFailure != null) return
+    loadFailure = failure
+    loadFailed?.invoke(failure)
   }
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
@@ -189,7 +243,10 @@ internal class GlJsSnapshotterAdapter(
       }
     GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
     return try {
-      MaplibreMap(options).also { map = it }
+      MaplibreMap(options).also {
+        map = it
+        it.subscribe("error", ::recordLoadError)
+      }
     } catch (error: Throwable) {
       container = null
       runCatching { host.remove() }.exceptionOrNull()?.let(error::addSuppressed)
@@ -268,6 +325,8 @@ internal class GlJsSnapshotterAdapter(
     cancelStyleSubscription()
     renderSubscription?.cancel()
     renderSubscription = null
+    loadFailure = null
+    loadFailed = null
     runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(cleanupFailures::add)
     styleBinding = null
     loadedBaseStyleRevision = null

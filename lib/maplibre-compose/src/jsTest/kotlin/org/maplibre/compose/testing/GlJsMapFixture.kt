@@ -25,7 +25,11 @@ import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
@@ -193,6 +197,19 @@ internal actual fun createMapFixture(extent: MapExtent): MapFixture {
   // test that runs before `runBrowserMapTest` still keeps the suite off the CDN.
   GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
   return GlJsMapFixture(extent)
+}
+
+internal actual suspend fun withTestMapRuntime(
+  resourceProvider: MapResourceProvider?,
+  block: suspend (MapRuntime) -> Unit,
+) {
+  val runtime = createMapRuntime(MapRuntimeOptions(resourceProvider = resourceProvider))
+  try {
+    block(runtime)
+  } finally {
+    runtime.close()
+    runtime.awaitClosed()
+  }
 }
 
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GlJs

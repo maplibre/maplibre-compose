@@ -21,6 +21,8 @@ internal class GlJsCustomGeometryAttachment(
   private val options: CustomGeometrySourceOptions,
   private val provider: GeometryTileProvider,
   private val logger: MapLog?,
+  /** Called with a provider exception after it is logged. */
+  private val failed: (Throwable) -> Unit = {},
 ) {
   val tiles =
     GlJsProtocolTileAttachment(
@@ -35,6 +37,7 @@ internal class GlJsCustomGeometryAttachment(
           // Rethrowing fails the tile. MapLibre reports the tile error as an `error` event with the
           // message alone; this record carries the exception.
           logger?.w(error) { "Custom geometry source '$sourceId' failed to load $tile" }
+          failed(error)
           throw error
         }
       },

@@ -5,6 +5,7 @@ import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
 import kotlin.js.Date
 import kotlin.js.Promise
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
@@ -55,8 +58,17 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
       val provider =
         config.provider ?: throw IllegalStateException("No resource provider is installed")
       // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
-      val result = provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
-      result.toProtocolResponse(parsed.url)
+      val result =
+        try {
+          provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
+        } catch (error: Throwable) {
+          // A cancelled job means the request ended. The provider's own cancellation, such as a
+          // timeout, leaves the job active and fails like any other exception.
+          if (error is CancellationException) currentCoroutineContext().ensureActive()
+          throw resourceLoadError(error.message ?: error.toString(), status = null, parsed.url)
+        }
+      val workerTile = parsed.kind == MapResourceKind.Tile && request.type == "arrayBuffer"
+      result.toProtocolResponse(parsed.url, workerTile)
     }
     val signal = abortController.asDynamic().signal
     val abort: () -> Unit = { work.cancel() }
@@ -141,26 +153,45 @@ internal fun MapResourceError.httpStatus(): Int? =
   }
 
 /**
- * The rejection of a protocol load. [status] is set on the JS object for MapLibre GL JS to read.
+ * The rejection of a protocol load, with [status] and [url] set for MapLibre GL JS to read as it
+ * reads an HTTP failure. A plain JS error, because MapLibre copies a tile error through its worker
+ * boundary, and a Kotlin exception's message does not survive that copy.
  */
-internal class ResourceLoadError(message: String, val status: Int?) : Exception(message) {
-  init {
-    if (status != null) asDynamic().status = status
-  }
+internal fun resourceLoadError(message: String, status: Int?, url: String): Throwable {
+  val error = js("new Error()")
+  error.message = message
+  if (status != null) error.status = status
+  error.url = url
+  return error.unsafeCast<Throwable>()
 }
 
-/** Converts a load result to the protocol promise outcome of the corresponding HTTP response. */
-private fun MapResourceLoad.toProtocolResponse(url: String): ProtocolResponse {
+/**
+ * Converts a load result to the protocol promise outcome of the corresponding HTTP response.
+ *
+ * MapLibre GL JS loads a vector tile in a worker, and the copy of an error that reaches the worker
+ * has no status. A 404 for such a [workerTile] therefore resolves as an empty tile, which is what
+ * MapLibre GL JS makes of a 404 vector tile that it fetches itself.
+ */
+private fun MapResourceLoad.toProtocolResponse(
+  url: String,
+  workerTile: Boolean,
+): ProtocolResponse {
   val expires = expires?.let { Date(it.toEpochMilliseconds().toDouble()) }
   return when (this) {
     is MapResourceLoad.Bytes -> bytes.toProtocolResponse(expires)
     is MapResourceLoad.NoContent -> ByteArray(0).toProtocolResponse(expires)
     is MapResourceLoad.NotModified ->
-      throw ResourceLoadError(
+      throw resourceLoadError(
         "Resource provider returned NotModified for $url, but the browser sends no validators",
         status = null,
+        url,
       )
-    is MapResourceLoad.Failed -> throw ResourceLoadError(message, reason.httpStatus())
+    is MapResourceLoad.Failed ->
+      if (workerTile && reason == MapResourceError.NotFound) {
+        ByteArray(0).toProtocolResponse(expires)
+      } else {
+        throw resourceLoadError(message, reason.httpStatus(), url)
+      }
   }
 }
 

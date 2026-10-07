@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.map.MapSnapshotter
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -77,7 +78,8 @@ public fun interface GeometryTileProvider {
    *   reports a tile error with the exception message, shows lower-zoom data in place of the tile
    *   where available, and requests the tile again when it is needed again.
    * - On MapLibre Native, the exception is logged as an error, and the tile loads with no features.
-   *   MapLibre does not report a tile error.
+   *   MapLibre does not report a tile error, but a [MapSnapshotter] capture that needs the tile
+   *   fails.
    */
   public suspend fun loadTile(tile: TileCoordinate): FeatureCollection<*, *>
 }
