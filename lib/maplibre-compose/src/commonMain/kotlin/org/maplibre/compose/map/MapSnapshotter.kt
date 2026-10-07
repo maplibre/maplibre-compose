@@ -227,7 +227,9 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
 public sealed interface MapSnapshotter {
   /**
    * Desired and applied style state for this snapshotter's engine map. Style changes, commands, and
-   * reads run in order with captures: one made during a capture applies after that capture.
+   * reads run in order with captures: one made during a capture applies after that capture, so a
+   * suspending call made from code that a capture waits for, such as a [GeometryTileProvider],
+   * never returns.
    */
   public val style: MapStyleState
 
@@ -618,13 +620,14 @@ internal class MapSnapshotterImplementation(
           if (ownedBaseStyleRevision == baseStyleRevision)
             SnapshotStyleOwnership(ownedSourceIds.toSet(), ownedLayerIds.toSet())
           else SnapshotStyleOwnership.Empty,
+        reusesReadyStyle = style.loadState == StyleLoadState.Ready,
       )
       .also {
         check(activeStyleClaim == null)
         activeStyleClaim = it
         // A ready style stays ready and current through the capture: style calls issued during it
         // wait in the queue, and calls issued before it may still be on their way to the engine.
-        if (style.loadState != StyleLoadState.Ready) style.loadState = StyleLoadState.Loading
+        if (!it.reusesReadyStyle) style.loadState = StyleLoadState.Loading
       }
   }
 
@@ -690,11 +693,15 @@ internal class MapSnapshotterImplementation(
     }
   }
 
+  /**
+   * Marks the style failed, unless the capture reused a ready style that is still loaded: the
+   * capture reports its own failure, and calls issued during it still apply to that style.
+   */
   private fun publishStyleFailure(claim: StyleClaim, error: Throwable) {
     lock.withLock {
-      if (!closed && claim.revision == baseStyleRevision) {
-        style.loadState = StyleLoadState.Failed(error.message)
-      }
+      if (closed || claim.revision != baseStyleRevision) return
+      if (claim.reusesReadyStyle && style.currentLoadedStyle()?.isLoaded == true) return
+      style.loadState = StyleLoadState.Failed(error.message)
     }
   }
 
@@ -708,6 +715,7 @@ internal class MapSnapshotterImplementation(
     val baseStyle: BaseStyle,
     val revision: Long,
     val ownership: SnapshotStyleOwnership,
+    val reusesReadyStyle: Boolean,
   )
 
   private sealed interface QueuedWork

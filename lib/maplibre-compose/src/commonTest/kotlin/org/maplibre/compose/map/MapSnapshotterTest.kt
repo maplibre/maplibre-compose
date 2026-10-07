@@ -320,6 +320,46 @@ class MapSnapshotterTest {
   }
 
   @Test
+  fun a_failed_capture_keeps_a_reused_style_ready_for_the_calls_made_during_it() = runTest {
+    val binding = RecordingStyleBinding()
+    val rendered = mutableListOf<JsonElement?>()
+    val captureStarted = CompletableDeferred<Unit>()
+    val finishCapture = CompletableDeferred<Unit>()
+    var failCapture = false
+    val runtime =
+      runtimeWith(
+        FakeSnapshotterAdapter(
+          prepare = { _, _ -> binding },
+          capture = { _, _ ->
+            if (failCapture) {
+              captureStarted.complete(Unit)
+              finishCapture.await()
+              error("render failed")
+            }
+            rendered += binding.lightProperties["intensity"]
+            FakeImageBitmap(1, 1)
+          },
+        )
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
+    snapshotter.capture(request)
+    failCapture = true
+    val failed = async { runCatching { snapshotter.capture(request) } }
+    captureStarted.await()
+
+    snapshotter.style.light.set(Light(intensity = const(0.25f)))
+    failCapture = false
+    finishCapture.complete(Unit)
+
+    assertIs<MapSnapshotException>(failed.await().exceptionOrNull())
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    snapshotter.capture(request)
+    assertEquals(listOf<JsonElement?>(null, JsonPrimitive(0.25f)), rendered)
+    close(snapshotter, runtime)
+  }
+
+  @Test
   fun a_capture_issued_during_a_read_waits_for_the_read() = runTest {
     val binding = RecordingStyleBinding()
     val readDone = CompletableDeferred<Unit>()
