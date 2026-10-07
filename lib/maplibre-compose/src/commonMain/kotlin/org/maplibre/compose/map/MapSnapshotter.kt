@@ -243,10 +243,9 @@ public sealed interface MapSnapshotter {
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
-   * @throws MapSnapshotException if the runtime cannot render offscreen, style evaluation or
-   *   rendering fails, or a tile or resource fails to load. The runtime cannot render offscreen
-   *   when the MapLibre Native library fails to load, with its exception as the cause, or when it
-   *   offers no offscreen rendering backend for the device. When a [GeometryTileProvider] or
+   * @throws MapSnapshotException if the runtime cannot render offscreen, such as when MapLibre
+   *   Native offers no offscreen rendering backend for the device, style evaluation or rendering
+   *   fails, or a tile or resource fails to load. When a [GeometryTileProvider] or
    *   [VectorTileProvider] call failed, the cause is its exception, wrapped in an
    *   [IllegalStateException] when it is a cancellation that the provider caused itself.
    */
