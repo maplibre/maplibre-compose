@@ -28,10 +28,14 @@ internal class FakeSnapshotterAdapter(
   ): SnapshotPreparation =
     SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))
 
-  override suspend fun capture(
-    request: MapSnapshotRequest,
-    revision: StyleSnapshot,
-  ): ImageBitmap = capture.invoke(request, revision)
+  private var applied = StyleSnapshot.Empty
+
+  override suspend fun apply(revision: StyleSnapshot) {
+    applied = revision
+  }
+
+  override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =
+    capture.invoke(request, applied)
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition = cancel.invoke()
 

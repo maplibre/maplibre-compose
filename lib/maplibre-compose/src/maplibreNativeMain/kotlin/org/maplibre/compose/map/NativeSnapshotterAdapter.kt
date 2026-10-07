@@ -105,10 +105,7 @@ private class NativeSnapshotterAdapter(
     )
   }
 
-  override suspend fun capture(
-    request: MapSnapshotRequest,
-    revision: StyleSnapshot,
-  ): ImageBitmap = runNativeRequest {
+  override suspend fun apply(revision: StyleSnapshot) {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     val prepared = reconciler.prepare(binding, revision)
     checkNotNull(
@@ -119,7 +116,10 @@ private class NativeSnapshotterAdapter(
     ) {
       "The snapshotter engine map stopped during style reconciliation"
     }
-    binding.awaitGeoJsonUpdates()
+  }
+
+  override suspend fun capture(request: MapSnapshotRequest): ImageBitmap = runNativeRequest {
+    checkNotNull(styleBinding) { "A snapshot style has not loaded" }.awaitGeoJsonUpdates()
     configureRequest(request)
     // The owner thread renders the still image from its update events; see handleEvent.
     val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Awaits.StillImage)
