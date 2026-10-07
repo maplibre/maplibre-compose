@@ -23,6 +23,7 @@ import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.material3.OfflinePackListItem
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.OfflineStorageState
+import org.maplibre.compose.offline.offlineStorage
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable

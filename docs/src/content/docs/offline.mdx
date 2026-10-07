@@ -14,12 +14,13 @@ map tiles, the style, and other assets. The <Api of="OfflineStorage" />
 creates, tracks, and deletes packs.
 
 <Aside type="note">
-  Offline packs are available on Android, iOS, and Desktop. The browser
-  platform does not support them.
+  The browser has no offline API. Call it from Android, iOS, or Desktop code,
+  or through an `expect` function.
 </Aside>
 
-Get the offline storage from the map runtime. A composable, a view model, a
-background worker, or `main` can hold and use it:
+Get the offline storage from the map runtime with the
+<Api of="offlineStorage" /> extension. A composable, a view model, a background
+worker, or `main` can hold and use it:
 
 <Code code={region(offline, "storage")} lang="kotlin" title="App.kt" />
 

@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.offline.offlineStorage
 import org.maplibre.compose.style.BaseStyle
 
 class DesktopRuntimeConfigurationTest {

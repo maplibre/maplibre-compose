@@ -4,6 +4,7 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.normalized
 import org.maplibre.compose.offline.MlnFfiOfflineStorage
+import org.maplibre.compose.offline.RuntimeBoundOfflineStorage
 import org.maplibre.compose.resource.MapResourceConfig
 
 internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
@@ -16,7 +17,6 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
     )
   val mainDispatcher = normalizedOptions.mainDispatcher ?: platformMainDispatcher()
   val owner = MlnFfiRuntime(normalizedOptions, resourceConfig)
-  val offlineStorage = MlnFfiOfflineStorage(owner)
   val runtime =
     MapRuntime(
       platformContext = owner,
@@ -25,7 +25,7 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
         owner.awaitClosed()
       },
       logger = normalizedOptions.logger,
-      offlineStorageBackend = offlineStorage,
+      createOfflineStorage = { RuntimeBoundOfflineStorage(MlnFfiOfflineStorage(owner), it) },
       mainDispatcher = mainDispatcher,
       createSnapshotterAdapter = { createNativeSnapshotterAdapter(owner) },
       resourceConfig = resourceConfig,

@@ -38,6 +38,7 @@ import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.OfflineStorageState
+import org.maplibre.compose.offline.offlineStorage
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.MapTestResult
