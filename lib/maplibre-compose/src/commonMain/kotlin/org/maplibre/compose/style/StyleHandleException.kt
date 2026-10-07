@@ -1,12 +1,13 @@
 package org.maplibre.compose.style
 
 /**
- * A style operation refused because no style is ready, its handle has expired, composition owns the
- * resource, or the engine rejected a command the caller waited for.
+ * A style operation refused because no style is ready, its handle has expired, or the engine
+ * rejected a command the caller waited for.
  *
- * Invalid arguments throw [IllegalArgumentException], and coroutine cancellation retains its
- * cancellation exception. Engine rejections of commands nothing waits for are logged and retain the
- * previous value.
+ * Calls that correct code never makes throw [IllegalArgumentException] or [IllegalStateException]
+ * instead: for example, writing a resource that the style content declares. Coroutine cancellation
+ * retains its cancellation exception. Engine rejections of commands nothing waits for are logged
+ * and retain the previous value.
  */
 public class StyleHandleException internal constructor(message: String, cause: Throwable? = null) :
   RuntimeException(message, cause)

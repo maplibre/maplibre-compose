@@ -6,7 +6,6 @@ import org.maplibre.compose.style.ClearedTransition
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.LayerPropertyWrite
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.TransitionOptions
@@ -51,8 +50,8 @@ internal constructor(
     getProperty(property + TransitionSuffix)?.toTransitionOptions()
 
   internal fun setRootProperty(name: String, value: JsonElement) {
-    if (name in FixedRootProperties) {
-      throw StyleHandleException("'$name' is fixed for the generation of $type layer '$id'")
+    require(name !in FixedRootProperties) {
+      "'$name' is fixed for the generation of $type layer '$id'"
     }
     setProperty(name, value, LayerPropertyKind.Root)
   }

@@ -143,7 +143,8 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
    * [GeoJsonOptions.synchronousTiling] controls native tile generation and does not make this
    * function wait for preparation, installation, or rendering.
    *
-   * @throws StyleHandleException if style content declares this source or submission fails.
+   * @throws IllegalStateException if style content declares this source.
+   * @throws StyleHandleException if submission fails.
    */
   public fun setData(data: GeoJsonData): Unit
 }
@@ -264,21 +265,21 @@ public sealed interface MutableImageSourceHandle : ImageSourceHandle, MutableSou
   /**
    * Updates the geographic corners of the image.
    *
-   * @throws StyleHandleException if style content declares this source.
+   * @throws IllegalStateException if style content declares this source.
    */
   public fun setBounds(bounds: PositionQuad): Unit
 
   /**
    * Replaces the source image with [image].
    *
-   * @throws StyleHandleException if style content declares this source.
+   * @throws IllegalStateException if style content declares this source.
    */
   public fun setImage(image: PreparedImage): Unit
 
   /**
    * Replaces the source image URI with [uri].
    *
-   * @throws StyleHandleException if style content declares this source.
+   * @throws IllegalStateException if style content declares this source.
    */
   public fun setUri(uri: String): Unit
 }

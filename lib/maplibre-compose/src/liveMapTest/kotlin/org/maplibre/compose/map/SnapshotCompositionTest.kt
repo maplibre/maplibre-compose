@@ -84,9 +84,9 @@ class SnapshotCompositionTest {
       assertNull(sourceHandle.asMutable)
       assertNull(layerHandle.asMutable)
       assertNull(imageHandle.asMutable)
-      assertFailsWith<StyleHandleException> { snapshotter.style.sources.add(source) }
-      assertFailsWith<StyleHandleException> { snapshotter.style.images.remove(imageId) }
-      assertFailsWith<StyleHandleException> { snapshotter.style.setImage(imageId, bitmap) }
+      assertFailsWith<IllegalStateException> { snapshotter.style.sources.add(source) }
+      assertFailsWith<IllegalStateException> { snapshotter.style.images.remove(imageId) }
+      assertFailsWith<IllegalStateException> { snapshotter.style.setImage(imageId, bitmap) }
 
       snapshotter.capture(request)
       assertSame(sourceHandle, snapshotter.style.sources[source])

@@ -1350,7 +1350,9 @@ class MapPresentationTest {
     assertEquals("added", firstHandle.id)
     assertEquals("added", fixture.state.style.sources["added"]?.id)
     fixture.state.style.sources.add(blocked)
-    assertFailsWith<StyleHandleException> { fixture.state.style.sources.add(added) }
+    val duplicate =
+      assertFailsWith<IllegalStateException> { fixture.state.style.sources.add(added) }
+    assertEquals("Source ID 'added' already exists", duplicate.message)
     assertEquals("added", firstHandle.id)
     assertNull(fixture.state.style.sources["missing"])
     firstHandle.remove()
@@ -2232,6 +2234,62 @@ class MapPresentationTest {
   }
 
   @Test
+  fun style_api_misuse_throws_standard_exceptions() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val baseStyle = fixture.state.style.asMutable!!
+    val layer = fixture.state.style.layers["background"]!!.asMutable!!
+
+    val fixed =
+      assertFailsWith<IllegalArgumentException> {
+        layer.setRootProperty("source", JsonPrimitive("other"))
+      }
+    assertEquals(
+      "'source' is fixed for the generation of background layer 'background'",
+      fixed.message,
+    )
+    fixture.state.style.baseStyleDeclared = true
+    assertFailsWith<IllegalStateException> { baseStyle.baseStyle = BaseStyle.Json("replacement") }
+    fixture.close()
+  }
+
+  @Test
+  fun a_declarative_revision_can_declare_a_resolver_supplied_image_id() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.missingImageResolver = {
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1)))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "shared"))
+      .await()
+    assertTrue(binding.imageExists("shared") == true)
+
+    // A generated image ID can match one the resolver supplied; the declaration is not misuse.
+    fixture.applyRevision(
+      binding,
+      StyleSnapshot(
+        sources = emptyList(),
+        layers = emptyList(),
+        images =
+          listOf(
+            StyleImageDefinition(
+              "shared",
+              PreparedImage.fromBitmap(FakeImageBitmap(2, 2)),
+              sdf = false,
+              stretch = null,
+            )
+          ),
+      ),
+    )
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+    fixture.close()
+  }
+
+  @Test
   fun a_declarative_revision_cannot_claim_an_imperative_resource_id() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
@@ -2241,7 +2299,7 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
     fixture.state.style.sources.add(source)
 
-    assertFailsWith<StyleHandleException> {
+    assertFailsWith<IllegalStateException> {
       fixture.applyRevision(
         binding,
         StyleSnapshot(
@@ -2257,7 +2315,7 @@ class MapPresentationTest {
     fixture.state.style.sources["shared"]!!.asMutable!!.remove()
     fixture.state.style.awaitCommands()
     fixture.state.style.setImage("shared", image)
-    assertFailsWith<StyleHandleException> {
+    assertFailsWith<IllegalStateException> {
       fixture.applyRevision(
         binding,
         StyleSnapshot(

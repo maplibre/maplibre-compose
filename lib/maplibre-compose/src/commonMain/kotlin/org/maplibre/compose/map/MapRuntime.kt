@@ -358,7 +358,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun requireImageWritable(id: String) = requireWritable("Image", id, isImageWritable(id))
 
   private fun requireWritable(kind: String, id: String, writable: Boolean) {
-    if (!writable) throw StyleHandleException("$kind ID '$id' is declared by the style content")
+    check(writable) { "$kind ID '$id' is declared by the style content" }
   }
 
   internal fun requireReadyBinding(binding: StyleBinding) {
