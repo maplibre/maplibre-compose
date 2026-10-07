@@ -454,9 +454,11 @@ launch=()
 [ -n "$usage_route" ] && launch+=("--route=$usage_route")
 [ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
 [ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
+launch_args=()
+[ -n "${launch[*]}" ] && launch_args+=("--args=${launch[*]}")
 if [ "$usage_hot" = true ]; then
   # Runs outside the macOS app bundle, so Core Location ignores authorization requests.
-  ./gradlew :demo-app:desktop:hotRun --auto $args --args="${launch[*]}"
+  ./gradlew :demo-app:desktop:hotRun --auto $args "${launch_args[@]}"
 elif [ "$(uname -s)" = Darwin ]; then
   # Core Location reads the usage description from a packaged app Info.plist. The packaged
   # launcher forwards arguments; Gradle's runDistributable does not.
@@ -464,7 +466,7 @@ elif [ "$(uname -s)" = Darwin ]; then
   app=demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app
   "$app/Contents/MacOS/org.maplibre.compose.demoapp" "${launch[@]}"
 else
-  ./gradlew :demo-app:desktop:run $args --args="${launch[*]}"
+  ./gradlew :demo-app:desktop:run $args "${launch_args[@]}"
 fi
 '''
 
@@ -502,9 +504,11 @@ launch=()
 [ -n "$usage_route" ] && launch+=("--route=$usage_route")
 [ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
 [ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
+launch_args=()
+[ -n "${launch[*]}" ] && launch_args+=("--args=${launch[*]}")
 task=run
 [ "$usage_hot" = true ] && task="hotRun --auto"
-./gradlew :demo-app:desktop-nucleus:$task $args --args="${launch[*]}"
+./gradlew :demo-app:desktop-nucleus:$task $args "${launch_args[@]}"
 '''
 
 [tasks."publish:snapshot"]
