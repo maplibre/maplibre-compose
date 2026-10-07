@@ -14,10 +14,8 @@ map tiles, the style, and other assets. The <Api of="OfflineStorage" />
 creates, tracks, and deletes packs.
 
 <Aside type="note">
-  Offline packs are available on Android, iOS, and Desktop. The browser
-  platform does not support them, so the offline API is not in common code.
-  Call it from Android, iOS, or Desktop code, or from an `expect` function
-  whose browser `actual` does nothing.
+  The browser has no offline API. Call it from Android, iOS, or Desktop code,
+  or through an `expect` function.
 </Aside>
 
 Get the offline storage from the map runtime with the
