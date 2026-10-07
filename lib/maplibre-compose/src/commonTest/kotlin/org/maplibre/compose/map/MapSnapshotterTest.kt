@@ -37,6 +37,7 @@ import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
+import org.maplibre.compose.style.AnchorPredicateException
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -480,6 +481,49 @@ class MapSnapshotterTest {
     runCurrent()
 
     assertFalse(binding.isLoaded)
+    assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  @OptIn(ExperimentalCoroutinesApi::class)
+  fun canceled_capture_whose_anchor_predicate_throws_keeps_the_cleanup_state() = runTest {
+    val captureStarted = CompletableDeferred<Unit>()
+    val allowPredicate = CompletableDeferred<Unit>()
+    var captures = 0
+    val binding = RecordingStyleBinding()
+    val adapter =
+      FakeSnapshotterAdapter(
+        prepare = { _, _ -> binding },
+        capture = { _, _ ->
+          if (captures++ > 0) {
+            captureStarted.complete(Unit)
+            // The predicate runs on past the cancellation cleanup, then throws.
+            withContext(NonCancellable) { allowPredicate.await() }
+            throw AnchorPredicateException(IllegalStateException("bad predicate"))
+          }
+          FakeImageBitmap(1, 1)
+        },
+        cancel = {
+          allowPredicate.complete(Unit)
+          SnapshotterEngineDisposition.Retained
+        },
+      )
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope = this,
+        createSnapshotterAdapter = { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    val active = async { snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp))) }
+    captureStarted.await()
+
+    active.cancelAndJoin()
+    runCurrent()
+
     assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
     close(snapshotter, runtime)
   }

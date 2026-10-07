@@ -405,7 +405,7 @@ internal class MapSnapshotterImplementation(
             when (error) {
               is CancellationException -> binding?.invalidate()
               // A bug in the caller's code, thrown before any style content changed.
-              is AnchorPredicateException -> claim?.let(::releaseStyleClaim)
+              is AnchorPredicateException -> claim?.let { releaseStyleClaim(capture, it) }
               else -> claim?.let { publishStyleFailure(it, error) }
             }
             Result.failure(error)
@@ -624,10 +624,15 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  /** Returns the style to the state [claim] found, for a capture that changed no style content. */
-  private fun releaseStyleClaim(claim: StyleClaim) {
+  /**
+   * Returns the style to the state [claim] found, for a capture that changed no style content. An
+   * abandoned capture leaves the style to the cancellation cleanup, which may already have run.
+   */
+  private fun releaseStyleClaim(capture: Capture, claim: StyleClaim) {
     lock.withLock {
-      if (!closed && claim.revision == baseStyleRevision) style.loadState = claim.loadState
+      if (!closed && !capture.abandoned && claim.revision == baseStyleRevision) {
+        style.loadState = claim.loadState
+      }
     }
   }
 
