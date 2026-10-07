@@ -10,8 +10,10 @@ import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Adapts the current Tao context to the corresponding typed window integration. */
+@OptIn(ExperimentalMaplibreComposeApi::class)
 private fun taoComposeMapPresentationHost(
   renderContext: TaoGpuRenderContext
 ): ComposeMapPresentationHost {

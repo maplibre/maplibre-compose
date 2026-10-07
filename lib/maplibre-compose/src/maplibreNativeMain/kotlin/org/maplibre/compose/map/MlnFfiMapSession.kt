@@ -51,7 +51,9 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.UnspecifiedBaseStyle
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.compose.util.mercatorPixelDistance
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
@@ -1049,6 +1051,7 @@ internal class MlnFfiMapSession(
   internal suspend fun ensureEngine(): EngineMapIdentity = lifecycle.ensureEngine()
 
   /** Runs [block] on the owner thread of [engine], the engine that [ensureEngine] returned. */
+  @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
   internal suspend fun <T> withPlatformMap(
     engine: EngineMapIdentity,
     block: PlatformMapScope.() -> T,

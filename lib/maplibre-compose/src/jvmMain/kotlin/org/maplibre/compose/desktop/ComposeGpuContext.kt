@@ -3,6 +3,7 @@ package org.maplibre.compose.desktop
 import androidx.compose.runtime.Immutable
 import org.jetbrains.skia.DirectContext
 import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 internal interface ComposeGpuContext {
   val skiaContext: DirectContext
@@ -15,6 +16,7 @@ internal interface ComposeGpuContext {
  * reports a replacement, and serialize replacement and disposal with its GPU access callback.
  * MapLibre Compose does not close the Skia context or dispose the host's device.
  */
+@ExperimentalMaplibreComposeApi
 @Immutable
 public class MetalComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
@@ -33,6 +35,7 @@ public class MetalComposeGpuContext(
  * OpenGL work is bound to whichever context is current on the calling thread, so this carries
  * [withContextCurrent] rather than a context handle alone.
  */
+@ExperimentalMaplibreComposeApi
 @Immutable
 public class OpenGlComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
@@ -54,6 +57,7 @@ public class OpenGlComposeGpuContext(
  * reports a replacement, and serialize replacement and disposal with its GPU access callback.
  * MapLibre Compose does not close the Skia context or dispose the host's device.
  */
+@ExperimentalMaplibreComposeApi
 @Immutable
 public class Direct3D12ComposeGpuContext(
   /** The Skia context Compose draws this scene with. */

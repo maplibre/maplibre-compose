@@ -80,10 +80,14 @@ kotlin {
         it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
       }
 
-    // Tests install loggers and borrow the platform map without each test opting in.
+    // Tests install loggers, borrow the platform map, and build desktop presentation hosts
+    // without each test opting in.
     matching { it.name.endsWith("Test") }
       .configureEach {
-        languageSettings { optIn("org.maplibre.compose.util.DelicateMaplibreComposeApi") }
+        languageSettings {
+          optIn("org.maplibre.compose.util.DelicateMaplibreComposeApi")
+          optIn("org.maplibre.compose.util.ExperimentalMaplibreComposeApi")
+        }
       }
 
     commonMain.dependencies {

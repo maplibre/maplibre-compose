@@ -4,12 +4,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.nativeffi.map.MapHandle
 
 /** Provides the borrowed MapLibre Native map for one [MapState.withPlatformMap] callback. */
+@DelicateMaplibreComposeApi
+@ExperimentalMaplibreComposeApi
 public actual class PlatformMapScope internal constructor(public val map: MapHandle)
 
 @DelicateMaplibreComposeApi
+@ExperimentalMaplibreComposeApi
 public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
   val (session, engine) =
     withContext(runtime.mainDispatcher) {

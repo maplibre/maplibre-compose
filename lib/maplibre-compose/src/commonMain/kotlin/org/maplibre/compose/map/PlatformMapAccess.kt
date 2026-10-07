@@ -7,9 +7,10 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Provides callback-scoped access to the current platform engine map. */
-@DelicateMaplibreComposeApi public expect class PlatformMapScope
+@DelicateMaplibreComposeApi @ExperimentalMaplibreComposeApi public expect class PlatformMapScope
 
 /**
  * Runs [block] on this logical map's engine owner context.
@@ -22,12 +23,17 @@ import org.maplibre.compose.util.DelicateMaplibreComposeApi
  * [block] from running. Once execution starts, cancellation does not interrupt [block], but its
  * result is discarded.
  *
+ * The map is a maplibre-native-ffi `MapHandle` on Native platforms and a MapLibre GL JS `Map` on
+ * web. Those engine types may change in any minor release, so this function also requires opt-in to
+ * [ExperimentalMaplibreComposeApi].
+ *
  * @throws IllegalStateException if the map is already closed. Web also throws this exception if no
  *   surface is attached when the call starts.
  * @throws kotlinx.coroutines.CancellationException if the map, engine, or Web attachment changes
  *   before [block] starts.
  */
 @DelicateMaplibreComposeApi
+@ExperimentalMaplibreComposeApi
 public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T
 
 /** Arbitrates cancellation against the start of one queued platform-map action. */

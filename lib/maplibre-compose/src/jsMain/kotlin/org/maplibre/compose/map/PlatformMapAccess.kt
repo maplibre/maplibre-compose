@@ -2,8 +2,11 @@ package org.maplibre.compose.map
 
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Provides the borrowed MapLibre GL JS map for one [MapState.withPlatformMap] callback. */
+@DelicateMaplibreComposeApi
+@ExperimentalMaplibreComposeApi
 public actual class PlatformMapScope internal constructor(private val engineMap: MaplibreMap) {
   /** The raw MapLibre GL JS `Map` object. */
   public val map: dynamic
@@ -11,6 +14,7 @@ public actual class PlatformMapScope internal constructor(private val engineMap:
 }
 
 @DelicateMaplibreComposeApi
+@ExperimentalMaplibreComposeApi
 public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
   val session = lifecycle.presentationAdapterForPlatformAccess() as GlJsMapSession
   return session.withPlatformMap(block)
