@@ -2,11 +2,9 @@ package org.maplibre.compose.util
 
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.tan
-import org.maplibre.spatialk.geojson.Position
 
 /** MapLibre projects with 512px tiles, not the more common 256. */
 private const val TileSize = 512.0
@@ -32,21 +30,6 @@ internal fun metersPerDpAtLatitude(zoom: Double, latitude: Double): Double {
   val clampedLatitude = latitude.coerceIn(-MercatorMaxLatitude, MercatorMaxLatitude)
   return cos(clampedLatitude * PI / 180.0) * EarthCircumferenceMeters /
     (2.0.pow(clampedZoom) * TileSize)
-}
-
-/**
- * The Web Mercator distance in logical pixels between [from] and [to] at [zoom], along the shorter
- * way around the world. Transcribed from `mbgl::Projection::project` with the unwrap that
- * `Transform::flyTo` applies to its start point.
- */
-internal fun mercatorPixelDistance(zoom: Double, from: Position, to: Position): Double {
-  val worldSize = 2.0.pow(zoom.coerceIn(MinProjectionZoom, MaxProjectionZoom)) * TileSize
-  var deltaLongitude = (to.longitude - from.longitude) % 360.0
-  if (deltaLongitude > 180.0) deltaLongitude -= 360.0
-  if (deltaLongitude < -180.0) deltaLongitude += 360.0
-  val deltaX = worldSize * deltaLongitude / 360.0
-  val deltaY = worldSize * (mercatorY(from.latitude) - mercatorY(to.latitude))
-  return hypot(deltaX, deltaY)
 }
 
 /** The Web Mercator y of [latitude] as a fraction of the world, from 0 at the north edge. */
