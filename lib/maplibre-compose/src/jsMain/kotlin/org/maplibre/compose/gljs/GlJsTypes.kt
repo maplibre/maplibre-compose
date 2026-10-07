@@ -115,6 +115,9 @@ internal external interface SourceHandle {
 internal external interface GlJsGeoJsonSource : SourceHandle {
   fun setData(data: GeoJsonSourceData)
 
+  /** False while a data update is waiting or being processed, including the first load. */
+  fun loaded(): Boolean
+
   // The cluster queries resolve null for a source that does not cluster, although GL JS's
   // declarations omit it.
   fun getClusterExpansionZoom(clusterId: Double): Promise<Double?>
