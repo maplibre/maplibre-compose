@@ -2,17 +2,14 @@ package org.maplibre.compose.mlnffi
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.compose.resource.ConnectivityMode
+import org.maplibre.compose.resource.UnspecifiedConnectivityMode
 import org.maplibre.nativeffi.runtime.NetworkStatus
 
 /** Starts observing connectivity until the returned handle is closed. */
 internal expect fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit): AutoCloseable
 
-/** Network status belongs to the process, across application runtimes. */
-internal val nativeNetworkMonitor =
-  SharedNetworkMonitor(::startNativeNetworkMonitor, Maplibre::setNetworkStatus)
-
-/** Keeps one platform monitor alive until the last native runtime has finished teardown. */
+/** Combines the application override with one monitor shared by all native runtimes. */
 internal class SharedNetworkMonitor(
   private val startMonitor: ((NetworkStatus) -> Unit) -> AutoCloseable,
   private val setStatus: (NetworkStatus) -> Unit,
@@ -25,6 +22,32 @@ internal class SharedNetworkMonitor(
   private val lock = reentrantLock()
   private var session: Session? = null
   private var users = 0
+  private var currentMode: ConnectivityMode = ConnectivityMode.Automatic
+  private var appliedStatus: NetworkStatus? = null
+
+  var mode: ConnectivityMode
+    get() = lock.withLock { currentMode }
+    set(value) = lock.withLock {
+      check(value != UnspecifiedConnectivityMode) { "UnspecifiedConnectivityMode is never used" }
+      currentMode = value
+      // Configuration before the first runtime must not load Native or start an OS monitor.
+      if (session != null) publishStatus()
+    }
+
+  /** Called under [lock], including during startup and after the last session is retired. */
+  private fun publishStatus() {
+    val status =
+      when (currentMode) {
+        ConnectivityMode.ForceOnline -> NetworkStatus.ONLINE
+        ConnectivityMode.ForceOffline -> NetworkStatus.OFFLINE
+        ConnectivityMode.Automatic -> session?.status ?: NetworkStatus.ONLINE
+        UnspecifiedConnectivityMode -> error("UnspecifiedConnectivityMode is never used")
+      }
+    if (status != appliedStatus) {
+      setStatus(status)
+      appliedStatus = status
+    }
+  }
 
   fun acquire(): AutoCloseable = lock.withLock {
     if (users == 0) {
@@ -32,18 +55,19 @@ internal class SharedNetworkMonitor(
       val starting = Session(identity)
       session = starting
       try {
+        publishStatus()
         starting.monitor = startMonitor { status ->
           lock.withLock {
             val active = session
             if (active?.identity === identity) {
               active.status = status
-              setStatus(status)
+              publishStatus()
             }
           }
         }
       } catch (error: Throwable) {
         session = null
-        setStatus(NetworkStatus.ONLINE)
+        publishStatus()
         throw error
       }
     }
@@ -57,8 +81,8 @@ internal class SharedNetworkMonitor(
         if (users == 0) {
           val stopping = session
           session = null
-          // A stopped monitor must not leave future runtimes permanently offline.
-          if (stopping?.status == NetworkStatus.OFFLINE) setStatus(NetworkStatus.ONLINE)
+          // Discard the old observation, while keeping the application's explicit override.
+          publishStatus()
           stopping?.monitor
         } else {
           null

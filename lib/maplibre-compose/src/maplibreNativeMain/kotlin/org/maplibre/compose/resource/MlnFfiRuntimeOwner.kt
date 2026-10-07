@@ -5,7 +5,6 @@ import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLogBridge
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
-import org.maplibre.compose.mlnffi.nativeNetworkMonitor
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
@@ -57,7 +56,7 @@ private constructor(
         RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
       val networkMonitor =
         try {
-          nativeNetworkMonitor.acquire()
+          MapConnectivity.acquireMonitor()
         } catch (error: Throwable) {
           runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error

@@ -3396,6 +3396,40 @@ public final class org/maplibre/compose/overlay/ZoomButtonsStyle {
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class org/maplibre/compose/resource/ConnectivityMode {
+}
+
+public final class org/maplibre/compose/resource/ConnectivityMode$Automatic : org/maplibre/compose/resource/ConnectivityMode {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/resource/ConnectivityMode$Automatic;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/resource/ConnectivityMode$ForceOffline : org/maplibre/compose/resource/ConnectivityMode {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/resource/ConnectivityMode$ForceOffline;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/resource/ConnectivityMode$ForceOnline : org/maplibre/compose/resource/ConnectivityMode {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/resource/ConnectivityMode$ForceOnline;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/resource/MapConnectivity {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/resource/MapConnectivity;
+	public final fun getMode ()Lorg/maplibre/compose/resource/ConnectivityMode;
+	public final fun setMode (Lorg/maplibre/compose/resource/ConnectivityMode;)V
+}
+
 public abstract interface class org/maplibre/compose/resource/MapRequestInterceptor {
 	public fun headers (Lorg/maplibre/compose/resource/MapResourceRequest;)Ljava/util/Map;
 	public fun rewriteUrl (Lorg/maplibre/compose/resource/MapResourceRequest;)Ljava/lang/String;
