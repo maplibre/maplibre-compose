@@ -672,39 +672,50 @@ internal open class MlnFfiStyleBinding(
     val result = queryClusterExtension(sourceId, feature, ExpansionZoomField) ?: return null
     val zoom = result.decodeToString().toDoubleOrNull()
     if (zoom == null) reportClusterMiss(sourceId, ExpansionZoomField, result)
-    return zoom
+    // A source that does not cluster answers 0. A cluster always expands at zoom 1 or higher.
+    return zoom?.takeIf { it > 0.0 }
   }
 
   override suspend fun clusterChildren(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>? =
-    queryClusterFeatures(sourceId, feature, ChildrenField, null)
+    // A source that does not cluster answers an empty collection. A cluster always has children.
+    queryClusterFeatures(sourceId, feature, ChildrenField, null)?.takeIf {
+      it.features.isNotEmpty()
+    }
 
   override suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
-  ): FeatureCollection<Geometry, JsonObject?>? =
-    queryClusterFeatures(
-      sourceId,
-      feature,
-      LeavesField,
-      // Both must be unsigned: MapLibre type-checks them exactly and silently falls back to its own
-      // default of ten otherwise, and it ignores offset unless limit is present. A non-negative
-      // integer literal parses as unsigned.
-      // https://github.com/maplibre/maplibre-native-ffi/pull/340
-      buildJsonObject {
-        put("limit", limit.coerceAtLeast(0))
-        put("offset", offset.coerceAtLeast(0))
-      }
-        .toJsonBytes(),
-    )
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val leaves =
+      queryClusterFeatures(
+        sourceId,
+        feature,
+        LeavesField,
+        // Both must be unsigned: MapLibre type-checks them exactly and silently falls back to its
+        // own default of ten otherwise, and it ignores offset unless limit is present. A
+        // non-negative integer literal parses as unsigned.
+        // https://github.com/maplibre/maplibre-native-ffi/pull/340
+        buildJsonObject {
+          put("limit", limit.coerceAtLeast(0))
+          put("offset", offset.coerceAtLeast(0))
+        }
+          .toJsonBytes(),
+      ) ?: return null
+    // A source that does not cluster also answers an empty page; only a cluster has children.
+    if (leaves.features.isEmpty() && clusterChildren(sourceId, feature) == null) return null
+    return leaves
+  }
 
   /**
    * Runs one supercluster query against the render session. Returns null when the feature carries
    * no cluster id, when no render session is attached yet, or when the engine reports no cluster.
+   *
+   * @throws StyleHandleException wrapping any other engine failure.
    */
   private suspend fun queryClusterExtension(
     sourceId: String,
@@ -723,11 +734,16 @@ internal open class MlnFfiStyleBinding(
           arguments,
         )
       }
-    } catch (error: NativeErrorException) {
-      // Supercluster exposes no typed missing-cluster error through the C API.
-      if (error.diagnostic != "No cluster with the specified id.") throw error
-      logger?.w { "Cluster '$field' query matched no cluster in source '$sourceId'" }
-      null
+    } catch (error: MaplibreException) {
+      // Supercluster's missing-cluster error reaches the C API only as this diagnostic text.
+      if (error is NativeErrorException && error.diagnostic == MissingClusterDiagnostic) {
+        logger?.w { "Cluster '$field' query matched no cluster in source '$sourceId'" }
+        return null
+      }
+      throw StyleHandleException(
+        "Cluster '$field' query failed in source '$sourceId': ${error.message}",
+        error,
+      )
     }
   }
 
@@ -747,8 +763,8 @@ internal open class MlnFfiStyleBinding(
   /** Reports a cluster query whose result does not contain the requested value. */
   private fun reportClusterMiss(sourceId: String, field: String, result: ByteArray) {
     logger?.w {
-      "Cluster '$field' query matched no cluster in source '$sourceId'; the feature's cluster_id " +
-        "is probably stale. MapLibre answered with ${result.decodeToString()}."
+      "Cluster '$field' query in source '$sourceId' returned no result. MapLibre answered with " +
+        "${result.decodeToString()}."
     }
   }
 
@@ -963,6 +979,7 @@ internal open class MlnFfiStyleBinding(
     private const val ExpansionZoomField = "expansion-zoom"
     private const val ChildrenField = "children"
     private const val LeavesField = "leaves"
+    private const val MissingClusterDiagnostic = "No cluster with the specified id."
 
     /**
      * Style-spec properties MapLibre Native does not implement; writing one makes it refuse the

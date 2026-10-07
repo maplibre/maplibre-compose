@@ -592,7 +592,9 @@ internal class GlJsStyleBinding(
     feature: Feature<*, JsonObject?>,
   ): Double? =
     queryCluster(sourceId, feature) { query ->
-      query.source.getClusterExpansionZoom(query.clusterId).await()
+      // geojson-vt derives the zoom from the ID without checking that the cluster exists, and an
+      // unknown ID can give 0 or less. A cluster always expands at zoom 1 or higher.
+      query.source.getClusterExpansionZoom(query.clusterId).await()?.takeIf { it > 0.0 }
     }
 
   override suspend fun clusterChildren(
@@ -600,7 +602,7 @@ internal class GlJsStyleBinding(
     feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>? =
     queryCluster(sourceId, feature) { query ->
-      query.source.getClusterChildren(query.clusterId).await().toFeatureCollection()
+      query.source.getClusterChildren(query.clusterId).await()?.toFeatureCollection()
     }
 
   override suspend fun clusterLeaves(
@@ -617,26 +619,35 @@ internal class GlJsStyleBinding(
           offset.coerceAtLeast(0).toDouble(),
         )
         .await()
-        .toFeatureCollection()
+        ?.toFeatureCollection()
     }
 
-  private suspend fun <T> queryCluster(
+  /**
+   * Runs one cluster query. Returns null when the feature carries no cluster ID, the source is
+   * unavailable, the query answers null, or the engine reports no cluster.
+   *
+   * @throws StyleHandleException wrapping any other engine failure.
+   */
+  private suspend fun <T : Any> queryCluster(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-    action: suspend (ClusterQuery) -> T,
+    action: suspend (ClusterQuery) -> T?,
   ): T? {
     val query = clusterQuery(sourceId, feature) ?: return null
     return try {
       action(query)
     } catch (error: Throwable) {
-      // The worker transfers the missing-cluster error as an ordinary JavaScript Error.
-      if (
-        error is CancellationException ||
-          error.message != "No cluster with the specified id: ${query.clusterId}"
+      if (error is CancellationException) throw error
+      // The worker transfers the missing-cluster error as an ordinary JavaScript Error, so only its
+      // message identifies it.
+      if (error.message == "No cluster with the specified id: ${query.clusterId}") {
+        logger?.w { "Cluster query matched no cluster in source '$sourceId'" }
+        return null
+      }
+      throw StyleHandleException(
+        "Cluster query failed in source '$sourceId': ${error.message}",
+        error,
       )
-        throw error
-      logger?.w { "Cluster query matched no cluster in source '$sourceId'" }
-      null
     }
   }
 

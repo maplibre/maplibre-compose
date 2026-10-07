@@ -146,16 +146,16 @@ internal constructor(
 
   override suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
-  ): FeatureCollection<Geometry, JsonObject?> = suspendingOperation {
-    style.clusterChildren(id, feature) ?: FeatureCollection(emptyList())
+  ): FeatureCollection<Geometry, JsonObject?>? = suspendingOperation {
+    style.clusterChildren(id, feature)
   }
 
   override suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
-  ): FeatureCollection<Geometry, JsonObject?> = suspendingOperation {
-    style.clusterLeaves(id, feature, limit, offset) ?: FeatureCollection(emptyList())
+  ): FeatureCollection<Geometry, JsonObject?>? = suspendingOperation {
+    style.clusterLeaves(id, feature, limit, offset)
   }
 
   override fun setFeatureState(featureId: String, state: JsonObject) {

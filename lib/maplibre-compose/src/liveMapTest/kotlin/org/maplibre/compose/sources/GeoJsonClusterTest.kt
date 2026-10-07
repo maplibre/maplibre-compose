@@ -9,6 +9,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
@@ -54,9 +56,13 @@ class GeoJsonClusterTest {
       val cluster = rendered().first(handle::isCluster)
 
       assertTrue(assertNotNull(handle.getClusterExpansionZoom(cluster)) > Zoom)
-      assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
-      assertEquals(2, handle.getClusterLeaves(cluster, limit = 2, offset = 0).features.size)
-      assertEquals(PointCount - 1, handle.getClusterLeaves(cluster, 10, 1).features.size)
+      assertTrue(assertNotNull(handle.getClusterChildren(cluster)).features.isNotEmpty())
+      assertEquals(2, assertNotNull(handle.getClusterLeaves(cluster, 2, 0)).features.size)
+      assertEquals(
+        PointCount - 1,
+        assertNotNull(handle.getClusterLeaves(cluster, 10, 1)).features.size,
+      )
+      assertEquals(emptyList(), assertNotNull(handle.getClusterLeaves(cluster, 10, 10)).features)
 
       handle.asMutable!!.setData(
         GeoJsonData.Features(
@@ -71,8 +77,41 @@ class GeoJsonClusterTest {
       if (mapLibreFlavor == MapLibreFlavor.Native) {
         assertNull(handle.getClusterExpansionZoom(cluster))
       }
-      assertEquals(emptyList(), handle.getClusterChildren(cluster).features)
-      assertEquals(emptyList(), handle.getClusterLeaves(cluster, 10, 0).features)
+      assertNull(handle.getClusterChildren(cluster))
+      assertNull(handle.getClusterLeaves(cluster, 10, 0))
+    }
+  }
+
+  @Test
+  fun cluster_queries_return_null_for_a_source_without_clustering(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = Zoom))
+      val binding = checkNotNull(fixture.style)
+      val source = GeoJsonSource("points", GeoJsonData.Features(nearbyPoints()), GeoJsonOptions())
+      fixture.state.style.sources.add(source)
+      binding.install(TestLayer("points", "circle", source))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
+
+      fixture.awaitMapReady()
+      fixture.pumpUntil("the points to render") {
+        fixture.state
+          .queryRenderedFeatures(DpRect(0.dp, 0.dp, 512.dp, 512.dp), layerIds = null)
+          .isNotEmpty()
+      }
+      val cluster =
+        Feature(
+          Point(Position(0.0, 0.0)),
+          buildJsonObject {
+            put("cluster", true)
+            put("cluster_id", 1)
+            put("point_count", PointCount)
+          },
+        )
+
+      assertNull(handle.getClusterExpansionZoom(cluster))
+      assertNull(handle.getClusterChildren(cluster))
+      assertNull(handle.getClusterLeaves(cluster, 10, 0))
     }
   }
 

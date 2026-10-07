@@ -423,8 +423,9 @@ internal interface StyleBinding {
   /**
    * Returns the cluster expansion zoom for [feature].
    *
-   * @return null if the feature has no cluster ID, the source is unavailable, or the engine reports
-   *   that the cluster no longer exists.
+   * @return null if the feature has no cluster ID, the source is unavailable or does not cluster
+   *   its data, or the engine reports that the cluster no longer exists.
+   * @throws StyleHandleException wrapping any other engine failure.
    */
   suspend fun clusterExpansionZoom(sourceId: String, feature: Feature<*, JsonObject?>): Double?
 
