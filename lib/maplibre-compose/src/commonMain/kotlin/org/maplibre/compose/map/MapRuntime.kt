@@ -331,6 +331,19 @@ internal interface MapStyleStateOwner {
   fun isCurrent(binding: StyleBinding): Boolean
 
   fun readyLoadedStyle(): StyleBinding?
+
+  /**
+   * Starts a style write or command in order with this owner's other work. [action] only hands the
+   * work on, to the engine owner or the command queue, and never waits. A snapshotter runs it after
+   * the captures issued before it; a map runs it now.
+   */
+  fun runInOrder(action: () -> Unit) = action()
+
+  /**
+   * Runs a style read in order with this owner's other work, as [runInOrder] does, and holds work
+   * issued later until [read] returns.
+   */
+  suspend fun <T> readInOrder(read: suspend () -> T): T = read()
 }
 
 /**
@@ -501,8 +514,10 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
    */
   private suspend fun <T> readStyle(read: (StyleBinding) -> T?): T? {
     owner.requireOpen()
-    val current = readyLoadedStyle() ?: return null
-    return visit(current) { read(current) }
+    return owner.readInOrder {
+      val current = readyLoadedStyle() ?: return@readInOrder null
+      visit(current) { read(current) }
+    }
   }
 
   /**
@@ -540,24 +555,27 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     action: suspend () -> T?,
   ): T? {
     fun live() = isLive(binding) && isResourceCurrent()
-    if (!live()) return null
-    val result =
-      try {
-        action()
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        if (live()) throw error
-        return null
-      }
-    return result.takeIf { live() }
+    return owner.readInOrder {
+      if (!live()) return@readInOrder null
+      val result =
+        try {
+          action()
+        } catch (error: CancellationException) {
+          throw error
+        } catch (error: Exception) {
+          if (live()) throw error
+          return@readInOrder null
+        }
+      result.takeIf { live() }
+    }
   }
 
   /**
-   * Posts a style write to the owner of [binding]. Every write reaches the engine through here. A
-   * write that the owner's close, a style change, or the replacement of its resource
-   * ([isResourceCurrent]) overtakes, before or while it runs, does nothing and logs one warning; an
-   * engine rejection is logged and keeps the previous value.
+   * Posts a style write to the owner of [binding], in order with the owner's other work (see
+   * [MapStyleStateOwner.runInOrder]). Every write reaches the engine through here. A write that the
+   * owner's close, a style change, or the replacement of its resource ([isResourceCurrent])
+   * overtakes, before or while it runs, does nothing and logs one warning; an engine rejection is
+   * logged and keeps the previous value.
    */
   internal fun post(
     binding: StyleBinding,
@@ -569,19 +587,21 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     val dropped: () -> Unit = {
       owner.logger?.w { "$target was not written: the loaded style changed first" }
     }
-    binding.postOwner(onDropped = dropped) {
-      if (!isLive(binding)) return@postOwner dropped()
-      if (!isResourceCurrent()) {
-        owner.logger?.w { "$target was not written: it was removed or replaced first" }
-        return@postOwner
-      }
-      try {
-        action()
-      } catch (error: Exception) {
-        when {
-          !isLive(binding) -> dropped()
-          error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
-          else -> throw error
+    owner.runInOrder {
+      binding.postOwner(onDropped = dropped) {
+        if (!isLive(binding)) return@postOwner dropped()
+        if (!isResourceCurrent()) {
+          owner.logger?.w { "$target was not written: it was removed or replaced first" }
+          return@postOwner
+        }
+        try {
+          action()
+        } catch (error: Exception) {
+          when {
+            !isLive(binding) -> dropped()
+            error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
+            else -> throw error
+          }
         }
       }
     }

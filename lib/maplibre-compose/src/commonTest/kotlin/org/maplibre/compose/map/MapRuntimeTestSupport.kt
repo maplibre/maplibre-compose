@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.Position
@@ -29,12 +30,13 @@ internal fun mapRuntimeForTest(
   mainDispatcher: CoroutineDispatcher = TestMainDispatcher(),
   createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
+  logger: MapLog? = null,
   closeResources: suspend () -> Unit = {},
 ): MapRuntime =
   MapRuntime(
     platformContext = null,
     closeResources = closeResources,
-    logger = null,
+    logger = logger,
     physicalScope = physicalScope,
     mainDispatcher = mainDispatcher,
     createSnapshotterAdapter = createSnapshotterAdapter,

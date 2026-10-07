@@ -225,7 +225,10 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
 
 /** An independent non-UI map that captures images. */
 public sealed interface MapSnapshotter {
-  /** Desired and applied style state for this snapshotter's engine map. */
+  /**
+   * Desired and applied style state for this snapshotter's engine map. Style changes, commands, and
+   * reads run in order with captures: one made during a capture applies after that capture.
+   */
   public val style: MapStyleState
 
   /**
@@ -270,7 +273,8 @@ internal class MapSnapshotterImplementation(
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
   private val lock = reentrantLock()
-  private val queue = ArrayDeque<Capture>()
+  // Captures and the style calls issued while a capture is queued or running, in issue order.
+  private val queue = ArrayDeque<QueuedWork>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var adapter: SnapshotterAdapter? = null
   private var active: Capture? = null
@@ -314,18 +318,22 @@ internal class MapSnapshotterImplementation(
     }
 
   override fun close() {
-    val (finishNow, cancellation) =
+    val (finishNow, cancellation, calls) =
       lock.withLock {
         if (closed) return
         closed = true
         val queued = queue.toList()
         queue.clear()
-        queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
+        queued.filterIsInstance<Capture>().forEach {
+          it.continuation.resumeWithException(snapshotterClosedCancellation())
+        }
         val cancellation = active?.let { abandonActiveLocked(it, snapshotterClosedCancellation()) }
-        (active == null && worker == null) to cancellation
+        Triple(active == null && worker == null, cancellation, queued.filterIsInstance<StyleCall>())
       }
     if (finishNow) runtime.physicalScope.launch { finishClose() }
     cancellation?.let(::startActiveCancellation)
+    // Each waiting call runs now and finds the snapshotter closed, as a call that raced the close.
+    calls.forEach { it.start() }
   }
 
   override suspend fun awaitClosed() {
@@ -335,28 +343,60 @@ internal class MapSnapshotterImplementation(
   override fun toString(): String =
     formatToString("MapSnapshotter", "closed" to lock.withLock { closed }, "style" to style)
 
+  override fun runInOrder(action: () -> Unit) {
+    if (!queueBehindCaptures(StyleCall(action, done = null))) action()
+  }
+
+  override suspend fun <T> readInOrder(read: suspend () -> T): T {
+    val turn = CompletableDeferred<Unit>()
+    val done = CompletableDeferred<Unit>()
+    if (!queueBehindCaptures(StyleCall({ turn.complete(Unit) }, done))) return read()
+    try {
+      turn.await()
+      return read()
+    } finally {
+      done.complete(Unit)
+    }
+  }
+
+  /** Queues [call] and returns true while a capture is queued or running. */
+  private fun queueBehindCaptures(call: StyleCall): Boolean = lock.withLock {
+    if (closed || worker == null) return false
+    queue.addLast(call)
+    true
+  }
+
   private suspend fun runQueue() {
     while (true) {
       val next =
         lock.withLock {
-          val candidate = queue.removeFirstOrNull()
-          if (candidate == null) {
-            worker = null
-            null
-          } else {
-            active = candidate
-            candidate
+          when (val candidate = queue.removeFirstOrNull()) {
+            null -> {
+              worker = null
+              null
+            }
+            is StyleCall -> candidate
+            is Capture -> candidate.also { active = it }
           }
         } ?: break
+      val capture =
+        when (next) {
+          is StyleCall -> {
+            next.start()
+            next.done?.await()
+            continue
+          }
+          is Capture -> next
+        }
 
-      runCapture(next)
+      runCapture(capture)
       // close() and cancel() attach a cancellation only while this capture is active, so reading
       // it in the section that clears `active` sees every marker. Awaiting it before finishClose()
       // keeps the cancellation's cleanup failures inside the closure result.
       val (cancellation, shouldClose) =
         lock.withLock {
           active = null
-          next.cancellation to (closed && queue.isEmpty())
+          capture.cancellation to (closed && queue.isEmpty())
         }
       cancellation?.await()
       if (shouldClose) break
@@ -385,8 +425,8 @@ internal class MapSnapshotterImplementation(
         var binding: StyleBinding? = null
         val result =
           try {
-            // Drain accepted commands before entering Loading, which rejects further writes.
-            // User composition and platform callbacks must run outside the command mutex.
+            // Drain accepted commands first. User composition and platform callbacks must run
+            // outside the command mutex.
             val currentClaim = resourceCommands.withCommit { claimStyle() }
             claim = currentClaim
             val prepared =
@@ -571,7 +611,9 @@ internal class MapSnapshotterImplementation(
       .also {
         check(activeStyleClaim == null)
         activeStyleClaim = it
-        style.loadState = StyleLoadState.Loading
+        // A ready style stays ready and current through the capture: style calls issued during it
+        // wait in the queue, and calls issued before it may still be on their way to the engine.
+        if (style.loadState != StyleLoadState.Ready) style.loadState = StyleLoadState.Loading
       }
   }
 
@@ -599,8 +641,8 @@ internal class MapSnapshotterImplementation(
   /**
    * Publishes [binding] with the handles of the resources it holds after [revision]. The engine
    * read runs as an owner task between two locked steps, so a UI-thread lookup never waits on the
-   * map owner while this snapshotter's lock is held. The style stays Loading until the handles are
-   * in place.
+   * map owner while this snapshotter's lock is held. A style that was loading stays Loading until
+   * the handles are in place.
    */
   private suspend fun publishStyle(
     capture: Capture,
@@ -657,10 +699,18 @@ internal class MapSnapshotterImplementation(
     val ownership: SnapshotStyleOwnership,
   )
 
+  private sealed interface QueuedWork
+
+  /**
+   * A style call issued while a capture was queued or running. [start] hands it on without waiting;
+   * the queue waits for [done], when present, before the next capture.
+   */
+  private class StyleCall(val start: () -> Unit, val done: CompletableDeferred<Unit>?) : QueuedWork
+
   private class Capture(
     val request: MapSnapshotRequest,
     val continuation: CancellableContinuation<ImageBitmap>,
-  ) {
+  ) : QueuedWork {
     var abandoned = false
     var operation: Job? = null
     var cancellation: CompletableDeferred<Result<Unit>>? = null

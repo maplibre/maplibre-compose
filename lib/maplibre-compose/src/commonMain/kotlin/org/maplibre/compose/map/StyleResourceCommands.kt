@@ -218,10 +218,12 @@ internal class StyleResourceCommands(
 
   suspend fun image(id: String): StyleImageHandle? {
     style.owner.requireOpen()
-    val binding = style.readyLoadedStyle() ?: return null
-    return withCommit {
-      val exists = style.visit(binding) { binding.imageExists(id) == true } == true
-      if (exists) StyleImageHandleImpl(id, style, binding) else null
+    return style.owner.readInOrder {
+      val binding = style.readyLoadedStyle() ?: return@readInOrder null
+      withCommit {
+        val exists = style.visit(binding) { binding.imageExists(id) == true } == true
+        if (exists) StyleImageHandleImpl(id, style, binding) else null
+      }
     }
   }
 
@@ -328,6 +330,16 @@ internal class StyleResourceCommands(
     target: String,
     discarded: () -> Unit = {},
     completion: CompletableDeferred<Unit>? = null,
+    block: suspend () -> Unit,
+  ) {
+    style.owner.runInOrder { launchCommand(binding, target, discarded, completion, block) }
+  }
+
+  private fun launchCommand(
+    binding: StyleBinding,
+    target: String,
+    discarded: () -> Unit,
+    completion: CompletableDeferred<Unit>?,
     block: suspend () -> Unit,
   ) {
     // Enter the mutex before returning so separately submitted commands preserve admission order.

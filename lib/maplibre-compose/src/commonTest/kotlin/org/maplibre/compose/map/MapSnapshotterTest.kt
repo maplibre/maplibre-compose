@@ -16,6 +16,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -29,7 +30,15 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.TestLayer
+import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.logging.MapLogLevel
+import org.maplibre.compose.logging.MapLogRecord
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -38,6 +47,7 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
@@ -299,8 +309,10 @@ class MapSnapshotterTest {
   }
 
   @Test
-  fun imperative_commands_cannot_cross_an_active_snapshot_style_revision() = runTest {
+  fun style_calls_during_a_capture_run_after_it_and_reach_the_next_capture() = runTest {
     val binding = RecordingStyleBinding()
+    // The light intensity and image IDs that each capture rendered.
+    val rendered = mutableListOf<Pair<JsonElement?, Set<String>>>()
     val captureStarted = CompletableDeferred<Unit>()
     val finishCapture = CompletableDeferred<Unit>()
     var blockCapture = false
@@ -314,31 +326,89 @@ class MapSnapshotterTest {
                 captureStarted.complete(Unit)
                 finishCapture.await()
               }
+              rendered += binding.lightProperties["intensity"] to binding.imageIds.toSet()
               FakeImageBitmap(1, 1)
             },
           )
         },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
+        logger = MapLog,
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
+    val problems = recordingProblems {
+      snapshotter.capture(request)
+      blockCapture = true
+      val capture = async { snapshotter.capture(request) }
+      captureStarted.await()
+
+      snapshotter.style.light.set(Light(intensity = const(0.25f)))
+      snapshotter.style.images.set(
+        "during",
+        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
+      )
+      // A read waits its turn too, so it sees the writes issued before it.
+      val intensity =
+        async(start = CoroutineStart.UNDISPATCHED) {
+          snapshotter.style.light.getProperty("intensity")
+        }
+      assertTrue(binding.lightProperties.isEmpty())
+      blockCapture = false
+      finishCapture.complete(Unit)
+      capture.await()
+      assertEquals(JsonPrimitive(0.25f), intensity.await())
+      snapshotter.capture(request)
+    }
+
+    assertEquals(
+      listOf<Pair<JsonElement?, Set<String>>>(
+        null to emptySet(),
+        null to emptySet(),
+        JsonPrimitive(0.25f) to setOf("during"),
+      ),
+      rendered,
+    )
+    assertEquals(emptyList<String>(), problems)
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun style_calls_waiting_on_a_capture_finish_when_the_snapshotter_closes() = runTest {
+    val binding = RecordingStyleBinding()
+    val captureStarted = CompletableDeferred<Unit>()
+    var blockCapture = false
+    val runtime =
+      runtimeWith(
+        FakeSnapshotterAdapter(
+          prepare = { _, _ -> binding },
+          capture = { _, _ ->
+            if (blockCapture) {
+              captureStarted.complete(Unit)
+              awaitCancellation()
+            }
+            FakeImageBitmap(1, 1)
+          },
+        )
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
-    val handle = checkNotNull(snapshotter.style.sources.add(attributedVectorSource("imperative")))
     blockCapture = true
     val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp))) }
     captureStarted.await()
+    snapshotter.style.light.set(Light(intensity = const(0.25f)))
+    val intensity =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        snapshotter.style.light.getProperty("intensity")
+      }
 
-    // The capture holds the style, so the handle is not live and the write does nothing.
-    handle.resetFeatureStates("layer")
-    // A command while the capture holds the style does nothing.
-    snapshotter.style.images.set(
-      "crossing",
-      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
-    )
+    snapshotter.close()
 
-    finishCapture.complete(Unit)
-    capture.await()
-    assertTrue(binding.imageIds.isEmpty())
-    close(snapshotter, runtime)
+    assertNull(intensity.await())
+    assertFailsWith<CancellationException> { capture.await() }
+    snapshotter.awaitClosed()
+    assertTrue(binding.lightProperties.isEmpty())
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test
@@ -740,6 +810,19 @@ class MapSnapshotterTest {
       createSnapshotterAdapter = { adapter },
       styleEvaluator = styleEvaluator,
     )
+
+  /** Returns the warnings and errors the library logs while [block] runs. */
+  private suspend fun recordingProblems(block: suspend () -> Unit): List<String> {
+    val records = mutableListOf<MapLogRecord>()
+    val previous = MapLogging.logger
+    MapLogging.logger = MapLogger { records += it }
+    try {
+      block()
+    } finally {
+      MapLogging.logger = previous
+    }
+    return records.filter { it.level >= MapLogLevel.Warning }.map { it.message }
+  }
 
   private suspend fun close(snapshotter: MapSnapshotter, runtime: MapRuntime) {
     snapshotter.close()
