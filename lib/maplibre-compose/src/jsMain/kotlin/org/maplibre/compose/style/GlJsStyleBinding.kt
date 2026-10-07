@@ -624,7 +624,8 @@ internal class GlJsStyleBinding(
 
   /**
    * Runs one cluster query. Returns null when the feature carries no cluster ID, the source is
-   * unavailable, the query answers null, or the engine reports no cluster.
+   * unavailable, the query answers null, the engine reports no cluster, or the query fails while
+   * the source is loading data.
    *
    * @throws StyleHandleException wrapping any other engine failure.
    */
@@ -634,10 +635,17 @@ internal class GlJsStyleBinding(
     action: suspend (ClusterQuery) -> T?,
   ): T? {
     val query = clusterQuery(sourceId, feature) ?: return null
+    // Until the worker indexes the source's first data, it fails every cluster query with a
+    // TypeError. A query sent during a later update still answers from the previous data.
+    val loading = !query.source.loaded()
     return try {
       action(query)
     } catch (error: Throwable) {
       if (error is CancellationException) throw error
+      if (loading) {
+        logger?.w { "Cluster query failed while source '$sourceId' was loading: ${error.message}" }
+        return null
+      }
       // The worker transfers the missing-cluster error as an ordinary JavaScript Error, so only its
       // message identifies it.
       if (error.message == "No cluster with the specified id: ${query.clusterId}") {

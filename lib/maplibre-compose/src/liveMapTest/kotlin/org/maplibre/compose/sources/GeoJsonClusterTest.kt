@@ -116,6 +116,33 @@ class GeoJsonClusterTest {
     }
   }
 
+  @Test
+  fun cluster_queries_return_null_before_the_source_loads(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitMapReady()
+      val source =
+        GeoJsonSource(
+          id = "points",
+          data = GeoJsonData.Features(nearbyPoints()),
+          options = GeoJsonOptions(cluster = true),
+        )
+      fixture.state.style.sources.add(source)
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
+      val cluster =
+        Feature(
+          Point(Position(0.0, 0.0)),
+          buildJsonObject {
+            put("cluster", true)
+            put("cluster_id", 1)
+            put("point_count", PointCount)
+          },
+        )
+
+      assertNull(handle.getClusterChildren(cluster))
+    }
+  }
+
   private fun nearbyPoints(): FeatureCollection<Geometry, JsonObject?> = buildFeatureCollection {
     repeat(PointCount) { index ->
       addFeature(geometry = Point(Position(index * 0.001, 0.0)))
