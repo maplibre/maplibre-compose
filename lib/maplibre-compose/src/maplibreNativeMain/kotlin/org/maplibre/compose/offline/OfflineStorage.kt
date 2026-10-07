@@ -1,21 +1,20 @@
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Immutable
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.util.formatToString
 
-/**
- * The offline packs and ambient cache that belong to this runtime.
- *
- * In an IDE preview, the storage holds no packs and its operations throw
- * [UnsupportedOperationException].
- */
+/** The offline packs and ambient cache that belong to this runtime. */
 public val MapRuntime.offlineStorage: OfflineStorage
-  get() = boundOfflineStorage as OfflineStorage? ?: PreviewOfflineStorage
+  // Every runtime that callers can reach on MapLibre Native has storage. The IDE preview's
+  // runtime has none, but rememberMapState keeps it internal.
+  get() =
+    checkNotNull(boundOfflineStorage as OfflineStorage?) {
+      "This map runtime has no offline storage"
+    }
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public sealed interface OfflineStorage {
@@ -223,37 +222,4 @@ internal class RuntimeBoundOfflineStorage(
         formatToString("OfflineStorage", "state" to "Failed", "cause" to current.cause)
       UnspecifiedOfflineStorageState -> formatToString("OfflineStorage", "state" to current)
     }
-}
-
-/**
- * The storage of a runtime that has none, such as the one an IDE preview uses. It holds no packs
- * and rejects every operation.
- */
-internal object PreviewOfflineStorage : OfflineStorage {
-  override val state: StateFlow<OfflineStorageState> =
-    MutableStateFlow(OfflineStorageState.Ready(emptySet()))
-
-  override suspend fun create(
-    definition: OfflinePackDefinition,
-    metadata: ByteArray,
-  ): OfflinePack = unsupported()
-
-  override fun resume(pack: OfflinePack): Unit = unsupported()
-
-  override fun pause(pack: OfflinePack): Unit = unsupported()
-
-  override suspend fun delete(pack: OfflinePack): Unit = unsupported()
-
-  override suspend fun invalidate(pack: OfflinePack): Unit = unsupported()
-
-  override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> = unsupported()
-
-  override suspend fun invalidateAmbientCache(): Unit = unsupported()
-
-  override suspend fun clearAmbientCache(): Unit = unsupported()
-
-  override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long): Unit = unsupported()
-
-  private fun unsupported(): Nothing =
-    throw UnsupportedOperationException("This map runtime has no offline storage")
 }
