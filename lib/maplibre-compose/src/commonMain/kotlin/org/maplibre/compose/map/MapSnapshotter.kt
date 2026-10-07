@@ -625,12 +625,19 @@ internal class MapSnapshotterImplementation(
   }
 
   /**
-   * Returns the style to the state [claim] found, for a capture that changed no style content. An
-   * abandoned capture leaves the style to the cancellation cleanup, which may already have run.
+   * Returns the style to the state [claim] found, for a capture that changed no style content. If
+   * preparing the capture replaced the published style, as a new density does, that style's handles
+   * are stale, so the style is cleared as after a cancellation instead. An abandoned capture leaves
+   * the style to the cancellation cleanup, which may already have run.
    */
   private fun releaseStyleClaim(capture: Capture, claim: StyleClaim) {
     lock.withLock {
-      if (!closed && !capture.abandoned && claim.revision == baseStyleRevision) {
+      if (closed || capture.abandoned || claim.revision != baseStyleRevision) return
+      if (style.currentLoadedStyle()?.isLoaded == false) {
+        resourceCommands.clear()
+        style.invalidateLoadedStyle()
+        style.loadState = StyleLoadState.Pending
+      } else {
         style.loadState = claim.loadState
       }
     }

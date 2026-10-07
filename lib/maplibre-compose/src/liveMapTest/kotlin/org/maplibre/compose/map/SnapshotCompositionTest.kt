@@ -153,6 +153,51 @@ class SnapshotCompositionTest {
     }
   }
 
+  /** A density change reloads the style first, so the previous handles are not restored. */
+  @Test
+  fun a_throwing_anchor_predicate_after_a_style_reload_leaves_the_style_pending() = runTest {
+    var binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
+    val reconciler = StyleReconciler()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, request ->
+              if (request.density != Density(1f)) {
+                binding.invalidate()
+                binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
+              }
+              binding
+            },
+            capture = { request, revision ->
+              reconciler.apply(binding, revision)
+              FakeImageBitmap(request.extent().width, request.extent().height)
+            },
+          )
+        }
+      )
+    var broken by mutableStateOf(false)
+    try {
+      val snapshotter =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          val anchor = if (broken) Anchor.Above { error("bad predicate") } else Anchor.Above("base")
+          Anchor.At(anchor) { BackgroundLayer("over", visible = true) }
+        }
+      snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp), density = Density(1f)))
+      assertNotNull(snapshotter.style.layers["over"])
+
+      broken = true
+      assertFailsWith<IllegalStateException> {
+        snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp), density = Density(2f)))
+      }
+      assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
+      assertNull(snapshotter.style.layers["over"])
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
   @Test
   fun snapshot_disposes_style_effects_without_holding_resource_commands() = runTest {
     val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
