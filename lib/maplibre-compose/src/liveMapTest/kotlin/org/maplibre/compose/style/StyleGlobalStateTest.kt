@@ -35,7 +35,8 @@ class StyleGlobalStateTest {
     createMapFixture().use { fixture ->
       val state = fixture.state.style.globalState
       assertNull(state.get())
-      assertFailsWith<StyleHandleException> { state.setProperty("color", JsonPrimitive("blue")) }
+      // Without a ready style, a write does nothing.
+      state.setProperty("color", JsonPrimitive("blue"))
       fixture.loadStyle(Style)
       val oldBinding = assertNotNull(fixture.style)
       val defaults = assertNotNull(state.get())
@@ -58,14 +59,12 @@ class StyleGlobalStateTest {
       state.setProperty("runtimeOnly", JsonPrimitive(true))
       fixture.loadStyle(EmptyStyle)
       assertEquals(JsonObject(emptyMap()), state.get())
-      assertFailsWith<StyleHandleException> {
-        oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
-      }
+      oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
       fixture.loadStyle(Style)
       assertEquals(defaults, state.get())
       fixture.closeSession()
-      assertNull(state.get())
-      assertFailsWith<StyleHandleException> { state.resetProperty("color") }
+      assertFailsWith<IllegalStateException> { state.get() }
+      assertFailsWith<IllegalStateException> { state.resetProperty("color") }
     }
   }
 

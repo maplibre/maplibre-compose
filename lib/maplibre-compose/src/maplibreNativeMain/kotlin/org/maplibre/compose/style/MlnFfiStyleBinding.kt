@@ -145,17 +145,26 @@ internal open class MlnFfiStyleBinding(
   /** Runs [action] through [MlnFfiMapRuntimeLoop.await]. */
   override suspend fun <T> awaitOwner(action: () -> T): T? {
     if (!isLoaded) return null
-    return loop.await { if (isLoaded) action() else null }
+    return loop.await {
+      if (!isLoaded) return@await null
+      try {
+        action()
+      } catch (error: Exception) {
+        // A style unloaded during this visit has nothing left to read or update.
+        if (isLoaded) throw error
+        null
+      }
+    }
   }
 
-  override fun postOwner(action: () -> Unit) {
-    requireCurrent()
-    submit {
+  override fun postOwner(onDropped: () -> Unit, action: () -> Unit) {
+    submit(onDropped) {
       try {
         action()
       } catch (error: StyleHandleException) {
         // A style unloaded during this accepted visit has nothing left to update.
         if (isLoaded) throw error
+        onDropped()
       }
     }
   }

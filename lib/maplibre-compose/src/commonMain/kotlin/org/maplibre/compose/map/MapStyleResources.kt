@@ -84,41 +84,42 @@ public class StyleSources internal constructor(private val style: MapStyleState)
    * command runs after the resource commands enqueued before this call, and this call suspends only
    * until the engine has run it, not until a frame has rendered.
    *
-   * @throws IllegalStateException if the style content declares [source]'s ID or the ID is already
-   *   in the style.
-   * @throws StyleHandleException if no style is ready, the engine rejects the definition, or the
-   *   loaded style changes before the command runs.
+   * @return the handle, or null if no style is ready or the loaded style changes before the source
+   *   is added. Nothing is added to the new style, and a warning is logged.
+   * @throws IllegalStateException if the style content declares [source]'s ID, the ID is already in
+   *   the style, or the map state is closed.
+   * @throws StyleHandleException if the engine rejects the definition.
    */
-  public suspend fun add(source: Source): MutableSourceHandle =
+  public suspend fun add(source: Source): MutableSourceHandle? =
     style.owner.resourceCommands.add(source)
 
   /** [add] for a GeoJSON source. */
-  public suspend fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle =
-    add(source as Source) as MutableGeoJsonSourceHandle
+  public suspend fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle? =
+    add(source as Source) as MutableGeoJsonSourceHandle?
 
   /** [add] for an image source. */
-  public suspend fun add(source: ImageSource): MutableImageSourceHandle =
-    add(source as Source) as MutableImageSourceHandle
+  public suspend fun add(source: ImageSource): MutableImageSourceHandle? =
+    add(source as Source) as MutableImageSourceHandle?
 
   /** [add] for a vector tile source. */
-  public suspend fun add(source: VectorTileSource): MutableVectorTileSourceHandle =
-    add(source as Source) as MutableVectorTileSourceHandle
+  public suspend fun add(source: VectorTileSource): MutableVectorTileSourceHandle? =
+    add(source as Source) as MutableVectorTileSourceHandle?
 
   /** [add] for a raster tile source. */
-  public suspend fun add(source: RasterTileSource): MutableRasterTileSourceHandle =
-    add(source as Source) as MutableRasterTileSourceHandle
+  public suspend fun add(source: RasterTileSource): MutableRasterTileSourceHandle? =
+    add(source as Source) as MutableRasterTileSourceHandle?
 
   /** [add] for a raster DEM tile source. */
-  public suspend fun add(source: RasterDemTileSource): MutableRasterDemTileSourceHandle =
-    add(source as Source) as MutableRasterDemTileSourceHandle
+  public suspend fun add(source: RasterDemTileSource): MutableRasterDemTileSourceHandle? =
+    add(source as Source) as MutableRasterDemTileSourceHandle?
 
   /** [add] for a custom geometry source. */
-  public suspend fun add(source: CustomGeometrySource): MutableCustomGeometrySourceHandle =
-    add(source as Source) as MutableCustomGeometrySourceHandle
+  public suspend fun add(source: CustomGeometrySource): MutableCustomGeometrySourceHandle? =
+    add(source as Source) as MutableCustomGeometrySourceHandle?
 
   /** [add] for a custom vector tile source. */
-  public suspend fun add(source: CustomVectorTileSource): MutableCustomVectorTileSourceHandle =
-    add(source as Source) as MutableCustomVectorTileSourceHandle
+  public suspend fun add(source: CustomVectorTileSource): MutableCustomVectorTileSourceHandle? =
+    add(source as Source) as MutableCustomVectorTileSourceHandle?
 
   /** Iterates over the current loaded sources in engine style order. */
   override fun iterator(): Iterator<SourceHandle> = style.sourceHandles().values.iterator()
@@ -138,8 +139,8 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
 /**
  * Provides structural commands for style images in the current loaded-style generation.
  *
- * Writes throw [StyleHandleException] if no style is ready, and [IllegalStateException] if
- * composition declares the image ID.
+ * Writes do nothing and log a warning if no style is ready. They throw [IllegalStateException] if
+ * composition declares the image ID or the map state is closed.
  */
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {
@@ -188,7 +189,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
   public suspend fun get(): TransitionOptions? = style.transitionOptions()
 
   /**
-   * Replaces the loaded style's transition. Throws [StyleHandleException] while no style is ready.
+   * Replaces the loaded style's transition. Does nothing and logs a warning while no style is
+   * ready.
    */
   public fun set(options: TransitionOptions) {
     style.setTransitionOptions(options)
@@ -205,8 +207,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
    * Sets whether symbol placement changes cross-fade. A cleared cross-fade applies placement
    * changes to the next rendered frame, which suits features that move at pointer frequency.
    *
-   * MapLibre GL JS logs a warning and keeps the cross-fade. Throws [StyleHandleException] while no
-   * style is ready.
+   * MapLibre GL JS logs a warning and keeps the cross-fade. Does nothing and logs a warning while
+   * no style is ready.
    */
   public fun setPlacementTransitions(enabled: Boolean) {
     style.setPlacementTransitions(enabled)
@@ -229,7 +231,7 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
    */
   public suspend fun getProperty(name: String): JsonElement? = style.lightProperty(name)
 
-  /** Replaces the loaded style's light. Throws [StyleHandleException] while no style is ready. */
+  /** Replaces the loaded style's light. Does nothing and logs a warning while no style is ready. */
   public fun set(light: Light) {
     style.setLight(light)
   }
@@ -253,8 +255,8 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
   public suspend fun getProperty(name: String): JsonElement? = style.skyProperty(name)
 
   /**
-   * Replaces the loaded style's sky, or removes it when [sky] is null. Throws
-   * [StyleHandleException] while no style is ready.
+   * Replaces the loaded style's sky, or removes it when [sky] is null. Does nothing and logs a
+   * warning while no style is ready.
    */
   public fun set(sky: Sky?) {
     style.setSky(sky)
@@ -280,7 +282,8 @@ public class StyleProjection internal constructor(private val style: MapStyleSta
   public suspend fun getProperty(name: String): JsonElement? = style.projectionProperty(name)
 
   /**
-   * Replaces the loaded style's projection. Throws [StyleHandleException] while no style is ready.
+   * Replaces the loaded style's projection. Does nothing and logs a warning while no style is
+   * ready.
    */
   public fun set(projection: Projection) {
     style.setProjection(projection)

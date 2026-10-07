@@ -9,7 +9,6 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.checkStyleHandle
-import org.maplibre.compose.style.postWrite
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -68,7 +67,7 @@ protected constructor(
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
     return suspendingOperation {
-      style.awaitOwner { style.featureState(id, sourceLayerId, featureId) }
+      operations.visit { style.featureState(id, sourceLayerId, featureId) }
         ?: JsonObject(emptyMap())
     }
   }
@@ -98,15 +97,19 @@ protected constructor(
   protected fun mutationOperation(action: () -> Unit): Unit = operation { postMutation(action) }
 
   private fun postMutation(action: () -> Unit) {
-    style.postWrite("Source '$id'") {
+    operations.post("Source '$id'") {
       if (identity.sources.isCurrent(id, resourceIdentity)) action()
     }
   }
 
+  /** Runs a read through the owner's single engine path. */
+  internal suspend fun <T> visit(action: () -> T?): T? = operations.visit(action)
+
   internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
     operation {}
     val result = action()
-    operation {}
+    operations.requireReady()
+    requireCurrent()
     return result
   }
 }

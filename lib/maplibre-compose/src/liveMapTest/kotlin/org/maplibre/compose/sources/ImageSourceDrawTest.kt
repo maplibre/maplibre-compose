@@ -88,7 +88,7 @@ class ImageSourceDrawTest {
       val green = splitImage(64, Color.Green, Color.Green)
 
       val source = ImageSource("image", WesternHalf, green)
-      val handle = fixture.state.style.sources.add(source)
+      val handle = checkNotNull(fixture.state.style.sources.add(source))
       style.install(TestLayer("image-layer", "raster", source))
       handle.setImage(red)
       handle.setBounds(EasternHalf)

@@ -13,6 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -995,7 +996,7 @@ class MapPresentationTest {
     fixture.state.style.sources["shared"]!!.asMutable!!.remove()
     fixture.state.style.awaitCommands()
     val replacement =
-      fixture.state.style.sources.add(attributedVectorSource("shared", "replacement"))
+      checkNotNull(fixture.state.style.sources.add(attributedVectorSource("shared", "replacement")))
 
     assertEquals("replacement", replacement.attributionHtml)
     assertEquals("original", stale.attributionHtml)
@@ -1219,21 +1220,15 @@ class MapPresentationTest {
 
     assertTrue(styleSources.none())
     assertTrue(styleLayers.none())
-    assertFailsWith<StyleHandleException> {
-      styleSources.add(attributedVectorSource("unready", "unready"))
-    }
-    assertFailsWith<StyleHandleException> {
-      styleImages.set(
-        "unready",
-        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
-      )
-    }
-    assertFailsWith<StyleHandleException> { styleImages.remove("unready") }
-    assertFailsWith<StyleHandleException> {
-      fixture.state.style.globalState.setProperty("value", JsonPrimitive(1))
-    }
+    // Commands without a ready style do nothing.
+    assertNull(styleSources.add(attributedVectorSource("unready", "unready")))
+    styleImages.set("unready", ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))))
+    styleImages.remove("unready")
+    fixture.state.style.globalState.setProperty("value", JsonPrimitive(1))
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    assertTrue(binding.imageIds.isEmpty())
+    assertNull(fixture.state.style.globalState.get()?.get("value"))
 
     assertSame(styleSources, fixture.state.style.sources)
     assertSame(styleLayers, fixture.state.style.layers)
@@ -1248,7 +1243,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_style_that_becomes_unready_while_an_add_waits_uses_the_same_exception() = runTest {
+  fun a_style_that_becomes_unready_while_an_add_waits_returns_null() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
@@ -1265,12 +1260,10 @@ class MapPresentationTest {
       }
     assertFalse(addition.isCompleted)
     style.loadState = StyleLoadState.Loading
-    assertFailsWith<StyleHandleException> {
-      style.sources.add(attributedVectorSource("immediate", "immediate"))
-    }
+    assertNull(style.sources.add(attributedVectorSource("immediate", "immediate")))
     release.complete(Unit)
     commit.join()
-    assertIs<StyleHandleException>(addition.await().exceptionOrNull())
+    assertNull(addition.await().getOrThrow())
     assertTrue(binding.sources.isEmpty())
     fixture.close()
   }
@@ -1346,7 +1339,7 @@ class MapPresentationTest {
     val added = attributedVectorSource("added", "added attribution")
     val blocked = attributedVectorSource("blocked", "blocked attribution")
 
-    val firstHandle = fixture.state.style.sources.add(added)
+    val firstHandle = checkNotNull(fixture.state.style.sources.add(added))
     assertEquals("added", firstHandle.id)
     assertEquals("added", fixture.state.style.sources["added"]?.id)
     fixture.state.style.sources.add(blocked)
@@ -1358,7 +1351,7 @@ class MapPresentationTest {
     firstHandle.remove()
     fixture.state.style.awaitCommands()
     assertNull(fixture.state.style.sources["added"])
-    val replacementHandle = fixture.state.style.sources.add(added)
+    val replacementHandle = checkNotNull(fixture.state.style.sources.add(added))
     assertFailsWith<StyleHandleException> { firstHandle.remove() }
     assertTrue(binding.sourceExists("added") == true)
     assertFailsWith<StyleHandleException> {
@@ -1393,10 +1386,10 @@ class MapPresentationTest {
     assertFalse("added" in recorded.sources, "the engine is reached only from the owner task")
     assertEquals(1, binding.ownerTasks, "existence check, insertion, and refresh share one task")
     binding.runOwnerTasks()
-    assertEquals("attribution", added.await().attributionHtml)
+    assertEquals("attribution", added.await()?.attributionHtml)
     assertEquals(0, binding.ownerTasks)
 
-    added.await().remove()
+    checkNotNull(added.await()).remove()
     assertEquals(1, binding.ownerTasks, "removal and refresh share one task")
     binding.runOwnerTasks()
     style.awaitCommands()
@@ -1416,7 +1409,7 @@ class MapPresentationTest {
     val moved = ImageQuad.copy(topLeft = Position(-2.0, 1.0))
     val source = ImageSource("image", ImageQuad, first)
 
-    val handle = fixture.state.style.sources.add(source)
+    val handle = checkNotNull(fixture.state.style.sources.add(source))
     assertSame(first, binding.addedImageSourceImages["image"])
     handle.setImage(first)
     handle.setUri("https://example.invalid/image.png")
@@ -1498,40 +1491,41 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_source_add_in_flight_across_a_style_change_fails_and_does_not_claim_the_id() = runTest {
-    val fixture = presentationFixture()
-    val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
-    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
-    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-    val style = fixture.state.style
-    binding.ownerBusy = true
-    val added =
-      async(start = CoroutineStart.UNDISPATCHED) {
-        runCatching { style.sources.add(attributedVectorSource("shared", "imperative")) }
-      }
-    assertEquals(1, binding.ownerTasks)
+  fun a_source_add_in_flight_across_a_style_change_returns_null_and_does_not_claim_the_id() =
+    runTest {
+      val fixture = presentationFixture()
+      val binding = QueuedOwnerStyleBinding(RecordingStyleBinding())
+      fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+      fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+      val style = fixture.state.style
+      binding.ownerBusy = true
+      val added =
+        async(start = CoroutineStart.UNDISPATCHED) {
+          runCatching { style.sources.add(attributedVectorSource("shared", "imperative")) }
+        }
+      assertEquals(1, binding.ownerTasks)
 
-    // The base style changes before the owner runs the addition.
-    val replacement = RecordingStyleBinding()
-    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
-    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-    binding.runOwnerTasks()
-    assertIs<StyleHandleException>(added.await().exceptionOrNull())
+      // The base style changes before the owner runs the addition.
+      val replacement = RecordingStyleBinding()
+      fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
+      fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+      binding.runOwnerTasks()
+      assertNull(added.await().getOrThrow())
 
-    // The next style may declare the same ID, and no stale record answers for it.
-    val declared =
-      StyleSnapshot(
-        listOf(attributedVectorSource("shared", "declared").definition()),
-        emptyList(),
-        emptyList(),
-      )
-    fixture.applyRevision(replacement, declared)
-    assertNull(style.owner.resourceCommands.sourceDefinition("shared"))
-    assertTrue(style.owner.resourceCommands.sourceIds().isEmpty())
-    assertTrue("shared" in replacement.sources)
-    assertEquals(declared, fixture.state.style.declaredRevision)
-    fixture.close()
-  }
+      // The next style may declare the same ID, and no stale record answers for it.
+      val declared =
+        StyleSnapshot(
+          listOf(attributedVectorSource("shared", "declared").definition()),
+          emptyList(),
+          emptyList(),
+        )
+      fixture.applyRevision(replacement, declared)
+      assertNull(style.owner.resourceCommands.sourceDefinition("shared"))
+      assertTrue(style.owner.resourceCommands.sourceIds().isEmpty())
+      assertTrue("shared" in replacement.sources)
+      assertEquals(declared, fixture.state.style.declaredRevision)
+      fixture.close()
+    }
 
   @Test
   fun removing_a_source_whose_existence_is_unknown_still_asks_the_engine() = runTest {
@@ -1546,7 +1540,8 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    val handle = fixture.state.style.sources.add(attributedVectorSource("added", "attribution"))
+    val handle =
+      checkNotNull(fixture.state.style.sources.add(attributedVectorSource("added", "attribution")))
     existenceKnown = false
     handle.remove()
     fixture.state.style.awaitCommands()
@@ -1881,13 +1876,15 @@ class MapPresentationTest {
     assertNull(light.getProperty("color"))
     assertNull(sky.getProperty("sky-color"))
     assertNull(projection.getProperty("type"))
-    assertFailsWith<StyleHandleException> { transition.set(options) }
-    assertFailsWith<StyleHandleException> { transition.setPlacementTransitions(false) }
-    assertFailsWith<StyleHandleException> { light.set(Light()) }
-    assertFailsWith<StyleHandleException> { sky.set(Sky()) }
-    assertFailsWith<StyleHandleException> { projection.set(Projection()) }
+    // Without a ready style, writes do nothing.
+    transition.set(options)
+    transition.setPlacementTransitions(false)
+    light.set(Light())
+    sky.set(Sky())
+    projection.set(Projection())
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    assertNotEquals(options, transition.get())
 
     transition.set(options)
     assertEquals(options, transition.get())
@@ -1897,7 +1894,8 @@ class MapPresentationTest {
     assertNull(light.getProperty("color"))
     assertNull(sky.getProperty("sky-color"))
     assertNull(projection.getProperty("type"))
-    assertFailsWith<StyleHandleException> { transition.set(options) }
+    transition.set(options)
+    assertNull(transition.get())
     fixture.close()
   }
 
@@ -2231,6 +2229,38 @@ class MapPresentationTest {
     assertTrue(binding.sourceExists("owned") == true)
     assertTrue(binding.imageExists("owned") == true)
     fixture.close()
+  }
+
+  @Test
+  fun closing_rejects_new_style_calls_and_reads_as_a_style_change_for_calls_in_flight() = runTest {
+    val fixture = presentationFixture()
+    val binding =
+      QueuedOwnerStyleBinding(
+        RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    val layer = assertNotNull(style.layers["background"])
+    binding.ownerBusy = true
+    val added =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        style.sources.add(attributedVectorSource("added", "added"))
+      }
+
+    // A close while the add waits for the owner reads like a style change.
+    fixture.state.close()
+    binding.runOwnerTasks()
+    assertNull(added.await())
+
+    // A call that starts after the close is misuse.
+    val closed = assertFailsWith<IllegalStateException> { layer.asMutable }
+    assertEquals("The map state is closed", closed.message)
+    assertFailsWith<IllegalStateException> { style.sources.add(attributedVectorSource("b", "b")) }
+    assertFailsWith<IllegalStateException> { style.images.remove("icon") }
+    assertFailsWith<IllegalStateException> { style.transition.set(TransitionOptions()) }
+    assertFailsWith<IllegalStateException> { style.transition.get() }
+    fixture.runtime.close()
   }
 
   @Test

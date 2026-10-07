@@ -75,18 +75,17 @@ internal interface StyleBinding {
    * during the call.
    *
    * @return the result, or null when the style has unloaded or the owner stops before [action]
-   *   runs. An operation inside [action] still fails if the style unloads while it runs.
+   *   runs, or when the style unloads while [action] runs and [action] fails.
    */
   suspend fun <T> awaitOwner(action: () -> T): T? = if (isLoaded) action() else null
 
   /**
    * Runs [action] on the engine owner without waiting. It runs inline during an owner visit and is
-   * dropped if this style unloads before it starts. Callers capture and check resource identity
-   * inside [action].
+   * dropped if this style has unloaded or unloads before it runs; [onDropped] then runs instead.
+   * Callers capture and check resource identity inside [action].
    */
-  fun postOwner(action: () -> Unit) {
-    requireCurrent()
-    action()
+  fun postOwner(onDropped: () -> Unit = {}, action: () -> Unit) {
+    if (isLoaded) action() else onDropped()
   }
 
   /**
@@ -485,21 +484,6 @@ internal interface StyleBinding {
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>>
-}
-
-/** Posts an admitted write; [action] rechecks any resource identity before touching the engine. */
-internal fun StyleBinding.postWrite(
-  target: String,
-  value: JsonElement? = null,
-  action: () -> Unit,
-) {
-  postOwner {
-    try {
-      action()
-    } catch (error: StyleMutationException) {
-      reportRejectedWrite(target, value, error)
-    }
-  }
 }
 
 internal fun LayerDefinition.summary(): LayerSummary =

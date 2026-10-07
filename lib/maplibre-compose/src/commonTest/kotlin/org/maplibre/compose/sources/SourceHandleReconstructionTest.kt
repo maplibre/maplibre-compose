@@ -37,7 +37,7 @@ class SourceHandleReconstructionTest {
       assertNotNull(clip.asMutable).remove()
       state.style.awaitCommands()
       assertNull(state.style.sources["clip"])
-      val added = state.style.sources.add(reconstructedSource("clip", clipJson))
+      val added = checkNotNull(state.style.sources.add(reconstructedSource("clip", clipJson)))
       assertEquals("clip", added.id)
       assertIs<UnmodeledSourceHandleImpl>(state.style.sources["clip"])
     } finally {
