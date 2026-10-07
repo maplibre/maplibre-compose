@@ -339,7 +339,7 @@ public fun MapButton(
 LineLayer(id = "routes", source = routes) {
   color = const(Color.Blue)
   interactions {
-    click { event -> ClickResult.Consume }
+    onClick { event -> ClickResult.Consume }
   }
 }
 
@@ -367,8 +367,8 @@ public fun MapButton(
 - Name the callback parameters of composables `onX`.
 - Declare every named callback type as a `fun interface`, not a typealias, so
   that they're consistent and each has its own KDoc.
-- Name a builder function that sets a handler after the event, without `on`.
-  Calling it again replaces the handler.
+- Name a builder function that sets a handler `onX`, as Compose does with
+  `onDispose`. Calling it again replaces the handler.
 - Make a callback that may wait on I/O a `suspend` function.
 - Document which thread each callback runs on, whether it can run in parallel or
   reentrantly, and what happens if it throws.
@@ -394,7 +394,7 @@ public fun interface MissingImageResolver {
 }
 
 interactions {
-  click { event ->
+  onClick { event ->
     select(event.hits.first().feature)
     ClickResult.Consume
   }
@@ -404,7 +404,7 @@ interactions {
 public typealias MissingImageResolver = suspend (id: String) -> ResolvedStyleImage?
 
 interactions {
-  click { // `this` is the event
+  onClick { // `this` is the event
     select(hits.first().feature)
     true
   }
@@ -453,10 +453,13 @@ public sealed interface MapSnapshotter
   name follows the platform prefix: `DesktopMetalGpuContext`.
 - Declarations in a source set shared by several platforms, such as the MapLibre
   Native one, take no prefix.
-- Leave a feature out of the source set of a platform that doesn't support it,
-  instead of adding a `canX` check. When it must stay in common code, reads
-  return an empty result, and writes throw `UnsupportedOperationException` or do
-  nothing, as documented.
+- Leave a feature out of the source set of a platform that doesn't support it.
+  When support varies within a source set at runtime, such as by operating
+  system or desktop environment on the JVM, and callers need to know before
+  acting, such as to decide whether to show a button, expose a capability
+  property such as `canOpenLocationServicesSettings`. Otherwise, when a feature
+  must stay in common code, reads return an empty result, and writes throw
+  `UnsupportedOperationException` or do nothing, as documented.
 - Don't name public packages after platforms or engine bindings.
 - For extra platform arguments, add an overload of a common factory function.
 - In artifacts that only provide a runtime, put public declarations in the
@@ -583,11 +586,11 @@ To keep these guarantees:
 
 ### Stability annotations
 
-| Annotation                       | Meaning                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ExperimentalMaplibreComposeApi` | May change in any minor release. For new APIs without much real use, and APIs that expose dependencies below 1.0. |
-| `DelicateMaplibreComposeApi`     | Stable, but easy to misuse. KDoc explains how.                                                                    |
-| None                             | Stable.                                                                                                           |
+| Annotation                       | Meaning                                                                                                                                                                                             |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExperimentalMaplibreComposeApi` | May change in any minor release. For new APIs without much real use, and APIs that expose a dependency we don't expect to stabilize before this library does, such as Skiko or the engine bindings. |
+| `DelicateMaplibreComposeApi`     | Stable, but easy to misuse. KDoc explains how.                                                                                                                                                      |
+| None                             | Stable.                                                                                                                                                                                             |
 
 ### Deprecation cycle
 
