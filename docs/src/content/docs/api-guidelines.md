@@ -378,7 +378,8 @@ public fun MapButton(
     exception means that one request, tile, or image failed, and the library
     reports it the way it reports that kind of failure.
   - In any other callback, such as a predicate or a builder block, an exception
-    is a bug. Let it fail the operation that ran the callback.
+    is a bug. Let it fail the operation that ran the callback, reported the same
+    way as that operation's other failures, with no special path.
   - A logger's exceptions are dropped, because logging must never break the app.
 - Make an operation that produces a final result, such as a snapshot, fail as a
   whole when part of it fails, instead of returning an incomplete result.

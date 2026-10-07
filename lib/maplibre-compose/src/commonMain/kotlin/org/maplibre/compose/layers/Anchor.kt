@@ -45,9 +45,10 @@ public sealed interface Anchor {
    * the same time. The predicate must be a fast, pure function of its argument and must call no map
    * API.
    *
-   * If [predicate] throws an exception, the library logs a warning and places the layers at the
-   * bottom of the stack, as when it accepts no layer. The rest of the style content is applied as
-   * usual.
+   * If [predicate] throws, applying the style content fails the same way as any other failure while
+   * applying it: for a map, see
+   * [MapStyleState.loadState][org.maplibre.compose.map.MapStyleState.loadState]; a snapshot capture
+   * throws a [MapSnapshotException][org.maplibre.compose.map.MapSnapshotException].
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
@@ -73,8 +74,7 @@ public sealed interface Anchor {
    * composition and capture the values. See [Anchor.Companion.Below] to use this in the style
    * content.
    *
-   * [predicate] is called as described for [Above]. If it throws an exception, the library logs a
-   * warning and places the layers at the top of the stack, as when it accepts no layer.
+   * [predicate] is called, and its exceptions fail the style content, as described for [Above].
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))

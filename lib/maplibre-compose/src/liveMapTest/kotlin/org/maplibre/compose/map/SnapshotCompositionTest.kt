@@ -21,6 +21,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
@@ -114,7 +115,7 @@ class SnapshotCompositionTest {
   }
 
   @Test
-  fun a_throwing_anchor_predicate_does_not_fail_the_capture() = runTest {
+  fun a_throwing_anchor_predicate_fails_the_capture() = runTest {
     val binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
     val reconciler = StyleReconciler()
     val runtime =
@@ -133,10 +134,18 @@ class SnapshotCompositionTest {
       val snapshotter =
         runtime.createSnapshotter(BaseStyle.Empty) {
           Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
-          Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
         }
-      snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp)))
-      assertEquals(listOf("over", "base", "under"), binding.layerIds())
+      val thrown =
+        assertFailsWith<MapSnapshotException> {
+          snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp)))
+        }
+      // Coroutines on the JVM can rethrow a copy that has the original exception as its cause.
+      assertTrue(
+        generateSequence<Throwable>(thrown) { it.cause }
+          .any { it is IllegalStateException && it.message == "bad predicate" },
+        "Thrown: ${thrown.stackTraceToString()}",
+      )
+      assertEquals(listOf("base"), binding.layerIds())
     } finally {
       runtime.close()
       runtime.awaitClosed()
