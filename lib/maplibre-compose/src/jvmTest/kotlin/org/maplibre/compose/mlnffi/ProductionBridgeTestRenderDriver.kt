@@ -267,7 +267,7 @@ private constructor(
   private val composeContext = MetalComposeGpuContext(context, NativeHandle(device))
 
   override val presentationHost =
-    ComposeMapPresentationHost.metal(
+    ComposeMapPresentationHost.macosMetal(
       description = "the test Metal context",
       gpuContext = { composeContext },
       runOnGpuThread = { action ->
@@ -351,7 +351,7 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
     }
 
   override val presentationHost =
-    ComposeMapPresentationHost.openGl(
+    ComposeMapPresentationHost.linuxOpenGl(
       description = "the test EGL OpenGL context",
       gpuContext = { composeContext },
       runOnGpuThread = { action -> gpuThread.run { egl.withCurrent { action.run() } } },

@@ -91,11 +91,11 @@ class DesktopPresentationHostLifetimeTest {
   private fun contextlessPresentationHost(description: String): ComposeMapPresentationHost =
     when (HostOperatingSystem.current()) {
       HostOperatingSystem.Macos ->
-        ComposeMapPresentationHost.metal(description, { null }, { it.run() })
+        ComposeMapPresentationHost.macosMetal(description, { null }, { it.run() })
       HostOperatingSystem.Windows ->
-        ComposeMapPresentationHost.direct3D12(description, { null }, { it.run() })
+        ComposeMapPresentationHost.windowsDirect3d12(description, { null }, { it.run() })
       HostOperatingSystem.Linux ->
-        ComposeMapPresentationHost.openGl(description, { null }, { it.run() })
+        ComposeMapPresentationHost.linuxOpenGl(description, { null }, { it.run() })
       HostOperatingSystem.Unsupported -> error("Unsupported test platform")
     }
 }

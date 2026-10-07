@@ -17,14 +17,12 @@ import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.MetalPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlPresentationHost
-import org.maplibre.compose.desktop.checkAnglePlatform
-import org.maplibre.compose.desktop.checkNativeOpenGlPlatform
-import org.maplibre.compose.desktop.mapHostFactory
+import org.maplibre.compose.desktop.checkOperatingSystem
+import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.ProductionBridgeTestRenderDriver
@@ -49,9 +47,9 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
 
   @Test
   fun factory_does_not_create_a_bridge_to_a_different_consumer() {
-    val factory = ComposeMapPresentationHost.metal("test", { null }, { it.run() }).mapHostFactory
     assertIs<MlnFfiMapHostResult.Failed>(
-      factory.create(RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Direct3D12))
+      MetalPresentationHost("test", { null }, { it.run() })
+        .create(RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Direct3D12))
     )
     assertIs<MlnFfiMapHostResult.Failed>(
       Direct3D12PresentationHost("test", { null }, { it.run() })
@@ -136,7 +134,7 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
     var reads = 0
     var window: XdgPortalWindow? = null
     val host =
-      ComposeMapPresentationHost.metal(
+      OpenGlPresentationHost(
         "test",
         { null },
         { it.run() },
@@ -153,31 +151,41 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
   }
 
   @Test
-  fun native_opengl_is_supported_only_on_linux() {
-    checkNativeOpenGlPlatform(linux = true)
-    assertFailsWith<MlnFfiHostException> { checkNativeOpenGlPlatform(linux = false) }
-    if (!isLinuxDesktop()) {
-      assertFailsWith<MlnFfiHostException> {
-        ComposeMapPresentationHost.openGl(
-          "test",
-          { error("Must not read context") },
-          { error("Must not run GPU access") },
-        )
+  fun factories_reject_other_operating_systems() {
+    checkOperatingSystem("linuxOpenGl", HostOperatingSystem.Linux, osName = "Linux")
+    val failure =
+      assertFailsWith<IllegalStateException> {
+        checkOperatingSystem("windowsAngle", HostOperatingSystem.Windows, osName = "Mac OS X")
       }
-    }
-  }
+    assertEquals(
+      "ComposeMapPresentationHost.windowsAngle requires Windows, but this is 'Mac OS X'",
+      failure.message,
+    )
 
-  @Test
-  fun angle_d3d11_is_supported_only_on_windows() {
-    checkAnglePlatform(windows = true)
-    assertFailsWith<MlnFfiHostException> { checkAnglePlatform(windows = false) }
-    if (!isWindowsDesktop()) {
-      assertFailsWith<MlnFfiHostException> {
-        ComposeMapPresentationHost.angleD3D11(
-          "test",
-          { error("Must not read context") },
-          { error("Must not run GPU access") },
-        )
+    val factories =
+      listOf(
+        HostOperatingSystem.Macos to
+          {
+            ComposeMapPresentationHost.macosMetal("test", { null }, { it.run() })
+          },
+        HostOperatingSystem.Windows to
+          {
+            ComposeMapPresentationHost.windowsDirect3d12("test", { null }, { it.run() })
+          },
+        HostOperatingSystem.Linux to
+          {
+            ComposeMapPresentationHost.linuxOpenGl("test", { null }, { it.run() })
+          },
+        HostOperatingSystem.Windows to
+          {
+            ComposeMapPresentationHost.windowsAngle("test", { null }, { it.run() })
+          },
+      )
+    for ((required, create) in factories) {
+      if (required == HostOperatingSystem.current()) {
+        create()
+      } else {
+        assertFailsWith<IllegalStateException> { create() }
       }
     }
   }

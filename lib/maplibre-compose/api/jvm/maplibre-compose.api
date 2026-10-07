@@ -220,18 +220,14 @@ public final class org/maplibre/compose/camera/Viewport {
 public abstract interface class org/maplibre/compose/desktop/ComposeMapPresentationHost {
 	public static final field Companion Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;
 	public abstract fun getDescription ()Ljava/lang/String;
-	public abstract fun getXdgPortalWindow ()Lorg/maplibre/compose/location/XdgPortalWindow;
 }
 
 public final class org/maplibre/compose/desktop/ComposeMapPresentationHost$Companion {
-	public final fun angleD3D11 (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public static synthetic fun angleD3D11$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public final fun direct3D12 (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public static synthetic fun direct3D12$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public final fun metal (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public static synthetic fun metal$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public final fun openGl (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
-	public static synthetic fun openGl$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun linuxOpenGl (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public static synthetic fun linuxOpenGl$default (Lorg/maplibre/compose/desktop/ComposeMapPresentationHost$Companion;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun macosMetal (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun windowsAngle (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
+	public final fun windowsDirect3d12 (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/desktop/ComposeMapPresentationHost;
 }
 
 public final class org/maplibre/compose/desktop/Direct3D12ComposeGpuContext : org/maplibre/compose/desktop/ComposeGpuContext {

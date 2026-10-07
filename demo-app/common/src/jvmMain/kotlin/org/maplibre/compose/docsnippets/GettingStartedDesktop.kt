@@ -27,7 +27,7 @@ fun customMetalHost(
   gpuContext: () -> MetalComposeGpuContext?,
   runOnGpuThread: (Runnable) -> Unit,
 ): ComposeMapPresentationHost =
-  ComposeMapPresentationHost.metal(
+  ComposeMapPresentationHost.macosMetal(
     description = "my Metal window",
     gpuContext = gpuContext,
     runOnGpuThread = runOnGpuThread,

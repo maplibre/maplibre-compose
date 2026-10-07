@@ -29,10 +29,14 @@ public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMa
   }
 
 /**
- * Remembers a [ComposeMapPresentationHost] backed by Compose Desktop's Skiko layer inside [window].
+ * Remembers a [ComposeMapPresentationHost] for an AWT-backed Compose [window], such as the window
+ * of `singleWindowApplication` or `Window`.
  *
- * The window is explicit because each AWT window owns a distinct GPU context. The returned host
- * confines all reflective Skiko lookup to this window and runs GPU work on the AWT event thread.
+ * Pass the window whose content shows the maps: each AWT window has its own GPU context. On Linux,
+ * the host also gives XDG portals the window as the parent of system dialogs, such as the location
+ * permission prompt.
+ *
+ * @throws IllegalStateException if the current operating system isn't macOS, Windows, or Linux.
  */
 @Composable
 public fun rememberAwtComposeMapPresentationHost(window: Window): ComposeMapPresentationHost =
