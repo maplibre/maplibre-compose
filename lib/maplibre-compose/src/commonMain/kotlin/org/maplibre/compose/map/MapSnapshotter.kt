@@ -98,6 +98,14 @@ private fun Dp.wholeLogicalPixels(): Int = value.roundToInt().coerceAtLeast(1)
 public class MapSnapshotException internal constructor(message: String, cause: Throwable) :
   RuntimeException(message, cause)
 
+/**
+ * A custom source provider's exception as the failure of a capture. A cancellation that the
+ * provider caused itself, such as its own timeout, is wrapped so that it does not read as a
+ * cancelled capture.
+ */
+internal fun Throwable.asProviderFailure(): Throwable =
+  if (this is CancellationException) IllegalStateException(message, this) else this
+
 /** Platform work for one snapshotter engine map. */
 internal interface SnapshotterAdapter {
   fun validate(request: MapSnapshotRequest) = Unit
@@ -238,7 +246,8 @@ public sealed interface MapSnapshotter {
    * @throws CancellationException if the snapshotter closes after accepting this capture.
    * @throws MapSnapshotException if style evaluation or rendering fails, or a tile or resource
    *   fails to load. When a [GeometryTileProvider] or [VectorTileProvider] call failed, the cause
-   *   is its exception.
+   *   is its exception, wrapped in an [IllegalStateException] when it is a cancellation that the
+   *   provider caused itself.
    */
   public suspend fun capture(request: MapSnapshotRequest): ImageBitmap
 

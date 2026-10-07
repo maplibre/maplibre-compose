@@ -101,7 +101,11 @@ internal class GlJsSnapshotterAdapter(
           baseStyle,
           onLoaded = {
             val binding =
-              GlJsStyleBinding(currentMap, logger, customTileFailed = ::recordLoadFailure) {
+              GlJsStyleBinding(
+                currentMap,
+                logger,
+                customTileFailed = { recordLoadFailure(it.asProviderFailure()) },
+              ) {
                 currentDensity
               }
             styleBinding?.invalidate()
@@ -112,7 +116,8 @@ internal class GlJsSnapshotterAdapter(
           },
           onFailed = { message ->
             val reason = message ?: "MapLibre failed to load the snapshot style"
-            loading.complete(Result.failure(IllegalStateException(reason)))
+            // The `error` event that names the style URL reached recordLoadError first.
+            loading.complete(Result.failure(loadFailure ?: IllegalStateException(reason)))
           },
         )
     } catch (error: Throwable) {

@@ -380,7 +380,9 @@ private class NativeSnapshotterAdapter(
             source.loop.await { source.resources.withSessionOrNull(action) }
         },
       getScale = { currentDensity },
-      customTileFailed = { error -> if (providerFailure == null) providerFailure = error },
+      customTileFailed = { error ->
+        if (providerFailure == null) providerFailure = error.asProviderFailure()
+      },
     )
 
   private suspend fun readImage(request: MapSnapshotRequest): ImageBitmap {

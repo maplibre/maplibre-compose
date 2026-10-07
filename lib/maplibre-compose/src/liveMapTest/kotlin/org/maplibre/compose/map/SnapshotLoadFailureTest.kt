@@ -6,6 +6,7 @@ import kotlin.concurrent.Volatile
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.resource.MapResourceError
@@ -52,9 +53,12 @@ class SnapshotLoadFailureTest {
       }
     }
 
+  /**
+   * A provider's own cancellation, such as its timeout, fails the capture rather than cancel it.
+   */
   @Test
-  fun a_failing_geometry_tile_provider_fails_the_capture(): MapTestResult = runMapTest {
-    val failure = IllegalStateException("fixture provider failure")
+  fun a_geometry_tile_provider_timeout_fails_the_capture(): MapTestResult = runMapTest {
+    val failure = CancellationException("fixture provider timeout")
     val source =
       CustomGeometrySource("custom", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
         throw failure
