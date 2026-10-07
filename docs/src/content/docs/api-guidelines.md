@@ -158,6 +158,8 @@ class OfflineManager
 - Don't keep state in global variables or stateful top-level functions. Let
   callers pass the object in.
   [[4]](https://kotlinlang.org/docs/api-guidelines-testability.html#avoid-global-state-and-stateful-top-level-functions)
+  For engine settings shared by every runtime, use a named process-wide
+  configuration object.
 
 ```kotlin
 // Do

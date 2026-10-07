@@ -4712,6 +4712,13 @@ final value class org.maplibre.compose.mlnffi/NativeHandle { // org.maplibre.com
 }
 
 // Targets: [apple]
+final object org.maplibre.compose.resource/MapConnectivity { // org.maplibre.compose.resource/MapConnectivity|null[0]
+    final var connectedOverride // org.maplibre.compose.resource/MapConnectivity.connectedOverride|{}connectedOverride[0]
+        final fun <get-connectedOverride>(): kotlin/Boolean? // org.maplibre.compose.resource/MapConnectivity.connectedOverride.<get-connectedOverride>|<get-connectedOverride>(){}[0]
+        final fun <set-connectedOverride>(kotlin/Boolean?) // org.maplibre.compose.resource/MapConnectivity.connectedOverride.<set-connectedOverride>|<set-connectedOverride>(kotlin.Boolean?){}[0]
+}
+
+// Targets: [apple]
 final val org.maplibre.compose.map/cameraProjection // org.maplibre.compose.map/cameraProjection|@org.maplibre.compose.map.RenderOptions{}cameraProjection[0]
     final fun (org.maplibre.compose.map/RenderOptions).<get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/cameraProjection.<get-cameraProjection>|<get-cameraProjection>@org.maplibre.compose.map.RenderOptions(){}[0]
 
@@ -4807,6 +4814,9 @@ final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStora
 
 // Targets: [apple]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop|#static{}org_maplibre_compose_offline_OfflineStorageState_Ready$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapConnectivity$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapConnectivity$stableprop|#static{}org_maplibre_compose_resource_MapConnectivity$stableprop[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop|#static{}org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop[0]
@@ -4921,6 +4931,9 @@ final fun org.maplibre.compose.offline/org_maplibre_compose_offline_OfflineStora
 
 // Targets: [apple]
 final fun org.maplibre.compose.offline/rememberOfflinePacksSource(kotlin.collections/Set<org.maplibre.compose.offline/OfflinePack>, org.maplibre.compose.sources/GeoJsonOptions?, kotlin/Function3<kotlinx.serialization.json/JsonObjectBuilder, org.maplibre.compose.offline/OfflinePack, kotlin/ByteArray?, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/GeoJsonSource // org.maplibre.compose.offline/rememberOfflinePacksSource|rememberOfflinePacksSource(kotlin.collections.Set<org.maplibre.compose.offline.OfflinePack>;org.maplibre.compose.sources.GeoJsonOptions?;kotlin.Function3<kotlinx.serialization.json.JsonObjectBuilder,org.maplibre.compose.offline.OfflinePack,kotlin.ByteArray?,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapConnectivity$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapConnectivity$stableprop_getter|org_maplibre_compose_resource_MapConnectivity$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop_getter|org_maplibre_compose_resource_NativeResourceRoute_Fetch$stableprop_getter(){}[0]
