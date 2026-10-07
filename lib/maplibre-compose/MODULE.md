@@ -17,7 +17,7 @@ Camera controls and positioning utilities for the map view.
 
 # Package org.maplibre.compose.offline
 
-Offline packs and ambient cache management.
+Offline packs and ambient cache management on Android, iOS, and desktop.
 
 # Package org.maplibre.compose.layers
 

@@ -73,10 +73,6 @@ import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.offline.OfflineStorage
-import org.maplibre.compose.offline.OfflineStorageBackend
-import org.maplibre.compose.offline.RuntimeBoundOfflineStorage
-import org.maplibre.compose.offline.UnsupportedOfflineStorage
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.SourceHandle
@@ -114,8 +110,8 @@ import org.maplibre.spatialk.geojson.Position
  * Configuration for one [MapRuntime].
  *
  * Every platform accepts a request interceptor and a resource provider, fixed for the lifetime of
- * the runtime. They apply to its maps, snapshotters, and supported offline operations. The MapLibre
- * Native platforms also accept a cache file and a cache size limit.
+ * the runtime. They apply to its maps, snapshotters, and, on MapLibre Native platforms, offline
+ * operations. The MapLibre Native platforms also accept a cache file and a cache size limit.
  */
 public expect class MapRuntimeOptions
 
@@ -157,7 +153,11 @@ internal constructor(
   internal val platformContext: Any?,
   private val closeResources: suspend () -> Unit,
   internal val logger: MapLog?,
-  private val offlineStorageBackend: OfflineStorageBackend = UnsupportedOfflineStorage,
+  /**
+   * Creates the offline storage from the runtime's open check. Only MapLibre Native passes one; its
+   * `offlineStorage` extension exposes the result.
+   */
+  createOfflineStorage: ((requireRuntimeOpen: () -> Unit) -> AutoCloseable)? = null,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   /** The one thread that uses map states. Engine callbacks are posted to it. */
@@ -170,18 +170,15 @@ internal constructor(
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) {
-  /** The offline packs and ambient cache managed by this runtime. */
-  public val offlineStorage: OfflineStorage =
-    RuntimeBoundOfflineStorage(
-      delegate = offlineStorageBackend,
-      requireRuntimeOpen = ::requireOpen,
-    )
   private val lock = reentrantLock()
   private val children = linkedSetOf<MapState>()
   private val snapshotters = linkedSetOf<MapSnapshotterImplementation>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var closed = false
   private var closedState: Boolean by mutableStateOf(false)
+
+  /** The storage from [createOfflineStorage], or null where the runtime has none. */
+  internal val boundOfflineStorage: AutoCloseable? = createOfflineStorage?.invoke(::requireOpen)
 
   /**
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
@@ -231,7 +228,7 @@ internal constructor(
       children.toList() to snapshotters.toList()
     }
     val (closingStates, closingSnapshotters) = closingChildren
-    val offlineCloseFailure = runCatching { offlineStorageBackend.close() }.exceptionOrNull()
+    val offlineCloseFailure = runCatching { boundOfflineStorage?.close() }.exceptionOrNull()
     closingStates.forEach(MapState::close)
     closingSnapshotters.forEach(MapSnapshotterImplementation::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {

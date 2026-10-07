@@ -13,6 +13,7 @@ import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.offline.OfflineStorageState
+import org.maplibre.compose.offline.offlineStorage
 
 @Composable internal expect fun benchmarkCacheDirectory(): String
 

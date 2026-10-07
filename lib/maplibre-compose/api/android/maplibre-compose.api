@@ -2417,7 +2417,6 @@ public final class org/maplibre/compose/map/MapRuntime {
 	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
 	public final fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
 	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
-	public final fun getOfflineStorage ()Lorg/maplibre/compose/offline/OfflineStorage;
 	public final fun isClosed ()Z
 	public fun toString ()Ljava/lang/String;
 }
@@ -3073,6 +3072,10 @@ public final class org/maplibre/compose/offline/OfflineStorageException : java/l
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class org/maplibre/compose/offline/OfflineStorageKt {
+	public static final fun getOfflineStorage (Lorg/maplibre/compose/map/MapRuntime;)Lorg/maplibre/compose/offline/OfflineStorage;
 }
 
 public abstract interface class org/maplibre/compose/offline/OfflineStorageState {

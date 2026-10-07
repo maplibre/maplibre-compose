@@ -15,6 +15,7 @@ import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.OfflineStorageState
+import org.maplibre.compose.offline.offlineStorage
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable

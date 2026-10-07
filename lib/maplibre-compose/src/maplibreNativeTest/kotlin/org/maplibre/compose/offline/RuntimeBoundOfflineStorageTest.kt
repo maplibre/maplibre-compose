@@ -17,9 +17,15 @@ import org.maplibre.spatialk.geojson.BoundingBox
 
 class RuntimeBoundOfflineStorageTest {
   @Test
-  fun unsupported_backend_rejects_every_operation() = runTest {
+  fun runtime_without_storage_holds_no_packs_and_rejects_every_operation() = runTest {
     val pack = RecordingOfflineStorage().pack
-    val runtime = runtime(UnsupportedOfflineStorage)
+    val runtime =
+      MapRuntime(
+        platformContext = null,
+        closeResources = {},
+        logger = null,
+        mainDispatcher = TestMainDispatcher(),
+      )
     val storage = runtime.offlineStorage
 
     assertEquals(emptySet(), (storage.state.value as OfflineStorageState.Ready).packs)
@@ -133,7 +139,7 @@ class RuntimeBoundOfflineStorageTest {
       platformContext = null,
       closeResources = closeResources,
       logger = null,
-      offlineStorageBackend = backend,
+      createOfflineStorage = { RuntimeBoundOfflineStorage(backend, it) },
       mainDispatcher = TestMainDispatcher(),
     )
 
