@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop
 
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /**
  * Supplies the window integrations a map uses on desktop.
@@ -9,6 +10,10 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
  * Create a host with [metal], [direct3D12], [openGl], or [angleD3D11], then install it with
  * [ProvideMapPresentationHost]. The factory determines the supported MapLibre producer bridges
  * before a GPU context exists. Each map gets its own bridge and rendering resources.
+ *
+ * The factories and their GPU context types expose Skiko's `DirectContext`, which may change in any
+ * minor release, so they require opt-in to [ExperimentalMaplibreComposeApi]. An AWT-backed Compose
+ * window can use [rememberAwtComposeMapPresentationHost] instead, which requires no opt-in.
  *
  * The context callback is read at every use, under the host's exclusive GPU access. It may return
  * null during initialization or replacement; the map skips frames until it is available. A host may
@@ -37,6 +42,7 @@ public sealed interface ComposeMapPresentationHost {
      *   cleanup when no context is available.
      * @param xdgPortalWindow Supplies the current platform window when needed for system dialogs.
      */
+    @ExperimentalMaplibreComposeApi
     public fun metal(
       description: String,
       gpuContext: () -> MetalComposeGpuContext?,
@@ -49,6 +55,7 @@ public sealed interface ComposeMapPresentationHost {
      * Creates a Windows Direct3D 12 host. Supports MapLibre Vulkan and OpenGL producers, in that
      * preference order. Callback contracts are described on [ComposeMapPresentationHost].
      */
+    @ExperimentalMaplibreComposeApi
     public fun direct3D12(
       description: String,
       gpuContext: () -> Direct3D12ComposeGpuContext?,
@@ -63,6 +70,7 @@ public sealed interface ComposeMapPresentationHost {
      *
      * @throws IllegalStateException on platforms other than Linux.
      */
+    @ExperimentalMaplibreComposeApi
     public fun openGl(
       description: String,
       gpuContext: () -> OpenGlComposeGpuContext?,
@@ -80,6 +88,7 @@ public sealed interface ComposeMapPresentationHost {
      *
      * @throws IllegalStateException on platforms other than Windows.
      */
+    @ExperimentalMaplibreComposeApi
     public fun angleD3D11(
       description: String,
       gpuContext: () -> OpenGlComposeGpuContext?,

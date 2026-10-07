@@ -71,7 +71,9 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.AngleMath
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -492,6 +494,7 @@ internal class GlJsMapSession(
   /** The current GL JS engine-map instance, exposed only to browser boundary tests. */
   internal fun engineMapForTest(): MaplibreMap? = map
 
+  @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
   internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
     val changed = "The Web platform map changed before access could begin"
     val engine = engineIdentity

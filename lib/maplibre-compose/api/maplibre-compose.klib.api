@@ -20,6 +20,10 @@ open annotation class org.maplibre.compose.util/DelicateMaplibreComposeApi : kot
     constructor <init>() // org.maplibre.compose.util/DelicateMaplibreComposeApi.<init>|<init>(){}[0]
 }
 
+open annotation class org.maplibre.compose.util/ExperimentalMaplibreComposeApi : kotlin/Annotation { // org.maplibre.compose.util/ExperimentalMaplibreComposeApi|null[0]
+    constructor <init>() // org.maplibre.compose.util/ExperimentalMaplibreComposeApi.<init>|<init>(){}[0]
+}
+
 open annotation class org.maplibre.compose.util/MaplibreComposable : kotlin/Annotation { // org.maplibre.compose.util/MaplibreComposable|null[0]
     constructor <init>() // org.maplibre.compose.util/MaplibreComposable.<init>|<init>(){}[0]
 }

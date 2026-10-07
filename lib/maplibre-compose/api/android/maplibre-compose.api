@@ -4218,6 +4218,9 @@ public final class org/maplibre/compose/util/DpPaddingKt {
 	public static final fun toDpPadding (Landroidx/compose/foundation/layout/PaddingValues;Landroidx/compose/ui/unit/LayoutDirection;)Lorg/maplibre/compose/util/DpPadding;
 }
 
+public abstract interface annotation class org/maplibre/compose/util/ExperimentalMaplibreComposeApi : java/lang/annotation/Annotation {
+}
+
 public abstract class org/maplibre/compose/util/ImageStretch {
 	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/util/ImageStretch$Companion;

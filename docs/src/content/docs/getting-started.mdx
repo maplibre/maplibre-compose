@@ -173,6 +173,8 @@ graphics context. For Java AWT windows, use
 host, use `ComposeMapPresentationHost.metal`, `direct3D12`, `openGl` (Linux), or
 `angleD3D11` (Windows). Supply the typed GPU context callback and synchronous
 exclusive GPU access callback. The context may be unavailable during initialization.
+These factories take Skiko types, which may change in any minor release, so
+they require opt-in to <Api of="ExperimentalMaplibreComposeApi" />.
 
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
