@@ -5,8 +5,10 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -755,7 +757,9 @@ internal open class MlnFfiStyleBinding(
   ): FeatureCollection<Geometry, JsonObject?>? {
     val result = queryClusterExtension(sourceId, feature, field, arguments) ?: return null
     val collection =
-      FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(result.decodeToString())
+      withContext(Dispatchers.Default) {
+        FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(result.decodeToString())
+      }
     if (collection == null) reportClusterMiss(sourceId, field, result)
     return collection
   }
@@ -821,9 +825,10 @@ internal open class MlnFfiStyleBinding(
         it.sourceLayerIds = sourceLayerIds.toList()
         it.filter = filter?.toJsonBytes()
       }
-    return awaitRenderSession { session -> session.querySourceFeatures(sourceId, options) }
-      ?.toGeoJsonFeatures()
-      .orEmpty()
+    val result =
+      awaitRenderSession { session -> session.querySourceFeatures(sourceId, options) }
+        ?: return emptyList()
+    return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = mutateMap { map ->

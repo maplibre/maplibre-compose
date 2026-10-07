@@ -13,6 +13,7 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -1116,17 +1117,22 @@ internal class MlnFfiMapSession(
   override suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
     hitPadding: Map<String, Dp>,
-  ): Map<String, List<Feature<Geometry, JsonObject?>>> =
-    awaitRenderSession { session ->
-      hitPadding.mapValues { (id, padding) ->
-        val geometry =
-          if (padding == 0.dp) RenderedQueryGeometry.Point(offset.toScreenPoint())
-          else
-            DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
-              .toQueryGeometry()
-        session.query(geometry, setOf(id), null)
-      }
-    } ?: hitPadding.mapValues { emptyList() }
+  ): Map<String, List<Feature<Geometry, JsonObject?>>> {
+    val results =
+      awaitRenderSession { session ->
+        hitPadding.mapValues { (id, padding) ->
+          val geometry =
+            if (padding == 0.dp) RenderedQueryGeometry.Point(offset.toScreenPoint())
+            else
+              DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
+                .toQueryGeometry()
+          session.queryRenderedFeatures(geometry, renderedQueryOptions(setOf(id), null))
+        }
+      } ?: return hitPadding.mapValues { emptyList() }
+    return withContext(Dispatchers.Default) {
+      results.mapValues { (_, features) -> features.toGeoJsonFeatures().asReversed() }
+    }
+  }
 
   private fun DpRect.toQueryGeometry(): RenderedQueryGeometry =
     RenderedQueryGeometry.Box(
@@ -1141,19 +1147,17 @@ internal class MlnFfiMapSession(
     geometry: RenderedQueryGeometry,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    awaitRenderSession { session -> session.query(geometry, layerIds, predicate) } ?: emptyList()
-
-  private fun RenderSessionHandle.query(
-    geometry: RenderedQueryGeometry,
-    layerIds: Set<String>?,
-    predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
-      .toGeoJsonFeatures()
+  ): List<Feature<Geometry, JsonObject?>> {
+    val result =
+      awaitRenderSession { session ->
+        session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+      } ?: return emptyList()
+    return withContext(Dispatchers.Default) {
       // Native walks style layers from the bottom. MapState and GL JS put the feature in front
       // first.
-      .asReversed()
+      result.toGeoJsonFeatures().asReversed()
+    }
+  }
 
   override fun getVisibleBounds() = viewport.getVisibleBounds()
 

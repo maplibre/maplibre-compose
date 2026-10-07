@@ -1,6 +1,8 @@
 package org.maplibre.compose.util
 
 import kotlin.math.floor
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,10 +29,14 @@ internal fun renderedQueryOptions(
 }
 
 /** Decodes each hit's GeoJSON Feature. Source ids and feature state stay on [QueriedFeature]. */
-internal fun List<QueriedFeature>.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> =
-  mapNotNull {
+internal suspend fun List<QueriedFeature>.toGeoJsonFeatures():
+  List<Feature<GeoJsonGeometry, JsonObject?>> {
+  val context = currentCoroutineContext()
+  return mapNotNull {
+    context.ensureActive()
     it.toGeoJsonFeature()
   }
+}
 
 internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?>? =
   Feature.fromJsonOrNull<GeoJsonGeometry, JsonObject?>(feature.decodeToString())
