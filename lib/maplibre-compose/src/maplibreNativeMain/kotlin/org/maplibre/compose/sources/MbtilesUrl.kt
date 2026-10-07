@@ -16,11 +16,11 @@ import org.maplibre.compose.resource.encodeResourceUrl
  * call reads the resource to identify it, and a later call reuses the copy while the content is
  * unchanged.
  *
- * `Res.getUri` from Compose Resources returns one of these URIs on every platform except the
- * browser.
+ * `Res.getUri` from Compose Resources returns one of these URIs.
  *
- * @throws UnsupportedOperationException on the browser platform. MapLibre GL JS does not read
- *   MBTiles files.
+ * This function is not available on the browser, because MapLibre GL JS does not read MBTiles
+ * files.
+ *
  * @throws IllegalArgumentException when [uri] is not a URI that this platform reads.
  */
 public suspend fun mbtilesUrl(uri: String): String = mbtilesUrlForPath(localMbtilesPath(uri))
