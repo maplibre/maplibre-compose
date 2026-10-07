@@ -360,7 +360,7 @@ class MapPresentationTest {
         fixture.applyRevision(binding, next)
         result.complete(4.0)
         val outcome = query.await()
-        if (replaceSource) assertIs<StyleHandleException>(outcome.exceptionOrNull())
+        if (replaceSource) assertNull(outcome.getOrThrow())
         else assertEquals(4.0, outcome.getOrThrow())
       } finally {
         fixture.close()
@@ -429,7 +429,7 @@ class MapPresentationTest {
       assertEquals(listOf("base"), fixture.state.style.layers.map { it.id })
       assertTrue(fixture.state.style.sources.none())
       assertSame(base, fixture.state.style.layers["base"])
-      assertFailsWith<StyleHandleException> { a.getProperty("background-opacity") }
+      assertNull(a.getProperty("background-opacity"))
     } finally {
       fixture.close()
     }
@@ -920,9 +920,7 @@ class MapPresentationTest {
     )
 
     fixture.state.style.asMutable!!.baseStyle = BaseStyle.Json("replacement")
-    assertFailsWith<StyleHandleException> {
-      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
-    }
+    handle.setFeatureState("7", buildJsonObject { put("stale", true) })
     val replacement =
       RecordingStyleBinding(
         sources =
@@ -937,9 +935,7 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    assertFailsWith<StyleHandleException> {
-      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
-    }
+    handle.setFeatureState("7", buildJsonObject { put("stale", true) })
     assertEquals(JsonObject(emptyMap()), replacement.featureState("points", null, "7"))
     fixture.close()
   }
@@ -974,12 +970,10 @@ class MapPresentationTest {
         images = emptyList(),
       ),
     )
-    assertFailsWith<StyleHandleException> {
-      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
-    }
+    handle.setFeatureState("7", buildJsonObject { put("stale", true) })
     assertEquals(JsonObject(emptyMap()), loadedStyle.featureState("shared", null, "7"))
 
-    assertFailsWith<StyleHandleException> { handle.getFeatureState("7") }
+    assertNull(handle.getFeatureState("7"))
     assertEquals(JsonObject(emptyMap()), loadedStyle.featureState("shared", null, "7"))
     fixture.close()
   }
@@ -1000,7 +994,8 @@ class MapPresentationTest {
 
     assertEquals("replacement", replacement.attributionHtml)
     assertEquals("original", stale.attributionHtml)
-    assertFailsWith<StyleHandleException> { stale.resetFeatureStates("layer") }
+    // The lookup returned the same handle that removed the source.
+    assertFailsWith<IllegalStateException> { stale.resetFeatureStates("layer") }
     fixture.close()
   }
 
@@ -1021,7 +1016,7 @@ class MapPresentationTest {
       StyleSnapshot(listOf(replacement.definition()), emptyList(), emptyList()),
     )
 
-    assertFailsWith<StyleHandleException> { stale.resetFeatureStates("layer") }
+    stale.resetFeatureStates("layer")
     assertEquals("replacement", fixture.state.style.sources["shared"]?.attributionHtml)
     fixture.close()
   }
@@ -1114,9 +1109,7 @@ class MapPresentationTest {
     val secondToken = state.reservePresentation()
     state.publishPresentation(secondToken, RetainedAdapter(failOnClose = false))
 
-    assertFailsWith<StyleHandleException> {
-      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
-    }
+    handle.setFeatureState("7", buildJsonObject { put("stale", true) })
     assertEquals(JsonObject(emptyMap()), firstStyle.featureState("points", null, "7"))
     state.close()
     runtime.close()
@@ -1131,11 +1124,16 @@ class MapPresentationTest {
 
     val handle = assertIs<LayerHandle>(fixture.state.style.layers["background"])
     assertNull(fixture.state.style.layers["missing"])
-    handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive(0.5))
+    val mutable = assertNotNull(handle.asMutable)
+    mutable.setPaintProperty("background-opacity", JsonPrimitive(0.5))
     assertEquals(JsonPrimitive(0.5), handle.getProperty("background-opacity"))
 
+    // An expired handle reads null and ignores writes.
     loadedStyle.invalidate()
-    assertFailsWith<StyleHandleException> { handle.getProperty("background-opacity") }
+    assertNull(handle.getProperty("background-opacity"))
+    assertNull(handle.asMutable)
+    mutable.setPaintProperty("background-opacity", JsonPrimitive(0.25))
+    assertEquals(JsonPrimitive(0.5), loadedStyle.layerProperty("background", "background-opacity"))
     fixture.close()
   }
 
@@ -1156,7 +1154,7 @@ class MapPresentationTest {
       StyleSnapshot(emptyList(), listOf(original.copy(anchor = Anchor.Bottom)), emptyList()),
     )
 
-    assertFailsWith<StyleHandleException> { stale.getProperty("background-opacity") }
+    assertNull(stale.getProperty("background-opacity"))
     assertTrue(fixture.state.style.layers["background"] != null)
     fixture.close()
   }
@@ -1352,9 +1350,9 @@ class MapPresentationTest {
     fixture.state.style.awaitCommands()
     assertNull(fixture.state.style.sources["added"])
     val replacementHandle = checkNotNull(fixture.state.style.sources.add(added))
-    assertFailsWith<StyleHandleException> { firstHandle.remove() }
+    assertFailsWith<IllegalStateException> { firstHandle.remove() }
     assertTrue(binding.sourceExists("added") == true)
-    assertFailsWith<StyleHandleException> {
+    assertFailsWith<IllegalStateException> {
       assertIs<VectorTileSourceHandle>(firstHandle).resetFeatureStates("layer")
     }
     assertEquals("added attribution", replacementHandle.attributionHtml)
@@ -1435,7 +1433,7 @@ class MapPresentationTest {
     handle.remove()
     fixture.state.style.sources.add(source)
     binding.imageSourceWrites.clear()
-    assertFailsWith<StyleHandleException> { handle.setImage(second) }
+    assertFailsWith<IllegalStateException> { handle.setImage(second) }
     assertTrue(binding.imageSourceWrites.isEmpty())
     fixture.close()
   }
@@ -1562,7 +1560,8 @@ class MapPresentationTest {
     binding.removeImage("marker")
     val replacement = fixture.state.style.setImage("marker", image)
 
-    assertFailsWith<StyleHandleException> { old.remove() }
+    old.remove()
+    fixture.state.style.awaitCommands()
     assertTrue(binding.imageExists("marker"))
     replacement.remove()
     fixture.state.style.awaitCommands()
@@ -1581,7 +1580,7 @@ class MapPresentationTest {
     val replacement = fixture.state.style.setImage("marker", image)
 
     assertEquals(listOf("marker"), binding.replacedImages)
-    assertFailsWith<StyleHandleException> { existing.remove() }
+    existing.remove()
     replacement.remove()
     fixture.state.style.awaitCommands()
     assertFalse(binding.imageExists("marker"))
@@ -1630,6 +1629,34 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_removal_that_a_later_write_supersedes_expires_the_handle_without_misuse() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val image = FakeImageBitmap(1, 1)
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val style = fixture.state.style
+    val handle = style.setImage("marker", image)
+    val release = CompletableDeferred<Unit>()
+    val commit =
+      launch(start = CoroutineStart.UNDISPATCHED) {
+        style.owner.resourceCommands.withCommit { release.await() }
+      }
+
+    // The replacement queued behind the removal runs in its place.
+    handle.remove()
+    style.images.set("marker", ResolvedStyleImage(PreparedImage.fromBitmap(image)))
+    release.complete(Unit)
+    commit.join()
+    style.awaitCommands()
+
+    assertTrue(binding.imageExists("marker"))
+    assertNull(handle.asMutable)
+    handle.remove()
+    fixture.close()
+  }
+
+  @Test
   fun imperative_image_commands_set_and_remove() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
@@ -1644,10 +1671,11 @@ class MapPresentationTest {
     fixture.state.style.awaitCommands()
     assertTrue(binding.imageIds.isEmpty())
     val replacement = fixture.state.style.setImage("marker", image)
-    assertFailsWith<StyleHandleException> { handle.remove() }
+    assertFailsWith<IllegalStateException> { handle.remove() }
     assertEquals(setOf("marker"), binding.imageIds)
     fixture.state.style.asMutable!!.baseStyle = BaseStyle.Empty
-    assertFailsWith<StyleHandleException> { replacement.remove() }
+    replacement.remove()
+    assertEquals(setOf("marker"), binding.imageIds)
     fixture.close()
   }
 
@@ -1665,7 +1693,7 @@ class MapPresentationTest {
     val replaced = fixture.state.style.setImage("marker", image)
     assertEquals(listOf("marker"), binding.replacedImages)
     assertEquals(setOf("marker"), binding.imageIds)
-    assertFailsWith<StyleHandleException> { added.remove() }
+    added.remove()
     replaced.remove()
     fixture.state.style.awaitCommands()
     assertTrue(binding.imageIds.isEmpty())
@@ -1940,7 +1968,8 @@ class MapPresentationTest {
         .await()
       assertTrue(binding.imageExists("icon"), "image stayed absent after eviction $eviction")
       assertEquals(eviction + 1, calls)
-      previous?.let { stale -> assertFailsWith<StyleHandleException> { stale.remove() } }
+      previous?.remove()
+      fixture.state.style.awaitCommands()
       assertTrue(binding.imageExists("icon"))
       previous = assertNotNull(fixture.state.style.images["icon"]?.asMutable)
       // Native eviction removes the engine image without going through the image handle.
@@ -2229,6 +2258,30 @@ class MapPresentationTest {
     assertTrue(binding.sourceExists("owned") == true)
     assertTrue(binding.imageExists("owned") == true)
     fixture.close()
+  }
+
+  @Test
+  fun a_handle_read_across_a_close_returns_null_and_later_writes_throw() = runTest {
+    val fixture = presentationFixture()
+    val binding =
+      QueuedOwnerStyleBinding(
+        RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val layer = assertNotNull(fixture.state.style.layers["background"]?.asMutable)
+    binding.ownerBusy = true
+    val read = async(start = CoroutineStart.UNDISPATCHED) { layer.getProperty("type") }
+
+    // A close while the read waits for the owner reads like an expired handle.
+    fixture.state.close()
+    binding.runOwnerTasks()
+    assertNull(read.await())
+    // A write that starts after the close is misuse.
+    assertFailsWith<IllegalStateException> {
+      layer.setPaintProperty("background-opacity", JsonPrimitive(0.5))
+    }
+    fixture.runtime.close()
   }
 
   @Test

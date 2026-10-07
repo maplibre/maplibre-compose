@@ -88,7 +88,6 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -332,8 +331,6 @@ internal interface MapStyleStateOwner {
   fun isCurrent(binding: StyleBinding): Boolean
 
   fun readyLoadedStyle(): StyleBinding?
-
-  fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T
 }
 
 /**
@@ -385,12 +382,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun isReadyBinding(binding: StyleBinding): Boolean =
     loadState == StyleLoadState.Ready && isCurrentLoadedStyle(binding)
-
-  internal fun requireCurrentBinding(binding: StyleBinding) {
-    checkStyleHandle(owner.isCurrent(binding)) {
-      "Style operation belongs to a stale or unready loaded-style identity"
-    }
-  }
 
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
@@ -536,14 +527,43 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   /**
+   * Runs a handle read, such as one that queries the renderer, that may suspend anywhere. Every
+   * handle read goes through here.
+   *
+   * @return null when the owner closed, [binding] stopped being the ready loaded style, or
+   *   [isResourceCurrent] turned false before or while [action] ran, including when [action] fails
+   *   because of it.
+   */
+  internal suspend fun <T> read(
+    binding: StyleBinding,
+    isResourceCurrent: () -> Boolean = { true },
+    action: suspend () -> T?,
+  ): T? {
+    fun live() = isLive(binding) && isResourceCurrent()
+    if (!live()) return null
+    val result =
+      try {
+        action()
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Exception) {
+        if (live()) throw error
+        return null
+      }
+    return result.takeIf { live() }
+  }
+
+  /**
    * Posts a style write to the owner of [binding]. Every write reaches the engine through here. A
-   * write that the owner's close or a style change overtakes, before or while it runs, does nothing
-   * and logs one warning; an engine rejection is logged and keeps the previous value.
+   * write that the owner's close, a style change, or the replacement of its resource
+   * ([isResourceCurrent]) overtakes, before or while it runs, does nothing and logs one warning; an
+   * engine rejection is logged and keeps the previous value.
    */
   internal fun post(
     binding: StyleBinding,
     target: String,
     value: JsonElement? = null,
+    isResourceCurrent: () -> Boolean = { true },
     action: () -> Unit,
   ) {
     val dropped: () -> Unit = {
@@ -551,6 +571,10 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     }
     binding.postOwner(onDropped = dropped) {
       if (!isLive(binding)) return@postOwner dropped()
+      if (!isResourceCurrent()) {
+        owner.logger?.w { "$target was not written: it was removed or replaced first" }
+        return@postOwner
+      }
       try {
         action()
       } catch (error: Exception) {
@@ -713,12 +737,22 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
-      override fun <T> run(action: () -> T): T = owner.runStyleHandleOperation(style, action)
+      override fun requireOpen() = owner.requireOpen()
 
-      override fun requireReady() = requireCurrentBinding(style)
+      override fun isReady(): Boolean = owner.isCurrent(style)
 
-      override fun post(target: String, action: () -> Unit) =
-        this@MapStyleState.post(style, target, action = action)
+      override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) =
+        this@MapStyleState.post(
+          style,
+          target,
+          isResourceCurrent = isResourceCurrent,
+          action = action,
+        )
+
+      override suspend fun <T> read(
+        isResourceCurrent: () -> Boolean,
+        action: suspend () -> T?,
+      ): T? = this@MapStyleState.read(style, isResourceCurrent, action)
 
       override suspend fun <T> visit(action: () -> T?): T? = this@MapStyleState.visit(style, action)
 
@@ -726,8 +760,8 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
       override fun isLayerWritable(id: String): Boolean = this@MapStyleState.isLayerWritable(id)
 
-      override fun removeSource(id: String, identity: Any) =
-        owner.resourceCommands.removeSource(id, style, identity)
+      override fun removeSource(id: String, identity: Any, onRemoved: () -> Unit) =
+        owner.resourceCommands.removeSource(id, style, identity, onRemoved)
 
       override fun requireSourceWritable(id: String) = this@MapStyleState.requireSourceWritable(id)
 

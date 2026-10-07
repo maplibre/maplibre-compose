@@ -269,17 +269,6 @@ internal class MapStyleAuthority(
     return publishResources(resources)
   }
 
-  override fun <T> runStyleHandleOperation(
-    binding: StyleBinding,
-    action: () -> T,
-  ): T {
-    requireOpen()
-    style.requireCurrentBinding(binding)
-    val result = action()
-    style.requireCurrentBinding(binding)
-    return result
-  }
-
   override fun isCurrent(binding: StyleBinding): Boolean =
     !lifecycle.isClosed && style.isReadyBinding(binding)
 

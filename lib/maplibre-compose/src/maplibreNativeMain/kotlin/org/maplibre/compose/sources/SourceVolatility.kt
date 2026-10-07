@@ -9,20 +9,19 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
  * Sources that do not fetch tiles retain the value as metadata only. This query is available on
  * native platforms; MapLibre GL JS does not expose this storage policy.
  *
- * Like other handle operations, access fails after the source is removed or its style is replaced.
+ * @return the value, or null if this handle has expired.
  */
-public suspend fun SourceHandle.isVolatile(): Boolean {
+public suspend fun SourceHandle.isVolatile(): Boolean? {
   val binding = implementation.style as MlnFfiStyleBinding
-  // A style that unloads during the read usually fails the operation's closing check first.
-  val volatile = implementation.suspendingOperation {
+  return implementation.read {
     implementation.visit { binding.withMap { it.styleSourceInfo(id)?.volatileSource } }
   }
-  return checkNotNull(volatile) { "Source '$id' is no longer in a loaded style" }
 }
 
 /**
  * Submits a change to the source's native storage policy and returns without waiting for native
- * work. A rejected write is logged. See [SourceHandle.isVolatile].
+ * work. A rejected write is logged. An expired handle does nothing and logs a warning. See
+ * [SourceHandle.isVolatile].
  */
 public fun MutableSourceHandle.setVolatile(value: Boolean) {
   implementation.definitionOperation {

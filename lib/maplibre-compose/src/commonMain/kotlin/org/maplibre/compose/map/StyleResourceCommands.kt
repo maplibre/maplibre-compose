@@ -20,7 +20,6 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
-import org.maplibre.compose.style.checkStyleHandle
 
 /**
  * One ordered commit boundary for declarations, resource commands, and their published handles.
@@ -144,11 +143,16 @@ internal class StyleResourceCommands(
     return handle
   }
 
-  fun removeSource(id: String, binding: StyleBinding, identity: Any) {
-    validateSource(id, binding, identity)
+  /** The handle checked [identity] before this call; the command checks it again when it runs. */
+  /** [onRemoved] runs once this command has removed the source. */
+  fun removeSource(id: String, binding: StyleBinding, identity: Any, onRemoved: () -> Unit) {
     val target = "remove source '$id'"
     submit(binding, target) {
-      validateSource(id, binding, identity)
+      requireSourceWritable(id)
+      if (!binding.identity.sources.isCurrent(id, identity)) {
+        skipped(target, ResourceChanged)
+        return@submit
+      }
       val committed =
         commitSources(binding) {
           // Null means the engine cannot tell; attempt removal rather than untrack a live source.
@@ -158,7 +162,7 @@ internal class StyleResourceCommands(
             binding.identity.sources.remove(id)
           }
         }
-      if (!committed) skipped(target, StyleChanged)
+      if (committed) onRemoved() else skipped(target, StyleChanged)
     }
   }
 
@@ -189,15 +193,26 @@ internal class StyleResourceCommands(
     }
   }
 
-  fun removeImage(id: String, binding: StyleBinding, identity: Any) {
-    validateImage(id, binding, identity)
+  /** The handle checked [identity] before this call; the command checks it again when it runs. */
+  /**
+   * [onRemoved] runs once this command has removed the image, not when a later write replaced it.
+   */
+  fun removeImage(id: String, binding: StyleBinding, identity: Any, onRemoved: () -> Unit) {
     // A handle's removal is conditional on its identity, so it never discards an earlier write: a
     // pending replacement expires the handle first. It applies a later write in its place.
     val sequence = lock.withLock { ++imageSequence }
-    submit(binding, "remove image '$id'") {
+    val target = "remove image '$id'"
+    submit(binding, target) {
       val later = takeImageWrites(setOf(id), sequence)
-      if (later.isEmpty()) validateImage(id, binding, identity)
-      applyImageWrites(binding, later.ifEmpty { mapOf(id to null) })
+      if (later.isEmpty()) {
+        requireImageWritable(id)
+        if (!binding.identity.images.isCurrent(id, identity)) {
+          skipped(target, ResourceChanged)
+          return@submit
+        }
+      }
+      val applied = applyImageWrites(binding, later.ifEmpty { mapOf(id to null) })
+      if (later.isEmpty() && id in applied) onRemoved()
     }
   }
 
@@ -263,11 +278,12 @@ internal class StyleResourceCommands(
   }
 
   /** Each write succeeds or fails independently; a failed write keeps the previous image. */
+  /** @return the IDs whose writes the engine applied. */
   private suspend fun applyImageWrites(
     binding: StyleBinding,
     writes: Map<String, StyleImageDefinition?>,
-  ) {
-    if (writes.isEmpty()) return
+  ): Set<String> {
+    if (writes.isEmpty()) return emptySet()
     writes.keys.forEach(::requireImageWritable)
     val definitions = writes.values.filterNotNull()
     val removals = writes.filterValues { it == null }.keys
@@ -279,9 +295,10 @@ internal class StyleResourceCommands(
       }
     if (results == null) {
       skipped("write style images ${writes.keys}", StyleChanged)
-      return
+      return emptySet()
     }
-    if (!style.isCurrentLoadedStyle(binding)) return
+    if (!style.isCurrentLoadedStyle(binding)) return emptySet()
+    val applied = mutableSetOf<String>()
     (definitions.map { it.id } + removals).zip(results).forEach { (id, result) ->
       result.fold(
         onSuccess = {
@@ -289,6 +306,7 @@ internal class StyleResourceCommands(
             if (id in removals) images.remove(id) else images[id] = false
           }
           binding.identity.images.remove(id)
+          applied += id
         },
         onFailure = { error ->
           if (error !is Exception) throw error
@@ -296,6 +314,7 @@ internal class StyleResourceCommands(
         },
       )
     }
+    return applied
   }
 
   /**
@@ -395,23 +414,8 @@ internal class StyleResourceCommands(
     style.requireImageWritable(id)
   }
 
-  private fun validateSource(id: String, binding: StyleBinding, identity: Any) =
-    style.operationGuard(binding).run {
-      requireSourceWritable(id)
-      checkStyleHandle(binding.identity.sources.isCurrent(id, identity)) {
-        "Source '$id' has been removed or replaced"
-      }
-    }
-
-  private fun validateImage(id: String, binding: StyleBinding, identity: Any) =
-    style.operationGuard(binding).run {
-      requireImageWritable(id)
-      checkStyleHandle(binding.identity.images.isCurrent(id, identity)) {
-        "Image '$id' has been removed or replaced"
-      }
-    }
-
   private companion object {
     const val StyleChanged = "the loaded style changed first"
+    const val ResourceChanged = "the resource was removed or replaced first"
   }
 }

@@ -1,5 +1,6 @@
 package org.maplibre.compose.sources
 
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
@@ -8,7 +9,6 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
-import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -27,11 +27,12 @@ protected constructor(
 ) : SourceHandle {
   private val identity: StyleIdentity = style.identity
   private val resourceIdentity = style.identity.sources.get(id)
+  // Set once a removal through this handle has run; using the handle after that is misuse. A
+  // removal that the engine rejects or a later change supersedes leaves it unset.
+  @Volatile private var removed = false
 
   override val asMutable: MutableSourceHandle?
-    get() = operation {
-      if (operations.isSourceWritable(id)) mutableView() else null
-    }
+    get() = if (begin() && operations.isSourceWritable(id)) mutableView() else null
 
   private fun mutableView(): MutableSourceHandle =
     when (this) {
@@ -45,73 +46,89 @@ protected constructor(
       is UnmodeledSourceHandleImpl -> MutableUnmodeledSourceHandleImpl(this)
     }
 
-  internal fun remove() = operation {
-    operations.requireSourceWritable(id)
-    operations.removeSource(id, resourceIdentity)
+  internal fun remove() =
+    write("its removal") {
+      operations.requireSourceWritable(id)
+      operations.removeSource(id, resourceIdentity) { removed = true }
+    }
+
+  /** False once the loaded style reloads or this source is removed or replaced. */
+  private fun isLive(): Boolean = operations.isReady() && style.isLoaded && isResourceCurrent()
+
+  private fun isResourceCurrent(): Boolean {
+    val actualKind = currentKind()
+    return actualKind != null && (expectedKind == null || actualKind == expectedKind)
   }
 
-  private fun requireCurrent() {
-    style.requireCurrent(identity)
-    val actualKind = currentKind()
-    checkStyleHandle(actualKind != null && (expectedKind == null || actualKind == expectedKind)) {
-      "Source '$id' is no longer the $expectedKind source owned by this handle"
+  /**
+   * Starts an operation and returns whether this handle is live.
+   *
+   * @throws IllegalStateException when the map is closed, or when [remove] on this handle has
+   *   removed the source.
+   */
+  private fun begin(): Boolean {
+    operations.requireOpen()
+    check(!removed) {
+      "Source '$id' was removed through this handle"
     }
+    return isLive()
+  }
+
+  /** Runs [action] while this handle is live; an expired handle logs and does nothing. */
+  private inline fun write(target: String, action: () -> Unit) {
+    if (begin()) action()
+    else style.logger?.w { "Source '$id' ignored $target: the handle has expired" }
+  }
+
+  /** Returns null when this handle has expired, including during [action]. */
+  internal suspend fun <T> read(action: suspend () -> T?): T? {
+    if (!begin()) return null
+    // A close during the read is a style change, not a use after close.
+    return operations.read(::isResourceCurrent, action)
   }
 
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
-    operation {
-      val update = style.prepareFeatureStateUpdate(id, sourceLayerId, featureId, state)
-      postMutation(update)
+    write("a feature-state write") {
+      postMutation(style.prepareFeatureStateUpdate(id, sourceLayerId, featureId, state))
     }
   }
 
-  protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
-    return suspendingOperation {
+  protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject? =
+    read {
       operations.visit { style.featureState(id, sourceLayerId, featureId) }
-        ?: JsonObject(emptyMap())
     }
-  }
 
   protected fun clearFeatureState(
     sourceLayerId: String?,
     featureId: String,
     stateKey: String?,
   ) {
-    mutationOperation { style.removeFeatureState(id, sourceLayerId, featureId, stateKey) }
+    mutationOperation("a feature-state removal") {
+      style.removeFeatureState(id, sourceLayerId, featureId, stateKey)
+    }
   }
 
   protected fun clearFeatureStates(sourceLayerId: String?) {
-    mutationOperation { style.resetFeatureStates(id, sourceLayerId) }
+    mutationOperation("a feature-state reset") { style.resetFeatureStates(id, sourceLayerId) }
   }
 
-  internal fun <T> operation(action: () -> T): T = operations.run {
-    requireCurrent()
-    action()
+  internal fun definitionOperation(action: () -> Unit) {
+    write("a definition write") {
+      operations.requireSourceWritable(id)
+      postMutation(action)
+    }
   }
 
-  internal fun definitionOperation(action: () -> Unit): Unit = operation {
-    operations.requireSourceWritable(id)
-    postMutation(action)
+  protected fun mutationOperation(target: String, action: () -> Unit) {
+    write(target) { postMutation(action) }
   }
-
-  protected fun mutationOperation(action: () -> Unit): Unit = operation { postMutation(action) }
 
   private fun postMutation(action: () -> Unit) {
-    operations.post("Source '$id'") {
-      if (identity.sources.isCurrent(id, resourceIdentity)) action()
-    }
+    operations.post("Source '$id'", { identity.sources.isCurrent(id, resourceIdentity) }, action)
   }
 
   /** Runs a read through the owner's single engine path. */
   internal suspend fun <T> visit(action: () -> T?): T? = operations.visit(action)
-
-  internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
-    operation {}
-    val result = action()
-    operations.requireReady()
-    requireCurrent()
-    return result
-  }
 }
 
 internal class GeoJsonSourceHandleImpl
@@ -142,16 +159,13 @@ internal constructor(
   override fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
     ClusterIdProperty in feature.properties.orEmpty()
 
-  override suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double? =
-    suspendingOperation {
-      style.clusterExpansionZoom(id, feature)
-    }
+  override suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double? = read {
+    style.clusterExpansionZoom(id, feature)
+  }
 
   override suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
-  ): FeatureCollection<Geometry, JsonObject?>? = suspendingOperation {
-    style.clusterChildren(id, feature)
-  }
+  ): FeatureCollection<Geometry, JsonObject?>? = read { style.clusterChildren(id, feature) }
 
   override suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
@@ -160,7 +174,7 @@ internal constructor(
   ): FeatureCollection<Geometry, JsonObject?>? {
     require(limit >= 0) { "limit must not be negative, was $limit" }
     require(offset >= 0) { "offset must not be negative, was $offset" }
-    return suspendingOperation {
+    return read {
       // GL JS reads a limit of 0 as its default of 10.
       if (limit == 0) FeatureCollection(emptyList())
       else style.clusterLeaves(id, feature, limit, offset)
@@ -171,7 +185,7 @@ internal constructor(
     writeFeatureState(sourceLayerId = null, featureId, state)
   }
 
-  override suspend fun getFeatureState(featureId: String): JsonObject =
+  override suspend fun getFeatureState(featureId: String): JsonObject? =
     readFeatureState(sourceLayerId = null, featureId)
 
   override fun removeFeatureState(featureId: String, stateKey: String?) {
@@ -200,17 +214,16 @@ internal constructor(
   override suspend fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
-  ): List<Feature<Geometry, JsonObject?>> {
-    return suspendingOperation {
-      style.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
-    }
+  ): List<Feature<Geometry, JsonObject?>> = read {
+    style.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
   }
+    .orEmpty()
 
   override fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
     writeFeatureState(sourceLayerId, featureId, state)
   }
 
-  override suspend fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+  override suspend fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject? =
     readFeatureState(sourceLayerId, featureId)
 
   override fun removeFeatureState(
@@ -247,7 +260,7 @@ internal constructor(
     get() = super.asMutable as? MutableCustomVectorTileSourceHandle
 
   override fun invalidateTile(tile: TileCoordinate) {
-    mutationOperation { style.invalidateCustomVectorSourceTile(id, tile) }
+    mutationOperation("a tile invalidation") { style.invalidateCustomVectorSourceTile(id, tile) }
   }
 }
 
@@ -265,11 +278,13 @@ internal constructor(
     get() = super.asMutable as? MutableCustomGeometrySourceHandle
 
   override fun invalidateBounds(bounds: BoundingBox) {
-    mutationOperation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
+    mutationOperation("a bounds invalidation") {
+      style.invalidateCustomGeometrySourceBounds(id, bounds)
+    }
   }
 
   override fun invalidateTile(tile: TileCoordinate) {
-    mutationOperation { style.invalidateCustomGeometrySourceTile(id, tile) }
+    mutationOperation("a tile invalidation") { style.invalidateCustomGeometrySourceTile(id, tile) }
   }
 }
 

@@ -15,9 +15,11 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Access to a source in one loaded style generation. Feature state and invalidation remain
  * available when composition owns the source definition. Handles expire on removal, replacement, or
- * a base-style reload. Native feature-state writes and invalidations return without waiting for the
- * engine. Rejected writes are logged and retain the previous state. Operations on an expired handle
- * or an unready style throw [StyleHandleException].
+ * a base-style reload, and while the style is not ready. An expired handle reads null or an empty
+ * result, and its writes do nothing and log a warning. Using a handle after its own
+ * [MutableSourceHandle.remove] has removed the source throws [IllegalStateException]. Native
+ * feature-state writes and invalidations return without waiting for the engine. Rejected writes are
+ * logged and retain the previous state.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
@@ -29,8 +31,8 @@ public sealed interface SourceHandle {
    */
   public val attributionHtml: String
   /**
-   * Mutation access to this source, or null when composition owns its definition. Access fails when
-   * this handle has expired. The view retains this handle's identity and grants no ownership.
+   * Mutation access to this source, or null when composition owns its definition or this handle has
+   * expired. The view retains this handle's identity and grants no ownership.
    */
   public val asMutable: MutableSourceHandle?
 }
@@ -42,8 +44,9 @@ public sealed interface SourceHandle {
  */
 public sealed interface MutableSourceHandle : SourceHandle {
   /**
-   * Enqueues removal of this source. An expired handle fails immediately; an engine rejection,
-   * including a layer still referencing the source, is logged and leaves the source available.
+   * Enqueues removal of this source. An expired handle does nothing and logs a warning; an engine
+   * rejection, including a layer still referencing the source, is logged and leaves the source
+   * available.
    */
   public fun remove()
 }
@@ -68,9 +71,8 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    * zoom of a different cluster instead of null.
    *
    * @return the zoom, or null if [feature] has no cluster ID, no cluster with that ID exists in the
-   *   source's current data, or the source does not cluster its data.
-   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
-   *   the query.
+   *   source's current data, the source does not cluster its data, or this handle has expired.
+   * @throws StyleHandleException if the engine fails the query.
    */
   public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double?
 
@@ -78,9 +80,8 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    * Returns the clusters and points that the cluster [feature] splits into at the next zoom level.
    *
    * @return the children, or null if [feature] has no cluster ID, no cluster with that ID exists in
-   *   the source's current data, or the source does not cluster its data.
-   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
-   *   the query.
+   *   the source's current data, the source does not cluster its data, or this handle has expired.
+   * @throws StyleHandleException if the engine fails the query.
    */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
@@ -94,11 +95,10 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    *   result is empty, even if the cluster does not exist.
    * @param offset The number of points to skip. Must not be negative.
    * @return the points, which are empty when [limit] is 0 or [offset] skips every point, or null if
-   *   [feature] has no cluster ID, no cluster with that ID exists in the source's current data, or
-   *   the source does not cluster its data.
+   *   [feature] has no cluster ID, no cluster with that ID exists in the source's current data, the
+   *   source does not cluster its data, or this handle has expired.
    * @throws IllegalArgumentException if [limit] or [offset] is negative.
-   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
-   *   the query.
+   * @throws StyleHandleException if the engine fails the query.
    */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
@@ -112,8 +112,11 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    */
   public fun setFeatureState(featureId: String, state: JsonObject): Unit
 
-  /** Returns the runtime state of the feature identified by [featureId]. */
-  public suspend fun getFeatureState(featureId: String): JsonObject
+  /**
+   * Returns the runtime state of the feature identified by [featureId], which is empty when the
+   * feature has no state, or null if this handle has expired.
+   */
+  public suspend fun getFeatureState(featureId: String): JsonObject?
 
   /** Removes [stateKey], or every state key when [stateKey] is null. */
   public fun removeFeatureState(featureId: String, stateKey: String? = null): Unit
@@ -144,7 +147,6 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
    * function wait for preparation, installation, or rendering.
    *
    * @throws IllegalStateException if style content declares this source.
-   * @throws StyleHandleException if submission fails.
    */
   public fun setData(data: GeoJsonData): Unit
 }
@@ -159,7 +161,7 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
 
   /**
    * Returns loaded features from [sourceLayerIds] that match [predicate]. The result is empty
-   * before the map has rendered.
+   * before the map has rendered and when this handle has expired.
    */
   public suspend fun querySourceFeatures(
     sourceLayerIds: Set<String>,
@@ -172,8 +174,11 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
    */
   public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject): Unit
 
-  /** Returns the runtime state of one feature. */
-  public suspend fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject
+  /**
+   * Returns the runtime state of one feature, which is empty when the feature has no state, or null
+   * if this handle has expired.
+   */
+  public suspend fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject?
 
   /** Removes [stateKey], or every state key when [stateKey] is null. */
   public fun removeFeatureState(

@@ -161,7 +161,7 @@ internal open class MlnFfiStyleBinding(
     submit(onDropped) {
       try {
         action()
-      } catch (error: StyleHandleException) {
+      } catch (error: Exception) {
         // A style unloaded during this accepted visit has nothing left to update.
         if (isLoaded) throw error
         onDropped()
@@ -173,7 +173,7 @@ internal open class MlnFfiStyleBinding(
    * Runs [action] with the map, on the owner thread only.
    *
    * @throws IllegalStateException on any other thread.
-   * @throws StyleHandleException when the style has unloaded.
+   * @throws IllegalStateException when the style has unloaded.
    */
   internal fun <T> withMap(action: (MapHandle) -> T): T {
     check(loop.isOwnerThread()) {
@@ -632,7 +632,7 @@ internal open class MlnFfiStyleBinding(
       .withLock {
         if (!isLoaded) {
           coordinator.close()
-          throw StyleHandleException("Style operation belongs to a stale loaded-style identity")
+          requireCurrent()
         }
         geoJsonCoordinators.put(sourceId, coordinator)
       }

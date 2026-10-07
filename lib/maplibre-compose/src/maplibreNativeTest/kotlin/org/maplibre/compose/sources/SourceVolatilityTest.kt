@@ -16,7 +16,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.MapTestResult
@@ -157,8 +156,9 @@ class SourceVolatilityTest {
         assertEquals(false, handle.isVolatile())
         fixture.state.style.sources[source.id]!!.asMutable!!.remove()
         fixture.state.style.awaitCommands()
-        assertFailsWith<StyleHandleException> { handle.isVolatile() }
-        assertFailsWith<StyleHandleException> { mutable.setVolatile(true) }
+        // The handle was looked up again, but it is the same handle that removed the source.
+        assertFailsWith<IllegalStateException> { handle.isVolatile() }
+        assertFailsWith<IllegalStateException> { mutable.setVolatile(true) }
       }
     }
 
@@ -187,11 +187,17 @@ class SourceVolatilityTest {
 
   private class ImmediateOperations(private val binding: MlnFfiStyleBinding) :
     StyleHandleOperationGuard {
-    override fun <T> run(action: () -> T): T = action()
+    override fun requireOpen() {}
 
-    override fun requireReady() {}
+    override fun isReady(): Boolean = true
 
-    override fun post(target: String, action: () -> Unit) = binding.postOwner(action = action)
+    override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) =
+      binding.postOwner {
+        if (isResourceCurrent()) action()
+      }
+
+    override suspend fun <T> read(isResourceCurrent: () -> Boolean, action: suspend () -> T?): T? =
+      action().takeIf { isResourceCurrent() }
 
     override suspend fun <T> visit(action: () -> T?): T? = binding.awaitOwner(action)
 
@@ -199,7 +205,7 @@ class SourceVolatilityTest {
 
     override fun isLayerWritable(id: String): Boolean = false
 
-    override fun removeSource(id: String, identity: Any) = error("Unused")
+    override fun removeSource(id: String, identity: Any, onRemoved: () -> Unit) = error("Unused")
 
     override fun requireSourceWritable(id: String) {}
 

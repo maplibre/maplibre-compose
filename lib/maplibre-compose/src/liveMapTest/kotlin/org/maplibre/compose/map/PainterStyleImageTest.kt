@@ -12,13 +12,11 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageStretch
@@ -60,7 +58,9 @@ class PainterStyleImageTest {
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Blue), Density(2f), LayoutDirection.Rtl),
       )
       val replacement = assertNotNull(images["marker"]?.asMutable)
-      assertFailsWith<StyleHandleException> { handle.remove() }
+      // The replacement expired the handle, so its removal does nothing.
+      handle.remove()
+      assertNotNull(images["marker"])
       replacement.remove()
       assertNull(images["marker"])
     }
