@@ -688,8 +688,8 @@ internal open class MlnFfiStyleBinding(
   override suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
+    limit: Int,
+    offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>? {
     val leaves =
       queryClusterFeatures(
@@ -701,8 +701,8 @@ internal open class MlnFfiStyleBinding(
         // non-negative integer literal parses as unsigned.
         // https://github.com/maplibre/maplibre-native-ffi/pull/340
         buildJsonObject {
-          put("limit", limit.coerceAtLeast(0))
-          put("offset", offset.coerceAtLeast(0))
+          put("limit", limit)
+          put("offset", offset)
         }
           .toJsonBytes(),
       ) ?: return null

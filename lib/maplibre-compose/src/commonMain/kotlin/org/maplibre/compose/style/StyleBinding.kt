@@ -437,12 +437,15 @@ internal interface StyleBinding {
     feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>?
 
-  /** Returns the cluster leaves for [feature], or null under [clusterExpansionZoom] conditions. */
+  /**
+   * Returns the cluster leaves for [feature], or null under [clusterExpansionZoom] conditions.
+   * [limit] is positive and [offset] is not negative.
+   */
   suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
+    limit: Int,
+    offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>?
 
   /**

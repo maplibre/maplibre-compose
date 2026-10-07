@@ -63,6 +63,7 @@ class GeoJsonClusterTest {
         assertNotNull(handle.getClusterLeaves(cluster, 10, 1)).features.size,
       )
       assertEquals(emptyList(), assertNotNull(handle.getClusterLeaves(cluster, 10, 10)).features)
+      assertEquals(emptyList(), assertNotNull(handle.getClusterLeaves(cluster, 0, 0)).features)
 
       handle.asMutable!!.setData(
         GeoJsonData.Features(

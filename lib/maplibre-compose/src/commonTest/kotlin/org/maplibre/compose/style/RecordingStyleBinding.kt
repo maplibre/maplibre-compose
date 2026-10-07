@@ -237,8 +237,8 @@ internal class RecordingStyleBinding(
   override suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
+    limit: Int,
+    offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>? = null
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
