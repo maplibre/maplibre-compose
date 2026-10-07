@@ -131,6 +131,8 @@ internal class MapStyleAuthority(
     revision: StyleSnapshot,
   ) = resourceCommands.withCommit {
     currentCoroutineContext().ensureActive()
+    val previousLoadState = style.loadState
+    val previousRevision = style.declaredRevision
     if (!beginStyleRevision(adapter, revision, binding)) return@withCommit
     try {
       // Once accepted, commit and publish together: cancellation must not lose committed changes.
@@ -142,6 +144,11 @@ internal class MapStyleAuthority(
       throw error
     } catch (error: AnchorPredicateException) {
       // A bug in the caller's code, not a failed style: it propagates like any exception there.
+      // Nothing was applied, so the style keeps the state it had before this revision.
+      if (lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === binding) {
+        style.loadState = previousLoadState
+        style.declaredRevision = previousRevision
+      }
       throw error.cause
     } catch (error: Throwable) {
       if (lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === binding) {

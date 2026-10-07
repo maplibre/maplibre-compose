@@ -96,7 +96,18 @@ class AnchorPlacementTest {
             listOf("base-bottom", "kept", "base-top"),
             fixture.state.style.layers.map { it.id },
           )
+          assertEquals(
+            listOf("kept"),
+            fixture.state.style.declaredRevision.layers.map { it.definition.id },
+          )
           assertTrue(warnings.none { "style content" in it }, "Warnings: $warnings")
+
+          // A failed style stays failed, rather than loading a revision that never applies.
+          fixture.state.styleAuthority.markStyleFailed(fixture.session, "earlier failure")
+          assertFailsWith<IllegalStateException> {
+            fixture.declare { Anchor.Above({ throw bug }) { BackgroundLayer("over") } }
+          }
+          assertEquals(StyleLoadState.Failed("earlier failure"), fixture.state.style.loadState)
         }
       }
     }
