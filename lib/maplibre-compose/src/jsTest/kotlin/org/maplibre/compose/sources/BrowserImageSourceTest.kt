@@ -50,7 +50,8 @@ class BrowserImageSourceTest {
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       fun source(): dynamic = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
 
-      val handle = fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red)))
+      val handle =
+        checkNotNull(fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red))))
       val added = source()
       assertIs<ImageData>(added.image, "the pixels arrive with the source")
       assertEquals(255, added.image.data[0] as Int, "red")
@@ -72,7 +73,7 @@ class BrowserImageSourceTest {
       fixture.loadStyle(BlackStyle)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source = ImageSource("image", World, solid(Color.Red))
-      val handle = fixture.state.style.sources.add(source)
+      val handle = checkNotNull(fixture.state.style.sources.add(source))
       style.install(
         TestLayer("image-layer", "raster", source).apply {
           paint("raster-fade-duration", JsonPrimitive(0))
@@ -135,7 +136,8 @@ class BrowserImageSourceTest {
             if (released) respond() else pending.add(respond)
           }
         }
-        val urlOnly = fixture.state.style.sources.add(ImageSource("url-only", World, GreenImage))
+        val urlOnly =
+          checkNotNull(fixture.state.style.sources.add(ImageSource("url-only", World, GreenImage)))
         var urlOnlyLoads = 0
         val urlOnlyLoading =
           map.subscribe("sourcedataloading") {
@@ -177,7 +179,8 @@ class BrowserImageSourceTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val handle = fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red)))
+      val handle =
+        checkNotNull(fixture.state.style.sources.add(ImageSource("image", World, solid(Color.Red))))
       val source = style.withMap { it.getSource<GlJsImageSource>("image") }.asDynamic()
       val before = js("JSON.stringify")(source.coordinates) as String
 

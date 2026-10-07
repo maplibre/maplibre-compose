@@ -33,13 +33,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.checkStyleHandle
@@ -288,9 +288,12 @@ internal class MapSnapshotterImplementation(
       style,
       runtime.physicalScope,
       commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
-      rejected = { target, error -> runtime.logger?.w(error) { "Could not $target" } },
     )
   }
+
+  override val logger: MapLog?
+    get() = runtime.logger
+
   private var activeStyleClaim: StyleClaim? = null
   override val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
 
@@ -519,17 +522,29 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  /** Runs [mutate] on the map owner and reads the sources it leaves behind in the same task. */
-  private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
+  /**
+   * Runs [mutate] on the map owner and reads the sources it leaves behind in the same task.
+   *
+   * @return false, with nothing published, when the loaded style changed first.
+   */
+  private suspend fun commitSourcesAfterCommand(
+    binding: StyleBinding,
+    mutate: () -> Unit,
+  ): Boolean {
     val resources =
       binding.awaitOwner {
         mutate()
         style.readResources(binding)
-      } ?: throw StyleHandleException("The loaded style changed before the command ran")
-    lock.withLock {
-      requireStyleHandleLocked(binding)
+      } ?: return false
+    return lock.withLock {
+      if (!isCurrentLocked(binding)) return@withLock false
       style.updateResources(resources)
+      true
     }
+  }
+
+  override fun requireOpen() {
+    lock.withLock { check(!closed) { "The map snapshotter is closed" } }
   }
 
   override fun readyLoadedStyle(): StyleBinding? = lock.withLock {
@@ -540,11 +555,20 @@ internal class MapSnapshotterImplementation(
     binding: StyleBinding,
     action: () -> T,
   ): T {
-    lock.withLock { requireStyleHandleLocked(binding) }
+    requireOpen()
+    style.requireCurrentBinding(binding)
     val result = action()
-    lock.withLock { requireStyleHandleLocked(binding) }
+    style.requireCurrentBinding(binding)
     return result
   }
+
+  // A closed snapshotter keeps its loaded style until cleanup finishes, so closure is checked too.
+  override fun isCurrent(binding: StyleBinding): Boolean = lock.withLock {
+    isCurrentLocked(binding)
+  }
+
+  private fun isCurrentLocked(binding: StyleBinding): Boolean =
+    !closed && style.isReadyBinding(binding)
 
   private fun claimStyle(): StyleClaim = lock.withLock {
     check(!closed) { "The map snapshotter is closed" }
@@ -637,11 +661,6 @@ internal class MapSnapshotterImplementation(
     lock.withLock {
       if (activeStyleClaim === claim) activeStyleClaim = null
     }
-  }
-
-  private fun requireStyleHandleLocked(binding: StyleBinding) {
-    checkStyleHandle(!closed) { "The map snapshotter is closed" }
-    style.requireReadyBinding(binding)
   }
 
   private data class StyleClaim(

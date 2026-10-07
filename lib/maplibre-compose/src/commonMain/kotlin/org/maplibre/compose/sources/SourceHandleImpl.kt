@@ -106,7 +106,8 @@ protected constructor(
   internal suspend fun <T> suspendingOperation(action: suspend () -> T): T {
     operation {}
     val result = action()
-    operation {}
+    operations.requireReady()
+    requireCurrent()
     return result
   }
 }

@@ -173,7 +173,8 @@ class StyleResourceCommandTest {
     try {
       snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
-      val imageSource = snapshotter.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
+      val imageSource =
+        checkNotNull(snapshotter.style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))
       val holdOwner =
         async(Dispatchers.Default) {
           binding.readMap {
@@ -203,7 +204,8 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val handle = fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
+      val handle =
+        checkNotNull(fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))
       val parked = TestLatch(1)
       val release = TestLatch(1)
       val ownerReleased = CompletableDeferred<Boolean>()
@@ -234,7 +236,8 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val handle = fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
+      val handle =
+        checkNotNull(fixture.state.style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))
       val ran = TestLatch(1)
       recordingLogs { records ->
         // The unload lands after the task passed its loaded and identity checks.
@@ -250,7 +253,11 @@ class StyleResourceCommandTest {
         val drained = TestLatch(1)
         (fixture.session as MlnFfiMapSession).loop.submit { drained.countDown() }
         assertTrue(drained.await(5_000))
-        assertEquals(emptyList(), records.problems())
+        // The dropped write is logged as skipped, not as an engine failure.
+        assertEquals(
+          listOf("Source 'image' was not written: the loaded style changed first"),
+          records.problems(),
+        )
       }
     }
   }
@@ -261,7 +268,7 @@ class StyleResourceCommandTest {
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
       val style = fixture.state.style
-      val handle = style.sources.add(ImageSource("image", Quad, image(OpaqueRed)))
+      val handle = checkNotNull(style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))
       val parked = TestLatch(1)
       val release = TestLatch(1)
       recordingLogs { records ->

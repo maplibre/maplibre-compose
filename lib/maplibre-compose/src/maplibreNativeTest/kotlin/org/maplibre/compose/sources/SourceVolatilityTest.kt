@@ -188,6 +188,8 @@ class SourceVolatilityTest {
   private object ImmediateOperations : StyleHandleOperationGuard {
     override fun <T> run(action: () -> T): T = action()
 
+    override fun requireReady() {}
+
     override fun isSourceWritable(id: String): Boolean = true
 
     override fun isLayerWritable(id: String): Boolean = false

@@ -43,6 +43,7 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.setImage
+import org.maplibre.compose.util.PreparedImage
 
 class MapSnapshotterTest {
 
@@ -166,7 +167,7 @@ class MapSnapshotterTest {
 
     withContext(Dispatchers.Unconfined) {
       snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
-      val sourceHandle = snapshotter.style.sources.add(source)
+      val sourceHandle = checkNotNull(snapshotter.style.sources.add(source))
       assertEquals("imperative", sourceHandle.id)
       assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
       val imageHandle = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
@@ -176,7 +177,7 @@ class MapSnapshotterTest {
       sourceHandle.remove()
       snapshotter.style.awaitCommands()
       assertTrue(snapshotter.style.sources.none())
-      val currentSource = snapshotter.style.sources.add(source)
+      val currentSource = checkNotNull(snapshotter.style.sources.add(source))
       val currentImage = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       assertFailsWith<StyleHandleException> { sourceHandle.remove() }
       assertFailsWith<StyleHandleException> { imageHandle.remove() }
@@ -189,6 +190,33 @@ class MapSnapshotterTest {
     }
 
     close(snapshotter, runtime)
+  }
+
+  @Test
+  fun a_closed_snapshotter_rejects_style_calls_before_its_cleanup_finishes() = runTest {
+    val binding = RecordingStyleBinding()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
+    val handle = checkNotNull(snapshotter.style.sources.add(attributedVectorSource("imperative")))
+
+    // The loaded style stays installed until cleanup finishes, but the snapshotter is closed.
+    snapshotter.close()
+    assertFailsWith<IllegalStateException> { handle.resetFeatureStates("layer") }
+    assertFailsWith<IllegalStateException> {
+      snapshotter.style.images.set(
+        "late",
+        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
+      )
+    }
+    snapshotter.awaitClosed()
+    assertTrue(binding.imageIds.isEmpty())
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test
@@ -285,15 +313,17 @@ class MapSnapshotterTest {
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
-    val handle = snapshotter.style.sources.add(attributedVectorSource("imperative"))
+    val handle = checkNotNull(snapshotter.style.sources.add(attributedVectorSource("imperative")))
     blockCapture = true
     val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp))) }
     captureStarted.await()
 
     assertFailsWith<StyleHandleException> { handle.resetFeatureStates("layer") }
-    assertFailsWith<StyleHandleException> {
-      snapshotter.style.setImage("crossing", FakeImageBitmap(1, 1))
-    }
+    // A command while the capture holds the style does nothing.
+    snapshotter.style.images.set(
+      "crossing",
+      ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
+    )
 
     finishCapture.complete(Unit)
     capture.await()

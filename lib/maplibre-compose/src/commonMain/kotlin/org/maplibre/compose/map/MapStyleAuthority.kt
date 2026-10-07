@@ -12,11 +12,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleSnapshot
-import org.maplibre.compose.style.checkStyleHandle
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
@@ -35,8 +34,10 @@ internal class MapStyleAuthority(
       style,
       runtime.mainScope,
       commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
-      rejected = { target, error -> runtime.logger?.w(error) { "Could not $target" } },
     )
+
+  override val logger: MapLog?
+    get() = runtime.logger
 
   private var baseStyleCommandRevision = 0L
   // Referential: an equal but distinct resolver still replaces the current one.
@@ -255,32 +256,34 @@ internal class MapStyleAuthority(
     missingImageResolutions.clear()
   }
 
-  private suspend fun commitSourcesAfterCommand(binding: StyleBinding, mutate: () -> Unit) {
-    requireStyleHandle(binding)
+  /** @return false, with nothing published, when the loaded style changed first. */
+  private suspend fun commitSourcesAfterCommand(
+    binding: StyleBinding,
+    mutate: () -> Unit,
+  ): Boolean {
+    if (!isCurrent(binding)) return false
     val resources =
       binding.awaitOwner {
         mutate()
         style.readResources(binding)
-      } ?: throw StyleHandleException("The loaded style changed before the command ran")
-    requireStyleHandle(binding)
-    checkStyleHandle(publishResources(resources)) { "The loaded style changed before publication" }
+      } ?: return false
+    if (!isCurrent(binding)) return false
+    return publishResources(resources)
   }
 
   override fun <T> runStyleHandleOperation(
     binding: StyleBinding,
     action: () -> T,
   ): T {
-    lifecycle.requireMain()
-    requireStyleHandle(binding)
+    requireOpen()
+    style.requireCurrentBinding(binding)
     val result = action()
-    requireStyleHandle(binding)
+    style.requireCurrentBinding(binding)
     return result
   }
 
-  private fun requireStyleHandle(binding: StyleBinding) {
-    requireOpen()
-    style.requireReadyBinding(binding)
-  }
+  override fun isCurrent(binding: StyleBinding): Boolean =
+    !lifecycle.isClosed && style.isReadyBinding(binding)
 
   /** Invalidates the loaded style when the map closes. */
   internal fun invalidateForClose() {
@@ -328,8 +331,9 @@ internal class MapStyleAuthority(
     }
   }
 
-  private fun requireOpen() {
-    checkStyleHandle(!lifecycle.isClosed) { "The map state is closed" }
+  override fun requireOpen() {
+    lifecycle.requireMain()
+    check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
   private data class BaseStyleCommand(
