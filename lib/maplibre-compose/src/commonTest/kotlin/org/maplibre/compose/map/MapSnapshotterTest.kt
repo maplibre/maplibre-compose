@@ -209,6 +209,12 @@ class MapSnapshotterTest {
     snapshotter.close()
     assertFailsWith<IllegalStateException> { handle.resetFeatureStates("layer") }
     assertFailsWith<IllegalStateException> { baseStyle.baseStyle = BaseStyle.Json("{}") }
+    // A call that passed its start check before the close reaches the engine only through the
+    // owner's single path, which treats the close like a style change.
+    var wrote = false
+    snapshotter.style.post(binding, "The test write") { wrote = true }
+    assertFalse(wrote)
+    assertNull(snapshotter.style.visit(binding) { binding.imageIds })
     assertFailsWith<IllegalStateException> {
       snapshotter.style.images.set(
         "late",

@@ -205,10 +205,8 @@ internal class StyleResourceCommands(
     style.owner.requireOpen()
     val binding = style.readyLoadedStyle() ?: return null
     return withCommit {
-      if (!style.owner.isCurrent(binding)) return@withCommit null
-      val exists = binding.awaitOwner { binding.imageExists(id) == true } == true
-      if (exists && style.owner.isCurrent(binding)) StyleImageHandleImpl(id, style, binding)
-      else null
+      val exists = style.visit(binding) { binding.imageExists(id) == true } == true
+      if (exists) StyleImageHandleImpl(id, style, binding) else null
     }
   }
 
@@ -273,10 +271,12 @@ internal class StyleResourceCommands(
     writes.keys.forEach(::requireImageWritable)
     val definitions = writes.values.filterNotNull()
     val removals = writes.filterValues { it == null }.keys
-    val results = binding.awaitOwner {
-      definitions.map { runCatching { binding.setImage(it) } } +
-        removals.map { runCatching<Unit> { binding.removeImage(it) } }
-    }
+    // Each write fails on its own; a style that unloads during the batch drops all of it.
+    val results =
+      style.visit(binding) {
+        definitions.map { runCatching { binding.setImage(it) } } +
+          removals.map { runCatching<Unit> { binding.removeImage(it) } }
+      }
     if (results == null) {
       skipped("write style images ${writes.keys}", StyleChanged)
       return

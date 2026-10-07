@@ -179,16 +179,21 @@ class SourceVolatilityTest {
             if (current) afterValidation()
             if (current) "vector" else null
           },
-          operations = ImmediateOperations,
+          operations = ImmediateOperations(this),
         )
       }
     )
   }
 
-  private object ImmediateOperations : StyleHandleOperationGuard {
+  private class ImmediateOperations(private val binding: MlnFfiStyleBinding) :
+    StyleHandleOperationGuard {
     override fun <T> run(action: () -> T): T = action()
 
     override fun requireReady() {}
+
+    override fun post(target: String, action: () -> Unit) = binding.postOwner(action = action)
+
+    override suspend fun <T> visit(action: () -> T?): T? = binding.awaitOwner(action)
 
     override fun isSourceWritable(id: String): Boolean = true
 

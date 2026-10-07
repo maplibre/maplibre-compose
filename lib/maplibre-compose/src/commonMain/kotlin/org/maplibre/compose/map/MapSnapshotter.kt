@@ -531,7 +531,7 @@ internal class MapSnapshotterImplementation(
     mutate: () -> Unit,
   ): Boolean {
     val resources =
-      binding.awaitOwner {
+      style.visit(binding) {
         mutate()
         style.readResources(binding)
       } ?: return false

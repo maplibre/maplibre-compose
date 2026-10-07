@@ -158,7 +158,11 @@ internal class GlJsStyleBinding(
     if (map.getSource<GlJsVectorSource>(sourceId) == null || map.isSourceLoaded(sourceId) != true)
       return
     pendingCustomSourceReloads.remove(sourceId)
-    postWrite("Custom source '$sourceId'") { reloadCustomSource(sourceId) }
+    try {
+      reloadCustomSource(sourceId)
+    } catch (error: StyleMutationException) {
+      reportRejectedWrite("Custom source '$sourceId'", null, error)
+    }
   }
 
   // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer

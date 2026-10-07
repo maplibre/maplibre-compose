@@ -85,10 +85,10 @@ import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.checkStyleHandle
-import org.maplibre.compose.style.postWrite
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -511,9 +511,59 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   private suspend fun <T> readStyle(read: (StyleBinding) -> T?): T? {
     owner.requireOpen()
     val current = readyLoadedStyle() ?: return null
-    val result = current.awaitOwner { read(current) }
-    return result.takeIf { owner.isCurrent(current) }
+    return visit(current) { read(current) }
   }
+
+  /**
+   * Runs the engine work of a style command or read on the owner of [binding]. Every command and
+   * read reaches the engine through here.
+   *
+   * @return null, discarding what [action] did, when the owner closed or [binding] stopped being
+   *   the ready loaded style before or while [action] ran, including when [action] fails because
+   *   the style unloaded. Callers log a skipped command.
+   */
+  internal suspend fun <T> visit(binding: StyleBinding, action: () -> T?): T? {
+    val result = binding.awaitOwner {
+      if (!isLive(binding)) return@awaitOwner null
+      try {
+        action()
+      } catch (error: Exception) {
+        if (isLive(binding)) throw error
+        null
+      }
+    }
+    return result.takeIf { isLive(binding) }
+  }
+
+  /**
+   * Posts a style write to the owner of [binding]. Every write reaches the engine through here. A
+   * write that the owner's close or a style change overtakes, before or while it runs, does nothing
+   * and logs one warning; an engine rejection is logged and keeps the previous value.
+   */
+  internal fun post(
+    binding: StyleBinding,
+    target: String,
+    value: JsonElement? = null,
+    action: () -> Unit,
+  ) {
+    val dropped: () -> Unit = {
+      owner.logger?.w { "$target was not written: the loaded style changed first" }
+    }
+    binding.postOwner(onDropped = dropped) {
+      if (!isLive(binding)) return@postOwner dropped()
+      try {
+        action()
+      } catch (error: Exception) {
+        when {
+          !isLive(binding) -> dropped()
+          error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
+          else -> throw error
+        }
+      }
+    }
+  }
+
+  private fun isLive(binding: StyleBinding): Boolean = binding.isLoaded && owner.isCurrent(binding)
 
   /**
    * Posts a write to the ready loaded style. Without one, the write is skipped and logged. The
@@ -530,7 +580,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       owner.logger?.w { "$target was not written: no style is ready" }
       return
     }
-    current.postWrite(target, value) { mutate(current) }
+    post(current, target, value) { mutate(current) }
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {
@@ -666,6 +716,11 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       override fun <T> run(action: () -> T): T = owner.runStyleHandleOperation(style, action)
 
       override fun requireReady() = requireCurrentBinding(style)
+
+      override fun post(target: String, action: () -> Unit) =
+        this@MapStyleState.post(style, target, action = action)
+
+      override suspend fun <T> visit(action: () -> T?): T? = this@MapStyleState.visit(style, action)
 
       override fun isSourceWritable(id: String): Boolean = this@MapStyleState.isSourceWritable(id)
 

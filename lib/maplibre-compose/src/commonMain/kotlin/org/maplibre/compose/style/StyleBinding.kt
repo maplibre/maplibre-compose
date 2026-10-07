@@ -486,26 +486,6 @@ internal interface StyleBinding {
   ): List<Feature<Geometry, JsonObject?>>
 }
 
-/**
- * Posts an admitted write; [action] rechecks any resource identity before touching the engine. A
- * write that the style unloads before is logged.
- */
-internal fun StyleBinding.postWrite(
-  target: String,
-  value: JsonElement? = null,
-  action: () -> Unit,
-) {
-  postOwner(
-    onDropped = { logger?.w { "$target was not written: the loaded style changed first" } }
-  ) {
-    try {
-      action()
-    } catch (error: StyleMutationException) {
-      reportRejectedWrite(target, value, error)
-    }
-  }
-}
-
 internal fun LayerDefinition.summary(): LayerSummary =
   LayerSummary(
     id = id,

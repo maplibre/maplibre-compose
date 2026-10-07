@@ -261,13 +261,11 @@ internal class MapStyleAuthority(
     binding: StyleBinding,
     mutate: () -> Unit,
   ): Boolean {
-    if (!isCurrent(binding)) return false
     val resources =
-      binding.awaitOwner {
+      style.visit(binding) {
         mutate()
         style.readResources(binding)
       } ?: return false
-    if (!isCurrent(binding)) return false
     return publishResources(resources)
   }
 

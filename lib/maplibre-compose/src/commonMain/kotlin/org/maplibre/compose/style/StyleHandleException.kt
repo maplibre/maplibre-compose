@@ -26,6 +26,12 @@ internal interface StyleHandleOperationGuard {
    */
   fun requireReady()
 
+  /** Posts a write through the owner's single write path; see `MapStyleState.post`. */
+  fun post(target: String, action: () -> Unit)
+
+  /** Runs a read through the owner's single engine path; see `MapStyleState.visit`. */
+  suspend fun <T> visit(action: () -> T?): T?
+
   fun isSourceWritable(id: String): Boolean
 
   fun isLayerWritable(id: String): Boolean
