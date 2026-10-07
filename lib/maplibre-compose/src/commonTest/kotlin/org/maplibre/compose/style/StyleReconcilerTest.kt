@@ -291,9 +291,9 @@ class StyleReconcilerTest {
     assertEquals(listOf("raster", "base"), style.layerIds())
 
     val replacement = RecordingStyleBinding(layers = listOf(base))
-    assertFailsWith<IllegalStateException> { reconciler.apply(replacement, prepared) }
+    assertFailsWith<StyleHandleException> { reconciler.apply(replacement, prepared) }
     style.invalidate()
-    assertFailsWith<IllegalStateException> { reconciler.apply(style, prepared) }
+    assertFailsWith<StyleHandleException> { reconciler.apply(style, prepared) }
     assertTrue(replacement.installedLayerIds.isEmpty())
   }
 

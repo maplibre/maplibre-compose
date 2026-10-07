@@ -359,7 +359,7 @@ class MapPresentationTest {
         fixture.applyRevision(binding, next)
         result.complete(4.0)
         val outcome = query.await()
-        if (replaceSource) assertIs<IllegalStateException>(outcome.exceptionOrNull())
+        if (replaceSource) assertIs<StyleHandleException>(outcome.exceptionOrNull())
         else assertEquals(4.0, outcome.getOrThrow())
       } finally {
         fixture.close()
@@ -428,7 +428,7 @@ class MapPresentationTest {
       assertEquals(listOf("base"), fixture.state.style.layers.map { it.id })
       assertTrue(fixture.state.style.sources.none())
       assertSame(base, fixture.state.style.layers["base"])
-      assertFailsWith<IllegalStateException> { a.getProperty("background-opacity") }
+      assertFailsWith<StyleHandleException> { a.getProperty("background-opacity") }
     } finally {
       fixture.close()
     }
@@ -1879,11 +1879,11 @@ class MapPresentationTest {
     assertNull(light.getProperty("color"))
     assertNull(sky.getProperty("sky-color"))
     assertNull(projection.getProperty("type"))
-    assertFailsWith<IllegalStateException> { transition.set(options) }
-    assertFailsWith<IllegalStateException> { transition.setPlacementTransitions(false) }
-    assertFailsWith<IllegalStateException> { light.set(Light()) }
-    assertFailsWith<IllegalStateException> { sky.set(Sky()) }
-    assertFailsWith<IllegalStateException> { projection.set(Projection()) }
+    assertFailsWith<StyleHandleException> { transition.set(options) }
+    assertFailsWith<StyleHandleException> { transition.setPlacementTransitions(false) }
+    assertFailsWith<StyleHandleException> { light.set(Light()) }
+    assertFailsWith<StyleHandleException> { sky.set(Sky()) }
+    assertFailsWith<StyleHandleException> { projection.set(Projection()) }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
@@ -1895,7 +1895,7 @@ class MapPresentationTest {
     assertNull(light.getProperty("color"))
     assertNull(sky.getProperty("sky-color"))
     assertNull(projection.getProperty("type"))
-    assertFailsWith<IllegalStateException> { transition.set(options) }
+    assertFailsWith<StyleHandleException> { transition.set(options) }
     fixture.close()
   }
 
@@ -1940,7 +1940,7 @@ class MapPresentationTest {
         .await()
       assertTrue(binding.imageExists("icon"), "image stayed absent after eviction $eviction")
       assertEquals(eviction + 1, calls)
-      previous?.let { stale -> assertFailsWith<IllegalStateException> { stale.remove() } }
+      previous?.let { stale -> assertFailsWith<StyleHandleException> { stale.remove() } }
       assertTrue(binding.imageExists("icon"))
       previous = assertNotNull(fixture.state.style.images["icon"]?.asMutable)
       // Native eviction removes the engine image without going through the image handle.

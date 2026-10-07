@@ -2718,9 +2718,7 @@ final class org.maplibre.compose.style/Sky { // org.maplibre.compose.style/Sky|n
     final fun toString(): kotlin/String // org.maplibre.compose.style/Sky.toString|toString(){}[0]
 }
 
-final class org.maplibre.compose.style/StyleHandleException : kotlin/IllegalStateException { // org.maplibre.compose.style/StyleHandleException|null[0]
-    constructor <init>(kotlin/String, kotlin/Throwable? = ...) // org.maplibre.compose.style/StyleHandleException.<init>|<init>(kotlin.String;kotlin.Throwable?){}[0]
-}
+final class org.maplibre.compose.style/StyleHandleException : kotlin/RuntimeException // org.maplibre.compose.style/StyleHandleException|null[0]
 
 final class org.maplibre.compose.style/TransitionOptions { // org.maplibre.compose.style/TransitionOptions|null[0]
     constructor <init>(kotlin.time/Duration = ..., kotlin.time/Duration = ...) // org.maplibre.compose.style/TransitionOptions.<init>|<init>(kotlin.time.Duration;kotlin.time.Duration){}[0]
@@ -4693,9 +4691,7 @@ final class org.maplibre.compose.offline/OfflinePack { // org.maplibre.compose.o
 }
 
 // Targets: [apple]
-final class org.maplibre.compose.offline/OfflineStorageException : kotlin/RuntimeException { // org.maplibre.compose.offline/OfflineStorageException|null[0]
-    constructor <init>(kotlin/String, kotlin/Throwable? = ...) // org.maplibre.compose.offline/OfflineStorageException.<init>|<init>(kotlin.String;kotlin.Throwable?){}[0]
-}
+final class org.maplibre.compose.offline/OfflineStorageException : kotlin/RuntimeException // org.maplibre.compose.offline/OfflineStorageException|null[0]
 
 // Targets: [apple]
 final value class org.maplibre.compose.mlnffi/NativeHandle { // org.maplibre.compose.mlnffi/NativeHandle|null[0]
