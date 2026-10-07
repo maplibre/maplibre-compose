@@ -357,14 +357,13 @@ public fun MapButton(
 
 ## 7. Callbacks
 
-- Give a callback no parameters, or one parameter of a library type with an
-  internal constructor, so that the type can gain fields.
+- When a callback receives information from the library, such as an event or a
+  request, pass it as one parameter of a library type with an internal
+  constructor, so that the type can gain fields.
 - Don't give callbacks a receiver. Inside a callback with a receiver, `this`
   refers to the receiver instead of the enclosing class. This covers callbacks
   that the library calls later. DSL builder blocks and blocks that run before
   the function returns, such as `withPlatformMap { }`, may use a receiver.
-- Lambdas that run work for the library or supply a value, such as
-  `(Runnable) -> Unit` or `() -> T?`, can be plain function types.
 - Name the callback parameters of composables `onX`.
 - Declare every named callback type as a `fun interface`, not a typealias, so
   that they're consistent and each has its own KDoc.
