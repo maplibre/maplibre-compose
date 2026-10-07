@@ -566,10 +566,12 @@ To keep these guarantees:
   one of the others, because existing uses on constructor properties could move
   to a different element.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#avoid-changing-annotation-targets)
-- To add a parameter to a public function or constructor, put it last with a
-  default value and annotate it with `@IntroducedAt` and the release version.
-  The compiler generates hidden overloads for callers compiled against earlier
-  releases, including overloads of a data class's `copy`.
+- To add a parameter to a public function or constructor, give it a default
+  value, annotate it with `@IntroducedAt` and the release version, and put it
+  after the existing parameters, before any trailing lambda. Versions must
+  increase from left to right. The compiler generates hidden overloads for
+  callers compiled against earlier releases, including overloads of a data
+  class's `copy`.
   [[4]](https://kotlinlang.org/docs/api-guidelines-backward-compatibility.html#use-overloads-to-preserve-binary-compatibility)
 - Keep the serialized names of fields. When renaming a property, keep reading
   its old name with `@JsonNames`.
