@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.style.AnchorPredicateException
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -120,7 +121,10 @@ internal class MapStyleAuthority(
     if (lifecycle.acceptsAdapter(adapter)) style.loadState = StyleLoadState.Failed(reason)
   }
 
-  /** Accepts a committed snapshot only for the loaded style that evaluated it. */
+  /**
+   * Accepts a committed snapshot only for the loaded style that evaluated it. A failure to apply it
+   * fails the style, except that an exception from an anchor predicate is rethrown to the caller.
+   */
   internal suspend fun applyStyleRevision(
     adapter: MapAdapter,
     binding: StyleBinding,
@@ -136,6 +140,9 @@ internal class MapStyleAuthority(
       }
     } catch (error: CancellationException) {
       throw error
+    } catch (error: AnchorPredicateException) {
+      // A bug in the caller's code, not a failed style: it propagates like any exception there.
+      throw error.cause
     } catch (error: Throwable) {
       if (lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === binding) {
         runtime.logger?.w(error) { "Could not apply style content" }

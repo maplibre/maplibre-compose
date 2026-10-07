@@ -649,8 +649,10 @@ internal class GlJsMapSession(
     capture: (StyleBinding) -> T,
   ): T {
     val binding = checkNotNull(styleBinding)
+    // Before the failure handling: a predicate's exception does not fail the style.
+    val prepared = styleReconciler.prepare(binding, revision)
     try {
-      styleReconciler.apply(binding, revision)
+      styleReconciler.apply(binding, prepared)
       val resources = capture(binding)
       if (styleLoadTracker.reconciled(binding.identity)) {
         events.styleReady(binding.identity)

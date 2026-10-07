@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.style.AnchorPredicateException
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
@@ -225,6 +226,9 @@ public sealed interface MapSnapshotter {
    * Cancelling the caller removes a queued request or abandons an active result. After active
    * cancellation, the next request waits until platform rendering and terminal cleanup end.
    *
+   * An exception thrown by the predicate of an [Anchor][org.maplibre.compose.layers.Anchor] in the
+   * style content is thrown by this function unchanged.
+   *
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
    * @throws UnsupportedOperationException if snapshots are unavailable on the current platform.
@@ -398,8 +402,12 @@ internal class MapSnapshotterImplementation(
             }
             Result.success(image)
           } catch (error: Throwable) {
-            if (error is CancellationException) binding?.invalidate()
-            else claim?.let { publishStyleFailure(it, error) }
+            when (error) {
+              is CancellationException -> binding?.invalidate()
+              // A bug in the caller's code, thrown before any style content changed.
+              is AnchorPredicateException -> claim?.let(::releaseStyleClaim)
+              else -> claim?.let { publishStyleFailure(it, error) }
+            }
             Result.failure(error)
           } finally {
             claim?.let(::completeStyleClaim)
@@ -537,6 +545,7 @@ internal class MapSnapshotterImplementation(
           if (ownedBaseStyleRevision == baseStyleRevision)
             SnapshotStyleOwnership(ownedSourceIds.toSet(), ownedLayerIds.toSet())
           else SnapshotStyleOwnership.Empty,
+        loadState = style.loadState,
       )
       .also {
         check(activeStyleClaim == null)
@@ -615,6 +624,13 @@ internal class MapSnapshotterImplementation(
     }
   }
 
+  /** Returns the style to the state [claim] found, for a capture that changed no style content. */
+  private fun releaseStyleClaim(claim: StyleClaim) {
+    lock.withLock {
+      if (!closed && claim.revision == baseStyleRevision) style.loadState = claim.loadState
+    }
+  }
+
   private fun completeStyleClaim(claim: StyleClaim) {
     lock.withLock {
       if (activeStyleClaim === claim) activeStyleClaim = null
@@ -626,10 +642,12 @@ internal class MapSnapshotterImplementation(
     style.requireReadyBinding(binding)
   }
 
+  /** [loadState] is the state the claim replaced with Loading. */
   private data class StyleClaim(
     val baseStyle: BaseStyle,
     val revision: Long,
     val ownership: SnapshotStyleOwnership,
+    val loadState: StyleLoadState,
   )
 
   private class Capture(
@@ -666,6 +684,7 @@ private fun Throwable.toSnapshotRequestFailure(): Throwable =
 
 private fun Throwable.toSnapshotFailure(): Throwable =
   when (this) {
+    is AnchorPredicateException -> cause
     is CancellationException,
     is Error,
     is MapSnapshotException -> this

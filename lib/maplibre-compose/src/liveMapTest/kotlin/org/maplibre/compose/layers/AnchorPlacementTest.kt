@@ -2,7 +2,10 @@ package org.maplibre.compose.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.onOwner
@@ -67,28 +70,33 @@ class AnchorPlacementTest {
       }
     }
 
-  /** A predicate that throws places its layers as if it matched nothing, and the style stays up. */
+  /**
+   * A predicate's exception reaches the code that applied the style content, which is the map's
+   * composition in an app. Nothing of that content is applied, and the style is not failed.
+   */
   @Test
-  fun a_throwing_predicate_places_its_layers_and_keeps_the_style_ready(): MapTestResult =
+  fun a_throwing_predicate_throws_its_exception_and_leaves_the_style_as_it_was(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(baseStyle("base-bottom", "base-top"))
+        fixture.declare { Anchor.Below("base-top") { BackgroundLayer("kept", visible = true) } }
+        val bug = IllegalStateException("bad predicate")
         captureWarnings { warnings ->
-          fixture.declare {
-            Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
-            Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
-          }
+          val thrown =
+            assertFailsWith<IllegalStateException> {
+              fixture.declare {
+                Anchor.Below("base-top") { BackgroundLayer("kept", visible = true) }
+                Anchor.Above({ throw bug }) { BackgroundLayer("over", visible = true) }
+              }
+            }
 
+          assertSame(bug, thrown)
           assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
           assertEquals(
-            listOf("over", "base-bottom", "base-top", "under"),
+            listOf("base-bottom", "kept", "base-top"),
             fixture.state.style.layers.map { it.id },
           )
-          assertEquals(
-            2,
-            warnings.count { it.startsWith("The predicate of anchor") },
-            "Warnings: $warnings",
-          )
+          assertTrue(warnings.none { "style content" in it }, "Warnings: $warnings")
         }
       }
     }

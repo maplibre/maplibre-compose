@@ -114,7 +114,7 @@ class SnapshotCompositionTest {
   }
 
   @Test
-  fun a_throwing_anchor_predicate_does_not_fail_the_capture() = runTest {
+  fun a_throwing_anchor_predicate_is_thrown_by_the_capture() = runTest {
     val binding = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
     val reconciler = StyleReconciler()
     val runtime =
@@ -129,14 +129,24 @@ class SnapshotCompositionTest {
           )
         }
       )
+    val bug = IllegalStateException("bad predicate")
+    var broken by mutableStateOf(false)
     try {
       val snapshotter =
         runtime.createSnapshotter(BaseStyle.Empty) {
-          Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
-          Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
+          val anchor = if (broken) Anchor.Above { throw bug } else Anchor.Above("base")
+          Anchor.At(anchor) { BackgroundLayer("over", visible = true) }
         }
-      snapshotter.capture(MapSnapshotRequest(DpSize(4.dp, 4.dp)))
-      assertEquals(listOf("over", "base", "under"), binding.layerIds())
+      val request = MapSnapshotRequest(DpSize(4.dp, 4.dp))
+      snapshotter.capture(request)
+
+      broken = true
+      val thrown = assertFailsWith<IllegalStateException> { snapshotter.capture(request) }
+      // Coroutines on the JVM can rethrow a copy of the exception that carries its stack trace.
+      assertEquals(bug.message, thrown.message)
+      assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+      assertNotNull(snapshotter.style.layers["over"])
+      assertEquals(listOf("base", "over"), binding.layerIds())
     } finally {
       runtime.close()
       runtime.awaitClosed()

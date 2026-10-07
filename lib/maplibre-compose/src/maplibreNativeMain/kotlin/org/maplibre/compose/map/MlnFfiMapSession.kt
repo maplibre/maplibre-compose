@@ -632,8 +632,9 @@ internal class MlnFfiMapSession(
     capture: (StyleBinding) -> T,
   ): T {
     val binding = checkNotNull(styleBinding)
+    // Before the failure handling: a predicate's exception does not fail the style.
+    val prepared = styleReconciler.prepare(binding, revision)
     try {
-      val prepared = styleReconciler.prepare(binding, revision)
       return checkNotNull(
         loop.await {
           styleReconciler.apply(binding, prepared)

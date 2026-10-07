@@ -45,9 +45,11 @@ public sealed interface Anchor {
    * the same time. The predicate must be a fast, pure function of its argument and must call no map
    * API.
    *
-   * If [predicate] throws an exception, the library logs a warning and places the layers at the
-   * bottom of the stack, as when it accepts no layer. The rest of the style content is applied as
-   * usual.
+   * The library does not catch an exception thrown by [predicate], because the exception is a bug
+   * in the predicate. For a map, the exception is thrown on the main thread before any of that
+   * style content is applied, and fails the composition that holds the map.
+   * [MapSnapshotter.capture][org.maplibre.compose.map.MapSnapshotter.capture] throws the exception
+   * itself.
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))
@@ -73,8 +75,7 @@ public sealed interface Anchor {
    * composition and capture the values. See [Anchor.Companion.Below] to use this in the style
    * content.
    *
-   * [predicate] is called as described for [Above]. If it throws an exception, the library logs a
-   * warning and places the layers at the top of the stack, as when it accepts no layer.
+   * [predicate] is called, and its exceptions propagate, as described for [Above].
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerSummary) -> Boolean) : this(LayerSelector(predicate))

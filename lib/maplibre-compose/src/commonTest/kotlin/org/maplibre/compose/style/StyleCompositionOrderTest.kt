@@ -2,6 +2,8 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -136,25 +138,25 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_throwing_predicate_lands_where_a_predicate_with_no_match_does() {
+  fun a_throwing_predicate_stops_the_revision_before_anything_is_applied() {
     val style = RecordingStyleBinding(layers = labelledBase())
-    val below = Anchor.Below { if (it.id == "water") error("bad predicate") else false }
-    val above = Anchor.Above { if (it.id == "water") error("bad predicate") else false }
+    val bug = IllegalStateException("bad predicate")
+    val throwing = Anchor.Below { if (it.id == "water") throw bug else false }
 
-    StyleReconciler()
-      .apply(
-        style,
-        revision(
-          background("under") to below,
-          background("over") to above,
-          background("placed") to Anchor.Below("road-labels"),
-        ),
-      )
+    val thrown =
+      assertFailsWith<AnchorPredicateException> {
+        StyleReconciler()
+          .apply(
+            style,
+            revision(
+              background("placed") to Anchor.Below("road-labels"),
+              background("under") to throwing,
+            ),
+          )
+      }
 
-    assertEquals(
-      listOf("over", "bg", "water-labels", "water", "placed", "road-labels", "top", "under"),
-      style.layerIds(),
-    )
+    assertSame(bug, thrown.cause)
+    assertEquals(listOf("bg", "water-labels", "water", "road-labels", "top"), style.layerIds())
   }
 
   /**
