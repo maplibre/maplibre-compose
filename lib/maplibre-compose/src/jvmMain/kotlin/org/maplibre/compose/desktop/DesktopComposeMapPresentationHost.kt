@@ -8,12 +8,10 @@ import org.maplibre.compose.desktop.bridge.LinuxOpenGlMapHost
 import org.maplibre.compose.desktop.bridge.MetalMapHost
 import org.maplibre.compose.desktop.bridge.WindowsAngleMapHost
 import org.maplibre.compose.desktop.bridge.ensureCapabilities
-import org.maplibre.compose.desktop.bridge.isLinuxDesktop
-import org.maplibre.compose.desktop.bridge.isWindowsDesktop
+import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
@@ -24,11 +22,11 @@ internal abstract class DesktopComposeMapPresentationHost<C : ComposeGpuContext>
   final override val description: String,
   private val gpuContext: () -> C?,
   private val gpuAccess: (Runnable) -> Unit,
-  private val portalWindow: () -> XdgPortalWindow?,
   final override val bridges: List<RenderBackendPair>,
 ) : ComposeMapPresentationHost, MlnFfiMapHostFactory {
-  final override val xdgPortalWindow: XdgPortalWindow?
-    get() = portalWindow()
+  /** The window that XDG portals use as the parent of system dialogs, read at each use. */
+  open val xdgPortalWindow: XdgPortalWindow?
+    get() = null
 
   fun runOnGpuThread(action: Runnable) = gpuAccess(action)
 
@@ -67,13 +65,11 @@ internal class MetalPresentationHost(
   description: String,
   gpuContext: () -> MetalComposeGpuContext?,
   runOnGpuThread: (Runnable) -> Unit,
-  xdgPortalWindow: () -> XdgPortalWindow? = { null },
 ) :
   DesktopComposeMapPresentationHost<MetalComposeGpuContext>(
     description,
     gpuContext,
     runOnGpuThread,
-    xdgPortalWindow,
     listOf(MapRenderBackend.Metal, MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
       RenderBackendPair(it, ComposeRenderBackend.Metal)
     },
@@ -86,13 +82,11 @@ internal class Direct3D12PresentationHost(
   description: String,
   gpuContext: () -> Direct3D12ComposeGpuContext?,
   runOnGpuThread: (Runnable) -> Unit,
-  xdgPortalWindow: () -> XdgPortalWindow? = { null },
 ) :
   DesktopComposeMapPresentationHost<Direct3D12ComposeGpuContext>(
     description,
     gpuContext,
     runOnGpuThread,
-    xdgPortalWindow,
     listOf(MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
       RenderBackendPair(it, ComposeRenderBackend.Direct3D12)
     },
@@ -105,17 +99,19 @@ internal class OpenGlPresentationHost(
   description: String,
   gpuContext: () -> OpenGlComposeGpuContext?,
   runOnGpuThread: (Runnable) -> Unit,
-  xdgPortalWindow: () -> XdgPortalWindow? = { null },
+  private val portalWindow: () -> XdgPortalWindow? = { null },
 ) :
   DesktopComposeMapPresentationHost<OpenGlComposeGpuContext>(
     description,
     gpuContext,
     runOnGpuThread,
-    xdgPortalWindow,
     listOf(MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
       RenderBackendPair(it, ComposeRenderBackend.OpenGl)
     },
   ) {
+  override val xdgPortalWindow: XdgPortalWindow?
+    get() = portalWindow()
+
   override fun createMapHost(producer: MapRenderBackend): MlnFfiMapHost =
     LinuxOpenGlMapHost(this, producer)
 
@@ -132,13 +128,11 @@ internal class AngleD3D11PresentationHost(
   description: String,
   gpuContext: () -> OpenGlComposeGpuContext?,
   runOnGpuThread: (Runnable) -> Unit,
-  xdgPortalWindow: () -> XdgPortalWindow? = { null },
 ) :
   DesktopComposeMapPresentationHost<OpenGlComposeGpuContext>(
     description,
     gpuContext,
     runOnGpuThread,
-    xdgPortalWindow,
     listOf(MapRenderBackend.Vulkan, MapRenderBackend.OpenGl).map {
       RenderBackendPair(it, ComposeRenderBackend.OpenGl)
     },
@@ -161,10 +155,13 @@ private fun <T> OpenGlComposeGpuContext.withCurrent(description: String, action:
   return checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()
 }
 
-internal fun checkNativeOpenGlPlatform(linux: Boolean = isLinuxDesktop()) {
-  if (!linux) throw MlnFfiHostException("Native OpenGL interop requires Linux")
-}
-
-internal fun checkAnglePlatform(windows: Boolean = isWindowsDesktop()) {
-  if (!windows) throw MlnFfiHostException("AngleD3D11 OpenGL interop requires Windows")
+/** Rejects a call to [factory] on an operating system other than [required]. */
+internal fun checkOperatingSystem(
+  factory: String,
+  required: HostOperatingSystem,
+  osName: String = System.getProperty("os.name").orEmpty(),
+) {
+  check(HostOperatingSystem.of(osName) == required) {
+    "ComposeMapPresentationHost.$factory requires ${required.displayName}, but this is '$osName'"
+  }
 }

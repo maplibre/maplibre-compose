@@ -169,12 +169,12 @@ drivers with external-memory support.
 
 On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
 graphics context. For Java AWT windows, use
-<Api of="rememberAwtComposeMapPresentationHost" />. For an alternative Compose
-host, use `ComposeMapPresentationHost.metal`, `direct3D12`, `openGl` (Linux), or
-`angleD3D11` (Windows). Supply the typed GPU context callback and synchronous
-exclusive GPU access callback. The context may be unavailable during initialization.
-These factories take Skiko types, which may change in any minor release, so
-they require opt-in to <Api of="ExperimentalMaplibreComposeApi" />.
+<Api of="rememberAwtComposeMapPresentationHost" />. A window that draws Compose
+another way creates its host with the factory for its operating system and
+graphics API, such as `ComposeMapPresentationHost.macosMetal`; the API reference
+lists them and what their callbacks must do. These factories take Skiko types,
+which may change in any minor release, so they require opt-in to
+<Api of="ExperimentalMaplibreComposeApi" />.
 
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 

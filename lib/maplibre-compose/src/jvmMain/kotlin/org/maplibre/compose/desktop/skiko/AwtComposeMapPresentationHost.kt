@@ -15,16 +15,18 @@ import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.mlnffi.NativeHandle
 
-/** Operating systems the AWT host distinguishes between. */
-internal enum class HostOperatingSystem {
-  Linux,
-  Macos,
-  Windows,
-  Unsupported;
+/** Operating systems the desktop hosts distinguish between. */
+internal enum class HostOperatingSystem(val displayName: String) {
+  Linux("Linux"),
+  Macos("macOS"),
+  Windows("Windows"),
+  Unsupported("an unsupported operating system");
 
   companion object {
-    fun current(): HostOperatingSystem {
-      val os = System.getProperty("os.name")?.lowercase().orEmpty()
+    fun current(): HostOperatingSystem = of(System.getProperty("os.name").orEmpty())
+
+    fun of(osName: String): HostOperatingSystem {
+      val os = osName.lowercase()
       return when {
         os.contains("linux") -> Linux
         os.contains("mac") -> Macos
@@ -49,35 +51,29 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
   private val description: String
     get() = "an AWT Compose window on ${operatingSystem.name.lowercase()}"
 
-  private val xdgPortalWindow: XdgPortalWindow?
-    get() {
-      if (operatingSystem != HostOperatingSystem.Linux) return null
-      val windowId = SkikoReflection.findNativeWindowHandle(window) ?: return null
-      return XdgPortalWindow.X11(windowId)
-    }
+  private fun xdgPortalWindow(): XdgPortalWindow? =
+    SkikoReflection.findNativeWindowHandle(window)?.let(XdgPortalWindow::X11)
 
   val presentationHost: ComposeMapPresentationHost =
     when (operatingSystem) {
       HostOperatingSystem.Macos ->
-        ComposeMapPresentationHost.metal(
+        ComposeMapPresentationHost.macosMetal(
           "$description using Metal",
           { SkikoReflection.findSkiaLayer(window)?.let(::metalContext) },
           ::runOnGpuThread,
-          { xdgPortalWindow },
         )
       HostOperatingSystem.Windows ->
-        ComposeMapPresentationHost.direct3D12(
+        ComposeMapPresentationHost.windowsDirect3d12(
           "$description using Direct3D 12",
           { SkikoReflection.findSkiaLayer(window)?.let(::direct3D12Context) },
           ::runOnGpuThread,
-          { xdgPortalWindow },
         )
       HostOperatingSystem.Linux ->
-        ComposeMapPresentationHost.openGl(
+        ComposeMapPresentationHost.linuxOpenGl(
           "$description using OpenGL",
           { SkikoReflection.findSkiaLayer(window)?.let(::openGlContext) },
           ::runOnGpuThread,
-          { xdgPortalWindow },
+          ::xdgPortalWindow,
         )
       HostOperatingSystem.Unsupported ->
         error("MapLibre Compose has no desktop GPU bridge for ${System.getProperty("os.name")}.")
