@@ -88,14 +88,12 @@ internal class StyleResourceCommands(
   fun requireNoConflicts(snapshot: StyleSnapshot) = lock.withLock {
     snapshot.sources
       .firstOrNull { currentSource(it.id) != null }
-      ?.let {
-        throw StyleHandleException("Source ID '${it.id}' is owned by an imperative addition")
-      }
+      ?.let { error("Source ID '${it.id}' is owned by an imperative addition") }
+    // An image the missing-image resolver supplied is not a claim: its ID can match a generated
+    // one.
     snapshot.images
-      .firstOrNull { it.id in images }
-      ?.let {
-        throw StyleHandleException("Image ID '${it.id}' is owned by an imperative addition")
-      }
+      .firstOrNull { images[it.id] == false }
+      ?.let { error("Image ID '${it.id}' is owned by an imperative addition") }
   }
 
   /**
@@ -112,14 +110,12 @@ internal class StyleResourceCommands(
       // Record before the owner task so metadata capture can use this definition. A failed
       // addition takes the record back.
       lock.withLock {
-        checkStyleHandle(currentSource(source.id) == null) {
-          "Source ID '${source.id}' already exists"
-        }
+        check(currentSource(source.id) == null) { "Source ID '${source.id}' already exists" }
         sources[source.id] = OwnedSource(binding, definition)
       }
       try {
         commitSources(binding) {
-          checkStyleHandle(binding.sourceExists(source.id) != true) {
+          check(binding.sourceExists(source.id) != true) {
             "Source ID '${source.id}' already exists"
           }
           checkStyleHandle(binding.addSource(definition)) {

@@ -84,9 +84,10 @@ public class StyleSources internal constructor(private val style: MapStyleState)
    * command runs after the resource commands enqueued before this call, and this call suspends only
    * until the engine has run it, not until a frame has rendered.
    *
-   * @throws StyleHandleException if no style is ready, the style content declares [source]'s ID,
-   *   the ID is already in the style, the engine rejects the definition, or the loaded style
-   *   changes before the command runs.
+   * @throws IllegalStateException if the style content declares [source]'s ID or the ID is already
+   *   in the style.
+   * @throws StyleHandleException if no style is ready, the engine rejects the definition, or the
+   *   loaded style changes before the command runs.
    */
   public suspend fun add(source: Source): MutableSourceHandle =
     style.owner.resourceCommands.add(source)
@@ -137,7 +138,8 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
 /**
  * Provides structural commands for style images in the current loaded-style generation.
  *
- * Writes throw [StyleHandleException] if no style is ready or composition declares the image ID.
+ * Writes throw [StyleHandleException] if no style is ready, and [IllegalStateException] if
+ * composition declares the image ID.
  */
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {

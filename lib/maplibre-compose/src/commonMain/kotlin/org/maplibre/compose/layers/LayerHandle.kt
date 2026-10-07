@@ -62,7 +62,7 @@ public sealed interface MutableLayerHandle : LayerHandle {
   /**
    * Sets the top-level property [name], such as `minzoom`, for this loaded style.
    *
-   * @throws StyleHandleException if [name] is `source` or `source-layer`: [source] and
+   * @throws IllegalArgumentException if [name] is `source` or `source-layer`: [source] and
    *   [sourceLayer] are fixed for the layer's generation.
    */
   public fun setRootProperty(name: String, value: JsonElement): Unit
