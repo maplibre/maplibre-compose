@@ -80,6 +80,8 @@ import org.maplibre.spatialk.geojson.Position
 internal class GlJsStyleBinding(
   private val map: MaplibreMap,
   override val logger: MapLog?,
+  /** Receives the exception of a failed custom source provider call. */
+  private val customTileFailed: (Throwable) -> Unit = {},
   private val getScale: () -> Float,
 ) : StyleBinding {
 
@@ -388,7 +390,8 @@ internal class GlJsStyleBinding(
     provider: GeometryTileProvider,
   ): Boolean {
     requireCurrent()
-    val attachment = GlJsCustomGeometryAttachment(sourceId, options, provider, logger)
+    val attachment =
+      GlJsCustomGeometryAttachment(sourceId, options, provider, logger, customTileFailed)
     val added =
       try {
         addSource(
@@ -470,6 +473,7 @@ internal class GlJsStyleBinding(
             // MapLibre reports the tile error as an `error` event with the message alone; this
             // record carries the exception.
             logger?.w(error) { "Custom vector tile source '$sourceId' failed to load $tile" }
+            customTileFailed(error)
             throw error
           }
         },

@@ -63,6 +63,9 @@ private class NativeSnapshotterAdapter(
   @Volatile private var loadedBaseStyleRevision: Long? = null
   @Volatile private var currentDensity = 1f
   @Volatile private var terminalOperation: NativeSnapshotOperation? = null
+
+  /** The first custom source provider exception during the current capture. Owner thread only. */
+  private var providerFailure: Throwable? = null
   private val reconciler = StyleReconciler()
 
   override suspend fun prepare(
@@ -101,7 +104,12 @@ private class NativeSnapshotterAdapter(
   ): ImageBitmap = runNativeRequest {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     val prepared = reconciler.prepare(binding, revision)
-    checkNotNull(engine?.loop?.await { reconciler.apply(binding, prepared) }) {
+    checkNotNull(
+      engine?.loop?.await {
+        providerFailure = null
+        reconciler.apply(binding, prepared)
+      }
+    ) {
       "The snapshotter engine map stopped during style reconciliation"
     }
     binding.awaitGeoJsonUpdates()
@@ -112,6 +120,7 @@ private class NativeSnapshotterAdapter(
     submitOperation(rendering) { map -> map.requestStillImage() }
     val renderResult = rendering.completion.await()
     if (terminalOperation === rendering) terminalOperation = null
+    if (renderResult.isFailure) engine?.replace = true
     renderResult.getOrThrow()
     readImage(request)
   }
@@ -145,7 +154,11 @@ private class NativeSnapshotterAdapter(
 
   private suspend fun ensureEngine(request: MapSnapshotRequest) {
     val extent = request.extent()
-    if (engine?.let { it.scaleFactor == extent.scaleFactor && it.loop.failure == null } == true) {
+    if (
+      engine?.let {
+        it.scaleFactor == extent.scaleFactor && it.loop.failure == null && !it.replace
+      } == true
+    ) {
       return
     }
     if (engine != null) {
@@ -284,7 +297,10 @@ private class NativeSnapshotterAdapter(
     } finally {
       val operation = terminalOperation
       if (operation != null) {
-        withContext(NonCancellable) { operation.completion.await() }
+        val result = withContext(NonCancellable) { operation.completion.await() }
+        if (operation.awaits == NativeSnapshotOperation.Awaits.StillImage && result.isFailure) {
+          engine?.replace = true
+        }
         if (terminalOperation === operation) terminalOperation = null
       }
     }
@@ -309,7 +325,9 @@ private class NativeSnapshotterAdapter(
       RuntimeEventType.MAP_RENDER_ERROR -> {
         if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
-        operation.completion.complete(Result.failure(IllegalStateException(message)))
+        operation.completion.complete(
+          Result.failure(providerFailure ?: IllegalStateException(message))
+        )
       }
       // A still image progresses only inside renderUpdate, and NO_UPDATE and SIZE_PENDING wait for
       // the next MAP_RENDER_UPDATE_AVAILABLE, so each update event gets one render.
@@ -321,7 +339,7 @@ private class NativeSnapshotterAdapter(
         if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         operation.finished = true
         // The texture needs one rendered frame to read back.
-        if (operation.rendered) operation.completeStillImage()
+        if (operation.rendered) operation.completeStillImage(providerFailure)
         else renderStillImage(source, operation)
       }
       else -> Unit
@@ -346,7 +364,7 @@ private class NativeSnapshotterAdapter(
       operation.completion.complete(Result.failure(error))
       return
     }
-    operation.completeStillImage()
+    operation.completeStillImage(providerFailure)
   }
 
   private fun createStyleBinding(source: NativeSnapshotEngine, map: MapHandle): MlnFfiStyleBinding =
@@ -362,6 +380,9 @@ private class NativeSnapshotterAdapter(
             source.loop.await { source.resources.withSessionOrNull(action) }
         },
       getScale = { currentDensity },
+      customTileFailed = { error ->
+        if (providerFailure == null) providerFailure = error.asProviderFailure()
+      },
     )
 
   private suspend fun readImage(request: MapSnapshotRequest): ImageBitmap {
@@ -443,9 +464,13 @@ private class NativeSnapshotterAdapter(
     var finished = false
     var rendered = false
 
-    /** Completes a still image once MapLibre finished it and a frame rendered into the texture. */
-    fun completeStillImage() {
-      if (finished && rendered) completion.complete(Result.success(Unit))
+    /**
+     * Completes a still image once MapLibre finished it and a frame rendered into the texture. A
+     * [providerFailure] fails it: MapLibre draws a failed custom geometry tile empty.
+     */
+    fun completeStillImage(providerFailure: Throwable?) {
+      if (!finished || !rendered) return
+      completion.complete(providerFailure?.let { Result.failure(it) } ?: Result.success(Unit))
     }
 
     enum class Awaits {
@@ -464,7 +489,13 @@ private class NativeSnapshotEngine(
   val loop: MlnFfiMapRuntimeLoop,
   val resources: NativeSnapshotRenderResources,
   val scaleFactor: Double,
-)
+) {
+  /**
+   * Whether a still image failed. MapLibre keeps a failed tile or glyph range failed and would not
+   * load it again, so the next capture needs a new engine.
+   */
+  @Volatile var replace = false
+}
 
 /** Offscreen resources that are attached, accessed, and closed only on one map's owner thread. */
 private class NativeSnapshotRenderResources(

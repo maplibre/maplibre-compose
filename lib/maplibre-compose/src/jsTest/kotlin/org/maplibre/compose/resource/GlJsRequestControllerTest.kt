@@ -202,6 +202,21 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun not_found_for_a_worker_vector_tile_resolves_empty() = runTest {
+    val response =
+      load(MapResourceLoad.Failed(MapResourceError.NotFound, "no tile"), type = "arrayBuffer")
+        .await()
+    assertEquals(0, response.data.byteLength)
+  }
+
+  @Test
+  fun a_provider_exception_rejects_with_its_message_and_url() = runTest {
+    val error = assertFails { load { error("provider failure") }.await() }
+    assertEquals("provider failure", error.message)
+    assertEquals("app://tile", error.asDynamic().url as String)
+  }
+
+  @Test
   fun a_reason_without_a_status_rejects_without_one() = runTest {
     val error = rejection(MapResourceLoad.Failed(MapResourceError.Connection, "offline"))
     assertEquals(null, error.asDynamic().status)
@@ -214,14 +229,21 @@ class GlJsRequestControllerTest {
     assertTrue(error.message.orEmpty().contains("NotModified"))
   }
 
-  private fun load(result: MapResourceLoad): Promise<ProtocolResponse> {
+  private fun load(result: MapResourceLoad, type: String? = null): Promise<ProtocolResponse> =
+    load(type) { result }
+
+  private fun load(
+    type: String? = null,
+    result: suspend () -> MapResourceLoad,
+  ): Promise<ProtocolResponse> {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result }))
+        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result() }))
       )
     val protocolUrl = controller.protocolUrl("app://tile", MapResourceKind.Tile)
     val request = js("({})").unsafeCast<RequestParameters>()
     request.asDynamic().url = protocolUrl
+    if (type != null) request.asDynamic().type = type
     return controller.loadProtocol(request, js("new AbortController()")).also {
       it.then({ controller.close() }, { controller.close() })
     }

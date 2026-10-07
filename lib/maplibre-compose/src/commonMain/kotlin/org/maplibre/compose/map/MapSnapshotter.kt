@@ -33,6 +33,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
@@ -95,6 +97,14 @@ private fun Dp.wholeLogicalPixels(): Int = value.roundToInt().coerceAtLeast(1)
 /** Reports a failed snapshot capture. */
 public class MapSnapshotException internal constructor(message: String, cause: Throwable) :
   RuntimeException(message, cause)
+
+/**
+ * A custom source provider's exception as the failure of a capture. A cancellation that the
+ * provider caused itself, such as its own timeout, is wrapped so that it does not read as a
+ * cancelled capture.
+ */
+internal fun Throwable.asProviderFailure(): Throwable =
+  if (this is CancellationException) IllegalStateException(message, this) else this
 
 /** Platform work for one snapshotter engine map. */
 internal interface SnapshotterAdapter {
@@ -225,11 +235,19 @@ public sealed interface MapSnapshotter {
    * Cancelling the caller removes a queued request or abandons an active result. After active
    * cancellation, the next request waits until platform rendering and terminal cleanup end.
    *
+   * A capture is all or nothing: it fails if any tile or resource that it needs fails to load,
+   * including a tile whose [GeometryTileProvider] or [VectorTileProvider] call fails. A tile that
+   * does not exist, such as one answered with HTTP 404, has no data and does not fail the capture.
+   * On the browser, MapLibre draws text whose glyphs fail to load with a local font instead.
+   *
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
    * @throws UnsupportedOperationException if snapshots are unavailable on the current platform.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
-   * @throws MapSnapshotException if style evaluation or rendering fails.
+   * @throws MapSnapshotException if style evaluation or rendering fails, or a tile or resource
+   *   fails to load. When a [GeometryTileProvider] or [VectorTileProvider] call failed, the cause
+   *   is its exception, wrapped in an [IllegalStateException] when it is a cancellation that the
+   *   provider caused itself.
    */
   public suspend fun capture(request: MapSnapshotRequest): ImageBitmap
 
