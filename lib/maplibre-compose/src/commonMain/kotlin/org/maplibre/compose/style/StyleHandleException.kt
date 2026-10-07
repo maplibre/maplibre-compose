@@ -8,8 +8,8 @@ package org.maplibre.compose.style
  * cancellation exception. Engine rejections of commands nothing waits for are logged and retain the
  * previous value.
  */
-public class StyleHandleException(message: String, cause: Throwable? = null) :
-  IllegalStateException(message, cause)
+public class StyleHandleException internal constructor(message: String, cause: Throwable? = null) :
+  RuntimeException(message, cause)
 
 internal inline fun checkStyleHandle(value: Boolean, message: () -> String) {
   if (!value) throw StyleHandleException(message())

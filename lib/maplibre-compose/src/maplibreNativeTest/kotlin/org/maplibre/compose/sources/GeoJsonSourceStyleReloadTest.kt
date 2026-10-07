@@ -5,6 +5,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -26,7 +27,7 @@ class GeoJsonSourceStyleReloadTest {
 
       fixture.loadStyle(ReplacementStyle)
 
-      assertFailsWith<IllegalStateException> {
+      assertFailsWith<StyleHandleException> {
         handle.asMutable!!.setData(
           GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))
         )

@@ -16,6 +16,7 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.MapTestResult
@@ -156,8 +157,8 @@ class SourceVolatilityTest {
         assertEquals(false, handle.isVolatile())
         fixture.state.style.sources[source.id]!!.asMutable!!.remove()
         fixture.state.style.awaitCommands()
-        assertFailsWith<IllegalStateException> { handle.isVolatile() }
-        assertFailsWith<IllegalStateException> { mutable.setVolatile(true) }
+        assertFailsWith<StyleHandleException> { handle.isVolatile() }
+        assertFailsWith<StyleHandleException> { mutable.setVolatile(true) }
       }
     }
 

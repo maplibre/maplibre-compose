@@ -3070,8 +3070,6 @@ public final class org/maplibre/compose/offline/OfflineStorage$DefaultImpls {
 
 public final class org/maplibre/compose/offline/OfflineStorageException : java/lang/RuntimeException {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 }
 
 public final class org/maplibre/compose/offline/OfflineStorageKt {
@@ -4163,10 +4161,8 @@ public final class org/maplibre/compose/style/Sky {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/maplibre/compose/style/StyleHandleException : java/lang/IllegalStateException {
+public final class org/maplibre/compose/style/StyleHandleException : java/lang/RuntimeException {
 	public static final field $stable I
-	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 }
 
 public final class org/maplibre/compose/style/TransitionOptions {
