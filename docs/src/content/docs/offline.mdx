@@ -66,11 +66,3 @@ resources that no remaining pack requires:
 
 Once a pack is downloaded, the map uses its resources automatically when the
 device has no network. No map configuration is required.
-
-## Control network access
-
-Use <Api of="MapConnectivity.mode" /> for an application-wide offline mode. Set
-it to `ConnectivityMode.ForceOffline` to use offline packs and cached resources,
-and to `ConnectivityMode.Automatic` to follow device connectivity:
-
-<Code code={region(offline, "connectivity")} lang="kotlin" title="App.kt" />

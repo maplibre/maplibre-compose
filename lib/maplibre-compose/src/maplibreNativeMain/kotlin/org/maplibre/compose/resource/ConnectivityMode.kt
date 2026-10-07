@@ -6,7 +6,9 @@ package org.maplibre.compose.resource
  * Values may be added in minor releases; use an `else` branch when matching.
  */
 public sealed interface ConnectivityMode {
-  /** Uses operating-system connectivity where it is monitored, and permits requests otherwise. */
+  /**
+   * Follows operating-system connectivity on Android, iOS, and macOS; permits requests otherwise.
+   */
   public data object Automatic : ConnectivityMode
 
   /** Permits network requests regardless of operating-system connectivity. */
