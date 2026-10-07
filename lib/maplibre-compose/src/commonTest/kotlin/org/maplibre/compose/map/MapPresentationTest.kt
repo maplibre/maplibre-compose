@@ -1026,7 +1026,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun geojson_cluster_queries_have_empty_fallbacks_for_a_non_cluster_feature() = runTest {
+  fun geojson_cluster_queries_return_null_for_a_non_cluster_feature() = runTest {
     val fixture = presentationFixture()
     val loadedStyle =
       RecordingStyleBinding(
@@ -1051,8 +1051,8 @@ class MapPresentationTest {
 
     assertFalse(handle.isCluster(point))
     assertNull(handle.getClusterExpansionZoom(point))
-    assertTrue(handle.getClusterChildren(point).features.isEmpty())
-    assertTrue(handle.getClusterLeaves(point, limit = 1, offset = 0).features.isEmpty())
+    assertNull(handle.getClusterChildren(point))
+    assertNull(handle.getClusterLeaves(point, limit = 1, offset = 0))
     fixture.close()
   }
 

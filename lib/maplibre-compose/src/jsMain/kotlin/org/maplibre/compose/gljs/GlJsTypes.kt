@@ -115,15 +115,17 @@ internal external interface SourceHandle {
 internal external interface GlJsGeoJsonSource : SourceHandle {
   fun setData(data: GeoJsonSourceData)
 
-  fun getClusterExpansionZoom(clusterId: Double): Promise<Double>
+  // The cluster queries resolve null for a source that does not cluster, although GL JS's
+  // declarations omit it.
+  fun getClusterExpansionZoom(clusterId: Double): Promise<Double?>
 
-  fun getClusterChildren(clusterId: Double): Promise<Array<GeoJsonFeature>>
+  fun getClusterChildren(clusterId: Double): Promise<Array<GeoJsonFeature>?>
 
   fun getClusterLeaves(
     clusterId: Double,
     limit: Double,
     offset: Double,
-  ): Promise<Array<GeoJsonFeature>>
+  ): Promise<Array<GeoJsonFeature>?>
 }
 
 internal external interface CanonicalTileId {

@@ -62,22 +62,45 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean
 
   /**
-   * Returns the cluster expansion zoom for [feature], or null when the feature has no cluster ID or
-   * the engine reports that the cluster is unavailable.
+   * Returns the zoom level at which the cluster [feature] splits into more than one child.
+   *
+   * On the browser, the engine does not check the cluster ID, so a stale cluster ID can return the
+   * zoom of a different cluster instead of null.
+   *
+   * @return the zoom, or null if [feature] has no cluster ID, no cluster with that ID exists in the
+   *   source's current data, or the source does not cluster its data.
+   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
+   *   the query.
    */
   public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double?
 
-  /** Returns the cluster children for [feature], or an empty collection when unavailable. */
+  /**
+   * Returns the clusters and points that the cluster [feature] splits into at the next zoom level.
+   *
+   * @return the children, or null if [feature] has no cluster ID, no cluster with that ID exists in
+   *   the source's current data, or the source does not cluster its data.
+   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
+   *   the query.
+   */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
-  ): FeatureCollection<Geometry, JsonObject?>
+  ): FeatureCollection<Geometry, JsonObject?>?
 
-  /** Returns the cluster leaves for [feature], or an empty collection when unavailable. */
+  /**
+   * Returns the points in the cluster [feature], including the points of nested clusters. Skips the
+   * first [offset] points and returns at most [limit] points.
+   *
+   * @return the points, which are empty when [offset] skips every point, or null if [feature] has
+   *   no cluster ID, no cluster with that ID exists in the source's current data, or the source
+   *   does not cluster its data.
+   * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
+   *   the query.
+   */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
-  ): FeatureCollection<Geometry, JsonObject?>
+  ): FeatureCollection<Geometry, JsonObject?>?
 
   /**
    * Merges [state] into the runtime state of the feature identified by [featureId]. Captures the
