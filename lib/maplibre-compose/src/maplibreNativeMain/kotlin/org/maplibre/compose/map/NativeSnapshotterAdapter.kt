@@ -40,14 +40,21 @@ private val SnapshotEvents =
     RuntimeEventMask.MAP_RENDER_ERROR +
     RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE
 
+internal fun createNativeSnapshotterAdapter(owner: MlnFfiRuntime): SnapshotterAdapter =
+  createNativeSnapshotterAdapter(owner, tryLoadRuntimeBackends())
+
 internal fun createNativeSnapshotterAdapter(
   owner: MlnFfiRuntime,
-  backends: Set<MapRenderBackend> = loadRuntimeBackends(owner.options.logger),
+  backends: Result<Set<MapRenderBackend>>,
 ): SnapshotterAdapter {
+  val available = backends.getOrElse { error ->
+    throw MapSnapshotException("Could not load the MapLibre Native FFI runtime", error)
+  }
   val targetPlan =
-    NativeSnapshotRenderTarget.select(backends)
-      ?: throw UnsupportedOperationException(
-        "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
+    NativeSnapshotRenderTarget.select(available)
+      ?: throw MapSnapshotException(
+        "No compatible offscreen snapshot backend is available from " +
+          available.joinToString().ifEmpty { "none" }
       )
   return NativeSnapshotterAdapter(owner, targetPlan)
 }

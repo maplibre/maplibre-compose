@@ -65,13 +65,21 @@ internal fun MlnFfiMapSurfaceContent(
  * throwing when no runtime is on the classpath; negotiation reports that as a diagnostic.
  */
 internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
-  try {
-    Maplibre.loadNativeLibrary()
-    Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
-  } catch (error: Throwable) {
-    rethrowIfFatal(error)
+  tryLoadRuntimeBackends().getOrElse { error ->
     logger?.e(error) { "Could not load the MapLibre Native FFI runtime" }
     emptySet()
+  }
+
+/** The backends of the packaged MapLibre Native FFI runtime, or the error that loading it threw. */
+internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
+  try {
+    Maplibre.loadNativeLibrary()
+    Result.success(
+      Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
+    )
+  } catch (error: Throwable) {
+    rethrowIfFatal(error)
+    Result.failure(error)
   }
 
 /**

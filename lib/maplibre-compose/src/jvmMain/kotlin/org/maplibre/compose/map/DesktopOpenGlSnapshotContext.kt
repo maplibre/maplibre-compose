@@ -13,12 +13,13 @@ internal sealed interface DesktopOpenGlSnapshotContext : AutoCloseable {
   val descriptor: OpenGLContextDescriptor
 
   companion object {
-    fun create(os: String): DesktopOpenGlSnapshotContext =
+    /** Creates share contexts on [os], or null when [os] has no offscreen OpenGL provider. */
+    fun provider(os: String): (() -> DesktopOpenGlSnapshotContext)? =
       when {
-        os.contains("linux") -> EglSnapshotContext()
-        os.contains("windows") -> WglSnapshotContext()
-        os.contains("mac") -> EglSnapshotContext(metalDevice = 0L)
-        else -> throw UnsupportedOperationException("No offscreen OpenGL context provider for $os")
+        os.contains("linux") -> ::EglSnapshotContext
+        os.contains("windows") -> ::WglSnapshotContext
+        os.contains("mac") -> ::angleMetalSnapshotContext
+        else -> null
       }
   }
 }
@@ -38,6 +39,8 @@ private class WglSnapshotContext : DesktopOpenGlSnapshotContext {
 
   override fun close() = context.close()
 }
+
+private fun angleMetalSnapshotContext() = EglSnapshotContext(metalDevice = 0L)
 
 private class EglSnapshotContext(metalDevice: Long? = null) : DesktopOpenGlSnapshotContext {
   private val context = DesktopEglContext.create(metalDevice)
