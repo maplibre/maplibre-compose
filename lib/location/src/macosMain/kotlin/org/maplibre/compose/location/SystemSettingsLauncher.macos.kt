@@ -5,13 +5,20 @@ import platform.Foundation.NSURL
 
 /** Opens macOS Location Services settings, where application location grants are managed. */
 public actual class SystemSettingsLauncher {
-  public actual val canOpenApplicationSettings: Boolean = false
+  public actual val canOpenApplicationSettings: Boolean = true
 
-  public actual fun openApplicationSettings(): Boolean = false
+  /**
+   * Opens the Location Services pane in System Settings, which holds the services toggle and the
+   * per-application location permissions.
+   */
+  public actual fun openApplicationSettings(): Boolean = openLocationServicesPane()
 
   public actual val canOpenLocationServicesSettings: Boolean = true
 
-  public actual fun openLocationServicesSettings(): Boolean =
+  /** Opens the same pane as [openApplicationSettings], which also holds the services toggle. */
+  public actual fun openLocationServicesSettings(): Boolean = openLocationServicesPane()
+
+  private fun openLocationServicesPane(): Boolean =
     NSURL.URLWithString(
         "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
       )
