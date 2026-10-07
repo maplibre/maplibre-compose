@@ -42,7 +42,6 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
-import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
@@ -512,7 +511,7 @@ internal class MapSnapshotterImplementation(
 
   override fun setBaseStyle(value: BaseStyle) {
     lock.withLock {
-      checkStyleHandle(!closed) { "The map snapshotter is closed" }
+      check(!closed) { "The map snapshotter is closed" }
       if (style.baseStyle == value) return
       baseStyleRevision++
       resourceCommands.clear()

@@ -205,8 +205,10 @@ class MapSnapshotterTest {
     val handle = checkNotNull(snapshotter.style.sources.add(attributedVectorSource("imperative")))
 
     // The loaded style stays installed until cleanup finishes, but the snapshotter is closed.
+    val baseStyle = checkNotNull(snapshotter.style.asMutable)
     snapshotter.close()
     assertFailsWith<IllegalStateException> { handle.resetFeatureStates("layer") }
+    assertFailsWith<IllegalStateException> { baseStyle.baseStyle = BaseStyle.Json("{}") }
     assertFailsWith<IllegalStateException> {
       snapshotter.style.images.set(
         "late",
