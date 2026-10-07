@@ -2,6 +2,8 @@ package org.maplibre.compose.mlnffi
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import org.maplibre.compose.resource.ConnectivityMode
+import org.maplibre.compose.resource.UnspecifiedConnectivityMode
 import org.maplibre.nativeffi.runtime.NetworkStatus
 
 /** Starts observing connectivity until the returned handle is closed. */
@@ -20,13 +22,14 @@ internal class SharedNetworkMonitor(
   private val lock = reentrantLock()
   private var session: Session? = null
   private var users = 0
-  private var overrideValue: Boolean? = null
+  private var currentMode: ConnectivityMode = ConnectivityMode.Automatic
   private var appliedStatus: NetworkStatus? = null
 
-  var connectedOverride: Boolean?
-    get() = lock.withLock { overrideValue }
+  var mode: ConnectivityMode
+    get() = lock.withLock { currentMode }
     set(value) = lock.withLock {
-      overrideValue = value
+      check(value != UnspecifiedConnectivityMode) { "UnspecifiedConnectivityMode is never used" }
+      currentMode = value
       // Configuration before the first runtime must not load Native or start an OS monitor.
       if (session != null) publishStatus()
     }
@@ -34,10 +37,11 @@ internal class SharedNetworkMonitor(
   /** Called under [lock], including during startup and after the last session is retired. */
   private fun publishStatus() {
     val status =
-      when (overrideValue) {
-        true -> NetworkStatus.ONLINE
-        false -> NetworkStatus.OFFLINE
-        null -> session?.status ?: NetworkStatus.ONLINE
+      when (currentMode) {
+        ConnectivityMode.ForceOnline -> NetworkStatus.ONLINE
+        ConnectivityMode.ForceOffline -> NetworkStatus.OFFLINE
+        ConnectivityMode.Automatic -> session?.status ?: NetworkStatus.ONLINE
+        UnspecifiedConnectivityMode -> error("UnspecifiedConnectivityMode is never used")
       }
     if (status != appliedStatus) {
       setStatus(status)

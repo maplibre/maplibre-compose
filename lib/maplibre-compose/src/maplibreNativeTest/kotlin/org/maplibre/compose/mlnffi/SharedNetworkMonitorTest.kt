@@ -3,8 +3,8 @@ package org.maplibre.compose.mlnffi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.nativeffi.runtime.NetworkStatus
 
 class SharedNetworkMonitorTest {
@@ -89,9 +89,9 @@ class SharedNetworkMonitorTest {
 
   @Test
   fun an_override_before_startup_is_stored_without_starting_native_services() {
-    assertNull(monitor.connectedOverride)
-    monitor.connectedOverride = false
-    assertEquals(false, monitor.connectedOverride)
+    assertEquals(ConnectivityMode.Automatic, monitor.mode)
+    monitor.mode = ConnectivityMode.ForceOffline
+    assertEquals(ConnectivityMode.ForceOffline, monitor.mode)
     assertTrue(callbacks.isEmpty())
     assertTrue(statuses.isEmpty())
 
@@ -100,26 +100,26 @@ class SharedNetworkMonitorTest {
       callbacks.single()(NetworkStatus.ONLINE)
       assertEquals(listOf(NetworkStatus.OFFLINE), statuses)
     }
-    assertEquals(false, monitor.connectedOverride)
+    assertEquals(ConnectivityMode.ForceOffline, monitor.mode)
     assertEquals(listOf(NetworkStatus.OFFLINE), statuses)
   }
 
   @Test
   fun clearing_an_override_applies_the_latest_observation_in_both_directions() {
     monitor.acquire().use {
-      monitor.connectedOverride = false
+      monitor.mode = ConnectivityMode.ForceOffline
       callbacks.single()(NetworkStatus.OFFLINE)
       callbacks.single()(NetworkStatus.ONLINE)
       assertEquals(NetworkStatus.OFFLINE, statuses.last())
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(NetworkStatus.ONLINE, statuses.last())
 
-      monitor.connectedOverride = true
+      monitor.mode = ConnectivityMode.ForceOnline
       callbacks.single()(NetworkStatus.OFFLINE)
       assertEquals(NetworkStatus.ONLINE, statuses.last())
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(NetworkStatus.OFFLINE, statuses.last())
-      assertNull(monitor.connectedOverride)
+      assertEquals(ConnectivityMode.Automatic, monitor.mode)
     }
   }
 
@@ -127,13 +127,13 @@ class SharedNetworkMonitorTest {
   fun an_override_survives_restart_and_stale_callbacks() {
     monitor.acquire().use {
       callbacks.single()(NetworkStatus.OFFLINE)
-      monitor.connectedOverride = false
+      monitor.mode = ConnectivityMode.ForceOffline
     }
     assertEquals(NetworkStatus.OFFLINE, statuses.last())
     monitor.acquire().use {
       callbacks.last()(NetworkStatus.ONLINE)
       callbacks.first()(NetworkStatus.OFFLINE)
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(NetworkStatus.ONLINE, statuses.last())
     }
     callbacks.last()(NetworkStatus.OFFLINE)
@@ -144,9 +144,9 @@ class SharedNetworkMonitorTest {
   fun restart_discards_an_old_offline_observation() {
     monitor.acquire().use {
       callbacks.single()(NetworkStatus.OFFLINE)
-      monitor.connectedOverride = false
+      monitor.mode = ConnectivityMode.ForceOffline
     }
-    monitor.connectedOverride = null
+    monitor.mode = ConnectivityMode.Automatic
     monitor.acquire().use { assertEquals(NetworkStatus.ONLINE, statuses.last()) }
   }
 
@@ -154,14 +154,14 @@ class SharedNetworkMonitorTest {
   fun repeated_effective_statuses_are_not_published() {
     monitor.acquire().use {
       callbacks.single()(NetworkStatus.ONLINE)
-      monitor.connectedOverride = true
-      monitor.connectedOverride = true
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.ForceOnline
+      monitor.mode = ConnectivityMode.ForceOnline
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(listOf(NetworkStatus.ONLINE), statuses)
 
-      monitor.connectedOverride = false
+      monitor.mode = ConnectivityMode.ForceOffline
       callbacks.single()(NetworkStatus.OFFLINE)
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(listOf(NetworkStatus.ONLINE, NetworkStatus.OFFLINE), statuses)
     }
   }
@@ -179,12 +179,12 @@ class SharedNetworkMonitorTest {
         },
         setStatus = statuses::add,
       )
-    monitor.connectedOverride = false
+    monitor.mode = ConnectivityMode.ForceOffline
     assertFailsWith<IllegalStateException> { monitor.acquire() }
-    assertEquals(false, monitor.connectedOverride)
+    assertEquals(ConnectivityMode.ForceOffline, monitor.mode)
     assertEquals(listOf(NetworkStatus.OFFLINE), statuses)
     monitor.acquire().use {
-      monitor.connectedOverride = null
+      monitor.mode = ConnectivityMode.Automatic
       assertEquals(NetworkStatus.ONLINE, statuses.last())
     }
     assertEquals(1, stops)

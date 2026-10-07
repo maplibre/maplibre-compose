@@ -16,6 +16,7 @@ import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.OfflineStorageState
 import org.maplibre.compose.offline.offlineStorage
+import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.compose.resource.MapConnectivity
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -91,6 +92,6 @@ fun Offline() {
 
 fun setOfflineMode(enabled: Boolean) {
   // #region connectivity
-  MapConnectivity.connectedOverride = if (enabled) false else null
+  MapConnectivity.mode = if (enabled) ConnectivityMode.ForceOffline else ConnectivityMode.Automatic
   // #endregion connectivity
 }

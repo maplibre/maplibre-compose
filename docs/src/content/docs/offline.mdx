@@ -69,8 +69,8 @@ device has no network. No map configuration is required.
 
 ## Control network access
 
-Use <Api of="MapConnectivity.connectedOverride" /> for an application-wide offline
-mode. Set it to `false` to use offline packs and cached resources, and to `null`
-to follow device connectivity:
+Use <Api of="MapConnectivity.mode" /> for an application-wide offline mode. Set
+it to `ConnectivityMode.ForceOffline` to use offline packs and cached resources,
+and to `ConnectivityMode.Automatic` to follow device connectivity:
 
 <Code code={region(offline, "connectivity")} lang="kotlin" title="App.kt" />

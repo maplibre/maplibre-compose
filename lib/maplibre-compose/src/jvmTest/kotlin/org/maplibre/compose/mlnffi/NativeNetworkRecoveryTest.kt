@@ -9,6 +9,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.compose.resource.MapConnectivity
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.map.MapHandle
@@ -23,7 +24,7 @@ class NativeNetworkRecoveryTest {
   fun the_global_override_loads_cached_styles_and_restores_network_requests() {
     FfiTestPlatform.initialize()
     val cache = FfiTestPlatform.createCacheFile()
-    val previousOverride = MapConnectivity.connectedOverride
+    val previousMode = MapConnectivity.mode
     val requests = AtomicInteger()
     val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     server.createContext("/") { exchange ->
@@ -38,7 +39,7 @@ class NativeNetworkRecoveryTest {
     server.start()
     val styleUrl = "http://127.0.0.1:${server.address.port}/style.json"
     try {
-      MapConnectivity.connectedOverride = true
+      MapConnectivity.mode = ConnectivityMode.ForceOnline
       MapConnectivity.acquireMonitor().use {
         try {
           RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cache.toString() }).use {
@@ -49,7 +50,7 @@ class NativeNetworkRecoveryTest {
             }
             assertEquals(1, requests.get())
 
-            MapConnectivity.connectedOverride = false
+            MapConnectivity.mode = ConnectivityMode.ForceOffline
             assertEquals(NetworkStatus.OFFLINE, Maplibre.networkStatus)
             MapHandle.create(runtime, MapOptions()).use { map ->
               map.setStyleUrl(styleUrl)
@@ -64,7 +65,7 @@ class NativeNetworkRecoveryTest {
                 runtime.drainEvents().events.any { it.type == RuntimeEventType.MAP_LOADING_STARTED }
               }
               assertEquals(1, requests.get())
-              MapConnectivity.connectedOverride = true
+              MapConnectivity.mode = ConnectivityMode.ForceOnline
               awaitStyleLoaded(runtime)
               assertEquals(
                 2,
@@ -75,11 +76,11 @@ class NativeNetworkRecoveryTest {
           }
         } finally {
           // Restore while the lease is active, so Native is restored before later tests run.
-          MapConnectivity.connectedOverride = previousOverride
+          MapConnectivity.mode = previousMode
         }
       }
     } finally {
-      MapConnectivity.connectedOverride = previousOverride
+      MapConnectivity.mode = previousMode
       server.stop(0)
       FfiTestPlatform.deleteCacheFile(cache)
     }
