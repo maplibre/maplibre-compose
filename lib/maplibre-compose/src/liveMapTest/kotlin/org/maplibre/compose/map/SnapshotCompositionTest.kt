@@ -167,9 +167,9 @@ class SnapshotCompositionTest {
                   awaitCancellation()
                 } finally {
                   withContext(NonCancellable) {
-                    cleanup.complete(
-                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } }
-                    )
+                    // The command mutex itself; awaitCommands() would also wait for this capture.
+                    val commands = snapshotter.style.owner.resourceCommands
+                    cleanup.complete(runCatching { withTimeout(5_000) { commands.await() } })
                   }
                 }
               }

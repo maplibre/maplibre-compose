@@ -27,6 +27,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -310,65 +311,51 @@ class MapSnapshotterTest {
 
   @Test
   fun style_calls_during_a_capture_run_after_it_and_reach_the_next_capture() = runTest {
+    assertStyleCallsWaitForCapture(earlierCaptures = 1)
+  }
+
+  @Test
+  fun style_calls_during_the_first_capture_run_after_it() = runTest {
+    assertStyleCallsWaitForCapture(earlierCaptures = 0)
+  }
+
+  @Test
+  fun a_capture_issued_during_a_read_waits_for_the_read() = runTest {
     val binding = RecordingStyleBinding()
-    // The light intensity and image IDs that each capture rendered.
-    val rendered = mutableListOf<Pair<JsonElement?, Set<String>>>()
-    val captureStarted = CompletableDeferred<Unit>()
-    val finishCapture = CompletableDeferred<Unit>()
-    var blockCapture = false
+    val readDone = CompletableDeferred<Unit>()
+    // Whether the read had finished when each capture started.
+    val readDoneAtPrepare = mutableListOf<Boolean>()
     val runtime =
-      mapRuntimeForTest(
-        createSnapshotterAdapter = {
-          FakeSnapshotterAdapter(
-            prepare = { _, _ -> binding },
-            capture = { _, _ ->
-              if (blockCapture) {
-                captureStarted.complete(Unit)
-                finishCapture.await()
-              }
-              rendered += binding.lightProperties["intensity"] to binding.imageIds.toSet()
-              FakeImageBitmap(1, 1)
-            },
-          )
-        },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
-        logger = MapLog,
+      runtimeWith(
+        FakeSnapshotterAdapter(
+          prepare = { _, _ ->
+            readDoneAtPrepare += readDone.isCompleted
+            binding
+          }
+        )
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
-    val problems = recordingProblems {
-      snapshotter.capture(request)
-      blockCapture = true
-      val capture = async { snapshotter.capture(request) }
-      captureStarted.await()
-
-      snapshotter.style.light.set(Light(intensity = const(0.25f)))
-      snapshotter.style.images.set(
-        "during",
-        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
-      )
-      // A read waits its turn too, so it sees the writes issued before it.
-      val intensity =
-        async(start = CoroutineStart.UNDISPATCHED) {
-          snapshotter.style.light.getProperty("intensity")
+    snapshotter.capture(request)
+    val readStarted = CompletableDeferred<Unit>()
+    val finishRead = CompletableDeferred<Unit>()
+    val read =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        snapshotter.style.read(binding) {
+          readStarted.complete(Unit)
+          finishRead.await()
+          readDone.complete(Unit)
+          "value"
         }
-      assertTrue(binding.lightProperties.isEmpty())
-      blockCapture = false
-      finishCapture.complete(Unit)
-      capture.await()
-      assertEquals(JsonPrimitive(0.25f), intensity.await())
-      snapshotter.capture(request)
-    }
+      }
+    readStarted.await()
 
-    assertEquals(
-      listOf<Pair<JsonElement?, Set<String>>>(
-        null to emptySet(),
-        null to emptySet(),
-        JsonPrimitive(0.25f) to setOf("during"),
-      ),
-      rendered,
-    )
-    assertEquals(emptyList<String>(), problems)
+    val capture = async(start = CoroutineStart.UNDISPATCHED) { snapshotter.capture(request) }
+    finishRead.complete(Unit)
+
+    assertEquals("value", read.await())
+    capture.await()
+    assertEquals(listOf(false, true), readDoneAtPrepare)
     close(snapshotter, runtime)
   }
 
@@ -810,6 +797,68 @@ class MapSnapshotterTest {
       createSnapshotterAdapter = { adapter },
       styleEvaluator = styleEvaluator,
     )
+
+  /**
+   * Issues a light write, an image command, and an image read during the capture that follows
+   * [earlierCaptures] captures, and checks that they run after it, reach the next capture, and log
+   * nothing.
+   */
+  private suspend fun TestScope.assertStyleCallsWaitForCapture(earlierCaptures: Int) {
+    val binding = RecordingStyleBinding()
+    // The light intensity and image IDs that each capture rendered.
+    val rendered = mutableListOf<Pair<JsonElement?, Set<String>>>()
+    val captureStarted = CompletableDeferred<Unit>()
+    val finishCapture = CompletableDeferred<Unit>()
+    var blockCapture = false
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ -> binding },
+            capture = { _, _ ->
+              if (blockCapture) {
+                captureStarted.complete(Unit)
+                finishCapture.await()
+              }
+              rendered += binding.lightProperties["intensity"] to binding.imageIds.toSet()
+              FakeImageBitmap(1, 1)
+            },
+          )
+        },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
+        logger = MapLog,
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
+    val problems = recordingProblems {
+      repeat(earlierCaptures) { snapshotter.capture(request) }
+      blockCapture = true
+      val capture = async { snapshotter.capture(request) }
+      captureStarted.await()
+
+      snapshotter.style.light.set(Light(intensity = const(0.25f)))
+      snapshotter.style.images.set(
+        "during",
+        ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
+      )
+      // A read waits its turn too, so it sees the calls issued before it.
+      val image = async(start = CoroutineStart.UNDISPATCHED) { snapshotter.style.images["during"] }
+      assertTrue(binding.lightProperties.isEmpty())
+      blockCapture = false
+      finishCapture.complete(Unit)
+      capture.await()
+      assertEquals("during", image.await()?.id)
+      snapshotter.capture(request)
+    }
+
+    assertEquals(
+      List<Pair<JsonElement?, Set<String>>>(earlierCaptures + 1) { null to emptySet() } +
+        (JsonPrimitive(0.25f) to setOf("during")),
+      rendered,
+    )
+    assertEquals(emptyList<String>(), problems)
+    close(snapshotter, runtime)
+  }
 
   /** Returns the warnings and errors the library logs while [block] runs. */
   private suspend fun recordingProblems(block: suspend () -> Unit): List<String> {

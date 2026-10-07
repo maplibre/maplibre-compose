@@ -273,7 +273,7 @@ internal class MapSnapshotterImplementation(
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
   private val lock = reentrantLock()
-  // Captures and the style calls issued while a capture is queued or running, in issue order.
+  // Captures, reads, and the style calls issued while the queue is busy, in issue order.
   private val queue = ArrayDeque<QueuedWork>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var adapter: SnapshotterAdapter? = null
@@ -307,9 +307,8 @@ internal class MapSnapshotterImplementation(
       val capture = Capture(request, continuation)
       val accepted = lock.withLock {
         if (closed) return@withLock false
-        queue.addLast(capture)
+        enqueueLocked(capture)
         continuation.invokeOnCancellation { cancel(capture) }
-        if (worker == null) worker = runtime.physicalScope.launch { runQueue() }
         true
       }
       if (!accepted) {
@@ -343,14 +342,27 @@ internal class MapSnapshotterImplementation(
   override fun toString(): String =
     formatToString("MapSnapshotter", "closed" to lock.withLock { closed }, "style" to style)
 
+  // A call made while the queue is idle starts at once: whatever it hands on reaches the engine
+  // owner or the command mutex before a later capture's work does.
   override fun runInOrder(action: () -> Unit) {
-    if (!queueBehindCaptures(StyleCall(action, done = null))) action()
+    val queued = lock.withLock {
+      if (closed || worker == null) return@withLock false
+      queue.addLast(StyleCall(action, done = null))
+      true
+    }
+    if (!queued) action()
   }
 
+  // A read always takes a place in the queue, so a capture issued while it runs waits for it.
   override suspend fun <T> readInOrder(read: suspend () -> T): T {
     val turn = CompletableDeferred<Unit>()
     val done = CompletableDeferred<Unit>()
-    if (!queueBehindCaptures(StyleCall({ turn.complete(Unit) }, done))) return read()
+    val queued = lock.withLock {
+      if (closed) return@withLock false
+      enqueueLocked(StyleCall({ turn.complete(Unit) }, done))
+      true
+    }
+    if (!queued) return read()
     try {
       turn.await()
       return read()
@@ -359,11 +371,10 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  /** Queues [call] and returns true while a capture is queued or running. */
-  private fun queueBehindCaptures(call: StyleCall): Boolean = lock.withLock {
-    if (closed || worker == null) return false
-    queue.addLast(call)
-    true
+  /** Call under [lock]. */
+  private fun enqueueLocked(work: QueuedWork) {
+    queue.addLast(work)
+    if (worker == null) worker = runtime.physicalScope.launch { runQueue() }
   }
 
   private suspend fun runQueue() {
@@ -702,8 +713,8 @@ internal class MapSnapshotterImplementation(
   private sealed interface QueuedWork
 
   /**
-   * A style call issued while a capture was queued or running. [start] hands it on without waiting;
-   * the queue waits for [done], when present, before the next capture.
+   * A read, or a style call issued while the queue was busy. [start] hands it on without waiting;
+   * the queue waits for [done], when present, before the next item.
    */
   private class StyleCall(val start: () -> Unit, val done: CompletableDeferred<Unit>?) : QueuedWork
 

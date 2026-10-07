@@ -355,11 +355,12 @@ internal interface MapStyleStateOwner {
  */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   /**
-   * Waits for resource commands accepted before this call. Callers wait on the resource instead:
-   * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
+   * Waits for the resource commands issued before this call, including those a snapshotter holds
+   * for a capture. Callers wait on the resource instead: [StyleSources.add] returns once its
+   * command has run, and [StyleImages.get] waits the same way.
    */
   internal suspend fun awaitCommands() {
-    owner.resourceCommands.await()
+    owner.readInOrder { owner.resourceCommands.await() }
   }
 
   /** The map or snapshotter that owns this state, attached right after construction. */
@@ -584,24 +585,32 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     isResourceCurrent: () -> Boolean = { true },
     action: () -> Unit,
   ) {
+    owner.runInOrder { postNow(binding, target, value, isResourceCurrent, action) }
+  }
+
+  private fun postNow(
+    binding: StyleBinding,
+    target: String,
+    value: JsonElement?,
+    isResourceCurrent: () -> Boolean,
+    action: () -> Unit,
+  ) {
     val dropped: () -> Unit = {
       owner.logger?.w { "$target was not written: the loaded style changed first" }
     }
-    owner.runInOrder {
-      binding.postOwner(onDropped = dropped) {
-        if (!isLive(binding)) return@postOwner dropped()
-        if (!isResourceCurrent()) {
-          owner.logger?.w { "$target was not written: it was removed or replaced first" }
-          return@postOwner
-        }
-        try {
-          action()
-        } catch (error: Exception) {
-          when {
-            !isLive(binding) -> dropped()
-            error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
-            else -> throw error
-          }
+    binding.postOwner(onDropped = dropped) {
+      if (!isLive(binding)) return@postOwner dropped()
+      if (!isResourceCurrent()) {
+        owner.logger?.w { "$target was not written: it was removed or replaced first" }
+        return@postOwner
+      }
+      try {
+        action()
+      } catch (error: Exception) {
+        when {
+          !isLive(binding) -> dropped()
+          error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
+          else -> throw error
         }
       }
     }
@@ -610,8 +619,9 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   private fun isLive(binding: StyleBinding): Boolean = binding.isLoaded && owner.isCurrent(binding)
 
   /**
-   * Posts a write to the ready loaded style. Without one, the write is skipped and logged. The
-   * engine reports a rejection through the logger.
+   * Posts a write to the style that is ready when the write's turn comes (see
+   * [MapStyleStateOwner.runInOrder]). Without one, the write is skipped and logged. The engine
+   * reports a rejection through the logger.
    */
   private fun mutateStyle(
     target: String,
@@ -619,12 +629,14 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     mutate: (StyleBinding) -> Unit,
   ) {
     owner.requireOpen()
-    val current = readyLoadedStyle()
-    if (current == null) {
-      owner.logger?.w { "$target was not written: no style is ready" }
-      return
+    owner.runInOrder {
+      val current = readyLoadedStyle()
+      if (current == null) {
+        owner.logger?.w { "$target was not written: no style is ready" }
+        return@runInOrder
+      }
+      postNow(current, target, value, { true }) { mutate(current) }
     }
-    post(current, target, value) { mutate(current) }
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {
