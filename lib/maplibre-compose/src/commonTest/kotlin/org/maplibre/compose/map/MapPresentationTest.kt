@@ -1057,6 +1057,36 @@ class MapPresentationTest {
   }
 
   @Test
+  fun geojson_cluster_leaves_validate_limit_and_offset() = runTest {
+    val fixture = presentationFixture()
+    val loadedStyle =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            GeoJsonSource(
+              id = "points",
+              data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+              options = GeoJsonOptions(cluster = true),
+            )
+          )
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
+    val cluster = Feature(Point(Position(0.0, 0.0)), buildJsonObject { put("cluster_id", 1) })
+
+    val negativeLimit =
+      assertFailsWith<IllegalArgumentException> { handle.getClusterLeaves(cluster, -1, 0) }
+    assertEquals("limit must not be negative, was -1", negativeLimit.message)
+    val negativeOffset =
+      assertFailsWith<IllegalArgumentException> { handle.getClusterLeaves(cluster, 1, -2) }
+    assertEquals("offset must not be negative, was -2", negativeOffset.message)
+    // The recording engine answers null, so an empty result shows that it was not asked.
+    assertEquals(emptyList(), assertNotNull(handle.getClusterLeaves(cluster, 0, 0)).features)
+    fixture.close()
+  }
+
+  @Test
   fun replacing_a_retained_engine_invalidates_its_style_handles_before_publication() = runTest {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Demo)

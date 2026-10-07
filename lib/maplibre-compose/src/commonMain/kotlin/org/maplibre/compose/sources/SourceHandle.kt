@@ -90,16 +90,20 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    * Returns the points in the cluster [feature], including the points of nested clusters. Skips the
    * first [offset] points and returns at most [limit] points.
    *
-   * @return the points, which are empty when [offset] skips every point, or null if [feature] has
-   *   no cluster ID, no cluster with that ID exists in the source's current data, or the source
-   *   does not cluster its data.
+   * @param limit The maximum number of points to return. Must not be negative. When it is 0, the
+   *   result is empty, even if the cluster does not exist.
+   * @param offset The number of points to skip. Must not be negative.
+   * @return the points, which are empty when [limit] is 0 or [offset] skips every point, or null if
+   *   [feature] has no cluster ID, no cluster with that ID exists in the source's current data, or
+   *   the source does not cluster its data.
+   * @throws IllegalArgumentException if [limit] or [offset] is negative.
    * @throws StyleHandleException if this handle has expired, no style is ready, or the engine fails
    *   the query.
    */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
+    limit: Int,
+    offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>?
 
   /**

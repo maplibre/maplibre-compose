@@ -608,15 +608,15 @@ internal class GlJsStyleBinding(
   override suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
+    limit: Int,
+    offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>? =
     queryCluster(sourceId, feature) { query ->
       query.source
         .getClusterLeaves(
           query.clusterId,
-          limit.coerceAtLeast(0).toDouble(),
-          offset.coerceAtLeast(0).toDouble(),
+          limit.toDouble(),
+          offset.toDouble(),
         )
         .await()
         ?.toFeatureCollection()

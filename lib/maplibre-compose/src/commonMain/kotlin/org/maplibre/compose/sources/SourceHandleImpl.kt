@@ -152,10 +152,16 @@ internal constructor(
 
   override suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
-    limit: Long,
-    offset: Long,
-  ): FeatureCollection<Geometry, JsonObject?>? = suspendingOperation {
-    style.clusterLeaves(id, feature, limit, offset)
+    limit: Int,
+    offset: Int,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    require(limit >= 0) { "limit must not be negative, was $limit" }
+    require(offset >= 0) { "offset must not be negative, was $offset" }
+    return suspendingOperation {
+      // GL JS reads a limit of 0 as its default of 10.
+      if (limit == 0) FeatureCollection(emptyList())
+      else style.clusterLeaves(id, feature, limit, offset)
+    }
   }
 
   override fun setFeatureState(featureId: String, state: JsonObject) {

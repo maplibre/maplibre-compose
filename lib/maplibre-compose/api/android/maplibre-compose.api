@@ -3782,7 +3782,7 @@ public abstract interface class org/maplibre/compose/sources/GeoJsonSourceHandle
 	public synthetic fun getAsMutable ()Lorg/maplibre/compose/sources/MutableSourceHandle;
 	public abstract fun getClusterChildren (Lorg/maplibre/spatialk/geojson/Feature;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getClusterExpansionZoom (Lorg/maplibre/spatialk/geojson/Feature;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun getClusterLeaves (Lorg/maplibre/spatialk/geojson/Feature;JJLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun getClusterLeaves (Lorg/maplibre/spatialk/geojson/Feature;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun getFeatureState (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun isCluster (Lorg/maplibre/spatialk/geojson/Feature;)Z
 	public abstract fun removeFeatureState (Ljava/lang/String;Ljava/lang/String;)V
