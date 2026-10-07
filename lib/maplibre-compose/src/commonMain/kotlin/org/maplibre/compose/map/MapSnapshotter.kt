@@ -95,7 +95,7 @@ internal fun MapSnapshotRequest.extent(): MapExtent =
 private fun Dp.wholeLogicalPixels(): Int = value.roundToInt().coerceAtLeast(1)
 
 /** Reports a failed snapshot capture. */
-public class MapSnapshotException internal constructor(message: String, cause: Throwable) :
+public class MapSnapshotException internal constructor(message: String, cause: Throwable? = null) :
   RuntimeException(message, cause)
 
 /**
@@ -142,7 +142,7 @@ internal enum class SnapshotterEngineDisposition {
 }
 
 internal fun unsupportedSnapshots(): Nothing =
-  throw UnsupportedOperationException("Snapshot capture is not available on this platform")
+  throw MapSnapshotException("This map runtime does not render snapshots")
 
 internal data class SnapshotStyleOwnership(
   val sourceIds: Set<String>,
@@ -242,12 +242,12 @@ public sealed interface MapSnapshotter {
    *
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
-   * @throws UnsupportedOperationException if snapshots are unavailable on the current platform.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
-   * @throws MapSnapshotException if style evaluation or rendering fails, or a tile or resource
-   *   fails to load. When a [GeometryTileProvider] or [VectorTileProvider] call failed, the cause
-   *   is its exception, wrapped in an [IllegalStateException] when it is a cancellation that the
-   *   provider caused itself.
+   * @throws MapSnapshotException if the runtime cannot render offscreen, such as when MapLibre
+   *   Native offers no offscreen rendering backend for the device, style evaluation or rendering
+   *   fails, or a tile or resource fails to load. When a [GeometryTileProvider] or
+   *   [VectorTileProvider] call failed, the cause is its exception, wrapped in an
+   *   [IllegalStateException] when it is a cancellation that the provider caused itself.
    */
   public suspend fun capture(request: MapSnapshotRequest): ImageBitmap
 
@@ -368,7 +368,7 @@ internal class MapSnapshotterImplementation(
       try {
         adapter ?: runtime.createSnapshotterAdapter().also { adapter = it }
       } catch (error: Throwable) {
-        capture.resumeFailure(error.toSnapshotAvailabilityFailure())
+        capture.resumeFailure(error.toSnapshotFailure())
         return@coroutineScope
       }
     val operation =
@@ -675,9 +675,6 @@ internal class MapSnapshotterImplementation(
 
 internal fun snapshotterClosedCancellation(): CancellationException =
   CancellationException("The map snapshotter closed during capture")
-
-private fun Throwable.toSnapshotAvailabilityFailure(): Throwable =
-  if (this is UnsupportedOperationException) this else toSnapshotFailure()
 
 private fun Throwable.toSnapshotRequestFailure(): Throwable =
   if (this is IllegalArgumentException) this else toSnapshotFailure()

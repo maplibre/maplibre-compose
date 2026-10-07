@@ -551,11 +551,11 @@ class MapSnapshotterTest {
   }
 
   @Test
-  fun capture_preserves_platform_unavailability() = runTest {
+  fun capture_fails_when_the_runtime_cannot_render_snapshots() = runTest {
     val runtime = mapRuntimeForTest()
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
 
-    assertFailsWith<UnsupportedOperationException> {
+    assertFailsWith<MapSnapshotException> {
       snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
     }
 

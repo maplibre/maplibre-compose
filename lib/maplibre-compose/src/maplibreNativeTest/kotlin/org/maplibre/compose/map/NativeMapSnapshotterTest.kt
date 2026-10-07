@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -41,13 +42,31 @@ class NativeMapSnapshotterTest {
 
   @Test
   fun snapshotter_rejects_a_runtime_without_an_offscreen_backend() {
-    assertFailsWith<UnsupportedOperationException> {
+    assertFailsWith<MapSnapshotException> {
       createNativeSnapshotterAdapter(
-        owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null)),
-        backends = emptySet(),
+        owner = unstartedOwner(),
+        backends = Result.success(emptySet()),
       )
     }
   }
+
+  @Test
+  fun snapshotter_reports_why_the_native_runtime_failed_to_load() {
+    val loadFailure = IllegalStateException("maplibre-native-ffi is not packaged")
+
+    val failure =
+      assertFailsWith<MapSnapshotException> {
+        createNativeSnapshotterAdapter(
+          owner = unstartedOwner(),
+          backends = Result.failure(loadFailure),
+        )
+      }
+
+    assertSame(loadFailure, failure.cause)
+  }
+
+  private fun unstartedOwner() =
+    MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null))
 
   @Test
   fun composed_source_and_layer_render_into_an_offscreen_snapshot(): MapTestResult = runMapTest {

@@ -48,10 +48,11 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
           NativeSnapshotRenderTargetPlan {
             NativeSnapshotRenderTarget(VulkanDelegate(VulkanDevice.create()))
           }
-        (os.contains("linux") || os.contains("windows") || os.contains("mac")) &&
-          MapRenderBackend.OpenGl in backends ->
-          NativeSnapshotRenderTargetPlan {
-            NativeSnapshotRenderTarget(OpenGlDelegate(DesktopOpenGlSnapshotContext.create(os)))
+        MapRenderBackend.OpenGl in backends ->
+          DesktopOpenGlSnapshotContext.provider(os)?.let { createContext ->
+            NativeSnapshotRenderTargetPlan {
+              NativeSnapshotRenderTarget(OpenGlDelegate(createContext()))
+            }
           }
         else -> null
       }
