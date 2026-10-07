@@ -38,8 +38,8 @@ implements both with the same controls.
 the ground, and zooms back in, so the map stays legible over any distance.
 Without a duration, the flight takes as long as its path length and speed
 require. Set `duration` for a fixed time, `speed` in screenfuls per second for a
-constant pace, and `minZoom` to keep the flight path from zooming out past a
-zoom. The path peaks near `minZoom` rather than stopping exactly at it:
+constant pace, and `minZoom` to shape how far the flight zooms out. The exact
+path depends on the engine:
 
 <Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
 
