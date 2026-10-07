@@ -272,20 +272,23 @@ class MapSnapshotterTest {
     var desired = StyleSnapshot(listOf(original.definition()), emptyList(), emptyList())
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
+    lateinit var snapshotter: MapSnapshotter
+    var renderedAttribution: String? = null
     val runtime =
       mapRuntimeForTest(
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
-            capture = { request, revision ->
-              reconciler.apply(binding, revision)
+            apply = { reconciler.apply(binding, it) },
+            capture = { request, _ ->
+              renderedAttribution = snapshotter.style.sources["shared"]?.attributionHtml
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
         },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> desired },
       )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
     snapshotter.capture(request)
     val stale = assertIs<VectorTileSourceHandle>(snapshotter.style.sources["shared"])
@@ -294,6 +297,8 @@ class MapSnapshotterTest {
     snapshotter.capture(request)
 
     stale.resetFeatureStates("layer")
+    // The reused style publishes its handles before it renders.
+    assertEquals("replacement", renderedAttribution)
     assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }

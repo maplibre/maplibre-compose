@@ -418,6 +418,8 @@ internal class MapSnapshotterImplementation(
               declareRevision(currentBinding, revision)
               recordStyleOwnership(currentClaim, revision)
               platform.apply(revision)
+              // Publish a reused style's handles before rendering, as a map does.
+              commitSourcesAfterCommand(currentBinding) {}
             }
             val image = platform.capture(request)
             resourceCommands.withCommit {
