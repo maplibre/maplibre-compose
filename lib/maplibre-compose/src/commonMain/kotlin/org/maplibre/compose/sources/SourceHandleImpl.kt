@@ -53,12 +53,11 @@ protected constructor(
     }
 
   /** False once the loaded style reloads or this source is removed or replaced. */
-  private fun isLive(): Boolean {
+  private fun isLive(): Boolean = operations.isReady() && style.isLoaded && isResourceCurrent()
+
+  private fun isResourceCurrent(): Boolean {
     val actualKind = currentKind()
-    return operations.isReady() &&
-      style.isLoaded &&
-      actualKind != null &&
-      (expectedKind == null || actualKind == expectedKind)
+    return actualKind != null && (expectedKind == null || actualKind == expectedKind)
   }
 
   /**
@@ -84,9 +83,8 @@ protected constructor(
   /** Returns null when this handle has expired, including during [action]. */
   internal suspend fun <T> read(action: suspend () -> T?): T? {
     if (!begin()) return null
-    val result = action()
     // A close during the read is a style change, not a use after close.
-    return result.takeIf { isLive() }
+    return operations.read(::isResourceCurrent, action)
   }
 
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
@@ -126,9 +124,7 @@ protected constructor(
   }
 
   private fun postMutation(action: () -> Unit) {
-    operations.post("Source '$id'") {
-      if (identity.sources.isCurrent(id, resourceIdentity)) action()
-    }
+    operations.post("Source '$id'", { identity.sources.isCurrent(id, resourceIdentity) }, action)
   }
 
   /** Runs a read through the owner's single engine path. */

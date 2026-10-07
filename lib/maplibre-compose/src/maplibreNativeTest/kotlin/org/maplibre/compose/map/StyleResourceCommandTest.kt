@@ -290,7 +290,11 @@ class StyleResourceCommandTest {
           release.countDown()
         }
         assertEquals(Quad.corners(), binding.readMap { it.imageSourceCorners("image") })
-        assertEquals(emptyList(), records.problems())
+        // Each write that the removal overtook is logged once as dropped.
+        assertEquals(
+          List(2) { "Source 'image' was not written: it was removed or replaced first" },
+          records.problems(),
+        )
       }
     }
   }

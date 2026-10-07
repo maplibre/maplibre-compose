@@ -60,8 +60,8 @@ internal constructor(
     write(name) {
       operations.requireLayerWritable(id)
       val writes = listOf(LayerPropertyWrite(id, type, name, value, kind))
-      operations.post("$type layer '$id'") {
-        if (isCurrentResource()) style.setLayerProperties(writes)
+      operations.post("$type layer '$id'", isCurrentResource) {
+        style.setLayerProperties(writes)
       }
     }
   }
@@ -85,10 +85,8 @@ internal constructor(
   /** Returns null when this handle has expired, including during [action]. */
   private suspend fun <T> read(action: suspend () -> T?): T? {
     operations.requireOpen()
-    if (!isLive()) return null
-    val result = action()
     // A close during the read is a style change, not a use after close.
-    return result.takeIf { isLive() }
+    return operations.read(isCurrentResource, action)
   }
 
   private companion object {

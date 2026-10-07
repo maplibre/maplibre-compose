@@ -191,7 +191,13 @@ class SourceVolatilityTest {
 
     override fun isReady(): Boolean = true
 
-    override fun post(target: String, action: () -> Unit) = binding.postOwner(action = action)
+    override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) =
+      binding.postOwner {
+        if (isResourceCurrent()) action()
+      }
+
+    override suspend fun <T> read(isResourceCurrent: () -> Boolean, action: suspend () -> T?): T? =
+      action().takeIf { isResourceCurrent() }
 
     override suspend fun <T> visit(action: () -> T?): T? = binding.awaitOwner(action)
 
