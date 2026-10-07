@@ -72,8 +72,12 @@ public fun interface GeometryTileProvider {
    *
    * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
    * style. Any other exception, including a cancellation that the provider causes itself, such as
-   * its own timeout, is logged as an error, and the tile loads with no features. MapLibre does not
-   * report a tile error.
+   * its own timeout, is handled differently on each platform:
+   * - On the browser, the exception is logged as a warning, and the tile fails to load. MapLibre
+   *   reports a tile error with the exception message, shows lower-zoom data in place of the tile
+   *   where available, and requests the tile again when it is needed again.
+   * - On MapLibre Native, the exception is logged as an error, and the tile loads with no features.
+   *   MapLibre does not report a tile error.
    */
   public suspend fun loadTile(tile: TileCoordinate): FeatureCollection<*, *>
 }
@@ -92,7 +96,8 @@ public fun interface VectorTileProvider {
    * The library cancels a call when MapLibre no longer needs the tile or the source leaves the
    * style. Any other exception, including a cancellation that the provider causes itself, such as
    * its own timeout, is logged as a warning, and the tile fails to load. MapLibre reports a tile
-   * error with the exception message.
+   * error with the exception message, shows lower-zoom data in place of the tile where available,
+   * and requests the tile again when it is needed again.
    */
   public suspend fun loadTile(tile: TileCoordinate): ByteArray
 }
@@ -108,7 +113,8 @@ public fun interface VectorTileProvider {
  * Layers read the source's single feature layer regardless of their `source-layer` setting. On the
  * browser, a layer handle reads back the source id as its `source-layer`.
  *
- * Provider failures are logged and produce an empty tile.
+ * When the provider fails, the tile fails to load on the browser and loads with no features on
+ * MapLibre Native. See [GeometryTileProvider.loadTile].
  */
 public class CustomGeometrySource(
   id: String,
@@ -134,6 +140,8 @@ public class CustomGeometrySource(
  * A source whose tiles contain uncompressed MVT protobuf documents that the application supplies.
  *
  * Layers that use this source specify a source layer that exists in the returned MVT document.
+ *
+ * When the provider fails, the tile fails to load. See [VectorTileProvider.loadTile].
  */
 public class CustomVectorTileSource(
   id: String,
