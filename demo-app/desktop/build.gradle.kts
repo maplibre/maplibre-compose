@@ -37,6 +37,10 @@ compose.desktop {
   application {
     mainClass = "org.maplibre.compose.demoapp.MainKt"
     jvmArgs += NATIVE_ACCESS_JVM_ARGS
+    if (desktopHostPlatform == DesktopHostPlatform.MacosArm64) {
+      // Packaging re-signs LWJGL dylibs, changing the bytes checked against their JAR hashes.
+      jvmArgs += "-Dorg.lwjgl.util.NoHashChecks=true"
+    }
 
     nativeDistributions {
       // Package the configured toolchain, even when Gradle runs on an older JDK.
