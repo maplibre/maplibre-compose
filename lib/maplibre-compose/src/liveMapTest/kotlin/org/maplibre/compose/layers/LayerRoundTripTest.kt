@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.serialization.json.JsonObject
@@ -11,7 +10,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
@@ -44,7 +42,7 @@ class LayerRoundTripTest {
           paint("background-opacity", const(0.8f))
         }
       }
-      assertFailsWith<StyleHandleException> { handle.getProperty("background-opacity") }
+      assertNull(handle.getProperty("background-opacity"))
       assertNotNull(fixture.state.style.layers["custom"])
       fixture.declare {}
       assertNull(fixture.state.style.layers["custom"])

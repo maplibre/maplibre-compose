@@ -43,7 +43,6 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.testing.setImage
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
@@ -103,9 +102,9 @@ class SnapshotCompositionTest {
       assertNull(snapshotter.style.sources[source])
       assertNull(snapshotter.style.layers["pin"])
       assertNull(snapshotter.style.images[imageId])
-      assertFailsWith<StyleHandleException> { sourceHandle.resetFeatureStates() }
-      assertFailsWith<StyleHandleException> { layerHandle.getProperty("visibility") }
-      assertFailsWith<StyleHandleException> { imageHandle.asMutable }
+      sourceHandle.resetFeatureStates()
+      assertNull(layerHandle.getProperty("visibility"))
+      assertNull(imageHandle.asMutable)
       snapshotter.style.sources.add(source)
       snapshotter.style.setImage(imageId, bitmap)
     } finally {

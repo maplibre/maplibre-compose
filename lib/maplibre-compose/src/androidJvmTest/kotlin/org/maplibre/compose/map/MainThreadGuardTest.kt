@@ -90,7 +90,10 @@ class MainThreadGuardTest {
     var failure: Throwable? = null
     thread {
       failure =
-        runCatching { state.styleAuthority.runStyleHandleOperation(binding) { ran = true } }
+        runCatching {
+          state.styleAuthority.requireOpen()
+          ran = true
+        }
           .exceptionOrNull()
     }
       .join()

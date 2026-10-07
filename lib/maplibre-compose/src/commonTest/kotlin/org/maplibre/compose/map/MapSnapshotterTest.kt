@@ -39,7 +39,6 @@ import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.setImage
@@ -179,14 +178,16 @@ class MapSnapshotterTest {
       assertTrue(snapshotter.style.sources.none())
       val currentSource = checkNotNull(snapshotter.style.sources.add(source))
       val currentImage = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
-      assertFailsWith<StyleHandleException> { sourceHandle.remove() }
-      assertFailsWith<StyleHandleException> { imageHandle.remove() }
+      // These handles removed their own resources: using them again is misuse.
+      assertFailsWith<IllegalStateException> { sourceHandle.remove() }
+      assertFailsWith<IllegalStateException> { imageHandle.remove() }
       assertTrue(binding.sourceExists("imperative") == true)
       assertEquals(setOf("imperative"), binding.imageIds)
       snapshotter.style.asMutable!!.baseStyle =
         BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-      assertFailsWith<StyleHandleException> { currentSource.remove() }
-      assertFailsWith<StyleHandleException> { currentImage.remove() }
+      // Handles that expired with the base style ignore their removal.
+      currentSource.remove()
+      currentImage.remove()
     }
 
     close(snapshotter, runtime)
@@ -259,8 +260,8 @@ class MapSnapshotterTest {
     assertNull(layerHandle.getProperty("background-opacity"))
     snapshotter.style.asMutable!!.baseStyle =
       BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    assertFailsWith<StyleHandleException> { sourceHandle.asMutable }
-    assertFailsWith<StyleHandleException> { layerHandle.getProperty("background-opacity") }
+    assertNull(sourceHandle.asMutable)
+    assertNull(layerHandle.getProperty("background-opacity"))
     close(snapshotter, runtime)
   }
 
@@ -292,7 +293,7 @@ class MapSnapshotterTest {
     desired = StyleSnapshot(listOf(replacement.definition()), emptyList(), emptyList())
     snapshotter.capture(request)
 
-    assertFailsWith<StyleHandleException> { stale.resetFeatureStates("layer") }
+    stale.resetFeatureStates("layer")
     assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }
@@ -326,7 +327,8 @@ class MapSnapshotterTest {
     val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp))) }
     captureStarted.await()
 
-    assertFailsWith<StyleHandleException> { handle.resetFeatureStates("layer") }
+    // The capture holds the style, so the handle is not live and the write does nothing.
+    handle.resetFeatureStates("layer")
     // A command while the capture holds the style does nothing.
     snapshotter.style.images.set(
       "crossing",

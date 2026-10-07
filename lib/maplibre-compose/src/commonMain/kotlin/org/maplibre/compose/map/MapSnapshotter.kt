@@ -550,17 +550,6 @@ internal class MapSnapshotterImplementation(
     style.currentLoadedStyle()?.takeIf { style.loadState == StyleLoadState.Ready }
   }
 
-  override fun <T> runStyleHandleOperation(
-    binding: StyleBinding,
-    action: () -> T,
-  ): T {
-    requireOpen()
-    style.requireCurrentBinding(binding)
-    val result = action()
-    style.requireCurrentBinding(binding)
-    return result
-  }
-
   // A closed snapshotter keeps its loaded style until cleanup finishes, so closure is checked too.
   override fun isCurrent(binding: StyleBinding): Boolean = lock.withLock {
     isCurrentLocked(binding)

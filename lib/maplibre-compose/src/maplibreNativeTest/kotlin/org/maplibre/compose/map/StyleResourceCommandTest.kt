@@ -35,7 +35,6 @@ import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.implementation
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
@@ -313,7 +312,7 @@ class StyleResourceCommandTest {
         )
       assertEquals(listOf("background"), binding.baseLayers.map { it.id })
       assertFalse(binding.isLoaded)
-      assertFailsWith<StyleHandleException> { actual.readMap { binding.layerIds() } }
+      assertFailsWith<IllegalStateException> { actual.readMap { binding.layerIds() } }
     }
   }
 
@@ -347,7 +346,7 @@ class StyleResourceCommandTest {
             }
           )
         binding.invalidate()
-        assertFailsWith<StyleHandleException> {
+        assertFailsWith<IllegalStateException> {
           actual.readMap {
             if (mutating) binding.removeImage("retained") else binding.imageExists("retained")
           }

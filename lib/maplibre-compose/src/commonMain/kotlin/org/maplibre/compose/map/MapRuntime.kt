@@ -88,7 +88,6 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -332,8 +331,6 @@ internal interface MapStyleStateOwner {
   fun isCurrent(binding: StyleBinding): Boolean
 
   fun readyLoadedStyle(): StyleBinding?
-
-  fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T
 }
 
 /**
@@ -385,12 +382,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun isReadyBinding(binding: StyleBinding): Boolean =
     loadState == StyleLoadState.Ready && isCurrentLoadedStyle(binding)
-
-  internal fun requireCurrentBinding(binding: StyleBinding) {
-    checkStyleHandle(owner.isCurrent(binding)) {
-      "Style operation belongs to a stale or unready loaded-style identity"
-    }
-  }
 
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
@@ -713,9 +704,9 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
-      override fun <T> run(action: () -> T): T = owner.runStyleHandleOperation(style, action)
+      override fun requireOpen() = owner.requireOpen()
 
-      override fun requireReady() = requireCurrentBinding(style)
+      override fun isReady(): Boolean = owner.isCurrent(style)
 
       override fun post(target: String, action: () -> Unit) =
         this@MapStyleState.post(style, target, action = action)
@@ -726,8 +717,8 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
       override fun isLayerWritable(id: String): Boolean = this@MapStyleState.isLayerWritable(id)
 
-      override fun removeSource(id: String, identity: Any) =
-        owner.resourceCommands.removeSource(id, style, identity)
+      override fun removeSource(id: String, identity: Any, onRemoved: () -> Unit) =
+        owner.resourceCommands.removeSource(id, style, identity, onRemoved)
 
       override fun requireSourceWritable(id: String) = this@MapStyleState.requireSourceWritable(id)
 

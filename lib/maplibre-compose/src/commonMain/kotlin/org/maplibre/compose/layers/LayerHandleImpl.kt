@@ -7,10 +7,8 @@ import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.LayerPropertyWrite
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
-import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.TransitionSuffix
-import org.maplibre.compose.style.checkStyleHandle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
@@ -25,10 +23,8 @@ internal constructor(
   private val isCurrentResource: () -> Boolean,
   private val operations: StyleHandleOperationGuard,
 ) : LayerHandle {
-  private val identity: StyleIdentity = style.identity
-
-  override suspend fun getProperty(name: String): JsonElement? {
-    return suspendingOperation { operations.visit { style.layerProperty(id, name) } }
+  override suspend fun getProperty(name: String): JsonElement? = read {
+    operations.visit { style.layerProperty(id, name) }
   }
 
   internal fun setLayoutProperty(name: String, value: JsonElement) {
@@ -61,7 +57,7 @@ internal constructor(
   }
 
   private fun setProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
-    operation {
+    write(name) {
       operations.requireLayerWritable(id)
       val writes = listOf(LayerPropertyWrite(id, type, name, value, kind))
       operations.post("$type layer '$id'") {
@@ -71,28 +67,28 @@ internal constructor(
   }
 
   override val asMutable: MutableLayerHandle?
-    get() = operation {
-      if (operations.isLayerWritable(id)) MutableLayerHandleImpl(this) else null
+    get() {
+      operations.requireOpen()
+      return if (isLive() && operations.isLayerWritable(id)) MutableLayerHandleImpl(this) else null
     }
 
-  private fun requireCurrent() {
-    style.requireCurrent(identity)
-    checkStyleHandle(isCurrentResource()) {
-      "Layer '$id' is no longer the $type layer owned by this handle"
-    }
+  /** False once the loaded style reloads or this layer is removed or replaced. */
+  private fun isLive(): Boolean = operations.isReady() && style.isLoaded && isCurrentResource()
+
+  /** Runs [action] while this handle is live; an expired handle logs and does nothing. */
+  private inline fun write(name: String, action: () -> Unit) {
+    operations.requireOpen()
+    if (isLive()) action()
+    else style.logger?.w { "$type layer '$id' ignored a write to '$name': the handle has expired" }
   }
 
-  private fun <T> operation(action: () -> T): T = operations.run {
-    requireCurrent()
-    action()
-  }
-
-  private suspend fun <T> suspendingOperation(action: suspend () -> T): T {
-    operation {}
+  /** Returns null when this handle has expired, including during [action]. */
+  private suspend fun <T> read(action: suspend () -> T?): T? {
+    operations.requireOpen()
+    if (!isLive()) return null
     val result = action()
-    operations.requireReady()
-    requireCurrent()
-    return result
+    // A close during the read is a style change, not a use after close.
+    return result.takeIf { isLive() }
   }
 
   private companion object {

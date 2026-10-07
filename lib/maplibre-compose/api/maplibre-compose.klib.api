@@ -908,7 +908,7 @@ sealed interface org.maplibre.compose.sources/GeoJsonSourceHandle : org.maplibre
     abstract suspend fun getClusterChildren(org.maplibre.spatialk.geojson/Feature<*, kotlinx.serialization.json/JsonObject?>): org.maplibre.spatialk.geojson/FeatureCollection<org.maplibre.spatialk.geojson/Geometry, kotlinx.serialization.json/JsonObject?>? // org.maplibre.compose.sources/GeoJsonSourceHandle.getClusterChildren|getClusterChildren(org.maplibre.spatialk.geojson.Feature<*,kotlinx.serialization.json.JsonObject?>){}[0]
     abstract suspend fun getClusterExpansionZoom(org.maplibre.spatialk.geojson/Feature<*, kotlinx.serialization.json/JsonObject?>): kotlin/Double? // org.maplibre.compose.sources/GeoJsonSourceHandle.getClusterExpansionZoom|getClusterExpansionZoom(org.maplibre.spatialk.geojson.Feature<*,kotlinx.serialization.json.JsonObject?>){}[0]
     abstract suspend fun getClusterLeaves(org.maplibre.spatialk.geojson/Feature<*, kotlinx.serialization.json/JsonObject?>, kotlin/Int, kotlin/Int): org.maplibre.spatialk.geojson/FeatureCollection<org.maplibre.spatialk.geojson/Geometry, kotlinx.serialization.json/JsonObject?>? // org.maplibre.compose.sources/GeoJsonSourceHandle.getClusterLeaves|getClusterLeaves(org.maplibre.spatialk.geojson.Feature<*,kotlinx.serialization.json.JsonObject?>;kotlin.Int;kotlin.Int){}[0]
-    abstract suspend fun getFeatureState(kotlin/String): kotlinx.serialization.json/JsonObject // org.maplibre.compose.sources/GeoJsonSourceHandle.getFeatureState|getFeatureState(kotlin.String){}[0]
+    abstract suspend fun getFeatureState(kotlin/String): kotlinx.serialization.json/JsonObject? // org.maplibre.compose.sources/GeoJsonSourceHandle.getFeatureState|getFeatureState(kotlin.String){}[0]
 }
 
 sealed interface org.maplibre.compose.sources/ImageSourceHandle : org.maplibre.compose.sources/SourceHandle { // org.maplibre.compose.sources/ImageSourceHandle|null[0]
@@ -966,7 +966,7 @@ sealed interface org.maplibre.compose.sources/VectorTileSourceHandle : org.mapli
     abstract fun removeFeatureState(kotlin/String, kotlin/String, kotlin/String? = ...) // org.maplibre.compose.sources/VectorTileSourceHandle.removeFeatureState|removeFeatureState(kotlin.String;kotlin.String;kotlin.String?){}[0]
     abstract fun resetFeatureStates(kotlin/String) // org.maplibre.compose.sources/VectorTileSourceHandle.resetFeatureStates|resetFeatureStates(kotlin.String){}[0]
     abstract fun setFeatureState(kotlin/String, kotlin/String, kotlinx.serialization.json/JsonObject) // org.maplibre.compose.sources/VectorTileSourceHandle.setFeatureState|setFeatureState(kotlin.String;kotlin.String;kotlinx.serialization.json.JsonObject){}[0]
-    abstract suspend fun getFeatureState(kotlin/String, kotlin/String): kotlinx.serialization.json/JsonObject // org.maplibre.compose.sources/VectorTileSourceHandle.getFeatureState|getFeatureState(kotlin.String;kotlin.String){}[0]
+    abstract suspend fun getFeatureState(kotlin/String, kotlin/String): kotlinx.serialization.json/JsonObject? // org.maplibre.compose.sources/VectorTileSourceHandle.getFeatureState|getFeatureState(kotlin.String;kotlin.String){}[0]
     abstract suspend fun querySourceFeatures(kotlin.collections/Set<kotlin/String>, org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> = ...): kotlin.collections/List<org.maplibre.spatialk.geojson/Feature<org.maplibre.spatialk.geojson/Geometry, kotlinx.serialization.json/JsonObject?>> // org.maplibre.compose.sources/VectorTileSourceHandle.querySourceFeatures|querySourceFeatures(kotlin.collections.Set<kotlin.String>;org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>){}[0]
 }
 
@@ -4990,7 +4990,7 @@ final fun org.maplibre.compose.sources/rememberMbtilesUrl(kotlin/String, android
 final fun org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop_getter|org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop_getter(){}[0]
 
 // Targets: [apple]
-final suspend fun (org.maplibre.compose.sources/SourceHandle).org.maplibre.compose.sources/isVolatile(): kotlin/Boolean // org.maplibre.compose.sources/isVolatile|isVolatile@org.maplibre.compose.sources.SourceHandle(){}[0]
+final suspend fun (org.maplibre.compose.sources/SourceHandle).org.maplibre.compose.sources/isVolatile(): kotlin/Boolean? // org.maplibre.compose.sources/isVolatile|isVolatile@org.maplibre.compose.sources.SourceHandle(){}[0]
 
 // Targets: [apple]
 final suspend fun org.maplibre.compose.sources/mbtilesUrl(kotlin/String): kotlin/String // org.maplibre.compose.sources/mbtilesUrl|mbtilesUrl(kotlin.String){}[0]

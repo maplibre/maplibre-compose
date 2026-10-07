@@ -54,14 +54,18 @@ internal interface StyleBinding {
   /** Invalidates this loaded style before its base style starts changing. */
   fun invalidate()
 
+  /**
+   * @throws IllegalStateException when the style has unloaded. Handles check first and never let it
+   *   reach the caller; [awaitOwner] and [postOwner] absorb it when the style unloads during a
+   *   visit.
+   */
   fun requireCurrent() {
-    checkStyleHandle(isLoaded) {
-      "Style operation belongs to a stale loaded-style identity"
-    }
+    check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
   }
 
+  /** @throws IllegalStateException when the style has unloaded or is not [expectedIdentity]. */
   fun requireCurrent(expectedIdentity: StyleIdentity) {
-    checkStyleHandle(identity === expectedIdentity && isLoaded) {
+    check(identity === expectedIdentity && isLoaded) {
       "Style operation belongs to a stale loaded-style identity"
     }
   }

@@ -1,13 +1,12 @@
 package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
-import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.TransitionOptions
 
 /**
  * Reads a layer in one loaded style generation. Handles expire on removal, replacement, or a
- * base-style reload. Operations on an expired handle or an unready style throw
- * [StyleHandleException].
+ * base-style reload, and while the style is not ready. An expired handle reads null, and its writes
+ * do nothing and log a warning.
  */
 public sealed interface LayerHandle {
   public val id: String
@@ -16,10 +15,13 @@ public sealed interface LayerHandle {
   public val source: String?
   /** The source layer, or null when none is specified. */
   public val sourceLayer: String?
-  /** Definition writes, or null for a declared layer. */
+  /** Definition writes, or null for a declared layer or an expired handle. */
   public val asMutable: MutableLayerHandle?
 
-  /** Returns the current value of [name], or null when the layer has no value for that property. */
+  /**
+   * Returns the current value of [name], or null when the layer has no value for that property or
+   * this handle has expired.
+   */
   public suspend fun getProperty(name: String): JsonElement?
 
   /**
