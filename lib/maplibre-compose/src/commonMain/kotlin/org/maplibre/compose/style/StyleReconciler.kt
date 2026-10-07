@@ -1,8 +1,8 @@
 package org.maplibre.compose.style
 
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.LayerSummary
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
@@ -28,7 +28,7 @@ internal class StyleReconciler {
         PlacedLayer(
           desired,
           placements.getOrPut(desired.anchor) {
-            placement(desired.anchor, style, desired.definition.id)
+            placement(desired.anchor, style.baseLayers)
           },
         )
       }
@@ -142,45 +142,22 @@ internal class StyleReconciler {
     images.clear()
   }
 
-  /**
-   * Resolves [anchor] against the base-style layers of [style]. [layerId] is the first layer placed
-   * by [anchor], named in the warning when its predicate throws.
-   */
-  private fun placement(anchor: Anchor, style: StyleBinding, layerId: String): Placement {
-    val baseLayers = style.baseLayers
-    return when (anchor) {
+  /** Resolves [anchor] against the base-style layers of the bound generation. */
+  private fun placement(anchor: Anchor, baseLayers: List<LayerSummary>): Placement =
+    when (anchor) {
       is Anchor.Top -> Placement.Top
       is Anchor.Bottom -> Placement.Bottom
-      is Anchor.Below -> {
-        val lowest = style.scan(anchor, layerId) { baseLayers.indexOfFirst(anchor.predicate) }
-        if (lowest < 0) Placement.Top else Placement.Below(baseLayers[lowest].id)
-      }
+      is Anchor.Below ->
+        baseLayers.firstOrNull { anchor.predicate(it) }?.let { Placement.Below(it.id) }
+          ?: Placement.Top
       is Anchor.Above -> {
-        val highest = style.scan(anchor, layerId) { baseLayers.indexOfLast(anchor.predicate) }
+        val highest = baseLayers.indexOfLast { anchor.predicate(it) }
         when {
           highest < 0 -> Placement.Bottom
           highest == baseLayers.lastIndex -> Placement.Top
           else -> Placement.Below(baseLayers[highest + 1].id)
         }
       }
-    }
-  }
-
-  /**
-   * Runs the predicate [scan] of [anchor], treating an exception from the predicate as no match so
-   * one faulty anchor cannot keep the rest of the style content from applying.
-   */
-  private inline fun StyleBinding.scan(anchor: Anchor, layerId: String, scan: () -> Int): Int =
-    try {
-      scan()
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Exception) {
-      logger?.w(error) {
-        "The predicate of anchor $anchor threw for layer '$layerId', so the layers it anchors " +
-          "are placed as if it matched no base-style layer"
-      }
-      -1
     }
 
   /** Places [id] directly below [beforeLayerId], or on top when that is empty. */

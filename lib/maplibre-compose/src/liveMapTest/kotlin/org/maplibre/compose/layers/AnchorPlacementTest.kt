@@ -7,7 +7,6 @@ import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.captureWarnings
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.runMapTest
@@ -67,31 +66,18 @@ class AnchorPlacementTest {
       }
     }
 
-  /** A predicate that throws places its layers as if it matched nothing, and the style stays up. */
+  /** A predicate that throws fails the style content like any other failure applying it. */
   @Test
-  fun a_throwing_predicate_places_its_layers_and_keeps_the_style_ready(): MapTestResult =
-    runMapTest {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(baseStyle("base-bottom", "base-top"))
-        captureWarnings { warnings ->
-          fixture.declare {
-            Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
-            Anchor.Below({ error("bad predicate") }) { BackgroundLayer("under", visible = true) }
-          }
-
-          assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
-          assertEquals(
-            listOf("over", "base-bottom", "base-top", "under"),
-            fixture.state.style.layers.map { it.id },
-          )
-          assertEquals(
-            2,
-            warnings.count { it.startsWith("The predicate of anchor") },
-            "Warnings: $warnings",
-          )
-        }
+  fun a_throwing_predicate_fails_the_style(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(baseStyle("base-bottom", "base-top"))
+      fixture.declare {
+        Anchor.Above({ error("bad predicate") }) { BackgroundLayer("over", visible = true) }
       }
+
+      assertEquals(StyleLoadState.Failed("bad predicate"), fixture.state.style.loadState)
     }
+  }
 
   private fun baseStyle(vararg layerIds: String) =
     BaseStyle.Json(
