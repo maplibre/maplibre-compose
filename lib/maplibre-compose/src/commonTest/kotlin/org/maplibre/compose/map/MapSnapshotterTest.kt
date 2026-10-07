@@ -272,20 +272,23 @@ class MapSnapshotterTest {
     var desired = StyleSnapshot(listOf(original.definition()), emptyList(), emptyList())
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
+    lateinit var snapshotter: MapSnapshotter
+    var renderedAttribution: String? = null
     val runtime =
       mapRuntimeForTest(
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
-            capture = { request, revision ->
-              reconciler.apply(binding, revision)
+            apply = { reconciler.apply(binding, it) },
+            capture = { request, _ ->
+              renderedAttribution = snapshotter.style.sources["shared"]?.attributionHtml
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
         },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> desired },
       )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(DpSize(1.dp, 1.dp))
     snapshotter.capture(request)
     val stale = assertIs<VectorTileSourceHandle>(snapshotter.style.sources["shared"])
@@ -294,12 +297,14 @@ class MapSnapshotterTest {
     snapshotter.capture(request)
 
     stale.resetFeatureStates("layer")
+    // The reused style publishes its handles before it renders.
+    assertEquals("replacement", renderedAttribution)
     assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }
 
   @Test
-  fun imperative_commands_cannot_cross_an_active_snapshot_style_revision() = runTest {
+  fun writes_during_a_capture_that_reuses_the_style_apply_at_once() = runTest {
     val binding = RecordingStyleBinding()
     val captureStarted = CompletableDeferred<Unit>()
     val finishCapture = CompletableDeferred<Unit>()
@@ -327,17 +332,20 @@ class MapSnapshotterTest {
     val capture = async { snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp))) }
     captureStarted.await()
 
-    // The capture holds the style, so the handle is not live and the write does nothing.
-    handle.resetFeatureStates("layer")
-    // A command while the capture holds the style does nothing.
+    // The capture reuses the loaded style, so it stays ready and takes writes.
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    assertTrue(snapshotter.style.sources[handle.id]?.asMutable != null)
     snapshotter.style.images.set(
       "crossing",
       ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
     )
+    snapshotter.style.awaitCommands()
+    assertEquals(setOf("crossing"), binding.imageIds)
 
     finishCapture.complete(Unit)
     capture.await()
-    assertTrue(binding.imageIds.isEmpty())
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    assertEquals(setOf("crossing"), binding.imageIds)
     close(snapshotter, runtime)
   }
 

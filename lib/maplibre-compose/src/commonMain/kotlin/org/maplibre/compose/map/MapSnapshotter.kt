@@ -120,10 +120,11 @@ internal interface SnapshotterAdapter {
     request: MapSnapshotRequest,
   ): SnapshotPreparation
 
-  suspend fun capture(
-    request: MapSnapshotRequest,
-    revision: StyleSnapshot,
-  ): ImageBitmap
+  /** Applies [revision] to the loaded style. Resource commands wait meanwhile, as on a map. */
+  suspend fun apply(revision: StyleSnapshot)
+
+  /** Renders the loaded style with the revision that [apply] applied. */
+  suspend fun capture(request: MapSnapshotRequest): ImageBitmap
 
   /** Requests cancellation and returns after the active platform operation has ended. */
   suspend fun cancelActiveCapture(): SnapshotterEngineDisposition
@@ -225,7 +226,13 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
 
 /** An independent non-UI map that captures images. */
 public sealed interface MapSnapshotter {
-  /** Desired and applied style state for this snapshotter's engine map. */
+  /**
+   * Desired and applied style state for this snapshotter's engine map.
+   *
+   * A write during a capture that reuses the loaded style applies at once and may or may not appear
+   * in that capture; a write while the style loads, such as during the first capture or the one
+   * after a base style change, is skipped and logged.
+   */
   public val style: MapStyleState
 
   /**
@@ -385,7 +392,7 @@ internal class MapSnapshotterImplementation(
         var binding: StyleBinding? = null
         val result =
           try {
-            // Drain accepted commands before entering Loading, which rejects further writes.
+            // Drain accepted commands before a load enters Loading, which rejects further writes.
             // User composition and platform callbacks must run outside the command mutex.
             val currentClaim = resourceCommands.withCommit { claimStyle() }
             claim = currentClaim
@@ -393,6 +400,7 @@ internal class MapSnapshotterImplementation(
               platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
             val currentBinding = prepared.binding
             binding = currentBinding
+            markReloaded(currentBinding)
             val request = capture.request
             val evaluationOwnership =
               styleEvaluationOwnership(currentBinding, currentClaim.ownership)
@@ -405,12 +413,15 @@ internal class MapSnapshotterImplementation(
                 request.layoutDirection,
                 evaluationOwnership,
               )
+            // A command sees the revision before or after this, never part of it.
             resourceCommands.withCommit {
-              if (style.currentLoadedStyle() === currentBinding)
-                resourceCommands.requireNoConflicts(revision)
+              declareRevision(currentBinding, revision)
               recordStyleOwnership(currentClaim, revision)
+              platform.apply(revision)
+              // Publish a reused style's handles before rendering, as a map does.
+              commitSourcesAfterCommand(currentBinding) {}
             }
-            val image = platform.capture(request, revision)
+            val image = platform.capture(request)
             resourceCommands.withCommit {
               if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
                 currentBinding.invalidate()
@@ -571,8 +582,28 @@ internal class MapSnapshotterImplementation(
       .also {
         check(activeStyleClaim == null)
         activeStyleClaim = it
-        style.loadState = StyleLoadState.Loading
+        // A ready style is reused, so it stays writable while the capture runs.
+        if (style.loadState != StyleLoadState.Ready) style.loadState = StyleLoadState.Loading
       }
+  }
+
+  /** A ready style that the adapter replaced anyway, such as for a new density, is loading. */
+  private fun markReloaded(binding: StyleBinding) {
+    lock.withLock {
+      if (
+        !closed && style.loadState == StyleLoadState.Ready && !style.isCurrentLoadedStyle(binding)
+      )
+        style.loadState = StyleLoadState.Loading
+    }
+  }
+
+  /** Declares [revision] for the reused [binding] before applying it, as a map does. */
+  private fun declareRevision(binding: StyleBinding, revision: StyleSnapshot) {
+    lock.withLock {
+      if (!style.isCurrentLoadedStyle(binding)) return
+      resourceCommands.requireNoConflicts(revision)
+      style.declaredRevision = revision
+    }
   }
 
   private fun styleEvaluationOwnership(
@@ -599,8 +630,8 @@ internal class MapSnapshotterImplementation(
   /**
    * Publishes [binding] with the handles of the resources it holds after [revision]. The engine
    * read runs as an owner task between two locked steps, so a UI-thread lookup never waits on the
-   * map owner while this snapshotter's lock is held. The style stays Loading until the handles are
-   * in place.
+   * map owner while this snapshotter's lock is held. A loading style stays Loading until the
+   * handles are in place.
    */
   private suspend fun publishStyle(
     capture: Capture,

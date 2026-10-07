@@ -146,14 +146,15 @@ internal class GlJsSnapshotterAdapter(
     )
   }
 
-  override suspend fun capture(
-    request: MapSnapshotRequest,
-    revision: StyleSnapshot,
-  ): ImageBitmap {
+  override suspend fun apply(revision: StyleSnapshot) {
     check(open) { "The Web snapshotter is closed" }
-    val currentMap = checkNotNull(map) { "The Web snapshotter engine has not been created" }
     val binding = checkNotNull(styleBinding) { "The Web snapshotter style has not loaded" }
     reconciler.apply(binding, revision)
+  }
+
+  override suspend fun capture(request: MapSnapshotRequest): ImageBitmap {
+    check(open) { "The Web snapshotter is closed" }
+    val currentMap = checkNotNull(map) { "The Web snapshotter engine has not been created" }
     configure(currentMap, request)
 
     val rendering = CompletableDeferred<Result<Unit>>()

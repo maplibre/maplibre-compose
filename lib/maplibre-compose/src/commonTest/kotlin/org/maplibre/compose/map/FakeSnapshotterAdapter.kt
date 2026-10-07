@@ -13,6 +13,7 @@ internal class FakeSnapshotterAdapter(
   private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->
     RecordingStyleBinding()
   },
+  private val apply: suspend (StyleSnapshot) -> Unit = {},
   private val capture: suspend (MapSnapshotRequest, StyleSnapshot) -> ImageBitmap = { request, _ ->
     FakeImageBitmap(request.extent().width, request.extent().height)
   },
@@ -28,10 +29,15 @@ internal class FakeSnapshotterAdapter(
   ): SnapshotPreparation =
     SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))
 
-  override suspend fun capture(
-    request: MapSnapshotRequest,
-    revision: StyleSnapshot,
-  ): ImageBitmap = capture.invoke(request, revision)
+  private var applied = StyleSnapshot.Empty
+
+  override suspend fun apply(revision: StyleSnapshot) {
+    apply.invoke(revision)
+    applied = revision
+  }
+
+  override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =
+    capture.invoke(request, applied)
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition = cancel.invoke()
 
