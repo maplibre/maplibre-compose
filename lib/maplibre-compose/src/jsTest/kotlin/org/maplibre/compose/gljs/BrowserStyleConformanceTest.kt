@@ -84,7 +84,11 @@ class BrowserStyleConformanceTest {
         val source =
           rememberVectorTileSource(
             tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-            options = TileSetOptions(minZoom = 24, maxZoom = 24),
+            options =
+              TileSetOptions {
+                minZoom = 24
+                maxZoom = 24
+              },
           )
         Anchor.Below("base-fill") {
           if (showLayer) {

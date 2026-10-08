@@ -27,7 +27,7 @@ class LoadedStyleResourceMutationTest {
         GeoJsonSource(
           id = "imperative",
           data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          options = GeoJsonOptions(),
+          options = GeoJsonOptions.Standard,
         )
 
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
@@ -56,7 +56,7 @@ class LoadedStyleResourceMutationTest {
         GeoJsonSource(
           "installed",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions(),
+          GeoJsonOptions.Standard,
         )
       val rejected =
         StyleSnapshot(

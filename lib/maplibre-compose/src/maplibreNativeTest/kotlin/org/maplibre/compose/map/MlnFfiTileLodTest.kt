@@ -136,7 +136,12 @@ class MlnFfiTileLodTest {
             abs(camera.zoom - 6.0) < 1e-6 && abs(camera.pitch - 60.0) < 1e-6
           }
           val source =
-            CustomVectorTileSource("lod", CustomVectorTileSourceOptions(maxZoom = 10)) { tile ->
+            CustomVectorTileSource(
+              "lod",
+              CustomVectorTileSourceOptions {
+                maxZoom = 10
+              },
+            ) { tile ->
               requests += tile
               byteArrayOf()
             }

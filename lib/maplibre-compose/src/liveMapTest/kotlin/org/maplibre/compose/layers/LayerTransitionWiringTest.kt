@@ -305,13 +305,17 @@ class LayerTransitionWiringTest {
       )
 
     fun featureSource() =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+        GeoJsonOptions.Standard,
+      )
 
     fun rasterSource() =
       RasterTileSource(
         id = "raster",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(),
+        options = TileSetOptions.Standard,
         tileSize = 256,
       )
 
@@ -319,7 +323,7 @@ class LayerTransitionWiringTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(),
+        options = TileSetOptions.Standard,
         tileSize = 256,
         encoding = RasterDemEncoding.Terrarium,
       )

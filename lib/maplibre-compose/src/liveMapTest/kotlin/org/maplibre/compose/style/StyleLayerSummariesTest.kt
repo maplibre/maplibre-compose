@@ -49,7 +49,7 @@ class StyleLayerSummariesTest {
             GeoJsonSource(
                 "external",
                 GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                GeoJsonOptions(),
+                GeoJsonOptions.Standard,
               )
               .definition()
           )

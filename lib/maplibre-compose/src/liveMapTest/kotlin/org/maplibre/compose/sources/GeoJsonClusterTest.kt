@@ -39,7 +39,12 @@ class GeoJsonClusterTest {
         GeoJsonSource(
           id = "points",
           data = GeoJsonData.Features(nearbyPoints()),
-          options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
+          options =
+            GeoJsonOptions {
+              cluster = true
+              clusterRadius = 200
+              clusterMaxZoom = 14
+            },
         )
       fixture.state.style.sources.add(source)
       binding.install(TestLayer("clusters", "circle", source))
@@ -89,7 +94,8 @@ class GeoJsonClusterTest {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = Zoom))
       val binding = checkNotNull(fixture.style)
-      val source = GeoJsonSource("points", GeoJsonData.Features(nearbyPoints()), GeoJsonOptions())
+      val source =
+        GeoJsonSource("points", GeoJsonData.Features(nearbyPoints()), GeoJsonOptions.Standard)
       fixture.state.style.sources.add(source)
       binding.install(TestLayer("points", "circle", source))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
@@ -125,7 +131,10 @@ class GeoJsonClusterTest {
         GeoJsonSource(
           id = "points",
           data = GeoJsonData.Features(nearbyPoints()),
-          options = GeoJsonOptions(cluster = true),
+          options =
+            GeoJsonOptions {
+              cluster = true
+            },
         )
       fixture.state.style.sources.add(source)
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])

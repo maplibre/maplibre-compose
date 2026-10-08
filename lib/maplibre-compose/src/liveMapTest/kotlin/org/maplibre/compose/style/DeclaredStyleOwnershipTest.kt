@@ -37,7 +37,7 @@ class DeclaredStyleOwnershipTest {
   fun removed_resources_can_be_declared_again_with_the_same_ids(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val source = GeoJsonSource("points", Data, GeoJsonOptions())
+      val source = GeoJsonSource("points", Data, GeoJsonOptions.Standard)
       fixture.declare { CircleLayer("points", source, visible = true) }
       val original = assertNotNull(fixture.state.style.sources[source])
       assertNotNull(fixture.state.style.layers["points"])
@@ -65,7 +65,13 @@ class DeclaredStyleOwnershipTest {
         fixture.loadStyle(BaseStyle.Empty)
         lateinit var source: GeoJsonSource
         fixture.declare {
-          source = rememberGeoJsonSource(Data, GeoJsonOptions(cluster = true))
+          source =
+            rememberGeoJsonSource(
+              Data,
+              GeoJsonOptions {
+                cluster = true
+              },
+            )
           CircleLayer("points", source, visible = true)
         }
         val handle = assertNotNull(fixture.state.style.sources[source])

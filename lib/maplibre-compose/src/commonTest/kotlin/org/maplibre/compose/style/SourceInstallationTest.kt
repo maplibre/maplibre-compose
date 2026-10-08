@@ -12,10 +12,10 @@ class SourceInstallationTest {
   fun geojson_data_changes_update_the_source_without_resubmitting_unchanged_data() {
     val binding = RecordingStyleBinding()
     val source =
-      GeoJsonSource("updated", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource("updated", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions.Standard)
     val installation = SourceInstallation(binding, source.definition())
     val replacement = GeoJsonData.Uri("https://example.com/data.geojson")
-    val changed = GeoJsonSource("updated", replacement, GeoJsonOptions()).definition()
+    val changed = GeoJsonSource("updated", replacement, GeoJsonOptions.Standard).definition()
 
     installation.update(changed)
     installation.update(changed)

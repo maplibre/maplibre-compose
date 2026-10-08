@@ -110,7 +110,11 @@ object DataVizDemo : Demo {
     val source =
       rememberGeoJsonSource(
         GeoJsonData.Uri(FeedUri),
-        GeoJsonOptions(cluster = true, clusterRadius = 40, clusterMaxZoom = 10),
+        GeoJsonOptions {
+          cluster = true
+          clusterRadius = 40
+          clusterMaxZoom = 10
+        },
       )
     val pointCount = feature["point_count"].asNumber()
 

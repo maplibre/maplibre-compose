@@ -38,7 +38,11 @@ class RuntimeShaderPainterTest {
     runGraphicsTest { graphics ->
       val painter = shaderPainter()
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+          GeoJsonOptions.Standard,
+        )
       var captured: PreparedImage? = null
       composeStyle(
         graphicsContext = graphics,
@@ -72,7 +76,11 @@ class RuntimeShaderPainterTest {
         )
       val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+          GeoJsonOptions.Standard,
+        )
       val painter = shaderPainter()
       try {
         val snapshotter =

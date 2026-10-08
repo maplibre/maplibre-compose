@@ -99,14 +99,14 @@ class SourceInstallationFailureTest {
           GeoJsonSource(
               "geojson",
               GeoJsonData.Uri("https://example.invalid/first.json"),
-              GeoJsonOptions(),
+              GeoJsonOptions.Standard,
             )
             .definition()
         val next =
           GeoJsonSource(
               "geojson",
               GeoJsonData.Uri("https://example.invalid/next.json"),
-              GeoJsonOptions(),
+              GeoJsonOptions.Standard,
             )
             .definition()
         val installation = SourceInstallation(binding, initial)

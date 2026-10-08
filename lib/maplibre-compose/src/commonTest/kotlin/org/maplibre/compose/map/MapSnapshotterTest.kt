@@ -161,7 +161,7 @@ class MapSnapshotterTest {
       GeoJsonSource(
         id = "imperative",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions(),
+        options = GeoJsonOptions.Standard,
       )
 
     withContext(Dispatchers.Unconfined) {
@@ -234,7 +234,7 @@ class MapSnapshotterTest {
       GeoJsonSource(
         id = "base-source",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions(),
+        options = GeoJsonOptions.Standard,
       )
     val binding =
       RecordingStyleBinding(
@@ -760,7 +760,10 @@ class MapSnapshotterTest {
     VectorTileSource(
       id = "shared",
       tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
-      options = TileSetOptions(attributionHtml = attribution),
+      options =
+        TileSetOptions {
+          attributionHtml = attribution
+        },
     )
 
   private class FatalSnapshotError : Error("fatal snapshot failure")

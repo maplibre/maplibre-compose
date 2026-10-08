@@ -20,7 +20,10 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
           id = "dem",
           tiles = listOf(TileTemplate),
-          options = TileSetOptions(scheme = TileScheme.Tms),
+          options =
+            TileSetOptions {
+              scheme = TileScheme.Tms
+            },
           encoding = RasterDemEncoding.Custom,
           redFactor = 2f,
         )
@@ -105,7 +108,10 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(scheme = TileScheme.Xyz),
+        options =
+          TileSetOptions {
+            scheme = TileScheme.Xyz
+          },
       )
 
     SourceInstallation(binding, source.definition())
@@ -120,7 +126,10 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(scheme = TileScheme.Tms),
+        options =
+          TileSetOptions {
+            scheme = TileScheme.Tms
+          },
       )
 
     val error =

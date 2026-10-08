@@ -62,7 +62,10 @@ internal fun MarkerLayers(
   val source =
     rememberGeoJsonSource(
       GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null)),
-      options = GeoJsonOptions(synchronousTiling = true),
+      options =
+        GeoJsonOptions {
+          synchronousTiling = true
+        },
     )
 
   // A soft shadow makes the lift during hover and drag visible against the map.

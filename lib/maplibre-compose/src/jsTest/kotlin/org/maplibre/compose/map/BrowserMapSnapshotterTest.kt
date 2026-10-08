@@ -364,7 +364,7 @@ class BrowserMapSnapshotterTest {
               addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
             }
           ),
-        options = GeoJsonOptions(),
+        options = GeoJsonOptions.Standard,
       )
     SymbolLayer(
       id = "composed-icon",
@@ -416,7 +416,7 @@ class BrowserMapSnapshotterTest {
                 addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
               }
             ),
-          options = GeoJsonOptions(),
+          options = GeoJsonOptions.Standard,
         )
       CircleLayer(
         id = "composed-circle",

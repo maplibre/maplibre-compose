@@ -44,7 +44,7 @@ class StyleFontScaleTest {
                 addFeature(geometry = Point(Position(0.0, 0.0)))
               }
             ),
-            GeoJsonOptions(),
+            GeoJsonOptions.Standard,
           )
         suspend fun declare(scale: Float) {
           fixture.declare(

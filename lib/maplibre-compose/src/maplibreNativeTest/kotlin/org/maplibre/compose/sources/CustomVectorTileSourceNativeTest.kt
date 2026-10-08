@@ -27,8 +27,13 @@ class CustomVectorTileSourceNativeTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorTileSource("empty", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
-          tile ->
+        CustomVectorTileSource(
+          "empty",
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) { tile ->
           requests += tile
           release.await()
           byteArrayOf()

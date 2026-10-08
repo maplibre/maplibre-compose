@@ -65,7 +65,11 @@ class SnapshotCompositionTest {
         }
       )
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+        GeoJsonOptions.Standard,
+      )
     val bitmap = ImageBitmap(1, 1)
     var declared by mutableStateOf(true)
     var visible by mutableStateOf(true)
@@ -200,7 +204,11 @@ class SnapshotCompositionTest {
       )
     val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+        GeoJsonOptions.Standard,
+      )
     val painter = ColorPainter(Color.Red)
     try {
       val snapshotter =

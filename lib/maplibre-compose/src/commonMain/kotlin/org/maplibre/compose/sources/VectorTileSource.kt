@@ -33,7 +33,7 @@ public class VectorTileSource : VectorSource {
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions(),
+    options: TileSetOptions = TileSetOptions.Standard,
   ) : super(id) {
     json = buildJsonObject {
       put("type", "vector")
@@ -57,7 +57,7 @@ public fun rememberVectorTileSource(uri: String): VectorTileSource =
 @Composable
 public fun rememberVectorTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions(),
+  options: TileSetOptions = TileSetOptions.Standard,
 ): VectorTileSource =
   key(tiles, options) {
     rememberUserSource { VectorTileSource(id = it, tiles = tiles, options = options) }

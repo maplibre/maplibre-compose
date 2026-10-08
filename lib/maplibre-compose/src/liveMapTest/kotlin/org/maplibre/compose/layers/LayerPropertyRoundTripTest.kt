@@ -59,7 +59,11 @@ class LayerPropertyRoundTripTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+          GeoJsonOptions.Standard,
+        )
       style.install(source)
       for ((index, case) in Cases.withIndex()) {
         val before = TestLayer("before-$index", "symbol", source)
@@ -118,7 +122,11 @@ class LayerPropertyRoundTripTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+          GeoJsonOptions.Standard,
+        )
       style.install(source)
       val layer = TestLayer("filtered", "circle", source)
       val original = Json.parseToJsonElement("""["==",["get","class"],"park"]""")

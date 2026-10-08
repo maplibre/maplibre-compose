@@ -190,7 +190,7 @@ class MlnFfiSurfaceLossTest {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
               }
             ),
-          options = GeoJsonOptions(),
+          options = GeoJsonOptions.Standard,
         )
       runBlocking { style.install(source) }
       val layer = TestLayer("circles", "circle", source)

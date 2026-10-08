@@ -133,7 +133,7 @@ class StyleResourceCommandTest {
                 GeoJsonSource(
                   "points",
                   GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                  GeoJsonOptions(),
+                  GeoJsonOptions.Standard,
                 )
               )
             }

@@ -8,7 +8,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.map.MapOptionsDsl
 import org.maplibre.compose.style.SourceDefinition
+import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
 
@@ -34,7 +36,7 @@ public class GeoJsonSource : VectorSource {
   public constructor(
     id: String,
     data: GeoJsonData,
-    options: GeoJsonOptions = GeoJsonOptions(),
+    options: GeoJsonOptions = GeoJsonOptions.Standard,
   ) : super(id) {
     content = Declared(data, options)
   }
@@ -60,7 +62,9 @@ public class GeoJsonSource : VectorSource {
         SourceDefinition.GeoJson(
           id,
           content.data,
-          content.options.copy(clusterProperties = content.options.clusterProperties.toMap()),
+          GeoJsonOptions(from = content.options) {
+            clusterProperties = content.options.clusterProperties.toMap()
+          },
         )
       is FromStyle -> super.definition()
     }
@@ -95,57 +99,154 @@ public sealed interface GeoJsonData {
 }
 
 /**
- * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
- *   detail at low zoom levels). Defaults to 0. Web ignores it.
- * @param maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail at
- *   high zoom levels). Defaults to 18, the style spec default for a GeoJSON source.
- * @param buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value of
- *   512 produces a buffer as wide as the tile itself. Larger values produce fewer rendering
+ * Controls how MapLibre creates tiles and clusters from GeoJSON data.
+ *
+ * @property minZoom Minimum zoom level at which to create vector tiles (lower means more field of
+ *   view detail at low zoom levels). Defaults to 0. Web ignores it.
+ * @property maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail
+ *   at high zoom levels). Defaults to 18, the style spec default for a GeoJSON source.
+ * @property buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value
+ *   of 512 produces a buffer as wide as the tile itself. Larger values produce fewer rendering
  *   artifacts near tile edges at the cost of slower performance.
- * @param tolerance Douglas-Peucker simplification tolerance (higher means simpler geometries and
+ * @property tolerance Douglas-Peucker simplification tolerance (higher means simpler geometries and
  *   faster performance).
- * @param cluster If the data is a collection of point features, setting this to `true` clusters the
- *   points by radius into groups. Cluster groups become new `Point` features in the source with
+ * @property cluster If the data is a collection of point features, setting this to `true` clusters
+ *   the points by radius into groups. Cluster groups become new `Point` features in the source with
  *   additional properties: `cluster`, `cluster_id`, `point_count`, and `point_count_abbreviated`.
  *
  *   See the [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/sources/#cluster) for
  *   details.
  *
- * @param clusterRadius Radius of each cluster when clustering points, measured in 1/512ths of a
+ * @property clusterRadius Radius of each cluster when clustering points, measured in 1/512ths of a
  *   tile. I.e. a value of 512 indicates a radius equal to the width of a tile.
- * @param clusterMaxZoom Max zoom to cluster points on. Clusters are re-evaluated at integer zoom
- *   levels. So, setting the max zoom to 14 means that the clusters will still be displayed on zoom
- *   14.9.
- * @param clusterMinPoints Minimum number of points necessary to form a cluster if clustering is
+ * @property clusterMinPoints Minimum number of points necessary to form a cluster if clustering is
  *   enabled.
- * @param clusterProperties A map defining custom properties on the generated clusters if clustering
- *   is enabled, aggregating values from clustered points. The keys are the property names, the
- *   values are an aggregation mapper and reducer.
+ * @property clusterMaxZoom Max zoom to cluster points on. Clusters are re-evaluated at integer zoom
+ *   levels. So, setting the max zoom to 14 means that the clusters will still be displayed on zoom
+ *   14.9. Defaults to [maxZoom] minus 1 unless explicitly set, including when editing previous
+ *   options.
+ * @property clusterProperties A map defining custom properties on the generated clusters if
+ *   clustering is enabled, aggregating values from clustered points. The keys are the property
+ *   names, the values are an aggregation mapper and reducer.
  *
  *   See [ClusterPropertyAggregator.reducer] for an example.
  *
- * @param lineMetrics Whether to calculate line distance metrics. This is required for
+ * @property lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @param synchronousTiling Whether native engines generate requested tiles during the update pass
- *   instead of scheduling separate tile work. This can make small, frequently updated sources
+ * @property synchronousTiling Whether native engines generate requested tiles during the update
+ *   pass instead of scheduling separate tile work. This can make small, frequently updated sources
  *   appear sooner, at the cost of more work during the update. Data preparation still runs on a
  *   worker and source updates return without waiting for native work. Android, iOS, and desktop
  *   honor this option. The browser ignores it.
  */
 @Immutable
-public data class GeoJsonOptions(
-  val minZoom: Int = 0,
-  val maxZoom: Int = 18,
-  val buffer: Int = 128,
-  val tolerance: Float = 0.375f,
-  val cluster: Boolean = false,
-  val clusterRadius: Int = 50,
-  val clusterMinPoints: Int = 2,
-  val clusterMaxZoom: Int = maxZoom - 1,
-  val clusterProperties: Map<String, ClusterPropertyAggregator<*>> = emptyMap(),
-  val lineMetrics: Boolean = false,
-  val synchronousTiling: Boolean = false,
-) {
+public class GeoJsonOptions private constructor(builder: Builder) {
+  public val minZoom: Int = builder.minZoom
+  public val maxZoom: Int = builder.maxZoom
+  public val buffer: Int = builder.buffer
+  public val tolerance: Float = builder.tolerance
+  public val cluster: Boolean = builder.cluster
+  public val clusterRadius: Int = builder.clusterRadius
+  public val clusterMinPoints: Int = builder.clusterMinPoints
+  public val clusterMaxZoom: Int = builder.clusterMaxZoom
+  public val clusterProperties: Map<String, ClusterPropertyAggregator<*>> =
+    builder.clusterProperties
+  public val lineMetrics: Boolean = builder.lineMetrics
+  public val synchronousTiling: Boolean = builder.synchronousTiling
+
+  private val clusterMaxZoomOverride: Int? = builder.clusterMaxZoomOverride
+
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(
+    from: GeoJsonOptions = Standard,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  override fun equals(other: Any?): Boolean =
+    other is GeoJsonOptions &&
+      minZoom == other.minZoom &&
+      maxZoom == other.maxZoom &&
+      buffer == other.buffer &&
+      tolerance.compareTo(other.tolerance) == 0 &&
+      cluster == other.cluster &&
+      clusterRadius == other.clusterRadius &&
+      clusterMinPoints == other.clusterMinPoints &&
+      clusterMaxZoom == other.clusterMaxZoom &&
+      clusterProperties == other.clusterProperties &&
+      lineMetrics == other.lineMetrics &&
+      synchronousTiling == other.synchronousTiling
+
+  override fun hashCode(): Int =
+    listOf(
+        minZoom,
+        maxZoom,
+        buffer,
+        tolerance,
+        cluster,
+        clusterRadius,
+        clusterMinPoints,
+        clusterMaxZoom,
+        clusterProperties,
+        lineMetrics,
+        synchronousTiling,
+      )
+      .hashCode()
+
+  override fun toString(): String =
+    formatToString(
+      "GeoJsonOptions",
+      "minZoom" to minZoom,
+      "maxZoom" to maxZoom,
+      "buffer" to buffer,
+      "tolerance" to tolerance,
+      "cluster" to cluster,
+      "clusterRadius" to clusterRadius,
+      "clusterMinPoints" to clusterMinPoints,
+      "clusterMaxZoom" to clusterMaxZoom,
+      "clusterProperties" to clusterProperties,
+      "lineMetrics" to lineMetrics,
+      "synchronousTiling" to synchronousTiling,
+    )
+
+  @MapOptionsDsl
+  public class Builder internal constructor(from: GeoJsonOptions?) {
+    /** See [GeoJsonOptions.minZoom]. */
+    public var minZoom: Int = from?.minZoom ?: 0
+    /** See [GeoJsonOptions.maxZoom]. */
+    public var maxZoom: Int = from?.maxZoom ?: 18
+    /** See [GeoJsonOptions.buffer]. */
+    public var buffer: Int = from?.buffer ?: 128
+    /** See [GeoJsonOptions.tolerance]. */
+    public var tolerance: Float = from?.tolerance ?: 0.375f
+    /** See [GeoJsonOptions.cluster]. */
+    public var cluster: Boolean = from?.cluster ?: false
+    /** See [GeoJsonOptions.clusterRadius]. */
+    public var clusterRadius: Int = from?.clusterRadius ?: 50
+    /** See [GeoJsonOptions.clusterMinPoints]. */
+    public var clusterMinPoints: Int = from?.clusterMinPoints ?: 2
+    /** See [GeoJsonOptions.clusterMaxZoom]. */
+    public var clusterMaxZoom: Int
+      get() = clusterMaxZoomOverride ?: (maxZoom - 1)
+      set(value) {
+        clusterMaxZoomOverride = value
+      }
+
+    /** See [GeoJsonOptions.clusterProperties]. */
+    public var clusterProperties: Map<String, ClusterPropertyAggregator<*>> =
+      from?.clusterProperties ?: emptyMap()
+    /** See [GeoJsonOptions.lineMetrics]. */
+    public var lineMetrics: Boolean = from?.lineMetrics ?: false
+    /** See [GeoJsonOptions.synchronousTiling]. */
+    public var synchronousTiling: Boolean = from?.synchronousTiling ?: false
+
+    internal var clusterMaxZoomOverride: Int? = from?.clusterMaxZoomOverride
+  }
+
+  public companion object {
+    /** The default source settings. */
+    public val Standard: GeoJsonOptions = GeoJsonOptions(Builder(from = null))
+  }
+
   public data class ClusterPropertyAggregator<T : ExpressionValue>(
     /** Produces the value of a single point, passed to the accumulation operator. */
     val mapper: Expression<T>,
@@ -172,7 +273,7 @@ public data class GeoJsonOptions(
 @Composable
 public fun rememberGeoJsonSource(
   data: GeoJsonData,
-  options: GeoJsonOptions = GeoJsonOptions(),
+  options: GeoJsonOptions = GeoJsonOptions.Standard,
 ): GeoJsonSource =
   key(options) {
     rememberUserSource { GeoJsonSource(id = it, data = data, options = options) }

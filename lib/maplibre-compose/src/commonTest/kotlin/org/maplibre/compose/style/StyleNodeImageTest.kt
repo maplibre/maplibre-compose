@@ -55,7 +55,7 @@ class StyleNodeImageTest {
         },
         publish = { snapshots += it },
       )
-    val source = GeoJsonSource("points", data(1), GeoJsonOptions())
+    val source = GeoJsonSource("points", data(1), GeoJsonOptions.Standard)
     val retained = imageLayer("retained", first, source)
     val removed = imageLayer("removed", first, source)
     root.children += listOf(retained, removed)
@@ -63,7 +63,7 @@ class StyleNodeImageTest {
     runCurrent()
     val original = snapshots.last().images.single()
 
-    val updatedSource = GeoJsonSource("points", data(2), GeoJsonOptions())
+    val updatedSource = GeoJsonSource("points", data(2), GeoJsonOptions.Standard)
     retained.source = updatedSource
     retained.definition =
       TestLayer("retained", "fill", updatedSource)

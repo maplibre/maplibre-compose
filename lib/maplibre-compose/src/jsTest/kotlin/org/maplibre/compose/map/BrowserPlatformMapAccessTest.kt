@@ -73,7 +73,7 @@ class BrowserPlatformMapAccessTest {
         GeoJsonSource(
           "points",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions(),
+          GeoJsonOptions.Standard,
         )
       )
       fixture.declare { BackgroundLayer("above", visible = true) }

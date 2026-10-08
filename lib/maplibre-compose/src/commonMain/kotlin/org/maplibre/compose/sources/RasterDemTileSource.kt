@@ -61,7 +61,7 @@ public class RasterDemTileSource : Source {
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions(),
+    options: TileSetOptions = TileSetOptions.Standard,
     tileSize: Int = 512,
     encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
     redFactor: Float = 1f,
@@ -178,7 +178,7 @@ public fun rememberRasterDemTileSource(
 @Composable
 public fun rememberRasterDemTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions(),
+  options: TileSetOptions = TileSetOptions.Standard,
   tileSize: Int = 512,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
   redFactor: Float = 1f,

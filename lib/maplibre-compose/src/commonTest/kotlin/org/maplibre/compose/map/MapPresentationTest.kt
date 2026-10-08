@@ -236,7 +236,7 @@ class MapPresentationTest {
         GeoJsonSource(
           "puck",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions(),
+          GeoJsonOptions.Standard,
         )
       val layer = TestLayer("animated", "background")
       val original =
@@ -261,7 +261,7 @@ class MapPresentationTest {
             GeoJsonData.JsonString(
               """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}"""
             ),
-            GeoJsonOptions(),
+            GeoJsonOptions.Standard,
           )
         val definition =
           layer.definition().let {
@@ -322,7 +322,7 @@ class MapPresentationTest {
           GeoJsonSource(
             "points",
             GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            GeoJsonOptions(),
+            GeoJsonOptions.Standard,
           )
         val layer = TestLayer("background", "background")
         val original =
@@ -349,7 +349,9 @@ class MapPresentationTest {
                 GeoJsonSource(
                     "points",
                     GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                    GeoJsonOptions(cluster = true),
+                    GeoJsonOptions {
+                      cluster = true
+                    },
                   )
                   .definition()
               )
@@ -901,7 +903,7 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions(),
+              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -928,7 +930,7 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions(),
+              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -947,7 +949,7 @@ class MapPresentationTest {
       GeoJsonSource(
         id = "shared",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions(),
+        options = GeoJsonOptions.Standard,
       )
     val declaredRevision =
       StyleSnapshot(
@@ -1031,7 +1033,7 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions(),
+              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -1062,7 +1064,10 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions(cluster = true),
+              options =
+                GeoJsonOptions {
+                  cluster = true
+                },
             )
           )
       )
@@ -1096,7 +1101,7 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions(),
+              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -3081,7 +3086,10 @@ private fun attributedVectorSource(id: String, attribution: String): VectorTileS
   VectorTileSource(
     id = id,
     tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
-    options = TileSetOptions(attributionHtml = attribution),
+    options =
+      TileSetOptions {
+        attributionHtml = attribution
+      },
   )
 
 private val ImageQuad =

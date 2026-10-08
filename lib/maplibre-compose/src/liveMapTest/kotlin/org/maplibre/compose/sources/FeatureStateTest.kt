@@ -49,7 +49,7 @@ class FeatureStateTest {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
               }
             ),
-          options = GeoJsonOptions(),
+          options = GeoJsonOptions.Standard,
         )
       fixture.state.style.sources.add(source)
       val layer = TestLayer("circles", "circle", source)

@@ -276,7 +276,7 @@ class NativeMapSnapshotterTest {
     data: () -> GeoJsonData = { PointData }
   ): @Composable @MaplibreComposable () -> Unit {
     return {
-      val points = GeoJsonSource(id = "points", data = data(), options = GeoJsonOptions())
+      val points = GeoJsonSource(id = "points", data = data(), options = GeoJsonOptions.Standard)
       CircleLayer(
         id = "composed-circle",
         source = points,

@@ -28,8 +28,13 @@ class BrowserCustomVectorTileSourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomVectorTileSource("empty", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
-          tile ->
+        CustomVectorTileSource(
+          "empty",
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) { tile ->
           requests += tile
           release.await()
           byteArrayOf()
@@ -54,9 +59,10 @@ class BrowserCustomVectorTileSourceTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val first = CustomVectorTileSource("first", CustomVectorTileSourceOptions()) { byteArrayOf() }
+      val first =
+        CustomVectorTileSource("first", CustomVectorTileSourceOptions.Standard) { byteArrayOf() }
       val second =
-        CustomVectorTileSource("second", CustomVectorTileSourceOptions()) { byteArrayOf() }
+        CustomVectorTileSource("second", CustomVectorTileSourceOptions.Standard) { byteArrayOf() }
 
       style.install(first)
       style.install(second)
@@ -81,7 +87,13 @@ class BrowserCustomVectorTileSourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomVectorTileSource("retried", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(
+          "retried",
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           if (failing) error("fixture protocol failure")
           PointMvtTile
         }
@@ -111,7 +123,13 @@ class BrowserCustomVectorTileSourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomVectorTileSource("failing", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(
+          "failing",
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           requested = true
           error("fixture protocol failure")
         }

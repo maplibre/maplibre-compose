@@ -249,7 +249,7 @@ class UnsupportedLayerPropertyTest {
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
-        options = GeoJsonOptions(),
+        options = GeoJsonOptions.Standard,
       )
       .also { runBlocking { style.install(it) } }
 

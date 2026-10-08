@@ -39,7 +39,7 @@ class MlnFfiLayerKeyRoundTripTest {
         GeoJsonSource(
             id = SourceId,
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
-            options = GeoJsonOptions(),
+            options = GeoJsonOptions.Standard,
           )
           .also { source -> runBlocking { style.install(source) } }
 

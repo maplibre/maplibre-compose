@@ -52,7 +52,7 @@ class SemiliteralRenderingTest {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
               }
             ),
-            GeoJsonOptions(),
+            GeoJsonOptions.Standard,
           )
         fixture.state.style.sources.add(source)
         // Render the first offset component as a radius so pixel readback observes its value.

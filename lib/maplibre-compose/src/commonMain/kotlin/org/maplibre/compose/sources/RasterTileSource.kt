@@ -43,7 +43,7 @@ public class RasterTileSource : RasterSource {
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions(),
+    options: TileSetOptions = TileSetOptions.Standard,
     tileSize: Int = 512,
   ) : super(id) {
     json = buildJsonObject {
@@ -74,7 +74,7 @@ public fun rememberRasterTileSource(
 @Composable
 public fun rememberRasterTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions(),
+  options: TileSetOptions = TileSetOptions.Standard,
   tileSize: Int = 512,
 ): RasterTileSource =
   key(tiles, options, tileSize) {

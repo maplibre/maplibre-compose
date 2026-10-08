@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.map.MapOptionsDsl
 import org.maplibre.compose.map.MapSnapshotter
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -120,7 +121,7 @@ public fun interface VectorTileProvider {
  */
 public class CustomGeometrySource(
   id: String,
-  private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
+  private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions.Standard,
   private val provider: GeometryTileProvider,
 ) : VectorSource(id) {
 
@@ -147,7 +148,7 @@ public class CustomGeometrySource(
  */
 public class CustomVectorTileSource(
   id: String,
-  private val options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(),
+  private val options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions.Standard,
   private val provider: VectorTileProvider,
 ) : VectorSource(id) {
 
@@ -164,52 +165,121 @@ public class CustomVectorTileSource(
 /**
  * Controls the feature tiles that MapLibre creates.
  *
- * @param minZoom Minimum zoom level at which MapLibre creates tiles. Defaults to 0.
- * @param maxZoom Maximum zoom level at which MapLibre creates tiles. Defaults to 18, the MapLibre
- *   default for a custom geometry source. MapLibre overzooms the highest tiles beyond it.
- * @param buffer Tile buffer size on each side. Zero disables the buffer, and 512 adds a buffer as
- *   wide as the tile. Larger values reduce rendering artifacts near tile edges and increase
+ * @property minZoom Minimum zoom level at which MapLibre creates tiles. Defaults to 0.
+ * @property maxZoom Maximum zoom level at which MapLibre creates tiles. Defaults to 18, the
+ *   MapLibre default for a custom geometry source. MapLibre overzooms the highest tiles beyond it.
+ * @property buffer Tile buffer size on each side. Zero disables the buffer, and 512 adds a buffer
+ *   as wide as the tile. Larger values reduce rendering artifacts near tile edges and increase
  *   processing time.
- * @param tolerance Douglas-Peucker simplification tolerance. Larger values create simpler geometry
- *   and reduce processing time.
- * @param clip Whether MapLibre clips geometry to the tile bounds.
- * @param wrap Whether MapLibre unwraps wrapped coordinates.
+ * @property tolerance Douglas-Peucker simplification tolerance. Larger values create simpler
+ *   geometry and reduce processing time.
+ * @property clip Whether MapLibre clips geometry to the tile bounds.
+ * @property wrap Whether MapLibre unwraps wrapped coordinates.
  */
 @Immutable
-public data class CustomGeometrySourceOptions(
-  val minZoom: Int = 0,
-  val maxZoom: Int = 18,
-  val buffer: Int = 128,
-  val tolerance: Float = 0.375f,
-  val clip: Boolean = false,
-  val wrap: Boolean = false,
+public data class CustomGeometrySourceOptions
+internal constructor(
+  public val minZoom: Int,
+  public val maxZoom: Int,
+  public val buffer: Int,
+  public val tolerance: Float,
+  public val clip: Boolean,
+  public val wrap: Boolean,
 ) {
+
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(
+    from: CustomGeometrySourceOptions = Standard,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.minZoom,
+    builder.maxZoom,
+    builder.buffer,
+    builder.tolerance,
+    builder.clip,
+    builder.wrap,
+  )
+
   init {
     validateZoomRange(minZoom, maxZoom)
+  }
+
+  @MapOptionsDsl
+  public class Builder internal constructor(from: CustomGeometrySourceOptions) {
+    /** See [CustomGeometrySourceOptions.minZoom]. */
+    public var minZoom: Int = from.minZoom
+    /** See [CustomGeometrySourceOptions.maxZoom]. */
+    public var maxZoom: Int = from.maxZoom
+    /** See [CustomGeometrySourceOptions.buffer]. */
+    public var buffer: Int = from.buffer
+    /** See [CustomGeometrySourceOptions.tolerance]. */
+    public var tolerance: Float = from.tolerance
+    /** See [CustomGeometrySourceOptions.clip]. */
+    public var clip: Boolean = from.clip
+    /** See [CustomGeometrySourceOptions.wrap]. */
+    public var wrap: Boolean = from.wrap
+  }
+
+  public companion object {
+    /** The default source settings. */
+    public val Standard: CustomGeometrySourceOptions =
+      CustomGeometrySourceOptions(0, 18, 128, 0.375f, false, false)
   }
 }
 
 /**
  * Options for application-supplied MVT tiles.
  *
- * @param minZoom Minimum zoom level at which MapLibre requests tiles. Defaults to 0.
- * @param maxZoom Maximum zoom level at which MapLibre requests tiles. Defaults to 22, the style
+ * @property minZoom Minimum zoom level at which MapLibre requests tiles. Defaults to 0.
+ * @property maxZoom Maximum zoom level at which MapLibre requests tiles. Defaults to 22, the style
  *   spec default for a vector source. MapLibre overzooms the highest tiles beyond it.
  */
 @Immutable
-public data class CustomVectorTileSourceOptions(
-  val minZoom: Int = 0,
-  val maxZoom: Int = 22,
+public data class CustomVectorTileSourceOptions
+internal constructor(
+  public val minZoom: Int,
+  public val maxZoom: Int,
 ) {
+
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(
+    from: CustomVectorTileSourceOptions = Standard,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.minZoom,
+    builder.maxZoom,
+  )
+
   init {
     validateZoomRange(minZoom, maxZoom)
+  }
+
+  @MapOptionsDsl
+  public class Builder internal constructor(from: CustomVectorTileSourceOptions) {
+    /** See [CustomVectorTileSourceOptions.minZoom]. */
+    public var minZoom: Int = from.minZoom
+    /** See [CustomVectorTileSourceOptions.maxZoom]. */
+    public var maxZoom: Int = from.maxZoom
+  }
+
+  public companion object {
+    /** The default source settings. */
+    public val Standard: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(0, 22)
   }
 }
 
 /** Remembers a [CustomGeometrySource] that uses [provider]. */
 @Composable
 public fun rememberCustomGeometrySource(
-  options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
+  options: CustomGeometrySourceOptions = CustomGeometrySourceOptions.Standard,
   provider: GeometryTileProvider,
 ): CustomGeometrySource {
   return key(options) {
@@ -220,7 +290,7 @@ public fun rememberCustomGeometrySource(
 /** Remembers a [CustomVectorTileSource] that uses [provider]. */
 @Composable
 public fun rememberCustomVectorTileSource(
-  options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(),
+  options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions.Standard,
   provider: VectorTileProvider,
 ): CustomVectorTileSource {
   return key(options) {

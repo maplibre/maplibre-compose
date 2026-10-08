@@ -653,7 +653,7 @@ internal open class MlnFfiStyleBinding(
     val sources = document?.get("sources") as? JsonObject
     val source = sources?.get(sourceId) as? JsonObject ?: return null
     if ((source["type"] as? JsonPrimitive)?.content != "geojson") return null
-    val defaults = GeoJsonOptions()
+    val defaults = GeoJsonOptions.Standard
     val minZoom = (source["minzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.minZoom.toDouble()
     val maxZoom = (source["maxzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.maxZoom.toDouble()
     return GeoJsonSourceOptions().also { options ->
