@@ -243,6 +243,8 @@ internal external interface EaseToOptions : PaddedCameraOptions, AnimationOption
 internal external interface FlyToOptions : PaddedCameraOptions, AnimationOptions {
   var screenSpeed: Double?
   var minZoom: Double?
+  var curve: Double?
+  var maxDuration: Double?
 }
 
 internal external interface Painter {

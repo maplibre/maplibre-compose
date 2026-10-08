@@ -424,15 +424,6 @@ private fun CameraSettingsItems(state: DemoAppState) {
       onChange = { settings.flightDurationMillis = it },
     )
   }
-  if (fly) {
-    SliderRow(
-      label = "Minimum zoom",
-      value = settings.flightMinZoom,
-      range = 0f..12f,
-      valueLabel = { if (it > 0f) it.roundToInt().toString() else "None" },
-      onChange = { settings.flightMinZoom = it.roundToInt().toFloat() },
-    )
-  }
   Text(
     "Applies when a demo opens, a pointer pin is pressed, and when following your location.",
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

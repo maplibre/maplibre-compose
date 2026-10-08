@@ -899,8 +899,10 @@ internal class GlJsMapSession(
             applyUpdate(update)
             // A null property is not an absent one: GL JS reads `duration: null` as zero.
             animation.duration?.let { duration = it.inWholeMilliseconds.toDouble() }
-            screenSpeed = animation.speed
+            screenSpeed = animation.screenSpeed ?: animation.speed
             animation.minZoom?.let { minZoom = it }
+            curve = animation.curve
+            animation.maxDuration?.let { maxDuration = it.inWholeMilliseconds.toDouble() }
             easing = animation.easing.toEasingFunction()
           }
         )

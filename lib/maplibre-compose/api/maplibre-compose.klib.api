@@ -267,6 +267,21 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
             final var speed // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed|{}speed[0]
                 final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<get-speed>|<get-speed>(){}[0]
                 final fun <set-speed>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<set-speed>|<set-speed>(kotlin.Double){}[0]
+
+            // Targets: [js]
+            final var curve // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve|{}curve[0]
+                final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<get-curve>|<get-curve>(){}[0]
+                final fun <set-curve>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<set-curve>|<set-curve>(kotlin.Double){}[0]
+
+            // Targets: [js]
+            final var maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration|{}maxDuration[0]
+                final fun <get-maxDuration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration.<get-maxDuration>|<get-maxDuration>(){}[0]
+                final fun <set-maxDuration>(kotlin.time/Duration?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration.<set-maxDuration>|<set-maxDuration>(kotlin.time.Duration?){}[0]
+
+            // Targets: [js]
+            final var screenSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed|{}screenSpeed[0]
+                final fun <get-screenSpeed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed.<get-screenSpeed>|<get-screenSpeed>(){}[0]
+                final fun <set-screenSpeed>(kotlin/Double?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed.<set-screenSpeed>|<set-screenSpeed>(kotlin.Double?){}[0]
         }
 
         final object Companion { // org.maplibre.compose.camera/CameraAnimation.Fly.Companion|null[0]
@@ -275,7 +290,23 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
 
             final val Standard // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard|{}Standard[0]
                 final fun <get-Standard>(): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+
+            // Targets: [js]
+            final const val DefaultCurve // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve|{}DefaultCurve[0]
+                final fun <get-DefaultCurve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve.<get-DefaultCurve>|<get-DefaultCurve>(){}[0]
         }
+
+        // Targets: [js]
+        final val curve // org.maplibre.compose.camera/CameraAnimation.Fly.curve|{}curve[0]
+            final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.curve.<get-curve>|<get-curve>(){}[0]
+
+        // Targets: [js]
+        final val maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.maxDuration|{}maxDuration[0]
+            final fun <get-maxDuration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.maxDuration.<get-maxDuration>|<get-maxDuration>(){}[0]
+
+        // Targets: [js]
+        final val screenSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed|{}screenSpeed[0]
+            final fun <get-screenSpeed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed.<get-screenSpeed>|<get-screenSpeed>(){}[0]
     }
 }
 
@@ -3889,6 +3920,8 @@ final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraPosition
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop|#static{}org_maplibre_compose_camera_CameraUpdate$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop|#static{}org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop|#static{}org_maplibre_compose_camera_CubicBezier$stableprop[0]
+final val org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop|#static{}org_maplibre_compose_camera_EaseFields_Builder$stableprop[0]
+final val org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop|#static{}org_maplibre_compose_camera_FlyFields_Builder$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop|#static{}org_maplibre_compose_camera_Viewport$stableprop[0]
 final val org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop // org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop|#static{}org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop[0]
 final val org.maplibre.compose.expressions.dsl/dp // org.maplibre.compose.expressions.dsl/dp|@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>{}dp[0]
@@ -4273,6 +4306,8 @@ final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraPosition
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop_getter|org_maplibre_compose_camera_CameraUpdate$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter|org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop_getter|org_maplibre_compose_camera_CubicBezier$stableprop_getter(){}[0]
+final fun org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter|org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter(){}[0]
+final fun org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter|org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop_getter|org_maplibre_compose_camera_Viewport$stableprop_getter(){}[0]
 final fun org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter|org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter(){}[0]
 final fun org.maplibre.compose.expressions.dsl/acos(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>> // org.maplibre.compose.expressions.dsl/acos|acos(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>){}[0]

@@ -40,6 +40,47 @@ import org.maplibre.spatialk.geojson.Position
 class BrowserCameraTransitionLifecycleTest {
 
   @Test
+  fun browser_flight_options_reach_fly_to(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitMapReady()
+      val map = requireNotNull((fixture.session as GlJsMapSession).engineMapForTest())
+      val originalFlyTo = map.asDynamic().flyTo
+      var received: dynamic = null
+      val wrapFlyTo =
+        js(
+          """(function(original, record) {
+              return function(options) {
+                record(options);
+                return original.call(this, options);
+              };
+            })"""
+        )
+      map.asDynamic().flyTo = wrapFlyTo(originalFlyTo) { options: dynamic -> received = options }
+      try {
+        fixture.awaitWhileRendering("browser flight options") {
+          fixture.state.animateCamera(
+            CameraUpdate(center = Position(-74.006, 40.713), zoom = 4.0),
+            CameraAnimation.Fly {
+              duration = 0.milliseconds
+              minZoom = 2.0
+              curve = 2.0
+              screenSpeed = 3.0
+              maxDuration = 5.seconds
+            },
+          )
+        }
+        assertEquals(2.0, received.minZoom as Double)
+        assertEquals(2.0, received.curve as Double)
+        assertEquals(3.0, received.screenSpeed as Double)
+        assertEquals(5000.0, received.maxDuration as Double)
+      } finally {
+        map.asDynamic().flyTo = originalFlyTo
+      }
+    }
+  }
+
+  @Test
   fun a_partial_browser_update_stops_the_previous_animation_and_keeps_omitted_values():
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
