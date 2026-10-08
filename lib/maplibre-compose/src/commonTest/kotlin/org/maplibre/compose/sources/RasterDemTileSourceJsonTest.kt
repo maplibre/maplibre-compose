@@ -21,7 +21,7 @@ class RasterDemTileSourceJsonTest {
           id = "dem",
           tiles = listOf(TileTemplate),
           options = TileSetOptions(scheme = TileScheme.Tms),
-          demEncoding = RasterDemEncoding.Custom,
+          encoding = RasterDemEncoding.Custom,
           redFactor = 2f,
         )
         .toJson()
@@ -38,7 +38,7 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        demEncoding = RasterDemEncoding.Custom,
+        encoding = RasterDemEncoding.Custom,
         redFactor = 2f,
       )
 
@@ -56,7 +56,7 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        demEncoding = RasterDemEncoding.Custom,
+        encoding = RasterDemEncoding.Custom,
         redFactor = 2f,
         baseShift = 3f,
       )
@@ -75,7 +75,7 @@ class RasterDemTileSourceJsonTest {
       RasterDemTileSource(
           id = "dem",
           tiles = listOf(TileTemplate),
-          demEncoding = RasterDemEncoding.Terrarium,
+          encoding = RasterDemEncoding.Terrarium,
           redFactor = 2f,
         )
         .toJson()

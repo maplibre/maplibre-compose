@@ -4,6 +4,7 @@ import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.ImageBitmap
@@ -46,6 +47,7 @@ import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
 /** Immutable inputs for one snapshot capture. */
+@Immutable
 public data class MapSnapshotRequest(
   /**
    * Size of the captured map. Both dimensions must be finite and positive.

@@ -30,7 +30,11 @@ public class VectorTileSource : VectorSource {
    * @param tiles List of URIs pointing to tile images
    * @param options see [TileSetOptions]
    */
-  public constructor(id: String, tiles: List<String>, options: TileSetOptions) : super(id) {
+  public constructor(
+    id: String,
+    tiles: List<String>,
+    options: TileSetOptions = TileSetOptions(),
+  ) : super(id) {
     json = buildJsonObject {
       put("type", "vector")
       putJsonArray("tiles") { tiles.forEach { add(it) } }

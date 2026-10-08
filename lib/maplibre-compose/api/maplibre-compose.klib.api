@@ -2536,7 +2536,7 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.sources/GeoJsonSource : org.maplibre.compose.sources/VectorSource { // org.maplibre.compose.sources/GeoJsonSource|null[0]
-    constructor <init>(kotlin/String, org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions) // org.maplibre.compose.sources/GeoJsonSource.<init>|<init>(kotlin.String;org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions){}[0]
+    constructor <init>(kotlin/String, org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions = ...) // org.maplibre.compose.sources/GeoJsonSource.<init>|<init>(kotlin.String;org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions){}[0]
 
     final fun isCluster(org.maplibre.spatialk.geojson/Feature<*, kotlinx.serialization.json/JsonObject?>): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonSource.isCluster|isCluster(org.maplibre.spatialk.geojson.Feature<*,kotlinx.serialization.json.JsonObject?>){}[0]
 }
@@ -2603,7 +2603,7 @@ final class org.maplibre.compose.sources/TileSetOptions { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.sources/VectorTileSource : org.maplibre.compose.sources/VectorSource { // org.maplibre.compose.sources/VectorTileSource|null[0]
-    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions){}[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ...) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions){}[0]
     constructor <init>(kotlin/String, kotlin/String) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.String){}[0]
 }
 
