@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
-import org.maplibre.compose.map.MapOptionsDsl
 
 /**
  * Preferences for device-heading updates.
@@ -29,7 +28,6 @@ public data class HeadingRequest internal constructor(public val minimumInterval
     }
   }
 
-  @MapOptionsDsl
   public class Builder internal constructor(from: HeadingRequest) {
     /** See [HeadingRequest.minimumInterval]. */
     public var minimumInterval: Duration = from.minimumInterval

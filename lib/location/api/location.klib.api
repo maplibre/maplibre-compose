@@ -8,10 +8,6 @@
 // - Show declarations: true
 
 // Library unique name: <org.maplibre.compose:location>
-open annotation class org.maplibre.compose.map/MapOptionsDsl : kotlin/Annotation { // org.maplibre.compose.map/MapOptionsDsl|null[0]
-    constructor <init>() // org.maplibre.compose.map/MapOptionsDsl.<init>|<init>(){}[0]
-}
-
 final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
     enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
     enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]

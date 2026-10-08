@@ -380,6 +380,3 @@ public final class org/maplibre/compose/location/XdgPortalWindow$X11 : org/mapli
 	public fun toString ()Ljava/lang/String;
 }
 
-public abstract interface annotation class org/maplibre/compose/map/MapOptionsDsl : java/lang/annotation/Annotation {
-}
-

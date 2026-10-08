@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
-import org.maplibre.compose.map.MapOptionsDsl
 import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
@@ -151,7 +150,6 @@ internal constructor(
     }
   }
 
-  @MapOptionsDsl
   public class Builder internal constructor(from: LocationRequest) {
     /** See [LocationRequest.accuracy]. */
     public var accuracy: LocationAccuracy = from.accuracy

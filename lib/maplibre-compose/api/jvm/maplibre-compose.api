@@ -2407,6 +2407,9 @@ public final class org/maplibre/compose/map/MapLocalsKt {
 	public static final fun getLocalViewport ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
+public abstract interface annotation class org/maplibre/compose/map/MapOptionsDsl : java/lang/annotation/Annotation {
+}
+
 public final class org/maplibre/compose/map/MapRuntime {
 	public static final field $stable I
 	public final fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
