@@ -10,7 +10,10 @@ import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Provides callback-scoped access to the current platform engine map. */
-@DelicateMaplibreComposeApi @ExperimentalMaplibreComposeApi public expect class PlatformMapScope
+@DelicateMaplibreComposeApi
+// Exposes MapLibre engine bindings, which may change in minor releases.
+@ExperimentalMaplibreComposeApi
+public expect class PlatformMapScope
 
 /**
  * Runs [block] on this logical map's engine owner context.
@@ -33,6 +36,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
  *   before [block] starts.
  */
 @DelicateMaplibreComposeApi
+// Exposes MapLibre engine bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T
 

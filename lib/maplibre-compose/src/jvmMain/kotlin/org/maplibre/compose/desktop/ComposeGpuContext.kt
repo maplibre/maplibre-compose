@@ -16,6 +16,7 @@ internal interface ComposeGpuContext {
  * reports a replacement, and serialize replacement and disposal with its GPU access callback.
  * MapLibre Compose does not close the Skia context or dispose the host's device.
  */
+// Exposes Skiko GPU contexts, which are not yet stable.
 @ExperimentalMaplibreComposeApi
 @Immutable
 public class MetalComposeGpuContext(
@@ -35,6 +36,7 @@ public class MetalComposeGpuContext(
  * OpenGL work is bound to whichever context is current on the calling thread, so this carries
  * [withContextCurrent] rather than a context handle alone.
  */
+// Exposes Skiko GPU contexts, which are not yet stable.
 @ExperimentalMaplibreComposeApi
 @Immutable
 public class OpenGlComposeGpuContext(
@@ -57,6 +59,7 @@ public class OpenGlComposeGpuContext(
  * reports a replacement, and serialize replacement and disposal with its GPU access callback.
  * MapLibre Compose does not close the Skia context or dispose the host's device.
  */
+// Exposes Skiko GPU contexts, which are not yet stable.
 @ExperimentalMaplibreComposeApi
 @Immutable
 public class Direct3D12ComposeGpuContext(

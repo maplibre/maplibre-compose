@@ -12,5 +12,10 @@ package org.maplibre.compose.util
   level = RequiresOptIn.Level.WARNING,
 )
 @Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_SETTER)
+@Target(
+  AnnotationTarget.CLASS,
+  AnnotationTarget.FUNCTION,
+  AnnotationTarget.PROPERTY,
+  AnnotationTarget.PROPERTY_SETTER,
+)
 public annotation class ExperimentalMaplibreComposeApi
