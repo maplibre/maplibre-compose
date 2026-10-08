@@ -5,7 +5,6 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.MapUiOptions
-import org.maplibre.compose.map.renderMode
 
 @Composable
 actual fun LensRenderSection(lensOptions: MapUiOptions, onLensChange: (MapUiOptions) -> Unit) {

@@ -17,7 +17,6 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapFramePacer
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
-import org.maplibre.compose.map.overdrawInspector
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot

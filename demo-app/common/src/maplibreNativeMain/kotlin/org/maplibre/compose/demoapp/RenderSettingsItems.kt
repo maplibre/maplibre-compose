@@ -7,9 +7,6 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.CameraProjection
 import org.maplibre.compose.map.RenderOptions
-import org.maplibre.compose.map.cameraProjection
-import org.maplibre.compose.map.tileParseStatus
-import org.maplibre.compose.map.tileTimestamps
 
 @Composable
 actual fun RenderSettingsItems(settings: DemoSettings) {

@@ -1729,7 +1729,43 @@ final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map
         final var tileBorders // org.maplibre.compose.map/DebugOverlays.Builder.tileBorders|{}tileBorders[0]
             final fun <get-tileBorders>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.tileBorders.<get-tileBorders>|<get-tileBorders>(){}[0]
             final fun <set-tileBorders>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.tileBorders.<set-tileBorders>|<set-tileBorders>(kotlin.Boolean){}[0]
+
+        // Targets: [apple]
+        final var tileParseStatus // org.maplibre.compose.map/DebugOverlays.Builder.tileParseStatus|{}tileParseStatus[0]
+            final fun <get-tileParseStatus>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.tileParseStatus.<get-tileParseStatus>|<get-tileParseStatus>(){}[0]
+            final fun <set-tileParseStatus>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.tileParseStatus.<set-tileParseStatus>|<set-tileParseStatus>(kotlin.Boolean){}[0]
+
+        // Targets: [apple]
+        final var tileTimestamps // org.maplibre.compose.map/DebugOverlays.Builder.tileTimestamps|{}tileTimestamps[0]
+            final fun <get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>(){}[0]
+            final fun <set-tileTimestamps>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.tileTimestamps.<set-tileTimestamps>|<set-tileTimestamps>(kotlin.Boolean){}[0]
+
+        // Targets: [js]
+        final var overdrawInspector // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector|{}overdrawInspector[0]
+            final fun <get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>(){}[0]
+            final fun <set-overdrawInspector>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector.<set-overdrawInspector>|<set-overdrawInspector>(kotlin.Boolean){}[0]
+
+        // Targets: [js]
+        final var padding // org.maplibre.compose.map/DebugOverlays.Builder.padding|{}padding[0]
+            final fun <get-padding>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.padding.<get-padding>|<get-padding>(){}[0]
+            final fun <set-padding>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.padding.<set-padding>|<set-padding>(kotlin.Boolean){}[0]
     }
+
+    // Targets: [apple]
+    final val tileParseStatus // org.maplibre.compose.map/DebugOverlays.tileParseStatus|{}tileParseStatus[0]
+        final fun <get-tileParseStatus>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.tileParseStatus.<get-tileParseStatus>|<get-tileParseStatus>(){}[0]
+
+    // Targets: [apple]
+    final val tileTimestamps // org.maplibre.compose.map/DebugOverlays.tileTimestamps|{}tileTimestamps[0]
+        final fun <get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>(){}[0]
+
+    // Targets: [js]
+    final val overdrawInspector // org.maplibre.compose.map/DebugOverlays.overdrawInspector|{}overdrawInspector[0]
+        final fun <get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>(){}[0]
+
+    // Targets: [js]
+    final val padding // org.maplibre.compose.map/DebugOverlays.padding|{}padding[0]
+        final fun <get-padding>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.padding.<get-padding>|<get-padding>(){}[0]
 }
 
 final class org.maplibre.compose.map/MapCleanupException : kotlin/RuntimeException { // org.maplibre.compose.map/MapCleanupException|null[0]
@@ -1979,6 +2015,11 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
             final fun <set-tileLod>(org.maplibre.compose.map/TileLodOptions) // org.maplibre.compose.map/RenderOptions.Builder.tileLod.<set-tileLod>|<set-tileLod>(org.maplibre.compose.map.TileLodOptions){}[0]
 
         final fun debug(kotlin/Function1<org.maplibre.compose.map/DebugOverlays.Builder, kotlin/Unit>) // org.maplibre.compose.map/RenderOptions.Builder.debug|debug(kotlin.Function1<org.maplibre.compose.map.DebugOverlays.Builder,kotlin.Unit>){}[0]
+
+        // Targets: [apple]
+        final var cameraProjection // org.maplibre.compose.map/RenderOptions.Builder.cameraProjection|{}cameraProjection[0]
+            final fun <get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/RenderOptions.Builder.cameraProjection.<get-cameraProjection>|<get-cameraProjection>(){}[0]
+            final fun <set-cameraProjection>(org.maplibre.compose.map/CameraProjection) // org.maplibre.compose.map/RenderOptions.Builder.cameraProjection.<set-cameraProjection>|<set-cameraProjection>(org.maplibre.compose.map.CameraProjection){}[0]
     }
 
     final object Companion { // org.maplibre.compose.map/RenderOptions.Companion|null[0]
@@ -1987,6 +2028,10 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
         final val Standard // org.maplibre.compose.map/RenderOptions.Companion.Standard|{}Standard[0]
             final fun <get-Standard>(): org.maplibre.compose.map/RenderOptions // org.maplibre.compose.map/RenderOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
     }
+
+    // Targets: [apple]
+    final val cameraProjection // org.maplibre.compose.map/RenderOptions.cameraProjection|{}cameraProjection[0]
+        final fun <get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/RenderOptions.cameraProjection.<get-cameraProjection>|<get-cameraProjection>(){}[0]
 }
 
 final class org.maplibre.compose.map/RenderStats { // org.maplibre.compose.map/RenderStats|null[0]
@@ -4750,10 +4795,6 @@ final object org.maplibre.compose.resource/MapConnectivity { // org.maplibre.com
 }
 
 // Targets: [apple]
-final val org.maplibre.compose.map/cameraProjection // org.maplibre.compose.map/cameraProjection|@org.maplibre.compose.map.RenderOptions{}cameraProjection[0]
-    final fun (org.maplibre.compose.map/RenderOptions).<get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/cameraProjection.<get-cameraProjection>|<get-cameraProjection>@org.maplibre.compose.map.RenderOptions(){}[0]
-
-// Targets: [apple]
 final val org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axonometric$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_CameraProjection_Axonometric$stableprop|#static{}org_maplibre_compose_map_CameraProjection_Axonometric$stableprop[0]
 
 // Targets: [apple]
@@ -4773,14 +4814,6 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Scr
 
 // Targets: [apple]
 final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop[0]
-
-// Targets: [apple]
-final val org.maplibre.compose.map/tileParseStatus // org.maplibre.compose.map/tileParseStatus|@org.maplibre.compose.map.DebugOverlays{}tileParseStatus[0]
-    final fun (org.maplibre.compose.map/DebugOverlays).<get-tileParseStatus>(): kotlin/Boolean // org.maplibre.compose.map/tileParseStatus.<get-tileParseStatus>|<get-tileParseStatus>@org.maplibre.compose.map.DebugOverlays(){}[0]
-
-// Targets: [apple]
-final val org.maplibre.compose.map/tileTimestamps // org.maplibre.compose.map/tileTimestamps|@org.maplibre.compose.map.DebugOverlays{}tileTimestamps[0]
-    final fun (org.maplibre.compose.map/DebugOverlays).<get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>@org.maplibre.compose.map.DebugOverlays(){}[0]
 
 // Targets: [apple]
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop[0]
@@ -4869,21 +4902,6 @@ final val org.maplibre.compose.resource/org_maplibre_compose_resource_NativeReso
 
 // Targets: [apple]
 final val org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop|#static{}org_maplibre_compose_style_MlnFfiRenderSessions_None$stableprop[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/cameraProjection // org.maplibre.compose.map/cameraProjection|@org.maplibre.compose.map.RenderOptions.Builder{}cameraProjection[0]
-    final fun (org.maplibre.compose.map/RenderOptions.Builder).<get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/cameraProjection.<get-cameraProjection>|<get-cameraProjection>@org.maplibre.compose.map.RenderOptions.Builder(){}[0]
-    final fun (org.maplibre.compose.map/RenderOptions.Builder).<set-cameraProjection>(org.maplibre.compose.map/CameraProjection) // org.maplibre.compose.map/cameraProjection.<set-cameraProjection>|<set-cameraProjection>@org.maplibre.compose.map.RenderOptions.Builder(org.maplibre.compose.map.CameraProjection){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/tileParseStatus // org.maplibre.compose.map/tileParseStatus|@org.maplibre.compose.map.DebugOverlays.Builder{}tileParseStatus[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<get-tileParseStatus>(): kotlin/Boolean // org.maplibre.compose.map/tileParseStatus.<get-tileParseStatus>|<get-tileParseStatus>@org.maplibre.compose.map.DebugOverlays.Builder(){}[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-tileParseStatus>(kotlin/Boolean) // org.maplibre.compose.map/tileParseStatus.<set-tileParseStatus>|<set-tileParseStatus>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
-
-// Targets: [apple]
-final var org.maplibre.compose.map/tileTimestamps // org.maplibre.compose.map/tileTimestamps|@org.maplibre.compose.map.DebugOverlays.Builder{}tileTimestamps[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>@org.maplibre.compose.map.DebugOverlays.Builder(){}[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-tileTimestamps>(kotlin/Boolean) // org.maplibre.compose.map/tileTimestamps.<set-tileTimestamps>|<set-tileTimestamps>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
 
 // Targets: [apple]
 final fun (org.maplibre.compose.sources/MutableSourceHandle).org.maplibre.compose.sources/setVolatile(kotlin/Boolean) // org.maplibre.compose.sources/setVolatile|setVolatile@org.maplibre.compose.sources.MutableSourceHandle(kotlin.Boolean){}[0]
@@ -5132,24 +5150,6 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$s
 
 // Targets: [js]
 final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop|#static{}org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop[0]
-
-// Targets: [js]
-final val org.maplibre.compose.map/overdrawInspector // org.maplibre.compose.map/overdrawInspector|@org.maplibre.compose.map.DebugOverlays{}overdrawInspector[0]
-    final fun (org.maplibre.compose.map/DebugOverlays).<get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>@org.maplibre.compose.map.DebugOverlays(){}[0]
-
-// Targets: [js]
-final val org.maplibre.compose.map/padding // org.maplibre.compose.map/padding|@org.maplibre.compose.map.DebugOverlays{}padding[0]
-    final fun (org.maplibre.compose.map/DebugOverlays).<get-padding>(): kotlin/Boolean // org.maplibre.compose.map/padding.<get-padding>|<get-padding>@org.maplibre.compose.map.DebugOverlays(){}[0]
-
-// Targets: [js]
-final var org.maplibre.compose.map/overdrawInspector // org.maplibre.compose.map/overdrawInspector|@org.maplibre.compose.map.DebugOverlays.Builder{}overdrawInspector[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>@org.maplibre.compose.map.DebugOverlays.Builder(){}[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-overdrawInspector>(kotlin/Boolean) // org.maplibre.compose.map/overdrawInspector.<set-overdrawInspector>|<set-overdrawInspector>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
-
-// Targets: [js]
-final var org.maplibre.compose.map/padding // org.maplibre.compose.map/padding|@org.maplibre.compose.map.DebugOverlays.Builder{}padding[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<get-padding>(): kotlin/Boolean // org.maplibre.compose.map/padding.<get-padding>|<get-padding>@org.maplibre.compose.map.DebugOverlays.Builder(){}[0]
-    final fun (org.maplibre.compose.map/DebugOverlays.Builder).<set-padding>(kotlin/Boolean) // org.maplibre.compose.map/padding.<set-padding>|<set-padding>@org.maplibre.compose.map.DebugOverlays.Builder(kotlin.Boolean){}[0]
 
 // Targets: [js]
 final fun org.maplibre.compose.browser/configureMaplibreWorker(kotlin/String) // org.maplibre.compose.browser/configureMaplibreWorker|configureMaplibreWorker(kotlin.String){}[0]

@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.MapUiOptions
-import org.maplibre.compose.map.renderMode
 
 @Composable
 actual fun PlatformRenderSettingsItems(settings: DemoSettings) {

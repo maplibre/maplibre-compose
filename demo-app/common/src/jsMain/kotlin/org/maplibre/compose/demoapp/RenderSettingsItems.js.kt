@@ -4,8 +4,6 @@ import androidx.compose.runtime.Composable
 import org.maplibre.compose.demoapp.design.FpsCapRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.RenderOptions
-import org.maplibre.compose.map.overdrawInspector
-import org.maplibre.compose.map.padding
 
 @Composable
 actual fun RenderSettingsItems(settings: DemoSettings) {
