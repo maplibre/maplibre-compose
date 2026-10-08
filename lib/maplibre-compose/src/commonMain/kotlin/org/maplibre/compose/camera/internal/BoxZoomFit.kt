@@ -37,7 +37,7 @@ internal fun boxZoomFit(
     val position = project(corner) ?: return null
     if (!position.longitude.isFinite() || !position.latitude.isFinite()) return null
     val longitude =
-      position.longitude + 360.0 * round((camera.target.longitude - position.longitude) / 360.0)
+      position.longitude + 360.0 * round((camera.center.longitude - position.longitude) / 360.0)
     west = min(west, longitude)
     east = max(east, longitude)
     south = min(south, position.latitude)

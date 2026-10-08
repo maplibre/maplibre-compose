@@ -63,8 +63,8 @@ internal suspend fun ComposeUiTest.waitUntilMap(
 }
 
 internal fun CameraPosition.isNear(other: CameraPosition): Boolean =
-  target.longitude.isNear(other.target.longitude) &&
-    target.latitude.isNear(other.target.latitude) &&
+  center.longitude.isNear(other.center.longitude) &&
+    center.latitude.isNear(other.center.latitude) &&
     zoom.isNear(other.zoom) &&
     bearing.isNear(other.bearing) &&
     pitch.isNear(other.pitch)

@@ -35,7 +35,7 @@ class MlnFfiViewportTest {
   fun ground_scale_uses_the_native_projection_in_logical_pixels() {
     BridgeMapFixture.create(initialExtent = BridgeMapFixture.RetinaExtent).use { fixture ->
       fixture.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RetinaExtent)
-      fixture.session.setCameraPosition(CameraPosition(target = Position(10.0, 60.0), zoom = 9.0))
+      fixture.session.setCameraPosition(CameraPosition(center = Position(10.0, 60.0), zoom = 9.0))
       fixture.pumpUntil("the requested viewport") {
         fixture.session.getViewport()?.cameraPosition?.zoom == 9.0
       }
@@ -45,15 +45,15 @@ class MlnFfiViewportTest {
         assertNotNull(
           session.readMap { map ->
             map.createProjection().use { projection ->
-              listOf(viewport.cameraPosition.target.latitude, -90.0, 90.0)
+              listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
           }
         )
-      assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtTarget)
+      assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtCenter)
       assertEquals(
         expected[0],
-        session.metersPerDpAtLatitude(viewport.cameraPosition.target.latitude),
+        session.metersPerDpAtLatitude(viewport.cameraPosition.center.latitude),
       )
       assertEquals(expected[1], session.metersPerDpAtLatitude(-100.0))
       assertEquals(expected[2], session.metersPerDpAtLatitude(100.0))
@@ -161,7 +161,7 @@ class MlnFfiViewportTest {
       fixture.bindState(state)
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
-      val target = CameraPosition(target = Position(-74.006, 40.7128), zoom = 5.0)
+      val target = CameraPosition(center = Position(-74.006, 40.7128), zoom = 5.0)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(target.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
@@ -181,7 +181,7 @@ class MlnFfiViewportTest {
       state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
-      val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.0, pitch = 45.0)
+      val camera = CameraPosition(center = Position(-74.006, 40.7128), zoom = 9.0, pitch = 45.0)
       state.setCameraPosition(camera)
       fixture.pumpUntil("the starting viewport") {
         fixture.session.getCameraPosition().zoom == camera.zoom &&
@@ -229,7 +229,7 @@ class MlnFfiViewportTest {
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       val camera =
         CameraPosition(
-          target = Position(-74.006, 40.7128),
+          center = Position(-74.006, 40.7128),
           zoom = 9.5,
           pitch = pitch,
           padding = DpPadding(top = 20.dp),

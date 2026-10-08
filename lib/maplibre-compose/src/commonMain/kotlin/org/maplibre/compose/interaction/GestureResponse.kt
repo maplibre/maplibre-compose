@@ -1,7 +1,7 @@
 package org.maplibre.compose.interaction
 
 /**
- * Input anchors the point under the pointer; CameraCenter preserves the padded camera target.
+ * Input anchors the point under the pointer; CameraCenter preserves the padded camera center.
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */

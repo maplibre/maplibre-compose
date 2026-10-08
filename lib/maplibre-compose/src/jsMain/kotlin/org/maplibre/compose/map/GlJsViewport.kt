@@ -29,14 +29,14 @@ internal fun MaplibreMap.readViewport(
     size = DpSize(width.dp, height.dp),
     visibleBounds = getBounds().toVisibleBounds(),
     visibleRegion = readVisibleRegion(width, height),
-    metersPerDpAtTarget = metersPerDpAtLatitude(getZoom(), getCenter().toPosition().latitude),
+    metersPerDpAtCenter = metersPerDpAtLatitude(getZoom(), getCenter().toPosition().latitude),
   )
 
 /** Reads the camera this map currently holds, with [viewportInsets] excluded from its padding. */
 internal fun MaplibreMap.readCameraPosition(viewportInsets: PaddingOptions): CameraPosition =
   CameraPosition(
     bearing = getBearing(),
-    target = getCenter().toPosition(),
+    center = getCenter().toPosition(),
     pitch = getPitch(),
     padding =
       getPadding().let {

@@ -199,7 +199,7 @@ private fun snapshotMetadata(shot: CapturedSnapshot): String {
   return "${shot.image.width} × ${shot.image.height} px · " +
     "${shot.request.density.density.toDouble().formatTrimmed(1)}× density · " +
     "zoom ${camera.zoom.formatTrimmed(1)} · " +
-    "${camera.target.latitude.formatTrimmed(4)}, ${camera.target.longitude.formatTrimmed(4)}"
+    "${camera.center.latitude.formatTrimmed(4)}, ${camera.center.longitude.formatTrimmed(4)}"
 }
 
 private fun Double.formatTrimmed(decimals: Int): String {

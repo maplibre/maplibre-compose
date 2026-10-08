@@ -54,5 +54,5 @@ internal fun viewportFor(request: MapSnapshotRequest): Viewport =
         nearLeft = Position(-1.0, -1.0),
         nearRight = Position(1.0, -1.0),
       ),
-    metersPerDpAtTarget = 1.0,
+    metersPerDpAtCenter = 1.0,
   )

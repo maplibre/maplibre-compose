@@ -25,7 +25,7 @@ fun Camera() {
   val mapState =
     rememberMapState(
       initialCameraPosition =
-        CameraPosition(target = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
+        CameraPosition(center = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
     )
   MaplibreMap(state = mapState)
   // #endregion first-position
@@ -33,7 +33,7 @@ fun Camera() {
   // #region animate
   LaunchedEffect(mapState) {
     mapState.animateCamera(
-      update = CameraUpdate(target = Position(latitude = 47.607, longitude = -122.342))
+      update = CameraUpdate(center = Position(latitude = 47.607, longitude = -122.342))
     )
   }
   // #endregion animate
@@ -41,7 +41,7 @@ fun Camera() {
   // #region animate-fly
   LaunchedEffect(mapState) {
     mapState.animateCamera(
-      update = CameraUpdate(target = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
+      update = CameraUpdate(center = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
       animation = CameraAnimation.Fly(duration = 3.seconds, minZoom = 4.0),
     )
   }
@@ -95,7 +95,7 @@ fun Camera() {
   // #endregion viewport
 
   // #region convert
-  val screenOffset = mapState.screenLocationFromPosition(mapState.cameraPosition.target)
+  val screenOffset = mapState.screenLocationFromPosition(mapState.cameraPosition.center)
   val geoPosition = mapState.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
   // #endregion convert
 }

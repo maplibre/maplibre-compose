@@ -158,7 +158,7 @@ internal fun DemoLocationMapContent(
             ?: currentLocation.course?.let { (it - Bearing.North).inDegrees }
       mapState.animateCamera(
         CameraUpdate(
-          target = currentLocation.position,
+          center = currentLocation.position,
           zoom = 16.0,
           bearing = followBearing,
         ),

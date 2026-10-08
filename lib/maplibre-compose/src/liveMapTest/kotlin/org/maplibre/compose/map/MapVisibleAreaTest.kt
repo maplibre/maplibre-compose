@@ -31,7 +31,7 @@ class MapVisibleAreaTest {
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(Camera) }
 
       val box = assertNotNull(it.state.getVisibleBounds())
-      assertContains(box, Camera.target, "the camera target")
+      assertContains(box, Camera.center, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
     }
@@ -79,7 +79,7 @@ class MapVisibleAreaTest {
         box.northeast.longitude - box.southwest.longitude < 90.0,
         "the box should span the short way around the antimeridian, was $box",
       )
-      assertContains(box, Position(AntimeridianCamera.target.longitude, 47.0), "the target")
+      assertContains(box, Position(AntimeridianCamera.center.longitude, 47.0), "the target")
       val region = assertNotNull(it.state.getVisibleRegion())
       for (corner in region.corners()) assertContains(box, corner, "an antimeridian corner")
       assertTrue(region.farRight.longitude > 180.0, "the right corner should keep its world copy")
@@ -92,11 +92,11 @@ class MapVisibleAreaTest {
     createMapFixture(extent).use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      val camera = CameraPosition(target = Position(179.0, 0.0), zoom = 1.0)
+      val camera = CameraPosition(center = Position(179.0, 0.0), zoom = 1.0)
       it.state.setCameraPosition(camera)
       it.pumpUntil("the repeated-world camera to apply") {
         abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01 &&
-          abs(it.session.getCameraPosition().target.longitude - camera.target.longitude) < 0.01
+          abs(it.session.getCameraPosition().center.longitude - camera.center.longitude) < 0.01
       }
 
       val region = assertNotNull(it.state.getVisibleRegion())
@@ -105,8 +105,8 @@ class MapVisibleAreaTest {
       val expectedSpan = 360.0 * 1600.0 / 1024.0
       assertEquals(expectedSpan, region.farRight.longitude - region.farLeft.longitude, 1e-5)
       assertEquals(expectedSpan, box.northeast.longitude - box.southwest.longitude, 1e-5)
-      assertEquals(camera.target.longitude - expectedSpan / 2, region.farLeft.longitude, 1e-5)
-      assertEquals(camera.target.longitude + expectedSpan / 2, region.farRight.longitude, 1e-5)
+      assertEquals(camera.center.longitude - expectedSpan / 2, region.farLeft.longitude, 1e-5)
+      assertEquals(camera.center.longitude + expectedSpan / 2, region.farRight.longitude, 1e-5)
       for (corner in region.corners()) assertContains(box, corner, "a repeated-world corner")
 
       val right = assertNotNull(it.state.positionFromScreenLocation(DpOffset(1600.dp, 0.dp)))
@@ -115,10 +115,10 @@ class MapVisibleAreaTest {
   }
 
   private companion object {
-    val Camera = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
-    val AntimeridianCamera = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
+    val Camera = CameraPosition(center = Position(11.0, 47.0), zoom = 5.0)
+    val AntimeridianCamera = CameraPosition(center = Position(179.9, 47.0), zoom = 5.0)
     val RotatedCamera =
-      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
+      CameraPosition(center = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
 
     const val Tolerance = 1e-6
 

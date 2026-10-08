@@ -88,7 +88,7 @@ class BrowserCameraTransitionLifecycleTest {
         val location = requireNotNull(fixture.state.positionFromScreenLocation(point))
         val before = fixture.session.getCameraPosition()
         assertTrue(
-          abs(location.longitude - before.target.longitude) > 180.0,
+          abs(location.longitude - before.center.longitude) > 180.0,
           "the unprojected location must lie in a distant world copy: $location",
         )
         assertFailsWith<IllegalArgumentException> {
@@ -265,7 +265,7 @@ class BrowserCameraTransitionLifecycleTest {
 
   private companion object {
     val Style = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-    val CurrentCamera = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
-    val StaleCamera = CameraPosition(target = Position(-122.4, 37.8), zoom = 12.0)
+    val CurrentCamera = CameraPosition(center = Position(11.0, 47.0), zoom = 8.0)
+    val StaleCamera = CameraPosition(center = Position(-122.4, 37.8), zoom = 12.0)
   }
 }

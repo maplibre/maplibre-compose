@@ -268,7 +268,7 @@ internal class GlJsSnapshotterAdapter(
     val camera = request.cameraPosition
     map.jumpTo(
       unsafeJso<JumpToOptions> {
-        center = camera.target.toLngLat()
+        center = camera.center.toLngLat()
         zoom = camera.zoom
         bearing = camera.bearing
         pitch = camera.pitch

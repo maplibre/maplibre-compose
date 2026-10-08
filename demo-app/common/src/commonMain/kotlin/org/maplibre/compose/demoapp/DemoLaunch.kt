@@ -53,7 +53,7 @@ data class DemoLaunch(
       val numbers = parts.map { requireNotNull(it.toDoubleOrNull()) { "Camera value '$it'" } }
       return CameraPosition(
         zoom = numbers[0],
-        target = Position(latitude = numbers[1], longitude = numbers[2]),
+        center = Position(latitude = numbers[1], longitude = numbers[2]),
         bearing = numbers.getOrElse(3) { 0.0 },
         pitch = numbers.getOrElse(4) { 0.0 },
       )

@@ -26,7 +26,7 @@ class CameraPositionTest {
     val expected =
       CameraPosition(
         bearing = 42.5,
-        target = Position(longitude = -122.675, latitude = 45.521, altitude = 12.0),
+        center = Position(longitude = -122.675, latitude = 45.521, altitude = 12.0),
         pitch = 30.0,
         zoom = 13.0,
         padding = DpPadding(left = 12.dp, top = 24.dp, right = 36.dp, bottom = 48.dp),
@@ -42,5 +42,14 @@ class CameraPositionTest {
     val restored = Json.decodeFromString<CameraPosition>("{}")
 
     assertEquals(CameraPosition(), restored)
+  }
+
+  @Test
+  fun restoresCameraValuesWithOldTargetKey() {
+    val json = """{"target":[-122.675,45.521]}"""
+    val position = Position(longitude = -122.675, latitude = 45.521)
+
+    assertEquals(position, Json.decodeFromString<CameraPosition>(json).center)
+    assertEquals(position, Json.decodeFromString<CameraUpdate>(json).center)
   }
 }

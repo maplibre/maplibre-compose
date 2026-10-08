@@ -61,7 +61,7 @@ internal fun MockLocationSettings(state: DemoAppState, onPickPosition: () -> Uni
   } else {
     ButtonRow("Set position on map", onPickPosition)
   }
-  ButtonRow("Use map center") { location.useMapCenter(state.mapState.cameraPosition.target) }
+  ButtonRow("Use map center") { location.useMapCenter(state.mapState.cameraPosition.center) }
   SwitchRow("Position accuracy known", sample.positionAccuracyKnown) {
     engine.sample = engine.sample.copy(positionAccuracyKnown = it)
   }

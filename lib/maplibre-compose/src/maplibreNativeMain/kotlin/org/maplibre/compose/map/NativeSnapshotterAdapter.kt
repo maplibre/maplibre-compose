@@ -272,7 +272,7 @@ private class NativeSnapshotterAdapter(
                 geometry,
                 MapViewportExtents(unprojectedCorners(projection, geometry.size)),
                 projection.metersPerPixelAtLatitude(
-                  geometry.camera.target.latitude.coerceIn(-90.0, 90.0)
+                  geometry.camera.center.latitude.coerceIn(-90.0, 90.0)
                 ),
               )
             }
@@ -281,7 +281,7 @@ private class NativeSnapshotterAdapter(
       ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
-    val (applied, extents, metersPerDpAtTarget) = read
+    val (applied, extents, metersPerDpAtCenter) = read
     check(
       applied.size.width.value.toInt() == extent.width &&
         applied.size.height.value.toInt() == extent.height
@@ -294,7 +294,7 @@ private class NativeSnapshotterAdapter(
       size = applied.size,
       visibleBounds = extents.bounds,
       visibleRegion = extents.region,
-      metersPerDpAtTarget = metersPerDpAtTarget,
+      metersPerDpAtCenter = metersPerDpAtCenter,
     )
   }
 

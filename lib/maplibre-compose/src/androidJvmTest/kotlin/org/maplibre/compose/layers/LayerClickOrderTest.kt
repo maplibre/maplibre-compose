@@ -140,7 +140,7 @@ class LayerClickOrderTest {
       scope = rememberCoroutineScope()
       mapState =
         rememberMapState(
-          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = StartZoom),
+          initialCameraPosition = CameraPosition(center = Position(0.0, 0.0), zoom = StartZoom),
           baseStyle = BaseStyle.Empty,
         ) {
           val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WorldPolygon))

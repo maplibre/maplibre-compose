@@ -17,7 +17,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
   AutoCloseable {
   private var cameraAnimation: Job? = null
   private var inFlightZoom: PendingZoom? = null
-  private val initialCamera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 12.0)
+  private val initialCamera = CameraPosition(center = Position(-74.006, 40.7128), zoom = 12.0)
   val state =
     runtime.createMapState(baseStyle = mapStyle(initialDark).base, cameraPosition = initialCamera)
   private val cameraObserver = scope.launch {

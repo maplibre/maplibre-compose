@@ -280,7 +280,7 @@ class MapCameraTransitionTest {
       assertFalse(query.isCompleted)
       fixture.awaitMapReady()
       val camera = withTimeout(30.seconds) { query.await() }
-      assertTrue(abs(abs(camera.target.longitude) - 180.0) < 1.0)
+      assertTrue(abs(abs(camera.center.longitude) - 180.0) < 1.0)
       assertTrue(camera.zoom > Start.zoom)
     }
   }
@@ -362,8 +362,8 @@ class MapCameraTransitionTest {
         it.startAtOrigin()
         val camera = it.state.cameraForCoordinates(AntimeridianRoute)
         assertTrue(
-          abs(abs(camera.target.longitude) - 180.0) < 1.0,
-          "the target should sit on the antimeridian, but was ${camera.target}",
+          abs(abs(camera.center.longitude) - 180.0) < 1.0,
+          "the target should sit on the antimeridian, but was ${camera.center}",
         )
         assertTrue(camera.zoom > Start.zoom)
       }
@@ -422,7 +422,7 @@ class MapCameraTransitionTest {
       )
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
-        abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > Start.zoom
+        abs(abs(camera.center.longitude) - 180.0) < 1.0 && camera.zoom > Start.zoom
       }
     }
   }
@@ -712,7 +712,7 @@ class MapCameraTransitionTest {
   fun a_geographic_anchor_uses_the_nearest_world_copy_and_an_instant_anchored_endpoint():
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.startAt(Start.copy(target = Position(179.0, 0.0), zoom = 3.0, pitch = 40.0))
+      fixture.startAt(Start.copy(center = Position(179.0, 0.0), zoom = 3.0, pitch = 40.0))
       val location = Position(-179.0, 1.0)
       val point = requireNotNull(fixture.session.screenLocationFromPosition(location))
       fixture.awaitWhileRendering("the instant anchored zoom") {
@@ -727,7 +727,7 @@ class MapCameraTransitionTest {
       assertNear(40.0, fixture.session.getCameraPosition().pitch, "omitted pitch")
       assertNear(0.0, fixture.session.getCameraPosition().bearing, "omitted bearing")
       val unwrapped = requireNotNull(fixture.session.positionFromScreenLocation(point))
-      val center = fixture.session.getCameraPosition().target.longitude
+      val center = fixture.session.getCameraPosition().center.longitude
       val expectedLongitude =
         location.longitude + 360.0 * kotlin.math.round((center - location.longitude) / 360.0)
       assertNear(
@@ -902,8 +902,8 @@ class MapCameraTransitionTest {
     pumpUntil("the map to reach its starting camera") {
       val camera = session.getCameraPosition()
       abs(camera.zoom - position.zoom) < 0.001 &&
-        abs(camera.target.latitude - position.target.latitude) < 0.001 &&
-        abs(camera.target.longitude - position.target.longitude) < 0.001 &&
+        abs(camera.center.latitude - position.center.latitude) < 0.001 &&
+        abs(camera.center.longitude - position.center.longitude) < 0.001 &&
         abs(camera.bearing - position.bearing) < 0.001 &&
         abs(camera.pitch - position.pitch) < 0.001 &&
         camera.padding == position.padding
@@ -913,8 +913,8 @@ class MapCameraTransitionTest {
   private fun MapFixture.assertLanded(target: CameraPosition, description: String) {
     val camera = session.getCameraPosition()
     assertNear(target.zoom, camera.zoom, "$description target zoom")
-    assertNear(target.target.latitude, camera.target.latitude, "$description target latitude")
-    assertNear(target.target.longitude, camera.target.longitude, "$description target longitude")
+    assertNear(target.center.latitude, camera.center.latitude, "$description target latitude")
+    assertNear(target.center.longitude, camera.center.longitude, "$description target longitude")
   }
 
   private suspend fun MapFixture.awaitCameraMoving() {
@@ -928,12 +928,12 @@ class MapCameraTransitionTest {
   }
 
   private companion object {
-    val Start = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
-    val Target = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
-    val Midpoint = CameraPosition(target = Position(5.0, 20.0), zoom = 5.0)
+    val Start = CameraPosition(center = Position(0.0, 0.0), zoom = 2.0)
+    val Target = CameraPosition(center = Position(11.0, 47.0), zoom = 8.0)
+    val Midpoint = CameraPosition(center = Position(5.0, 20.0), zoom = 5.0)
     // Far apart at their zoom, so a flight has to zoom out to cross the distance.
-    val FlightStart = CameraPosition(target = Position(0.0, 0.0), zoom = 10.0)
-    val FlightTarget = CameraPosition(target = Position(11.0, 47.0), zoom = 12.0)
+    val FlightStart = CameraPosition(center = Position(0.0, 0.0), zoom = 10.0)
+    val FlightTarget = CameraPosition(center = Position(11.0, 47.0), zoom = 12.0)
     val Bounds =
       BoundingBox(
         southwest = Position(longitude = -5.0, latitude = -5.0),
@@ -997,7 +997,7 @@ class MapCameraTransitionTest {
       padding: PaddingValues,
     ): Boolean {
       val viewport = session.getViewport() ?: return false
-      val target = session.screenLocationFromPosition(position.target) ?: return false
+      val target = session.screenLocationFromPosition(position.center) ?: return false
       val expectedX = (viewport.size.width + padding.left() - padding.right()) / 2
       val expectedY =
         (viewport.size.height + padding.calculateTopPadding() - padding.calculateBottomPadding()) /
@@ -1045,8 +1045,8 @@ class MapCameraTransitionTest {
 
     fun assertSameFit(expected: CameraPosition, actual: CameraPosition, message: String) {
       assertNear(expected.zoom, actual.zoom, "$message zoom")
-      assertNear(expected.target.longitude, actual.target.longitude, "$message longitude")
-      assertNear(expected.target.latitude, actual.target.latitude, "$message latitude")
+      assertNear(expected.center.longitude, actual.center.longitude, "$message longitude")
+      assertNear(expected.center.latitude, actual.center.latitude, "$message latitude")
     }
   }
 }

@@ -165,13 +165,13 @@ class AndroidMapPresentationTest {
 
         fixture.onMain { state.panBy(DpOffset(32.dp, 0.dp)) }
         fixture.await("pan to move the camera and finish") {
-          state.cameraPosition.target.longitude < initial.target.longitude - 0.1 &&
+          state.cameraPosition.center.longitude < initial.center.longitude - 0.1 &&
             !state.isCameraMoving
         }
         val afterPan = fixture.onMain { state.cameraPosition }
         // The world is 512 * 2^zoom dp wide.
-        val expectedLongitude = initial.target.longitude - 32.0 / (512.0 * 8.0) * 360.0
-        assertEquals(expectedLongitude, afterPan.target.longitude, 0.01)
+        val expectedLongitude = initial.center.longitude - 32.0 / (512.0 * 8.0) * 360.0
+        assertEquals(expectedLongitude, afterPan.center.longitude, 0.01)
         fixture.onMain { assertEquals(CameraMoveReason.Gesture, state.cameraMoveReason) }
 
         fixture.onMain { state.scaleBy(2.0, DpOffset(80.dp, 60.dp)) }
@@ -179,8 +179,8 @@ class AndroidMapPresentationTest {
           abs(state.cameraPosition.zoom - initial.zoom - 1.0) < 0.01 && !state.isCameraMoving
         }
         fixture.onMain {
-          assertEquals(afterPan.target.longitude, state.cameraPosition.target.longitude, 0.01)
-          assertEquals(afterPan.target.latitude, state.cameraPosition.target.latitude, 0.01)
+          assertEquals(afterPan.center.longitude, state.cameraPosition.center.longitude, 0.01)
+          assertEquals(afterPan.center.latitude, state.cameraPosition.center.latitude, 0.01)
           state.click(DpOffset(40.dp, 30.dp))
         }
         fixture.await("the click callback") { lastClick != null }
@@ -190,10 +190,10 @@ class AndroidMapPresentationTest {
           assertEquals(30f, click.y.value)
         }
 
-        val beforeFling = fixture.onMain { state.cameraPosition.target.longitude }
+        val beforeFling = fixture.onMain { state.cameraPosition.center.longitude }
         fixture.onMain { state.fling(DpOffset(2100.dp, 0.dp)) }
         fixture.await("fling to move the camera and settle") {
-          state.cameraPosition.target.longitude < beforeFling - 0.1 && !state.isCameraMoving
+          state.cameraPosition.center.longitude < beforeFling - 0.1 && !state.isCameraMoving
         }
         fixture.onMain {
           assertEquals(CameraMoveReason.Gesture, state.cameraMoveReason)

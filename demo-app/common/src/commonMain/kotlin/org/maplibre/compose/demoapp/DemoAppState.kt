@@ -24,7 +24,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /** New York City, zoomed out before selecting a demo. */
 private val StartPosition =
-  CameraPosition(target = Position(longitude = -74.006, latitude = 40.7128), zoom = 9.5)
+  CameraPosition(center = Position(longitude = -74.006, latitude = 40.7128), zoom = 9.5)
 
 /** Whether the shell is showing the shared demo map or the isolated benchmark map. */
 enum class DemoShell {

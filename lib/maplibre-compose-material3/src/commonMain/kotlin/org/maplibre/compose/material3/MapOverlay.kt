@@ -31,7 +31,7 @@ private val Material3DefaultOverlay = MapOverlay {
     }
   DefaultControls {
     DisappearingScaleBar(
-      metersPerDp = { mapState.viewport?.metersPerDpAtTarget ?: 0.0 },
+      metersPerDp = { mapState.viewport?.metersPerDpAtCenter ?: 0.0 },
       zoom = { mapState.cameraPosition.zoom },
       modifier = Modifier.align(Alignment.TopStart),
     )

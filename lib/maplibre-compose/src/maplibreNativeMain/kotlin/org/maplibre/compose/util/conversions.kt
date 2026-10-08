@@ -53,7 +53,7 @@ internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeI
  */
 internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraPosition =
   CameraPosition(
-    target = center?.toPosition() ?: Position(0.0, 0.0),
+    center = center?.toPosition() ?: Position(0.0, 0.0),
     zoom = zoom ?: 0.0,
     bearing = bearing ?: 0.0,
     pitch = pitch ?: 0.0,
@@ -62,7 +62,7 @@ internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraP
 
 internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =
   CameraOptions().also {
-    it.center = target.toLatLng()
+    it.center = center.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
     it.pitch = pitch
@@ -77,7 +77,7 @@ internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraO
 
 internal fun CameraUpdate.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =
   CameraOptions().also {
-    it.center = target?.toLatLng()
+    it.center = center?.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
     it.pitch = pitch

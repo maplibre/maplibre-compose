@@ -72,11 +72,11 @@ class BrowserMapLifecycleTest {
     runBrowserMapTest {
       val runtime = createMapRuntime()
       val initialCamera =
-        CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
+        CameraPosition(center = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
       val replayedCamera =
         CameraPosition(
           bearing = 20.0,
-          target = Position(longitude = -122.4, latitude = 37.8),
+          center = Position(longitude = -122.4, latitude = 37.8),
           pitch = 30.0,
           zoom = 10.0,
         )
@@ -160,7 +160,7 @@ class BrowserMapLifecycleTest {
       val runtime = createMapRuntime()
       val density = mutableStateOf(Density(1f))
       var observedDensity: Density? = null
-      val camera = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+      val camera = CameraPosition(center = Position(11.0, 47.0), zoom = 8.0)
       val state =
         runtime.createMapState(BaseStyle.Empty, cameraPosition = camera) {
           val current = LocalDensity.current

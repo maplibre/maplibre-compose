@@ -38,11 +38,11 @@ class MlnFfiIndependentCameraTest {
       val animation =
         try {
           state.setCameraPosition(
-            state.cameraPosition.copy(target = Position(1.0, 1.0), padding = DpPadding.Zero)
+            state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero)
           )
           async(start = CoroutineStart.UNDISPATCHED) {
             state.animateCamera(
-              CameraUpdate(target = Position(2.0, 2.0)),
+              CameraUpdate(center = Position(2.0, 2.0)),
               CameraAnimation.Ease(100.milliseconds),
             )
           }
@@ -52,8 +52,8 @@ class MlnFfiIndependentCameraTest {
 
       fixture.awaitUntil("the partial animation to finish") { animation.isCompleted }
       animation.await()
-      assertEquals(2.0, state.cameraPosition.target.longitude, 0.001)
-      assertEquals(2.0, state.cameraPosition.target.latitude, 0.001)
+      assertEquals(2.0, state.cameraPosition.center.longitude, 0.001)
+      assertEquals(2.0, state.cameraPosition.center.latitude, 0.001)
       assertEquals(DpPadding.Zero, state.cameraPosition.padding)
     }
   }
@@ -77,7 +77,7 @@ class MlnFfiIndependentCameraTest {
       val replacement =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(
-            CameraUpdate(target = Position(1.0, 1.0), zoom = 6.0),
+            CameraUpdate(center = Position(1.0, 1.0), zoom = 6.0),
             CameraAnimation.Ease(1.seconds),
           )
         }
@@ -160,7 +160,7 @@ class MlnFfiIndependentCameraTest {
             )
           else
             state.animateCamera(
-              CameraUpdate(target = Position(10.0, 10.0), zoom = 8.0),
+              CameraUpdate(center = Position(10.0, 10.0), zoom = 8.0),
               CameraAnimation.Fly(3.seconds),
             )
         }
@@ -174,7 +174,7 @@ class MlnFfiIndependentCameraTest {
         assertFalse(coupled.isCompleted, "bearing must not replace the coupled target/zoom")
         val replacement = async {
           state.animateCamera(
-            CameraUpdate(target = Position(1.0, 1.0)),
+            CameraUpdate(center = Position(1.0, 1.0)),
             CameraAnimation.Ease(0.milliseconds),
           )
         }

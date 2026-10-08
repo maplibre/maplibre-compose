@@ -1349,7 +1349,7 @@ internal constructor(
    * Animates the specified camera properties after a viewport becomes available.
    *
    * On native platforms, omitted properties keep their current animation and timing. A newer
-   * command replaces only its specified properties. Flight paths also own target and zoom together.
+   * command replaces only its specified properties. Flight paths also own center and zoom together.
    * On the browser, a new command stops the previous animation; omitted properties retain their
    * current values. Viewport-inset changes can also stop browser animations.
    *
@@ -1374,8 +1374,8 @@ internal constructor(
   /**
    * Changes zoom, bearing, or pitch while keeping [anchor] at its screen location at animation
    * start. Null camera components are omitted and can animate independently on native platforms.
-   * The camera target moves to preserve the anchor; this operation does not accept a destination
-   * target or a flight animation.
+   * The camera center moves to preserve the anchor; this operation does not accept a destination
+   * center or a flight animation.
    *
    * Waits for an attached viewport. The anchor must resolve to a visible point on the map, or this
    * call throws [IllegalArgumentException]. Camera padding and viewport insets both affect the
@@ -1498,7 +1498,7 @@ internal constructor(
   /**
    * Projects [position] into a logical-pixel offset, or returns null without a viewport.
    *
-   * Longitudes equivalent modulo 360° project onto the world copy nearest the camera target.
+   * Longitudes equivalent modulo 360° project onto the world copy nearest the camera center.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
     it.screenLocationFromPosition(position)
@@ -1650,8 +1650,8 @@ private fun mapStateSaver(
       with(state.cameraPosition) {
         listOf(
           bearing,
-          target.longitude,
-          target.latitude,
+          center.longitude,
+          center.latitude,
           pitch,
           zoom,
           padding.left.value.toDouble(),
@@ -1669,7 +1669,7 @@ private fun mapStateSaver(
           cameraPosition =
             CameraPosition(
               bearing = values[0],
-              target = Position(longitude = values[1], latitude = values[2]),
+              center = Position(longitude = values[1], latitude = values[2]),
               pitch = values[3],
               zoom = values[4],
               padding =

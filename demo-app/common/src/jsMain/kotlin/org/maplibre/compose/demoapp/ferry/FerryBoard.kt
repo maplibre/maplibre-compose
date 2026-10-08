@@ -61,7 +61,7 @@ internal fun FerryBoard() {
   val map = remember {
     runtime.createMapState(
       baseStyle = Protomaps.Light.base,
-      cameraPosition = CameraPosition(target = Position(-122.7, 48.0), zoom = 7.2),
+      cameraPosition = CameraPosition(center = Position(-122.7, 48.0), zoom = 7.2),
     ) {
       network?.let { FerryMapContent(it, selectedId, Protomaps.Light) }
     }

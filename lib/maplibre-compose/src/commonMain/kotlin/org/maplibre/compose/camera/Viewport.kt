@@ -35,6 +35,6 @@ internal constructor(
    */
   public val visibleRegion: VisibleRegion,
 
-  /** Meters per dp at the camera's target position. */
-  public val metersPerDpAtTarget: Double,
+  /** Meters per dp at the camera's center position. */
+  public val metersPerDpAtCenter: Double,
 )

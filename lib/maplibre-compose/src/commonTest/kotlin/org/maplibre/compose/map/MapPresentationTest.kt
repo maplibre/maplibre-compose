@@ -782,7 +782,7 @@ class MapPresentationTest {
     }
     state.publishPresentation(token, adapter)
     val presentation = requireNotNull(state.currentMapAttachment)
-    val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    val position = CameraPosition(center = Position(12.0, 34.0), zoom = 8.0)
     adapter.releaseOnNextCameraSet = true
 
     state.setCameraPosition(position)
@@ -816,7 +816,7 @@ class MapPresentationTest {
   fun a_camera_set_while_detached_applies_to_the_next_attachment() {
     val fixture = presentationFixture()
     fixture.state.releasePresentation(fixture.token, fixture.adapter)
-    val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    val position = CameraPosition(center = Position(12.0, 34.0), zoom = 8.0)
     fixture.state.setCameraPosition(position)
     val replacement = PresentationTestAdapter()
     val token = fixture.state.reservePresentation()
@@ -2486,7 +2486,7 @@ class MapPresentationTest {
   @Test
   fun publication_happens_after_the_adapter_accepts_initial_map_state() {
     val runtime = mapRuntimeForTest()
-    val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    val initialCamera = CameraPosition(center = Position(12.0, 34.0), zoom = 8.0)
     val state =
       runtime.createMapState(
         baseStyle = BaseStyle.Demo,
@@ -2545,7 +2545,7 @@ class MapPresentationTest {
     state.publishPresentation(token, adapter)
     assertNull(state.currentMapAttachment?.viewport)
 
-    val rendered = CameraPosition(target = Position(12.0, 34.0), zoom = 5.0)
+    val rendered = CameraPosition(center = Position(12.0, 34.0), zoom = 5.0)
     val viewport = testViewport().copy(cameraPosition = rendered)
     adapter.currentViewport = viewport
     adapter.lastCameraPosition = rendered
@@ -3408,5 +3408,5 @@ private fun testViewport(): Viewport =
         nearLeft = Position(-1.0, -1.0),
         nearRight = Position(1.0, -1.0),
       ),
-    metersPerDpAtTarget = 1.0,
+    metersPerDpAtCenter = 1.0,
   )

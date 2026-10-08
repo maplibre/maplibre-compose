@@ -44,7 +44,7 @@ fun Location() {
     )
 
     LocationTrackingEffect(locationState = locationState) {
-      mapState.animateCamera(CameraUpdate(target = currentLocation.position, zoom = 15.0))
+      mapState.animateCamera(CameraUpdate(center = currentLocation.position, zoom = 15.0))
     }
   }
   MaplibreMap(state = mapState)

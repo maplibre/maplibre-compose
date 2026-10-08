@@ -30,7 +30,7 @@ class BearingAccuracyRenderingTest {
           """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}"""
         )
       )
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 0.0))
       val layer = TestLayer("sector", "location-indicator")
       val context = ExpressionContext.None
       layer.paint("location", locationIndicatorPositionJson(Position(0.0, 0.0)))
@@ -68,7 +68,7 @@ class BearingAccuracyRenderingTest {
       checkNotNull(fixture.style).onOwner { handle.update(layer.definition()) }
       fixture.pumpUntil("east-pointing sector") { fixture.readPixel(276, 256).red > 180 }
       assertTrue(fixture.readPixel(256, 236).red < 5)
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 2.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 2.0))
       fixture.pumpUntil("zoom expression changes radius and color") {
         fixture.readPixel(346, 256).blue > 20
       }

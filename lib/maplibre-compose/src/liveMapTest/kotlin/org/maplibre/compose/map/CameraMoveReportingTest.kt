@@ -100,6 +100,6 @@ class CameraMoveReportingTest {
 
     const val AngleTolerance = 0.5
 
-    val Start = CameraPosition(target = Position(0.0, 0.0), zoom = 4.0)
+    val Start = CameraPosition(center = Position(0.0, 0.0), zoom = 4.0)
   }
 }

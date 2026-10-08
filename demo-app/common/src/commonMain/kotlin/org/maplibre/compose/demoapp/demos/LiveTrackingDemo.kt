@@ -159,7 +159,7 @@ object LiveTrackingDemo : Demo {
         }
         if (followVehicle && !mapState.isCameraMoving) {
           mapState.setCameraPosition(
-            mapState.cameraPosition.copy(target = positionAt(crossing.distance))
+            mapState.cameraPosition.copy(center = positionAt(crossing.distance))
           )
         }
       }

@@ -185,7 +185,7 @@ class MapQueryTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(TwoHalvesStyle))
       // Zoom 0 keeps ±90 inside the 512 px viewport.
-      it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      it.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 0.0))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
@@ -237,7 +237,7 @@ class MapQueryTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(TwoHalvesStyle))
       // At zoom 0, the 20° gap between the halves is about 28dp wide at the center.
-      it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      it.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 0.0))
       it.awaitMapReady()
       it.pumpUntil("the style's features to become queryable") {
         it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()

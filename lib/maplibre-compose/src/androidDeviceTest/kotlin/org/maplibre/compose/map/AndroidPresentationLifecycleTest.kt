@@ -115,10 +115,10 @@ class AndroidPresentationLifecycleTest {
           state.panBy(DpOffset(40.dp, 0.dp))
         }
         fixture.await("recognized input to reach the presented map") {
-          clicks.get() == 1 && state.cameraPosition.target != initialCamera.target
+          clicks.get() == 1 && state.cameraPosition.center != initialCamera.center
         }
         val retainedLongitude = fixture.onMain {
-          val longitude = state.cameraPosition.target.longitude
+          val longitude = state.cameraPosition.center.longitude
           lifecycleOwner.lifecycle.currentState = Lifecycle.State.DESTROYED
           longitude
         }
@@ -136,7 +136,7 @@ class AndroidPresentationLifecycleTest {
           }
           // Recognized gestures are ignored without a presentation.
           state.panBy(DpOffset(40.dp, 0.dp))
-          assertEquals(retainedLongitude, state.cameraPosition.target.longitude)
+          assertEquals(retainedLongitude, state.cameraPosition.center.longitude)
         }
         awaitNoNewRenderThreads(fixture.initialRenderThreads)
         val previousFrames = fixture.consumer.frames.get()
@@ -151,7 +151,7 @@ class AndroidPresentationLifecycleTest {
             state.viewport != null
         }
         fixture.onMain {
-          assertEquals(retainedLongitude, state.cameraPosition.target.longitude, 1e-7)
+          assertEquals(retainedLongitude, state.cameraPosition.center.longitude, 1e-7)
           assertFalse(state.isClosed)
           assertNull(presenter.failure)
         }

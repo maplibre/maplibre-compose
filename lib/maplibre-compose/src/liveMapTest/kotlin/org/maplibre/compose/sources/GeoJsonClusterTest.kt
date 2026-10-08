@@ -33,7 +33,7 @@ class GeoJsonClusterTest {
   fun cluster_queries_resolve_features_and_report_missing_clusters(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = Zoom))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = Zoom))
       val binding = checkNotNull(fixture.style)
       val source =
         GeoJsonSource(
@@ -90,7 +90,7 @@ class GeoJsonClusterTest {
   fun cluster_queries_return_null_for_a_source_without_clustering(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = Zoom))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = Zoom))
       val binding = checkNotNull(fixture.style)
       val source =
         GeoJsonSource(

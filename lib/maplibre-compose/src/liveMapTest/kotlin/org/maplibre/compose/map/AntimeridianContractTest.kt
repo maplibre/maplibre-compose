@@ -35,10 +35,10 @@ class AntimeridianContractTest {
     createMapFixture(extent).use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.state.setCameraPosition(CameraPosition(target = Position(179.0, 0.0), zoom = 1.0))
+      it.state.setCameraPosition(CameraPosition(center = Position(179.0, 0.0), zoom = 1.0))
       it.pumpUntil("the repeated-world camera to apply") {
         abs(it.session.getCameraPosition().zoom - 1.0) < 0.01 &&
-          abs(it.session.getCameraPosition().target.longitude - 179.0) < 0.01
+          abs(it.session.getCameraPosition().center.longitude - 179.0) < 0.01
       }
 
       // At zoom 1 a world is 1024 dp wide; lon 190 is the visible copy of the -170 meridian.
@@ -64,13 +64,13 @@ class AntimeridianContractTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.state.setCameraPosition(CameraPosition(target = Position(539.5, 20.0), zoom = 3.0))
+      it.state.setCameraPosition(CameraPosition(center = Position(539.5, 20.0), zoom = 3.0))
       it.pumpUntil("the out-of-range camera to apply") {
         abs(it.session.getCameraPosition().zoom - 3.0) < 0.01
       }
       it.settle()
 
-      val target = it.session.getCameraPosition().target
+      val target = it.session.getCameraPosition().center
       when (mapLibreFlavor) {
         MapLibreFlavor.Native -> assertEquals(179.5, target.longitude, 0.01)
         MapLibreFlavor.GlJs -> assertEquals(539.5, target.longitude, 0.01)
@@ -93,12 +93,12 @@ class AntimeridianContractTest {
         it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
         it.session.setCameraConstraints(CameraConstraints(boundingBox = box))
-        it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 2.0))
+        it.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 2.0))
         it.settle()
 
         // The camera is clamped into the allowed band, whose longitudes wrap to [170, 180] or
         // [-180, -170]. Which edge the engine picks is engine-defined.
-        val lon = it.session.getCameraPosition().target.longitude
+        val lon = it.session.getCameraPosition().center.longitude
         val wrapped = if (lon < -180.0) lon + 360.0 else if (lon > 180.0) lon - 360.0 else lon
         assertTrue(
           wrapped >= 169.9 || wrapped <= -169.9,
@@ -119,7 +119,7 @@ class AntimeridianContractTest {
       createMapFixture(extent).use {
         it.loadStyle(BaseStyle.Json(StraddlingFillStyle))
         it.awaitMapReady()
-        it.state.setCameraPosition(CameraPosition(target = Position(180.0, 0.0), zoom = 0.0))
+        it.state.setCameraPosition(CameraPosition(center = Position(180.0, 0.0), zoom = 0.0))
         // Cross the tile boundary: a point exactly on it can hit only one copy in WebKit.
         val queryArea = DpRect(799.dp, 255.dp, 801.dp, 257.dp)
         it.pumpUntil("the style's features to become queryable") {

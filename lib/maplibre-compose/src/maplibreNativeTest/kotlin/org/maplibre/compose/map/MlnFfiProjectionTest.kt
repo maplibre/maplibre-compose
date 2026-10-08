@@ -38,29 +38,29 @@ class MlnFfiProjectionTest {
         fixture.renderFrameProjection().use { projection ->
           fixture.session.presentFrame(projection, MlnFfiMapDestination(0, 0, 200, 200), 1.0)
           val initial =
-            assertNotNull(fixture.session.overlayScreenLocationFromPosition(RotatedCamera.target))
+            assertNotNull(fixture.session.overlayScreenLocationFromPosition(RotatedCamera.center))
           assertTrue(initial.isNear(DpOffset(100.dp, 100.dp)))
 
-          val movedCamera = StartCamera.copy(target = Position(25.0, 40.0))
+          val movedCamera = StartCamera.copy(center = Position(25.0, 40.0))
           fixture.session.setCameraPosition(movedCamera)
           fixture.pumpUntil("the live camera to advance") {
             abs(fixture.session.getCameraPosition().bearing - StartCamera.bearing) < 0.01
           }
           assertEquals(
             initial,
-            fixture.session.overlayScreenLocationFromPosition(RotatedCamera.target),
+            fixture.session.overlayScreenLocationFromPosition(RotatedCamera.center),
           )
           assertTrue(
-            !fixture.session.screenLocationFromPosition(RotatedCamera.target).isNear(initial)
+            !fixture.session.screenLocationFromPosition(RotatedCamera.center).isNear(initial)
           )
 
           // A retained 200px texture centered in a 300px surface at density 2.
           fixture.session.presentFrame(projection, MlnFfiMapDestination(50, 50, 200, 200), 2.0)
           val expected = DpOffset(75.dp, 75.dp)
           assertTrue(
-            fixture.session.overlayScreenLocationFromPosition(RotatedCamera.target).isNear(expected)
+            fixture.session.overlayScreenLocationFromPosition(RotatedCamera.center).isNear(expected)
           )
-          assertTrue(fixture.session.screenLocationFromPosition(movedCamera.target).isNear(initial))
+          assertTrue(fixture.session.screenLocationFromPosition(movedCamera.center).isNear(initial))
           Snapshot.takeSnapshot().also {
             fixture.session.presentFrame(null, MlnFfiMapDestination(0, 0, 0, 0), 1.0)
           }
@@ -68,7 +68,7 @@ class MlnFfiProjectionTest {
       try {
         // A Compose snapshot can outlive the frame whose handle has just been closed.
         oldSnapshot.enter {
-          assertNotNull(fixture.session.overlayScreenLocationFromPosition(StartCamera.target))
+          assertNotNull(fixture.session.overlayScreenLocationFromPosition(StartCamera.center))
         }
       } finally {
         oldSnapshot.dispose()
@@ -83,7 +83,7 @@ class MlnFfiProjectionTest {
       fixture.session.setCameraPosition(RotatedCamera)
       fixture.pumpUntil("the camera target to land on the screen center") {
         val camera = fixture.session.getCameraPosition()
-        val projected = fixture.session.screenLocationFromPosition(camera.target)
+        val projected = fixture.session.screenLocationFromPosition(camera.center)
         abs(camera.bearing - RotatedCamera.bearing) < 0.01 &&
           abs(camera.zoom - RotatedCamera.zoom) < 0.01 &&
           abs(camera.pitch - RotatedCamera.pitch) < 0.01 &&
@@ -92,10 +92,10 @@ class MlnFfiProjectionTest {
 
       // The test thread is not the owner thread, so both calls take the snapshot handle.
       val camera = fixture.session.getCameraPosition()
-      val projected = fixture.session.screenLocationFromPosition(camera.target)
+      val projected = fixture.session.screenLocationFromPosition(camera.center)
       assertTrue(
         projected.isNear(ScreenCenter),
-        "the camera target ${camera.target} should project to $ScreenCenter ± $PixelTolerance, was $projected",
+        "the camera target ${camera.center} should project to $ScreenCenter ± $PixelTolerance, was $projected",
       )
 
       val roundTrip =
@@ -116,10 +116,10 @@ class MlnFfiProjectionTest {
       fixture.session.setCameraPosition(StartCamera)
       fixture.pumpUntil("the starting camera to apply") {
         abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) < 0.01 &&
-          fixture.session.screenLocationFromPosition(StartCamera.target).isNear(ScreenCenter)
+          fixture.session.screenLocationFromPosition(StartCamera.center).isNear(ScreenCenter)
       }
 
-      val start = fixture.session.getCameraPosition().target
+      val start = fixture.session.getCameraPosition().center
       for (width in 200..210) {
         val extent = MapExtent.fromLogical(width, 200, scaleFactor = 1.0)
         fixture.hasRendered = false
@@ -131,9 +131,9 @@ class MlnFfiProjectionTest {
         }
         val camera = fixture.session.getCameraPosition()
         assertTrue(
-          abs(camera.target.latitude - start.latitude) < TargetTolerance &&
-            abs(camera.target.longitude - start.longitude) < TargetTolerance,
-          "resize to ${extent.width}x${extent.height} moved the camera from $start to ${camera.target}",
+          abs(camera.center.latitude - start.latitude) < TargetTolerance &&
+            abs(camera.center.longitude - start.longitude) < TargetTolerance,
+          "resize to ${extent.width}x${extent.height} moved the camera from $start to ${camera.center}",
         )
         val projected = fixture.session.screenLocationFromPosition(start)
         val expectedCenter = DpOffset((width / 2.0).dp, 100.dp)
@@ -151,7 +151,7 @@ class MlnFfiProjectionTest {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(StartCamera)
       fixture.pumpUntil("the camera target to land on the first screen center") {
-        val projected = fixture.session.screenLocationFromPosition(StartCamera.target)
+        val projected = fixture.session.screenLocationFromPosition(StartCamera.center)
         abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) < 0.01 &&
           projected.isNear(ScreenCenter)
       }
@@ -160,7 +160,7 @@ class MlnFfiProjectionTest {
       fixture.hasRendered = false
       fixture.pumpUntil("the resized map to render", extent = WideExtent) { fixture.hasRendered }
       fixture.pumpUntil("the camera target to land on the resized screen center") {
-        fixture.session.screenLocationFromPosition(StartCamera.target).isNear(WideScreenCenter)
+        fixture.session.screenLocationFromPosition(StartCamera.center).isNear(WideScreenCenter)
       }
 
       assertTrue(
@@ -219,9 +219,9 @@ class MlnFfiProjectionTest {
 
     val WideScreenCenter = DpOffset(320.dp, 256.dp)
 
-    val StartCamera = CameraPosition(target = Position(11.0, 47.0), zoom = 2.0)
+    val StartCamera = CameraPosition(center = Position(11.0, 47.0), zoom = 2.0)
 
     val RotatedCamera =
-      CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
+      CameraPosition(center = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, pitch = 40.0)
   }
 }
