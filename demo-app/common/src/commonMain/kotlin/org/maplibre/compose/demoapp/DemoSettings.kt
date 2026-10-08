@@ -94,9 +94,6 @@ class DemoSettings {
   var flightDurationMillis by mutableStateOf(2000f)
   var flightSpeed by mutableStateOf(CameraAnimation.Fly.DefaultSpeed.toFloat())
 
-  /** Zero means no limit. */
-  var flightMinZoom by mutableStateOf(0f)
-
   /** The camera movements the gesture settings allow. A demo edits these for its own needs. */
   val interactions: MapInteractions
     get() = MapInteractions {
@@ -133,7 +130,6 @@ class DemoSettings {
             duration =
               if (paceFlightBySpeed) null else flightDurationMillis.roundToInt().milliseconds
             speed = flightSpeed.toDouble()
-            minZoom = flightMinZoom.toDouble().takeIf { it > 0.0 }
           }
       }
 }

@@ -31,15 +31,13 @@ again.
 
 ### Choose the transition
 
-The `animation` parameter selects one of two transitions. Each platform
-implements both with the same controls.
+The `animation` parameter selects one of two transitions.
 
 <Api of="CameraAnimation.Fly" /> follows a flight path. The camera zooms out, crosses
 the ground, and zooms back in, so the map stays legible over any distance.
 Without a duration, the flight takes as long as its path length and speed
 require. Set `duration` for a fixed time, `speed` in screenfuls per second for a
-constant pace, and `minZoom` to shape how far the flight zooms out. The exact
-path depends on the engine:
+constant pace. The exact path and additional flight settings depend on the engine:
 
 <Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
 

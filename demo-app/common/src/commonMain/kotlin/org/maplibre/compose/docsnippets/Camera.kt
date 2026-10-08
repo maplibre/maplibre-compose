@@ -46,7 +46,6 @@ fun Camera() {
       animation =
         CameraAnimation.Fly {
           duration = 3.seconds
-          minZoom = 4.0
         },
     )
   }

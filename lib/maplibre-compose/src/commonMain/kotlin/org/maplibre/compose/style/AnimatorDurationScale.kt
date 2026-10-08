@@ -41,12 +41,13 @@ internal fun CameraAnimation.scaledBy(scale: Float): CameraAnimation {
     is CameraAnimation.Ease ->
       CameraAnimation.Ease(from = animation) { duration = animation.duration.scaledBy(scale) }
     is CameraAnimation.Fly ->
-      when {
-        animation.duration != null ->
-          CameraAnimation.Fly(from = animation) { duration = animation.duration.scaledBy(scale) }
-        scale == 0f -> CameraAnimation.Fly(from = animation) { duration = Duration.ZERO }
-        else -> CameraAnimation.Fly(from = animation) { speed = animation.speed / scale }
+      when (val duration = animation.duration) {
+        null ->
+          if (scale == 0f) CameraAnimation.Fly(from = animation) { this.duration = Duration.ZERO }
+          else CameraAnimation.Fly(from = animation) { speed = animation.speed / scale }
+        else -> CameraAnimation.Fly(from = animation) { this.duration = duration.scaledBy(scale) }
       }
+    else -> animation
   }
 }
 
