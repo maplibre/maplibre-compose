@@ -172,6 +172,7 @@ public class GeoJsonOptions private constructor(builder: Builder) {
       clusterRadius == other.clusterRadius &&
       clusterMinPoints == other.clusterMinPoints &&
       clusterMaxZoom == other.clusterMaxZoom &&
+      clusterMaxZoomOverride == other.clusterMaxZoomOverride &&
       clusterProperties == other.clusterProperties &&
       lineMetrics == other.lineMetrics &&
       synchronousTiling == other.synchronousTiling
@@ -186,6 +187,7 @@ public class GeoJsonOptions private constructor(builder: Builder) {
         clusterRadius,
         clusterMinPoints,
         clusterMaxZoom,
+        clusterMaxZoomOverride,
         clusterProperties,
         lineMetrics,
         synchronousTiling,

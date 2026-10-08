@@ -1,5 +1,6 @@
 package org.maplibre.compose.sources
 
+import androidx.compose.runtime.mutableStateOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -126,6 +127,10 @@ class SourceJsonTest {
     }
     assertEquals(7, explicit.clusterMaxZoom)
     assertEquals(7, GeoJsonOptions(from = explicit) { maxZoom = 10 }.clusterMaxZoom)
+
+    val state = mutableStateOf(options)
+    state.value = GeoJsonOptions(from = options) { clusterMaxZoom = options.clusterMaxZoom }
+    assertEquals(11, GeoJsonOptions(from = state.value) { maxZoom = 10 }.clusterMaxZoom)
   }
 
   @Test
