@@ -42,6 +42,7 @@ public sealed interface ComposeMapPresentationHost {
      *   resources this way.
      * @throws IllegalStateException if the current operating system isn't macOS.
      */
+    // Exposes Skiko GPU contexts, which are not yet stable.
     @ExperimentalMaplibreComposeApi
     public fun macosMetal(
       description: String,
@@ -70,6 +71,7 @@ public sealed interface ComposeMapPresentationHost {
      *   resources this way.
      * @throws IllegalStateException if the current operating system isn't Windows.
      */
+    // Exposes Skiko GPU contexts, which are not yet stable.
     @ExperimentalMaplibreComposeApi
     public fun windowsDirect3d12(
       description: String,
@@ -102,6 +104,7 @@ public sealed interface ComposeMapPresentationHost {
      *   Wayland handle; portals then show their dialogs without a parent.
      * @throws IllegalStateException if the current operating system isn't Linux.
      */
+    // Exposes Skiko GPU contexts, which are not yet stable.
     @ExperimentalMaplibreComposeApi
     public fun linuxOpenGl(
       description: String,
@@ -132,6 +135,7 @@ public sealed interface ComposeMapPresentationHost {
      *   resources this way.
      * @throws IllegalStateException if the current operating system isn't Windows.
      */
+    // Exposes Skiko GPU contexts, which are not yet stable.
     @ExperimentalMaplibreComposeApi
     public fun windowsAngle(
       description: String,

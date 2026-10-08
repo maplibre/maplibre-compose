@@ -6,6 +6,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Provides the borrowed MapLibre GL JS map for one [MapState.withPlatformMap] callback. */
 @DelicateMaplibreComposeApi
+// Exposes MapLibre GL JS bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public actual class PlatformMapScope internal constructor(private val engineMap: MaplibreMap) {
   /** The raw MapLibre GL JS `Map` object. */
@@ -14,6 +15,7 @@ public actual class PlatformMapScope internal constructor(private val engineMap:
 }
 
 @DelicateMaplibreComposeApi
+// Exposes MapLibre GL JS bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
   val session = lifecycle.presentationAdapterForPlatformAccess() as GlJsMapSession

@@ -1,3 +1,5 @@
+@file:OptIn(org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class)
+
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile

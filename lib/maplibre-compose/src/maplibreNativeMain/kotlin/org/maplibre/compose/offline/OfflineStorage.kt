@@ -1,3 +1,5 @@
+@file:OptIn(org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class)
+
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Immutable
@@ -5,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.compose.util.formatToString
 
 /** The offline packs and ambient cache that belong to this runtime. */
@@ -65,6 +68,8 @@ public sealed interface OfflineStorage {
    *
    * @throws OfflineStorageException if the operation failed.
    */
+  // Exposes kotlinx-io Path, which is not yet stable.
+  @ExperimentalMaplibreComposeApi
   public suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack>
 
   /**

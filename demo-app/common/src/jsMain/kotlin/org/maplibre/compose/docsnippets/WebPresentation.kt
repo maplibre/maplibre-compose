@@ -1,3 +1,4 @@
+@file:OptIn(org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class)
 @file:Suppress("unused")
 
 package org.maplibre.compose.docsnippets

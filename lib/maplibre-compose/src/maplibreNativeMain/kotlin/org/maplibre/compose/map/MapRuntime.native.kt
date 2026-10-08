@@ -1,3 +1,5 @@
+@file:OptIn(org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
@@ -7,6 +9,7 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceProvider
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 @Immutable
 public actual data class MapRuntimeOptions
@@ -16,7 +19,8 @@ internal constructor(
    * file in the platform's cache directory for this application, resolved when the runtime is
    * created.
    */
-  public val cacheFile: Path?,
+  // Exposes kotlinx-io Path, which is not yet stable.
+  @ExperimentalMaplibreComposeApi public val cacheFile: Path?,
   /** Maximum ambient cache size in bytes. Defaults to 50 MiB, the MapLibre Native default. */
   public val maximumCacheSizeBytes: Long,
   public actual val requestInterceptor: MapRequestInterceptor?,
@@ -41,7 +45,8 @@ internal constructor(
   @MapOptionsDsl
   public actual class Builder internal constructor(from: MapRuntimeOptions) {
     /** See [MapRuntimeOptions.cacheFile]. */
-    public var cacheFile: Path? = from.cacheFile
+    // Exposes kotlinx-io Path, which is not yet stable.
+    @ExperimentalMaplibreComposeApi public var cacheFile: Path? = from.cacheFile
 
     /** See [MapRuntimeOptions.maximumCacheSizeBytes]. */
     public var maximumCacheSizeBytes: Long = from.maximumCacheSizeBytes
