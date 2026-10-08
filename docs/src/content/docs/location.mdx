@@ -25,6 +25,11 @@ unsupported or misconfigured provider before the application requests permission
 initially draws nothing. Afterward, the state retains the last measurement when
 tracking stops or permission changes.
 
+Use <Api of="LocationRequest" /> and <Api of="HeadingRequest" /> to configure
+update preferences. Omitted settings use the `Standard` preset:
+
+<Code code={region(location, "requests")} lang="kotlin" title="App.kt" />
+
 ## Request permission
 
 The library never requests location permission automatically. Call

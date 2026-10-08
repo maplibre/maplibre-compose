@@ -15,7 +15,7 @@ class IosHeadingProviderTest {
           isHeadingAvailable = { false },
           coroutineContext = EmptyCoroutineContext,
         )
-        .updates(HeadingRequest(Duration.ZERO))
+        .updates(HeadingRequest { minimumInterval = Duration.ZERO })
         .toList()
 
     assertTrue(headings.isEmpty())

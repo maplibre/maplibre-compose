@@ -12,10 +12,6 @@ open annotation class org.maplibre.compose.interaction/MapInteractionDsl : kotli
     constructor <init>() // org.maplibre.compose.interaction/MapInteractionDsl.<init>|<init>(){}[0]
 }
 
-open annotation class org.maplibre.compose.map/MapOptionsDsl : kotlin/Annotation { // org.maplibre.compose.map/MapOptionsDsl|null[0]
-    constructor <init>() // org.maplibre.compose.map/MapOptionsDsl.<init>|<init>(){}[0]
-}
-
 open annotation class org.maplibre.compose.util/DelicateMaplibreComposeApi : kotlin/Annotation { // org.maplibre.compose.util/DelicateMaplibreComposeApi|null[0]
     constructor <init>() // org.maplibre.compose.util/DelicateMaplibreComposeApi.<init>|<init>(){}[0]
 }

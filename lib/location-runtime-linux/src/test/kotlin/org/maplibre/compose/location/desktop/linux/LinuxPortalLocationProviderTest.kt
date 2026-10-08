@@ -98,7 +98,7 @@ class LinuxPortalLocationProviderTest {
     val portal = FakeLinuxLocationPortal()
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
-    assertIs<LocationEvent.Update>(provider.updates(LocationRequest()).first())
+    assertIs<LocationEvent.Update>(provider.updates(LocationRequest.Standard).first())
     assertEquals(1, portal.updateCollections)
   }
 
@@ -108,7 +108,7 @@ class LinuxPortalLocationProviderTest {
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
     provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)
@@ -194,7 +194,7 @@ class LinuxPortalLocationProviderTest {
 
   @Test
   fun sessionOptionsHaveNoDistanceThreshold() {
-    val options = sessionOptions(LocationRequest(minimumDistance = 100.meters))
+    val options = sessionOptions(LocationRequest { minimumDistance = 100.meters })
 
     assertFalse("distance-threshold" in options)
   }
@@ -213,7 +213,10 @@ class LinuxPortalLocationProviderTest {
 
     assertEquals(LocationAccuracy.entries.toSet(), expected.keys)
     for ((accuracy, level) in expected) {
-      assertEquals(UInt32(level), sessionOptions(LocationRequest(accuracy))["accuracy"]?.value)
+      assertEquals(
+        UInt32(level),
+        sessionOptions(LocationRequest { this.accuracy = accuracy })["accuracy"]?.value,
+      )
     }
   }
 

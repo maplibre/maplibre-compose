@@ -186,9 +186,9 @@ internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
 @Composable
 public fun rememberLocationState(
   provider: LocationProvider = rememberDefaultLocationProvider(),
-  request: LocationRequest = LocationRequest(),
+  request: LocationRequest = LocationRequest.Standard,
   headingProvider: HeadingProvider = NoHeadingProvider,
-  headingRequest: HeadingRequest = HeadingRequest(),
+  headingRequest: HeadingRequest = HeadingRequest.Standard,
   enabled: Boolean = true,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,

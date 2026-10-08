@@ -9,7 +9,7 @@ class LocationProviderTest {
   @Test
   fun unsupportedProviderRejectsUpdateCollection() = runTest {
     assertFailsWith<IllegalStateException> {
-      UnsupportedLocationProvider.updates(LocationRequest()).first()
+      UnsupportedLocationProvider.updates(LocationRequest.Standard).first()
     }
   }
 }

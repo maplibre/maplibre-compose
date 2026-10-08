@@ -30,7 +30,7 @@ class FusedLocationProviderTest {
         permissionDelegate = null,
         executor = DirectExecutor,
       )
-    val collection = launch { provider.updates(LocationRequest()).collect {} }
+    val collection = launch { provider.updates(LocationRequest.Standard).collect {} }
 
     runCurrent()
     collection.cancelAndJoin()

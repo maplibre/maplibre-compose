@@ -8,6 +8,10 @@
 // - Show declarations: true
 
 // Library unique name: <org.maplibre.compose:location>
+open annotation class org.maplibre.compose.map/MapOptionsDsl : kotlin/Annotation { // org.maplibre.compose.map/MapOptionsDsl|null[0]
+    constructor <init>() // org.maplibre.compose.map/MapOptionsDsl.<init>|<init>(){}[0]
+}
+
 final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
     enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
     enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]
@@ -238,16 +242,26 @@ final class org.maplibre.compose.location/HeadingMeasurement { // org.maplibre.c
 }
 
 final class org.maplibre.compose.location/HeadingRequest { // org.maplibre.compose.location/HeadingRequest|null[0]
-    constructor <init>(kotlin.time/Duration = ...) // org.maplibre.compose.location/HeadingRequest.<init>|<init>(kotlin.time.Duration){}[0]
+    constructor <init>(org.maplibre.compose.location/HeadingRequest = ..., kotlin/Function1<org.maplibre.compose.location/HeadingRequest.Builder, kotlin/Unit>) // org.maplibre.compose.location/HeadingRequest.<init>|<init>(org.maplibre.compose.location.HeadingRequest;kotlin.Function1<org.maplibre.compose.location.HeadingRequest.Builder,kotlin.Unit>){}[0]
 
     final val minimumInterval // org.maplibre.compose.location/HeadingRequest.minimumInterval|{}minimumInterval[0]
         final fun <get-minimumInterval>(): kotlin.time/Duration // org.maplibre.compose.location/HeadingRequest.minimumInterval.<get-minimumInterval>|<get-minimumInterval>(){}[0]
 
     final fun component1(): kotlin.time/Duration // org.maplibre.compose.location/HeadingRequest.component1|component1(){}[0]
-    final fun copy(kotlin.time/Duration = ...): org.maplibre.compose.location/HeadingRequest // org.maplibre.compose.location/HeadingRequest.copy|copy(kotlin.time.Duration){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingRequest.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingRequest.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingRequest.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.location/HeadingRequest.Builder|null[0]
+        final var minimumInterval // org.maplibre.compose.location/HeadingRequest.Builder.minimumInterval|{}minimumInterval[0]
+            final fun <get-minimumInterval>(): kotlin.time/Duration // org.maplibre.compose.location/HeadingRequest.Builder.minimumInterval.<get-minimumInterval>|<get-minimumInterval>(){}[0]
+            final fun <set-minimumInterval>(kotlin.time/Duration) // org.maplibre.compose.location/HeadingRequest.Builder.minimumInterval.<set-minimumInterval>|<set-minimumInterval>(kotlin.time.Duration){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.location/HeadingRequest.Companion|null[0]
+        final val Standard // org.maplibre.compose.location/HeadingRequest.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.location/HeadingRequest // org.maplibre.compose.location/HeadingRequest.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.location/LocationMeasurement { // org.maplibre.compose.location/LocationMeasurement|null[0]
@@ -298,7 +312,7 @@ final class org.maplibre.compose.location/LocationMeasurement { // org.maplibre.
 }
 
 final class org.maplibre.compose.location/LocationRequest { // org.maplibre.compose.location/LocationRequest|null[0]
-    constructor <init>(org.maplibre.compose.location/LocationAccuracy = ..., kotlin.time/Duration = ..., org.maplibre.spatialk.units/Length = ...) // org.maplibre.compose.location/LocationRequest.<init>|<init>(org.maplibre.compose.location.LocationAccuracy;kotlin.time.Duration;org.maplibre.spatialk.units.Length){}[0]
+    constructor <init>(org.maplibre.compose.location/LocationRequest = ..., kotlin/Function1<org.maplibre.compose.location/LocationRequest.Builder, kotlin/Unit>) // org.maplibre.compose.location/LocationRequest.<init>|<init>(org.maplibre.compose.location.LocationRequest;kotlin.Function1<org.maplibre.compose.location.LocationRequest.Builder,kotlin.Unit>){}[0]
 
     final val accuracy // org.maplibre.compose.location/LocationRequest.accuracy|{}accuracy[0]
         final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationRequest.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
@@ -310,10 +324,26 @@ final class org.maplibre.compose.location/LocationRequest { // org.maplibre.comp
     final fun component1(): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationRequest.component1|component1(){}[0]
     final fun component2(): kotlin.time/Duration // org.maplibre.compose.location/LocationRequest.component2|component2(){}[0]
     final fun component3(): org.maplibre.spatialk.units/Length // org.maplibre.compose.location/LocationRequest.component3|component3(){}[0]
-    final fun copy(org.maplibre.compose.location/LocationAccuracy = ..., kotlin.time/Duration = ..., org.maplibre.spatialk.units/Length = ...): org.maplibre.compose.location/LocationRequest // org.maplibre.compose.location/LocationRequest.copy|copy(org.maplibre.compose.location.LocationAccuracy;kotlin.time.Duration;org.maplibre.spatialk.units.Length){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/LocationRequest.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.location/LocationRequest.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.location/LocationRequest.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.location/LocationRequest.Builder|null[0]
+        final var accuracy // org.maplibre.compose.location/LocationRequest.Builder.accuracy|{}accuracy[0]
+            final fun <get-accuracy>(): org.maplibre.compose.location/LocationAccuracy // org.maplibre.compose.location/LocationRequest.Builder.accuracy.<get-accuracy>|<get-accuracy>(){}[0]
+            final fun <set-accuracy>(org.maplibre.compose.location/LocationAccuracy) // org.maplibre.compose.location/LocationRequest.Builder.accuracy.<set-accuracy>|<set-accuracy>(org.maplibre.compose.location.LocationAccuracy){}[0]
+        final var minimumDistance // org.maplibre.compose.location/LocationRequest.Builder.minimumDistance|{}minimumDistance[0]
+            final fun <get-minimumDistance>(): org.maplibre.spatialk.units/Length // org.maplibre.compose.location/LocationRequest.Builder.minimumDistance.<get-minimumDistance>|<get-minimumDistance>(){}[0]
+            final fun <set-minimumDistance>(org.maplibre.spatialk.units/Length) // org.maplibre.compose.location/LocationRequest.Builder.minimumDistance.<set-minimumDistance>|<set-minimumDistance>(org.maplibre.spatialk.units.Length){}[0]
+        final var minimumInterval // org.maplibre.compose.location/LocationRequest.Builder.minimumInterval|{}minimumInterval[0]
+            final fun <get-minimumInterval>(): kotlin.time/Duration // org.maplibre.compose.location/LocationRequest.Builder.minimumInterval.<get-minimumInterval>|<get-minimumInterval>(){}[0]
+            final fun <set-minimumInterval>(kotlin.time/Duration) // org.maplibre.compose.location/LocationRequest.Builder.minimumInterval.<set-minimumInterval>|<set-minimumInterval>(kotlin.time.Duration){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.location/LocationRequest.Companion|null[0]
+        final val Standard // org.maplibre.compose.location/LocationRequest.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.location/LocationRequest // org.maplibre.compose.location/LocationRequest.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.location/SystemSettingsLauncher { // org.maplibre.compose.location/SystemSettingsLauncher|null[0]

@@ -86,7 +86,7 @@ class AppleLocationProviderTest {
       }
     val events = Channel<LocationEvent>(Channel.UNLIMITED)
     val collection = backgroundScope.launch {
-      provider.updates(LocationRequest()).collect { events.send(it) }
+      provider.updates(LocationRequest.Standard).collect { events.send(it) }
     }
     try {
       assertEquals(

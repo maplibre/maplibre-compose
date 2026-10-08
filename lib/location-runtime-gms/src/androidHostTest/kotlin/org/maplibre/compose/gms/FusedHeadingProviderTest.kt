@@ -41,7 +41,7 @@ class FusedHeadingProviderTest {
           elapsedRealtimeNanos = { 0L },
         )
 
-      val result = provider.updates(HeadingRequest(Duration.ZERO)).first()
+      val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
       val bearing = result.bearing
 
       assertEquals(heading.toDouble(), Bearing.North.clockwiseRotationTo(bearing).inDegrees, 1e-10)
@@ -57,7 +57,7 @@ class FusedHeadingProviderTest {
         elapsedRealtimeNanos = { 0L },
       )
 
-    val result = provider.updates(HeadingRequest(Duration.ZERO)).first()
+    val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
 
     assertNull(result.accuracy)
   }
@@ -73,7 +73,7 @@ class FusedHeadingProviderTest {
 
     val thrown =
       assertFailsWith<IllegalStateException> {
-        provider.updates(HeadingRequest(Duration.ZERO)).first()
+        provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
       }
 
     assertEquals(failure.message, thrown.message)
@@ -93,7 +93,9 @@ class FusedHeadingProviderTest {
         elapsedRealtimeNanos = { 0L },
         executor = DirectExecutor,
       )
-    val collection = launch { provider.updates(HeadingRequest(Duration.ZERO)).collect {} }
+    val collection = launch {
+      provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).collect {}
+    }
 
     runCurrent()
     collection.cancelAndJoin()
