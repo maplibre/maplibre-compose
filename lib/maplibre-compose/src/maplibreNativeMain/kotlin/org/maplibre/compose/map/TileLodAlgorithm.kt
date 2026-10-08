@@ -31,9 +31,9 @@ public abstract class TileLodAlgorithm private constructor() {
     public val pitchThreshold: Double,
     public val zoomShift: Double,
   ) : TileLodAlgorithm() {
-    /** Edits [from]; without it, uses Native's defaults. Omitted settings inherit. */
+    /** Edits [from], defaulting to [Standard]. Omitted settings inherit. */
     public constructor(
-      from: ScreenCenter? = null,
+      from: ScreenCenter = Standard,
       block: Builder.() -> Unit = {},
     ) : this(Builder(from).apply(block))
 
@@ -49,18 +49,23 @@ public abstract class TileLodAlgorithm private constructor() {
     }
 
     @MapOptionsDsl
-    public class Builder internal constructor(from: ScreenCenter?) {
+    public class Builder internal constructor(from: ScreenCenter) {
       /** See [ScreenCenter.minRadius]. */
-      public var minRadius: Double = from?.minRadius ?: 3.0
+      public var minRadius: Double = from.minRadius
 
       /** See [ScreenCenter.scale]. */
-      public var scale: Double = from?.scale ?: 1.0
+      public var scale: Double = from.scale
 
       /** See [ScreenCenter.pitchThreshold]. */
-      public var pitchThreshold: Double = from?.pitchThreshold ?: 60.0
+      public var pitchThreshold: Double = from.pitchThreshold
 
       /** See [ScreenCenter.zoomShift]. */
-      public var zoomShift: Double = from?.zoomShift ?: 0.0
+      public var zoomShift: Double = from.zoomShift
+    }
+
+    public companion object {
+      /** The screen-centre algorithm with MapLibre Native's default settings. */
+      public val Standard: ScreenCenter = ScreenCenter(3.0, 1.0, 60.0, 0.0)
     }
 
     internal override fun toFfi(): TileOptions =
@@ -89,9 +94,9 @@ public abstract class TileLodAlgorithm private constructor() {
     public val pitchThreshold: Double,
     public val zoomShift: Double,
   ) : TileLodAlgorithm() {
-    /** Edits [from]; without it, uses Native's defaults. Omitted settings inherit. */
+    /** Edits [from], defaulting to [Standard]. Omitted settings inherit. */
     public constructor(
-      from: CameraDistance? = null,
+      from: CameraDistance = Standard,
       block: Builder.() -> Unit = {},
     ) : this(Builder(from).apply(block))
 
@@ -104,15 +109,20 @@ public abstract class TileLodAlgorithm private constructor() {
     }
 
     @MapOptionsDsl
-    public class Builder internal constructor(from: CameraDistance?) {
+    public class Builder internal constructor(from: CameraDistance) {
       /** See [CameraDistance.scale]. */
-      public var scale: Double = from?.scale ?: 1.0
+      public var scale: Double = from.scale
 
       /** See [CameraDistance.pitchThreshold]. */
-      public var pitchThreshold: Double = from?.pitchThreshold ?: 60.0
+      public var pitchThreshold: Double = from.pitchThreshold
 
       /** See [CameraDistance.zoomShift]. */
-      public var zoomShift: Double = from?.zoomShift ?: 0.0
+      public var zoomShift: Double = from.zoomShift
+    }
+
+    public companion object {
+      /** The camera-distance algorithm with MapLibre Native's default settings. */
+      public val Standard: CameraDistance = CameraDistance(1.0, 60.0, 0.0)
     }
 
     internal override fun toFfi(): TileOptions =

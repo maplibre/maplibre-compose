@@ -41,8 +41,8 @@ internal fun CameraAnimation.scaledBy(scale: Float): CameraAnimation {
     is CameraAnimation.Fly ->
       when {
         duration != null -> copy(duration = duration.scaledBy(scale))
-        scale == 0f -> copy(duration = Duration.ZERO, speed = null)
-        else -> copy(speed = (speed ?: CameraAnimation.Fly.DefaultSpeed) / scale)
+        scale == 0f -> copy(duration = Duration.ZERO)
+        else -> copy(speed = speed / scale)
       }
   }
 }

@@ -25,7 +25,8 @@ internal constructor(
   }
 
   public actual companion object {
-    public actual val Standard: TileLodOptions = TileLodOptions(TileLodAlgorithm.ScreenCenter())
+    public actual val Standard: TileLodOptions =
+      TileLodOptions(TileLodAlgorithm.ScreenCenter.Standard)
 
     public actual val Performance: TileLodOptions =
       TileLodOptions(

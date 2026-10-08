@@ -35,11 +35,11 @@ public sealed interface CameraAnimation {
    * remains legible over any distance.
    *
    * The flight takes [duration] when one is given. Otherwise its duration follows from the length
-   * of the path and [speed]. Set at most one of the two.
+   * of the path and [speed]. When both are given, [duration] takes precedence.
    *
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span
-   *   of the map. Null uses [DefaultSpeed]. Must be null when [duration] is set.
+   *   of the map. Defaults to [DefaultSpeed]. Must be positive. Ignored when [duration] is set.
    * @param minZoom Approximate lowest zoom used to shape the flight, not a hard limit. Native fits
    *   the path toward this value, even if it would naturally stay above it. GL JS only limits
    *   zooming out and also uses the map's minimum zoom to shape the path. Both engines apply the
@@ -48,17 +48,16 @@ public sealed interface CameraAnimation {
   @Immutable
   public data class Fly(
     val duration: Duration? = null,
-    val speed: Double? = null,
+    val speed: Double = DefaultSpeed,
     val minZoom: Double? = null,
     override val easing: CubicBezier = CubicBezier.Default,
   ) : CameraAnimation {
     init {
-      require(duration == null || speed == null) { "Set a flight duration or a speed, not both" }
-      require(speed == null || speed > 0.0) { "Flight speed must be positive: $speed" }
+      require(speed > 0.0) { "Flight speed must be positive: $speed" }
     }
 
     public companion object {
-      /** The flight speed when [speed] is null, in screenfuls per second. */
+      /** The default flight speed, in screenfuls per second. */
       public const val DefaultSpeed: Double = 1.2 * 1.42
     }
   }

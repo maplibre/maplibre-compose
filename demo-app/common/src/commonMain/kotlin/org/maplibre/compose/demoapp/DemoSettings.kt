@@ -131,7 +131,7 @@ class DemoSettings {
           CameraAnimation.Fly(
             duration =
               if (paceFlightBySpeed) null else flightDurationMillis.roundToInt().milliseconds,
-            speed = if (paceFlightBySpeed) flightSpeed.toDouble() else null,
+            speed = flightSpeed.toDouble(),
             minZoom = flightMinZoom.toDouble().takeIf { it > 0.0 },
           )
       }

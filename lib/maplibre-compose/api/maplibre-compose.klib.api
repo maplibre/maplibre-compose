@@ -228,7 +228,7 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
     }
 
     final class Fly : org.maplibre.compose.camera/CameraAnimation { // org.maplibre.compose.camera/CameraAnimation.Fly|null[0]
-        constructor <init>(kotlin.time/Duration? = ..., kotlin/Double? = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...) // org.maplibre.compose.camera/CameraAnimation.Fly.<init>|<init>(kotlin.time.Duration?;kotlin.Double?;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
+        constructor <init>(kotlin.time/Duration? = ..., kotlin/Double = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...) // org.maplibre.compose.camera/CameraAnimation.Fly.<init>|<init>(kotlin.time.Duration?;kotlin.Double;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
 
         final val duration // org.maplibre.compose.camera/CameraAnimation.Fly.duration|{}duration[0]
             final fun <get-duration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.duration.<get-duration>|<get-duration>(){}[0]
@@ -237,13 +237,13 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         final val minZoom // org.maplibre.compose.camera/CameraAnimation.Fly.minZoom|{}minZoom[0]
             final fun <get-minZoom>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
         final val speed // org.maplibre.compose.camera/CameraAnimation.Fly.speed|{}speed[0]
-            final fun <get-speed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.speed.<get-speed>|<get-speed>(){}[0]
+            final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.speed.<get-speed>|<get-speed>(){}[0]
 
         final fun component1(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.component1|component1(){}[0]
-        final fun component2(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component2|component2(){}[0]
+        final fun component2(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.component2|component2(){}[0]
         final fun component3(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component3|component3(){}[0]
         final fun component4(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Fly.component4|component4(){}[0]
-        final fun copy(kotlin.time/Duration? = ..., kotlin/Double? = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.copy|copy(kotlin.time.Duration?;kotlin.Double?;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
+        final fun copy(kotlin.time/Duration? = ..., kotlin/Double = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.copy|copy(kotlin.time.Duration?;kotlin.Double;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.camera/CameraAnimation.Fly.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.camera/CameraAnimation.Fly.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.camera/CameraAnimation.Fly.toString|toString(){}[0]
@@ -4634,7 +4634,7 @@ sealed interface org.maplibre.compose.resource/ConnectivityMode { // org.maplibr
 // Targets: [apple]
 abstract class org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm|null[0]
     final class CameraDistance : org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance|null[0]
-        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.CameraDistance? = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.CameraDistance?;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.CameraDistance.Builder,kotlin.Unit>){}[0]
+        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.CameraDistance = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.CameraDistance;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.CameraDistance.Builder,kotlin.Unit>){}[0]
 
         final val pitchThreshold // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.pitchThreshold|{}pitchThreshold[0]
             final fun <get-pitchThreshold>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.pitchThreshold.<get-pitchThreshold>|<get-pitchThreshold>(){}[0]
@@ -4661,10 +4661,15 @@ abstract class org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compo
                 final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Builder.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
                 final fun <set-zoomShift>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Builder.zoomShift.<set-zoomShift>|<set-zoomShift>(kotlin.Double){}[0]
         }
+
+        final object Companion { // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Companion|null[0]
+            final val Standard // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Companion.Standard|{}Standard[0]
+                final fun <get-Standard>(): org.maplibre.compose.map/TileLodAlgorithm.CameraDistance // org.maplibre.compose.map/TileLodAlgorithm.CameraDistance.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+        }
     }
 
     final class ScreenCenter : org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter|null[0]
-        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter? = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.ScreenCenter?;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.ScreenCenter.Builder,kotlin.Unit>){}[0]
+        constructor <init>(org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter = ..., kotlin/Function1<org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.<init>|<init>(org.maplibre.compose.map.TileLodAlgorithm.ScreenCenter;kotlin.Function1<org.maplibre.compose.map.TileLodAlgorithm.ScreenCenter.Builder,kotlin.Unit>){}[0]
 
         final val minRadius // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.minRadius|{}minRadius[0]
             final fun <get-minRadius>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.minRadius.<get-minRadius>|<get-minRadius>(){}[0]
@@ -4696,6 +4701,11 @@ abstract class org.maplibre.compose.map/TileLodAlgorithm { // org.maplibre.compo
             final var zoomShift // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Builder.zoomShift|{}zoomShift[0]
                 final fun <get-zoomShift>(): kotlin/Double // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Builder.zoomShift.<get-zoomShift>|<get-zoomShift>(){}[0]
                 final fun <set-zoomShift>(kotlin/Double) // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Builder.zoomShift.<set-zoomShift>|<set-zoomShift>(kotlin.Double){}[0]
+        }
+
+        final object Companion { // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Companion|null[0]
+            final val Standard // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Companion.Standard|{}Standard[0]
+                final fun <get-Standard>(): org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter // org.maplibre.compose.map/TileLodAlgorithm.ScreenCenter.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
         }
     }
 }

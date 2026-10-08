@@ -557,14 +557,17 @@ class MapCameraTransitionTest {
       }
     }
 
-  /** A zero-duration animation emits its event during the call, so it must not deadlock. */
+  /** A zero duration overrides speed and emits its event during the call without deadlocking. */
   @Test
-  fun a_zero_duration_animation_completes(): MapTestResult = runMapTest {
+  fun a_zero_duration_animation_overrides_speed_and_completes(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(0.milliseconds))
+        it.state.animateCamera(
+          Target.toCameraUpdate(),
+          CameraAnimation.Fly(duration = 0.milliseconds, speed = 0.001),
+        )
       }
       assertNear(
         Target.zoom,

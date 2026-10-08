@@ -912,7 +912,7 @@ internal class MlnFfiMapSession(
         is CameraAnimation.Ease -> it.durationMs = duration.inWholeMilliseconds.toDouble()
         is CameraAnimation.Fly -> {
           it.durationMs = duration?.inWholeMilliseconds?.toDouble()
-          it.velocity = speed ?: CameraAnimation.Fly.DefaultSpeed
+          it.velocity = speed
           it.minZoom = minZoom
         }
       }
