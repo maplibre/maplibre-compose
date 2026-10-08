@@ -228,11 +228,15 @@ internal object UnspecifiedMapEvent : MapEvent
 
 ## 5. Options and configuration
 
-Settings objects that might gain fields use the shape shown below.
+Choose the shape of a settings object by what it holds:
 
-- Use a class with a private or internal constructor and a builder, so that new
-  options don't change any constructor. It may be a data class (section 1);
-  otherwise write `equals`, `hashCode`, and `toString`.
+- When every field works on every platform and callers set fields by name, use a
+  data class with a public constructor, and add new fields last with
+  `@IntroducedAt` (section 12).
+- When the object has platform-only settings or nested blocks of options, use
+  the builder shape shown below: a class with a private or internal constructor
+  and a builder, so that new options don't change any constructor. It may be a
+  data class (section 1); otherwise write `equals`, `hashCode`, and `toString`.
 - Take a `from` parameter in the builder instead of providing `copy`, and
   default it to a standard preset on the companion object.
 - Take required values with no sensible default, such as an ID, as constructor
@@ -244,13 +248,12 @@ Settings objects that might gain fields use the shape shown below.
   [[4]](https://kotlinlang.org/docs/api-guidelines-build-for-multiplatform.html#design-apis-for-use-from-common-code)
 - When settings differ by source set, such as JS and native, declare the options
   class and its builder as `expect` classes. The common declarations hold only
-  what every platform shares, and each `actual` adds its platform's settings.
-  Provide presets as companion `val`s named for their purpose, so that callers
-  in common code can still select one.
+  what every platform shares, and each `actual` adds its platform's settings as
+  members. An app whose targets all use MapLibre Native sees the native
+  `actual`, including those members, in its own common code. Provide presets as
+  companion `val`s named for their purpose, so that callers in common code can
+  still select one.
   [[4]](https://kotlinlang.org/docs/api-guidelines-predictability.html#do-the-right-thing-by-default)
-- A small value that callers construct directly, such as the four edges of
-  `DpPadding`, can be a data class with a public constructor. If it might gain
-  fields, add them last with `@IntroducedAt` (section 12).
 
 ```kotlin
 @Immutable
