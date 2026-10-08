@@ -89,13 +89,13 @@ class MlnFfiSurfaceLossTest {
       val camera = it.session.getCameraPosition()
       assertNear(Camera.zoom, camera.zoom, "zoom should survive surface loss")
       assertNear(
-        Camera.target.longitude,
-        camera.target.longitude,
+        Camera.center.longitude,
+        camera.center.longitude,
         "longitude should survive surface loss",
       )
       assertNear(
-        Camera.target.latitude,
-        camera.target.latitude,
+        Camera.center.latitude,
+        camera.center.latitude,
         "latitude should survive surface loss",
       )
       assertTrue(
@@ -177,7 +177,7 @@ class MlnFfiSurfaceLossTest {
     fixture.use {
       it.loadStyle(BlackStyle)
       it.session.setCameraPosition(
-        CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0)
+        CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0)
       )
       val style = checkNotNull(it.style)
       val source =
@@ -275,7 +275,7 @@ class MlnFfiSurfaceLossTest {
     val Blue = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
     const val Center = 256
 
-    val Camera = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
+    val Camera = CameraPosition(center = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
 
     /** Camera round trips lose a little precision through the projection. */
     const val Tolerance = 1e-3

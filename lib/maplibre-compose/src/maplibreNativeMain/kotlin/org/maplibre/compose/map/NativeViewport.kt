@@ -82,7 +82,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     /** Read under the projection lock, like [extents]. */
     fun metersPerDpAtTarget(): Double =
       derivedMetersPerDpAtTarget
-        ?: metersPerDpAtLatitude(camera.target.latitude).also {
+        ?: metersPerDpAtLatitude(camera.center.latitude).also {
           derivedMetersPerDpAtTarget = it
         }
 
@@ -231,7 +231,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
         wrappedProjection =
-          if (geometry.camera.target.longitude !in -180.0..<180.0) {
+          if (geometry.camera.center.longitude !in -180.0..<180.0) {
             map.createWrappedProjection()
           } else null,
       )

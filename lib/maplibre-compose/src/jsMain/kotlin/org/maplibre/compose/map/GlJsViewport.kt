@@ -36,7 +36,7 @@ internal fun MaplibreMap.readViewport(
 internal fun MaplibreMap.readCameraPosition(viewportInsets: PaddingOptions): CameraPosition =
   CameraPosition(
     bearing = getBearing(),
-    target = getCenter().toPosition(),
+    center = getCenter().toPosition(),
     pitch = getPitch(),
     padding =
       getPadding().let {

@@ -132,7 +132,7 @@ object EditableMarkersDemo : Demo {
           scope.launch {
             state.mapState.flyTo(
               DemoDestination.ExactCamera(
-                state.mapState.cameraPosition.copy(target = marker.position)
+                state.mapState.cameraPosition.copy(center = marker.position)
               ),
               state.settings.flightAnimation,
             )

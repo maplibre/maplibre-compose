@@ -101,20 +101,20 @@ public final class org/maplibre/compose/camera/CameraPosition {
 	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/camera/CameraPosition$Companion;
 	public fun <init> ()V
-	public fun <init> (DLorg/maplibre/spatialk/geojson/Position;DDLorg/maplibre/compose/util/DpPadding;)V
-	public synthetic fun <init> (DLorg/maplibre/spatialk/geojson/Position;DDLorg/maplibre/compose/util/DpPadding;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()D
-	public final fun component2 ()Lorg/maplibre/spatialk/geojson/Position;
+	public fun <init> (Lorg/maplibre/spatialk/geojson/Position;DDDLorg/maplibre/compose/util/DpPadding;)V
+	public synthetic fun <init> (Lorg/maplibre/spatialk/geojson/Position;DDDLorg/maplibre/compose/util/DpPadding;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/spatialk/geojson/Position;
+	public final fun component2 ()D
 	public final fun component3 ()D
 	public final fun component4 ()D
 	public final fun component5 ()Lorg/maplibre/compose/util/DpPadding;
-	public final fun copy (DLorg/maplibre/spatialk/geojson/Position;DDLorg/maplibre/compose/util/DpPadding;)Lorg/maplibre/compose/camera/CameraPosition;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/camera/CameraPosition;DLorg/maplibre/spatialk/geojson/Position;DDLorg/maplibre/compose/util/DpPadding;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraPosition;
+	public final fun copy (Lorg/maplibre/spatialk/geojson/Position;DDDLorg/maplibre/compose/util/DpPadding;)Lorg/maplibre/compose/camera/CameraPosition;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/camera/CameraPosition;Lorg/maplibre/spatialk/geojson/Position;DDDLorg/maplibre/compose/util/DpPadding;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraPosition;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBearing ()D
+	public final fun getCenter ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun getPadding ()Lorg/maplibre/compose/util/DpPadding;
 	public final fun getPitch ()D
-	public final fun getTarget ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun getZoom ()D
 	public fun hashCode ()I
 	public final fun toCameraUpdate ()Lorg/maplibre/compose/camera/CameraUpdate;
@@ -152,9 +152,9 @@ public final class org/maplibre/compose/camera/CameraUpdate {
 	public static synthetic fun copy$default (Lorg/maplibre/compose/camera/CameraUpdate;Lorg/maplibre/spatialk/geojson/Position;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;Lorg/maplibre/compose/util/DpPadding;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraUpdate;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBearing ()Ljava/lang/Double;
+	public final fun getCenter ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun getPadding ()Lorg/maplibre/compose/util/DpPadding;
 	public final fun getPitch ()Ljava/lang/Double;
-	public final fun getTarget ()Lorg/maplibre/spatialk/geojson/Position;
 	public final fun getZoom ()Ljava/lang/Double;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

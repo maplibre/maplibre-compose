@@ -47,7 +47,7 @@ public class DragRotatePitchBuilder internal constructor(from: DragRotatePitchSe
   /** Recognition distance for mouse pointers, in dp; independent of [startSlop]. */
   public var mouseStartSlop: Dp = from.mouseStartSlop
 
-  /** Point held fixed while rotating and pitching. Defaults to the camera target. */
+  /** Point held fixed while rotating and pitching. Defaults to the camera center. */
   public var anchor: GestureAnchor = from.anchor
   public var bearingDegreesPerDp: Double = from.bearingDegreesPerDp
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp

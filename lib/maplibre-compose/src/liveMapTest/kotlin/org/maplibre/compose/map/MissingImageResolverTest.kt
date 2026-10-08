@@ -64,7 +64,7 @@ class MissingImageResolverTest {
 
       // Bypass Compose's ownership records, as Native does when evicting unused images.
       style.onOwner { style.removeImage(MissingIconId) }
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 4.0))
       fixture.pumpUntil("the removed image to be requested and restored") {
         requests.size >= 2 && style.onOwner { style.imageExists(MissingIconId) } == true
       }
@@ -129,7 +129,7 @@ class MissingImageResolverTest {
       }
       // Each engine asks once per tile parse, so a new zoom is what puts the request in front of
       // the replacement resolver.
-      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 4.0))
       val style = assertNotNull(fixture.style)
       fixture.pumpUntil(
         "the replacement resolver's image to reach the style",

@@ -76,7 +76,7 @@ class BoxZoomTest {
       assertNotNull(
         boxZoomFit(
           DpRect(0.dp, 0.dp, 10.dp, 10.dp),
-          CameraPosition(target = Position(540.0, 0.0)),
+          CameraPosition(center = Position(540.0, 0.0)),
         ) {
           Position(if (it.x == 0.dp) 179.0 else -179.0, 0.0)
         }

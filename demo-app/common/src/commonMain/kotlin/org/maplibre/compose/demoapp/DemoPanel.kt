@@ -212,7 +212,7 @@ fun DemoPanel(
     }
     composable(DemoRoute.LocationSettings) {
       SettingsSubScreen("Location", onBack = { navController.popBackStack() }) {
-        LocationSettingsItems(state.location) { state.mapState.cameraPosition.target }
+        LocationSettingsItems(state.location) { state.mapState.cameraPosition.center }
         if (state.location.isMock) {
           MockLocationSettings(state) {
             state.location.beginMockPlacement()
@@ -388,9 +388,9 @@ private fun InputSettingsItems(settings: DemoSettings) {
 
 /** Places far enough apart that a flight between them shows the pacing and minimum zoom. */
 private enum class FlightDestination(val title: String, val camera: CameraPosition) {
-  Seattle("Seattle", CameraPosition(target = Position(-122.3352, 47.6205), zoom = 14.0)),
-  NewYork("New York", CameraPosition(target = Position(-74.006, 40.7128), zoom = 13.0)),
-  London("London", CameraPosition(target = Position(-0.1276, 51.5072), zoom = 12.0)),
+  Seattle("Seattle", CameraPosition(center = Position(-122.3352, 47.6205), zoom = 14.0)),
+  NewYork("New York", CameraPosition(center = Position(-74.006, 40.7128), zoom = 13.0)),
+  London("London", CameraPosition(center = Position(-0.1276, 51.5072), zoom = 12.0)),
 }
 
 @Composable

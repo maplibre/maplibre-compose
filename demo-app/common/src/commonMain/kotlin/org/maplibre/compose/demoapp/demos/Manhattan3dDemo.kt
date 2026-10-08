@@ -22,7 +22,7 @@ object Manhattan3dDemo : Demo {
   override val destination =
     DemoDestination.ExactCamera(
       CameraPosition(
-        target = Position(longitude = -74.0109, latitude = 40.7085),
+        center = Position(longitude = -74.0109, latitude = 40.7085),
         zoom = 14.2,
         bearing = 2.0,
         pitch = 60.0,

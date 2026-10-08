@@ -73,7 +73,7 @@ class GeoJsonSourceUpdateTest {
         )
     map.use { fixture ->
       fixture.loadStyle(Style)
-      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 14.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Origin, zoom = 14.0))
       val style = checkNotNull(fixture.style) { "Errors: ${fixture.errors}" }
       val source =
         GeoJsonSource(
@@ -135,7 +135,7 @@ class GeoJsonSourceUpdateTest {
   fun a_base_style_update_preserves_the_loaded_sources_minimum_zoom(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(MinZoomStyle)
-      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 8.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Origin, zoom = 8.0))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SourceId])
       fixture.pumpUntil("the source to render above its minimum zoom") {
         fixture.readPixel(256, 256).isNear(Circle)
@@ -155,9 +155,9 @@ class GeoJsonSourceUpdateTest {
       handle.asMutable!!.setData(GeoJsonData.Features(pointAt(Origin)))
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.awaitRequestedPixel(Circle)
-      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 6.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Origin, zoom = 6.0))
       fixture.awaitRequestedPixel(Background)
-      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 8.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Origin, zoom = 8.0))
       fixture.awaitRequestedPixel(Circle)
       assertEquals(emptyList(), fixture.errors)
     }
@@ -168,7 +168,7 @@ class GeoJsonSourceUpdateTest {
     MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(Style)
-      fixture.state.setCameraPosition(CameraPosition(target = Origin, zoom = 14.0))
+      fixture.state.setCameraPosition(CameraPosition(center = Origin, zoom = 14.0))
       val binding = fixture.style as MlnFfiStyleBinding
       val source =
         GeoJsonSource(

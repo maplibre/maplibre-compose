@@ -30,7 +30,7 @@ public suspend fun LocationChangeScope.updateCamera(
 
   val newPosition =
     mapState.cameraPosition.copy(
-      target = currentLocation.position,
+      center = currentLocation.position,
       bearing =
         when (updateBearing) {
           BearingUpdate.Ignore -> mapState.cameraPosition.bearing
@@ -44,7 +44,7 @@ public suspend fun LocationChangeScope.updateCamera(
   else
     mapState.animateCamera(
       CameraUpdate(
-        target = currentLocation.position,
+        center = currentLocation.position,
         bearing = selectedBearing?.let { (it - Bearing.North).inDegrees },
       ),
       animation,

@@ -113,8 +113,8 @@ object MagnifyingLensDemo : Demo {
             mapState.positionFromScreenLocation(
               with(density) { DpOffset(it.x.toDp(), it.y.toDp()) }
             )
-          } ?: position.target
-        position.copy(target = target, zoom = position.zoom + magnification)
+          } ?: position.center
+        position.copy(center = target, zoom = position.zoom + magnification)
       }
         .collect { lensState.setCameraPosition(it) }
     }

@@ -269,8 +269,8 @@ class SharedMapRuntimeTest {
                 }
                 assertEquals(3.0, first.state.cameraPosition.zoom, 0.001)
                 assertEquals(5.0, second.state.cameraPosition.zoom, 0.001)
-                val beforeGesture = first.state.cameraPosition.target
-                val otherTarget = second.state.cameraPosition.target
+                val beforeGesture = first.state.cameraPosition.center
+                val otherTarget = second.state.cameraPosition.center
                 val gesture = first.session.onGestureStarted()
                 assertTrue(
                   gesture.acceptsCommands,
@@ -290,12 +290,12 @@ class SharedMapRuntimeTest {
                   second.frame()
                   gestureCapture.isCompleted &&
                     metadata.isCompleted &&
-                    first.state.cameraPosition.target != beforeGesture &&
+                    first.state.cameraPosition.center != beforeGesture &&
                     !first.state.isCameraMoving
                 }
                 assertEquals(32, gestureCapture.await().width)
                 metadata.await()
-                assertEquals(otherTarget, second.state.cameraPosition.target)
+                assertEquals(otherTarget, second.state.cameraPosition.center)
                 first.state.close()
                 first.state.awaitClosed()
                 snapshot.close()

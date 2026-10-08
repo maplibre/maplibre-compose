@@ -9,7 +9,7 @@ import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
 
-The camera defines the visible part of the map: a target position, a zoom
+The camera defines the visible part of the map: a center position, a zoom
 level, a bearing, and a pitch. <Api of="rememberMapState" /> creates a
 <Api of="MapState" /> with a read-only camera position. Pass an
 initial <Api of="CameraPosition" /> to set the camera at startup:
@@ -64,7 +64,7 @@ coordinates in dp from the full map's top-left corner:
 Use <Api of="CameraAnchor.Geographic" /> to keep a selected geographic location
 at its current screen point. The anchor is resolved when the animation starts
 and must be visible on the map. This operation supports easing; it does not
-accept a flight or a target center because the center moves to keep the anchor
+accept a flight or a center because the center moves to keep the anchor
 fixed.
 
 Persistent camera padding participates in projection. Changing viewport insets,

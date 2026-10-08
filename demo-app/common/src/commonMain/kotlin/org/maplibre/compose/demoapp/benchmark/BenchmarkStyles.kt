@@ -19,7 +19,7 @@ internal val BenchmarkColors = BenchmarkColorStrings.map {
 
 internal fun BenchmarkCamera.toCompose() =
   CameraPosition(
-    target = Position(longitude, latitude),
+    center = Position(longitude, latitude),
     zoom = zoom,
     bearing = bearing,
     pitch = pitch,

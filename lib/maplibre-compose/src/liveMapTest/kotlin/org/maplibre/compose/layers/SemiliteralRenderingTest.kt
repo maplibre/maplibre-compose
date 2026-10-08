@@ -42,7 +42,7 @@ class SemiliteralRenderingTest {
             """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}"""
           )
         )
-        fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
+        fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 1.0))
         val source =
           GeoJsonSource(
             "points",

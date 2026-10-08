@@ -272,7 +272,7 @@ private class NativeSnapshotterAdapter(
                 geometry,
                 MapViewportExtents(unprojectedCorners(projection, geometry.size)),
                 projection.metersPerPixelAtLatitude(
-                  geometry.camera.target.latitude.coerceIn(-90.0, 90.0)
+                  geometry.camera.center.latitude.coerceIn(-90.0, 90.0)
                 ),
               )
             }

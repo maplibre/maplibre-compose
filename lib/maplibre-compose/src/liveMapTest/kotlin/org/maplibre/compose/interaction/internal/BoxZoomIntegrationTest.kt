@@ -32,7 +32,7 @@ class BoxZoomIntegrationTest {
             PaddingValues(start = 50.dp, top = 20.dp, end = 10.dp, bottom = 30.dp)
           )
           val initial =
-            CameraPosition(target = Position(179.0, 0.0), zoom = 4.0, bearing = 25.0, pitch = 20.0)
+            CameraPosition(center = Position(179.0, 0.0), zoom = 4.0, bearing = 25.0, pitch = 20.0)
           fixture.state.setCameraPosition(initial)
           fixture.awaitMapReady()
           fixture.settle()
@@ -63,7 +63,7 @@ class BoxZoomIntegrationTest {
             assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
             assertFalse(fixture.state.isCameraMoving)
 
-            val target = assertNotNull(fixture.state.screenLocationFromPosition(actual.target))
+            val target = assertNotNull(fixture.state.screenLocationFromPosition(actual.center))
             assertEquals((size.width.value + 50f - 10f) / 2f, target.x.value, 1f)
             assertEquals((size.height.value + 20f - 30f) / 2f, target.y.value, 1f)
           } finally {
@@ -99,15 +99,15 @@ class BoxZoomIntegrationTest {
             fixture.state.isCameraMoving && fixture.state.cameraPosition.zoom > 3.0
           }
           assertFalse(motion.isCompleted, "box fit finished before the takeover")
-          val replacement = CameraPosition(target = Position(25.0, 10.0), zoom = 7.0)
+          val replacement = CameraPosition(center = Position(25.0, 10.0), zoom = 7.0)
           fixture.state.setCameraPosition(replacement)
           fixture.awaitWhileRendering("box fit cancels") { motion.join() }
           fixture.settle()
           assertTrue(motion.isCancelled)
           assertEquals(replacement.zoom, fixture.state.cameraPosition.zoom, 1e-5)
           assertEquals(
-            replacement.target.longitude,
-            fixture.state.cameraPosition.target.longitude,
+            replacement.center.longitude,
+            fixture.state.cameraPosition.center.longitude,
             1e-5,
           )
           assertEquals(CameraMoveReason.Programmatic, fixture.state.cameraMoveReason)

@@ -14,18 +14,18 @@ import org.maplibre.spatialk.geojson.Position
 @Immutable
 @Serializable
 public data class CameraUpdate(
-  public val target: Position? = null,
+  public val center: Position? = null,
   public val zoom: Double? = null,
   public val bearing: Double? = null,
   public val pitch: Double? = null,
   public val padding: DpPadding? = null,
 ) {
   init {
-    require(target != null || zoom != null || bearing != null || pitch != null || padding != null) {
+    require(center != null || zoom != null || bearing != null || pitch != null || padding != null) {
       "A camera update must specify at least one property"
     }
-    require(target == null || target.longitude.isFinite() && target.latitude.isFinite()) {
-      "Target coordinates must be finite, was $target"
+    require(center == null || center.longitude.isFinite() && center.latitude.isFinite()) {
+      "Center coordinates must be finite, was $center"
     }
     require(zoom == null || zoom.isFinite()) { "Zoom must be finite, was $zoom" }
     require(bearing == null || bearing.isFinite()) { "Bearing must be finite, was $bearing" }
@@ -42,7 +42,7 @@ public data class CameraUpdate(
 
   internal fun applyTo(position: CameraPosition): CameraPosition =
     position.copy(
-      target = target ?: position.target,
+      center = center ?: position.center,
       zoom = zoom ?: position.zoom,
       bearing = bearing ?: position.bearing,
       pitch = pitch ?: position.pitch,

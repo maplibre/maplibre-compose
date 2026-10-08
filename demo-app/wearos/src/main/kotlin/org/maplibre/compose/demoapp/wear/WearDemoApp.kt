@@ -31,7 +31,7 @@ import org.maplibre.compose.overlay.AttributionLinks
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.spatialk.geojson.Position
 
-private val InitialCamera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 12.0)
+private val InitialCamera = CameraPosition(center = Position(-74.006, 40.7128), zoom = 12.0)
 
 /** A touch- and crown-controlled map with a small Wear Compose overlay. */
 @Composable

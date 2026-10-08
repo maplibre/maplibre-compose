@@ -64,8 +64,8 @@ class MlnFfiGestureTokenOrderingTest {
 
           val camera = session.getCameraPosition()
           assertTrue(
-            abs(camera.target.longitude - start.target.longitude) < ZoomTolerance &&
-              abs(camera.target.latitude - start.target.latitude) > MinDeltaDegrees,
+            abs(camera.center.longitude - start.center.longitude) < ZoomTolerance &&
+              abs(camera.center.latitude - start.center.latitude) > MinDeltaDegrees,
             "only the current owner's delta should reach the camera: $start then $camera",
           )
           assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
@@ -109,7 +109,7 @@ class MlnFfiGestureTokenOrderingTest {
             input.token.awaitCompletion()
           }
           fixture.settle()
-          assertEquals(before.target.longitude, fixture.state.cameraPosition.target.longitude, 1e-6)
+          assertEquals(before.center.longitude, fixture.state.cameraPosition.center.longitude, 1e-6)
           assertFalse(fixture.state.isCameraMoving)
         } finally {
           release.countDown()
@@ -146,7 +146,7 @@ class MlnFfiGestureTokenOrderingTest {
         val camera = session.getCameraPosition()
         assertEquals(StartZoom, camera.zoom, 1e-6)
         assertTrue(
-          abs(camera.target.longitude) > MinDeltaDegrees,
+          abs(camera.center.longitude) > MinDeltaDegrees,
           "the current gesture's pan must still execute",
         )
       } finally {

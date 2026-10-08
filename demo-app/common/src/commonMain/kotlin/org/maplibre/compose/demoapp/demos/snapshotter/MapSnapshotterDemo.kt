@@ -97,7 +97,7 @@ object MapSnapshotterDemo : Demo {
       val request =
         MapSnapshotRequest(
           DpSize(width.dp, height.dp),
-          mapState.cameraPosition.copy(target = center),
+          mapState.cameraPosition.copy(center = center),
           density =
             Density(
               minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height),
