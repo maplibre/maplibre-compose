@@ -31,14 +31,16 @@ public class GeoJsonSource : VectorSource {
   /**
    * @param id Unique identifier for this source
    * @param data The GeoJSON data in this source
-   * @param options see [GeoJsonOptions]
+   * @param from Initial source settings.
+   * @param block Edits [from].
    */
   public constructor(
     id: String,
     data: GeoJsonData,
-    options: GeoJsonOptions = GeoJsonOptions.Standard,
+    from: GeoJsonOptions = GeoJsonOptions.Standard,
+    block: GeoJsonOptions.Builder.() -> Unit = {},
   ) : super(id) {
-    content = Declared(data, options)
+    content = Declared(data, GeoJsonOptions(from, block))
   }
 
   internal constructor(id: String, definition: JsonObject) : super(id) {
@@ -271,12 +273,15 @@ public class GeoJsonOptions private constructor(builder: Builder) {
   )
 }
 
-/** Remember a new [GeoJsonSource] with the given [options] from the given [GeoJsonData]. */
+/** Remembers a [GeoJsonSource] from [data], with settings edited from [from]. */
 @Composable
 public fun rememberGeoJsonSource(
   data: GeoJsonData,
-  options: GeoJsonOptions = GeoJsonOptions.Standard,
-): GeoJsonSource =
-  key(options) {
-    rememberUserSource { GeoJsonSource(id = it, data = data, options = options) }
+  from: GeoJsonOptions = GeoJsonOptions.Standard,
+  block: GeoJsonOptions.Builder.() -> Unit = {},
+): GeoJsonSource {
+  val options = GeoJsonOptions(from, block)
+  return key(options) {
+    rememberUserSource { GeoJsonSource(id = it, data = data, from = options) }
   }
+}

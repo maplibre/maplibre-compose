@@ -58,11 +58,9 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.ImageSource
-import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -236,7 +234,6 @@ class MapPresentationTest {
         GeoJsonSource(
           "puck",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions.Standard,
         )
       val layer = TestLayer("animated", "background")
       val original =
@@ -261,7 +258,6 @@ class MapPresentationTest {
             GeoJsonData.JsonString(
               """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}"""
             ),
-            GeoJsonOptions.Standard,
           )
         val definition =
           layer.definition().let {
@@ -322,7 +318,6 @@ class MapPresentationTest {
           GeoJsonSource(
             "points",
             GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            GeoJsonOptions.Standard,
           )
         val layer = TestLayer("background", "background")
         val original =
@@ -349,10 +344,9 @@ class MapPresentationTest {
                 GeoJsonSource(
                     "points",
                     GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                    GeoJsonOptions {
-                      cluster = true
-                    },
-                  )
+                  ) {
+                    cluster = true
+                  }
                   .definition()
               )
             else original.sources,
@@ -903,7 +897,6 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -930,7 +923,6 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -949,7 +941,6 @@ class MapPresentationTest {
       GeoJsonSource(
         id = "shared",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions.Standard,
       )
     val declaredRevision =
       StyleSnapshot(
@@ -1033,7 +1024,6 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -1064,11 +1054,9 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options =
-                GeoJsonOptions {
-                  cluster = true
-                },
-            )
+            ) {
+              cluster = true
+            }
           )
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
@@ -1101,7 +1089,6 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-              options = GeoJsonOptions.Standard,
             )
           )
       )
@@ -3086,11 +3073,9 @@ private fun attributedVectorSource(id: String, attribution: String): VectorTileS
   VectorTileSource(
     id = id,
     tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
-    options =
-      TileSetOptions {
-        attributionHtml = attribution
-      },
-  )
+  ) {
+    attributionHtml = attribution
+  }
 
 private val ImageQuad =
   PositionQuad(

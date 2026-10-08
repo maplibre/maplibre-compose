@@ -7,7 +7,6 @@ import kotlin.test.assertSame
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -49,7 +48,6 @@ class StyleLayerSummariesTest {
             GeoJsonSource(
                 "external",
                 GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                GeoJsonOptions.Standard,
               )
               .definition()
           )

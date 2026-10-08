@@ -16,7 +16,6 @@ import org.maplibre.compose.gljs.CustomLayerInterface
 import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.GlJsMapFixture
@@ -73,7 +72,6 @@ class BrowserPlatformMapAccessTest {
         GeoJsonSource(
           "points",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions.Standard,
         )
       )
       fixture.declare { BackgroundLayer("above", visible = true) }

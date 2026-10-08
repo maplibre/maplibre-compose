@@ -28,17 +28,19 @@ public class VectorTileSource : VectorSource {
   /**
    * @param id Unique identifier for this source
    * @param tiles List of URIs pointing to tile images
-   * @param options see [TileSetOptions]
+   * @param from Initial tile settings. See [TileSetOptions]
+   * @param block Edits [from].
    */
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions.Standard,
+    from: TileSetOptions = TileSetOptions.Standard,
+    block: TileSetOptions.Builder.() -> Unit = {},
   ) : super(id) {
     json = buildJsonObject {
       put("type", "vector")
       putJsonArray("tiles") { tiles.forEach { add(it) } }
-      putTileSetOptions(options)
+      putTileSetOptions(TileSetOptions(from, block))
     }
   }
 
@@ -54,11 +56,15 @@ public class VectorTileSource : VectorSource {
 public fun rememberVectorTileSource(uri: String): VectorTileSource =
   key(uri) { rememberUserSource { VectorTileSource(id = it, uri = uri) } }
 
+/** Remembers a [VectorTileSource] from [tiles], with settings edited from [from]. */
 @Composable
 public fun rememberVectorTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions.Standard,
-): VectorTileSource =
-  key(tiles, options) {
-    rememberUserSource { VectorTileSource(id = it, tiles = tiles, options = options) }
+  from: TileSetOptions = TileSetOptions.Standard,
+  block: TileSetOptions.Builder.() -> Unit = {},
+): VectorTileSource {
+  val options = TileSetOptions(from, block)
+  return key(tiles, options) {
+    rememberUserSource { VectorTileSource(id = it, tiles = tiles, from = options) }
   }
+}

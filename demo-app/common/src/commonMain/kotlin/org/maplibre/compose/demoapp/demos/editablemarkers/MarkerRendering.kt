@@ -41,7 +41,6 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -61,12 +60,10 @@ internal fun MarkerLayers(
   val colors = markerColorScheme(marker.color)
   val source =
     rememberGeoJsonSource(
-      GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null)),
-      options =
-        GeoJsonOptions {
-          synchronousTiling = true
-        },
-    )
+      GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null))
+    ) {
+      synchronousTiling = true
+    }
 
   // A soft shadow makes the lift during hover and drag visible against the map.
   CircleLayer(

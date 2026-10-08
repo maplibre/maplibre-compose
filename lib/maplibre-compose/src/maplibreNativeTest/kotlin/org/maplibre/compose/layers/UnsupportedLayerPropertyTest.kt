@@ -23,7 +23,6 @@ import org.maplibre.compose.logging.MapLogger
 import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -249,7 +248,6 @@ class UnsupportedLayerPropertyTest {
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
-        options = GeoJsonOptions.Standard,
       )
       .also { runBlocking { style.install(it) } }
 

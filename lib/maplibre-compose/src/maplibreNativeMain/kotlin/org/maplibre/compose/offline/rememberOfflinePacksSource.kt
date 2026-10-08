@@ -42,7 +42,7 @@ public fun rememberOfflinePacksSource(
     }
   }
   return rememberGeoJsonSource(
-    options = options,
+    from = options,
     data =
       GeoJsonData.Features(
         buildFeatureCollection {

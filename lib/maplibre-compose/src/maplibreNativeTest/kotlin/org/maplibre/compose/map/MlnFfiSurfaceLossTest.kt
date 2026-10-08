@@ -35,7 +35,6 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.style.BaseStyle
@@ -190,7 +189,6 @@ class MlnFfiSurfaceLossTest {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
               }
             ),
-          options = GeoJsonOptions.Standard,
         )
       runBlocking { style.install(source) }
       val layer = TestLayer("circles", "circle", source)

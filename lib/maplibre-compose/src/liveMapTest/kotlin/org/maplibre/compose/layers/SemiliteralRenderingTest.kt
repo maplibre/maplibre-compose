@@ -17,7 +17,6 @@ import org.maplibre.compose.expressions.dsl.dp
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.get
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -52,7 +51,6 @@ class SemiliteralRenderingTest {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
               }
             ),
-            GeoJsonOptions.Standard,
           )
         fixture.state.style.sources.add(source)
         // Render the first offset component as a radius so pixel readback observes its value.

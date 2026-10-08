@@ -23,7 +23,6 @@ import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberVectorTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
@@ -82,14 +81,10 @@ class BrowserStyleConformanceTest {
       ) {
         CaptureStyle { style = it }
         val source =
-          rememberVectorTileSource(
-            tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-            options =
-              TileSetOptions {
-                minZoom = 24
-                maxZoom = 24
-              },
-          )
+          rememberVectorTileSource(tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf")) {
+            minZoom = 24
+            maxZoom = 24
+          }
         Anchor.Below("base-fill") {
           if (showLayer) {
             FillLayer(

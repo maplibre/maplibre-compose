@@ -15,7 +15,6 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -37,7 +36,11 @@ class DeclaredStyleOwnershipTest {
   fun removed_resources_can_be_declared_again_with_the_same_ids(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val source = GeoJsonSource("points", Data, GeoJsonOptions.Standard)
+      val source =
+        GeoJsonSource(
+          "points",
+          Data,
+        )
       fixture.declare { CircleLayer("points", source, visible = true) }
       val original = assertNotNull(fixture.state.style.sources[source])
       assertNotNull(fixture.state.style.layers["points"])
@@ -66,12 +69,9 @@ class DeclaredStyleOwnershipTest {
         lateinit var source: GeoJsonSource
         fixture.declare {
           source =
-            rememberGeoJsonSource(
-              Data,
-              GeoJsonOptions {
-                cluster = true
-              },
-            )
+            rememberGeoJsonSource(Data) {
+              cluster = true
+            }
           CircleLayer("points", source, visible = true)
         }
         val handle = assertNotNull(fixture.state.style.sources[source])

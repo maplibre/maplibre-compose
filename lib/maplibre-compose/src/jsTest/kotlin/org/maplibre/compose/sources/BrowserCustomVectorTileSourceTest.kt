@@ -59,10 +59,8 @@ class BrowserCustomVectorTileSourceTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val first =
-        CustomVectorTileSource("first", CustomVectorTileSourceOptions.Standard) { byteArrayOf() }
-      val second =
-        CustomVectorTileSource("second", CustomVectorTileSourceOptions.Standard) { byteArrayOf() }
+      val first = CustomVectorTileSource("first") { byteArrayOf() }
+      val second = CustomVectorTileSource("second") { byteArrayOf() }
 
       style.install(first)
       style.install(second)

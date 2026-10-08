@@ -17,7 +17,6 @@ import org.maplibre.compose.expressions.dsl.times
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -44,7 +43,6 @@ class StyleFontScaleTest {
                 addFeature(geometry = Point(Position(0.0, 0.0)))
               }
             ),
-            GeoJsonOptions.Standard,
           )
         suspend fun declare(scale: Float) {
           fixture.declare(

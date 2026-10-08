@@ -25,7 +25,6 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.HeatmapLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -108,14 +107,11 @@ object DataVizDemo : Demo {
   @Composable
   private fun Clusters(style: DemoStyle) {
     val source =
-      rememberGeoJsonSource(
-        GeoJsonData.Uri(FeedUri),
-        GeoJsonOptions {
-          cluster = true
-          clusterRadius = 40
-          clusterMaxZoom = 10
-        },
-      )
+      rememberGeoJsonSource(GeoJsonData.Uri(FeedUri)) {
+        cluster = true
+        clusterRadius = 40
+        clusterMaxZoom = 10
+      }
     val pointCount = feature["point_count"].asNumber()
 
     CircleLayer(

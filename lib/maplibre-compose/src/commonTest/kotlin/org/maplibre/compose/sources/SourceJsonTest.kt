@@ -71,16 +71,14 @@ class SourceJsonTest {
       RasterTileSource(
           id = "tiles",
           tiles = listOf("https://example.invalid/{z}/{x}/{y}.png"),
-          options =
-            TileSetOptions {
-              minZoom = 2
-              maxZoom = 12
-              scheme = TileScheme.Tms
-              boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0))
-              attributionHtml = "© someone"
-            },
           tileSize = 512,
-        )
+        ) {
+          minZoom = 2
+          maxZoom = 12
+          scheme = TileScheme.Tms
+          boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0))
+          attributionHtml = "© someone"
+        }
         .toJson()
 
     assertEquals(

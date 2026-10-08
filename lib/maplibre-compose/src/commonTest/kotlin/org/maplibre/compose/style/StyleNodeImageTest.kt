@@ -32,7 +32,6 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.PreparedImage
@@ -55,7 +54,11 @@ class StyleNodeImageTest {
         },
         publish = { snapshots += it },
       )
-    val source = GeoJsonSource("points", data(1), GeoJsonOptions.Standard)
+    val source =
+      GeoJsonSource(
+        "points",
+        data(1),
+      )
     val retained = imageLayer("retained", first, source)
     val removed = imageLayer("removed", first, source)
     root.children += listOf(retained, removed)
@@ -63,7 +66,11 @@ class StyleNodeImageTest {
     runCurrent()
     val original = snapshots.last().images.single()
 
-    val updatedSource = GeoJsonSource("points", data(2), GeoJsonOptions.Standard)
+    val updatedSource =
+      GeoJsonSource(
+        "points",
+        data(2),
+      )
     retained.source = updatedSource
     retained.definition =
       TestLayer("retained", "fill", updatedSource)

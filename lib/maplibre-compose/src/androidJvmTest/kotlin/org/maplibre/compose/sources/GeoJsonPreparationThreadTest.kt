@@ -57,10 +57,9 @@ class GeoJsonPreparationThreadTest {
               GeoJsonSource(
                 "points",
                 if (initial) data else GeoJsonData.JsonString(Empty),
-                GeoJsonOptions {
-                  synchronousTiling = true
-                },
-              )
+              ) {
+                synchronousTiling = true
+              }
             )
           )
         if (!initial) {

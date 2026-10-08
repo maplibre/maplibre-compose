@@ -43,9 +43,9 @@ public class RasterDemTileSource : Source {
   /**
    * @param id Unique identifier for this source
    * @param tiles List of URIs pointing to tile images
-   * @param options see [TileSetOptions]. [TileSetOptions.scheme] is a vector and raster key; a
-   *   raster-dem source has no `scheme` in the style spec. MapLibre Native still honours TMS;
-   *   adding such a source to a MapLibre GL JS map fails.
+   * @param from Initial tile settings. See [TileSetOptions]. [TileSetOptions.scheme] is a vector
+   *   and raster key; a raster-dem source has no `scheme` in the style spec. MapLibre Native still
+   *   honours TMS; adding such a source to a MapLibre GL JS map fails.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source. Defaults to 512, the style spec default.
    * @param encoding How the tiles store elevation. Defaults to [RasterDemEncoding.Mapbox].
@@ -57,22 +57,24 @@ public class RasterDemTileSource : Source {
    *   Used only with [RasterDemEncoding.Custom]. Defaults to 1.
    * @param baseShift The number MapLibre subtracts from the sum of the scaled channels when
    *   decoding elevation. Used only with [RasterDemEncoding.Custom]. Defaults to 0.
+   * @param block Edits [from].
    */
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions.Standard,
     tileSize: Int = 512,
     encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
     redFactor: Float = 1f,
     greenFactor: Float = 1f,
     blueFactor: Float = 1f,
     baseShift: Float = 0f,
+    from: TileSetOptions = TileSetOptions.Standard,
+    block: TileSetOptions.Builder.() -> Unit = {},
   ) : super(id) {
     val tileSet =
       TileSet(
         tiles.toList(),
-        options,
+        TileSetOptions(from, block),
         tileSize,
         RasterDemDecoding(encoding, redFactor, greenFactor, blueFactor, baseShift),
       )
@@ -178,26 +180,29 @@ public fun rememberRasterDemTileSource(
 @Composable
 public fun rememberRasterDemTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions.Standard,
   tileSize: Int = 512,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
   redFactor: Float = 1f,
   greenFactor: Float = 1f,
   blueFactor: Float = 1f,
   baseShift: Float = 0f,
-): RasterDemTileSource =
-  key(tiles, options, tileSize, encoding, redFactor, greenFactor, blueFactor, baseShift) {
+  from: TileSetOptions = TileSetOptions.Standard,
+  block: TileSetOptions.Builder.() -> Unit = {},
+): RasterDemTileSource {
+  val options = TileSetOptions(from, block)
+  return key(tiles, options, tileSize, encoding, redFactor, greenFactor, blueFactor, baseShift) {
     rememberUserSource {
       RasterDemTileSource(
         id = it,
         tiles = tiles,
-        options = options,
         tileSize = tileSize,
         encoding = encoding,
         redFactor = redFactor,
         greenFactor = greenFactor,
         blueFactor = blueFactor,
         baseShift = baseShift,
+        from = options,
       )
     }
   }
+}

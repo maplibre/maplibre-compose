@@ -31,10 +31,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
-import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -161,7 +159,6 @@ class MapSnapshotterTest {
       GeoJsonSource(
         id = "imperative",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions.Standard,
       )
 
     withContext(Dispatchers.Unconfined) {
@@ -234,7 +231,6 @@ class MapSnapshotterTest {
       GeoJsonSource(
         id = "base-source",
         data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions.Standard,
       )
     val binding =
       RecordingStyleBinding(
@@ -760,11 +756,9 @@ class MapSnapshotterTest {
     VectorTileSource(
       id = "shared",
       tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
-      options =
-        TileSetOptions {
-          attributionHtml = attribution
-        },
-    )
+    ) {
+      attributionHtml = attribution
+    }
 
   private class FatalSnapshotError : Error("fatal snapshot failure")
 }

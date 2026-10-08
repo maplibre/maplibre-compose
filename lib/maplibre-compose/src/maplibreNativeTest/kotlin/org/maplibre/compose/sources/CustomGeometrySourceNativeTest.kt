@@ -28,7 +28,7 @@ class CustomGeometrySourceNativeTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomGeometrySource("custom-geometry", CustomGeometrySourceOptions.Standard) {
+        CustomGeometrySource("custom-geometry") {
           requested.complete(Unit)
           fail.await()
           error("fixture provider failure")
