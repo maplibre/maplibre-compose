@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapEvent
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.MlnFfiMapSession
@@ -41,8 +40,8 @@ class AndroidSurfaceReplacementTest {
 
   @Test
   fun a_surface_map_without_an_overlay_produces_a_frame_after_replacement() {
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
+    val cache = FfiTestPlatform.createCacheFile()
+    DefaultMapRuntime.configure { cacheFile = cache }
 
     try {
       // Screen capture and Compose test synchronization invalidate the window and mask this
@@ -77,7 +76,7 @@ class AndroidSurfaceReplacementTest {
       }
     } finally {
       DefaultMapRuntime.resetForTest()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 

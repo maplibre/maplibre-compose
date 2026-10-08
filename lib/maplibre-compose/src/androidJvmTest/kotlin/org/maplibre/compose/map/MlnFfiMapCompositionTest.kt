@@ -95,10 +95,10 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapCompositionTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val cache = FfiTestPlatform.createCacheFile()
 
   private val runtimeOptions = MapRuntimeOptions {
-    cacheFile = this@MlnFfiMapCompositionTest.cacheFile
+    cacheFile = cache
   }
 
   /** Camera round trips lose a little precision through the projection. */
@@ -106,7 +106,7 @@ class MlnFfiMapCompositionTest {
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    FfiTestPlatform.deleteCacheFile(cache)
   }
 
   @Test

@@ -2318,7 +2318,8 @@ public final class org/maplibre/compose/map/DebugOverlays$Builder {
 public final class org/maplibre/compose/map/DefaultMapRuntime {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/map/DefaultMapRuntime;
-	public final fun configure (Lorg/maplibre/compose/map/MapRuntimeOptions;)V
+	public final fun configure (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun configure$default (Lorg/maplibre/compose/map/DefaultMapRuntime;Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public final fun getInstance ()Lorg/maplibre/compose/map/MapRuntime;
 }
 
@@ -2464,8 +2465,8 @@ public final class org/maplibre/compose/map/MapRuntimeOptions$Companion {
 }
 
 public final class org/maplibre/compose/map/MapRuntime_nativeKt {
-	public static final fun createMapRuntime (Lorg/maplibre/compose/map/MapRuntimeOptions;)Lorg/maplibre/compose/map/MapRuntime;
-	public static synthetic fun createMapRuntime$default (Lorg/maplibre/compose/map/MapRuntimeOptions;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapRuntime;
+	public static final fun createMapRuntime (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/map/MapRuntime;
+	public static synthetic fun createMapRuntime$default (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapRuntime;
 }
 
 public final class org/maplibre/compose/map/MapSnapshotException : java/lang/RuntimeException {

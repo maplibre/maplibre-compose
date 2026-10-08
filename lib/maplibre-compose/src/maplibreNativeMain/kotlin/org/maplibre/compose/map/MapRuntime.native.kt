@@ -87,7 +87,11 @@ internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
       else mainDispatcher,
   )
 
-public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
+public actual fun createMapRuntime(
+  from: MapRuntimeOptions,
+  block: MapRuntimeOptions.Builder.() -> Unit,
+): MapRuntime {
+  val options = MapRuntimeOptions(from, block)
   initializeNativePlatform()
   return createNativeMapRuntime(options.toMlnFfiRuntimeOptions())
 }

@@ -34,11 +34,11 @@ import org.maplibre.compose.style.BaseStyle
 class DesktopDensityPresentationTest {
   @Test
   fun pixel_density_round_trip_replaces_engines_and_font_scale_keeps_the_attachment() {
-    val cacheFile = FfiTestPlatform.createCacheFile()
+    val cache = FfiTestPlatform.createCacheFile()
     try {
       runFfiComposeUiTest {
-        val options = MapRuntimeOptions { this.cacheFile = cacheFile }
-        val runtime = createMapRuntime(options)
+        val options = MapRuntimeOptions { cacheFile = cache }
+        val runtime = createMapRuntime(from = options)
         var density by mutableStateOf(Density(2f))
         val frames = AtomicInteger()
         val observedDensity = AtomicReference<Density>()
@@ -143,7 +143,7 @@ class DesktopDensityPresentationTest {
         }
       }
     } finally {
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 }

@@ -4,7 +4,6 @@ package org.maplibre.compose.docsnippets
 
 import kotlinx.coroutines.flow.StateFlow
 import org.maplibre.compose.map.DefaultMapRuntime
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.MapResourceKind
@@ -25,12 +24,10 @@ fun configureMapRequests(token: StateFlow<String?>) {
       }
     )
   val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
-  DefaultMapRuntime.configure(
-    MapRuntimeOptions {
-      requestInterceptor = interceptor
-      resourceProvider = provider
-    }
-  )
+  DefaultMapRuntime.configure {
+    requestInterceptor = interceptor
+    resourceProvider = provider
+  }
 }
 
 // #endregion configuration

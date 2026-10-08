@@ -51,17 +51,11 @@ class DesktopRuntimeConfigurationTest {
   @Test
   fun independently_configured_runtimes_coexist_and_close_independently() = runTest {
     val root = Files.createTempDirectory("runtime caches")
-    val first =
-      createMapRuntime(
-        MapRuntimeOptions { cacheFile = Path(root.resolve("first/cache.db").toString()) }
-      )
-    val second =
-      createMapRuntime(
-        MapRuntimeOptions {
-          cacheFile = Path(root.resolve("second/cache.db").toString())
-          maximumCacheSizeBytes = 2_000
-        }
-      )
+    val first = createMapRuntime { cacheFile = Path(root.resolve("first/cache.db").toString()) }
+    val second = createMapRuntime {
+      cacheFile = Path(root.resolve("second/cache.db").toString())
+      maximumCacheSizeBytes = 2_000
+    }
     val firstState = first.createMapState(BaseStyle.Demo)
     val secondState = second.createMapState(BaseStyle.Demo)
 

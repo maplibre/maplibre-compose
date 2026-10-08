@@ -15,7 +15,7 @@ Tiles, sprites, and fonts come from URLs in the style.
 
 ## Configure requests
 
-Set either or both hooks in the <Api of="MapRuntimeOptions" /> builder. They are fixed for
+Set either or both hooks in the runtime configuration block. They are fixed for
 the runtime's lifetime and apply to its maps, snapshotters, and offline
 operations.
 Call <Api of="DefaultMapRuntime.configure" /> during application startup, before
@@ -26,7 +26,7 @@ the first map, snapshotter, or offline storage:
 Attach credentials only to hosts you own. Update the token state to refresh
 credentials for later callbacks.
 
-For separate configuration, use <Api of="createMapRuntime" /> and pass the result
+For separate configuration, set the hooks in <Api of="createMapRuntime" /> and pass the result
 to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
 when finished.
 

@@ -16,22 +16,29 @@ public object DefaultMapRuntime {
   private var current: MapRuntime? = null
 
   /**
-   * Sets the options [instance] uses when it creates the runtime.
+   * Configures [instance] by editing [from] with [block].
    *
    * Call this before the first map, snapshotter, or offline storage, such as from `Application`
    * creation or `main`. Throws [IllegalStateException] once the runtime exists.
    */
-  public fun configure(options: MapRuntimeOptions): Unit = lock.withLock {
-    check(current == null) {
-      "The default map runtime already exists; configure it before the first use"
+  public fun configure(
+    from: MapRuntimeOptions = MapRuntimeOptions.Standard,
+    block: MapRuntimeOptions.Builder.() -> Unit = {},
+  ) {
+    val options = MapRuntimeOptions(from, block)
+    lock.withLock {
+      check(current == null) {
+        "The default map runtime already exists; configure it before the first use"
+      }
+      this.options = options
     }
-    this.options = options
   }
 
   /** The process-default runtime, created on first access. */
   public val instance: MapRuntime
     get() = lock.withLock {
-      current ?: createMapRuntime(options ?: MapRuntimeOptions.Standard).also { current = it }
+      current
+        ?: createMapRuntime(from = options ?: MapRuntimeOptions.Standard).also { current = it }
     }
 
   /** Forgets and closes the process default, returning it so a test can await closure. */

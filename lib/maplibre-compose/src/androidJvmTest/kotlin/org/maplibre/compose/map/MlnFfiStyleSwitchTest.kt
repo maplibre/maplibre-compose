@@ -43,15 +43,15 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiStyleSwitchTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val cache = FfiTestPlatform.createCacheFile()
 
   private val runtimeOptions = MapRuntimeOptions {
-    cacheFile = this@MlnFfiStyleSwitchTest.cacheFile
+    cacheFile = cache
   }
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    FfiTestPlatform.deleteCacheFile(cache)
   }
 
   @Test
@@ -166,7 +166,8 @@ class MlnFfiStyleSwitchTest {
     val styleBStarted = TestLatch(1)
     val styleBCancelled = TestLatch(1)
     withTestRuntime(
-      MapRuntimeOptions(from = runtimeOptions) {
+      from = runtimeOptions,
+      configure = {
         resourceProvider =
           MapResourceProvider("held") { request ->
             when (request.url) {
@@ -182,7 +183,7 @@ class MlnFfiStyleSwitchTest {
               else -> error("Unexpected resource request for ${request.url}")
             }
           }
-      }
+      },
     ) { runtime ->
       var showLatestLayer by mutableStateOf(false)
       val state =

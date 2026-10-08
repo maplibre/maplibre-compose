@@ -26,7 +26,6 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.resource.MapResourceProvider
@@ -200,10 +199,10 @@ internal actual fun createMapFixture(extent: MapExtent): MapFixture {
 }
 
 internal actual suspend fun withTestMapRuntime(
-  resourceProvider: MapResourceProvider?,
+  provider: MapResourceProvider?,
   block: suspend (MapRuntime) -> Unit,
 ) {
-  val runtime = createMapRuntime(MapRuntimeOptions { this.resourceProvider = resourceProvider })
+  val runtime = createMapRuntime { resourceProvider = provider }
   try {
     block(runtime)
   } finally {

@@ -16,10 +16,11 @@ internal fun DefaultMapRuntime.resetForTest(testFailure: Throwable? = null) {
 }
 
 internal suspend fun <T> withTestRuntime(
-  options: MapRuntimeOptions,
+  from: MapRuntimeOptions = MapRuntimeOptions.Standard,
+  configure: MapRuntimeOptions.Builder.() -> Unit = {},
   block: suspend (MapRuntime) -> T,
 ): T {
-  val runtime = createMapRuntime(options)
+  val runtime = createMapRuntime(from, configure)
   var failure: Throwable? = null
   try {
     return block(runtime)

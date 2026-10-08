@@ -36,6 +36,6 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   // The iOS map view builds its own surface controller, like Android's, so no host factory needs
   // to be prepared off the test thread.
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  DefaultMapRuntime.configure(runtimeOptions)
+  DefaultMapRuntime.configure(from = runtimeOptions)
   setContent(content)
 }

@@ -11,14 +11,14 @@ import org.maplibre.compose.style.BaseStyle
 class DefaultMapRuntimeTest {
   @Test
   fun a_failed_test_closes_its_explicit_runtime_and_maps() = runTest {
-    val cacheFile = FfiTestPlatform.createCacheFile()
+    val cache = FfiTestPlatform.createCacheFile()
     val failure = AssertionError("test body failed")
     lateinit var runtime: MapRuntime
     lateinit var state: MapState
     try {
       val reported =
         assertFailsWith<AssertionError> {
-          withTestRuntime(MapRuntimeOptions { this.cacheFile = cacheFile }) {
+          withTestRuntime(configure = { cacheFile = cache }) {
             runtime = it
             state = it.createMapState(BaseStyle.Empty)
             throw failure
@@ -30,15 +30,15 @@ class DefaultMapRuntimeTest {
       runtime.awaitClosed()
       state.awaitClosed()
     } finally {
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 
   @Test
   fun closing_the_default_runtime_is_permanent() = runTest {
-    val cacheFile = FfiTestPlatform.createCacheFile()
+    val cache = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
+      DefaultMapRuntime.configure { cacheFile = cache }
       val first = DefaultMapRuntime.instance
       first.close()
       first.awaitClosed()
@@ -50,22 +50,22 @@ class DefaultMapRuntimeTest {
       assertFailsWith<IllegalStateException> { second.createMapState(BaseStyle.Demo) }
     } finally {
       DefaultMapRuntime.resetForTest()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 
   @Test
   fun configuring_after_the_default_runtime_exists_fails() {
-    val cacheFile = FfiTestPlatform.createCacheFile()
+    val cache = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
+      DefaultMapRuntime.configure { cacheFile = cache }
       DefaultMapRuntime.instance
       assertFailsWith<IllegalStateException> {
-        DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
+        DefaultMapRuntime.configure { cacheFile = cache }
       }
     } finally {
       DefaultMapRuntime.resetForTest()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 }

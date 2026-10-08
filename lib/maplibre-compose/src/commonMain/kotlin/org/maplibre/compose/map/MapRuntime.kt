@@ -155,9 +155,10 @@ public expect class MapRuntimeOptions {
   }
 }
 
-/** Creates a runtime from [options]. The caller must close the result. */
+/** Creates a runtime by editing [from] with [block]. The caller must close the result. */
 public expect fun createMapRuntime(
-  options: MapRuntimeOptions = MapRuntimeOptions.Standard
+  from: MapRuntimeOptions = MapRuntimeOptions.Standard,
+  block: MapRuntimeOptions.Builder.() -> Unit = {},
 ): MapRuntime
 
 /**
