@@ -31,7 +31,11 @@ public class GeoJsonSource : VectorSource {
    * @param data The GeoJSON data in this source
    * @param options see [GeoJsonOptions]
    */
-  public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
+  public constructor(
+    id: String,
+    data: GeoJsonData,
+    options: GeoJsonOptions = GeoJsonOptions(),
+  ) : super(id) {
     content = Declared(data, options)
   }
 

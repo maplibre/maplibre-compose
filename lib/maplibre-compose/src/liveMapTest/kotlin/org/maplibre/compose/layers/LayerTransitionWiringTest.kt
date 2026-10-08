@@ -321,7 +321,7 @@ class LayerTransitionWiringTest {
         tiles = listOf(TileTemplate),
         options = TileSetOptions(),
         tileSize = 256,
-        demEncoding = RasterDemEncoding.Terrarium,
+        encoding = RasterDemEncoding.Terrarium,
       )
 
     fun timing(milliseconds: Int) = TransitionOptions(milliseconds.milliseconds)

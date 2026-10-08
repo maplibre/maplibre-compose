@@ -48,7 +48,7 @@ public class RasterDemTileSource : Source {
    *   adding such a source to a MapLibre GL JS map fails.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source. Defaults to 512, the style spec default.
-   * @param demEncoding How the tiles store elevation. Defaults to [RasterDemEncoding.Mapbox].
+   * @param encoding How the tiles store elevation. Defaults to [RasterDemEncoding.Mapbox].
    * @param redFactor The number MapLibre multiplies the red channel by when decoding elevation.
    *   Used only with [RasterDemEncoding.Custom]. Defaults to 1.
    * @param greenFactor The number MapLibre multiplies the green channel by when decoding elevation.
@@ -63,7 +63,7 @@ public class RasterDemTileSource : Source {
     tiles: List<String>,
     options: TileSetOptions = TileSetOptions(),
     tileSize: Int = 512,
-    demEncoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
+    encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
     redFactor: Float = 1f,
     greenFactor: Float = 1f,
     blueFactor: Float = 1f,
@@ -74,7 +74,7 @@ public class RasterDemTileSource : Source {
         tiles.toList(),
         options,
         tileSize,
-        RasterDemDecoding(demEncoding, redFactor, greenFactor, blueFactor, baseShift),
+        RasterDemDecoding(encoding, redFactor, greenFactor, blueFactor, baseShift),
       )
     this.tileSet = tileSet
     json =
@@ -173,7 +173,7 @@ public fun rememberRasterDemTileSource(
 
 /**
  * Remember a new [RasterDemTileSource] from the given [tiles]. The parameters are those of the
- * [RasterDemTileSource] constructor; [encoding] is its `demEncoding`.
+ * [RasterDemTileSource] constructor.
  */
 @Composable
 public fun rememberRasterDemTileSource(
@@ -193,7 +193,7 @@ public fun rememberRasterDemTileSource(
         tiles = tiles,
         options = options,
         tileSize = tileSize,
-        demEncoding = encoding,
+        encoding = encoding,
         redFactor = redFactor,
         greenFactor = greenFactor,
         blueFactor = blueFactor,
