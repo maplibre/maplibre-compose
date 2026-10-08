@@ -182,7 +182,7 @@ class MlnFfiProjectionTest {
       val flight = launch {
         fixture.session.animateCamera(
           RotatedCamera.toCameraUpdate(),
-          CameraAnimation.Fly(2.seconds),
+          CameraAnimation.Fly { duration = 2.seconds },
         )
       }
       fixture.awaitUntil("the camera to start moving") {

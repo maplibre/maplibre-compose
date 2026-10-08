@@ -43,7 +43,7 @@ class MlnFfiIndependentCameraTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             state.animateCamera(
               CameraUpdate(center = Position(2.0, 2.0)),
-              CameraAnimation.Ease(100.milliseconds),
+              CameraAnimation.Ease { duration = 100.milliseconds },
             )
           }
         } finally {
@@ -66,7 +66,7 @@ class MlnFfiIndependentCameraTest {
         state.animateCameraAround(
           CameraAnchor.Geographic(Position(0.0, 0.0)),
           zoom = 8.0,
-          animation = CameraAnimation.Ease(3.seconds),
+          animation = CameraAnimation.Ease { duration = 3.seconds },
         )
       }
       fixture.awaitUntil("the anchor to start") { state.cameraPosition.zoom > 3.1 }
@@ -78,7 +78,7 @@ class MlnFfiIndependentCameraTest {
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(
             CameraUpdate(center = Position(1.0, 1.0), zoom = 6.0),
-            CameraAnimation.Ease(1.seconds),
+            CameraAnimation.Ease { duration = 1.seconds },
           )
         }
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
@@ -96,13 +96,16 @@ class MlnFfiIndependentCameraTest {
       fixture().use { fixture ->
         val state = fixture.state
         val zoom = async {
-          state.animateCamera(CameraUpdate(zoom = 8.0), CameraAnimation.Ease(3.seconds))
+          state.animateCamera(
+            CameraUpdate(zoom = 8.0),
+            CameraAnimation.Ease { duration = 3.seconds },
+          )
         }
         fixture.awaitUntil("zoom to start") { state.cameraPosition.zoom > 3.1 }
         val bearing = async {
           state.animateCamera(
             CameraUpdate(bearing = 90.0),
-            CameraAnimation.Ease(300.milliseconds),
+            CameraAnimation.Ease { duration = 300.milliseconds },
           )
         }
         fixture.awaitUntil("bearing to finish independently") { bearing.isCompleted }
@@ -126,12 +129,15 @@ class MlnFfiIndependentCameraTest {
       val original = async {
         state.animateCamera(
           CameraUpdate(zoom = 8.0, bearing = 90.0),
-          CameraAnimation.Ease(2.seconds),
+          CameraAnimation.Ease { duration = 2.seconds },
         )
       }
       fixture.awaitUntil("the original command to start") { state.cameraPosition.bearing > 1.0 }
       val replacement = async {
-        state.animateCamera(CameraUpdate(zoom = 5.0), CameraAnimation.Ease(100.milliseconds))
+        state.animateCamera(
+          CameraUpdate(zoom = 5.0),
+          CameraAnimation.Ease { duration = 100.milliseconds },
+        )
       }
       fixture.awaitUntil("the replacement to finish") { replacement.isCompleted }
       replacement.await()
@@ -156,26 +162,29 @@ class MlnFfiIndependentCameraTest {
             state.animateCameraAround(
               CameraAnchor.Geographic(Position(0.0, 0.0)),
               zoom = 8.0,
-              animation = CameraAnimation.Ease(3.seconds),
+              animation = CameraAnimation.Ease { duration = 3.seconds },
             )
           else
             state.animateCamera(
               CameraUpdate(center = Position(10.0, 10.0), zoom = 8.0),
-              CameraAnimation.Fly(3.seconds),
+              CameraAnimation.Fly { duration = 3.seconds },
             )
         }
         fixture.awaitUntil("the coupled animation to start") {
           abs(state.cameraPosition.zoom - 3.0) > 0.1
         }
         val bearing = async {
-          state.animateCamera(CameraUpdate(bearing = 90.0), CameraAnimation.Ease(1.seconds))
+          state.animateCamera(
+            CameraUpdate(bearing = 90.0),
+            CameraAnimation.Ease { duration = 1.seconds },
+          )
         }
         fixture.awaitUntil("independent bearing to start") { state.cameraPosition.bearing > 1.0 }
         assertFalse(coupled.isCompleted, "bearing must not replace the coupled target/zoom")
         val replacement = async {
           state.animateCamera(
             CameraUpdate(center = Position(1.0, 1.0)),
-            CameraAnimation.Ease(0.milliseconds),
+            CameraAnimation.Ease { duration = 0.milliseconds },
           )
         }
         fixture.awaitUntil("the coupled command to be superseded") {

@@ -48,11 +48,17 @@ class BrowserCameraTransitionLifecycleTest {
       fixture.state.setCameraPosition(CameraPosition(zoom = 3.0))
       fixture.pump(frames = 2)
       val zoom = launch {
-        fixture.state.animateCamera(CameraUpdate(zoom = 8.0), CameraAnimation.Ease(4.seconds))
+        fixture.state.animateCamera(
+          CameraUpdate(zoom = 8.0),
+          CameraAnimation.Ease { duration = 4.seconds },
+        )
       }
       fixture.pumpUntil("zoom to start") { fixture.state.cameraPosition.zoom > 3.1 }
       val bearing = launch {
-        fixture.state.animateCamera(CameraUpdate(bearing = 90.0), CameraAnimation.Ease(1.seconds))
+        fixture.state.animateCamera(
+          CameraUpdate(bearing = 90.0),
+          CameraAnimation.Ease { duration = 1.seconds },
+        )
       }
       fixture.pumpUntil("the browser to supersede zoom") { zoom.isCompleted }
       assertFalse(zoom.isCancelled)
@@ -107,7 +113,10 @@ class BrowserCameraTransitionLifecycleTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         val animation =
           launch(start = CoroutineStart.UNDISPATCHED) {
-            it.session.animateCamera(StaleCamera.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
+            it.session.animateCamera(
+              StaleCamera.toCameraUpdate(),
+              CameraAnimation.Fly { duration = 60.seconds },
+            )
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
@@ -135,7 +144,7 @@ class BrowserCameraTransitionLifecycleTest {
             launch(start = CoroutineStart.UNDISPATCHED) {
               fixture.state.animateCamera(
                 StaleCamera.toCameraUpdate(),
-                CameraAnimation.Fly(60.seconds),
+                CameraAnimation.Fly { duration = 60.seconds },
               )
             }
           assertFalse(animation.isCompleted)
@@ -155,7 +164,10 @@ class BrowserCameraTransitionLifecycleTest {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       val animation =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          it.session.animateCamera(StaleCamera.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
+          it.session.animateCamera(
+            StaleCamera.toCameraUpdate(),
+            CameraAnimation.Fly { duration = 60.seconds },
+          )
         }
 
       assertFalse(animation.isCompleted, "the animation should wait for the initial style result")
@@ -206,11 +218,14 @@ class BrowserCameraTransitionLifecycleTest {
         fixture.state.animateCameraAround(
           CameraAnchor.Geographic(Position(0.0, 0.0)),
           zoom = 4.0,
-          animation = CameraAnimation.Ease(0.milliseconds),
+          animation = CameraAnimation.Ease { duration = 0.milliseconds },
         )
       }
       val bearing = launch {
-        fixture.state.animateCamera(CameraUpdate(bearing = 90.0), CameraAnimation.Ease(1.seconds))
+        fixture.state.animateCamera(
+          CameraUpdate(bearing = 90.0),
+          CameraAnimation.Ease { duration = 1.seconds },
+        )
       }
       fixture.pumpUntil("bearing to start") { fixture.state.cameraPosition.bearing > 1.0 }
       fixture.resize(MapExtent.fromLogical(width = 600, height = 400, scaleFactor = 1.0))
@@ -238,7 +253,7 @@ class BrowserCameraTransitionLifecycleTest {
                   launch(start = CoroutineStart.UNDISPATCHED) {
                     fixture.state.animateCamera(
                       CameraUpdate(bearing = 90.0),
-                      CameraAnimation.Ease(1.seconds),
+                      CameraAnimation.Ease { duration = 1.seconds },
                     )
                   }
               }
@@ -247,7 +262,7 @@ class BrowserCameraTransitionLifecycleTest {
         val first = launch {
           fixture.state.animateCamera(
             CameraUpdate(zoom = 4.0),
-            CameraAnimation.Ease(100.milliseconds),
+            CameraAnimation.Ease { duration = 100.milliseconds },
           )
         }
         fixture.pumpUntil("the callback movement to start") {

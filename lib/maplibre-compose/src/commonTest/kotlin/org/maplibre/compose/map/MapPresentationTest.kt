@@ -2783,14 +2783,14 @@ class MapPresentationTest {
     val first = async {
       fixture.state.animateCamera(
         CameraPosition(zoom = 2.0).toCameraUpdate(),
-        CameraAnimation.Fly(1.seconds),
+        CameraAnimation.Fly { duration = 1.seconds },
       )
     }
     fixture.adapter.animationStarted.await()
     val second = async {
       fixture.state.animateCamera(
         CameraPosition(zoom = 3.0).toCameraUpdate(),
-        CameraAnimation.Fly(1.seconds),
+        CameraAnimation.Fly { duration = 1.seconds },
       )
     }
     testScheduler.runCurrent()
@@ -2841,14 +2841,14 @@ class MapPresentationTest {
     val superseded = async {
       state.animateCamera(
         CameraPosition(zoom = 2.0).toCameraUpdate(),
-        CameraAnimation.Fly(1.seconds),
+        CameraAnimation.Fly { duration = 1.seconds },
       )
     }
     testScheduler.runCurrent()
     val animation = async {
       state.animateCamera(
         CameraPosition(zoom = 4.0).toCameraUpdate(),
-        CameraAnimation.Fly(1.seconds),
+        CameraAnimation.Fly { duration = 1.seconds },
       )
     }
     testScheduler.runCurrent()
@@ -3052,7 +3052,7 @@ class MapPresentationTest {
       val animation = async {
         state.animateCamera(
           CameraPosition(zoom = 4.0).toCameraUpdate(),
-          CameraAnimation.Fly(1.seconds),
+          CameraAnimation.Fly { duration = 1.seconds },
         )
       }
       testScheduler.runCurrent()

@@ -126,14 +126,15 @@ class DemoSettings {
   val flightAnimation: CameraAnimation
     get() =
       when (flightStyle) {
-        FlightStyle.Ease -> CameraAnimation.Ease(flightDurationMillis.roundToInt().milliseconds)
+        FlightStyle.Ease ->
+          CameraAnimation.Ease { duration = flightDurationMillis.roundToInt().milliseconds }
         FlightStyle.Fly ->
-          CameraAnimation.Fly(
+          CameraAnimation.Fly {
             duration =
-              if (paceFlightBySpeed) null else flightDurationMillis.roundToInt().milliseconds,
-            speed = flightSpeed.toDouble(),
-            minZoom = flightMinZoom.toDouble().takeIf { it > 0.0 },
-          )
+              if (paceFlightBySpeed) null else flightDurationMillis.roundToInt().milliseconds
+            speed = flightSpeed.toDouble()
+            minZoom = flightMinZoom.toDouble().takeIf { it > 0.0 }
+          }
       }
 }
 

@@ -70,7 +70,7 @@ class EngineEventTest {
       fixture.awaitWhileRendering("the camera animation to finish") {
         fixture.session.animateCamera(
           Destination.toCameraUpdate(),
-          CameraAnimation.Fly(AnimationDuration),
+          CameraAnimation.Fly { duration = AnimationDuration },
         )
       }
 

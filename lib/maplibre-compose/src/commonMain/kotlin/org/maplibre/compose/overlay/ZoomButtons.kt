@@ -114,7 +114,7 @@ public fun ZoomButtons(
     inFlight = request
     coroutineScope.launch {
       try {
-        currentMapState.animateCamera(update, CameraAnimation.Ease())
+        currentMapState.animateCamera(update, CameraAnimation.Ease.Standard)
       } finally {
         if (inFlight === request) inFlight = null
       }

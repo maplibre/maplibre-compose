@@ -54,7 +54,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
     inFlightZoom = request
     cameraAnimation = scope.launch {
       try {
-        state.animateCamera(CameraUpdate(zoom = request.zoom), CameraAnimation.Ease())
+        state.animateCamera(CameraUpdate(zoom = request.zoom), CameraAnimation.Ease.Standard)
       } finally {
         if (inFlightZoom === request) inFlightZoom = null
       }

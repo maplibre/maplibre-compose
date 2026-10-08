@@ -201,7 +201,7 @@ class CameraInputIntegrationTest {
             launch(start = CoroutineStart.UNDISPATCHED) {
               fixture.session.animateCamera(
                 CameraPosition(zoom = 8.0).toCameraUpdate(),
-                CameraAnimation.Fly(30.seconds),
+                CameraAnimation.Fly { duration = 30.seconds },
               )
             }
           fixture.pumpUntil("the programmatic animation to start") { fixture.state.isCameraMoving }

@@ -31,13 +31,9 @@ public abstract interface class org/maplibre/compose/camera/CameraAnimation {
 
 public final class org/maplibre/compose/camera/CameraAnimation$Ease : org/maplibre/compose/camera/CameraAnimation {
 	public static final field $stable I
-	public fun <init> ()V
-	public synthetic fun <init> (JLorg/maplibre/compose/camera/CubicBezier;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (JLorg/maplibre/compose/camera/CubicBezier;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-UwyO8pc ()J
-	public final fun component2 ()Lorg/maplibre/compose/camera/CubicBezier;
-	public final fun copy-VtjQ1oo (JLorg/maplibre/compose/camera/CubicBezier;)Lorg/maplibre/compose/camera/CameraAnimation$Ease;
-	public static synthetic fun copy-VtjQ1oo$default (Lorg/maplibre/compose/camera/CameraAnimation$Ease;JLorg/maplibre/compose/camera/CubicBezier;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraAnimation$Ease;
+	public static final field Companion Lorg/maplibre/compose/camera/CameraAnimation$Ease$Companion;
+	public fun <init> (Lorg/maplibre/compose/camera/CameraAnimation$Ease;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/camera/CameraAnimation$Ease;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDuration-UwyO8pc ()J
 	public fun getEasing ()Lorg/maplibre/compose/camera/CubicBezier;
@@ -45,19 +41,24 @@ public final class org/maplibre/compose/camera/CameraAnimation$Ease : org/maplib
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/camera/CameraAnimation$Ease$Builder {
+	public static final field $stable I
+	public final fun getDuration-UwyO8pc ()J
+	public final fun getEasing ()Lorg/maplibre/compose/camera/CubicBezier;
+	public final fun setDuration-LRDsOJo (J)V
+	public final fun setEasing (Lorg/maplibre/compose/camera/CubicBezier;)V
+}
+
+public final class org/maplibre/compose/camera/CameraAnimation$Ease$Companion {
+	public final fun getStandard ()Lorg/maplibre/compose/camera/CameraAnimation$Ease;
+}
+
 public final class org/maplibre/compose/camera/CameraAnimation$Fly : org/maplibre/compose/camera/CameraAnimation {
 	public static final field $stable I
 	public static final field Companion Lorg/maplibre/compose/camera/CameraAnimation$Fly$Companion;
 	public static final field DefaultSpeed D
-	public fun <init> ()V
-	public synthetic fun <init> (Lkotlin/time/Duration;DLjava/lang/Double;Lorg/maplibre/compose/camera/CubicBezier;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (Lkotlin/time/Duration;DLjava/lang/Double;Lorg/maplibre/compose/camera/CubicBezier;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-FghU774 ()Lkotlin/time/Duration;
-	public final fun component2 ()D
-	public final fun component3 ()Ljava/lang/Double;
-	public final fun component4 ()Lorg/maplibre/compose/camera/CubicBezier;
-	public final fun copy-5EIzBIU (Lkotlin/time/Duration;DLjava/lang/Double;Lorg/maplibre/compose/camera/CubicBezier;)Lorg/maplibre/compose/camera/CameraAnimation$Fly;
-	public static synthetic fun copy-5EIzBIU$default (Lorg/maplibre/compose/camera/CameraAnimation$Fly;Lkotlin/time/Duration;DLjava/lang/Double;Lorg/maplibre/compose/camera/CubicBezier;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraAnimation$Fly;
+	public fun <init> (Lorg/maplibre/compose/camera/CameraAnimation$Fly;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/camera/CameraAnimation$Fly;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDuration-FghU774 ()Lkotlin/time/Duration;
 	public fun getEasing ()Lorg/maplibre/compose/camera/CubicBezier;
@@ -67,7 +68,20 @@ public final class org/maplibre/compose/camera/CameraAnimation$Fly : org/maplibr
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/camera/CameraAnimation$Fly$Builder {
+	public static final field $stable I
+	public final fun getDuration-FghU774 ()Lkotlin/time/Duration;
+	public final fun getEasing ()Lorg/maplibre/compose/camera/CubicBezier;
+	public final fun getMinZoom ()Ljava/lang/Double;
+	public final fun getSpeed ()D
+	public final fun setDuration-BwNAW2A (Lkotlin/time/Duration;)V
+	public final fun setEasing (Lorg/maplibre/compose/camera/CubicBezier;)V
+	public final fun setMinZoom (Ljava/lang/Double;)V
+	public final fun setSpeed (D)V
+}
+
 public final class org/maplibre/compose/camera/CameraAnimation$Fly$Companion {
+	public final fun getStandard ()Lorg/maplibre/compose/camera/CameraAnimation$Fly;
 }
 
 public abstract interface class org/maplibre/compose/camera/CameraMoveReason {
