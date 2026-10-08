@@ -33,7 +33,7 @@ class AndroidMapStateRecreationTest {
   @Test
   fun camera_position_survives_activity_recreation() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+    DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {

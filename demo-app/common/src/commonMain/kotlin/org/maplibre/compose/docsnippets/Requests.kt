@@ -26,7 +26,10 @@ fun configureMapRequests(token: StateFlow<String?>) {
     )
   val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
   DefaultMapRuntime.configure(
-    MapRuntimeOptions(requestInterceptor = interceptor, resourceProvider = provider)
+    MapRuntimeOptions {
+      requestInterceptor = interceptor
+      resourceProvider = provider
+    }
   )
 }
 

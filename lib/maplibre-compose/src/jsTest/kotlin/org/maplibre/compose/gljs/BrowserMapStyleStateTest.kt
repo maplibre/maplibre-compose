@@ -23,7 +23,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.GlJsMapSession
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.map.MaplibreMap
@@ -132,7 +131,7 @@ class BrowserMapStyleStateTest {
   @Test
   fun a_detached_web_map_loads_current_content_without_replaying_obsolete_declarations():
     Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val presented = mutableStateOf(true)
     val useLatestRevision = mutableStateOf(false)
     val state =
@@ -209,7 +208,7 @@ class BrowserMapStyleStateTest {
   @Test
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val state = runtime.createMapState(baseStyle = StyleA)
       val size = mutableStateOf(0.dp)
 
@@ -245,7 +244,7 @@ class BrowserMapStyleStateTest {
   @Test
   fun a_web_style_switch_retains_the_complete_frame_until_replacement_content_is_ready():
     Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val state =
       runtime.createMapState(baseStyle = StyleA) {
         BackgroundLayer(id = "application", color = const(Color.Red))

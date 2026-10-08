@@ -20,7 +20,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.map.GlJsMapSession
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.createMapRuntime
@@ -71,7 +70,7 @@ class BrowserMapLifecycleTest {
   @Test
   fun a_web_map_is_destroyed_and_recreated_with_its_durable_camera(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val initialCamera =
         CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
       val replayedCamera =
@@ -158,7 +157,7 @@ class BrowserMapLifecycleTest {
   @Test
   fun pixel_density_renews_the_presentation_and_font_scale_preserves_it(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val density = mutableStateOf(Density(1f))
       var observedDensity: Density? = null
       val camera = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)

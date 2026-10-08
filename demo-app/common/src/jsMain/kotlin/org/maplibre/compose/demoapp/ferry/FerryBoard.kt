@@ -39,7 +39,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.demos.FerryMapContent
 import org.maplibre.compose.demoapp.demos.FerrySchedule
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.WebMapPresentation
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.util.DpPadding
@@ -55,7 +54,7 @@ internal fun FerryBoard() {
   var departures by remember { mutableStateOf<FerrySchedule.RouteDepartures?>(null) }
   var now by remember { mutableStateOf(Clock.System.now()) }
   var showMap by remember { mutableStateOf(true) }
-  val runtime = remember { createMapRuntime(MapRuntimeOptions()) }
+  val runtime = remember { createMapRuntime() }
   val map = remember {
     runtime.createMapState(
       baseStyle = Protomaps.Light.base,

@@ -31,7 +31,10 @@ internal actual fun BenchmarkRuntime(config: BenchmarkConfig, onStatus: (String,
       for (suffix in listOf("", "-wal", "-shm")) {
         SystemFileSystem.delete(Path(file.toString() + suffix), mustExist = false)
       }
-      val options = MapRuntimeOptions(cacheFile = file, maximumCacheSizeBytes = 16L * 1024 * 1024)
+      val options = MapRuntimeOptions {
+        cacheFile = file
+        maximumCacheSizeBytes = 16L * 1024 * 1024
+      }
       withFrameNanos {}
       val size = window.containerSize
       val host =

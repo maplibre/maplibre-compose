@@ -97,7 +97,9 @@ class MlnFfiMapCompositionTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
+  private val runtimeOptions = MapRuntimeOptions {
+    cacheFile = this@MlnFfiMapCompositionTest.cacheFile
+  }
 
   /** Camera round trips lose a little precision through the projection. */
   private val PositionTolerance = 1e-4

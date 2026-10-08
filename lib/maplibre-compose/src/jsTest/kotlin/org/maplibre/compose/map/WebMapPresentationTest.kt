@@ -193,7 +193,7 @@ private fun withWebFixture(block: suspend (WebFixture) -> Unit): Promise<Unit> =
   }
 
 private class WebFixture : AutoCloseable {
-  val runtime = createMapRuntime(MapRuntimeOptions())
+  val runtime = createMapRuntime()
   val host =
     document.createElement("div").unsafeCast<HTMLElement>().also {
       it.style.cssText = "width:160px;height:120px"

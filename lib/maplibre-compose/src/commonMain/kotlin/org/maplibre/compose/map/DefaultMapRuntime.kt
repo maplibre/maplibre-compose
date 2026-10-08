@@ -31,7 +31,7 @@ public object DefaultMapRuntime {
   /** The process-default runtime, created on first access. */
   public val instance: MapRuntime
     get() = lock.withLock {
-      current ?: createMapRuntime(options ?: defaultMapRuntimeOptions()).also { current = it }
+      current ?: createMapRuntime(options ?: MapRuntimeOptions.Standard).also { current = it }
     }
 
   /** Forgets and closes the process default, returning it so a test can await closure. */

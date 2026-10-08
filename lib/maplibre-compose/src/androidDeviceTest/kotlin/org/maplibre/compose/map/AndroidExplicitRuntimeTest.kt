@@ -17,7 +17,7 @@ class AndroidExplicitRuntimeTest {
     check(cacheDirectory.mkdirs()) { "Could not create test directory $cacheDirectory" }
     val runtime =
       createMapRuntime(
-        MapRuntimeOptions(cacheFile = Path(cacheDirectory.resolve("cache.db").absolutePath))
+        MapRuntimeOptions { this.cacheFile = Path(cacheDirectory.resolve("cache.db").absolutePath) }
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 

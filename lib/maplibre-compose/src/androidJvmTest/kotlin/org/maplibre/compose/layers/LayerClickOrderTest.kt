@@ -46,7 +46,7 @@ class LayerClickOrderTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
+  private val runtimeOptions = MapRuntimeOptions { cacheFile = this@LayerClickOrderTest.cacheFile }
 
   /** Which layers were offered the event, in the order the map offered them. */
   private val clicked = mutableListOf<String>()

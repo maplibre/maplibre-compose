@@ -42,7 +42,7 @@ class AndroidSurfaceReplacementTest {
   @Test
   fun a_surface_map_without_an_overlay_produces_a_frame_after_replacement() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+    DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
 
     try {
       // Screen capture and Compose test synchronization invalidate the window and mask this

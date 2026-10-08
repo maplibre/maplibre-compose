@@ -37,7 +37,7 @@ class DesktopDensityPresentationTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     try {
       runFfiComposeUiTest {
-        val options = MapRuntimeOptions(cacheFile = cacheFile)
+        val options = MapRuntimeOptions { this.cacheFile = cacheFile }
         val runtime = createMapRuntime(options)
         var density by mutableStateOf(Density(2f))
         val frames = AtomicInteger()

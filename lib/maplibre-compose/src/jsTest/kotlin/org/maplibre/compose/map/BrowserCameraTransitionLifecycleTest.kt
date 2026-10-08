@@ -170,7 +170,7 @@ class BrowserCameraTransitionLifecycleTest {
   @Test
   fun a_destroyed_web_map_cannot_move_the_logical_map_or_a_cached_presentation(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val state = runtime.createMapState(cameraPosition = CurrentCamera, baseStyle = Style)
       val presented = mutableStateOf(true)
 

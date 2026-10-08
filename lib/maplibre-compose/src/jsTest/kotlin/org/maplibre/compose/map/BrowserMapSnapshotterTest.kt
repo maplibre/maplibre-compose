@@ -51,7 +51,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun composed_content_renders_in_a_private_target_that_cleanup_removes(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
       try {
         assertEquals(0, snapshotTargets().size)
@@ -97,7 +97,7 @@ class BrowserMapSnapshotterTest {
         }
         PointStyle()
       }
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val state = runtime.createMapState(baseStyle = BackgroundStyle, content = content)
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, content)
       try {
@@ -139,7 +139,7 @@ class BrowserMapSnapshotterTest {
 
   @Test
   fun consecutive_captures_honor_size_and_density(): Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val snapshotter = runtime.createSnapshotter(BackgroundStyle)
     try {
       for ((request, size) in
@@ -167,7 +167,7 @@ class BrowserMapSnapshotterTest {
 
   @Test
   fun camera_position_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
     try {
       val centered =
@@ -206,7 +206,7 @@ class BrowserMapSnapshotterTest {
       "[data-maplibre-compose-snapshotter] { " +
         "box-sizing: border-box; border: 7px solid; padding: 11px; }"
     document.body?.appendChild(pageStyle.asDynamic())
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val snapshotter = runtime.createSnapshotter(BackgroundStyle)
     try {
       val captured = snapshotter.capture(MapSnapshotRequest(DpSize(31.dp, 23.dp)))
@@ -228,7 +228,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun a_request_above_the_web_canvas_limit_fails_before_map_creation(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val snapshotter = runtime.createSnapshotter(BackgroundStyle)
       try {
         val error =
@@ -249,7 +249,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun a_density_change_reapplies_an_unchanged_style_image(): Promise<*> = runBrowserMapTest {
     val icon = IntArray(8 * 8) { 0xff00ff00.toInt() }.toImageBitmap(8, 8)
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointIconStyle(icon))
     val request =
       MapSnapshotRequest(
@@ -278,7 +278,7 @@ class BrowserMapSnapshotterTest {
 
   @Test
   fun output_transparency_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val snapshotter = runtime.createSnapshotter(EmptyStyle)
     try {
       val opaque = snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
@@ -315,7 +315,7 @@ class BrowserMapSnapshotterTest {
           originalFetch.call(global, input, init)
         }
       }
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val snapshotter = runtime.createSnapshotter(BaseStyle.Uri(BlockedStyleUri), PointStyle)
       try {
         coroutineScope {

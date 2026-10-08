@@ -26,7 +26,7 @@ import org.maplibre.compose.testing.declare
 class BrowserPlatformMapAccessTest {
   @Test
   fun web_access_requires_a_current_presentation() = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
+    val runtime = createMapRuntime()
     val state = runtime.createMapState(BaseStyle.Demo)
 
     val failure = assertFailsWith<IllegalStateException> { state.withPlatformMap { map.getZoom() } }

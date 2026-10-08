@@ -9,7 +9,6 @@ import androidx.car.app.Session
 import androidx.car.app.SessionInfo
 import androidx.car.app.validation.HostValidator
 import org.maplibre.compose.map.MapRuntime
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 
 /** A projected map demo: each car session owns its map, while sessions share the runtime cache. */
@@ -26,7 +25,7 @@ class MapCarAppService : CarAppService() {
     }
 
   override fun onCreateSession(sessionInfo: SessionInfo): Session {
-    val shared = runtime ?: createMapRuntime(MapRuntimeOptions()).also { runtime = it }
+    val shared = runtime ?: createMapRuntime().also { runtime = it }
     return MapCarSession(shared)
   }
 

@@ -26,7 +26,7 @@ class AndroidSurfaceDetachmentTest {
   @Test
   fun surface_destruction_closes_the_native_renderer_before_an_already_requested_lifecycle_close() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
+    val runtime = createMapRuntime(MapRuntimeOptions { this.cacheFile = cacheFile })
     val state = runtime.createMapState(BaseStyle.Empty)
     val nativeSession =
       MlnFfiMapSession(

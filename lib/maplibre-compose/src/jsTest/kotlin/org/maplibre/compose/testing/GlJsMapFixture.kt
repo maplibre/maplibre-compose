@@ -203,7 +203,7 @@ internal actual suspend fun withTestMapRuntime(
   resourceProvider: MapResourceProvider?,
   block: suspend (MapRuntime) -> Unit,
 ) {
-  val runtime = createMapRuntime(MapRuntimeOptions(resourceProvider = resourceProvider))
+  val runtime = createMapRuntime(MapRuntimeOptions { this.resourceProvider = resourceProvider })
   try {
     block(runtime)
   } finally {

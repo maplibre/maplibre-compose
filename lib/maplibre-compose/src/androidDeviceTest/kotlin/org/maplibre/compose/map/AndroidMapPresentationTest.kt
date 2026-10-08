@@ -383,7 +383,7 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
 
 private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) {
   val cacheFile = FfiTestPlatform.createCacheFile()
-  val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
+  val runtime = createMapRuntime(MapRuntimeOptions { this.cacheFile = cacheFile })
   try {
     val fixture = withContext(Dispatchers.Main) { SurfaceMapFixture(runtime) }
     try {

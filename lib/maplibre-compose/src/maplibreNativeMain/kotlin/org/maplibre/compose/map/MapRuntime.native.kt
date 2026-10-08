@@ -2,35 +2,69 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceProvider
 
-/** Configuration for one MapLibre Native map runtime. */
 @Immutable
-public actual data class MapRuntimeOptions(
+public actual data class MapRuntimeOptions
+internal constructor(
   /**
-   * The path of the ambient resource cache and offline-region database. Null selects a
-   * `maplibre-cache.db` file in the platform's cache directory for this application.
+   * The ambient resource cache and offline-region database path. Null selects a `maplibre-cache.db`
+   * file in the platform's cache directory for this application, resolved when the runtime is
+   * created.
    */
-  public val cacheFile: Path? = null,
-  /** Maximum ambient cache size in bytes, or null for MapLibre's own default. */
-  public val maximumCacheSizeBytes: Long? = null,
-  /** Rewrites URLs and headers for this runtime. Fixed at construction. */
-  public val requestInterceptor: MapRequestInterceptor? = null,
-  /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
-  public val resourceProvider: MapResourceProvider? = null,
-  /**
-   * The dispatcher whose thread owns every map state of this runtime. Engine callbacks are posted
-   * to it, and map state rejects use from any other thread. Null uses `Dispatchers.Main.immediate`;
-   * creating the runtime fails when no main dispatcher is installed, so a desktop application
-   * without one passes its own single-threaded dispatcher. `Dispatchers.Unconfined` is rejected.
-   */
-  public val mainDispatcher: CoroutineDispatcher? = null,
-)
+  public val cacheFile: Path?,
+  /** Maximum ambient cache size in bytes. Defaults to 50 MiB, the MapLibre Native default. */
+  public val maximumCacheSizeBytes: Long,
+  public actual val requestInterceptor: MapRequestInterceptor?,
+  public actual val resourceProvider: MapResourceProvider?,
+  public actual val mainDispatcher: CoroutineDispatcher,
+) {
+  public actual constructor(
+    from: MapRuntimeOptions,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
 
-internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.cacheFile,
+    builder.maximumCacheSizeBytes,
+    builder.requestInterceptor,
+    builder.resourceProvider,
+    builder.mainDispatcher,
+  )
+
+  @MapOptionsDsl
+  public actual class Builder internal constructor(from: MapRuntimeOptions) {
+    /** See [MapRuntimeOptions.cacheFile]. */
+    public var cacheFile: Path? = from.cacheFile
+
+    /** See [MapRuntimeOptions.maximumCacheSizeBytes]. */
+    public var maximumCacheSizeBytes: Long = from.maximumCacheSizeBytes
+
+    public actual var requestInterceptor: MapRequestInterceptor? = from.requestInterceptor
+    public actual var resourceProvider: MapResourceProvider? = from.resourceProvider
+    public actual var mainDispatcher: CoroutineDispatcher = from.mainDispatcher
+  }
+
+  public actual companion object {
+    public actual val Standard: MapRuntimeOptions =
+      MapRuntimeOptions(
+        cacheFile = null,
+        maximumCacheSizeBytes = DefaultMaximumCacheSizeBytes,
+        requestInterceptor = null,
+        resourceProvider = null,
+        mainDispatcher = Dispatchers.Main,
+      )
+  }
+}
+
+// MapLibre Native util::DEFAULT_MAX_CACHE_SIZE.
+private const val DefaultMaximumCacheSizeBytes: Long = 50L * 1024 * 1024
 
 /** The cache file that a null [MapRuntimeOptions.cacheFile] selects. */
 internal expect fun defaultCacheFile(): Path
@@ -44,7 +78,13 @@ internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
     maximumCacheSizeBytes = maximumCacheSizeBytes,
     requestInterceptor = requestInterceptor,
     resourceProvider = resourceProvider,
-    mainDispatcher = mainDispatcher,
+    mainDispatcher =
+      if (
+        mainDispatcher === MapRuntimeOptions.Standard.mainDispatcher ||
+          mainDispatcher === Dispatchers.Main
+      )
+        platformMainDispatcher()
+      else mainDispatcher,
   )
 
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {

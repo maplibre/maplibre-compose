@@ -327,7 +327,7 @@ private suspend fun withLifecycleFixture(
 ) {
   val initialThreads = renderThreads()
   val cacheFile = FfiTestPlatform.createCacheFile()
-  val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
+  val runtime = createMapRuntime(MapRuntimeOptions { this.cacheFile = cacheFile })
   try {
     val fixture = withContext(Dispatchers.Main) { LifecycleFixture(runtime, initialThreads) }
     try {

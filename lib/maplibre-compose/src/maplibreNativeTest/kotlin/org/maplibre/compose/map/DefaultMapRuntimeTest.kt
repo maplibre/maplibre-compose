@@ -18,7 +18,7 @@ class DefaultMapRuntimeTest {
     try {
       val reported =
         assertFailsWith<AssertionError> {
-          withTestRuntime(MapRuntimeOptions(cacheFile = cacheFile)) {
+          withTestRuntime(MapRuntimeOptions { this.cacheFile = cacheFile }) {
             runtime = it
             state = it.createMapState(BaseStyle.Empty)
             throw failure
@@ -38,7 +38,7 @@ class DefaultMapRuntimeTest {
   fun closing_the_default_runtime_is_permanent() = runTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+      DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
       val first = DefaultMapRuntime.instance
       first.close()
       first.awaitClosed()
@@ -58,10 +58,10 @@ class DefaultMapRuntimeTest {
   fun configuring_after_the_default_runtime_exists_fails() {
     val cacheFile = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+      DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
       DefaultMapRuntime.instance
       assertFailsWith<IllegalStateException> {
-        DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+        DefaultMapRuntime.configure(MapRuntimeOptions { this.cacheFile = cacheFile })
       }
     } finally {
       DefaultMapRuntime.resetForTest()
