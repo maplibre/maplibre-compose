@@ -9,24 +9,12 @@ import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
 
-import rendering from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/org/maplibre/compose/docsnippets/Rendering.kt?raw";
-
 The camera defines the visible part of the map: a target position, a zoom
 level, a bearing, and a pitch. <Api of="rememberMapState" /> creates a
 <Api of="MapState" /> with a read-only camera position. Pass an
 initial <Api of="CameraPosition" /> to set the camera at startup:
 
 <Code code={region(camera, "first-position")} lang="kotlin" title="App.kt" />
-
-## Choose the camera projection
-
-On Android, iOS, and desktop, <Api of="RenderOptions" /> lets you choose a
-<Api of="CameraProjection" />. Set it directly in the builder:
-
-<Code code={region(rendering, "camera-projection")} lang="kotlin" title="App.kt" />
-
-These settings are also available from shared code when all of the app's targets
-use MapLibre Native.
 
 ## Animate the camera
 
