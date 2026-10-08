@@ -60,6 +60,9 @@ class AnimatorDurationScaleTest {
   fun a_zero_scale_makes_a_camera_animation_a_jump() {
     assertEquals(CameraAnimation.Ease(Duration.ZERO), CameraAnimation.Ease(1.seconds).scaledBy(0f))
     assertEquals(CameraAnimation.Fly(Duration.ZERO), CameraAnimation.Fly(1.seconds).scaledBy(0f))
-    assertEquals(CameraAnimation.Fly(Duration.ZERO), CameraAnimation.Fly(speed = 2.0).scaledBy(0f))
+    assertEquals(
+      CameraAnimation.Fly(Duration.ZERO, speed = 2.0),
+      CameraAnimation.Fly(speed = 2.0).scaledBy(0f),
+    )
   }
 }
