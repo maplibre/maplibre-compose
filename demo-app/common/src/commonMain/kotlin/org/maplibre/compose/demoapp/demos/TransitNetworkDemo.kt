@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
@@ -102,7 +103,7 @@ object TransitNetworkDemo : Demo {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
       mapState.animateCameraToBounds(
         boundingBox = route.bounds,
-        fitPadding = RouteFitPadding,
+        fit = CameraFit(fitPadding = RouteFitPadding),
         animation = CameraAnimation.Fly { duration = 1.seconds },
       )
     }

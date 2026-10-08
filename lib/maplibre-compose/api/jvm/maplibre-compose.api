@@ -84,6 +84,26 @@ public final class org/maplibre/compose/camera/CameraAnimation$Fly$Companion {
 	public final fun getStandard ()Lorg/maplibre/compose/camera/CameraAnimation$Fly;
 }
 
+public final class org/maplibre/compose/camera/CameraFit {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;)V
+	public synthetic fun <init> (DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun component3 ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun component4 ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun copy (DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;)Lorg/maplibre/compose/camera/CameraFit;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/camera/CameraFit;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;ILjava/lang/Object;)Lorg/maplibre/compose/camera/CameraFit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBearing ()D
+	public final fun getCameraPadding ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun getFitPadding ()Lorg/maplibre/compose/util/DpPadding;
+	public final fun getPitch ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class org/maplibre/compose/camera/CameraMoveReason {
 }
 
@@ -2528,20 +2548,20 @@ public final class org/maplibre/compose/map/MapState {
 	public static synthetic fun animateCamera$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/compose/camera/CameraUpdate;Lorg/maplibre/compose/camera/CameraAnimation;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun animateCameraAround (Lorg/maplibre/compose/camera/CameraAnchor;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;Lorg/maplibre/compose/camera/CameraAnimation$Ease;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun animateCameraAround$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/compose/camera/CameraAnchor;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;Lorg/maplibre/compose/camera/CameraAnimation$Ease;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun animateCameraToBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/camera/CameraAnimation;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun animateCameraToBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/camera/CameraAnimation;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun animateCameraToBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lorg/maplibre/compose/camera/CameraAnimation;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun animateCameraToBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lorg/maplibre/compose/camera/CameraAnimation;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun awaitViewport (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public final fun cameraForBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun cameraForBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun cameraForCoordinates (Ljava/util/Collection;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun cameraForCoordinates$default (Lorg/maplibre/compose/map/MapState;Ljava/util/Collection;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun cameraForGeometry (Lorg/maplibre/spatialk/geojson/Geometry;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun cameraForGeometry$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/Geometry;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun cameraForBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun cameraForBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun cameraForCoordinates (Ljava/util/Collection;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun cameraForCoordinates$default (Lorg/maplibre/compose/map/MapState;Ljava/util/Collection;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun cameraForGeometry (Lorg/maplibre/spatialk/geojson/Geometry;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun cameraForGeometry$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/Geometry;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun click-jo-Fl9I (J)V
 	public final fun close ()V
-	public final fun fitCameraToBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun fitCameraToBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;DDLorg/maplibre/compose/util/DpPadding;Lorg/maplibre/compose/util/DpPadding;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun fitCameraToBounds (Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun fitCameraToBounds$default (Lorg/maplibre/compose/map/MapState;Lorg/maplibre/spatialk/geojson/BoundingBox;Lorg/maplibre/compose/camera/CameraFit;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun fling-jo-Fl9I (J)V
 	public final fun getCameraMoveReason ()Lorg/maplibre/compose/camera/CameraMoveReason;
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;

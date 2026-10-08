@@ -38,6 +38,7 @@ import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Select
 import org.jetbrains.compose.web.dom.Text
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.demos.FerryMapContent
@@ -105,7 +106,10 @@ internal fun FerryBoard() {
     selected?.let {
       map.animateCameraToBounds(
         boundingBox = it.bounds,
-        fitPadding = DpPadding(left = 80.dp, top = 48.dp, right = 80.dp, bottom = 48.dp),
+        fit =
+          CameraFit(
+            fitPadding = DpPadding(left = 80.dp, top = 48.dp, right = 80.dp, bottom = 48.dp)
+          ),
         animation = animation(),
       )
     }
