@@ -1,42 +1,98 @@
 package org.maplibre.compose.map
 
-/** Draws the camera's padding, which is where it considers its center to be. */
-public var DebugOverlays.Builder.padding: Boolean
-  get() = platform.padding
-  set(value) {
-    platform = platform.copy(padding = value)
+import androidx.compose.runtime.Immutable
+import org.maplibre.compose.map.internal.commonEquals
+import org.maplibre.compose.map.internal.commonHashCode
+import org.maplibre.compose.map.internal.commonToString
+import org.maplibre.compose.map.internal.validate
+
+@Immutable
+public actual class RenderOptions
+private constructor(
+  public actual val maximumFps: Int?,
+  public actual val tileLod: TileLodOptions,
+  public actual val debug: DebugOverlays,
+) {
+  public actual constructor(
+    from: RenderOptions,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  private constructor(
+    builder: Builder
+  ) : this(builder.maximumFps, builder.tileLod, builder.debugBuilder.build())
+
+  init {
+    validate()
   }
 
-/** Draws the camera's padding, which is where it considers its center to be. */
-public val DebugOverlays.padding: Boolean
-  get() = platform.padding
+  actual override fun equals(other: Any?): Boolean = other is RenderOptions && commonEquals(other)
 
-/** Shades the map by how many times each pixel was drawn. */
-public var DebugOverlays.Builder.overdrawInspector: Boolean
-  get() = platform.overdrawInspector
-  set(value) {
-    platform = platform.copy(overdrawInspector = value)
+  actual override fun hashCode(): Int = commonHashCode(0)
+
+  actual override fun toString(): String = commonToString()
+
+  @MapOptionsDsl
+  public actual class Builder internal actual constructor(from: RenderOptions) {
+    public actual var maximumFps: Int? = from.maximumFps
+    public actual var tileLod: TileLodOptions = from.tileLod
+    internal val debugBuilder = DebugOverlays.Builder(from.debug)
+
+    public actual fun debug(block: DebugOverlays.Builder.() -> Unit) {
+      debugBuilder.apply(block)
+    }
   }
 
-/** Shades the map by how many times each pixel was drawn. */
-public val DebugOverlays.overdrawInspector: Boolean
-  get() = platform.overdrawInspector
+  public actual companion object {
+    public actual val Standard: RenderOptions =
+      RenderOptions(null, TileLodOptions.Standard, DebugOverlays.None)
 
-internal actual class PlatformRenderOptions actual constructor() {
-  actual override fun equals(other: Any?): Boolean = other is PlatformRenderOptions
-
-  actual override fun hashCode(): Int = 0
-
-  actual val fields: List<Pair<String, Any?>>
-    get() = emptyList()
+    public actual val Debug: RenderOptions =
+      RenderOptions(Standard) {
+        debug {
+          tileBorders = true
+          collisionBoxes = true
+        }
+      }
+  }
 }
 
-internal actual data class PlatformDebugOverlays(
-  val padding: Boolean,
-  val overdrawInspector: Boolean,
+@Immutable
+public actual class DebugOverlays
+private constructor(
+  public actual val tileBorders: Boolean,
+  public actual val collisionBoxes: Boolean,
+  /** Draws the camera's padding, which is where it considers its center to be. */
+  public val padding: Boolean,
+  /** Shades the map by how many times each pixel was drawn. */
+  public val overdrawInspector: Boolean,
 ) {
-  actual constructor() : this(padding = false, overdrawInspector = false)
+  actual override fun equals(other: Any?): Boolean =
+    other is DebugOverlays &&
+      commonEquals(other) &&
+      padding == other.padding &&
+      overdrawInspector == other.overdrawInspector
 
-  actual val fields: List<Pair<String, Any?>>
-    get() = listOf("padding" to padding, "overdrawInspector" to overdrawInspector)
+  actual override fun hashCode(): Int =
+    commonHashCode(31 * padding.hashCode() + overdrawInspector.hashCode())
+
+  actual override fun toString(): String =
+    commonToString("padding" to padding, "overdrawInspector" to overdrawInspector)
+
+  @MapOptionsDsl
+  public actual class Builder internal actual constructor(from: DebugOverlays) {
+    public actual var tileBorders: Boolean = from.tileBorders
+    public actual var collisionBoxes: Boolean = from.collisionBoxes
+    /** See [DebugOverlays.padding]. */
+    public var padding: Boolean = from.padding
+    /** See [DebugOverlays.overdrawInspector]. */
+    public var overdrawInspector: Boolean = from.overdrawInspector
+
+    internal actual fun build(): DebugOverlays =
+      DebugOverlays(tileBorders, collisionBoxes, padding, overdrawInspector)
+  }
+
+  internal actual companion object {
+    actual val None: DebugOverlays = DebugOverlays(false, false, false, false)
+  }
 }

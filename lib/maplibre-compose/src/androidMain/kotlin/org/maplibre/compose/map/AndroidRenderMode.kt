@@ -18,21 +18,3 @@ public enum class AndroidRenderMode {
    */
   Surface,
 }
-
-/** Which Android view draws the map. */
-public var MapUiOptions.Builder.renderMode: AndroidRenderMode
-  get() = platform.renderMode
-  set(value) {
-    platform = PlatformUiOptions(value)
-  }
-
-/** Which Android view draws the map. */
-public val MapUiOptions.renderMode: AndroidRenderMode
-  get() = platform.renderMode
-
-internal actual data class PlatformUiOptions(val renderMode: AndroidRenderMode) {
-  actual constructor() : this(AndroidRenderMode.Surface)
-
-  actual val fields: List<Pair<String, Any?>>
-    get() = listOf("renderMode" to renderMode)
-}

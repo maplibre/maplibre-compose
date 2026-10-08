@@ -7,7 +7,6 @@ import androidx.compose.runtime.remember
 import org.maplibre.compose.benchmark.*
 import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.MapUiOptions
-import org.maplibre.compose.map.renderMode
 
 @Composable
 internal actual fun benchmarkLaunchConfig(): BenchmarkConfig? =

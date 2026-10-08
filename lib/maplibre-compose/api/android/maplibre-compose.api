@@ -2243,12 +2243,6 @@ public final class org/maplibre/compose/map/AndroidRenderMode : java/lang/Enum {
 	public static fun values ()[Lorg/maplibre/compose/map/AndroidRenderMode;
 }
 
-public final class org/maplibre/compose/map/AndroidRenderModeKt {
-	public static final fun getRenderMode (Lorg/maplibre/compose/map/MapUiOptions$Builder;)Lorg/maplibre/compose/map/AndroidRenderMode;
-	public static final fun getRenderMode (Lorg/maplibre/compose/map/MapUiOptions;)Lorg/maplibre/compose/map/AndroidRenderMode;
-	public static final fun setRenderMode (Lorg/maplibre/compose/map/MapUiOptions$Builder;Lorg/maplibre/compose/map/AndroidRenderMode;)V
-}
-
 public final class org/maplibre/compose/map/CameraConstraints {
 	public static final field $stable I
 	public fun <init> ()V
@@ -2303,6 +2297,8 @@ public final class org/maplibre/compose/map/DebugOverlays {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCollisionBoxes ()Z
 	public final fun getTileBorders ()Z
+	public final fun getTileParseStatus ()Z
+	public final fun getTileTimestamps ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -2311,8 +2307,12 @@ public final class org/maplibre/compose/map/DebugOverlays$Builder {
 	public static final field $stable I
 	public final fun getCollisionBoxes ()Z
 	public final fun getTileBorders ()Z
+	public final fun getTileParseStatus ()Z
+	public final fun getTileTimestamps ()Z
 	public final fun setCollisionBoxes (Z)V
 	public final fun setTileBorders (Z)V
+	public final fun setTileParseStatus (Z)V
+	public final fun setTileTimestamps (Z)V
 }
 
 public final class org/maplibre/compose/map/DefaultMapRuntime {
@@ -2572,6 +2572,7 @@ public final class org/maplibre/compose/map/MapUiOptions {
 	public synthetic fun <init> (Lorg/maplibre/compose/map/MapUiOptions;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getLoadColor-0d7_KjU ()J
+	public final fun getRenderMode ()Lorg/maplibre/compose/map/AndroidRenderMode;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -2580,7 +2581,9 @@ public final class org/maplibre/compose/map/MapUiOptions$Builder {
 	public static final field $stable I
 	public final fun bindings (Lkotlin/jvm/functions/Function1;)V
 	public final fun getLoadColor-0d7_KjU ()J
+	public final fun getRenderMode ()Lorg/maplibre/compose/map/AndroidRenderMode;
 	public final fun setLoadColor-8_81llA (J)V
+	public final fun setRenderMode (Lorg/maplibre/compose/map/AndroidRenderMode;)V
 }
 
 public final class org/maplibre/compose/map/MapUiOptions$Companion {
@@ -2612,18 +2615,6 @@ public abstract interface class org/maplibre/compose/map/MutableStyleImageHandle
 	public abstract fun remove ()V
 }
 
-public final class org/maplibre/compose/map/NativeRenderOptionsKt {
-	public static final fun getCameraProjection (Lorg/maplibre/compose/map/RenderOptions$Builder;)Lorg/maplibre/compose/map/CameraProjection;
-	public static final fun getCameraProjection (Lorg/maplibre/compose/map/RenderOptions;)Lorg/maplibre/compose/map/CameraProjection;
-	public static final fun getTileParseStatus (Lorg/maplibre/compose/map/DebugOverlays$Builder;)Z
-	public static final fun getTileParseStatus (Lorg/maplibre/compose/map/DebugOverlays;)Z
-	public static final fun getTileTimestamps (Lorg/maplibre/compose/map/DebugOverlays$Builder;)Z
-	public static final fun getTileTimestamps (Lorg/maplibre/compose/map/DebugOverlays;)Z
-	public static final fun setCameraProjection (Lorg/maplibre/compose/map/RenderOptions$Builder;Lorg/maplibre/compose/map/CameraProjection;)V
-	public static final fun setTileParseStatus (Lorg/maplibre/compose/map/DebugOverlays$Builder;Z)V
-	public static final fun setTileTimestamps (Lorg/maplibre/compose/map/DebugOverlays$Builder;Z)V
-}
-
 public final class org/maplibre/compose/map/PlatformMapAccessKt {
 	public static final fun withPlatformMap (Lorg/maplibre/compose/map/MapState;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
@@ -2639,6 +2630,7 @@ public final class org/maplibre/compose/map/RenderOptions {
 	public fun <init> (Lorg/maplibre/compose/map/RenderOptions;Lkotlin/jvm/functions/Function1;)V
 	public synthetic fun <init> (Lorg/maplibre/compose/map/RenderOptions;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCameraProjection ()Lorg/maplibre/compose/map/CameraProjection;
 	public final fun getDebug ()Lorg/maplibre/compose/map/DebugOverlays;
 	public final fun getMaximumFps ()Ljava/lang/Integer;
 	public final fun getTileLod ()Lorg/maplibre/compose/map/TileLodOptions;
@@ -2649,8 +2641,10 @@ public final class org/maplibre/compose/map/RenderOptions {
 public final class org/maplibre/compose/map/RenderOptions$Builder {
 	public static final field $stable I
 	public final fun debug (Lkotlin/jvm/functions/Function1;)V
+	public final fun getCameraProjection ()Lorg/maplibre/compose/map/CameraProjection;
 	public final fun getMaximumFps ()Ljava/lang/Integer;
 	public final fun getTileLod ()Lorg/maplibre/compose/map/TileLodOptions;
+	public final fun setCameraProjection (Lorg/maplibre/compose/map/CameraProjection;)V
 	public final fun setMaximumFps (Ljava/lang/Integer;)V
 	public final fun setTileLod (Lorg/maplibre/compose/map/TileLodOptions;)V
 }
