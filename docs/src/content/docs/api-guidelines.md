@@ -228,15 +228,18 @@ internal object UnspecifiedMapEvent : MapEvent
 
 ## 5. Options and configuration
 
-Choose the shape of a settings object by what it holds:
+Settings objects, such as options, constraints, and requests, always use the
+shape shown below, even when every setting works on every platform today. A
+setting that only some platforms support can then be added later without
+changing the shape.
 
-- When every field works on every platform and callers set fields by name, use a
-  data class with a public constructor, and add new fields last with
+- Use a class with a private or internal constructor and a builder, so that new
+  options don't change any constructor. It may be a data class (section 1);
+  otherwise write `equals`, `hashCode`, and `toString`.
+- A value that describes something rather than configuring behavior, such as a
+  camera position or the four edges of `DpPadding`, can be a data class with a
+  public constructor. If it might gain fields, add them last with
   `@IntroducedAt` (section 12).
-- When the object has platform-only settings or nested blocks of options, use
-  the builder shape shown below: a class with a private or internal constructor
-  and a builder, so that new options don't change any constructor. It may be a
-  data class (section 1); otherwise write `equals`, `hashCode`, and `toString`.
 - Take a `from` parameter in the builder instead of providing `copy`, and
   default it to a standard preset on the companion object.
 - Take required values with no sensible default, such as an ID, as constructor
