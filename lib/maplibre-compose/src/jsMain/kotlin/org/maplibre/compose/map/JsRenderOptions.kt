@@ -1,13 +1,10 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
-import org.maplibre.compose.map.internal.commonEquals
-import org.maplibre.compose.map.internal.commonHashCode
-import org.maplibre.compose.map.internal.commonToString
 import org.maplibre.compose.map.internal.validate
 
 @Immutable
-public actual class RenderOptions
+public actual data class RenderOptions
 private constructor(
   public actual val maximumFps: Int?,
   public actual val tileLod: TileLodOptions,
@@ -25,12 +22,6 @@ private constructor(
   init {
     validate()
   }
-
-  actual override fun equals(other: Any?): Boolean = other is RenderOptions && commonEquals(other)
-
-  actual override fun hashCode(): Int = commonHashCode(0)
-
-  actual override fun toString(): String = commonToString()
 
   @MapOptionsDsl
   public actual class Builder internal actual constructor(from: RenderOptions) {
@@ -58,7 +49,7 @@ private constructor(
 }
 
 @Immutable
-public actual class DebugOverlays
+public actual data class DebugOverlays
 private constructor(
   public actual val tileBorders: Boolean,
   public actual val collisionBoxes: Boolean,
@@ -67,17 +58,19 @@ private constructor(
   /** Shades the map by how many times each pixel was drawn. */
   public val overdrawInspector: Boolean,
 ) {
-  actual override fun equals(other: Any?): Boolean =
-    other is DebugOverlays &&
-      commonEquals(other) &&
-      padding == other.padding &&
-      overdrawInspector == other.overdrawInspector
+  public actual constructor(
+    from: DebugOverlays,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
 
-  actual override fun hashCode(): Int =
-    commonHashCode(31 * padding.hashCode() + overdrawInspector.hashCode())
-
-  actual override fun toString(): String =
-    commonToString("padding" to padding, "overdrawInspector" to overdrawInspector)
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.tileBorders,
+    builder.collisionBoxes,
+    builder.padding,
+    builder.overdrawInspector,
+  )
 
   @MapOptionsDsl
   public actual class Builder internal actual constructor(from: DebugOverlays) {

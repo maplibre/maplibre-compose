@@ -233,9 +233,9 @@ shape shown below, even when every setting works on every platform today. A
 setting that only some platforms support can then be added later without
 changing the shape.
 
-- Use a class with a private or internal constructor and a builder, so that new
-  options don't change any constructor. It may be a data class (section 1);
-  otherwise write `equals`, `hashCode`, and `toString`.
+- Use a data class with a private or internal constructor and a builder, so new
+  options don't change a public constructor. Write `equals`, `hashCode`, or
+  `toString` by hand only when a data class cannot express the behavior.
 - A value that describes something rather than configuring behavior, such as a
   camera position or the four edges of `DpPadding`, can be a data class with a
   public constructor. If it might gain fields, add them last with
@@ -266,14 +266,14 @@ changing the shape.
 
 ```kotlin
 @Immutable
-public class RenderOptions private constructor(builder: Builder) {
-  public val maximumFps: Int? = builder.maximumFps
-  public val tileLod: TileLodOptions = builder.tileLod
+public data class RenderOptions private constructor(
+  public val maximumFps: Int?,
+  public val tileLod: TileLodOptions,
+) {
+  private constructor(builder: Builder) : this(builder.maximumFps, builder.tileLod)
 
   public constructor(from: RenderOptions = Standard, block: Builder.() -> Unit) :
     this(Builder(from).apply(block))
-
-  // equals, hashCode, and toString
 
   @MapOptionsDsl
   public class Builder internal constructor(from: RenderOptions?) {

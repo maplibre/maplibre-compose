@@ -55,6 +55,9 @@ public expect class DebugOverlays {
   public val tileBorders: Boolean
   public val collisionBoxes: Boolean
 
+  /** Edits [from]; omitted overlays inherit. */
+  public constructor(from: DebugOverlays = None, block: Builder.() -> Unit)
+
   override fun equals(other: Any?): Boolean
 
   override fun hashCode(): Int

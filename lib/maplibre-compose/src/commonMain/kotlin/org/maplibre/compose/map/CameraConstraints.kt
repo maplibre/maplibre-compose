@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
-import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
@@ -14,45 +13,29 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * @property boundingBox Geographic bounds for the camera, or `null` for no bounds.
  */
 @Immutable
-public class CameraConstraints private constructor(builder: Builder) {
-  public val minZoom: Double = builder.minZoom
-  public val maxZoom: Double = builder.maxZoom
-  public val minPitch: Double = builder.minPitch
-  public val maxPitch: Double = builder.maxPitch
-  public val boundingBox: BoundingBox? = builder.boundingBox
+public data class CameraConstraints
+private constructor(
+  public val minZoom: Double,
+  public val maxZoom: Double,
+  public val minPitch: Double,
+  public val maxPitch: Double,
+  public val boundingBox: BoundingBox?,
+) {
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.minZoom,
+    builder.maxZoom,
+    builder.minPitch,
+    builder.maxPitch,
+    builder.boundingBox,
+  )
 
   /** Edits [from]; omitted constraints inherit. */
   public constructor(
     from: CameraConstraints = Standard,
     block: Builder.() -> Unit,
   ) : this(Builder(from).apply(block))
-
-  override fun equals(other: Any?): Boolean =
-    other is CameraConstraints &&
-      minZoom.compareTo(other.minZoom) == 0 &&
-      maxZoom.compareTo(other.maxZoom) == 0 &&
-      minPitch.compareTo(other.minPitch) == 0 &&
-      maxPitch.compareTo(other.maxPitch) == 0 &&
-      boundingBox == other.boundingBox
-
-  override fun hashCode(): Int {
-    var result = minZoom.hashCode()
-    result = 31 * result + maxZoom.hashCode()
-    result = 31 * result + minPitch.hashCode()
-    result = 31 * result + maxPitch.hashCode()
-    result = 31 * result + (boundingBox?.hashCode() ?: 0)
-    return result
-  }
-
-  override fun toString(): String =
-    formatToString(
-      "CameraConstraints",
-      "minZoom" to minZoom,
-      "maxZoom" to maxZoom,
-      "minPitch" to minPitch,
-      "maxPitch" to maxPitch,
-      "boundingBox" to boundingBox,
-    )
 
   @MapOptionsDsl
   public class Builder internal constructor(from: CameraConstraints?) {

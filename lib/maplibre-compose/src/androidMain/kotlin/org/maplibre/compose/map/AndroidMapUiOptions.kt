@@ -4,12 +4,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.interaction.InteractionBindingsBuilder
 import org.maplibre.compose.interaction.internal.InteractionBindings
-import org.maplibre.compose.map.internal.commonEquals
-import org.maplibre.compose.map.internal.commonHashCode
-import org.maplibre.compose.map.internal.commonToString
 
 @Immutable
-public actual class MapUiOptions
+public actual data class MapUiOptions
 private constructor(
   public actual val loadColor: Color,
   internal actual val bindings: InteractionBindings,
@@ -24,13 +21,6 @@ private constructor(
   private constructor(
     builder: Builder
   ) : this(builder.loadColor, builder.bindingsBuilder.build(), builder.renderMode)
-
-  actual override fun equals(other: Any?): Boolean =
-    other is MapUiOptions && commonEquals(other) && renderMode == other.renderMode
-
-  actual override fun hashCode(): Int = commonHashCode(renderMode.hashCode())
-
-  actual override fun toString(): String = commonToString("renderMode" to renderMode)
 
   @MapOptionsDsl
   public actual class Builder internal actual constructor(from: MapUiOptions) {

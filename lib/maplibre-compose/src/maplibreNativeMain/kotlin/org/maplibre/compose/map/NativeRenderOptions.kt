@@ -1,13 +1,10 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
-import org.maplibre.compose.map.internal.commonEquals
-import org.maplibre.compose.map.internal.commonHashCode
-import org.maplibre.compose.map.internal.commonToString
 import org.maplibre.compose.map.internal.validate
 
 @Immutable
-public actual class RenderOptions
+public actual data class RenderOptions
 private constructor(
   public actual val maximumFps: Int?,
   public actual val tileLod: TileLodOptions,
@@ -32,13 +29,6 @@ private constructor(
   init {
     validate()
   }
-
-  actual override fun equals(other: Any?): Boolean =
-    other is RenderOptions && commonEquals(other) && cameraProjection == other.cameraProjection
-
-  actual override fun hashCode(): Int = commonHashCode(cameraProjection.hashCode())
-
-  actual override fun toString(): String = commonToString("cameraProjection" to cameraProjection)
 
   @MapOptionsDsl
   public actual class Builder internal actual constructor(from: RenderOptions) {
@@ -69,7 +59,7 @@ private constructor(
 }
 
 @Immutable
-public actual class DebugOverlays
+public actual data class DebugOverlays
 private constructor(
   public actual val tileBorders: Boolean,
   public actual val collisionBoxes: Boolean,
@@ -78,17 +68,19 @@ private constructor(
   /** Draws tile parse state on each tile. */
   public val tileParseStatus: Boolean,
 ) {
-  actual override fun equals(other: Any?): Boolean =
-    other is DebugOverlays &&
-      commonEquals(other) &&
-      tileTimestamps == other.tileTimestamps &&
-      tileParseStatus == other.tileParseStatus
+  public actual constructor(
+    from: DebugOverlays,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
 
-  actual override fun hashCode(): Int =
-    commonHashCode(31 * tileTimestamps.hashCode() + tileParseStatus.hashCode())
-
-  actual override fun toString(): String =
-    commonToString("tileTimestamps" to tileTimestamps, "tileParseStatus" to tileParseStatus)
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.tileBorders,
+    builder.collisionBoxes,
+    builder.tileTimestamps,
+    builder.tileParseStatus,
+  )
 
   @MapOptionsDsl
   public actual class Builder internal actual constructor(from: DebugOverlays) {

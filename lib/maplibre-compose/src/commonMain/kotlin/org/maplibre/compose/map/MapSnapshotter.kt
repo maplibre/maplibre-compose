@@ -53,17 +53,31 @@ import org.maplibre.compose.util.formatToString
  *   lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and to at
  *   least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density], rounded
  *   up.
+ * @property cameraPosition Camera position used for this capture.
+ * @property density Pixel density for rendering and font scale for style composition.
+ * @property layoutDirection Layout direction used while evaluating the style composition.
+ * @property transparent Whether to preserve framebuffer alpha. When false, transparent pixels
+ *   composite onto white.
  */
 @Immutable
-public class MapSnapshotRequest private constructor(public val size: DpSize, builder: Builder) {
-  /** Camera position used for this capture. */
-  public val cameraPosition: CameraPosition = builder.cameraPosition
-  /** Pixel density for rendering and font scale for style composition. */
-  public val density: Density = builder.density
-  /** Layout direction used while evaluating the style composition. */
-  public val layoutDirection: LayoutDirection = builder.layoutDirection
-  /** Whether to preserve framebuffer alpha. When false, transparent pixels composite onto white. */
-  public val transparent: Boolean = builder.transparent
+public data class MapSnapshotRequest
+private constructor(
+  public val size: DpSize,
+  public val cameraPosition: CameraPosition,
+  public val density: Density,
+  public val layoutDirection: LayoutDirection,
+  public val transparent: Boolean,
+) {
+  private constructor(
+    size: DpSize,
+    builder: Builder,
+  ) : this(
+    size,
+    builder.cameraPosition,
+    builder.density,
+    builder.layoutDirection,
+    builder.transparent,
+  )
 
   /** Creates a request for [size] with the settings in [block]. */
   public constructor(
@@ -85,33 +99,6 @@ public class MapSnapshotRequest private constructor(public val size: DpSize, bui
       "Snapshot font scale must be finite and positive, was ${density.fontScale}"
     }
   }
-
-  override fun equals(other: Any?): Boolean =
-    other is MapSnapshotRequest &&
-      size == other.size &&
-      cameraPosition == other.cameraPosition &&
-      density == other.density &&
-      layoutDirection == other.layoutDirection &&
-      transparent == other.transparent
-
-  override fun hashCode(): Int {
-    var result = size.hashCode()
-    result = 31 * result + cameraPosition.hashCode()
-    result = 31 * result + density.hashCode()
-    result = 31 * result + layoutDirection.hashCode()
-    result = 31 * result + transparent.hashCode()
-    return result
-  }
-
-  override fun toString(): String =
-    formatToString(
-      "MapSnapshotRequest",
-      "size" to size,
-      "cameraPosition" to cameraPosition,
-      "density" to density,
-      "layoutDirection" to layoutDirection,
-      "transparent" to transparent,
-    )
 
   @MapOptionsDsl
   public class Builder internal constructor() {

@@ -142,59 +142,43 @@ public sealed interface GeoJsonData {
  *   honor this option. The browser ignores it.
  */
 @Immutable
-public class GeoJsonOptions private constructor(builder: Builder) {
-  public val minZoom: Int = builder.minZoom
-  public val maxZoom: Int = builder.maxZoom
-  public val buffer: Int = builder.buffer
-  public val tolerance: Float = builder.tolerance
-  public val cluster: Boolean = builder.cluster
-  public val clusterRadius: Int = builder.clusterRadius
-  public val clusterMinPoints: Int = builder.clusterMinPoints
-  public val clusterMaxZoom: Int = builder.clusterMaxZoom
-  public val clusterProperties: Map<String, ClusterPropertyAggregator<*>> =
-    builder.clusterProperties
-  public val lineMetrics: Boolean = builder.lineMetrics
-  public val synchronousTiling: Boolean = builder.synchronousTiling
-
-  private val clusterMaxZoomOverride: Int? = builder.clusterMaxZoomOverride
+public data class GeoJsonOptions
+private constructor(
+  public val minZoom: Int,
+  public val maxZoom: Int,
+  public val buffer: Int,
+  public val tolerance: Float,
+  public val cluster: Boolean,
+  public val clusterRadius: Int,
+  public val clusterMinPoints: Int,
+  public val clusterMaxZoom: Int,
+  public val clusterProperties: Map<String, ClusterPropertyAggregator<*>>,
+  public val lineMetrics: Boolean,
+  public val synchronousTiling: Boolean,
+  private val clusterMaxZoomOverride: Int?,
+) {
+  private constructor(
+    builder: Builder
+  ) : this(
+    builder.minZoom,
+    builder.maxZoom,
+    builder.buffer,
+    builder.tolerance,
+    builder.cluster,
+    builder.clusterRadius,
+    builder.clusterMinPoints,
+    builder.clusterMaxZoom,
+    builder.clusterProperties,
+    builder.lineMetrics,
+    builder.synchronousTiling,
+    builder.clusterMaxZoomOverride,
+  )
 
   /** Edits [from]; omitted settings inherit. */
   public constructor(
     from: GeoJsonOptions = Standard,
     block: Builder.() -> Unit,
   ) : this(Builder(from).apply(block))
-
-  override fun equals(other: Any?): Boolean =
-    other is GeoJsonOptions &&
-      minZoom == other.minZoom &&
-      maxZoom == other.maxZoom &&
-      buffer == other.buffer &&
-      tolerance.compareTo(other.tolerance) == 0 &&
-      cluster == other.cluster &&
-      clusterRadius == other.clusterRadius &&
-      clusterMinPoints == other.clusterMinPoints &&
-      clusterMaxZoom == other.clusterMaxZoom &&
-      clusterMaxZoomOverride == other.clusterMaxZoomOverride &&
-      clusterProperties == other.clusterProperties &&
-      lineMetrics == other.lineMetrics &&
-      synchronousTiling == other.synchronousTiling
-
-  override fun hashCode(): Int =
-    listOf(
-        minZoom,
-        maxZoom,
-        buffer,
-        tolerance,
-        cluster,
-        clusterRadius,
-        clusterMinPoints,
-        clusterMaxZoom,
-        clusterMaxZoomOverride,
-        clusterProperties,
-        lineMetrics,
-        synchronousTiling,
-      )
-      .hashCode()
 
   override fun toString(): String =
     formatToString(
