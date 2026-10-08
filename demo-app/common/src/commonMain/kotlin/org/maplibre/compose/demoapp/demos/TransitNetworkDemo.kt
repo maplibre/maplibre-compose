@@ -103,7 +103,7 @@ object TransitNetworkDemo : Demo {
       mapState.animateCameraToBounds(
         boundingBox = route.bounds,
         fitPadding = RouteFitPadding,
-        animation = CameraAnimation.Fly(1.seconds),
+        animation = CameraAnimation.Fly { duration = 1.seconds },
       )
     }
 

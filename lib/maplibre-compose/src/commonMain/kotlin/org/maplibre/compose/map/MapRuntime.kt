@@ -906,7 +906,7 @@ internal constructor(
 
   suspend fun animateCamera(
     update: CameraUpdate,
-    animation: CameraAnimation = CameraAnimation.Ease(),
+    animation: CameraAnimation = CameraAnimation.Ease.Standard,
     guard: CameraCommandGuard? = null,
   ): Unit =
     afterCameraTurn(guard) { boundGuard ->
@@ -1362,7 +1362,7 @@ internal constructor(
    */
   public suspend fun animateCamera(
     update: CameraUpdate,
-    animation: CameraAnimation = CameraAnimation.Ease(),
+    animation: CameraAnimation = CameraAnimation.Ease.Standard,
   ): Unit = coroutineScope {
     val guard =
       gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job], concurrent = true)
@@ -1397,7 +1397,7 @@ internal constructor(
     zoom: Double? = null,
     bearing: Double? = null,
     pitch: Double? = null,
-    animation: CameraAnimation.Ease = CameraAnimation.Ease(),
+    animation: CameraAnimation.Ease = CameraAnimation.Ease.Standard,
   ): Unit = coroutineScope {
     require(zoom == null || zoom.isFinite()) { "Zoom must be finite, was $zoom" }
     require(bearing == null || bearing.isFinite()) { "Bearing must be finite, was $bearing" }
@@ -1414,7 +1414,9 @@ internal constructor(
         zoom,
         bearing,
         pitch,
-        animation.copy(duration = animation.duration.scaledBy(systemAnimatorDurationScale())),
+        CameraAnimation.Ease(from = animation) {
+          duration = animation.duration.scaledBy(systemAnimatorDurationScale())
+        },
         guard,
       )
   }
@@ -1434,7 +1436,7 @@ internal constructor(
     pitch: Double = 0.0,
     cameraPadding: DpPadding? = null,
     fitPadding: DpPadding = DpPadding.Zero,
-    animation: CameraAnimation = CameraAnimation.Fly(),
+    animation: CameraAnimation = CameraAnimation.Fly.Standard,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     attachmentAuthority

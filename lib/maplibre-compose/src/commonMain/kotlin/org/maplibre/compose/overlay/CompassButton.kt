@@ -103,7 +103,7 @@ public fun CompassButton(
         coroutineScope.launch {
           currentMapState.animateCamera(
             getHomeUpdate(currentMapState.cameraPosition),
-            CameraAnimation.Ease(),
+            CameraAnimation.Ease.Standard,
           )
         }
         onClick()

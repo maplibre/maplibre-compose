@@ -75,7 +75,7 @@ class MlnFfiViewportTest {
       }
       val target = start.copy(zoom = 8.0, bearing = 90.0)
       val animation = async {
-        state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(2.seconds))
+        state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease { duration = 2.seconds })
       }
       fixture.awaitUntil("the camera animation to advance") {
         fixture.session.getCameraPosition().zoom > start.zoom + 0.1
@@ -126,7 +126,10 @@ class MlnFfiViewportTest {
 
       val target = start.copy(zoom = 6.0, bearing = 45.0)
       val animation = async {
-        state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(500.milliseconds))
+        state.animateCamera(
+          target.toCameraUpdate(),
+          CameraAnimation.Ease { duration = 500.milliseconds },
+        )
       }
       fixture.awaitUntil("the camera animation to finish") { animation.isCompleted }
       animation.await()
@@ -164,7 +167,10 @@ class MlnFfiViewportTest {
       val target = CameraPosition(center = Position(-74.006, 40.7128), zoom = 5.0)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
-          state.animateCamera(target.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
+          state.animateCamera(
+            target.toCameraUpdate(),
+            CameraAnimation.Fly { duration = 200.milliseconds },
+          )
         }
       // Let the owner accept the animation before any render target has attached.
       fixture.session.readMap {}

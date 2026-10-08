@@ -16,7 +16,7 @@ import org.maplibre.spatialk.units.extensions.inDegrees
  */
 public suspend fun LocationChangeScope.updateCamera(
   mapState: MapState,
-  animation: CameraAnimation? = CameraAnimation.Ease(),
+  animation: CameraAnimation? = CameraAnimation.Ease.Standard,
   updateBearing: BearingUpdate = BearingUpdate.TrackAutomatic,
 ) {
   val selectedBearing =

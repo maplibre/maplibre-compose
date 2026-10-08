@@ -44,25 +44,40 @@ class AnimatorDurationScaleTest {
   @Test
   fun scaling_a_camera_animation_scales_its_timing() {
     assertEquals(
-      CameraAnimation.Ease(600.milliseconds),
-      CameraAnimation.Ease(300.milliseconds).scaledBy(2f),
+      CameraAnimation.Ease { duration = 600.milliseconds },
+      CameraAnimation.Ease { duration = 300.milliseconds }.scaledBy(2f),
     )
-    assertEquals(CameraAnimation.Fly(2.seconds), CameraAnimation.Fly(1.seconds).scaledBy(2f))
-    assertEquals(CameraAnimation.Fly(speed = 1.0), CameraAnimation.Fly(speed = 2.0).scaledBy(2f))
     assertEquals(
-      CameraAnimation.Fly(speed = CameraAnimation.Fly.DefaultSpeed / 2),
-      CameraAnimation.Fly().scaledBy(2f),
+      CameraAnimation.Fly { duration = 2.seconds },
+      CameraAnimation.Fly { duration = 1.seconds }.scaledBy(2f),
+    )
+    assertEquals(
+      CameraAnimation.Fly { speed = 1.0 },
+      CameraAnimation.Fly { speed = 2.0 }.scaledBy(2f),
+    )
+    assertEquals(
+      CameraAnimation.Fly { speed = CameraAnimation.Fly.DefaultSpeed / 2 },
+      CameraAnimation.Fly.Standard.scaledBy(2f),
     )
   }
 
   /** A scale of zero turns every transition into a jump, including a flight paced by speed. */
   @Test
   fun a_zero_scale_makes_a_camera_animation_a_jump() {
-    assertEquals(CameraAnimation.Ease(Duration.ZERO), CameraAnimation.Ease(1.seconds).scaledBy(0f))
-    assertEquals(CameraAnimation.Fly(Duration.ZERO), CameraAnimation.Fly(1.seconds).scaledBy(0f))
     assertEquals(
-      CameraAnimation.Fly(Duration.ZERO, speed = 2.0),
-      CameraAnimation.Fly(speed = 2.0).scaledBy(0f),
+      CameraAnimation.Ease { duration = Duration.ZERO },
+      CameraAnimation.Ease { duration = 1.seconds }.scaledBy(0f),
+    )
+    assertEquals(
+      CameraAnimation.Fly { duration = Duration.ZERO },
+      CameraAnimation.Fly { duration = 1.seconds }.scaledBy(0f),
+    )
+    assertEquals(
+      CameraAnimation.Fly {
+        duration = Duration.ZERO
+        speed = 2.0
+      },
+      CameraAnimation.Fly { speed = 2.0 }.scaledBy(0f),
     )
   }
 }

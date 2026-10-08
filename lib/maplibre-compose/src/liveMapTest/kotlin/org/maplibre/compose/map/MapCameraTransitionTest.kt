@@ -104,7 +104,10 @@ class MapCameraTransitionTest {
         fixture.startAt(Start)
         val target = Target.copy(padding = DpPadding(bottom = 100.dp))
         val animation = launch {
-          fixture.state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
+          fixture.state.animateCamera(
+            target.toCameraUpdate(),
+            CameraAnimation.Ease { duration = 1.seconds },
+          )
         }
         fixture.pumpUntil("camera padding animation") { animation.isCompleted }
         assertFalse(animation.isCancelled)
@@ -290,7 +293,10 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
       val animation = launch {
-        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+        it.state.animateCamera(
+          Target.toCameraUpdate(),
+          CameraAnimation.Fly { duration = 2.seconds },
+        )
       }
       it.awaitCameraMoving()
       it.state
@@ -443,7 +449,7 @@ class MapCameraTransitionTest {
           pitch = 0.0,
           cameraPadding = DpPadding(bottom = 80.dp),
           fitPadding = FitPadding,
-          animation = CameraAnimation.Fly(200.milliseconds),
+          animation = CameraAnimation.Fly { duration = 200.milliseconds },
         )
       }
 
@@ -459,7 +465,7 @@ class MapCameraTransitionTest {
           bearing = 0.0,
           pitch = 0.0,
           fitPadding = FitPadding,
-          animation = CameraAnimation.Fly(200.milliseconds),
+          animation = CameraAnimation.Fly { duration = 200.milliseconds },
         )
       }
 
@@ -482,7 +488,7 @@ class MapCameraTransitionTest {
       it.awaitWhileRendering("the flight to complete") {
         it.state.animateCamera(
           FlightTarget.toCameraUpdate(),
-          CameraAnimation.Fly(speed = 20.0),
+          CameraAnimation.Fly { speed = 20.0 },
         )
       }
 
@@ -509,7 +515,7 @@ class MapCameraTransitionTest {
         it.state.animateCameraToBounds(
           boundingBox = Bounds,
           fitPadding = FitPadding,
-          animation = CameraAnimation.Ease(200.milliseconds),
+          animation = CameraAnimation.Ease { duration = 200.milliseconds },
         )
       }
 
@@ -526,7 +532,10 @@ class MapCameraTransitionTest {
         it.pump(frames = 2)
 
         val animation = launch {
-          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+          it.state.animateCamera(
+            Target.toCameraUpdate(),
+            CameraAnimation.Fly { duration = 2.seconds },
+          )
         }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -566,7 +575,10 @@ class MapCameraTransitionTest {
       it.awaitWhileRendering("the instant animation to complete") {
         it.state.animateCamera(
           Target.toCameraUpdate(),
-          CameraAnimation.Fly(duration = 0.milliseconds, speed = 0.001),
+          CameraAnimation.Fly {
+            duration = 0.milliseconds
+            speed = 0.001
+          },
         )
       }
       assertNear(
@@ -589,12 +601,18 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       val superseded = launch {
-        it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
+        it.state.animateCamera(
+          Target.toCameraUpdate(),
+          CameraAnimation.Fly { duration = 10.seconds },
+        )
       }
       it.awaitCameraMoving()
 
       val replacement = launch {
-        it.state.animateCamera(Midpoint.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+        it.state.animateCamera(
+          Midpoint.toCameraUpdate(),
+          CameraAnimation.Fly { duration = 2.seconds },
+        )
       }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
@@ -624,7 +642,10 @@ class MapCameraTransitionTest {
         it.events.clear()
 
         val animation = launch {
-          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
+          it.state.animateCamera(
+            Target.toCameraUpdate(),
+            CameraAnimation.Ease { duration = 1.seconds },
+          )
         }
         it.awaitCameraMoving()
         animation.cancel()
@@ -636,7 +657,10 @@ class MapCameraTransitionTest {
         assertTrue(animation.isCancelled)
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
+          it.state.animateCamera(
+            Target.toCameraUpdate(),
+            CameraAnimation.Fly { duration = 200.milliseconds },
+          )
         }
         assertNear(
           Target.zoom,
@@ -653,7 +677,10 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         it.startAtOrigin()
         val animation = launch {
-          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
+          it.state.animateCamera(
+            Target.toCameraUpdate(),
+            CameraAnimation.Ease { duration = 30.seconds },
+          )
         }
         it.awaitCameraMoving()
         it.state.stopCameraMovement()
@@ -670,7 +697,10 @@ class MapCameraTransitionTest {
         // Queue a stop and a replacement without rendering between them.
         it.state.stopCameraMovement()
         it.awaitWhileRendering("the command racing the stop to complete") {
-          it.state.animateCamera(Target.toCameraUpdate(), CameraAnimation.Ease(200.milliseconds))
+          it.state.animateCamera(
+            Target.toCameraUpdate(),
+            CameraAnimation.Ease { duration = 200.milliseconds },
+          )
         }
         it.assertLanded(Target, "the newer command")
       }
@@ -691,7 +721,7 @@ class MapCameraTransitionTest {
             zoom = 10.0,
             bearing = 110.0,
             pitch = 55.0,
-            animation = CameraAnimation.Ease(1.seconds),
+            animation = CameraAnimation.Ease { duration = 1.seconds },
           )
         }
         fixture.pumpUntil("the anchored ease to finish") {
@@ -719,7 +749,7 @@ class MapCameraTransitionTest {
         fixture.state.animateCameraAround(
           CameraAnchor.Geographic(location),
           zoom = 5.0,
-          animation = CameraAnimation.Ease(0.milliseconds),
+          animation = CameraAnimation.Ease { duration = 0.milliseconds },
         )
       }
       fixture.assertAnchor(location, point)
@@ -739,7 +769,7 @@ class MapCameraTransitionTest {
         fixture.state.animateCameraAround(
           CameraAnchor.Geographic(location),
           bearing = 45.0,
-          animation = CameraAnimation.Ease(0.milliseconds),
+          animation = CameraAnimation.Ease { duration = 0.milliseconds },
         )
       }
       fixture.assertAnchor(location, point)
@@ -759,7 +789,7 @@ class MapCameraTransitionTest {
         fixture.state.animateCameraAround(
           CameraAnchor.Screen(point),
           zoom = 2.0,
-          animation = CameraAnimation.Ease(500.milliseconds),
+          animation = CameraAnimation.Ease { duration = 500.milliseconds },
         )
       }
       fixture.pumpUntil("the anchored zoom in a repeated world") {
@@ -802,7 +832,7 @@ class MapCameraTransitionTest {
         fixture.state.animateCameraAround(
           CameraAnchor.Screen(point),
           zoom = 5.0,
-          animation = CameraAnimation.Ease(1.seconds),
+          animation = CameraAnimation.Ease { duration = 1.seconds },
         )
       }
       fixture.awaitCameraMoving()
@@ -829,7 +859,7 @@ class MapCameraTransitionTest {
           CameraAnchor.Screen(point),
           zoom = 10.0,
           pitch = 60.0,
-          animation = CameraAnimation.Ease(0.milliseconds),
+          animation = CameraAnimation.Ease { duration = 0.milliseconds },
         )
       }
       assertNear(4.0, fixture.session.getCameraPosition().zoom, "constrained zoom")
@@ -869,7 +899,7 @@ class MapCameraTransitionTest {
       state.animateCameraAround(
         CameraAnchor.Screen(DpOffset(190.dp, 300.dp)),
         zoom = 10.0,
-        animation = CameraAnimation.Ease(30.seconds),
+        animation = CameraAnimation.Ease { duration = 30.seconds },
       )
     }
     awaitCameraMoving()

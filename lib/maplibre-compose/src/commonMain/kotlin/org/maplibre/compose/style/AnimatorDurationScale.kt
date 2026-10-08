@@ -36,13 +36,16 @@ internal fun Duration.scaledBy(scale: Float): Duration {
 internal fun CameraAnimation.scaledBy(scale: Float): CameraAnimation {
   requireScale(scale)
   if (scale == 1f) return this
-  return when (this) {
-    is CameraAnimation.Ease -> copy(duration = duration.scaledBy(scale))
+  val animation = this
+  return when (animation) {
+    is CameraAnimation.Ease ->
+      CameraAnimation.Ease(from = animation) { duration = animation.duration.scaledBy(scale) }
     is CameraAnimation.Fly ->
       when {
-        duration != null -> copy(duration = duration.scaledBy(scale))
-        scale == 0f -> copy(duration = Duration.ZERO)
-        else -> copy(speed = speed / scale)
+        animation.duration != null ->
+          CameraAnimation.Fly(from = animation) { duration = animation.duration.scaledBy(scale) }
+        scale == 0f -> CameraAnimation.Fly(from = animation) { duration = Duration.ZERO }
+        else -> CameraAnimation.Fly(from = animation) { speed = animation.speed / scale }
       }
   }
 }

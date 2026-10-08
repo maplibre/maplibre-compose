@@ -42,7 +42,11 @@ fun Camera() {
   LaunchedEffect(mapState) {
     mapState.animateCamera(
       update = CameraUpdate(center = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
-      animation = CameraAnimation.Fly(duration = 3.seconds, minZoom = 4.0),
+      animation =
+        CameraAnimation.Fly {
+          duration = 3.seconds
+          minZoom = 4.0
+        },
     )
   }
   // #endregion animate-fly
@@ -51,7 +55,7 @@ fun Camera() {
   LaunchedEffect(mapState) {
     mapState.animateCamera(
       update = CameraUpdate(zoom = mapState.cameraPosition.zoom + 1.0),
-      animation = CameraAnimation.Ease(duration = 500.milliseconds),
+      animation = CameraAnimation.Ease { duration = 500.milliseconds },
     )
   }
   // #endregion animate-ease
@@ -62,7 +66,7 @@ fun Camera() {
       anchor = CameraAnchor.Screen(DpOffset(120.dp, 200.dp)),
       zoom = 16.0,
       bearing = 90.0,
-      animation = CameraAnimation.Ease(500.milliseconds),
+      animation = CameraAnimation.Ease { duration = 500.milliseconds },
     )
   }
   // #endregion animate-around

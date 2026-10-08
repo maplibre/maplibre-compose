@@ -142,7 +142,11 @@ class MlnFfiSurfaceLossTest {
       val map = checkNotNull(session.loop.map)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
-          session.animateCamera(CameraUpdate(zoom = 8.0), CameraAnimation.Ease(30.seconds), null)
+          session.animateCamera(
+            CameraUpdate(zoom = 8.0),
+            CameraAnimation.Ease { duration = 30.seconds },
+            null,
+          )
         }
       fixture.awaitUntil("the camera animation to start") { session.getCameraPosition().zoom > 0.1 }
       val ownerHeld = MlnFfiGate()

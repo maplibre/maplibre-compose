@@ -212,23 +212,34 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         abstract fun <get-easing>(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.easing.<get-easing>|<get-easing>(){}[0]
 
     final class Ease : org.maplibre.compose.camera/CameraAnimation { // org.maplibre.compose.camera/CameraAnimation.Ease|null[0]
-        constructor <init>(kotlin.time/Duration = ..., org.maplibre.compose.camera/CubicBezier = ...) // org.maplibre.compose.camera/CameraAnimation.Ease.<init>|<init>(kotlin.time.Duration;org.maplibre.compose.camera.CubicBezier){}[0]
+        constructor <init>(org.maplibre.compose.camera/CameraAnimation.Ease = ..., kotlin/Function1<org.maplibre.compose.camera/CameraAnimation.Ease.Builder, kotlin/Unit>) // org.maplibre.compose.camera/CameraAnimation.Ease.<init>|<init>(org.maplibre.compose.camera.CameraAnimation.Ease;kotlin.Function1<org.maplibre.compose.camera.CameraAnimation.Ease.Builder,kotlin.Unit>){}[0]
 
         final val duration // org.maplibre.compose.camera/CameraAnimation.Ease.duration|{}duration[0]
             final fun <get-duration>(): kotlin.time/Duration // org.maplibre.compose.camera/CameraAnimation.Ease.duration.<get-duration>|<get-duration>(){}[0]
         final val easing // org.maplibre.compose.camera/CameraAnimation.Ease.easing|{}easing[0]
             final fun <get-easing>(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Ease.easing.<get-easing>|<get-easing>(){}[0]
 
-        final fun component1(): kotlin.time/Duration // org.maplibre.compose.camera/CameraAnimation.Ease.component1|component1(){}[0]
-        final fun component2(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Ease.component2|component2(){}[0]
-        final fun copy(kotlin.time/Duration = ..., org.maplibre.compose.camera/CubicBezier = ...): org.maplibre.compose.camera/CameraAnimation.Ease // org.maplibre.compose.camera/CameraAnimation.Ease.copy|copy(kotlin.time.Duration;org.maplibre.compose.camera.CubicBezier){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.camera/CameraAnimation.Ease.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.camera/CameraAnimation.Ease.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.camera/CameraAnimation.Ease.toString|toString(){}[0]
+
+        final class Builder { // org.maplibre.compose.camera/CameraAnimation.Ease.Builder|null[0]
+            final var duration // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.duration|{}duration[0]
+                final fun <get-duration>(): kotlin.time/Duration // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.duration.<get-duration>|<get-duration>(){}[0]
+                final fun <set-duration>(kotlin.time/Duration) // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.duration.<set-duration>|<set-duration>(kotlin.time.Duration){}[0]
+            final var easing // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.easing|{}easing[0]
+                final fun <get-easing>(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.easing.<get-easing>|<get-easing>(){}[0]
+                final fun <set-easing>(org.maplibre.compose.camera/CubicBezier) // org.maplibre.compose.camera/CameraAnimation.Ease.Builder.easing.<set-easing>|<set-easing>(org.maplibre.compose.camera.CubicBezier){}[0]
+        }
+
+        final object Companion { // org.maplibre.compose.camera/CameraAnimation.Ease.Companion|null[0]
+            final val Standard // org.maplibre.compose.camera/CameraAnimation.Ease.Companion.Standard|{}Standard[0]
+                final fun <get-Standard>(): org.maplibre.compose.camera/CameraAnimation.Ease // org.maplibre.compose.camera/CameraAnimation.Ease.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+        }
     }
 
     final class Fly : org.maplibre.compose.camera/CameraAnimation { // org.maplibre.compose.camera/CameraAnimation.Fly|null[0]
-        constructor <init>(kotlin.time/Duration? = ..., kotlin/Double = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...) // org.maplibre.compose.camera/CameraAnimation.Fly.<init>|<init>(kotlin.time.Duration?;kotlin.Double;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
+        constructor <init>(org.maplibre.compose.camera/CameraAnimation.Fly = ..., kotlin/Function1<org.maplibre.compose.camera/CameraAnimation.Fly.Builder, kotlin/Unit>) // org.maplibre.compose.camera/CameraAnimation.Fly.<init>|<init>(org.maplibre.compose.camera.CameraAnimation.Fly;kotlin.Function1<org.maplibre.compose.camera.CameraAnimation.Fly.Builder,kotlin.Unit>){}[0]
 
         final val duration // org.maplibre.compose.camera/CameraAnimation.Fly.duration|{}duration[0]
             final fun <get-duration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.duration.<get-duration>|<get-duration>(){}[0]
@@ -239,18 +250,31 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         final val speed // org.maplibre.compose.camera/CameraAnimation.Fly.speed|{}speed[0]
             final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.speed.<get-speed>|<get-speed>(){}[0]
 
-        final fun component1(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.component1|component1(){}[0]
-        final fun component2(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.component2|component2(){}[0]
-        final fun component3(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component3|component3(){}[0]
-        final fun component4(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Fly.component4|component4(){}[0]
-        final fun copy(kotlin.time/Duration? = ..., kotlin/Double = ..., kotlin/Double? = ..., org.maplibre.compose.camera/CubicBezier = ...): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.copy|copy(kotlin.time.Duration?;kotlin.Double;kotlin.Double?;org.maplibre.compose.camera.CubicBezier){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.camera/CameraAnimation.Fly.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.camera/CameraAnimation.Fly.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.camera/CameraAnimation.Fly.toString|toString(){}[0]
 
+        final class Builder { // org.maplibre.compose.camera/CameraAnimation.Fly.Builder|null[0]
+            final var duration // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.duration|{}duration[0]
+                final fun <get-duration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.duration.<get-duration>|<get-duration>(){}[0]
+                final fun <set-duration>(kotlin.time/Duration?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.duration.<set-duration>|<set-duration>(kotlin.time.Duration?){}[0]
+            final var easing // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.easing|{}easing[0]
+                final fun <get-easing>(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.easing.<get-easing>|<get-easing>(){}[0]
+                final fun <set-easing>(org.maplibre.compose.camera/CubicBezier) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.easing.<set-easing>|<set-easing>(org.maplibre.compose.camera.CubicBezier){}[0]
+            final var minZoom // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.minZoom|{}minZoom[0]
+                final fun <get-minZoom>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+                final fun <set-minZoom>(kotlin/Double?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Double?){}[0]
+            final var speed // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed|{}speed[0]
+                final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<get-speed>|<get-speed>(){}[0]
+                final fun <set-speed>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<set-speed>|<set-speed>(kotlin.Double){}[0]
+        }
+
         final object Companion { // org.maplibre.compose.camera/CameraAnimation.Fly.Companion|null[0]
             final const val DefaultSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultSpeed|{}DefaultSpeed[0]
                 final fun <get-DefaultSpeed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultSpeed.<get-DefaultSpeed>|<get-DefaultSpeed>(){}[0]
+
+            final val Standard // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard|{}Standard[0]
+                final fun <get-Standard>(): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
         }
     }
 }
@@ -3805,7 +3829,9 @@ final const val org.maplibre.compose.overlay/MaplibreWebsiteUrl // org.maplibre.
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop|#static{}org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Screen$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Screen$stableprop|#static{}org_maplibre_compose_camera_CameraAnchor_Screen$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease$stableprop|#static{}org_maplibre_compose_camera_CameraAnimation_Ease$stableprop[0]
+final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop|#static{}org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly$stableprop|#static{}org_maplibre_compose_camera_CameraAnimation_Fly$stableprop[0]
+final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop|#static{}org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop|#static{}org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_None$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_None$stableprop|#static{}org_maplibre_compose_camera_CameraMoveReason_None$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop|#static{}org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop[0]
@@ -4184,7 +4210,9 @@ final fun <#A: org.maplibre.compose.expressions.value/MatchableValue, #B: org.ma
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop_getter|org_maplibre_compose_camera_CameraAnchor_Geographic$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Screen$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnchor_Screen$stableprop_getter|org_maplibre_compose_camera_CameraAnchor_Screen$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease$stableprop_getter|org_maplibre_compose_camera_CameraAnimation_Ease$stableprop_getter(){}[0]
+final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop_getter|org_maplibre_compose_camera_CameraAnimation_Ease_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly$stableprop_getter|org_maplibre_compose_camera_CameraAnimation_Fly$stableprop_getter(){}[0]
+final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop_getter|org_maplibre_compose_camera_CameraAnimation_Fly_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop_getter|org_maplibre_compose_camera_CameraMoveReason_Gesture$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_None$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_None$stableprop_getter|org_maplibre_compose_camera_CameraMoveReason_None$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop_getter|org_maplibre_compose_camera_CameraMoveReason_Programmatic$stableprop_getter(){}[0]

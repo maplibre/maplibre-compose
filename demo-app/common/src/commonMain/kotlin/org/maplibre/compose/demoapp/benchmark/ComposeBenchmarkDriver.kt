@@ -178,7 +178,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   override suspend fun animate(value: BenchmarkCamera, durationMs: Long) {
     state.animateCamera(
       value.toCompose().toCameraUpdate(),
-      CameraAnimation.Fly(durationMs.milliseconds),
+      CameraAnimation.Fly { duration = durationMs.milliseconds },
     )
   }
 

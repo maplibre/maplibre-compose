@@ -99,8 +99,8 @@ internal fun FerryBoard() {
   }
   fun animation() =
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-      CameraAnimation.Ease(Duration.ZERO)
-    else CameraAnimation.Ease()
+      CameraAnimation.Ease { duration = Duration.ZERO }
+    else CameraAnimation.Ease.Standard
   LaunchedEffect(selectedId) {
     selected?.let {
       map.animateCameraToBounds(

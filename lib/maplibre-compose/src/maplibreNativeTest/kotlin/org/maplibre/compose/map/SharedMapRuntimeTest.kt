@@ -244,14 +244,14 @@ class SharedMapRuntimeTest {
                   async(start = CoroutineStart.UNDISPATCHED) {
                     first.state.animateCamera(
                       CameraUpdate(zoom = 3.0),
-                      CameraAnimation.Ease(300.milliseconds),
+                      CameraAnimation.Ease { duration = 300.milliseconds },
                     )
                   }
                 val secondAnimation =
                   async(start = CoroutineStart.UNDISPATCHED) {
                     second.state.animateCamera(
                       CameraUpdate(zoom = 5.0),
-                      CameraAnimation.Ease(300.milliseconds),
+                      CameraAnimation.Ease { duration = 300.milliseconds },
                     )
                   }
                 withTimeout(15_000) {
