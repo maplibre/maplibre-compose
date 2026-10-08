@@ -8,7 +8,7 @@ internal fun inferredApplicationId(): String {
     ?: throw IllegalStateException(
       "Could not infer an application id from the process main class" +
         (className?.let { " '$it'" } ?: "") +
-        ". Create a runtime with MapRuntimeOptions(cacheFile = ...)."
+        ". Create a runtime with createMapRuntime { cacheFile = ... }."
     )
 }
 

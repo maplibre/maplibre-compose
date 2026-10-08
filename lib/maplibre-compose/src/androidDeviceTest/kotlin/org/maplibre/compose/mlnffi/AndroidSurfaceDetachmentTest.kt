@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.nativeOwner
@@ -25,8 +24,8 @@ import org.maplibre.compose.testing.RecordingMapCallbacks
 class AndroidSurfaceDetachmentTest {
   @Test
   fun surface_destruction_closes_the_native_renderer_before_an_already_requested_lifecycle_close() {
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
+    val cache = FfiTestPlatform.createCacheFile()
+    val runtime = createMapRuntime { cacheFile = cache }
     val state = runtime.createMapState(BaseStyle.Empty)
     val nativeSession =
       MlnFfiMapSession(
@@ -115,7 +114,7 @@ class AndroidSurfaceDetachmentTest {
       closeExecutor.shutdownNow()
       runtime.close()
       runBlocking { withTimeout(10_000) { runtime.awaitClosed() } }
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 

@@ -115,7 +115,7 @@ internal actual fun createMapFixture(extent: MapExtent): MapFixture =
   MlnFfiMapFixture(BridgeMapFixture.create(extent), extent)
 
 internal actual suspend fun withTestMapRuntime(
-  resourceProvider: MapResourceProvider?,
+  provider: MapResourceProvider?,
   block: suspend (MapRuntime) -> Unit,
 ) {
   FfiTestPlatform.initialize()
@@ -125,7 +125,7 @@ internal actual suspend fun withTestMapRuntime(
       MlnFfiRuntimeOptions(
         cacheFile = cacheFile,
         maximumCacheSizeBytes = null,
-        resourceProvider = resourceProvider,
+        resourceProvider = provider,
       )
     )
   try {

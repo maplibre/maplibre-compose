@@ -2318,7 +2318,8 @@ public final class org/maplibre/compose/map/DebugOverlays$Builder {
 public final class org/maplibre/compose/map/DefaultMapRuntime {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/map/DefaultMapRuntime;
-	public final fun configure (Lorg/maplibre/compose/map/MapRuntimeOptions;)V
+	public final fun configure (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun configure$default (Lorg/maplibre/compose/map/DefaultMapRuntime;Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public final fun getInstance ()Lorg/maplibre/compose/map/MapRuntime;
 }
 
@@ -2427,28 +2428,45 @@ public final class org/maplibre/compose/map/MapRuntimeKt {
 
 public final class org/maplibre/compose/map/MapRuntimeOptions {
 	public static final field $stable I
-	public fun <init> ()V
-	public fun <init> (Lkotlinx/io/files/Path;Ljava/lang/Long;Lorg/maplibre/compose/resource/MapRequestInterceptor;Lorg/maplibre/compose/resource/MapResourceProvider;Lkotlinx/coroutines/CoroutineDispatcher;)V
-	public synthetic fun <init> (Lkotlinx/io/files/Path;Ljava/lang/Long;Lorg/maplibre/compose/resource/MapRequestInterceptor;Lorg/maplibre/compose/resource/MapResourceProvider;Lkotlinx/coroutines/CoroutineDispatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public static final field Companion Lorg/maplibre/compose/map/MapRuntimeOptions$Companion;
+	public fun <init> (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lkotlinx/io/files/Path;
-	public final fun component2 ()Ljava/lang/Long;
+	public final fun component2 ()J
 	public final fun component3 ()Lorg/maplibre/compose/resource/MapRequestInterceptor;
 	public final fun component4 ()Lorg/maplibre/compose/resource/MapResourceProvider;
 	public final fun component5 ()Lkotlinx/coroutines/CoroutineDispatcher;
-	public final fun copy (Lkotlinx/io/files/Path;Ljava/lang/Long;Lorg/maplibre/compose/resource/MapRequestInterceptor;Lorg/maplibre/compose/resource/MapResourceProvider;Lkotlinx/coroutines/CoroutineDispatcher;)Lorg/maplibre/compose/map/MapRuntimeOptions;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlinx/io/files/Path;Ljava/lang/Long;Lorg/maplibre/compose/resource/MapRequestInterceptor;Lorg/maplibre/compose/resource/MapResourceProvider;Lkotlinx/coroutines/CoroutineDispatcher;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapRuntimeOptions;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCacheFile ()Lkotlinx/io/files/Path;
 	public final fun getMainDispatcher ()Lkotlinx/coroutines/CoroutineDispatcher;
-	public final fun getMaximumCacheSizeBytes ()Ljava/lang/Long;
+	public final fun getMaximumCacheSizeBytes ()J
 	public final fun getRequestInterceptor ()Lorg/maplibre/compose/resource/MapRequestInterceptor;
 	public final fun getResourceProvider ()Lorg/maplibre/compose/resource/MapResourceProvider;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/map/MapRuntimeOptions$Builder {
+	public static final field $stable I
+	public final fun getCacheFile ()Lkotlinx/io/files/Path;
+	public final fun getMainDispatcher ()Lkotlinx/coroutines/CoroutineDispatcher;
+	public final fun getMaximumCacheSizeBytes ()J
+	public final fun getRequestInterceptor ()Lorg/maplibre/compose/resource/MapRequestInterceptor;
+	public final fun getResourceProvider ()Lorg/maplibre/compose/resource/MapResourceProvider;
+	public final fun setCacheFile (Lkotlinx/io/files/Path;)V
+	public final fun setMainDispatcher (Lkotlinx/coroutines/CoroutineDispatcher;)V
+	public final fun setMaximumCacheSizeBytes (J)V
+	public final fun setRequestInterceptor (Lorg/maplibre/compose/resource/MapRequestInterceptor;)V
+	public final fun setResourceProvider (Lorg/maplibre/compose/resource/MapResourceProvider;)V
+}
+
+public final class org/maplibre/compose/map/MapRuntimeOptions$Companion {
+	public final fun getStandard ()Lorg/maplibre/compose/map/MapRuntimeOptions;
+}
+
 public final class org/maplibre/compose/map/MapRuntime_nativeKt {
-	public static final fun createMapRuntime (Lorg/maplibre/compose/map/MapRuntimeOptions;)Lorg/maplibre/compose/map/MapRuntime;
+	public static final fun createMapRuntime (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;)Lorg/maplibre/compose/map/MapRuntime;
+	public static synthetic fun createMapRuntime$default (Lorg/maplibre/compose/map/MapRuntimeOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapRuntime;
 }
 
 public final class org/maplibre/compose/map/MapSnapshotException : java/lang/RuntimeException {

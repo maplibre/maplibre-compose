@@ -73,7 +73,9 @@ import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
+import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
@@ -111,13 +113,53 @@ import org.maplibre.spatialk.geojson.Position
  * the runtime. They apply to its maps, snapshotters, and, on MapLibre Native platforms, offline
  * operations. The MapLibre Native platforms also accept a cache file and a cache size limit.
  */
-public expect class MapRuntimeOptions
+@Immutable
+public expect class MapRuntimeOptions {
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(from: MapRuntimeOptions = Standard, block: Builder.() -> Unit)
 
-/** The options a runtime uses when nothing configures it. */
-internal expect fun defaultMapRuntimeOptions(): MapRuntimeOptions
+  /** Rewrites URLs and headers for this runtime, or null for no interceptor. */
+  public val requestInterceptor: MapRequestInterceptor?
 
-/** Creates a runtime from [options]. The caller must close the result. */
-public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
+  /** Serves bytes for accepted resource URLs, or null for no provider. */
+  public val resourceProvider: MapResourceProvider?
+
+  /**
+   * The dispatcher whose thread owns this runtime's map states and receives engine callbacks.
+   * Defaults to [Dispatchers.Main]. A [Dispatchers.Main] value uses its immediate dispatcher when
+   * the runtime is created. Runtime creation fails if no main dispatcher is installed. Pass another
+   * single-threaded dispatcher. [Dispatchers.Unconfined] is rejected.
+   */
+  public val mainDispatcher: CoroutineDispatcher
+
+  override fun equals(other: Any?): Boolean
+
+  override fun hashCode(): Int
+
+  /** Mutable settings for a runtime configuration. */
+  @MapOptionsDsl
+  public class Builder {
+    /** See [MapRuntimeOptions.requestInterceptor]. */
+    public var requestInterceptor: MapRequestInterceptor?
+
+    /** See [MapRuntimeOptions.resourceProvider]. */
+    public var resourceProvider: MapResourceProvider?
+
+    /** See [MapRuntimeOptions.mainDispatcher]. */
+    public var mainDispatcher: CoroutineDispatcher
+  }
+
+  public companion object {
+    /** No request hooks and the platform main dispatcher, with the Native default cache. */
+    public val Standard: MapRuntimeOptions
+  }
+}
+
+/** Creates a runtime by editing [from] with [block]. The caller must close the result. */
+public expect fun createMapRuntime(
+  from: MapRuntimeOptions = MapRuntimeOptions.Standard,
+  block: MapRuntimeOptions.Builder.() -> Unit = {},
+): MapRuntime
 
 /**
  * The main dispatcher, so engine callbacks reach map state on the thread that reads it. A platform

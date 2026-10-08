@@ -78,6 +78,6 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   content: @Composable () -> Unit,
 ) {
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  DefaultMapRuntime.configure(runtimeOptions)
+  DefaultMapRuntime.configure(from = runtimeOptions)
   setContent(content)
 }

@@ -8,6 +8,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -16,6 +17,16 @@ import org.maplibre.compose.offline.offlineStorage
 import org.maplibre.compose.style.BaseStyle
 
 class DesktopRuntimeConfigurationTest {
+
+  @Test
+  fun standard_options_can_be_built_without_platform_setup() {
+    val options = MapRuntimeOptions(from = MapRuntimeOptions.Standard) {}
+
+    assertNull(options.cacheFile)
+    assertEquals(50L * 1024 * 1024, options.maximumCacheSizeBytes)
+    assertEquals(Dispatchers.Main, options.mainDispatcher)
+    assertEquals(MapRuntimeOptions.Standard, options)
+  }
 
   @Test
   fun cache_paths_are_scoped_to_the_application() {
@@ -40,17 +51,11 @@ class DesktopRuntimeConfigurationTest {
   @Test
   fun independently_configured_runtimes_coexist_and_close_independently() = runTest {
     val root = Files.createTempDirectory("runtime caches")
-    val first =
-      createMapRuntime(
-        MapRuntimeOptions(cacheFile = Path(root.resolve("first/cache.db").toString()))
-      )
-    val second =
-      createMapRuntime(
-        MapRuntimeOptions(
-          cacheFile = Path(root.resolve("second/cache.db").toString()),
-          maximumCacheSizeBytes = 2_000,
-        )
-      )
+    val first = createMapRuntime { cacheFile = Path(root.resolve("first/cache.db").toString()) }
+    val second = createMapRuntime {
+      cacheFile = Path(root.resolve("second/cache.db").toString())
+      maximumCacheSizeBytes = 2_000
+    }
     val firstState = first.createMapState(BaseStyle.Demo)
     val secondState = second.createMapState(BaseStyle.Demo)
 

@@ -382,8 +382,8 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
 }
 
 private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) {
-  val cacheFile = FfiTestPlatform.createCacheFile()
-  val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cacheFile))
+  val cache = FfiTestPlatform.createCacheFile()
+  val runtime = createMapRuntime { cacheFile = cache }
   try {
     val fixture = withContext(Dispatchers.Main) { SurfaceMapFixture(runtime) }
     try {
@@ -396,7 +396,7 @@ private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) 
     try {
       withTimeout(TimeoutMillis) { runtime.awaitClosed() }
     } finally {
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 }

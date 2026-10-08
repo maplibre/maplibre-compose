@@ -130,10 +130,10 @@ internal expect fun createMapFixture(extent: MapExtent = MapFixture.DefaultExten
 
 /**
  * Runs [block] with a real runtime on disposable storage that loads accepted resources from
- * [resourceProvider], and closes the runtime afterward.
+ * [provider], and closes the runtime afterward.
  */
 internal expect suspend fun withTestMapRuntime(
-  resourceProvider: MapResourceProvider? = null,
+  provider: MapResourceProvider? = null,
   block: suspend (MapRuntime) -> Unit,
 )
 

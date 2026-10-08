@@ -297,7 +297,7 @@ class AppleMapPresentationTest {
 
 private class AppleFixture : AutoCloseable {
   private val cache = FfiTestPlatform.createCacheFile()
-  val runtime = createMapRuntime(MapRuntimeOptions(cacheFile = cache))
+  val runtime = createMapRuntime { cacheFile = cache }
   var effects = 0
   var color by mutableStateOf(Color.Red)
   var fail by mutableStateOf(false)

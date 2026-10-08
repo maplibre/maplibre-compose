@@ -76,7 +76,9 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
-  DefaultMapRuntime.configure(runtimeOptions.copy(mainDispatcher = Dispatchers.Swing.immediate))
+  DefaultMapRuntime.configure(from = runtimeOptions) {
+    mainDispatcher = Dispatchers.Swing.immediate
+  }
   val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare(presentationCount)
   try {
     setContent {

@@ -49,7 +49,7 @@ class BrowserMapStateTest {
   @Test
   fun map_state_renders_a_base_style_and_publishes_one_presentation(): Promise<*> =
     runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
+      val runtime = createMapRuntime()
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
       val includeRival = mutableStateOf(false)
 

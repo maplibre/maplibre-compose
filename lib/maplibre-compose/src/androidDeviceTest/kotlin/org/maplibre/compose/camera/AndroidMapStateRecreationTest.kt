@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapRuntime
-import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
@@ -32,8 +31,8 @@ class AndroidMapStateRecreationTest {
 
   @Test
   fun camera_position_survives_activity_recreation() {
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
+    val cache = FfiTestPlatform.createCacheFile()
+    DefaultMapRuntime.configure { cacheFile = cache }
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
@@ -74,7 +73,7 @@ class AndroidMapStateRecreationTest {
       }
     } finally {
       DefaultMapRuntime.resetForTest()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 
