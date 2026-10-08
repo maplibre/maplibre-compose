@@ -50,7 +50,7 @@ class MlnFfiViewportTest {
             }
           }
         )
-      assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtTarget)
+      assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtCenter)
       assertEquals(
         expected[0],
         session.metersPerDpAtLatitude(viewport.cameraPosition.center.latitude),

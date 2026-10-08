@@ -1,7 +1,9 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
@@ -13,8 +15,9 @@ import org.maplibre.spatialk.geojson.Position
  */
 @Immutable
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 public data class CameraUpdate(
-  public val center: Position? = null,
+  @JsonNames("target") public val center: Position? = null,
   public val zoom: Double? = null,
   public val bearing: Double? = null,
   public val pitch: Double? = null,

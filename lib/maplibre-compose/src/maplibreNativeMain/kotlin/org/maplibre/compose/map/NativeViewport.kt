@@ -69,7 +69,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     val projection: MapProjectionHandle? = null,
     val wrappedProjection: MapProjectionHandle? = null,
     extents: MapViewportExtents? = null,
-    metersPerDpAtTarget: Double? = null,
+    metersPerDpAtCenter: Double? = null,
   ) {
     /**
      * The corners this camera renders. Unprojecting them is a quarter of the owner thread's work
@@ -77,13 +77,13 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
      * for them, and kept for later readers of the same publish.
      */
     @Volatile private var derivedExtents: MapViewportExtents? = extents
-    private var derivedMetersPerDpAtTarget: Double? = metersPerDpAtTarget
+    private var derivedMetersPerDpAtCenter: Double? = metersPerDpAtCenter
 
     /** Read under the projection lock, like [extents]. */
-    fun metersPerDpAtTarget(): Double =
-      derivedMetersPerDpAtTarget
+    fun metersPerDpAtCenter(): Double =
+      derivedMetersPerDpAtCenter
         ?: metersPerDpAtLatitude(camera.center.latitude).also {
-          derivedMetersPerDpAtTarget = it
+          derivedMetersPerDpAtCenter = it
         }
 
     fun metersPerDpAtLatitude(latitude: Double): Double =
@@ -104,7 +104,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
 
     /** Freezes what the projection can still answer, before the handle is closed. */
     fun withoutProjection(): MirroredViewport =
-      MirroredViewport(camera, effectivePadding, size, null, null, extents(), metersPerDpAtTarget())
+      MirroredViewport(camera, effectivePadding, size, null, null, extents(), metersPerDpAtCenter())
   }
 
   @Volatile private var mirroredViewport = MirroredViewport()
@@ -332,7 +332,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
         size = mirror.size,
         visibleBounds = extents.bounds,
         visibleRegion = extents.region,
-        metersPerDpAtTarget = mirror.metersPerDpAtTarget(),
+        metersPerDpAtCenter = mirror.metersPerDpAtCenter(),
       )
     }
   }

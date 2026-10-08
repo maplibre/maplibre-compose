@@ -45,9 +45,11 @@ class CameraPositionTest {
   }
 
   @Test
-  fun restoresCameraPositionWithOldTargetKey() {
-    val restored = Json.decodeFromString<CameraPosition>("""{"target":[-122.675,45.521]}""")
+  fun restoresCameraValuesWithOldTargetKey() {
+    val json = """{"target":[-122.675,45.521]}"""
+    val position = Position(longitude = -122.675, latitude = 45.521)
 
-    assertEquals(Position(longitude = -122.675, latitude = 45.521), restored.center)
+    assertEquals(position, Json.decodeFromString<CameraPosition>(json).center)
+    assertEquals(position, Json.decodeFromString<CameraUpdate>(json).center)
   }
 }

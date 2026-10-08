@@ -43,7 +43,7 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
+ *   [Viewport.metersPerDpAtCenter][org.maplibre.compose.camera.Viewport.metersPerDpAtCenter]
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,
  *   or otherwise the user's locale.

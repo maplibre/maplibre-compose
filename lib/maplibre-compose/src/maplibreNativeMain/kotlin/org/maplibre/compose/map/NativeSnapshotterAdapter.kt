@@ -281,7 +281,7 @@ private class NativeSnapshotterAdapter(
       ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
-    val (applied, extents, metersPerDpAtTarget) = read
+    val (applied, extents, metersPerDpAtCenter) = read
     check(
       applied.size.width.value.toInt() == extent.width &&
         applied.size.height.value.toInt() == extent.height
@@ -294,7 +294,7 @@ private class NativeSnapshotterAdapter(
       size = applied.size,
       visibleBounds = extents.bounds,
       visibleRegion = extents.region,
-      metersPerDpAtTarget = metersPerDpAtTarget,
+      metersPerDpAtCenter = metersPerDpAtCenter,
     )
   }
 

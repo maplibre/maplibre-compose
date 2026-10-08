@@ -209,7 +209,7 @@ public final class org/maplibre/compose/camera/Viewport {
 	public final fun component5 ()D
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
-	public final fun getMetersPerDpAtTarget ()D
+	public final fun getMetersPerDpAtCenter ()D
 	public final fun getSize-MYxV2XQ ()J
 	public final fun getVisibleBounds ()Lorg/maplibre/compose/util/VisibleBounds;
 	public final fun getVisibleRegion ()Lorg/maplibre/compose/util/VisibleRegion;
