@@ -11,6 +11,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.map.MaplibreMap
@@ -75,7 +76,8 @@ fun Camera() {
   LaunchedEffect(mapState) {
     mapState.animateCameraToBounds(
       boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
-      fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp),
+      fit =
+        CameraFit(fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp)),
     )
   }
   // #endregion fit-bounds
@@ -85,7 +87,10 @@ fun Camera() {
     val camera =
       mapState.cameraForBounds(
         boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
-        fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp),
+        fit =
+          CameraFit(
+            fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp)
+          ),
       )
     mapState.animateCamera(camera.copy(zoom = minOf(camera.zoom, 12.0)).toCameraUpdate())
   }

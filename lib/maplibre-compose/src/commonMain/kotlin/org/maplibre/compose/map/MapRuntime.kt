@@ -55,6 +55,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
@@ -1254,8 +1255,7 @@ internal constructor(
    * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
    * interrupting camera input or animations. Detaching the surface during the query cancels it.
    *
-   * [cameraPadding] sets the returned camera's padding; null retains the current padding.
-   * [fitPadding] adds a temporary margin inside the viewport insets and camera padding.
+   * [fit] sets the camera orientation and padding used for the fit.
    *
    * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
    * those change before applying it.
@@ -1264,14 +1264,11 @@ internal constructor(
    */
   public suspend fun cameraForBounds(
     boundingBox: BoundingBox,
-    bearing: Double = 0.0,
-    pitch: Double = 0.0,
-    cameraPadding: DpPadding? = null,
-    fitPadding: DpPadding = DpPadding.Zero,
+    fit: CameraFit = CameraFit(),
   ): CameraPosition =
     attachmentAuthority
       .awaitAttachment()
-      .cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+      .cameraForBounds(boundingBox, fit.bearing, fit.pitch, fit.cameraPadding, fit.fitPadding)
 
   /**
    * Waits for a viewport, then calculates a camera that fits every position of [geometry] without
@@ -1292,15 +1289,12 @@ internal constructor(
    */
   public suspend fun cameraForGeometry(
     geometry: Geometry,
-    bearing: Double = 0.0,
-    pitch: Double = 0.0,
-    cameraPadding: DpPadding? = null,
-    fitPadding: DpPadding = DpPadding.Zero,
+    fit: CameraFit = CameraFit(),
   ): CameraPosition {
     require(geometry.positions().any()) { "The geometry contains no positions" }
     return attachmentAuthority
       .awaitAttachment()
-      .cameraForGeometry(geometry, bearing, pitch, cameraPadding, fitPadding)
+      .cameraForGeometry(geometry, fit.bearing, fit.pitch, fit.cameraPadding, fit.fitPadding)
   }
 
   /**
@@ -1312,37 +1306,31 @@ internal constructor(
    */
   public suspend fun cameraForCoordinates(
     coordinates: Collection<Position>,
-    bearing: Double = 0.0,
-    pitch: Double = 0.0,
-    cameraPadding: DpPadding? = null,
-    fitPadding: DpPadding = DpPadding.Zero,
+    fit: CameraFit = CameraFit(),
   ): CameraPosition {
     require(coordinates.isNotEmpty()) { "The coordinates are empty" }
-    return cameraForGeometry(
-      MultiPoint(coordinates.toList()),
-      bearing,
-      pitch,
-      cameraPadding,
-      fitPadding,
-    )
+    return cameraForGeometry(MultiPoint(coordinates.toList()), fit)
   }
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command,
-   * accepted input, or detaching cancels this call. See [cameraForBounds] for [fitPadding] and
-   * [cameraPadding].
+   * accepted input, or detaching cancels this call. See [cameraForBounds] for [fit].
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
-    bearing: Double = 0.0,
-    pitch: Double = 0.0,
-    cameraPadding: DpPadding? = null,
-    fitPadding: DpPadding = DpPadding.Zero,
+    fit: CameraFit = CameraFit(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     attachmentAuthority
       .awaitAttachment()
-      .fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, guard)
+      .fitCameraToBounds(
+        boundingBox,
+        fit.bearing,
+        fit.pitch,
+        fit.cameraPadding,
+        fit.fitPadding,
+        guard,
+      )
   }
 
   /**
@@ -1425,17 +1413,14 @@ internal constructor(
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
    * full-camera assignment or accepted input cancels this call. Further partial updates follow
    * [animateCamera]'s replacement and coroutine-cancellation behavior. See [cameraForBounds] for
-   * [fitPadding] and [cameraPadding]. Detaching cancels the call.
+   * [fit]. Detaching cancels the call.
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
-    bearing: Double = 0.0,
-    pitch: Double = 0.0,
-    cameraPadding: DpPadding? = null,
-    fitPadding: DpPadding = DpPadding.Zero,
+    fit: CameraFit = CameraFit(),
     animation: CameraAnimation = CameraAnimation.Fly.Standard,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
@@ -1443,10 +1428,10 @@ internal constructor(
       .awaitAttachment()
       .animateCameraToBounds(
         boundingBox,
-        bearing,
-        pitch,
-        cameraPadding,
-        fitPadding,
+        fit.bearing,
+        fit.pitch,
+        fit.cameraPadding,
+        fit.fitPadding,
         animation.scaledBy(systemAnimatorDurationScale()),
         guard,
       )

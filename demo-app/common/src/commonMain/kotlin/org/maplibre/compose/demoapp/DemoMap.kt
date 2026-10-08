@@ -58,6 +58,7 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
@@ -106,7 +107,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination, animation: Cam
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
-        fitPadding = DemoBoundsPadding,
+        fit = CameraFit(fitPadding = DemoBoundsPadding),
         animation = animation,
       )
     DemoDestination.None -> Unit

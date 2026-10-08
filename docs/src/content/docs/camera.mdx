@@ -77,8 +77,8 @@ terrain.
 ## Fit a bounding box
 
 <Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current
-viewport with the same `animation` choices. Fit padding adds space around the box
-inside the viewport insets and camera padding:
+viewport with the same `animation` choices. Set `fitPadding` in `CameraFit` to add
+space around the box inside the viewport insets and camera padding:
 
 <Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 
