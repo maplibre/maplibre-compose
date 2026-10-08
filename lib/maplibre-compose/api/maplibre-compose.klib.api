@@ -1688,7 +1688,7 @@ final class org.maplibre.compose.logging/MapLogRecord { // org.maplibre.compose.
 }
 
 final class org.maplibre.compose.map/CameraConstraints { // org.maplibre.compose.map/CameraConstraints|null[0]
-    constructor <init>(kotlin/Double = ..., kotlin/Double = ..., kotlin/Double = ..., kotlin/Double = ..., org.maplibre.spatialk.geojson/BoundingBox? = ...) // org.maplibre.compose.map/CameraConstraints.<init>|<init>(kotlin.Double;kotlin.Double;kotlin.Double;kotlin.Double;org.maplibre.spatialk.geojson.BoundingBox?){}[0]
+    constructor <init>(org.maplibre.compose.map/CameraConstraints = ..., kotlin/Function1<org.maplibre.compose.map/CameraConstraints.Builder, kotlin/Unit>) // org.maplibre.compose.map/CameraConstraints.<init>|<init>(org.maplibre.compose.map.CameraConstraints;kotlin.Function1<org.maplibre.compose.map.CameraConstraints.Builder,kotlin.Unit>){}[0]
 
     final val boundingBox // org.maplibre.compose.map/CameraConstraints.boundingBox|{}boundingBox[0]
         final fun <get-boundingBox>(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.map/CameraConstraints.boundingBox.<get-boundingBox>|<get-boundingBox>(){}[0]
@@ -1701,15 +1701,32 @@ final class org.maplibre.compose.map/CameraConstraints { // org.maplibre.compose
     final val minZoom // org.maplibre.compose.map/CameraConstraints.minZoom|{}minZoom[0]
         final fun <get-minZoom>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
 
-    final fun component1(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component1|component1(){}[0]
-    final fun component2(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component2|component2(){}[0]
-    final fun component3(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component3|component3(){}[0]
-    final fun component4(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component4|component4(){}[0]
-    final fun component5(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.map/CameraConstraints.component5|component5(){}[0]
-    final fun copy(kotlin/Double = ..., kotlin/Double = ..., kotlin/Double = ..., kotlin/Double = ..., org.maplibre.spatialk.geojson/BoundingBox? = ...): org.maplibre.compose.map/CameraConstraints // org.maplibre.compose.map/CameraConstraints.copy|copy(kotlin.Double;kotlin.Double;kotlin.Double;kotlin.Double;org.maplibre.spatialk.geojson.BoundingBox?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/CameraConstraints.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/CameraConstraints.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/CameraConstraints.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.map/CameraConstraints.Builder|null[0]
+        final var boundingBox // org.maplibre.compose.map/CameraConstraints.Builder.boundingBox|{}boundingBox[0]
+            final fun <get-boundingBox>(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.map/CameraConstraints.Builder.boundingBox.<get-boundingBox>|<get-boundingBox>(){}[0]
+            final fun <set-boundingBox>(org.maplibre.spatialk.geojson/BoundingBox?) // org.maplibre.compose.map/CameraConstraints.Builder.boundingBox.<set-boundingBox>|<set-boundingBox>(org.maplibre.spatialk.geojson.BoundingBox?){}[0]
+        final var maxPitch // org.maplibre.compose.map/CameraConstraints.Builder.maxPitch|{}maxPitch[0]
+            final fun <get-maxPitch>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.Builder.maxPitch.<get-maxPitch>|<get-maxPitch>(){}[0]
+            final fun <set-maxPitch>(kotlin/Double) // org.maplibre.compose.map/CameraConstraints.Builder.maxPitch.<set-maxPitch>|<set-maxPitch>(kotlin.Double){}[0]
+        final var maxZoom // org.maplibre.compose.map/CameraConstraints.Builder.maxZoom|{}maxZoom[0]
+            final fun <get-maxZoom>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.Builder.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
+            final fun <set-maxZoom>(kotlin/Double) // org.maplibre.compose.map/CameraConstraints.Builder.maxZoom.<set-maxZoom>|<set-maxZoom>(kotlin.Double){}[0]
+        final var minPitch // org.maplibre.compose.map/CameraConstraints.Builder.minPitch|{}minPitch[0]
+            final fun <get-minPitch>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.Builder.minPitch.<get-minPitch>|<get-minPitch>(){}[0]
+            final fun <set-minPitch>(kotlin/Double) // org.maplibre.compose.map/CameraConstraints.Builder.minPitch.<set-minPitch>|<set-minPitch>(kotlin.Double){}[0]
+        final var minZoom // org.maplibre.compose.map/CameraConstraints.Builder.minZoom|{}minZoom[0]
+            final fun <get-minZoom>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+            final fun <set-minZoom>(kotlin/Double) // org.maplibre.compose.map/CameraConstraints.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Double){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.map/CameraConstraints.Companion|null[0]
+        final val Standard // org.maplibre.compose.map/CameraConstraints.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.map/CameraConstraints // org.maplibre.compose.map/CameraConstraints.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map/DebugOverlays|null[0]
@@ -1861,7 +1878,7 @@ final class org.maplibre.compose.map/MapRuntimeOptions { // org.maplibre.compose
 final class org.maplibre.compose.map/MapSnapshotException : kotlin/RuntimeException // org.maplibre.compose.map/MapSnapshotException|null[0]
 
 final class org.maplibre.compose.map/MapSnapshotRequest { // org.maplibre.compose.map/MapSnapshotRequest|null[0]
-    constructor <init>(androidx.compose.ui.unit/DpSize, org.maplibre.compose.camera/CameraPosition = ..., androidx.compose.ui.unit/Density = ..., androidx.compose.ui.unit/LayoutDirection = ..., kotlin/Boolean = ...) // org.maplibre.compose.map/MapSnapshotRequest.<init>|<init>(androidx.compose.ui.unit.DpSize;org.maplibre.compose.camera.CameraPosition;androidx.compose.ui.unit.Density;androidx.compose.ui.unit.LayoutDirection;kotlin.Boolean){}[0]
+    constructor <init>(androidx.compose.ui.unit/DpSize, kotlin/Function1<org.maplibre.compose.map/MapSnapshotRequest.Builder, kotlin/Unit> = ...) // org.maplibre.compose.map/MapSnapshotRequest.<init>|<init>(androidx.compose.ui.unit.DpSize;kotlin.Function1<org.maplibre.compose.map.MapSnapshotRequest.Builder,kotlin.Unit>){}[0]
 
     final val cameraPosition // org.maplibre.compose.map/MapSnapshotRequest.cameraPosition|{}cameraPosition[0]
         final fun <get-cameraPosition>(): org.maplibre.compose.camera/CameraPosition // org.maplibre.compose.map/MapSnapshotRequest.cameraPosition.<get-cameraPosition>|<get-cameraPosition>(){}[0]
@@ -1874,15 +1891,24 @@ final class org.maplibre.compose.map/MapSnapshotRequest { // org.maplibre.compos
     final val transparent // org.maplibre.compose.map/MapSnapshotRequest.transparent|{}transparent[0]
         final fun <get-transparent>(): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.transparent.<get-transparent>|<get-transparent>(){}[0]
 
-    final fun component1(): androidx.compose.ui.unit/DpSize // org.maplibre.compose.map/MapSnapshotRequest.component1|component1(){}[0]
-    final fun component2(): org.maplibre.compose.camera/CameraPosition // org.maplibre.compose.map/MapSnapshotRequest.component2|component2(){}[0]
-    final fun component3(): androidx.compose.ui.unit/Density // org.maplibre.compose.map/MapSnapshotRequest.component3|component3(){}[0]
-    final fun component4(): androidx.compose.ui.unit/LayoutDirection // org.maplibre.compose.map/MapSnapshotRequest.component4|component4(){}[0]
-    final fun component5(): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.component5|component5(){}[0]
-    final fun copy(androidx.compose.ui.unit/DpSize = ..., org.maplibre.compose.camera/CameraPosition = ..., androidx.compose.ui.unit/Density = ..., androidx.compose.ui.unit/LayoutDirection = ..., kotlin/Boolean = ...): org.maplibre.compose.map/MapSnapshotRequest // org.maplibre.compose.map/MapSnapshotRequest.copy|copy(androidx.compose.ui.unit.DpSize;org.maplibre.compose.camera.CameraPosition;androidx.compose.ui.unit.Density;androidx.compose.ui.unit.LayoutDirection;kotlin.Boolean){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapSnapshotRequest.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/MapSnapshotRequest.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.map/MapSnapshotRequest.Builder|null[0]
+        final var cameraPosition // org.maplibre.compose.map/MapSnapshotRequest.Builder.cameraPosition|{}cameraPosition[0]
+            final fun <get-cameraPosition>(): org.maplibre.compose.camera/CameraPosition // org.maplibre.compose.map/MapSnapshotRequest.Builder.cameraPosition.<get-cameraPosition>|<get-cameraPosition>(){}[0]
+            final fun <set-cameraPosition>(org.maplibre.compose.camera/CameraPosition) // org.maplibre.compose.map/MapSnapshotRequest.Builder.cameraPosition.<set-cameraPosition>|<set-cameraPosition>(org.maplibre.compose.camera.CameraPosition){}[0]
+        final var density // org.maplibre.compose.map/MapSnapshotRequest.Builder.density|{}density[0]
+            final fun <get-density>(): androidx.compose.ui.unit/Density // org.maplibre.compose.map/MapSnapshotRequest.Builder.density.<get-density>|<get-density>(){}[0]
+            final fun <set-density>(androidx.compose.ui.unit/Density) // org.maplibre.compose.map/MapSnapshotRequest.Builder.density.<set-density>|<set-density>(androidx.compose.ui.unit.Density){}[0]
+        final var layoutDirection // org.maplibre.compose.map/MapSnapshotRequest.Builder.layoutDirection|{}layoutDirection[0]
+            final fun <get-layoutDirection>(): androidx.compose.ui.unit/LayoutDirection // org.maplibre.compose.map/MapSnapshotRequest.Builder.layoutDirection.<get-layoutDirection>|<get-layoutDirection>(){}[0]
+            final fun <set-layoutDirection>(androidx.compose.ui.unit/LayoutDirection) // org.maplibre.compose.map/MapSnapshotRequest.Builder.layoutDirection.<set-layoutDirection>|<set-layoutDirection>(androidx.compose.ui.unit.LayoutDirection){}[0]
+        final var transparent // org.maplibre.compose.map/MapSnapshotRequest.Builder.transparent|{}transparent[0]
+            final fun <get-transparent>(): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.Builder.transparent.<get-transparent>|<get-transparent>(){}[0]
+            final fun <set-transparent>(kotlin/Boolean) // org.maplibre.compose.map/MapSnapshotRequest.Builder.transparent.<set-transparent>|<set-transparent>(kotlin.Boolean){}[0]
+    }
 }
 
 final class org.maplibre.compose.map/MapState { // org.maplibre.compose.map/MapState|null[0]
@@ -3954,6 +3980,7 @@ final val org.maplibre.compose.map/LocalMapState // org.maplibre.compose.map/Loc
 final val org.maplibre.compose.map/LocalViewport // org.maplibre.compose.map/LocalViewport|{}LocalViewport[0]
     final fun <get-LocalViewport>(): androidx.compose.runtime/ProvidableCompositionLocal<org.maplibre.compose.camera/Viewport?> // org.maplibre.compose.map/LocalViewport.<get-LocalViewport>|<get-LocalViewport>(){}[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints$stableprop|#static{}org_maplibre_compose_map_CameraConstraints$stableprop[0]
+final val org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints_Builder$stableprop|#static{}org_maplibre_compose_map_CameraConstraints_Builder$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays$stableprop|#static{}org_maplibre_compose_map_DebugOverlays$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays_Builder$stableprop|#static{}org_maplibre_compose_map_DebugOverlays_Builder$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_DefaultMapRuntime$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_DefaultMapRuntime$stableprop|#static{}org_maplibre_compose_map_DefaultMapRuntime$stableprop[0]
@@ -3971,6 +3998,7 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions$st
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop|#static{}org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotException$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotException$stableprop|#static{}org_maplibre_compose_map_MapSnapshotException$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest$stableprop|#static{}org_maplibre_compose_map_MapSnapshotRequest$stableprop[0]
+final val org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop|#static{}org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop|#static{}org_maplibre_compose_map_MapState$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop|#static{}org_maplibre_compose_map_MapStyleState$stableprop[0]
 final val org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop|#static{}org_maplibre_compose_map_MapUiOptions$stableprop[0]
@@ -4406,6 +4434,7 @@ final fun org.maplibre.compose.logging/org_maplibre_compose_logging_MapLogging$s
 final fun org.maplibre.compose.map/MaplibreMap(androidx.compose.ui/Modifier?, org.maplibre.compose.map/MapState?, androidx.compose.foundation.layout/PaddingValues?, org.maplibre.compose.map/CameraConstraints?, org.maplibre.compose.map/RenderOptions?, org.maplibre.compose.interaction/MapInteractions?, org.maplibre.compose.map/MapUiOptions?, kotlin/Function3<org.maplibre.compose.overlay/MapOverlayScope, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // org.maplibre.compose.map/MaplibreMap|MaplibreMap(androidx.compose.ui.Modifier?;org.maplibre.compose.map.MapState?;androidx.compose.foundation.layout.PaddingValues?;org.maplibre.compose.map.CameraConstraints?;org.maplibre.compose.map.RenderOptions?;org.maplibre.compose.interaction.MapInteractions?;org.maplibre.compose.map.MapUiOptions?;kotlin.Function3<org.maplibre.compose.overlay.MapOverlayScope,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.map/createMapRuntime(org.maplibre.compose.map/MapRuntimeOptions = ..., kotlin/Function1<org.maplibre.compose.map/MapRuntimeOptions.Builder, kotlin/Unit> = ...): org.maplibre.compose.map/MapRuntime // org.maplibre.compose.map/createMapRuntime|createMapRuntime(org.maplibre.compose.map.MapRuntimeOptions;kotlin.Function1<org.maplibre.compose.map.MapRuntimeOptions.Builder,kotlin.Unit>){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints$stableprop_getter|org_maplibre_compose_map_CameraConstraints$stableprop_getter(){}[0]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_CameraConstraints_Builder$stableprop_getter|org_maplibre_compose_map_CameraConstraints_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays$stableprop_getter|org_maplibre_compose_map_DebugOverlays$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_DebugOverlays_Builder$stableprop_getter|org_maplibre_compose_map_DebugOverlays_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_DefaultMapRuntime$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_DefaultMapRuntime$stableprop_getter|org_maplibre_compose_map_DefaultMapRuntime$stableprop_getter(){}[0]
@@ -4423,6 +4452,7 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions$st
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop_getter|org_maplibre_compose_map_MapRuntimeOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotException$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotException$stableprop_getter|org_maplibre_compose_map_MapSnapshotException$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest$stableprop_getter|org_maplibre_compose_map_MapSnapshotRequest$stableprop_getter(){}[0]
+final fun org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop_getter|org_maplibre_compose_map_MapSnapshotRequest_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapState$stableprop_getter|org_maplibre_compose_map_MapState$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapStyleState$stableprop_getter|org_maplibre_compose_map_MapStyleState$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MapUiOptions$stableprop_getter|org_maplibre_compose_map_MapUiOptions$stableprop_getter(){}[0]

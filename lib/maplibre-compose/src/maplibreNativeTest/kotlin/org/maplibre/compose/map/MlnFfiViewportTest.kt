@@ -236,7 +236,7 @@ class MlnFfiViewportTest {
         )
       if (!cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
       fixture.session.setViewportInsets(PaddingValues(start = 392.dp, top = 28.dp))
-      fixture.session.setCameraConstraints(CameraConstraints())
+      fixture.session.setCameraConstraints(CameraConstraints.Standard)
       fixture.session.setViewportInsets(PaddingValues(start = 392.dp, top = 24.dp))
       if (cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
       // Drain configuration while the map still has its bootstrap size, without drawing.

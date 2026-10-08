@@ -46,26 +46,31 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
-/** Immutable inputs for one snapshot capture. */
+/**
+ * Immutable inputs for one snapshot capture.
+ *
+ * @property size Size of the captured map. Both dimensions must be finite and positive. MapLibre
+ *   lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and to at
+ *   least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density], rounded
+ *   up.
+ */
 @Immutable
-public data class MapSnapshotRequest(
-  /**
-   * Size of the captured map. Both dimensions must be finite and positive.
-   *
-   * MapLibre lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and
-   * to at least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density],
-   * rounded up.
-   */
-  public val size: DpSize,
+public class MapSnapshotRequest private constructor(public val size: DpSize, builder: Builder) {
   /** Camera position used for this capture. */
-  public val cameraPosition: CameraPosition = CameraPosition(),
+  public val cameraPosition: CameraPosition = builder.cameraPosition
   /** Pixel density for rendering and font scale for style composition. */
-  public val density: Density = Density(1f),
+  public val density: Density = builder.density
   /** Layout direction used while evaluating the style composition. */
-  public val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+  public val layoutDirection: LayoutDirection = builder.layoutDirection
   /** Whether to preserve framebuffer alpha. When false, transparent pixels composite onto white. */
-  public val transparent: Boolean = false,
-) {
+  public val transparent: Boolean = builder.transparent
+
+  /** Creates a request for [size] with the settings in [block]. */
+  public constructor(
+    size: DpSize,
+    block: Builder.() -> Unit = {},
+  ) : this(size, Builder().apply(block))
+
   init {
     require(size.width.value.isFinite() && size.width > 0.dp) {
       "Snapshot width must be finite and positive, was ${size.width}"
@@ -79,6 +84,45 @@ public data class MapSnapshotRequest(
     require(density.fontScale.isFinite() && density.fontScale > 0f) {
       "Snapshot font scale must be finite and positive, was ${density.fontScale}"
     }
+  }
+
+  override fun equals(other: Any?): Boolean =
+    other is MapSnapshotRequest &&
+      size == other.size &&
+      cameraPosition == other.cameraPosition &&
+      density == other.density &&
+      layoutDirection == other.layoutDirection &&
+      transparent == other.transparent
+
+  override fun hashCode(): Int {
+    var result = size.hashCode()
+    result = 31 * result + cameraPosition.hashCode()
+    result = 31 * result + density.hashCode()
+    result = 31 * result + layoutDirection.hashCode()
+    result = 31 * result + transparent.hashCode()
+    return result
+  }
+
+  override fun toString(): String =
+    formatToString(
+      "MapSnapshotRequest",
+      "size" to size,
+      "cameraPosition" to cameraPosition,
+      "density" to density,
+      "layoutDirection" to layoutDirection,
+      "transparent" to transparent,
+    )
+
+  @MapOptionsDsl
+  public class Builder internal constructor() {
+    /** See [MapSnapshotRequest.cameraPosition]. */
+    public var cameraPosition: CameraPosition = CameraPosition()
+    /** See [MapSnapshotRequest.density]. */
+    public var density: Density = Density(1f)
+    /** See [MapSnapshotRequest.layoutDirection]. */
+    public var layoutDirection: LayoutDirection = LayoutDirection.Ltr
+    /** See [MapSnapshotRequest.transparent]. */
+    public var transparent: Boolean = false
   }
 }
 

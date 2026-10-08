@@ -62,7 +62,7 @@ public class AndroidMapPresentation(
   private val lifecycle: Lifecycle,
   configuration: Configuration = context.resources.configuration,
   viewportInsets: PaddingValues = PaddingValues(0.dp),
-  cameraConstraints: CameraConstraints = CameraConstraints(),
+  cameraConstraints: CameraConstraints = CameraConstraints.Standard,
   renderOptions: RenderOptions = RenderOptions.Standard,
   interactions: MapInteractions = MapInteractions.Standard,
 ) : AutoCloseable {

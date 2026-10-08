@@ -80,28 +80,26 @@ class NativeMapSnapshotterTest {
       try {
         val densityOne =
           snapshotter.capture(
-            MapSnapshotRequest(
-              size = DpSize(Size.dp, Size.dp),
+            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
               cameraPosition =
                 CameraPosition(
                   center = Position(longitude = 0.0, latitude = 0.0),
                   zoom = 2.0,
                   padding = DpPadding(left = 24.dp, bottom = 16.dp),
-                ),
-            )
+                )
+            }
           )
         val densityTwo =
           snapshotter.capture(
-            MapSnapshotRequest(
-              size = DpSize(Size.dp, Size.dp),
-              density = Density(2f),
+            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
+              density = Density(2f)
               cameraPosition =
                 CameraPosition(
                   center = Position(longitude = 0.0, latitude = 0.0),
                   zoom = 2.0,
                   padding = DpPadding(left = 24.dp, bottom = 16.dp),
-                ),
-            )
+                )
+            }
           )
 
         assertEquals(Size, densityOne.width)
@@ -137,11 +135,10 @@ class NativeMapSnapshotterTest {
           MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
         )
       val request =
-        MapSnapshotRequest(
-          size = DpSize(Size.dp, Size.dp),
+        MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
           cameraPosition =
-            CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
-        )
+            CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0)
+        }
       try {
         val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
         try {
@@ -181,10 +178,9 @@ class NativeMapSnapshotterTest {
         val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
         try {
           val request =
-            MapSnapshotRequest(
-              size = DpSize(Size.dp, Size.dp),
-              cameraPosition = CameraPosition(zoom = 2.0),
-            )
+            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
+              cameraPosition = CameraPosition(zoom = 2.0)
+            }
           snapshotter.capture(request)
 
           snapshotter.style.asMutable!!.baseStyle = AlternateStyle
@@ -249,10 +245,9 @@ class NativeMapSnapshotterTest {
           runtime.createSnapshotter(BackgroundStyle, pointComposition { data.value })
         try {
           val request =
-            MapSnapshotRequest(
-              size = DpSize(Size.dp, Size.dp),
-              cameraPosition = CameraPosition(zoom = 2.0),
-            )
+            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
+              cameraPosition = CameraPosition(zoom = 2.0)
+            }
           assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
           assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
 

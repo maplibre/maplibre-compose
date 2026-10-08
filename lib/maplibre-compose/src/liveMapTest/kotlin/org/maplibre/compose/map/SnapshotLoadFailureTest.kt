@@ -121,7 +121,7 @@ class SnapshotLoadFailureTest {
 
   private companion object {
     const val TileHost = "https://tiles.example.test"
-    val Request = MapSnapshotRequest(DpSize(64.dp, 64.dp), cameraPosition = CameraPosition())
+    val Request = MapSnapshotRequest(DpSize(64.dp, 64.dp)) { cameraPosition = CameraPosition() }
     val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
 
     fun tileStyle(tiles: String) =

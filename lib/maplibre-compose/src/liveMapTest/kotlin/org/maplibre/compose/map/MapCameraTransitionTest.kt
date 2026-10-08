@@ -820,7 +820,12 @@ class MapCameraTransitionTest {
   fun an_anchored_animation_obeys_zoom_and_pitch_constraints(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.startAtOrigin()
-      fixture.session.setCameraConstraints(TestConstraints.copy(maxZoom = 4.0, maxPitch = 45.0))
+      fixture.session.setCameraConstraints(
+        CameraConstraints(TestConstraints) {
+          maxZoom = 4.0
+          maxPitch = 45.0
+        }
+      )
       fixture.pump(frames = 3)
       val point = DpOffset(190.dp, 300.dp)
       val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
@@ -939,15 +944,12 @@ class MapCameraTransitionTest {
         southwest = Position(longitude = -5.0, latitude = -5.0),
         northeast = Position(longitude = 5.0, latitude = 5.0),
       )
-    val TestConstraints =
-      CameraConstraints(
-        minZoom = 0.0,
-        maxZoom = 20.0,
-        minPitch = 0.0,
-        maxPitch = 60.0,
-        boundingBox = null,
-      )
-    val DisjointZoomConstraints = TestConstraints.copy(minZoom = 21.0, maxZoom = 22.0)
+    val TestConstraints = CameraConstraints.Standard
+    val DisjointZoomConstraints =
+      CameraConstraints(TestConstraints) {
+        minZoom = 21.0
+        maxZoom = 22.0
+      }
     val BoundsNw = Position(longitude = Bounds.west, latitude = Bounds.north)
     val BoundsSe = Position(longitude = Bounds.east, latitude = Bounds.south)
     /** The vertices touch every side of [Bounds] without reaching a corner. */

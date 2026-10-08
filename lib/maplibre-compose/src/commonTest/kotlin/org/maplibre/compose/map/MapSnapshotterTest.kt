@@ -48,10 +48,10 @@ class MapSnapshotterTest {
   fun snapshot_requests_reject_invalid_pixel_density_and_font_scale() {
     for (value in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
       assertFailsWith<IllegalArgumentException> {
-        MapSnapshotRequest(DpSize(1.dp, 1.dp), density = Density(value))
+        MapSnapshotRequest(DpSize(1.dp, 1.dp)) { density = Density(value) }
       }
       assertFailsWith<IllegalArgumentException> {
-        MapSnapshotRequest(DpSize(1.dp, 1.dp), density = Density(1f, fontScale = value))
+        MapSnapshotRequest(DpSize(1.dp, 1.dp)) { density = Density(1f, fontScale = value) }
       }
     }
   }
@@ -70,7 +70,7 @@ class MapSnapshotterTest {
 
   @Test
   fun snapshot_requests_lay_out_the_map_in_whole_dp() {
-    val extent = MapSnapshotRequest(DpSize(31.4.dp, 0.3.dp), density = Density(2f)).extent()
+    val extent = MapSnapshotRequest(DpSize(31.4.dp, 0.3.dp)) { density = Density(2f) }.extent()
 
     assertEquals(31, extent.width)
     assertEquals(1, extent.height)

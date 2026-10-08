@@ -260,11 +260,10 @@ class SnapshotCompositionTest {
           SideEffect { observed = evaluation }
         }
       snapshotter.capture(
-        MapSnapshotRequest(
-          DpSize(30.dp, 20.dp),
-          density = Density(2f, 1.5f),
-          layoutDirection = LayoutDirection.Rtl,
-        )
+        MapSnapshotRequest(DpSize(30.dp, 20.dp)) {
+          density = Density(2f, 1.5f)
+          layoutDirection = LayoutDirection.Rtl
+        }
       )
       assertEquals(
         Evaluation("first", DpSize(30.dp, 20.dp), Density(2f, 1.5f), LayoutDirection.Rtl),
@@ -273,11 +272,10 @@ class SnapshotCompositionTest {
 
       value = "second"
       snapshotter.capture(
-        MapSnapshotRequest(
-          DpSize(10.dp, 40.dp),
-          density = Density(3f, 2f),
-          layoutDirection = LayoutDirection.Ltr,
-        )
+        MapSnapshotRequest(DpSize(10.dp, 40.dp)) {
+          density = Density(3f, 2f)
+          layoutDirection = LayoutDirection.Ltr
+        }
       )
       assertEquals(
         Evaluation("second", DpSize(10.dp, 40.dp), Density(3f, 2f), LayoutDirection.Ltr),

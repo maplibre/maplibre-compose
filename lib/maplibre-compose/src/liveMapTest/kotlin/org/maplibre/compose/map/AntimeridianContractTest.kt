@@ -70,7 +70,7 @@ class AntimeridianContractTest {
       }
       it.settle()
 
-      val target = it.session.getCameraPosition().center
+      val center = it.session.getCameraPosition().center
       when (mapLibreFlavor) {
         MapLibreFlavor.Native -> assertEquals(179.5, target.longitude, 0.01)
         MapLibreFlavor.GlJs -> assertEquals(539.5, target.longitude, 0.01)
@@ -92,7 +92,7 @@ class AntimeridianContractTest {
       createMapFixture().use {
         it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
-        it.session.setCameraConstraints(CameraConstraints(boundingBox = box))
+        it.session.setCameraConstraints(CameraConstraints { boundingBox = box })
         it.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 2.0))
         it.settle()
 

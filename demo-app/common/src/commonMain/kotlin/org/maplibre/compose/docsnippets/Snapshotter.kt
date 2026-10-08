@@ -29,13 +29,14 @@ suspend fun captureCurrentMap(
       content = content,
     )
   return try {
+    val captureDensity = density
+    val captureLayoutDirection = layoutDirection
     snapshotter.capture(
-      MapSnapshotRequest(
-        size = DpSize(640.dp, 360.dp),
-        cameraPosition = mapState.cameraPosition,
-        density = density,
-        layoutDirection = layoutDirection,
-      )
+      MapSnapshotRequest(DpSize(640.dp, 360.dp)) {
+        cameraPosition = mapState.cameraPosition
+        this.density = captureDensity
+        this.layoutDirection = captureLayoutDirection
+      }
     )
   } finally {
     withContext(NonCancellable) {
