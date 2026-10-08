@@ -705,7 +705,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
         identity = current.identity.sources.get(id),
         kind = sourceKind(definition, source),
         attributionHtml = source?.attributionHtml.orEmpty(),
-        options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions(),
+        options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
         composed = definition != null,
       )
     }

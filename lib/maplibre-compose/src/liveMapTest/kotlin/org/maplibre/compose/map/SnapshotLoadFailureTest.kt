@@ -29,7 +29,13 @@ class SnapshotLoadFailureTest {
       val failure = IllegalStateException("fixture provider failure")
       val state = ProviderState()
       val source =
-        CustomVectorTileSource("custom", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(
+          "custom",
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           if (state.failing) throw failure else byteArrayOf()
         }
       withTestMapRuntime { runtime ->
@@ -60,7 +66,13 @@ class SnapshotLoadFailureTest {
   fun a_geometry_tile_provider_timeout_fails_the_capture(): MapTestResult = runMapTest {
     val failure = CancellationException("fixture provider timeout")
     val source =
-      CustomGeometrySource("custom", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+      CustomGeometrySource(
+        "custom",
+        CustomGeometrySourceOptions {
+          minZoom = 0
+          maxZoom = 0
+        },
+      ) {
         throw failure
       }
     withTestMapRuntime { runtime ->

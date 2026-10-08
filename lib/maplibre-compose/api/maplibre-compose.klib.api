@@ -2446,7 +2446,7 @@ final class org.maplibre.compose.sources/CustomGeometrySource : org.maplibre.com
 }
 
 final class org.maplibre.compose.sources/CustomGeometrySourceOptions { // org.maplibre.compose.sources/CustomGeometrySourceOptions|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Boolean = ...) // org.maplibre.compose.sources/CustomGeometrySourceOptions.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Boolean;kotlin.Boolean){}[0]
+    constructor <init>(org.maplibre.compose.sources/CustomGeometrySourceOptions = ..., kotlin/Function1<org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder, kotlin/Unit>) // org.maplibre.compose.sources/CustomGeometrySourceOptions.<init>|<init>(org.maplibre.compose.sources.CustomGeometrySourceOptions;kotlin.Function1<org.maplibre.compose.sources.CustomGeometrySourceOptions.Builder,kotlin.Unit>){}[0]
 
     final val buffer // org.maplibre.compose.sources/CustomGeometrySourceOptions.buffer|{}buffer[0]
         final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/CustomGeometrySourceOptions.buffer.<get-buffer>|<get-buffer>(){}[0]
@@ -2467,10 +2467,35 @@ final class org.maplibre.compose.sources/CustomGeometrySourceOptions { // org.ma
     final fun component4(): kotlin/Float // org.maplibre.compose.sources/CustomGeometrySourceOptions.component4|component4(){}[0]
     final fun component5(): kotlin/Boolean // org.maplibre.compose.sources/CustomGeometrySourceOptions.component5|component5(){}[0]
     final fun component6(): kotlin/Boolean // org.maplibre.compose.sources/CustomGeometrySourceOptions.component6|component6(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Boolean = ...): org.maplibre.compose.sources/CustomGeometrySourceOptions // org.maplibre.compose.sources/CustomGeometrySourceOptions.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Boolean;kotlin.Boolean){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/CustomGeometrySourceOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/CustomGeometrySourceOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/CustomGeometrySourceOptions.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder|null[0]
+        final var buffer // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.buffer|{}buffer[0]
+            final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.buffer.<get-buffer>|<get-buffer>(){}[0]
+            final fun <set-buffer>(kotlin/Int) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.buffer.<set-buffer>|<set-buffer>(kotlin.Int){}[0]
+        final var clip // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.clip|{}clip[0]
+            final fun <get-clip>(): kotlin/Boolean // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.clip.<get-clip>|<get-clip>(){}[0]
+            final fun <set-clip>(kotlin/Boolean) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.clip.<set-clip>|<set-clip>(kotlin.Boolean){}[0]
+        final var maxZoom // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.maxZoom|{}maxZoom[0]
+            final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
+            final fun <set-maxZoom>(kotlin/Int) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.maxZoom.<set-maxZoom>|<set-maxZoom>(kotlin.Int){}[0]
+        final var minZoom // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.minZoom|{}minZoom[0]
+            final fun <get-minZoom>(): kotlin/Int // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+            final fun <set-minZoom>(kotlin/Int) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Int){}[0]
+        final var tolerance // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.tolerance|{}tolerance[0]
+            final fun <get-tolerance>(): kotlin/Float // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.tolerance.<get-tolerance>|<get-tolerance>(){}[0]
+            final fun <set-tolerance>(kotlin/Float) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.tolerance.<set-tolerance>|<set-tolerance>(kotlin.Float){}[0]
+        final var wrap // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.wrap|{}wrap[0]
+            final fun <get-wrap>(): kotlin/Boolean // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.wrap.<get-wrap>|<get-wrap>(){}[0]
+            final fun <set-wrap>(kotlin/Boolean) // org.maplibre.compose.sources/CustomGeometrySourceOptions.Builder.wrap.<set-wrap>|<set-wrap>(kotlin.Boolean){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.sources/CustomGeometrySourceOptions.Companion|null[0]
+        final val Standard // org.maplibre.compose.sources/CustomGeometrySourceOptions.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.sources/CustomGeometrySourceOptions // org.maplibre.compose.sources/CustomGeometrySourceOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.sources/CustomVectorTileSource : org.maplibre.compose.sources/VectorSource { // org.maplibre.compose.sources/CustomVectorTileSource|null[0]
@@ -2478,7 +2503,7 @@ final class org.maplibre.compose.sources/CustomVectorTileSource : org.maplibre.c
 }
 
 final class org.maplibre.compose.sources/CustomVectorTileSourceOptions { // org.maplibre.compose.sources/CustomVectorTileSourceOptions|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Int = ...) // org.maplibre.compose.sources/CustomVectorTileSourceOptions.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
+    constructor <init>(org.maplibre.compose.sources/CustomVectorTileSourceOptions = ..., kotlin/Function1<org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder, kotlin/Unit>) // org.maplibre.compose.sources/CustomVectorTileSourceOptions.<init>|<init>(org.maplibre.compose.sources.CustomVectorTileSourceOptions;kotlin.Function1<org.maplibre.compose.sources.CustomVectorTileSourceOptions.Builder,kotlin.Unit>){}[0]
 
     final val maxZoom // org.maplibre.compose.sources/CustomVectorTileSourceOptions.maxZoom|{}maxZoom[0]
         final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
@@ -2487,14 +2512,27 @@ final class org.maplibre.compose.sources/CustomVectorTileSourceOptions { // org.
 
     final fun component1(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.component1|component1(){}[0]
     final fun component2(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.component2|component2(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/Int = ...): org.maplibre.compose.sources/CustomVectorTileSourceOptions // org.maplibre.compose.sources/CustomVectorTileSourceOptions.copy|copy(kotlin.Int;kotlin.Int){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/CustomVectorTileSourceOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/CustomVectorTileSourceOptions.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder|null[0]
+        final var maxZoom // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.maxZoom|{}maxZoom[0]
+            final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
+            final fun <set-maxZoom>(kotlin/Int) // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.maxZoom.<set-maxZoom>|<set-maxZoom>(kotlin.Int){}[0]
+        final var minZoom // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.minZoom|{}minZoom[0]
+            final fun <get-minZoom>(): kotlin/Int // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+            final fun <set-minZoom>(kotlin/Int) // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Int){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Companion|null[0]
+        final val Standard // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.sources/CustomVectorTileSourceOptions // org.maplibre.compose.sources/CustomVectorTileSourceOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compose.sources/GeoJsonOptions|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>> = ..., kotlin/Boolean = ..., kotlin/Boolean = ...) // org.maplibre.compose.sources/GeoJsonOptions.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Boolean;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.Map<kotlin.String,org.maplibre.compose.sources.GeoJsonOptions.ClusterPropertyAggregator<*>>;kotlin.Boolean;kotlin.Boolean){}[0]
+    constructor <init>(org.maplibre.compose.sources/GeoJsonOptions = ..., kotlin/Function1<org.maplibre.compose.sources/GeoJsonOptions.Builder, kotlin/Unit>) // org.maplibre.compose.sources/GeoJsonOptions.<init>|<init>(org.maplibre.compose.sources.GeoJsonOptions;kotlin.Function1<org.maplibre.compose.sources.GeoJsonOptions.Builder,kotlin.Unit>){}[0]
 
     final val buffer // org.maplibre.compose.sources/GeoJsonOptions.buffer|{}buffer[0]
         final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.buffer.<get-buffer>|<get-buffer>(){}[0]
@@ -2519,18 +2557,6 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
     final val tolerance // org.maplibre.compose.sources/GeoJsonOptions.tolerance|{}tolerance[0]
         final fun <get-tolerance>(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.tolerance.<get-tolerance>|<get-tolerance>(){}[0]
 
-    final fun component1(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component1|component1(){}[0]
-    final fun component10(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component10|component10(){}[0]
-    final fun component11(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component11|component11(){}[0]
-    final fun component2(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component2|component2(){}[0]
-    final fun component3(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component3|component3(){}[0]
-    final fun component4(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.component4|component4(){}[0]
-    final fun component5(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component5|component5(){}[0]
-    final fun component6(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component6|component6(){}[0]
-    final fun component7(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component7|component7(){}[0]
-    final fun component8(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component8|component8(){}[0]
-    final fun component9(): kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>> // org.maplibre.compose.sources/GeoJsonOptions.component9|component9(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>> = ..., kotlin/Boolean = ..., kotlin/Boolean = ...): org.maplibre.compose.sources/GeoJsonOptions // org.maplibre.compose.sources/GeoJsonOptions.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Boolean;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.Map<kotlin.String,org.maplibre.compose.sources.GeoJsonOptions.ClusterPropertyAggregator<*>>;kotlin.Boolean;kotlin.Boolean){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/GeoJsonOptions.toString|toString(){}[0]
@@ -2550,10 +2576,51 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
         final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator.toString|toString(){}[0]
     }
+
+    final class Builder { // org.maplibre.compose.sources/GeoJsonOptions.Builder|null[0]
+        final var buffer // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer|{}buffer[0]
+            final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer.<get-buffer>|<get-buffer>(){}[0]
+            final fun <set-buffer>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer.<set-buffer>|<set-buffer>(kotlin.Int){}[0]
+        final var cluster // org.maplibre.compose.sources/GeoJsonOptions.Builder.cluster|{}cluster[0]
+            final fun <get-cluster>(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.Builder.cluster.<get-cluster>|<get-cluster>(){}[0]
+            final fun <set-cluster>(kotlin/Boolean) // org.maplibre.compose.sources/GeoJsonOptions.Builder.cluster.<set-cluster>|<set-cluster>(kotlin.Boolean){}[0]
+        final var clusterMaxZoom // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMaxZoom|{}clusterMaxZoom[0]
+            final fun <get-clusterMaxZoom>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMaxZoom.<get-clusterMaxZoom>|<get-clusterMaxZoom>(){}[0]
+            final fun <set-clusterMaxZoom>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMaxZoom.<set-clusterMaxZoom>|<set-clusterMaxZoom>(kotlin.Int){}[0]
+        final var clusterMinPoints // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMinPoints|{}clusterMinPoints[0]
+            final fun <get-clusterMinPoints>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMinPoints.<get-clusterMinPoints>|<get-clusterMinPoints>(){}[0]
+            final fun <set-clusterMinPoints>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterMinPoints.<set-clusterMinPoints>|<set-clusterMinPoints>(kotlin.Int){}[0]
+        final var clusterProperties // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterProperties|{}clusterProperties[0]
+            final fun <get-clusterProperties>(): kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>> // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterProperties.<get-clusterProperties>|<get-clusterProperties>(){}[0]
+            final fun <set-clusterProperties>(kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>>) // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterProperties.<set-clusterProperties>|<set-clusterProperties>(kotlin.collections.Map<kotlin.String,org.maplibre.compose.sources.GeoJsonOptions.ClusterPropertyAggregator<*>>){}[0]
+        final var clusterRadius // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterRadius|{}clusterRadius[0]
+            final fun <get-clusterRadius>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterRadius.<get-clusterRadius>|<get-clusterRadius>(){}[0]
+            final fun <set-clusterRadius>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.clusterRadius.<set-clusterRadius>|<set-clusterRadius>(kotlin.Int){}[0]
+        final var lineMetrics // org.maplibre.compose.sources/GeoJsonOptions.Builder.lineMetrics|{}lineMetrics[0]
+            final fun <get-lineMetrics>(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.Builder.lineMetrics.<get-lineMetrics>|<get-lineMetrics>(){}[0]
+            final fun <set-lineMetrics>(kotlin/Boolean) // org.maplibre.compose.sources/GeoJsonOptions.Builder.lineMetrics.<set-lineMetrics>|<set-lineMetrics>(kotlin.Boolean){}[0]
+        final var maxZoom // org.maplibre.compose.sources/GeoJsonOptions.Builder.maxZoom|{}maxZoom[0]
+            final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
+            final fun <set-maxZoom>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.maxZoom.<set-maxZoom>|<set-maxZoom>(kotlin.Int){}[0]
+        final var minZoom // org.maplibre.compose.sources/GeoJsonOptions.Builder.minZoom|{}minZoom[0]
+            final fun <get-minZoom>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+            final fun <set-minZoom>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Int){}[0]
+        final var synchronousTiling // org.maplibre.compose.sources/GeoJsonOptions.Builder.synchronousTiling|{}synchronousTiling[0]
+            final fun <get-synchronousTiling>(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.Builder.synchronousTiling.<get-synchronousTiling>|<get-synchronousTiling>(){}[0]
+            final fun <set-synchronousTiling>(kotlin/Boolean) // org.maplibre.compose.sources/GeoJsonOptions.Builder.synchronousTiling.<set-synchronousTiling>|<set-synchronousTiling>(kotlin.Boolean){}[0]
+        final var tolerance // org.maplibre.compose.sources/GeoJsonOptions.Builder.tolerance|{}tolerance[0]
+            final fun <get-tolerance>(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.Builder.tolerance.<get-tolerance>|<get-tolerance>(){}[0]
+            final fun <set-tolerance>(kotlin/Float) // org.maplibre.compose.sources/GeoJsonOptions.Builder.tolerance.<set-tolerance>|<set-tolerance>(kotlin.Float){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.sources/GeoJsonOptions.Companion|null[0]
+        final val Standard // org.maplibre.compose.sources/GeoJsonOptions.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.sources/GeoJsonOptions // org.maplibre.compose.sources/GeoJsonOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.sources/GeoJsonSource : org.maplibre.compose.sources/VectorSource { // org.maplibre.compose.sources/GeoJsonSource|null[0]
-    constructor <init>(kotlin/String, org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions = ...) // org.maplibre.compose.sources/GeoJsonSource.<init>|<init>(kotlin.String;org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions){}[0]
+    constructor <init>(kotlin/String, org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions = ..., kotlin/Function1<org.maplibre.compose.sources/GeoJsonOptions.Builder, kotlin/Unit> = ...) // org.maplibre.compose.sources/GeoJsonSource.<init>|<init>(kotlin.String;org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions;kotlin.Function1<org.maplibre.compose.sources.GeoJsonOptions.Builder,kotlin.Unit>){}[0]
 
     final fun isCluster(org.maplibre.spatialk.geojson/Feature<*, kotlinx.serialization.json/JsonObject?>): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonSource.isCluster|isCluster(org.maplibre.spatialk.geojson.Feature<*,kotlinx.serialization.json.JsonObject?>){}[0]
 }
@@ -2564,12 +2631,12 @@ final class org.maplibre.compose.sources/ImageSource : org.maplibre.compose.sour
 }
 
 final class org.maplibre.compose.sources/RasterDemTileSource : org.maplibre.compose.sources/Source { // org.maplibre.compose.sources/RasterDemTileSource|null[0]
-    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Int = ..., org.maplibre.compose.sources/RasterDemEncoding = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, kotlin/Int = ..., org.maplibre.compose.sources/RasterDemEncoding = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit> = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;org.maplibre.compose.sources.TileSetOptions;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>){}[0]
     constructor <init>(kotlin/String, kotlin/String, kotlin/Int = ...) // org.maplibre.compose.sources/RasterDemTileSource.<init>|<init>(kotlin.String;kotlin.String;kotlin.Int){}[0]
 }
 
 final class org.maplibre.compose.sources/RasterTileSource : org.maplibre.compose.sources/RasterSource { // org.maplibre.compose.sources/RasterTileSource|null[0]
-    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Int = ...) // org.maplibre.compose.sources/RasterTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int){}[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, kotlin/Int = ..., org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit> = ...) // org.maplibre.compose.sources/RasterTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;kotlin.Int;org.maplibre.compose.sources.TileSetOptions;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>){}[0]
     constructor <init>(kotlin/String, kotlin/String, kotlin/Int = ...) // org.maplibre.compose.sources/RasterTileSource.<init>|<init>(kotlin.String;kotlin.String;kotlin.Int){}[0]
 }
 
@@ -2595,7 +2662,7 @@ final class org.maplibre.compose.sources/TileCoordinate { // org.maplibre.compos
 }
 
 final class org.maplibre.compose.sources/TileSetOptions { // org.maplibre.compose.sources/TileSetOptions|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileScheme = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...) // org.maplibre.compose.sources/TileSetOptions.<init>|<init>(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileScheme;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
+    constructor <init>(org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit>) // org.maplibre.compose.sources/TileSetOptions.<init>|<init>(org.maplibre.compose.sources.TileSetOptions;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>){}[0]
 
     final val attributionHtml // org.maplibre.compose.sources/TileSetOptions.attributionHtml|{}attributionHtml[0]
         final fun <get-attributionHtml>(): kotlin/String? // org.maplibre.compose.sources/TileSetOptions.attributionHtml.<get-attributionHtml>|<get-attributionHtml>(){}[0]
@@ -2613,14 +2680,36 @@ final class org.maplibre.compose.sources/TileSetOptions { // org.maplibre.compos
     final fun component3(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileSetOptions.component3|component3(){}[0]
     final fun component4(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.sources/TileSetOptions.component4|component4(){}[0]
     final fun component5(): kotlin/String? // org.maplibre.compose.sources/TileSetOptions.component5|component5(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/Int = ..., org.maplibre.compose.sources/TileScheme = ..., org.maplibre.spatialk.geojson/BoundingBox? = ..., kotlin/String? = ...): org.maplibre.compose.sources/TileSetOptions // org.maplibre.compose.sources/TileSetOptions.copy|copy(kotlin.Int;kotlin.Int;org.maplibre.compose.sources.TileScheme;org.maplibre.spatialk.geojson.BoundingBox?;kotlin.String?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/TileSetOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/TileSetOptions.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.sources/TileSetOptions.Builder|null[0]
+        final var attributionHtml // org.maplibre.compose.sources/TileSetOptions.Builder.attributionHtml|{}attributionHtml[0]
+            final fun <get-attributionHtml>(): kotlin/String? // org.maplibre.compose.sources/TileSetOptions.Builder.attributionHtml.<get-attributionHtml>|<get-attributionHtml>(){}[0]
+            final fun <set-attributionHtml>(kotlin/String?) // org.maplibre.compose.sources/TileSetOptions.Builder.attributionHtml.<set-attributionHtml>|<set-attributionHtml>(kotlin.String?){}[0]
+        final var boundingBox // org.maplibre.compose.sources/TileSetOptions.Builder.boundingBox|{}boundingBox[0]
+            final fun <get-boundingBox>(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.sources/TileSetOptions.Builder.boundingBox.<get-boundingBox>|<get-boundingBox>(){}[0]
+            final fun <set-boundingBox>(org.maplibre.spatialk.geojson/BoundingBox?) // org.maplibre.compose.sources/TileSetOptions.Builder.boundingBox.<set-boundingBox>|<set-boundingBox>(org.maplibre.spatialk.geojson.BoundingBox?){}[0]
+        final var maxZoom // org.maplibre.compose.sources/TileSetOptions.Builder.maxZoom|{}maxZoom[0]
+            final fun <get-maxZoom>(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.Builder.maxZoom.<get-maxZoom>|<get-maxZoom>(){}[0]
+            final fun <set-maxZoom>(kotlin/Int) // org.maplibre.compose.sources/TileSetOptions.Builder.maxZoom.<set-maxZoom>|<set-maxZoom>(kotlin.Int){}[0]
+        final var minZoom // org.maplibre.compose.sources/TileSetOptions.Builder.minZoom|{}minZoom[0]
+            final fun <get-minZoom>(): kotlin/Int // org.maplibre.compose.sources/TileSetOptions.Builder.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
+            final fun <set-minZoom>(kotlin/Int) // org.maplibre.compose.sources/TileSetOptions.Builder.minZoom.<set-minZoom>|<set-minZoom>(kotlin.Int){}[0]
+        final var scheme // org.maplibre.compose.sources/TileSetOptions.Builder.scheme|{}scheme[0]
+            final fun <get-scheme>(): org.maplibre.compose.sources/TileScheme // org.maplibre.compose.sources/TileSetOptions.Builder.scheme.<get-scheme>|<get-scheme>(){}[0]
+            final fun <set-scheme>(org.maplibre.compose.sources/TileScheme) // org.maplibre.compose.sources/TileSetOptions.Builder.scheme.<set-scheme>|<set-scheme>(org.maplibre.compose.sources.TileScheme){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.sources/TileSetOptions.Companion|null[0]
+        final val Standard // org.maplibre.compose.sources/TileSetOptions.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.sources/TileSetOptions // org.maplibre.compose.sources/TileSetOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.sources/VectorTileSource : org.maplibre.compose.sources/VectorSource { // org.maplibre.compose.sources/VectorTileSource|null[0]
-    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ...) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions){}[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions = ..., kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit> = ...) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>){}[0]
     constructor <init>(kotlin/String, kotlin/String) // org.maplibre.compose.sources/VectorTileSource.<init>|<init>(kotlin.String;kotlin.String){}[0]
 }
 
@@ -3890,12 +3979,15 @@ final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourc
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceRoute_Load$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceRoute_Load$stableprop|#static{}org_maplibre_compose_resource_MapResourceRoute_Load$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySource$stableprop|#static{}org_maplibre_compose_sources_CustomGeometrySource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop|#static{}org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop[0]
+final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop|#static{}org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSource$stableprop|#static{}org_maplibre_compose_sources_CustomVectorTileSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop|#static{}org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop[0]
+final val org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop|#static{}org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Features$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Features$stableprop|#static{}org_maplibre_compose_sources_GeoJsonData_Features$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop|#static{}org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Uri$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Uri$stableprop|#static{}org_maplibre_compose_sources_GeoJsonData_Uri$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions$stableprop|#static{}org_maplibre_compose_sources_GeoJsonOptions$stableprop[0]
+final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop|#static{}org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop|#static{}org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop|#static{}org_maplibre_compose_sources_GeoJsonSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop|#static{}org_maplibre_compose_sources_ImageSource$stableprop[0]
@@ -3905,6 +3997,7 @@ final val org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSo
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop|#static{}org_maplibre_compose_sources_Source$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop|#static{}org_maplibre_compose_sources_TileCoordinate$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop|#static{}org_maplibre_compose_sources_TileSetOptions$stableprop[0]
+final val org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions_Builder$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions_Builder$stableprop|#static{}org_maplibre_compose_sources_TileSetOptions_Builder$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop|#static{}org_maplibre_compose_sources_VectorSource$stableprop[0]
 final val org.maplibre.compose.sources/org_maplibre_compose_sources_VectorTileSource$stableprop // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorTileSource$stableprop|#static{}org_maplibre_compose_sources_VectorTileSource$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Json$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Json$stableprop|#static{}org_maplibre_compose_style_BaseStyle_Json$stableprop[0]
@@ -4353,12 +4446,15 @@ final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourc
 final fun org.maplibre.compose.sources/baseSourceOrNull(kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/Source? // org.maplibre.compose.sources/baseSourceOrNull|baseSourceOrNull(kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySource$stableprop_getter|org_maplibre_compose_sources_CustomGeometrySource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop_getter|org_maplibre_compose_sources_CustomGeometrySourceOptions$stableprop_getter(){}[0]
+final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop_getter|org_maplibre_compose_sources_CustomGeometrySourceOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSource$stableprop_getter|org_maplibre_compose_sources_CustomVectorTileSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop_getter|org_maplibre_compose_sources_CustomVectorTileSourceOptions$stableprop_getter(){}[0]
+final fun org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop_getter|org_maplibre_compose_sources_CustomVectorTileSourceOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Features$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Features$stableprop_getter|org_maplibre_compose_sources_GeoJsonData_Features$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop_getter|org_maplibre_compose_sources_GeoJsonData_JsonString$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Uri$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonData_Uri$stableprop_getter|org_maplibre_compose_sources_GeoJsonData_Uri$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions$stableprop_getter|org_maplibre_compose_sources_GeoJsonOptions$stableprop_getter(){}[0]
+final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop_getter|org_maplibre_compose_sources_GeoJsonOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter|org_maplibre_compose_sources_GeoJsonOptions_ClusterPropertyAggregator$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_GeoJsonSource$stableprop_getter|org_maplibre_compose_sources_GeoJsonSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_ImageSource$stableprop_getter|org_maplibre_compose_sources_ImageSource$stableprop_getter(){}[0]
@@ -4368,19 +4464,20 @@ final fun org.maplibre.compose.sources/org_maplibre_compose_sources_RasterTileSo
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_Source$stableprop_getter|org_maplibre_compose_sources_Source$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_TileCoordinate$stableprop_getter|org_maplibre_compose_sources_TileCoordinate$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions$stableprop_getter|org_maplibre_compose_sources_TileSetOptions$stableprop_getter(){}[0]
+final fun org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_TileSetOptions_Builder$stableprop_getter|org_maplibre_compose_sources_TileSetOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorSource$stableprop_getter|org_maplibre_compose_sources_VectorSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/org_maplibre_compose_sources_VectorTileSource$stableprop_getter(): kotlin/Int // org.maplibre.compose.sources/org_maplibre_compose_sources_VectorTileSource$stableprop_getter|org_maplibre_compose_sources_VectorTileSource$stableprop_getter(){}[0]
 final fun org.maplibre.compose.sources/rememberCustomGeometrySource(org.maplibre.compose.sources/CustomGeometrySourceOptions?, org.maplibre.compose.sources/GeometryTileProvider, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/CustomGeometrySource // org.maplibre.compose.sources/rememberCustomGeometrySource|rememberCustomGeometrySource(org.maplibre.compose.sources.CustomGeometrySourceOptions?;org.maplibre.compose.sources.GeometryTileProvider;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberCustomVectorTileSource(org.maplibre.compose.sources/CustomVectorTileSourceOptions?, org.maplibre.compose.sources/VectorTileProvider, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/CustomVectorTileSource // org.maplibre.compose.sources/rememberCustomVectorTileSource|rememberCustomVectorTileSource(org.maplibre.compose.sources.CustomVectorTileSourceOptions?;org.maplibre.compose.sources.VectorTileProvider;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberGeoJsonSource(org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/GeoJsonSource // org.maplibre.compose.sources/rememberGeoJsonSource|rememberGeoJsonSource(org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberGeoJsonSource(org.maplibre.compose.sources/GeoJsonData, org.maplibre.compose.sources/GeoJsonOptions?, kotlin/Function1<org.maplibre.compose.sources/GeoJsonOptions.Builder, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/GeoJsonSource // org.maplibre.compose.sources/rememberGeoJsonSource|rememberGeoJsonSource(org.maplibre.compose.sources.GeoJsonData;org.maplibre.compose.sources.GeoJsonOptions?;kotlin.Function1<org.maplibre.compose.sources.GeoJsonOptions.Builder,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberImageSource(org.maplibre.compose.util/PositionQuad, kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/ImageSource // org.maplibre.compose.sources/rememberImageSource|rememberImageSource(org.maplibre.compose.util.PositionQuad;kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberImageSource(org.maplibre.compose.util/PositionQuad, org.maplibre.compose.util/PreparedImage, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/ImageSource // org.maplibre.compose.sources/rememberImageSource|rememberImageSource(org.maplibre.compose.util.PositionQuad;org.maplibre.compose.util.PreparedImage;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding?, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding?;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, org.maplibre.compose.sources/TileSetOptions, kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;org.maplibre.compose.sources.TileSetOptions;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin.collections/List<kotlin/String>, kotlin/Int, org.maplibre.compose.sources/RasterDemEncoding?, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, org.maplibre.compose.sources/TileSetOptions?, kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.collections.List<kotlin.String>;kotlin.Int;org.maplibre.compose.sources.RasterDemEncoding?;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;org.maplibre.compose.sources.TileSetOptions?;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberRasterDemTileSource(kotlin/String, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterDemTileSource // org.maplibre.compose.sources/rememberRasterDemTileSource|rememberRasterDemTileSource(kotlin.String;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberRasterTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterTileSource // org.maplibre.compose.sources/rememberRasterTileSource|rememberRasterTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberRasterTileSource(kotlin.collections/List<kotlin/String>, kotlin/Int, org.maplibre.compose.sources/TileSetOptions?, kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterTileSource // org.maplibre.compose.sources/rememberRasterTileSource|rememberRasterTileSource(kotlin.collections.List<kotlin.String>;kotlin.Int;org.maplibre.compose.sources.TileSetOptions?;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberRasterTileSource(kotlin/String, kotlin/Int, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/RasterTileSource // org.maplibre.compose.sources/rememberRasterTileSource|rememberRasterTileSource(kotlin.String;kotlin.Int;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
-final fun org.maplibre.compose.sources/rememberVectorTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/VectorTileSource // org.maplibre.compose.sources/rememberVectorTileSource|rememberVectorTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.sources/rememberVectorTileSource(kotlin.collections/List<kotlin/String>, org.maplibre.compose.sources/TileSetOptions?, kotlin/Function1<org.maplibre.compose.sources/TileSetOptions.Builder, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.sources/VectorTileSource // org.maplibre.compose.sources/rememberVectorTileSource|rememberVectorTileSource(kotlin.collections.List<kotlin.String>;org.maplibre.compose.sources.TileSetOptions?;kotlin.Function1<org.maplibre.compose.sources.TileSetOptions.Builder,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.sources/rememberVectorTileSource(kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): org.maplibre.compose.sources/VectorTileSource // org.maplibre.compose.sources/rememberVectorTileSource|rememberVectorTileSource(kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Json$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Json$stableprop_getter|org_maplibre_compose_style_BaseStyle_Json$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Uri$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_BaseStyle_Uri$stableprop_getter|org_maplibre_compose_style_BaseStyle_Uri$stableprop_getter(){}[0]

@@ -40,7 +40,13 @@ class BrowserCustomGeometrySourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomGeometrySource("empty", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomGeometrySource(
+          "empty",
+          CustomGeometrySourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           requests += it
           release.await()
           noFeatures()
@@ -65,8 +71,13 @@ class BrowserCustomGeometrySourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomGeometrySource("retried", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
-          tile ->
+        CustomGeometrySource(
+          "retried",
+          CustomGeometrySourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) { tile ->
           if (failing) error("fixture provider failure")
           pointIn(tile)
         }
@@ -100,8 +111,13 @@ class BrowserCustomGeometrySourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomGeometrySource("failing", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
-          tile ->
+        CustomGeometrySource(
+          "failing",
+          CustomGeometrySourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) { tile ->
           requests++
           if (requests == 1) {
             fail.await()
@@ -128,7 +144,13 @@ class BrowserCustomGeometrySourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomGeometrySource("timing-out", CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomGeometrySource(
+          "timing-out",
+          CustomGeometrySourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           withTimeout(1.milliseconds) { awaitCancellation() }
         }
       val layer = TestLayer("timing-out-fill", "fill", source)
@@ -152,8 +174,13 @@ class BrowserCustomGeometrySourceTest {
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       style.withMap { it.jumpTo(unsafeJso<JumpToOptions> { zoom = 1.0 }) }
       val source =
-        CustomGeometrySource("in-flight", CustomGeometrySourceOptions(minZoom = 1, maxZoom = 1)) {
-          tile ->
+        CustomGeometrySource(
+          "in-flight",
+          CustomGeometrySourceOptions {
+            minZoom = 1
+            maxZoom = 1
+          },
+        ) { tile ->
           val name = revision
           requests[tile] = (requests[tile] ?: 0) + 1
           if (heldTile == null) heldTile = tile

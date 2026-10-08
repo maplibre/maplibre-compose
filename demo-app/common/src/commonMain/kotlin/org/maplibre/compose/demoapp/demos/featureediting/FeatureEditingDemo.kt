@@ -23,7 +23,6 @@ import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -65,9 +64,10 @@ object FeatureEditingDemo : Demo {
     val geometry = shown.geometry ?: shown.vertices.takeIf { it.size >= 2 }?.let(::LineString)
     val source =
       rememberGeoJsonSource(
-        GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) }))),
-        GeoJsonOptions(synchronousTiling = true),
-      )
+        GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) })))
+      ) {
+        synchronousTiling = true
+      }
     Anchor.Below({ it.type == "symbol" }) {
       if (editor.preview != null || editor.draft != null) {
         val original =
@@ -97,9 +97,10 @@ object FeatureEditingDemo : Demo {
                 Feature(Point(position), null, id = JsonPrimitive(index))
               }
             )
-          ),
-          GeoJsonOptions(synchronousTiling = true),
-        )
+          )
+        ) {
+          synchronousTiling = true
+        }
       CircleLayer(
         id = "editing-vertices",
         source = vertices,

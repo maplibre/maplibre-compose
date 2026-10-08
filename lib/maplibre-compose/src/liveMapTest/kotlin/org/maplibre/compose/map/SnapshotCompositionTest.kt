@@ -39,7 +39,6 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -65,7 +64,10 @@ class SnapshotCompositionTest {
         }
       )
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val bitmap = ImageBitmap(1, 1)
     var declared by mutableStateOf(true)
     var visible by mutableStateOf(true)
@@ -200,7 +202,10 @@ class SnapshotCompositionTest {
       )
     val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val painter = ColorPainter(Color.Red)
     try {
       val snapshotter =

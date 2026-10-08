@@ -44,7 +44,6 @@ import org.maplibre.compose.expressions.dsl.textVariableAnchorOffset
 import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.FontScaleGlobalState
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -58,7 +57,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun variable_anchor_offsets_reach_the_layer_through_the_public_api() = runTest {
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
 
     val style = composeStyle {
       SymbolLayer(
@@ -86,7 +88,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun dp_text_offsets_stay_fixed_when_font_scale_and_text_size_change() = runTest {
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val binding = RecordingStyleBinding()
     val fontScale = mutableStateOf(1f)
     val textSize = mutableStateOf(16.sp)
@@ -160,7 +165,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun root_font_scale_changes_one_global_without_rewriting_layer_expressions() = runTest {
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val binding = RecordingStyleBinding()
     val fontScale = mutableStateOf(1f)
     var originalLayers = emptyMap<String, JsonObject>()
@@ -197,7 +205,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun global_text_size_and_font_scale_keep_dp_offsets_fixed() = runTest {
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val binding = RecordingStyleBinding()
     val size = org.maplibre.compose.expressions.dsl.globalState("label-size").asNumber().sp
     composeStyle(binding, density = { Density(2f, 1.5f) }) {
@@ -216,7 +227,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun zoom_text_size_keeps_interpolation_at_the_root_and_em_offsets_literal() = runTest {
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val binding = RecordingStyleBinding()
     composeStyle(binding) {
       SymbolLayer(
@@ -252,7 +266,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun keyed_layers_reorder_and_release_their_images() = runGraphicsTest { graphics ->
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val pixels = ImageBitmap(2, 2)
     val icon =
       coalesce(
@@ -293,7 +310,10 @@ class SymbolLayerCompositionTest {
   fun image_requests_share_preparation_and_equal_pixels_share_installed_images() =
     runGraphicsTest { graphics ->
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       var draws = 0
       fun painter() =
         object : Painter() {
@@ -327,7 +347,10 @@ class SymbolLayerCompositionTest {
   @Test
   fun changing_an_expression_keeps_its_unchanged_painter_visible() = runGraphicsTest { graphics ->
     val source =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
     val frame = mutableStateOf(0)
     var draws = 0
     val painter =
@@ -371,7 +394,10 @@ class SymbolLayerCompositionTest {
   fun replacing_a_painter_releases_its_image_and_never_exposes_stale_ids() =
     runGraphicsTest { graphics ->
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       val replace = mutableStateOf(false)
       val red = ColorPainter(Color.Red)
       val blue = ColorPainter(Color.Blue)

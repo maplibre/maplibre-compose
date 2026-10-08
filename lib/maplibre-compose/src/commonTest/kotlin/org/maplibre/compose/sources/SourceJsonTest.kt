@@ -1,5 +1,6 @@
 package org.maplibre.compose.sources
 
+import androidx.compose.runtime.mutableStateOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -34,13 +35,13 @@ class SourceJsonTest {
   fun a_tile_set_writes_the_shared_tile_json_fields() {
     val json = buildJsonObject {
       putTileSetOptions(
-        TileSetOptions(
-          minZoom = 3,
-          maxZoom = 14,
-          scheme = TileScheme.Tms,
-          boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0)),
-          attributionHtml = "© someone",
-        )
+        TileSetOptions {
+          minZoom = 3
+          maxZoom = 14
+          scheme = TileScheme.Tms
+          boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0))
+          attributionHtml = "© someone"
+        }
       )
     }
 
@@ -57,7 +58,7 @@ class SourceJsonTest {
 
   @Test
   fun a_tile_set_omits_what_it_was_not_given() {
-    val json = buildJsonObject { putTileSetOptions(TileSetOptions()) }
+    val json = buildJsonObject { putTileSetOptions(TileSetOptions.Standard) }
 
     assertEquals("xyz", json["scheme"]?.jsonPrimitive?.content, "the spec's default scheme")
     assertNull(json["bounds"], "no bounding box means no bounds key")
@@ -70,16 +71,14 @@ class SourceJsonTest {
       RasterTileSource(
           id = "tiles",
           tiles = listOf("https://example.invalid/{z}/{x}/{y}.png"),
-          options =
-            TileSetOptions(
-              minZoom = 2,
-              maxZoom = 12,
-              scheme = TileScheme.Tms,
-              boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0)),
-              attributionHtml = "© someone",
-            ),
           tileSize = 512,
-        )
+        ) {
+          minZoom = 2
+          maxZoom = 12
+          scheme = TileScheme.Tms
+          boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0))
+          attributionHtml = "© someone"
+        }
         .toJson()
 
     assertEquals(
@@ -107,7 +106,7 @@ class SourceJsonTest {
 
   @Test
   fun geojson_options_stay_inside_the_style_spec() {
-    val json = buildJsonObject { putGeoJsonOptions(GeoJsonOptions()) }
+    val json = buildJsonObject { putGeoJsonOptions(GeoJsonOptions.Standard) }
 
     // The spec has no minzoom on a GeoJSON source: tiling always starts at zero. MapLibre GL JS
     // rejects the source over it, so only the MapLibre Native platforms write it.
@@ -116,11 +115,28 @@ class SourceJsonTest {
   }
 
   @Test
+  fun geojson_cluster_max_zoom_follows_max_zoom_unless_set() {
+    val options = GeoJsonOptions { maxZoom = 12 }
+    assertEquals(11, options.clusterMaxZoom)
+    assertEquals(9, GeoJsonOptions(from = options) { maxZoom = 10 }.clusterMaxZoom)
+    val explicit = GeoJsonOptions {
+      clusterMaxZoom = 7
+      maxZoom = 12
+    }
+    assertEquals(7, explicit.clusterMaxZoom)
+    assertEquals(7, GeoJsonOptions(from = explicit) { maxZoom = 10 }.clusterMaxZoom)
+
+    val state = mutableStateOf(options)
+    state.value = GeoJsonOptions(from = options) { clusterMaxZoom = options.clusterMaxZoom }
+    assertEquals(11, GeoJsonOptions(from = state.value) { maxZoom = 10 }.clusterMaxZoom)
+  }
+
+  @Test
   fun geojson_cluster_properties_are_written_operator_first() {
     val json = buildJsonObject {
       putGeoJsonOptions(
-        GeoJsonOptions(
-          cluster = true,
+        GeoJsonOptions {
+          cluster = true
           clusterProperties =
             mapOf(
               "total" to
@@ -128,8 +144,8 @@ class SourceJsonTest {
                   mapper = org.maplibre.compose.expressions.dsl.const(1),
                   reducer = org.maplibre.compose.expressions.dsl.const(2),
                 )
-            ),
-        )
+            )
+        }
       )
     }
 

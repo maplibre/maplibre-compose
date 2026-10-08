@@ -121,8 +121,13 @@ class CustomGeometrySourceTest {
   ): CustomGeometrySourceHandle {
     loadStyle(BlackStyle)
     val source =
-      CustomGeometrySource(SourceId, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) { tile
-        ->
+      CustomGeometrySource(
+        SourceId,
+        CustomGeometrySourceOptions {
+          minZoom = 0
+          maxZoom = 0
+        },
+      ) { tile ->
         requests += tile
         cover(tile.bounds, featureName)
       }
@@ -162,7 +167,13 @@ class CustomGeometrySourceTest {
     loadStyle(BlackStyle)
     val style = assertNotNull(style)
     val source =
-      CustomGeometrySource(SourceId, CustomGeometrySourceOptions(minZoom = 0, maxZoom = 0)) {
+      CustomGeometrySource(
+        SourceId,
+        CustomGeometrySourceOptions {
+          minZoom = 0
+          maxZoom = 0
+        },
+      ) {
         state.started = true
         try {
           awaitCancellation()

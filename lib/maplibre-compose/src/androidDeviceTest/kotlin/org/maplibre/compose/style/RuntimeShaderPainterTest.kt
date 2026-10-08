@@ -24,7 +24,6 @@ import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.runGraphicsTest
@@ -38,7 +37,10 @@ class RuntimeShaderPainterTest {
     runGraphicsTest { graphics ->
       val painter = shaderPainter()
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       var captured: PreparedImage? = null
       composeStyle(
         graphicsContext = graphics,
@@ -72,7 +74,10 @@ class RuntimeShaderPainterTest {
         )
       val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       val painter = shaderPainter()
       try {
         val snapshotter =

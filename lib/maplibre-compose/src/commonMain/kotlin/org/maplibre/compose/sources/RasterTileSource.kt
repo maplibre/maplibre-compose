@@ -36,21 +36,23 @@ public class RasterTileSource : RasterSource {
   /**
    * @param id Unique identifier for this source
    * @param tiles List of URIs pointing to tile images
-   * @param options see [TileSetOptions]
+   * @param from Initial tile settings. See [TileSetOptions]
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source. Defaults to 512, the style spec default.
+   * @param block Edits [from].
    */
   public constructor(
     id: String,
     tiles: List<String>,
-    options: TileSetOptions = TileSetOptions(),
     tileSize: Int = 512,
+    from: TileSetOptions = TileSetOptions.Standard,
+    block: TileSetOptions.Builder.() -> Unit = {},
   ) : super(id) {
     json = buildJsonObject {
       put("type", "raster")
       putJsonArray("tiles") { tiles.forEach { add(it) } }
       put("tileSize", tileSize)
-      putTileSetOptions(options)
+      putTileSetOptions(TileSetOptions(from, block))
     }
   }
 
@@ -71,14 +73,18 @@ public fun rememberRasterTileSource(
     rememberUserSource { RasterTileSource(id = it, uri = uri, tileSize = tileSize) }
   }
 
+/** Remembers a [RasterTileSource] from [tiles], with settings edited from [from]. */
 @Composable
 public fun rememberRasterTileSource(
   tiles: List<String>,
-  options: TileSetOptions = TileSetOptions(),
   tileSize: Int = 512,
-): RasterTileSource =
-  key(tiles, options, tileSize) {
+  from: TileSetOptions = TileSetOptions.Standard,
+  block: TileSetOptions.Builder.() -> Unit = {},
+): RasterTileSource {
+  val options = TileSetOptions(from, block)
+  return key(tiles, options, tileSize) {
     rememberUserSource {
-      RasterTileSource(id = it, tiles = tiles, options = options, tileSize = tileSize)
+      RasterTileSource(id = it, tiles = tiles, tileSize = tileSize, from = options)
     }
   }
+}

@@ -31,7 +31,7 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 @Composable
 public fun rememberOfflinePacksSource(
   offlinePacks: Set<OfflinePack>,
-  options: GeoJsonOptions = GeoJsonOptions(),
+  options: GeoJsonOptions = GeoJsonOptions.Standard,
   putExtraProperties: JsonObjectBuilder.(pack: OfflinePack, metadata: ByteArray?) -> Unit =
     { _, _ ->
     },
@@ -42,7 +42,7 @@ public fun rememberOfflinePacksSource(
     }
   }
   return rememberGeoJsonSource(
-    options = options,
+    from = options,
     data =
       GeoJsonData.Features(
         buildFeatureCollection {

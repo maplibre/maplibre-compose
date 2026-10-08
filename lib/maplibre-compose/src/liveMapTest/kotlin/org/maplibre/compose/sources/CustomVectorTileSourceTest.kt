@@ -44,7 +44,10 @@ class CustomVectorTileSourceTest {
       val source =
         CustomVectorTileSource(
           SourceId,
-          CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
         ) { tile ->
           requests += tile
           PointMvtTile
@@ -97,7 +100,10 @@ class CustomVectorTileSourceTest {
           val source =
             CustomVectorTileSource(
               SourceId,
-              CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
+              CustomVectorTileSourceOptions {
+                minZoom = 0
+                maxZoom = 0
+              },
             ) { tile ->
               calls += tile
               throw failure
@@ -130,7 +136,13 @@ class CustomVectorTileSourceTest {
       fixture.loadStyle(BlackStyle)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorTileSource(SourceId, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(
+          SourceId,
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           state.started = true
           try {
             awaitCancellation()
@@ -157,7 +169,13 @@ class CustomVectorTileSourceTest {
       fixture.loadStyle(BlackStyle)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorTileSource(SourceId, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(
+          SourceId,
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) {
           state.started = true
           try {
             awaitCancellation()

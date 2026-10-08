@@ -29,7 +29,6 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.implementation
@@ -133,7 +132,6 @@ class StyleResourceCommandTest {
                 GeoJsonSource(
                   "points",
                   GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                  GeoJsonOptions(),
                 )
               )
             }

@@ -79,7 +79,6 @@ class GeoJsonSourceUpdateTest {
         GeoJsonSource(
           SourceId,
           GeoJsonData.Features(pointAt(Origin)),
-          GeoJsonOptions(),
         )
       fixture.state.style.sources.add(source)
       val layer = TestLayer(LayerId, "circle", source)
@@ -175,8 +174,9 @@ class GeoJsonSourceUpdateTest {
         GeoJsonSource(
           SourceId,
           GeoJsonData.Features(pointAt(Origin)),
-          GeoJsonOptions(synchronousTiling = true),
-        )
+        ) {
+          synchronousTiling = true
+        }
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
       val layer = TestLayer(LayerId, "circle", source)
       layer.paint("circle-radius", (const(16.dp).compile(ExpressionContext.None)).asLayerProperty())

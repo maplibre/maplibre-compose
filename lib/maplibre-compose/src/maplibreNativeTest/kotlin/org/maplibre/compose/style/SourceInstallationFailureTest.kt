@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.testing.MapTestResult
@@ -99,14 +98,12 @@ class SourceInstallationFailureTest {
           GeoJsonSource(
               "geojson",
               GeoJsonData.Uri("https://example.invalid/first.json"),
-              GeoJsonOptions(),
             )
             .definition()
         val next =
           GeoJsonSource(
               "geojson",
               GeoJsonData.Uri("https://example.invalid/next.json"),
-              GeoJsonOptions(),
             )
             .definition()
         val installation = SourceInstallation(binding, initial)

@@ -34,7 +34,6 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
@@ -59,7 +58,10 @@ class LayerPropertyRoundTripTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       style.install(source)
       for ((index, case) in Cases.withIndex()) {
         val before = TestLayer("before-$index", "symbol", source)
@@ -118,7 +120,10 @@ class LayerPropertyRoundTripTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+        GeoJsonSource(
+          "features",
+          GeoJsonData.Features(featureCollectionOf()),
+        )
       style.install(source)
       val layer = TestLayer("filtered", "circle", source)
       val original = Json.parseToJsonElement("""["==",["get","class"],"park"]""")

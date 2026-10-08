@@ -24,7 +24,6 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
@@ -276,7 +275,11 @@ class NativeMapSnapshotterTest {
     data: () -> GeoJsonData = { PointData }
   ): @Composable @MaplibreComposable () -> Unit {
     return {
-      val points = GeoJsonSource(id = "points", data = data(), options = GeoJsonOptions())
+      val points =
+        GeoJsonSource(
+          id = "points",
+          data = data(),
+        )
       CircleLayer(
         id = "composed-circle",
         source = points,

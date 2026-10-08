@@ -32,7 +32,6 @@ class SourceVolatilityTest {
         VectorTileSource(
           "tiles",
           listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-          TileSetOptions(),
         )
       binding.readMap { binding.addSource(source.definition()) }
       val featureHandle = binding.handle(source) as VectorTileSourceHandle
@@ -98,7 +97,11 @@ class SourceVolatilityTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val source = VectorTileSource("tiles", emptyList(), TileSetOptions())
+      val source =
+        VectorTileSource(
+          "tiles",
+          emptyList(),
+        )
       binding.readMap { binding.addSource(source.definition()) }
       var replaceAfterValidation: (() -> Unit)? = null
       fun handle() =
@@ -143,7 +146,6 @@ class SourceVolatilityTest {
           VectorTileSource(
             "tiles",
             listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-            TileSetOptions(),
           )
         fixture.state.style.sources.add(source)
         val handle = assertNotNull(fixture.state.style.sources[source.id])
@@ -173,7 +175,7 @@ class SourceVolatilityTest {
           id = source.id,
           kind = "vector",
           attributionHtml = source.attributionHtml,
-          options = GeoJsonOptions(),
+          options = GeoJsonOptions.Standard,
           currentKind = {
             val current = identity.sources.isCurrent(source.id, resource)
             if (current) afterValidation()

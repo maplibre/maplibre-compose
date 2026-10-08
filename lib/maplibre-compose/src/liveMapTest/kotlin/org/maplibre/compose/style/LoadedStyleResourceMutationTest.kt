@@ -10,7 +10,6 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.testing.MapTestResult
@@ -27,7 +26,6 @@ class LoadedStyleResourceMutationTest {
         GeoJsonSource(
           id = "imperative",
           data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          options = GeoJsonOptions(),
         )
 
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
@@ -56,7 +54,6 @@ class LoadedStyleResourceMutationTest {
         GeoJsonSource(
           "installed",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-          GeoJsonOptions(),
         )
       val rejected =
         StyleSnapshot(

@@ -14,7 +14,6 @@ import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -39,7 +38,6 @@ class MlnFfiLayerKeyRoundTripTest {
         GeoJsonSource(
             id = SourceId,
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
-            options = GeoJsonOptions(),
           )
           .also { source -> runBlocking { style.install(source) } }
 

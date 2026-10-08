@@ -31,7 +31,6 @@ import org.maplibre.compose.gljs.waitUntilMap
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RgbaPixel
@@ -364,7 +363,6 @@ class BrowserMapSnapshotterTest {
               addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
             }
           ),
-        options = GeoJsonOptions(),
       )
     SymbolLayer(
       id = "composed-icon",
@@ -416,7 +414,6 @@ class BrowserMapSnapshotterTest {
                 addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
               }
             ),
-          options = GeoJsonOptions(),
         )
       CircleLayer(
         id = "composed-circle",

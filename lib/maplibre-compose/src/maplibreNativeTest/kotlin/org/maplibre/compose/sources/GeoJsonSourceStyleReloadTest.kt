@@ -20,7 +20,6 @@ class GeoJsonSourceStyleReloadTest {
         GeoJsonSource(
           id = "points",
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList())),
-          options = GeoJsonOptions(),
         )
       val handle = assertIs<MutableGeoJsonSourceHandle>(fixture.state.style.sources.add(source))
 

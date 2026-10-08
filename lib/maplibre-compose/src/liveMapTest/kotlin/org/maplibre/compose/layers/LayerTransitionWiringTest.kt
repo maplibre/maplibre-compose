@@ -10,12 +10,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.RasterDemEncoding
 import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.RasterTileSource
-import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.testing.composeStyle
@@ -305,13 +303,15 @@ class LayerTransitionWiringTest {
       )
 
     fun featureSource() =
-      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      GeoJsonSource(
+        "features",
+        GeoJsonData.Features(featureCollectionOf()),
+      )
 
     fun rasterSource() =
       RasterTileSource(
         id = "raster",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(),
         tileSize = 256,
       )
 
@@ -319,7 +319,6 @@ class LayerTransitionWiringTest {
       RasterDemTileSource(
         id = "dem",
         tiles = listOf(TileTemplate),
-        options = TileSetOptions(),
         tileSize = 256,
         encoding = RasterDemEncoding.Terrarium,
       )
