@@ -1011,7 +1011,8 @@ internal class GlJsMapSession(
     map?.let { applyCameraConstraints(it, value) }
   }
 
-  override fun getCameraConstraints(): CameraConstraints = cameraConstraints ?: CameraConstraints()
+  override fun getCameraConstraints(): CameraConstraints =
+    cameraConstraints ?: CameraConstraints.Standard
 
   private fun applyCameraConstraints(map: MaplibreMap, value: CameraConstraints) {
     if (map.getMaxBounds()?.toBoundingBox() != value.boundingBox) {

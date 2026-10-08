@@ -2259,16 +2259,9 @@ public final class org/maplibre/compose/map/AndroidRenderMode : java/lang/Enum {
 
 public final class org/maplibre/compose/map/CameraConstraints {
 	public static final field $stable I
-	public fun <init> ()V
-	public fun <init> (DDDDLorg/maplibre/spatialk/geojson/BoundingBox;)V
-	public synthetic fun <init> (DDDDLorg/maplibre/spatialk/geojson/BoundingBox;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()D
-	public final fun component2 ()D
-	public final fun component3 ()D
-	public final fun component4 ()D
-	public final fun component5 ()Lorg/maplibre/spatialk/geojson/BoundingBox;
-	public final fun copy (DDDDLorg/maplibre/spatialk/geojson/BoundingBox;)Lorg/maplibre/compose/map/CameraConstraints;
-	public static synthetic fun copy$default (Lorg/maplibre/compose/map/CameraConstraints;DDDDLorg/maplibre/spatialk/geojson/BoundingBox;ILjava/lang/Object;)Lorg/maplibre/compose/map/CameraConstraints;
+	public static final field Companion Lorg/maplibre/compose/map/CameraConstraints$Companion;
+	public fun <init> (Lorg/maplibre/compose/map/CameraConstraints;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/map/CameraConstraints;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBoundingBox ()Lorg/maplibre/spatialk/geojson/BoundingBox;
 	public final fun getMaxPitch ()D
@@ -2277,6 +2270,24 @@ public final class org/maplibre/compose/map/CameraConstraints {
 	public final fun getMinZoom ()D
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/map/CameraConstraints$Builder {
+	public static final field $stable I
+	public final fun getBoundingBox ()Lorg/maplibre/spatialk/geojson/BoundingBox;
+	public final fun getMaxPitch ()D
+	public final fun getMaxZoom ()D
+	public final fun getMinPitch ()D
+	public final fun getMinZoom ()D
+	public final fun setBoundingBox (Lorg/maplibre/spatialk/geojson/BoundingBox;)V
+	public final fun setMaxPitch (D)V
+	public final fun setMaxZoom (D)V
+	public final fun setMinPitch (D)V
+	public final fun setMinZoom (D)V
+}
+
+public final class org/maplibre/compose/map/CameraConstraints$Companion {
+	public final fun getStandard ()Lorg/maplibre/compose/map/CameraConstraints;
 }
 
 public abstract interface class org/maplibre/compose/map/CameraProjection {
@@ -2489,15 +2500,8 @@ public final class org/maplibre/compose/map/MapSnapshotException : java/lang/Run
 
 public final class org/maplibre/compose/map/MapSnapshotRequest {
 	public static final field $stable I
-	public synthetic fun <init> (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZLkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-MYxV2XQ ()J
-	public final fun component2 ()Lorg/maplibre/compose/camera/CameraPosition;
-	public final fun component3 ()Landroidx/compose/ui/unit/Density;
-	public final fun component4 ()Landroidx/compose/ui/unit/LayoutDirection;
-	public final fun component5 ()Z
-	public final fun copy-IbIYxLY (JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;Z)Lorg/maplibre/compose/map/MapSnapshotRequest;
-	public static synthetic fun copy-IbIYxLY$default (Lorg/maplibre/compose/map/MapSnapshotRequest;JLorg/maplibre/compose/camera/CameraPosition;Landroidx/compose/ui/unit/Density;Landroidx/compose/ui/unit/LayoutDirection;ZILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotRequest;
+	public synthetic fun <init> (JLkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JLkotlin/jvm/functions/Function1;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
 	public final fun getDensity ()Landroidx/compose/ui/unit/Density;
@@ -2508,11 +2512,28 @@ public final class org/maplibre/compose/map/MapSnapshotRequest {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/map/MapSnapshotRequest$Builder {
+	public static final field $stable I
+	public final fun getCameraPosition ()Lorg/maplibre/compose/camera/CameraPosition;
+	public final fun getDensity ()Landroidx/compose/ui/unit/Density;
+	public final fun getLayoutDirection ()Landroidx/compose/ui/unit/LayoutDirection;
+	public final fun getTransparent ()Z
+	public final fun setCameraPosition (Lorg/maplibre/compose/camera/CameraPosition;)V
+	public final fun setDensity (Landroidx/compose/ui/unit/Density;)V
+	public final fun setLayoutDirection (Landroidx/compose/ui/unit/LayoutDirection;)V
+	public final fun setTransparent (Z)V
+}
+
 public abstract interface class org/maplibre/compose/map/MapSnapshotter {
 	public abstract fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun capture (Lorg/maplibre/compose/map/MapSnapshotRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun capture-qzXmJYc (JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun capture-qzXmJYc$default (Lorg/maplibre/compose/map/MapSnapshotter;JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public abstract fun close ()V
 	public abstract fun getStyle ()Lorg/maplibre/compose/map/MapStyleState;
+}
+
+public final class org/maplibre/compose/map/MapSnapshotter$DefaultImpls {
+	public static synthetic fun capture-qzXmJYc$default (Lorg/maplibre/compose/map/MapSnapshotter;JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class org/maplibre/compose/map/MapState {

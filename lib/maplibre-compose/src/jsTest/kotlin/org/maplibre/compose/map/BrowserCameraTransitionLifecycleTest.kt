@@ -80,7 +80,7 @@ class BrowserCameraTransitionLifecycleTest {
         fixture ->
         fixture.loadStyle(BaseStyle.Empty)
         fixture.awaitMapReady()
-        fixture.session.setCameraConstraints(CameraConstraints(maxPitch = 85.0))
+        fixture.session.setCameraConstraints(CameraConstraints { maxPitch = 85.0 })
         fixture.state.setCameraPosition(CameraPosition(zoom = 1.0, pitch = 80.0))
         fixture.pumpUntil("the pitched camera to apply") {
           abs(fixture.session.getCameraPosition().pitch - 80.0) < 0.01

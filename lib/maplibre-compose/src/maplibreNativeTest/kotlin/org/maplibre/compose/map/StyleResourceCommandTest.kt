@@ -168,7 +168,7 @@ class StyleResourceCommandTest {
     val parked = TestLatch(1)
     val release = TestLatch(1)
     try {
-      snapshotter.capture(MapSnapshotRequest(DpSize(8.dp, 8.dp)))
+      snapshotter.capture(DpSize(8.dp, 8.dp))
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
       val imageSource =
         checkNotNull(snapshotter.style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))

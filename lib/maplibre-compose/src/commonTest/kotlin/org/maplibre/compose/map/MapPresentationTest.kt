@@ -3312,7 +3312,7 @@ internal open class PresentationTestAdapter(
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 
-  override fun getCameraConstraints(): CameraConstraints = CameraConstraints()
+  override fun getCameraConstraints(): CameraConstraints = CameraConstraints.Standard
 
   override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     presentationWasVisibleWhileConfiguring =

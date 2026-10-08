@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.map.MapRuntime
-import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -29,14 +28,13 @@ suspend fun captureCurrentMap(
       content = content,
     )
   return try {
-    snapshotter.capture(
-      MapSnapshotRequest(
-        size = DpSize(640.dp, 360.dp),
-        cameraPosition = mapState.cameraPosition,
-        density = density,
-        layoutDirection = layoutDirection,
-      )
-    )
+    val captureDensity = density
+    val captureLayoutDirection = layoutDirection
+    snapshotter.capture(DpSize(640.dp, 360.dp)) {
+      cameraPosition = mapState.cameraPosition
+      this.density = captureDensity
+      this.layoutDirection = captureLayoutDirection
+    }
   } finally {
     withContext(NonCancellable) {
       snapshotter.close()

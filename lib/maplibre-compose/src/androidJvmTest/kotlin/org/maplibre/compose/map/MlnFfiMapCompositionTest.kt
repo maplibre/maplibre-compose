@@ -539,15 +539,19 @@ class MlnFfiMapCompositionTest {
           cameraPosition = CameraPosition(zoom = 1.0),
           baseStyle = BaseStyle.Empty,
         )
-      var constraints by mutableStateOf(CameraConstraints())
+      var constraints by mutableStateOf(CameraConstraints.Standard)
 
       setFfiTestMapContent(runtimeOptions) {
         MaplibreMap(state = state, cameraConstraints = constraints)
       }
       waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment != null }
       val session = requireNotNull(state.currentMapAttachment).adapter
-      val updated =
-        CameraConstraints(minZoom = 2.0, maxZoom = 18.0, minPitch = 3.0, maxPitch = 45.0)
+      val updated = CameraConstraints {
+        minZoom = 2.0
+        maxZoom = 18.0
+        minPitch = 3.0
+        maxPitch = 45.0
+      }
 
       constraints = updated
       waitUntil(timeoutMillis = RenderTimeoutMillis) {
@@ -647,7 +651,7 @@ class MlnFfiMapCompositionTest {
             evaluatorIdentities.size == 1
         }
         val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, content)
-        val image = snapshotter.capture(MapSnapshotRequest(DpSize(16.dp, 16.dp)))
+        val image = snapshotter.capture(DpSize(16.dp, 16.dp))
 
         assertEquals(16, image.width)
         assertEquals(16, image.height)

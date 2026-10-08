@@ -40,7 +40,7 @@ class MlnFfiEngineStartupTest {
           maxZoomBefore = map.bounds.maxZoom
         }
 
-        session.setCameraConstraints(CameraConstraints(maxZoom = 10.0))
+        session.setCameraConstraints(CameraConstraints { maxZoom = 10.0 })
         session.loop.submit { map ->
           order += "after constraints"
           maxZoomAfter = map.bounds.maxZoom

@@ -9,7 +9,7 @@ import org.maplibre.compose.interaction.MapInteractions
 @Immutable
 internal data class MapViewOptions(
   val viewportInsets: PaddingValues = PaddingValues(0.dp),
-  val cameraConstraints: CameraConstraints = CameraConstraints(),
+  val cameraConstraints: CameraConstraints = CameraConstraints.Standard,
   val renderOptions: RenderOptions = RenderOptions.Standard,
   val interactions: MapInteractions = MapInteractions.Standard,
   val uiOptions: MapUiOptions = MapUiOptions.Standard,
