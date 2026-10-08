@@ -419,8 +419,8 @@ private fun CameraPosition.isCloseTo(other: CameraPosition): Boolean =
   abs(bearing - other.bearing) < 0.000001 &&
     abs(pitch - other.pitch) < 0.000001 &&
     abs(zoom - other.zoom) < 0.000001 &&
-    abs(target.longitude - other.target.longitude) < 0.000001 &&
-    abs(target.latitude - other.target.latitude) < 0.000001
+    abs(center.longitude - other.center.longitude) < 0.000001 &&
+    abs(center.latitude - other.center.latitude) < 0.000001
 
 private fun assertCameraPosition(expected: CameraPosition, actual: CameraPosition) {
   assertTrue(actual.isCloseTo(expected), "Expected camera $expected, actual=$actual")
