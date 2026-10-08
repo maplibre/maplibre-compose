@@ -126,8 +126,8 @@ public expect class MapRuntimeOptions {
 
   /**
    * The dispatcher whose thread owns this runtime's map states and receives engine callbacks.
-   * Defaults to [Dispatchers.Main], using its immediate dispatcher when the runtime is created.
-   * Runtime creation fails if no main dispatcher is installed. In that case, pass another
+   * Defaults to [Dispatchers.Main]. A [Dispatchers.Main] value uses its immediate dispatcher when
+   * the runtime is created. Runtime creation fails if no main dispatcher is installed. Pass another
    * single-threaded dispatcher. [Dispatchers.Unconfined] is rejected.
    */
   public val mainDispatcher: CoroutineDispatcher
