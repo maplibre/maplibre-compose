@@ -21,11 +21,11 @@ public annotation class MapInteractionDsl
  * What gestures, scrolling, and keys do is set in [org.maplibre.compose.map.MapUiOptions].
  */
 @Immutable
-public class MapInteractions
+public data class MapInteractions
 private constructor(
+  public val animationDuration: Duration = 300.milliseconds,
   internal val camera: CameraConfiguration,
   internal val callbacks: InteractionCallbacks,
-  public val animationDuration: Duration = 300.milliseconds,
 ) {
   /** Edits [from]; omitted settings inherit. */
   public constructor(
@@ -36,18 +36,10 @@ private constructor(
   private constructor(
     builder: Builder
   ) : this(
+    builder.animationDuration,
     builder.cameraBuilder.build(),
     builder.callbacksBuilder.build(),
-    builder.animationDuration,
   )
-
-  override fun equals(other: Any?): Boolean =
-    other is MapInteractions &&
-      camera == other.camera &&
-      callbacks == other.callbacks &&
-      animationDuration == other.animationDuration
-
-  override fun hashCode(): Int = listOf(camera, callbacks, animationDuration).hashCode()
 
   // Callbacks are functions, so only their presence is shown.
   override fun toString(): String =
@@ -87,7 +79,7 @@ private constructor(
   public companion object {
     /** Every camera movement allowed, with no callbacks. */
     public val Standard: MapInteractions =
-      MapInteractions(CameraConfiguration(), InteractionCallbacks())
+      MapInteractions(camera = CameraConfiguration(), callbacks = InteractionCallbacks())
 
     /** No camera movement allowed and no callbacks. */
     public val None: MapInteractions =

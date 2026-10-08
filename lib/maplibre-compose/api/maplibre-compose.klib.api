@@ -219,6 +219,8 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         final val easing // org.maplibre.compose.camera/CameraAnimation.Ease.easing|{}easing[0]
             final fun <get-easing>(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Ease.easing.<get-easing>|<get-easing>(){}[0]
 
+        final fun component1(): kotlin.time/Duration // org.maplibre.compose.camera/CameraAnimation.Ease.component1|component1(){}[0]
+        final fun component2(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Ease.component2|component2(){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.camera/CameraAnimation.Ease.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.camera/CameraAnimation.Ease.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.camera/CameraAnimation.Ease.toString|toString(){}[0]
@@ -250,6 +252,10 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         final val speed // org.maplibre.compose.camera/CameraAnimation.Fly.speed|{}speed[0]
             final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.speed.<get-speed>|<get-speed>(){}[0]
 
+        final fun component1(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.component1|component1(){}[0]
+        final fun component2(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.component2|component2(){}[0]
+        final fun component3(): org.maplibre.compose.camera/CubicBezier // org.maplibre.compose.camera/CameraAnimation.Fly.component3|component3(){}[0]
+        final fun component4(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component4|component4(){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.camera/CameraAnimation.Fly.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.camera/CameraAnimation.Fly.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.camera/CameraAnimation.Fly.toString|toString(){}[0]
@@ -307,6 +313,15 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
         // Targets: [js]
         final val screenSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed|{}screenSpeed[0]
             final fun <get-screenSpeed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed.<get-screenSpeed>|<get-screenSpeed>(){}[0]
+
+        // Targets: [js]
+        final fun component5(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.component5|component5(){}[0]
+
+        // Targets: [js]
+        final fun component6(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component6|component6(){}[0]
+
+        // Targets: [js]
+        final fun component7(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.component7|component7(){}[0]
     }
 }
 
@@ -1417,6 +1432,7 @@ final class org.maplibre.compose.interaction/MapInteractions { // org.maplibre.c
     final val animationDuration // org.maplibre.compose.interaction/MapInteractions.animationDuration|{}animationDuration[0]
         final fun <get-animationDuration>(): kotlin.time/Duration // org.maplibre.compose.interaction/MapInteractions.animationDuration.<get-animationDuration>|<get-animationDuration>(){}[0]
 
+    final fun component1(): kotlin.time/Duration // org.maplibre.compose.interaction/MapInteractions.component1|component1(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.interaction/MapInteractions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.interaction/MapInteractions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.interaction/MapInteractions.toString|toString(){}[0]
@@ -1778,6 +1794,11 @@ final class org.maplibre.compose.map/CameraConstraints { // org.maplibre.compose
     final val minZoom // org.maplibre.compose.map/CameraConstraints.minZoom|{}minZoom[0]
         final fun <get-minZoom>(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.minZoom.<get-minZoom>|<get-minZoom>(){}[0]
 
+    final fun component1(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component1|component1(){}[0]
+    final fun component2(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component2|component2(){}[0]
+    final fun component3(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component3|component3(){}[0]
+    final fun component4(): kotlin/Double // org.maplibre.compose.map/CameraConstraints.component4|component4(){}[0]
+    final fun component5(): org.maplibre.spatialk.geojson/BoundingBox? // org.maplibre.compose.map/CameraConstraints.component5|component5(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/CameraConstraints.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/CameraConstraints.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/CameraConstraints.toString|toString(){}[0]
@@ -1807,11 +1828,17 @@ final class org.maplibre.compose.map/CameraConstraints { // org.maplibre.compose
 }
 
 final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map/DebugOverlays|null[0]
+    constructor <init>(org.maplibre.compose.map/DebugOverlays = ..., kotlin/Function1<org.maplibre.compose.map/DebugOverlays.Builder, kotlin/Unit>) // org.maplibre.compose.map/DebugOverlays.<init>|<init>(org.maplibre.compose.map.DebugOverlays;kotlin.Function1<org.maplibre.compose.map.DebugOverlays.Builder,kotlin.Unit>){}[0]
+
     final val collisionBoxes // org.maplibre.compose.map/DebugOverlays.collisionBoxes|{}collisionBoxes[0]
         final fun <get-collisionBoxes>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.collisionBoxes.<get-collisionBoxes>|<get-collisionBoxes>(){}[0]
     final val tileBorders // org.maplibre.compose.map/DebugOverlays.tileBorders|{}tileBorders[0]
         final fun <get-tileBorders>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.tileBorders.<get-tileBorders>|<get-tileBorders>(){}[0]
 
+    final fun component1(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.component1|component1(){}[0]
+    final fun component2(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.component2|component2(){}[0]
+    final fun component3(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.component3|component3(){}[0]
+    final fun component4(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.component4|component4(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/DebugOverlays.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/DebugOverlays.toString|toString(){}[0]
@@ -1968,6 +1995,11 @@ final class org.maplibre.compose.map/MapSnapshotRequest { // org.maplibre.compos
     final val transparent // org.maplibre.compose.map/MapSnapshotRequest.transparent|{}transparent[0]
         final fun <get-transparent>(): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.transparent.<get-transparent>|<get-transparent>(){}[0]
 
+    final fun component1(): androidx.compose.ui.unit/DpSize // org.maplibre.compose.map/MapSnapshotRequest.component1|component1(){}[0]
+    final fun component2(): org.maplibre.compose.camera/CameraPosition // org.maplibre.compose.map/MapSnapshotRequest.component2|component2(){}[0]
+    final fun component3(): androidx.compose.ui.unit/Density // org.maplibre.compose.map/MapSnapshotRequest.component3|component3(){}[0]
+    final fun component4(): androidx.compose.ui.unit/LayoutDirection // org.maplibre.compose.map/MapSnapshotRequest.component4|component4(){}[0]
+    final fun component5(): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.component5|component5(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapSnapshotRequest.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapSnapshotRequest.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/MapSnapshotRequest.toString|toString(){}[0]
@@ -2070,6 +2102,7 @@ final class org.maplibre.compose.map/MapUiOptions { // org.maplibre.compose.map/
     final val loadColor // org.maplibre.compose.map/MapUiOptions.loadColor|{}loadColor[0]
         final fun <get-loadColor>(): androidx.compose.ui.graphics/Color // org.maplibre.compose.map/MapUiOptions.loadColor.<get-loadColor>|<get-loadColor>(){}[0]
 
+    final fun component1(): androidx.compose.ui.graphics/Color // org.maplibre.compose.map/MapUiOptions.component1|component1(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/MapUiOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/MapUiOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/MapUiOptions.toString|toString(){}[0]
@@ -2122,6 +2155,9 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
     final val tileLod // org.maplibre.compose.map/RenderOptions.tileLod|{}tileLod[0]
         final fun <get-tileLod>(): org.maplibre.compose.map/TileLodOptions // org.maplibre.compose.map/RenderOptions.tileLod.<get-tileLod>|<get-tileLod>(){}[0]
 
+    final fun component1(): kotlin/Int? // org.maplibre.compose.map/RenderOptions.component1|component1(){}[0]
+    final fun component2(): org.maplibre.compose.map/TileLodOptions // org.maplibre.compose.map/RenderOptions.component2|component2(){}[0]
+    final fun component3(): org.maplibre.compose.map/DebugOverlays // org.maplibre.compose.map/RenderOptions.component3|component3(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.map/RenderOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.map/RenderOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/RenderOptions.toString|toString(){}[0]
@@ -2152,6 +2188,9 @@ final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map
     // Targets: [apple]
     final val cameraProjection // org.maplibre.compose.map/RenderOptions.cameraProjection|{}cameraProjection[0]
         final fun <get-cameraProjection>(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/RenderOptions.cameraProjection.<get-cameraProjection>|<get-cameraProjection>(){}[0]
+
+    // Targets: [apple]
+    final fun component4(): org.maplibre.compose.map/CameraProjection // org.maplibre.compose.map/RenderOptions.component4|component4(){}[0]
 }
 
 final class org.maplibre.compose.map/RenderStats { // org.maplibre.compose.map/RenderStats|null[0]
@@ -2705,6 +2744,17 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
     final val tolerance // org.maplibre.compose.sources/GeoJsonOptions.tolerance|{}tolerance[0]
         final fun <get-tolerance>(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.tolerance.<get-tolerance>|<get-tolerance>(){}[0]
 
+    final fun component1(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component1|component1(){}[0]
+    final fun component10(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component10|component10(){}[0]
+    final fun component11(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component11|component11(){}[0]
+    final fun component2(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component3|component3(){}[0]
+    final fun component4(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.component4|component4(){}[0]
+    final fun component5(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component5|component5(){}[0]
+    final fun component6(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component6|component6(){}[0]
+    final fun component7(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component7|component7(){}[0]
+    final fun component8(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component8|component8(){}[0]
+    final fun component9(): kotlin.collections/Map<kotlin/String, org.maplibre.compose.sources/GeoJsonOptions.ClusterPropertyAggregator<*>> // org.maplibre.compose.sources/GeoJsonOptions.component9|component9(){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.sources/GeoJsonOptions.toString|toString(){}[0]
@@ -3920,8 +3970,6 @@ final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraPosition
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop|#static{}org_maplibre_compose_camera_CameraUpdate$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop|#static{}org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop|#static{}org_maplibre_compose_camera_CubicBezier$stableprop[0]
-final val org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop|#static{}org_maplibre_compose_camera_EaseFields_Builder$stableprop[0]
-final val org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop|#static{}org_maplibre_compose_camera_FlyFields_Builder$stableprop[0]
 final val org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop // org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop|#static{}org_maplibre_compose_camera_Viewport$stableprop[0]
 final val org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop // org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop|#static{}org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop[0]
 final val org.maplibre.compose.expressions.dsl/dp // org.maplibre.compose.expressions.dsl/dp|@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>{}dp[0]
@@ -4306,8 +4354,6 @@ final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraPosition
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate$stableprop_getter|org_maplibre_compose_camera_CameraUpdate$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter|org_maplibre_compose_camera_CameraUpdate_$serializer$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_CubicBezier$stableprop_getter|org_maplibre_compose_camera_CubicBezier$stableprop_getter(){}[0]
-final fun org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter|org_maplibre_compose_camera_EaseFields_Builder$stableprop_getter(){}[0]
-final fun org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter|org_maplibre_compose_camera_FlyFields_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop_getter(): kotlin/Int // org.maplibre.compose.camera/org_maplibre_compose_camera_Viewport$stableprop_getter|org_maplibre_compose_camera_Viewport$stableprop_getter(){}[0]
 final fun org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions.ast/org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter|org_maplibre_compose_expressions_ast_ExpressionContext_None$stableprop_getter(){}[0]
 final fun org.maplibre.compose.expressions.dsl/acos(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>> // org.maplibre.compose.expressions.dsl/acos|acos(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>){}[0]
