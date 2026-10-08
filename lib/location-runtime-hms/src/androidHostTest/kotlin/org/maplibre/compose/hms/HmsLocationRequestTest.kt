@@ -12,13 +12,12 @@ class HmsLocationRequestTest {
 
   @Test
   fun mapsRequestFieldsAndSelectsWgs84() {
-    val request =
-      LocationRequest(
-          accuracy = LocationAccuracy.Balanced,
-          minimumInterval = 3.seconds,
-          minimumDistance = 7.meters,
-        )
-        .asHmsLocationRequest()
+    val request = LocationRequest {
+      accuracy = LocationAccuracy.Balanced
+      minimumInterval = 3.seconds
+      minimumDistance = 7.meters
+    }
+      .asHmsLocationRequest()
 
     assertEquals(HmsLocationRequest.PRIORITY_BALANCED_POWER_ACCURACY, request.priority)
     assertEquals(3_000L, request.interval)

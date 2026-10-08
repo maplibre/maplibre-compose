@@ -164,11 +164,11 @@ class WindowsLocationProviderTest {
       backgroundScope.launch(Dispatchers.Unconfined) {
         provider
           .updates(
-            LocationRequest(
-              accuracy = LocationAccuracy.Low,
-              minimumInterval = 2.seconds,
-              minimumDistance = 20.meters,
-            )
+            LocationRequest {
+              accuracy = LocationAccuracy.Low
+              minimumInterval = 2.seconds
+              minimumDistance = 20.meters
+            }
           )
           .collect { events += it }
       }
@@ -205,11 +205,11 @@ class WindowsLocationProviderTest {
     val provider = WindowsLocationProvider(client)
     val first =
       backgroundScope.launch(Dispatchers.Unconfined) {
-        provider.updates(LocationRequest()).collect {}
+        provider.updates(LocationRequest.Standard).collect {}
       }
     val second =
       backgroundScope.launch(Dispatchers.Unconfined) {
-        provider.updates(LocationRequest()).collect {}
+        provider.updates(LocationRequest.Standard).collect {}
       }
 
     assertEquals(2, client.sessions.size)
@@ -239,7 +239,7 @@ class WindowsLocationProviderTest {
     val provider = WindowsLocationProvider(client)
     val collector =
       backgroundScope.launch(Dispatchers.Default) {
-        provider.updates(LocationRequest()).collect {}
+        provider.updates(LocationRequest.Standard).collect {}
       }
 
     try {
@@ -267,7 +267,7 @@ class WindowsLocationProviderTest {
     }
     val collector =
       backgroundScope.launch(Dispatchers.Unconfined) {
-        provider.updates(LocationRequest()).collect {}
+        provider.updates(LocationRequest.Standard).collect {}
       }
     collector.join()
 
@@ -283,7 +283,7 @@ class WindowsLocationProviderTest {
     provider.close()
 
     assertFailsWith<IllegalStateException> { provider.requestPermission() }
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
     assertEquals(0, client.accessRequests)
     assertTrue(client.sessions.isEmpty())
     assertEquals(1, client.closeCount)
@@ -298,7 +298,7 @@ class WindowsLocationProviderTest {
       )
     val provider = WindowsLocationProvider(client)
 
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
     assertTrue(client.sessions.isEmpty())
   }
 
@@ -308,7 +308,8 @@ class WindowsLocationProviderTest {
     client.sessionFailure = IllegalStateException("native failure")
     val provider = WindowsLocationProvider(client)
 
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
+    val event =
+      assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest.Standard).first())
     assertNull(event.reason)
     assertIs<IllegalStateException>(event.cause)
   }

@@ -67,7 +67,7 @@ class AndroidLocationProviderTest {
       val provider = AndroidLocationProvider(application)
       val events = mutableListOf<LocationEvent>()
       val collection = backgroundScope.launch {
-        provider.updates(LocationRequest()).collect(events::add)
+        provider.updates(LocationRequest.Standard).collect(events::add)
       }
       runCurrent()
       assertDenied(events.last())
@@ -145,7 +145,7 @@ class AndroidLocationProviderTest {
       val provider = AndroidLocationProvider(activity.get())
       val events = mutableListOf<LocationEvent>()
       val collection = backgroundScope.launch {
-        provider.updates(LocationRequest()).collect(events::add)
+        provider.updates(LocationRequest.Standard).collect(events::add)
       }
       runCurrent()
       assertDenied(events.last())
@@ -167,8 +167,8 @@ class AndroidLocationProviderTest {
   fun collectorsOwnIndependentRegistrationsAndCancellationWhileDeniedCannotRestart() =
     runTest(dispatcher) {
       val provider = AndroidLocationProvider(application)
-      val first = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
-      val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+      val first = backgroundScope.launch { provider.updates(LocationRequest.Standard).collect {} }
+      val second = backgroundScope.launch { provider.updates(LocationRequest.Standard).collect {} }
       runCurrent()
       grant()
       advanceTimeBy(1.seconds)
@@ -188,7 +188,7 @@ class AndroidLocationProviderTest {
       assertTrue(shadowOf(manager).locationUpdateListeners.isEmpty())
       // No subscribers means no polling; collecting again refreshes the stale snapshot.
       assertIs<LocationPermission.NotGranted>(provider.permission.value)
-      val third = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+      val third = backgroundScope.launch { provider.updates(LocationRequest.Standard).collect {} }
       runCurrent()
       assertEquals(1, shadowOf(manager).locationUpdateListeners.size)
       third.cancelAndJoin()

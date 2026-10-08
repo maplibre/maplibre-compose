@@ -45,7 +45,7 @@ class MacosLocationProviderTest {
     val permissionManager = client.managers.single()
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
-      provider.updates(LocationRequest()).collect(events::add)
+      provider.updates(LocationRequest.Standard).collect(events::add)
     }
     runCurrent()
     assertEquals(
@@ -245,7 +245,7 @@ class MacosLocationProviderTest {
     val measurement = sampleMeasurement()
     client.nextLocation = measurement
 
-    val event = assertIs<LocationEvent.Update>(provider.updates(LocationRequest()).first())
+    val event = assertIs<LocationEvent.Update>(provider.updates(LocationRequest.Standard).first())
     assertEquals(52.0, event.measurement.position.latitude)
     assertEquals(2, client.managers.size)
     val manager = client.managers.last()
@@ -266,7 +266,9 @@ class MacosLocationProviderTest {
     val managersBeforeUpdates = client.managers.size
 
     val event =
-      assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).toList().single())
+      assertIs<LocationEvent.Unavailable>(
+        provider.updates(LocationRequest.Standard).toList().single()
+      )
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
     assertEquals(managersBeforeUpdates, client.managers.size)
     provider.close()
@@ -280,7 +282,7 @@ class MacosLocationProviderTest {
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
-      provider.updates(LocationRequest()).collect { events += it }
+      provider.updates(LocationRequest.Standard).collect { events += it }
     }
 
     assertTrue(events.isEmpty())
@@ -296,7 +298,7 @@ class MacosLocationProviderTest {
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
-      provider.updates(LocationRequest()).collect { events += it }
+      provider.updates(LocationRequest.Standard).collect { events += it }
     }
 
     assertIs<LocationEvent.Update>(events.single())
@@ -320,7 +322,7 @@ class MacosLocationProviderTest {
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
-      provider.updates(LocationRequest()).collect { events += it }
+      provider.updates(LocationRequest.Standard).collect { events += it }
     }
 
     assertIs<LocationEvent.Update>(events.single())
@@ -344,7 +346,8 @@ class MacosLocationProviderTest {
 
     assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     provider.requestPermission()
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
+    val event =
+      assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest.Standard).first())
     assertNull(event.reason)
     assertIs<IllegalStateException>(event.cause)
   }
@@ -478,7 +481,7 @@ class MacosLocationProviderTest {
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
     assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
     provider.requestPermission()
     assertEquals(0, client.managers.single().whenInUseRequests)
   }

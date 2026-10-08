@@ -59,7 +59,7 @@ public interface LocationProvider : AutoCloseable {
    * Each collector starts an independent platform location request. Cancelling collection stops
    * that request and unregisters its callbacks.
    */
-  public fun updates(request: LocationRequest = LocationRequest()): Flow<LocationEvent>
+  public fun updates(request: LocationRequest = LocationRequest.Standard): Flow<LocationEvent>
 
   /**
    * Releases resources owned by this provider. Repeated calls have no effect.
@@ -118,15 +118,29 @@ internal data object UnspecifiedLocationBackendAvailability : LocationBackendAva
  * a preference that its location API cannot express.
  *
  * @property accuracy Requested accuracy and power tradeoff.
- * @property minimumInterval Preferred minimum time between delivered locations.
- * @property minimumDistance Preferred minimum movement between delivered locations.
+ * @property minimumInterval Preferred minimum time between delivered locations. Must not be
+ *   negative.
+ * @property minimumDistance Preferred minimum movement between delivered locations. Must not be
+ *   negative.
+ * @throws IllegalArgumentException if [minimumInterval] or [minimumDistance] is negative.
  */
 @Immutable
-public data class LocationRequest(
-  val accuracy: LocationAccuracy = LocationAccuracy.High,
-  val minimumInterval: Duration = 1.seconds,
-  val minimumDistance: Length = 1.meters,
+public data class LocationRequest
+internal constructor(
+  public val accuracy: LocationAccuracy,
+  public val minimumInterval: Duration,
+  public val minimumDistance: Length,
 ) {
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(
+    from: LocationRequest = Standard,
+    block: Builder.() -> Unit,
+  ) : this(Builder(from).apply(block))
+
+  private constructor(
+    builder: Builder
+  ) : this(builder.accuracy, builder.minimumInterval, builder.minimumDistance)
+
   init {
     require(!minimumInterval.isNegative()) {
       "minimumInterval must not be negative, was $minimumInterval"
@@ -134,6 +148,23 @@ public data class LocationRequest(
     require(minimumDistance.inMeters >= 0.0) {
       "minimumDistance must not be negative, was $minimumDistance"
     }
+  }
+
+  public class Builder internal constructor(from: LocationRequest) {
+    /** See [LocationRequest.accuracy]. */
+    public var accuracy: LocationAccuracy = from.accuracy
+
+    /** See [LocationRequest.minimumInterval]. */
+    public var minimumInterval: Duration = from.minimumInterval
+
+    /** See [LocationRequest.minimumDistance]. */
+    public var minimumDistance: Length = from.minimumDistance
+  }
+
+  public companion object {
+    /** High accuracy with a one-second minimum interval and a one-meter minimum distance. */
+    public val Standard: LocationRequest =
+      LocationRequest(LocationAccuracy.High, 1.seconds, 1.meters)
   }
 }
 

@@ -42,7 +42,7 @@ class FusedLocationPermissionRecoveryTest {
     val provider = FusedLocationProvider(client, null)
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
-      provider.updates(LocationRequest()).collect(events::add)
+      provider.updates(LocationRequest.Standard).collect(events::add)
     }
     runCurrent()
     assertEquals(
@@ -76,7 +76,7 @@ class FusedLocationPermissionRecoveryTest {
     val provider = FusedLocationProvider(client, delegate)
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
-      provider.updates(LocationRequest()).collect(events::add)
+      provider.updates(LocationRequest.Standard).collect(events::add)
     }
     runCurrent()
     assertEquals(

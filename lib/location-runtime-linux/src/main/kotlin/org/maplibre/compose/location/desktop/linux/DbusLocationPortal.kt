@@ -56,7 +56,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
       try {
         connection = openConnection()
         val portal = connection.locationPortal()
-        val sessionPath = portal.createSession(sessionOptions(LocationRequest()))
+        val sessionPath = portal.createSession(sessionOptions(LocationRequest.Standard))
         session = connection.portalSession(sessionPath)
         start(connection, portal, sessionPath) == 0L
       } catch (error: CancellationException) {

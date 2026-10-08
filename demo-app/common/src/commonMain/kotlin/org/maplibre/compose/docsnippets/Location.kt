@@ -5,9 +5,13 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.layers.LocationIndicatorLayer
+import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
@@ -76,4 +80,23 @@ private fun LocationPermissionSettings(locationState: LocationState) {
     }
   }
   // #endregion permission-settings
+}
+
+@Composable
+private fun LocationRequests() {
+  val provider = rememberDefaultLocationProvider()
+  val headingProvider = rememberDefaultHeadingProvider()
+  // #region requests
+  val locationState =
+    rememberLocationState(
+      provider = provider,
+      request =
+        LocationRequest {
+          accuracy = LocationAccuracy.Balanced
+          minimumInterval = 5.seconds
+        },
+      headingProvider = headingProvider,
+      headingRequest = HeadingRequest { minimumInterval = 2.seconds },
+    )
+  // #endregion requests
 }
