@@ -60,9 +60,9 @@ public actual sealed interface CameraAnimation {
     public val minZoom: Double?,
     /**
      * The flight curve. Higher values zoom out more; lower values approach an ease. Defaults to
-     * 1.42. Must be positive.
+     * [DefaultCurve]. Must be positive.
      */
-    public val curve: Double?,
+    public val curve: Double,
     /**
      * Speed in screenfuls per second for linear timing. When set, this replaces [speed] for a
      * flight without [duration]. Must be positive. Null uses [speed].
@@ -99,7 +99,7 @@ public actual sealed interface CameraAnimation {
     ) : this(Builder(from).apply(block))
 
     init {
-      require(curve == null || curve > 0.0) { "Flight curve must be positive: $curve" }
+      require(curve > 0.0) { "Flight curve must be positive: $curve" }
       require(screenSpeed == null || screenSpeed > 0.0) {
         "Flight screen speed must be positive: $screenSpeed"
       }
@@ -119,7 +119,7 @@ public actual sealed interface CameraAnimation {
     actual override fun hashCode(): Int {
       var result = fields.hashCode()
       result = 31 * result + (minZoom?.hashCode() ?: 0)
-      result = 31 * result + (curve?.hashCode() ?: 0)
+      result = 31 * result + curve.hashCode()
       result = 31 * result + (screenSpeed?.hashCode() ?: 0)
       return 31 * result + (maxDuration?.hashCode() ?: 0)
     }
@@ -160,7 +160,7 @@ public actual sealed interface CameraAnimation {
       /** See [Fly.minZoom]. */
       public var minZoom: Double? = from?.minZoom
       /** See [Fly.curve]. */
-      public var curve: Double? = from?.curve
+      public var curve: Double = from?.curve ?: DefaultCurve
       /** See [Fly.screenSpeed]. */
       public var screenSpeed: Double? = from?.screenSpeed
       /** See [Fly.maxDuration]. */
@@ -169,6 +169,8 @@ public actual sealed interface CameraAnimation {
 
     public actual companion object {
       public actual const val DefaultSpeed: Double = FlyFields.DefaultSpeed
+      /** The default flight curve used by MapLibre GL JS. */
+      public const val DefaultCurve: Double = 1.42
       public actual val Standard: Fly = Fly(Builder(from = null))
     }
   }

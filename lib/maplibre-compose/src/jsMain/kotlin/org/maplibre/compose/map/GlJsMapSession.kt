@@ -901,7 +901,7 @@ internal class GlJsMapSession(
             animation.duration?.let { duration = it.inWholeMilliseconds.toDouble() }
             screenSpeed = animation.screenSpeed ?: animation.speed
             animation.minZoom?.let { minZoom = it }
-            animation.curve?.let { curve = it }
+            curve = animation.curve
             animation.maxDuration?.let { maxDuration = it.inWholeMilliseconds.toDouble() }
             easing = animation.easing.toEasingFunction()
           }

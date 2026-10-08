@@ -270,8 +270,8 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
 
             // Targets: [js]
             final var curve // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve|{}curve[0]
-                final fun <get-curve>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<get-curve>|<get-curve>(){}[0]
-                final fun <set-curve>(kotlin/Double?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<set-curve>|<set-curve>(kotlin.Double?){}[0]
+                final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<get-curve>|<get-curve>(){}[0]
+                final fun <set-curve>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<set-curve>|<set-curve>(kotlin.Double){}[0]
 
             // Targets: [js]
             final var maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration|{}maxDuration[0]
@@ -290,11 +290,15 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
 
             final val Standard // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard|{}Standard[0]
                 final fun <get-Standard>(): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+
+            // Targets: [js]
+            final const val DefaultCurve // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve|{}DefaultCurve[0]
+                final fun <get-DefaultCurve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve.<get-DefaultCurve>|<get-DefaultCurve>(){}[0]
         }
 
         // Targets: [js]
         final val curve // org.maplibre.compose.camera/CameraAnimation.Fly.curve|{}curve[0]
-            final fun <get-curve>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.curve.<get-curve>|<get-curve>(){}[0]
+            final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.curve.<get-curve>|<get-curve>(){}[0]
 
         // Targets: [js]
         final val maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.maxDuration|{}maxDuration[0]
