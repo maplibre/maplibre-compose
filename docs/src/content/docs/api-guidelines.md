@@ -244,6 +244,11 @@ changing the shape.
   default it to a standard preset on the companion object.
 - Take required values with no sensible default, such as an ID, as constructor
   parameters before `block`.
+- When a function or constructor takes one settings object as its only settings,
+  take that object's `from` and `block` as its last parameters instead of the
+  object, so that callers write `createMapRuntime { … }`. Keep the object as a
+  parameter when the function takes several settings objects, such as
+  `MaplibreMap`, or already ends with another lambda.
 - Within a major version, don't start rejecting a value that an earlier release
   accepted.
 - Make every option that all platforms support settable from common code, with
