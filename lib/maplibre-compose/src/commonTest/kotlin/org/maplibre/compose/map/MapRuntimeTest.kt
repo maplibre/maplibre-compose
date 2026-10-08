@@ -104,7 +104,7 @@ class MapRuntimeTest {
       runtime.createSnapshotter(BaseStyle.Empty)
     }
     assertFailsWith<IllegalStateException> {
-      snapshotter.capture(MapSnapshotRequest(DpSize(1.dp, 1.dp)))
+      snapshotter.capture(DpSize(1.dp, 1.dp))
     }
     runtime.awaitClosed()
     assertTrue(resourcesClosed)

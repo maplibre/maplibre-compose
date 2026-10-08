@@ -239,7 +239,7 @@ class SharedMapRuntimeTest {
                     it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
                   }
                 }
-                val capture = async { snapshot.capture(MapSnapshotRequest(DpSize(32.dp, 32.dp))) }
+                val capture = async { snapshot.capture(DpSize(32.dp, 32.dp)) }
                 val firstAnimation =
                   async(start = CoroutineStart.UNDISPATCHED) {
                     first.state.animateCamera(
@@ -278,7 +278,7 @@ class SharedMapRuntimeTest {
                 )
                 val gestureCapture =
                   async(start = CoroutineStart.UNDISPATCHED) {
-                    snapshot.capture(MapSnapshotRequest(DpSize(32.dp, 32.dp)))
+                    snapshot.capture(DpSize(32.dp, 32.dp))
                   }
                 val metadata =
                   async(start = CoroutineStart.UNDISPATCHED) {

@@ -651,7 +651,7 @@ class MlnFfiMapCompositionTest {
             evaluatorIdentities.size == 1
         }
         val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, content)
-        val image = snapshotter.capture(MapSnapshotRequest(DpSize(16.dp, 16.dp)))
+        val image = snapshotter.capture(DpSize(16.dp, 16.dp))
 
         assertEquals(16, image.width)
         assertEquals(16, image.height)

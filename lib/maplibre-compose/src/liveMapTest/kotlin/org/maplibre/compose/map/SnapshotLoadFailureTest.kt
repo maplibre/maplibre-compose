@@ -46,12 +46,12 @@ class SnapshotLoadFailureTest {
         try {
           // A failed tile must not leave the next capture waiting or drawn without it.
           repeat(2) {
-            val error = assertFailsWith<MapSnapshotException> { snapshotter.capture(Request) }
+            val error = assertFailsWith<MapSnapshotException> { snapshotter.capture(Request.size) }
             assertTrue(error.causes().any { it === failure }, "the cause is the provider's")
           }
 
           state.failing = false
-          snapshotter.capture(Request)
+          snapshotter.capture(Request.size)
         } finally {
           snapshotter.close()
           snapshotter.awaitClosed()
@@ -78,7 +78,7 @@ class SnapshotLoadFailureTest {
     withTestMapRuntime { runtime ->
       val snapshotter = runtime.createSnapshotter(EmptyStyle) { CircleLayer("points", source) }
       try {
-        val error = assertFailsWith<MapSnapshotException> { snapshotter.capture(Request) }
+        val error = assertFailsWith<MapSnapshotException> { snapshotter.capture(Request.size) }
         assertTrue(error.causes().any { it === failure }, "the cause is the provider's")
       } finally {
         snapshotter.close()
@@ -102,10 +102,10 @@ class SnapshotLoadFailureTest {
         val failing = runtime.createSnapshotter(tileStyle("$TileHost/failing/{z}/{x}/{y}.pbf"))
         val missing = runtime.createSnapshotter(tileStyle("$TileHost/missing/{z}/{x}/{y}.pbf"))
         try {
-          val error = assertFailsWith<MapSnapshotException> { failing.capture(Request) }
+          val error = assertFailsWith<MapSnapshotException> { failing.capture(Request.size) }
           assertTrue("fixture server failure" in error.message.orEmpty(), error.message)
 
-          missing.capture(Request)
+          missing.capture(Request.size)
         } finally {
           failing.close()
           missing.close()

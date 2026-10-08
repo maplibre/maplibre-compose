@@ -94,28 +94,26 @@ object MapSnapshotterDemo : Demo {
         ) ?: return
       val width = (rect.width / density.density).roundToInt().coerceAtLeast(1)
       val height = (rect.height / density.density).roundToInt().coerceAtLeast(1)
-      val captureDensity = density
-      val request =
-        MapSnapshotRequest(DpSize(width.dp, height.dp)) {
-          cameraPosition = mapState.cameraPosition.copy(center = center)
-          this.density =
-            Density(
-              minOf(
-                captureDensity.density,
-                MaxSnapshotCanvasPx / width,
-                MaxSnapshotCanvasPx / height,
-              ),
-              captureDensity.fontScale,
-            )
-          layoutDirection = direction
-        }
+      val size = DpSize(width.dp, height.dp)
+      val capturePosition = mapState.cameraPosition.copy(center = center)
+      val captureDensity =
+        Density(
+          minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height),
+          density.fontScale,
+        )
+      val requestSettings: MapSnapshotRequest.Builder.() -> Unit = {
+        cameraPosition = capturePosition
+        this.density = captureDensity
+        layoutDirection = direction
+      }
+      val request = MapSnapshotRequest(size, requestSettings)
       state.status = CaptureStatus.Capturing
       state.flashTick++
       scope.launch {
         try {
           val image =
             snapshotter
-              .capture(request)
+              .capture(size, requestSettings)
               .withAttribution(
                 snapshotter.style.attributions(),
                 textMeasurer,

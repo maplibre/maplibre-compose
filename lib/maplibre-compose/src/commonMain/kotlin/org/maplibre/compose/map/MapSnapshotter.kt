@@ -282,7 +282,8 @@ public sealed interface MapSnapshotter {
   public val style: MapStyleState
 
   /**
-   * Captures one image with [request]. Concurrent calls execute in submission order.
+   * Captures one image at [size] with the settings in [block]. Concurrent calls execute in
+   * submission order.
    *
    * Cancelling the caller removes a queued request or abandons an active result. After active
    * cancellation, the next request waits until platform rendering and terminal cleanup end.
@@ -301,7 +302,10 @@ public sealed interface MapSnapshotter {
    *   [VectorTileProvider] call failed, the cause is its exception, wrapped in an
    *   [IllegalStateException] when it is a cancellation that the provider caused itself.
    */
-  public suspend fun capture(request: MapSnapshotRequest): ImageBitmap
+  public suspend fun capture(
+    size: DpSize,
+    block: MapSnapshotRequest.Builder.() -> Unit = {},
+  ): ImageBitmap
 
   /**
    * Refuses new captures, clears queued captures, abandons an active result, and starts cleanup.
@@ -351,7 +355,12 @@ internal class MapSnapshotterImplementation(
 
   // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
   // once while runQueue() holds the next capture until cleanup ends.
-  override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =
+  override suspend fun capture(
+    size: DpSize,
+    block: MapSnapshotRequest.Builder.() -> Unit,
+  ): ImageBitmap = captureRequest(MapSnapshotRequest(size, block))
+
+  private suspend fun captureRequest(request: MapSnapshotRequest): ImageBitmap =
     suspendCancellableCoroutine { continuation ->
       val capture = Capture(request, continuation)
       val accepted = lock.withLock {

@@ -81,7 +81,7 @@ internal object NativeProcessExitProbe {
         val style = BaseStyle.Json("""{"version":8,"center":false,"sources":{},"layers":[]}""")
         val snapshotter = runtime.createSnapshotter(style)
         try {
-          snapshotter.capture(MapSnapshotRequest(DpSize(64.dp, 64.dp)))
+          snapshotter.capture(DpSize(64.dp, 64.dp))
           check(received.await(10, TimeUnit.SECONDS)) { "No asynchronous native parser warning" }
         } finally {
           snapshotter.close()

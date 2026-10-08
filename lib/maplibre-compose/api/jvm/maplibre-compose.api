@@ -2519,9 +2519,14 @@ public final class org/maplibre/compose/map/MapSnapshotRequest$Builder {
 
 public abstract interface class org/maplibre/compose/map/MapSnapshotter {
 	public abstract fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun capture (Lorg/maplibre/compose/map/MapSnapshotRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun capture-qzXmJYc (JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun capture-qzXmJYc$default (Lorg/maplibre/compose/map/MapSnapshotter;JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public abstract fun close ()V
 	public abstract fun getStyle ()Lorg/maplibre/compose/map/MapStyleState;
+}
+
+public final class org/maplibre/compose/map/MapSnapshotter$DefaultImpls {
+	public static synthetic fun capture-qzXmJYc$default (Lorg/maplibre/compose/map/MapSnapshotter;JLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class org/maplibre/compose/map/MapState {

@@ -79,28 +79,24 @@ class NativeMapSnapshotterTest {
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
       try {
         val densityOne =
-          snapshotter.capture(
-            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
-              cameraPosition =
-                CameraPosition(
-                  center = Position(longitude = 0.0, latitude = 0.0),
-                  zoom = 2.0,
-                  padding = DpPadding(left = 24.dp, bottom = 16.dp),
-                )
-            }
-          )
+          snapshotter.capture(DpSize(Size.dp, Size.dp)) {
+            cameraPosition =
+              CameraPosition(
+                center = Position(longitude = 0.0, latitude = 0.0),
+                zoom = 2.0,
+                padding = DpPadding(left = 24.dp, bottom = 16.dp),
+              )
+          }
         val densityTwo =
-          snapshotter.capture(
-            MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
-              density = Density(2f)
-              cameraPosition =
-                CameraPosition(
-                  center = Position(longitude = 0.0, latitude = 0.0),
-                  zoom = 2.0,
-                  padding = DpPadding(left = 24.dp, bottom = 16.dp),
-                )
-            }
-          )
+          snapshotter.capture(DpSize(Size.dp, Size.dp)) {
+            density = Density(2f)
+            cameraPosition =
+              CameraPosition(
+                center = Position(longitude = 0.0, latitude = 0.0),
+                zoom = 2.0,
+                padding = DpPadding(left = 24.dp, bottom = 16.dp),
+              )
+          }
 
         assertEquals(Size, densityOne.width)
         assertEquals(Size, densityOne.height)
@@ -145,11 +141,14 @@ class NativeMapSnapshotterTest {
           // A missing wake would park the engine forever; the bound turns that into a failure.
           withTimeout(60_000) {
             for (delayMillis in listOf(0L, 1L, 5L, 20L, 50L)) {
-              val abandoned = launch { snapshotter.capture(request) }
+              val abandoned = launch {
+                snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
+              }
               delay(delayMillis)
               abandoned.cancelAndJoin()
 
-              val image = snapshotter.capture(request)
+              val image =
+                snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
               assertEquals(Background, image.readPixel(6, Size / 2), "after $delayMillis ms")
               assertEquals(Green, image.readPixel(Size / 2, Size / 2), "after $delayMillis ms")
             }
@@ -181,11 +180,12 @@ class NativeMapSnapshotterTest {
             MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
               cameraPosition = CameraPosition(zoom = 2.0)
             }
-          snapshotter.capture(request)
+          snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
 
           snapshotter.style.asMutable!!.baseStyle = AlternateStyle
           snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
-          val captured = snapshotter.capture(request)
+          val captured =
+            snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
 
           assertEquals(Green, captured.readPixel(Size / 2, Size / 2))
         } finally {
@@ -211,12 +211,12 @@ class NativeMapSnapshotterTest {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
       try {
         val rejected = runCatching {
-          snapshotter.capture(MapSnapshotRequest(DpSize(Size.dp, Size.dp)))
+          snapshotter.capture(DpSize(Size.dp, Size.dp))
         }
         assertTrue(rejected.isFailure)
 
         snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
-        val captured = snapshotter.capture(MapSnapshotRequest(DpSize(Size.dp, Size.dp)))
+        val captured = snapshotter.capture(DpSize(Size.dp, Size.dp))
 
         assertEquals(Background, captured.readPixel(0, 0))
       } finally {
@@ -248,11 +248,16 @@ class NativeMapSnapshotterTest {
             MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
               cameraPosition = CameraPosition(zoom = 2.0)
             }
-          assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
-          assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
+          assertFailsWith<MapSnapshotException> {
+            snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
+          }
+          assertFailsWith<MapSnapshotException> {
+            snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
+          }
 
           data.value = PointData
-          val captured = snapshotter.capture(request)
+          val captured =
+            snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
 
           assertEquals(Green, captured.readPixel(Size / 2, Size / 2))
         } finally {

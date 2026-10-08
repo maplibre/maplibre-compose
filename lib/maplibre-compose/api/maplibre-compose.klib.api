@@ -737,7 +737,7 @@ sealed interface org.maplibre.compose.map/MapSnapshotter { // org.maplibre.compo
 
     abstract fun close() // org.maplibre.compose.map/MapSnapshotter.close|close(){}[0]
     abstract suspend fun awaitClosed() // org.maplibre.compose.map/MapSnapshotter.awaitClosed|awaitClosed(){}[0]
-    abstract suspend fun capture(org.maplibre.compose.map/MapSnapshotRequest): androidx.compose.ui.graphics/ImageBitmap // org.maplibre.compose.map/MapSnapshotter.capture|capture(org.maplibre.compose.map.MapSnapshotRequest){}[0]
+    abstract suspend fun capture(androidx.compose.ui.unit/DpSize, kotlin/Function1<org.maplibre.compose.map/MapSnapshotRequest.Builder, kotlin/Unit> = ...): androidx.compose.ui.graphics/ImageBitmap // org.maplibre.compose.map/MapSnapshotter.capture|capture(androidx.compose.ui.unit.DpSize;kotlin.Function1<org.maplibre.compose.map.MapSnapshotRequest.Builder,kotlin.Unit>){}[0]
 }
 
 sealed interface org.maplibre.compose.map/MutableStyleImageHandle : org.maplibre.compose.map/StyleImageHandle { // org.maplibre.compose.map/MutableStyleImageHandle|null[0]
