@@ -266,9 +266,7 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
 /**
  * Provides the projection of the current loaded-style generation.
  *
- * A base-style reload replaces the projection with the one that the new style declares. MapLibre
- * Native supports only the Mercator projection: every property reads null, and a write logs a
- * warning.
+ * A base-style reload replaces the projection with the one that the new style declares.
  *
  * [set] does not wait for the engine to apply the projection. A projection the engine rejects is
  * logged, and the style keeps its previous projection.

@@ -54,7 +54,8 @@ maplibre-geojsonVt = "6.1.1"
 maplibre-android = "13.6.1"
 maplibre-ios = "6.31.0"
 maplibre-js = "6.12.0"
-maplibre-nativeFfi = "0.202609.5"
+# Local macOS JVM verification of feat/globe-examples at 581bf85c0.
+maplibre-nativeFfi = "0.202610.0-globe.581bf85c0"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
 # fetches v8.json at this tag. Follow the maplibre-gl release's own
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.

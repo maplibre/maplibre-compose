@@ -262,6 +262,10 @@ internal class MlnFfiMapSession(
         }
       },
       getScale = ::imageScale,
+      projectionChanged = {
+        viewport.snapshot(map)
+        notifyViewportChanged()
+      },
     )
 
   @Volatile
@@ -498,6 +502,8 @@ internal class MlnFfiMapSession(
         // Live handles from the previous binding must not write into a style that is gone.
         styleBinding?.invalidate()
         styleBinding = binding
+        // A style can replace the projection without changing any camera property.
+        viewport.snapshot(map)
         // setBaseStyle invalidates the installed binding after it requests. A request made after
         // the claim therefore either invalidates this binding or is seen here.
         if (!styleLoadTracker.isCurrent(binding.identity)) {

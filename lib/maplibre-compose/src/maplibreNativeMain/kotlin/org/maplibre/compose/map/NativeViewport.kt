@@ -153,8 +153,8 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
         )
       }
 
-    override fun screenLocation(position: Position): DpOffset =
-      projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+    override fun screenLocation(position: Position): DpOffset? =
+      projection.overlayScreenLocation(position)
 
     override fun close() = projection.close()
   }
@@ -358,15 +358,21 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     presentationRevision.longValue
     val presented = presentedProjection
     if (presented != null)
-      return@withLock presented.toScreen(presented.frame.screenLocation(position))
+      return@withLock presented.frame.screenLocation(position)?.let(presented::toScreen)
     val snapshot = mirroredViewport
     val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
-    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+    projection.overlayScreenLocation(position)
   }
 
   fun metersPerDpAtLatitude(latitude: Double): Double = projectionLock.withLock {
     mirroredViewport.metersPerDpAtLatitude(latitude)
   }
+}
+
+private fun MapProjectionHandle.overlayScreenLocation(position: Position): DpOffset? {
+  val coordinate = position.toLatLng()
+  if (isLocationOccluded(coordinate)) return null
+  return pixelForLatLng(coordinate).toDpOffset()
 }
 
 /**

@@ -4,6 +4,7 @@ set -euo pipefail
 # Build MapLibre Native's sample n-gon layer plugin for the desktop demo. The
 # plugin ABI must match the MapLibre Native revision behind the pinned
 # maplibre-native-ffi release, so that commit is read from the FFI release tag.
+# MAPLIBRE_NATIVE_FFI_SOURCE_DIR selects a local FFI checkout and its patched Native sources.
 # Only the plugin's sources are fetched; MapLibre Native itself is not built.
 # Zig compiles it, so no platform C++ toolchain is needed.
 # Output: demo-app/common/build/generated/ngonPlugin/plugins/ngon-layer/, a JVM
@@ -53,13 +54,21 @@ mkdir -p "$work"
 # The FFI release tag records its MapLibre Native revision as a submodule
 # pointer; a treeless, blobless clone of that one tag is enough to read it.
 commit_file="$work/ffi-$ffi_version.commit"
-if [[ ! -f "$commit_file" ]]; then
-  rm -rf "$ffi_dir"
-  git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
-    https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
-  git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}' >"$commit_file"
+if [[ -n "${MAPLIBRE_NATIVE_FFI_SOURCE_DIR:-}" ]]; then
+  ffi_source="$(cd "$MAPLIBRE_NATIVE_FFI_SOURCE_DIR" && pwd)"
+  mln_dir="$ffi_source/third_party/maplibre-native"
+  mln_commit="$(git -C "$ffi_source" rev-parse HEAD:third_party/maplibre-native)"
+  source_revision="$(git -C "$ffi_source" rev-parse HEAD)"
+else
+  if [[ ! -f "$commit_file" ]]; then
+    rm -rf "$ffi_dir"
+    git clone --quiet --depth 1 --filter=tree:0 --no-checkout --branch "$ffi_tag" \
+      https://github.com/maplibre/maplibre-native-ffi.git "$ffi_dir" 2> >(grep -v "is not a commit" >&2 || true)
+    git -C "$ffi_dir" ls-tree HEAD third_party/maplibre-native | awk '{print $3}' >"$commit_file"
+  fi
+  mln_commit="$(cat "$commit_file")"
+  source_revision="$mln_commit"
 fi
-mln_commit="$(cat "$commit_file")"
 if [[ ! "$mln_commit" =~ ^[0-9a-f]{40}$ ]]; then
   rm -f "$commit_file"
   echo "${0##*/}: $ffi_tag has no third_party/maplibre-native submodule" >&2
@@ -72,12 +81,14 @@ zig_version="$(zig version)"
 properties="$out/ngon-layer.properties"
 if [[ -f "$library" && -f "$work/built-$host" && -f "$properties" ]] &&
   grep -qx "maplibre-native.commit=$mln_commit" "$properties" &&
+  grep -qx "source-revision=$source_revision" "$properties" &&
   grep -qx "target=$target" "$properties" && grep -qx "zig=$zig_version" "$properties"; then
   echo "$library is up to date"
   exit 0
 fi
 
-if [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]; then
+if [[ -z "${MAPLIBRE_NATIVE_FFI_SOURCE_DIR:-}" ]] &&
+  [[ ! -f "$mln_dir/.commit" || "$(cat "$mln_dir/.commit")" != "$mln_commit" ]]; then
   rm -rf "$mln_dir"
   git init --quiet "$mln_dir"
   git -C "$mln_dir" remote add origin https://github.com/maplibre/maplibre-native.git
@@ -105,6 +116,7 @@ zig c++ -std=c++20 -O2 -fno-rtti -fvisibility=hidden -shared -w -target "$target
 cat >"$properties" <<PROPS
 maplibre-native.commit=$mln_commit
 maplibre-native-ffi.version=$ffi_version
+source-revision=$source_revision
 host=$host
 target=$target
 zig=$zig_version
