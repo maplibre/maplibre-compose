@@ -7,15 +7,20 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.ProjectionType
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.onOwner
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -23,6 +28,48 @@ import org.maplibre.spatialk.geojson.Position
  * under pitch and bearing, so overlays land where the map draws them.
  */
 class MlnFfiProjectionTest {
+
+  @Test
+  fun globe_overlays_use_the_presented_frames_occlusion_and_live_projection_changes_refresh_reads():
+    Unit = runBlocking {
+    BridgeMapFixture.create(initialExtent = MapExtent.fromLogical(200, 200, 1.0)).use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val front = Position(0.0, 0.0)
+      val back = Position(180.0, 0.0)
+      fixture.session.setCameraPosition(CameraPosition(center = front, zoom = 0.0))
+      fixture.pumpUntil("the Mercator camera to apply") {
+        fixture.session.screenLocationFromPosition(front).isNear(DpOffset(100.dp, 100.dp))
+      }
+      val style = assertNotNull(fixture.style)
+      val viewportEvents = fixture.events.count { it == "viewportChanged" }
+      style.onOwner { style.setProjection(Projection(const(ProjectionType.Globe)).toJson()) }
+      fixture.pumpUntil("the projection change to invalidate the viewport") {
+        fixture.events.count { it == "viewportChanged" } > viewportEvents
+      }
+      assertNull(fixture.session.overlayScreenLocationFromPosition(back))
+      assertNotNull(fixture.session.screenLocationFromPosition(back))
+
+      fixture.hasRendered = false
+      fixture.pumpUntil("the globe to render") { fixture.hasRendered }
+      fixture.renderFrameProjection().use { projection ->
+        fixture.session.presentFrame(projection, MlnFfiMapDestination(0, 0, 200, 200), 1.0)
+        assertNotNull(fixture.session.overlayScreenLocationFromPosition(front))
+        assertNull(fixture.session.overlayScreenLocationFromPosition(back))
+
+        style.onOwner { style.setProjection(Projection().toJson()) }
+        // The live Mercator snapshot has changed, but the retained globe texture has not.
+        assertNotNull(fixture.session.screenLocationFromPosition(back))
+        assertNull(fixture.session.overlayScreenLocationFromPosition(back))
+        fixture.session.presentFrame(null, MlnFfiMapDestination(0, 0, 200, 200), 1.0)
+        assertNotNull(fixture.session.overlayScreenLocationFromPosition(back))
+      }
+
+      style.onOwner { style.setProjection(Projection(const(ProjectionType.Globe)).toJson()) }
+      assertNull(fixture.session.overlayScreenLocationFromPosition(back))
+      fixture.loadStyle(BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}"""))
+      assertNotNull(fixture.session.overlayScreenLocationFromPosition(back))
+    }
+  }
 
   @Test
   fun presented_projection_keeps_the_rendered_camera_and_tracks_texture_geometry() {

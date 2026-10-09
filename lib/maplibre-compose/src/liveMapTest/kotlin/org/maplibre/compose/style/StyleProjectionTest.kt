@@ -14,7 +14,7 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-class BrowserStyleProjectionTest {
+class StyleProjectionTest {
   @Test
   fun every_projection_form_writes_and_reads_back(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
@@ -65,6 +65,18 @@ class BrowserStyleProjectionTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(GlobeStyle)
       assertEquals(JsonPrimitive("globe"), fixture.state.style.projection.getProperty("type"))
+    }
+  }
+
+  @Test
+  fun a_style_reload_replaces_a_runtime_projection_override(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(GlobeStyle)
+      val projection = fixture.state.style.projection
+      projection.set(Projection(type = const(ProjectionType.VerticalPerspective)))
+      assertEquals(JsonPrimitive("vertical-perspective"), projection.getProperty("type"))
+      fixture.loadStyle(EmptyStyle)
+      assertNull(projection.getProperty("type"))
     }
   }
 

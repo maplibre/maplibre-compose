@@ -73,6 +73,7 @@ enum class FlightStyle(val title: String) {
 @Stable
 class DemoSettings {
   var mapStyleMode by mutableStateOf(MapStyleMode.System)
+  var globeEnabled by mutableStateOf(false)
   var paletteMode by mutableStateOf(defaultPaletteMode)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var uiOptions by mutableStateOf(MapUiOptions.Standard)

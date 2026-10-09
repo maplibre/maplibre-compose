@@ -90,5 +90,5 @@ internal interface MlnFfiMapFrameProjection : AutoCloseable {
   val extent: MapExtent
   val anchor: MlnFfiMapPresentationAnchor
 
-  fun screenLocation(position: Position): DpOffset
+  fun screenLocation(position: Position): DpOffset?
 }

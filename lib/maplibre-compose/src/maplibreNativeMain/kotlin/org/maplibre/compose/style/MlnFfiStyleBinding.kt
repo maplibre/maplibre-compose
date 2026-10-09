@@ -112,6 +112,8 @@ internal open class MlnFfiStyleBinding(
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
+  /** Refreshes coordinate snapshots after a projection change, which emits no camera event. */
+  private val projectionChanged: () -> Unit = {},
   /** Receives the exception of a failed custom source provider call. Owner thread. */
   private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
@@ -959,17 +961,17 @@ internal open class MlnFfiStyleBinding(
     if (sky != null) logger?.w { "MapLibre Native does not support the sky" }
   }
 
-  override val supportsProjection: Boolean = false
+  override val supportsProjection: Boolean = true
 
-  override fun projectionProperty(name: String): JsonElement? {
-    requireCurrent()
-    return null
+  override fun projectionProperty(name: String): JsonElement? = withMap { map ->
+    map.styleProjectionProperty(name)?.toJsonElement()
   }
 
   override fun setProjection(projection: JsonObject) {
-    requireCurrent()
-    if (projection["type"] != JsonPrimitive("mercator")) {
-      logger?.w { "MapLibre Native supports only the Mercator projection" }
+    val bytes = projection.toJsonBytes()
+    mutateMap { map ->
+      map.setStyleProjectionJson(bytes)
+      projectionChanged()
     }
   }
 

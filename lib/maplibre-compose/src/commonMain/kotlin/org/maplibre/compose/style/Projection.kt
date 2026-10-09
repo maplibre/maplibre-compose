@@ -26,8 +26,6 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
  * )
  * ```
  *
- * MapLibre Native supports only the Mercator projection.
- *
  * @param type The projection: a [ProjectionType], a [ProjectionTransition], or an expression that
  *   resolves to one of them.
  */

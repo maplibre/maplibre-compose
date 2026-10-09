@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -69,6 +70,9 @@ import org.maplibre.compose.demoapp.generated.location_searching_24px
 import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
+import org.maplibre.compose.demoapp.generated.public_24px
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.ProjectionType
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.LocalMapState
@@ -92,7 +96,9 @@ import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.PointerPinButton
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
+import org.maplibre.compose.style.Projection
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.spatialk.geojson.Position
 
 /** The camera flight to a newly selected demo. */
@@ -174,6 +180,7 @@ internal fun demoMapControls(
             if (material3) MaterialZoomButtons() else ZoomButtons()
           }
           DemoFollowButton(settings, location)
+          DemoGlobeToggleButton(settings)
           DemoThemeToggleButton(settings)
         }
       }
@@ -246,6 +253,25 @@ private data class FollowButtonLook(
 )
 
 @Composable
+private fun DemoGlobeToggleButton(settings: DemoSettings) {
+  val enabled = settings.globeEnabled
+  val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
+  DemoControlButton(
+    onClick = { settings.globeEnabled = !enabled },
+    style = style,
+    contentDescription = "Map projection: ${if (enabled) "Globe" else "Mercator"}",
+    onClickLabel = "Switch to ${if (enabled) "Mercator" else "Globe"}",
+    modifier = Modifier.semantics { selected = enabled },
+  ) {
+    Icon(
+      imageVector = vectorResource(Res.drawable.public_24px),
+      contentDescription = null,
+      tint = if (enabled) MaterialTheme.colorScheme.primary else contentColor,
+    )
+  }
+}
+
+@Composable
 private fun DemoThemeToggleButton(settings: DemoSettings) {
   val mode = settings.mapStyleMode
   val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
@@ -290,6 +316,7 @@ private fun DemoControlButton(
   style: CompassButtonStyle,
   contentDescription: String,
   onClickLabel: String,
+  modifier: Modifier = Modifier,
   content: @Composable () -> Unit,
 ) {
   val interactionSource = remember { MutableInteractionSource() }
@@ -297,7 +324,8 @@ private fun DemoControlButton(
   val shadowElevation by
     animateDpAsState(if (hovered) style.hoveredShadowElevation else style.shadowElevation)
   Box(
-    Modifier.requiredSize(DemoControlSize)
+    modifier
+      .requiredSize(DemoControlSize)
       .shadow(shadowElevation, style.shape, clip = false)
       .background(style.containerColor, style.shape)
       .clip(style.shape)
@@ -324,6 +352,7 @@ private fun DemoControlButton(
  * than the settings ask for.
  */
 @Composable
+@OptIn(ExperimentalMaplibreComposeApi::class)
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
@@ -333,6 +362,15 @@ fun DemoMap(
   val scope = rememberCoroutineScope()
   val appliedBase = state.appliedStyle.base
   val selectedDemo = state.selectedDemo
+  LaunchedEffect(state.mapState.style.loadState, state.settings.globeEnabled) {
+    if (state.mapState.style.loadState == StyleLoadState.Ready) {
+      state.mapState.style.projection.set(
+        Projection(
+          const(if (state.settings.globeEnabled) ProjectionType.Globe else ProjectionType.Mercator)
+        )
+      )
+    }
+  }
   LaunchedEffect(state.mapState.style.loadState, appliedBase) {
     when (state.mapState.style.loadState) {
       StyleLoadState.Ready,
