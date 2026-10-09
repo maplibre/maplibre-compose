@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.demos.editablemarkers
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.GenericShape
@@ -43,7 +44,9 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
       var anchor by remember { mutableStateOf<DpOffset?>(null) }
       var trashTarget by remember { mutableStateOf<MarkerTrashTarget?>(null) }
       MarkerInputTarget(
-        modifier = Modifier.placedAt(marker.position, alignment = Alignment.BottomCenter),
+        geographicPlacement =
+          Modifier.placedAt(marker.position, alignment = Alignment.BottomCenter),
+        anchor = anchor,
         enabled = !marker.removing && (activeId == null || activeId == marker.id),
         onHover = { hovered ->
           if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null
@@ -69,6 +72,7 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
         onTap = { select(marker) },
         onDragEnd = { if (overTrash) remove(marker) else marker.bounce++ },
         onFinish = {
+          anchor = null
           if (pressedId == marker.id || draggingId == marker.id) endGesture()
         },
       )
@@ -77,7 +81,8 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
 
 @Composable
 private fun MarkerInputTarget(
-  modifier: Modifier,
+  geographicPlacement: Modifier,
+  anchor: DpOffset?,
   enabled: Boolean,
   onHover: (Boolean) -> Unit,
   onPress: (Offset) -> Unit,
@@ -98,11 +103,20 @@ private fun MarkerInputTarget(
   val finish by rememberUpdatedState(onFinish)
   var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
   var hovered by remember { mutableStateOf(false) }
+  // Keep the invisible hit target placed at the press point until the gesture ends.
+  // The rendered marker still follows its geographic position, including behind the globe.
+  val placement =
+    if (anchor == null) geographicPlacement
+    else
+      Modifier.absoluteOffset(
+        x = anchor.x - MarkerTargetWidth / 2,
+        y = anchor.y - MarkerTargetHeight,
+      )
   Box(
     // The pin tip is the geographic anchor; the padded body extends 58 dp above it.
-    modifier
+    placement
       .offset(y = 10.dp)
-      .size(60.dp, 68.dp)
+      .size(MarkerTargetWidth, MarkerTargetHeight)
       .onGloballyPositioned { coordinates = it }
       .clip(MarkerHitShape)
       .pointerHoverIcon(if (hovered) PointerIcon.Hand else PointerIcon.Default)
@@ -141,6 +155,9 @@ private fun MarkerInputTarget(
   )
 }
 
+private val MarkerTargetWidth = 60.dp
+private val MarkerTargetHeight = 68.dp
+
 private val MarkerHitShape = GenericShape { size, _ -> addOval(Rect(Offset.Zero, size)) }
 
 private fun markerHit(position: Offset, size: IntSize): Boolean {
@@ -175,15 +192,26 @@ private class MarkerGesture(
 
   fun handle(event: PointerEvent, hit: Boolean, layout: LayoutCoordinates?) {
     if (swallowing) {
-      event.changes.forEach { it.consume() }
-      if (event.changes.none { it.pressed }) swallowing = false
+      // An unplaced target can miss the cancelled stream's releases. A new stream starts fresh.
+      if (event.changes.none { it.previousPressed }) swallowing = false
+      else {
+        event.changes.forEach { it.consume() }
+        if (event.changes.none { it.pressed }) swallowing = false
+        return
+      }
+    }
+    if (layout == null) {
+      cancel()
       return
     }
-    if (layout == null) return
     if (pointer == null) tryPress(event, hit, layout)
     val captured = pointer ?: return
     val tracked = event.changes.firstOrNull { it.id == captured }
-    if (tracked == null || event.changes.count { it.pressed } > 1) {
+    if (
+      tracked == null ||
+        (!tracked.pressed && tracked.isConsumed) ||
+        event.changes.count { it.pressed } > 1
+    ) {
       cancel()
       swallowing = event.changes.any { it.pressed }
       event.changes.forEach { it.consume() }
@@ -214,8 +242,7 @@ private class MarkerGesture(
 
   private fun move(change: PointerInputChange, layout: LayoutCoordinates) {
     change.consume()
-    // The target follows the marker. Root coordinates avoid feeding that movement
-    // back into the drag distance.
+    // Root coordinates preserve the distance when placement switches to the fixed press anchor.
     val position = layout.localToRoot(change.position)
     val distance = position - down
     if (change.pressed && !dragging && distance.getDistance() > touchSlop) {
