@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop.skiko
 
 import java.lang.reflect.Modifier
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -14,6 +15,16 @@ import kotlin.test.assertTrue
  * A failure means Compose or Skiko moved something and `SkikoReflection` needs updating to match.
  */
 class SkikoReflectionContractTest {
+
+  @Test
+  fun `field reads observe a replaced value`() {
+    val target = InheritedTarget()
+    with(SkikoReflection) {
+      assertEquals("initial", target.getField("context"))
+      target.replaceContext("replacement")
+      assertEquals("replacement", target.getField("context"))
+    }
+  }
 
   @Test
   fun `static invocation accepts the null result of a void method`() {
@@ -114,4 +125,14 @@ class SkikoReflectionContractTest {
       }
     }
   }
+
+  open class FieldTarget {
+    private var context = "initial"
+
+    fun replaceContext(value: String) {
+      context = value
+    }
+  }
+
+  class InheritedTarget : FieldTarget()
 }
