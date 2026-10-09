@@ -25,6 +25,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.format
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.interpolateHcl
+import org.maplibre.compose.expressions.dsl.interpolateLab
 import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.span
 import org.maplibre.compose.expressions.dsl.textOffset
@@ -291,6 +293,28 @@ class LayerPropertyRoundTripTest {
           "\"rgba(17, 34, 51, 0.5019607843137255)\"",
         ) {
           it.paint("text-color", (const(Color(0x80112233)).c()).asLayerProperty())
+        },
+        Case(
+          "text-halo-color",
+          """["interpolate-hcl",["linear"],["zoom"],0.0,["rgba",255.0,0.0,0.0,1.0],10.0,["rgba",0.0,0.0,255.0,1.0]]""",
+          """["interpolate-hcl",["linear"],["zoom"],0,"rgba(255, 0, 0, 1)",10,"rgba(0, 0, 255, 1)"]""",
+        ) {
+          it.paint(
+            "text-halo-color",
+            (interpolateHcl(linear(), zoom(), 0f to const(Color.Red), 10f to const(Color.Blue)).c())
+              .asLayerProperty(),
+          )
+        },
+        Case(
+          "icon-color",
+          """["interpolate-lab",["linear"],["zoom"],0.0,["rgba",255.0,0.0,0.0,1.0],10.0,["rgba",0.0,0.0,255.0,1.0]]""",
+          """["interpolate-lab",["linear"],["zoom"],0,"rgba(255, 0, 0, 1)",10,"rgba(0, 0, 255, 1)"]""",
+        ) {
+          it.paint(
+            "icon-color",
+            (interpolateLab(linear(), zoom(), 0f to const(Color.Red), 10f to const(Color.Blue)).c())
+              .asLayerProperty(),
+          )
         },
       )
   }

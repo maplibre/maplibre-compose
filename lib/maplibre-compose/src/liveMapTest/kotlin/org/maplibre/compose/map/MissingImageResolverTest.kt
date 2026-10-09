@@ -46,7 +46,7 @@ class MissingImageResolverTest {
       release.complete(Unit)
       val style = assertNotNull(fixture.style)
       fixture.pumpUntil("the delayed image to reach the style") {
-        style.onOwner { style.imageExists(MISSING_ICON_ID) } == true
+        style.onOwner { style.imageExists(MissingIconId) } == true
       }
       fixture.pumpUntilPixel("the delayed icon to be drawn", 256, 256, RgbaPixel(255, 0, 0, 255))
     }
@@ -66,7 +66,7 @@ class MissingImageResolverTest {
       assertFalse(fixture.readPixel(256, 256).isNear(RgbaPixel(255, 0, 0, 255)))
       val image =
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
-      fixture.state.style.images.set(MISSING_ICON_ID, image)
+      fixture.state.style.images.set(MissingIconId, image)
       fixture.state.style.awaitCommands()
       fixture.pumpUntilPixel(
         "the late registered icon to be drawn",
