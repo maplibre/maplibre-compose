@@ -7,6 +7,7 @@ import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -44,6 +45,21 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     return drew
   }
 
+  /** Detaches a completed image from external storage before Native can overwrite it again. */
+  fun freeze(context: DirectContext, target: T): Image {
+    val presenter = presenters.getOrPut(wrapper.key(target)) { TexturePresenter() }
+    val image = presenter.snapshot(context, target)
+    try {
+      presenter.preserveFrame()
+      context.flush()
+      context.submit(syncCpu = true)
+      return image
+    } catch (error: Throwable) {
+      image.close()
+      throw error
+    }
+  }
+
   /** Drops the Skia wrapper for the texture [key] names; this must happen before it is freed. */
   fun forget(key: Long) {
     presenters.remove(key)?.close()
@@ -76,10 +92,7 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
       target: T,
       destination: MlnFfiMapDestination,
     ) {
-      val currentSurface = ensureSurface(context, target)
-      wrapper.beforeDraw(context)
-      currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      currentSurface.makeImageSnapshot().use { image ->
+      snapshot(context, target).use { image ->
         canvas.drawImageRect(
           image = image,
           src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
@@ -95,6 +108,13 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
           strict = true,
         )
       }
+    }
+
+    fun snapshot(context: DirectContext, target: T): Image {
+      val currentSurface = ensureSurface(context, target)
+      wrapper.beforeDraw(context)
+      currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
+      return currentSurface.makeImageSnapshot()
     }
 
     fun preserveFrame() {

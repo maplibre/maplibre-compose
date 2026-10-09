@@ -7,20 +7,26 @@ internal class ComposeFrameCompletion {
   private var currentContext: DirectContext? = null
   private var preserveFrame: (() -> Unit)? = null
 
-  /** Makes [context] ready for another access to the shared target. */
-  fun prepare(context: DirectContext, contextReplaced: () -> Unit) {
+  /** Detects context loss without copying an image that the consumer is only reading. */
+  fun observe(context: DirectContext, contextReplaced: () -> Unit) {
     val previousContext = currentContext
-    val pendingFrame = preserveFrame
     if (previousContext != null && previousContext !== context) {
       preserveFrame = null
       contextReplaced()
-    } else if (pendingFrame != null) {
+    }
+    currentContext = context
+  }
+
+  /** Makes [context] ready before a producer can overwrite or release the shared target. */
+  fun prepare(context: DirectContext, contextReplaced: () -> Unit) {
+    observe(context, contextReplaced)
+    val pendingFrame = preserveFrame
+    if (pendingFrame != null) {
       pendingFrame()
       context.flush()
       context.submit(syncCpu = true)
       preserveFrame = null
     }
-    currentContext = context
   }
 
   /** Records that Compose will read the target when it replays the current picture. */

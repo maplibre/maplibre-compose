@@ -24,6 +24,35 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 | Desktop       | `benchmark:build:desktop`         | `benchmark:run -- desktop --app EXECUTABLE_PATH` |
 | Browser       | `benchmark:build:js`              | `benchmark:run -- web`                           |
 
+To measure the Nucleus desktop host, pass the configuration to its launcher:
+
+```sh
+MAP_BENCHMARK='{"workload":"animation","scene":"basemap-sf"}' \
+  mise run demo:desktop-nucleus -- --backend vulkan --extent 960x640
+```
+
+Capture stdout to an `app.log` file and run
+`python benchmarks/run.py analyze --output <folder-containing-app.log>` to save
+`performance.json`. Close the window after `MAP_BENCHMARK DONE`. Nucleus reports
+engine timings and UI callback intervals; the AWT-only app drawing measurement
+is unavailable there. Run `mise run deps:benchmarks` first to fetch the pinned
+fixtures.
+
+Asynchronous Linux Vulkan frame delivery is an opt-in profiling experiment.
+Native renders on its worker while Compose draws a copied, completed image with
+the matching projection for overlays. Enable it when launching either desktop
+host:
+
+```sh
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dmaplibre.experiment.asyncFrames=true" \
+  mise run demo:desktop-nucleus -- --backend vulkan --extent 960x640
+```
+
+The property is disabled by default and is not a supported library API. Compare
+on the same device and viewport: software Vulkan and a virtual display without a
+refresh limit do not predict hardware GPU throughput or the CPU cost of
+asynchronous presentation on a physical display.
+
 ## What a run reports
 
 - Process CPU time, per operation and per second.

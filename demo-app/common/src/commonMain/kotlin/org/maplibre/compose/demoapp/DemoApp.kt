@@ -73,7 +73,12 @@ fun DemoApp(
   launch: DemoLaunch = DemoLaunch.None,
   contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-  DemoAppTheme(state) { DemoShell(state, launch, contentPadding) }
+  val benchmark = benchmarkLaunchConfig()
+  if (benchmark != null) {
+    BenchmarkRun(benchmark)
+  } else {
+    DemoAppTheme(state) { DemoShell(state, launch, contentPadding) }
+  }
 }
 
 @Composable

@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -53,6 +54,10 @@ internal class MlnFfiSurfaceController(
   private var destination: MlnFfiMapDestination? = null
   private var presentationExtent = MapExtent.Empty
   private var destinationAnchor: MlnFfiMapPresentationAnchor? = null
+  private val renderPending = AtomicBoolean(true)
+  private val readyFrame = AtomicReference<PreparedFrame?>()
+  private var inFlight = false
+  private var requestedDisplayExtent = MapExtent.Empty
 
   override val maximumFps: Int?
     get() = renderer.maximumFps
@@ -60,6 +65,7 @@ internal class MlnFfiSurfaceController(
   override fun setPresentFrames(value: Boolean) {
     if (enabled == value) return
     enabled = value
+    renderPending.store(true)
     requestFrame()
   }
 
@@ -74,7 +80,11 @@ internal class MlnFfiSurfaceController(
         fail(hostResult.cause ?: IllegalStateException(hostResult.diagnostic))
       }
       is MlnFfiMapHostResult.Created -> {
-        val session = MlnFfiMapHostSessionImpl(hostResult.host, { closed }) { this.requestFrame() }
+        val session =
+          MlnFfiMapHostSessionImpl(hostResult.host, { closed }) {
+            renderPending.store(true)
+            this.requestFrame()
+          }
         this.session = session
         offerSurface(session)
       }
@@ -88,6 +98,7 @@ internal class MlnFfiSurfaceController(
           if (!closed) {
             try {
               renderer.onSurfaceAvailable(session)
+              renderPending.store(true)
               this.requestFrame()
             } catch (error: Throwable) {
               fail(error)
@@ -107,6 +118,7 @@ internal class MlnFfiSurfaceController(
   }
 
   override fun prepare(extent: MapExtent): Boolean {
+    if (host?.supportsAsyncFrames == true) return prepareAsync(extent)
     val host = host ?: return false
     if (closed || failed.load() || !enabled || extent.isEmpty) return false
     val frameId = nextFrameId++
@@ -160,6 +172,104 @@ internal class MlnFfiSurfaceController(
     }
   }
 
+  /** One producer job and one completed image; engine requests remain coalesced while busy. */
+  private fun prepareAsync(extent: MapExtent): Boolean {
+    val host = checkNotNull(host)
+    if (closed || failed.load() || !enabled || extent.isEmpty) return false
+    var published = false
+    readyFrame.getAndSet(null)?.let { ready ->
+      inFlight = false
+      var candidate = ready.presentation
+      try {
+        if (ready.error != null) recover(ready.error, ready.id)
+        else {
+          candidate?.let { completed ->
+            host.setPresentedTarget(completed.target)
+            clearPresentation(clearHost = false)
+            presentation = completed
+            candidate = null
+            destinationAnchor = ready.anchor
+            presentationExtent = ready.displayExtent
+            published = true
+          }
+          if (ready.retry) renderPending.store(true)
+        }
+      } catch (error: Throwable) {
+        recover(error, ready.id)
+      } finally {
+        try {
+          candidate?.close()
+        } finally {
+          host.releaseFrame(ready.frame)
+        }
+      }
+    }
+    if (failed.load()) return false
+    if (requestedDisplayExtent != extent) {
+      requestedDisplayExtent = extent
+      renderPending.store(true)
+    }
+    if (inFlight || !renderPending.exchange(false)) return published
+    val id = nextFrameId++
+    try {
+      if (configuredExtent != extent) {
+        host.resize(extent)
+        renderer.onSurfaceChanged(extent)
+        configuredExtent = extent
+      }
+      val acquired = host.acquireFrame(extent)
+      if (acquired == MlnFfiMapFrameAcquisition.NotReady) {
+        renderPending.store(true)
+        requestFrame()
+        return published
+      }
+      val frame = (acquired as MlnFfiMapFrameAcquisition.Acquired).frame
+      inFlight = true
+      val accepted =
+        try {
+          host.enqueueRenderer {
+            var completed: CompletedPresentation? = null
+            var anchor: MlnFfiMapPresentationAnchor? = null
+            var error: Throwable? = null
+            var retry = false
+            try {
+              host.withProducerAccess(frame) {
+                when (val result = renderer.render(checkNotNull(session), frame, true)) {
+                  is MlnFfiFrameResult.Rendered -> {
+                    completed = CompletedPresentation(frame.target, result.projection)
+                    completed!!.anchor =
+                      result.projection?.anchor ?: renderer.presentationAnchor(extent)
+                    anchor = completed!!.anchor
+                  }
+                  MlnFfiFrameResult.AwaitUpdate -> Unit
+                  MlnFfiFrameResult.RetryNextFrame -> retry = true
+                }
+              }
+              if (completed != null) host.completeProducerAccess(frame)
+            } catch (failure: Throwable) {
+              completed?.close()
+              completed = null
+              error = failure
+            }
+            readyFrame.set(PreparedFrame(frame, id, completed, anchor, extent, retry, error))
+            requestFrame()
+          }
+        } catch (error: Throwable) {
+          inFlight = false
+          host.releaseFrame(frame)
+          throw error
+        }
+      if (!accepted) {
+        inFlight = false
+        host.releaseFrame(frame)
+        error("The map host closed before accepting its frame")
+      }
+    } catch (error: Throwable) {
+      recover(error, id)
+    }
+    return published
+  }
+
   override fun present(extent: MapExtent) {
     val completed = presentation
     if (closed || failed.load() || !enabled || extent.isEmpty || completed == null) {
@@ -197,7 +307,10 @@ internal class MlnFfiSurfaceController(
           completed.presented = true
           failures = 0
         }
-        if (!drew) requestFrame()
+        if (!drew) {
+          renderPending.store(true)
+          requestFrame()
+        }
       } catch (error: Throwable) {
         recover(error, nextFrameId - 1)
       }
@@ -205,10 +318,11 @@ internal class MlnFfiSurfaceController(
     if (!drew) scope.drawRect(Color.Transparent)
   }
 
-  private fun clearPresentation() {
+  private fun clearPresentation(clearHost: Boolean = true) {
     renderer.presentFrame(null, MlnFfiMapDestination(0, 0, 0, 0), 1.0)
     val previous = presentation
     presentation = null
+    if (clearHost) host?.setPresentedTarget(null)
     destination = null
     previous?.close()
   }
@@ -225,6 +339,14 @@ internal class MlnFfiSurfaceController(
     }
     try {
       session?.let(renderer::onSurfaceLost)
+      // Drain our job even when Native had no attachment yet and onSurfaceLost returned early.
+      if (host?.supportsAsyncFrames == true) host.withRendererAccess {}
+      readyFrame.getAndSet(null)?.let {
+        it.presentation?.close()
+        host?.releaseFrame(it.frame)
+      }
+      inFlight = false
+      renderPending.store(true)
       offerSurface(checkNotNull(session))
     } catch (error: Throwable) {
       fail(error)
@@ -246,6 +368,11 @@ internal class MlnFfiSurfaceController(
     val host = host ?: return
     runCatching {
       session?.let(renderer::onSurfaceLost)
+      if (host.supportsAsyncFrames) host.withRendererAccess {}
+      readyFrame.getAndSet(null)?.let {
+        it.presentation?.close()
+        host.releaseFrame(it.frame)
+      }
       host.close()
       session = null
     }
@@ -263,6 +390,16 @@ internal class MlnFfiSurfaceController(
       projection?.close()
     }
   }
+
+  private data class PreparedFrame(
+    val frame: MlnFfiMapFrame,
+    val id: Long,
+    val presentation: CompletedPresentation?,
+    val anchor: MlnFfiMapPresentationAnchor?,
+    val displayExtent: MapExtent,
+    val retry: Boolean,
+    val error: Throwable?,
+  )
 }
 
 private class MlnFfiMapHostSessionImpl(

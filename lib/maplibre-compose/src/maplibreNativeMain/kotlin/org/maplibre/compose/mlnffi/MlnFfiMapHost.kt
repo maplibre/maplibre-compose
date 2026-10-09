@@ -66,6 +66,13 @@ internal interface MlnFfiMapHostSession {
 internal interface MlnFfiMapHost : AutoCloseable {
   val backends: RenderBackendPair
 
+  /** Whether producer work can overlap presentation of a detached, completed image. */
+  val supportsAsyncFrames: Boolean
+    get() = false
+
+  /** Compose-thread notification of the target whose image and projection are now presented. */
+  fun setPresentedTarget(target: MlnFfiRenderTarget?) {}
+
   /**
    * Resizes the host's render target, called before the next [acquireFrame] whenever the extent
    * changed. A host that cannot resize in place reallocates and reports a new

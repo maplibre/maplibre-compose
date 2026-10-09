@@ -21,6 +21,84 @@ import org.maplibre.compose.map.MapExtent
 class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
+  fun asynchronous_frames_coalesce_requests_and_publish_only_completed_projections() {
+    val renderer = RecordingRenderer()
+    val host = FakeMlnFfiMapHost().apply { rotateTargetsOnAcquire = true }
+    val queued = ArrayDeque<() -> Unit>()
+    val closedProjections = mutableListOf<Int>()
+    var published: MlnFfiMapFrameProjection? = null
+    val asyncHost =
+      object : MlnFfiMapHost by host {
+        override val supportsAsyncFrames = true
+
+        override fun enqueueRenderer(action: () -> Unit): Boolean {
+          queued.addLast(action)
+          return true
+        }
+      }
+    val projecting =
+      object : MlnFfiMapRenderer by renderer {
+        override fun render(
+          host: MlnFfiMapHostSession,
+          frame: MlnFfiMapFrame,
+          captureProjection: Boolean,
+        ): MlnFfiFrameResult {
+          renderer.render(host, frame, captureProjection)
+          val id = renderer.renderedFrames
+          return MlnFfiFrameResult.Rendered(
+            RecordingProjection(frame.target.extent, id) { closedProjections += id }
+          )
+        }
+
+        override fun presentFrame(
+          projection: MlnFfiMapFrameProjection?,
+          destination: MlnFfiMapDestination,
+          scaleFactor: Double,
+        ) {
+          published = projection
+        }
+
+        override fun onSurfaceLost(session: MlnFfiMapHostSession) {
+          while (queued.isNotEmpty()) queued.removeFirst()()
+          renderer.onSurfaceLost(session)
+        }
+      }
+    val controller =
+      MlnFfiSurfaceController(projecting, MlnFfiMapHostResult.Created(asyncHost), null)
+    val extent = MapExtent.fromLogical(64, 64, 1.0)
+    controller.attach {}
+    queued.removeFirst()()
+    assertFalse(controller.prepare(extent))
+    repeat(10) { assertFalse(controller.prepare(extent)) }
+    assertEquals(1, host.acquiredFrames)
+    queued.removeFirst()()
+    assertTrue(controller.prepare(extent))
+    controller.present(extent)
+    assertEquals(1, (published as RecordingProjection).id)
+    assertTrue(queued.isEmpty(), "Publishing a completion must not start an idle render loop")
+
+    repeat(10) { renderer.requestFrame() }
+    assertFalse(controller.prepare(extent))
+    repeat(10) { assertFalse(controller.prepare(extent)) }
+    assertEquals(2, host.acquiredFrames)
+    queued.removeFirst()()
+    controller.present(extent)
+    assertEquals(1, (published as RecordingProjection).id)
+    assertTrue(closedProjections.isEmpty())
+    assertTrue(controller.prepare(extent))
+    controller.present(extent)
+    assertEquals(2, (published as RecordingProjection).id)
+    assertEquals(listOf(1), closedProjections)
+
+    renderer.requestFrame()
+    assertFalse(controller.prepare(extent))
+    controller.close()
+    assertEquals(listOf(1, 2, 3), closedProjections)
+    assertTrue(host.leakedFrames.isEmpty())
+    assertTrue(host.closed)
+  }
+
+  @Test
   fun surface_attachment_runs_on_the_host_renderer() {
     val renderer = RecordingRenderer()
     val host = FakeMlnFfiMapHost()
