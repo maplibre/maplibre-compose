@@ -82,7 +82,7 @@ private constructor(
           logger = MapLog,
         )
       )
-  val state = runtime.createMapState(BaseStyle.Demo)
+  val state = runtime.createMapState(BaseStyle.Empty)
 
   val session: MlnFfiMapSession =
     MlnFfiMapSession(
