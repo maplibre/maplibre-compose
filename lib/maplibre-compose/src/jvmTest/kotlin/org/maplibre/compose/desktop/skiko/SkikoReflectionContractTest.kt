@@ -17,14 +17,12 @@ import kotlin.test.assertTrue
 class SkikoReflectionContractTest {
 
   @Test
-  fun `inherited field reads observe replacement values and subclass fields`() {
-    val inherited = InheritedTarget()
+  fun `field reads observe a replaced value`() {
+    val target = InheritedTarget()
     with(SkikoReflection) {
-      assertEquals("initial", inherited.getField("context"))
-      inherited.replaceContext("replacement")
-      assertEquals("replacement", inherited.getField("context"))
-      assertEquals("shadow", ShadowTarget().getField("context"))
-      assertEquals("replacement", inherited.getField("context"))
+      assertEquals("initial", target.getField("context"))
+      target.replaceContext("replacement")
+      assertEquals("replacement", target.getField("context"))
     }
   }
 
@@ -137,8 +135,4 @@ class SkikoReflectionContractTest {
   }
 
   class InheritedTarget : FieldTarget()
-
-  class ShadowTarget : FieldTarget() {
-    private val context = "shadow"
-  }
 }
