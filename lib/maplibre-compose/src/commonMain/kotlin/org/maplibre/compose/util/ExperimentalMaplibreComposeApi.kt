@@ -1,14 +1,14 @@
 package org.maplibre.compose.util
 
 /**
- * Marks an API that may change in any minor release. Marked APIs are new and have seen little use,
- * or expose a dependency that is not expected to become stable before this library does, such as
- * Skiko or the MapLibre engine bindings.
+ * Marks an API whose contract or behavior is experimental. It may change in any minor release,
+ * expose an unstable dependency such as Skiko or the MapLibre engine bindings, or use experimental
+ * engine features.
  */
 @RequiresOptIn(
   message =
-    "This API may change in any minor release. It is new, or it exposes a dependency that is " +
-      "not stable.",
+    "This API is experimental. Its contract may change, its dependencies may be unstable, " +
+      "or its engine behavior may be experimental.",
   level = RequiresOptIn.Level.WARNING,
 )
 @Retention(AnnotationRetention.BINARY)

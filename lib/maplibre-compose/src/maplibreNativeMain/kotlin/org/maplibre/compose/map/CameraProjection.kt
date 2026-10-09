@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /**
  * The camera projection that MapLibre Native uses to render the map.
@@ -23,6 +24,7 @@ public sealed interface CameraProjection {
    * @param xSkew How much to skew the projection on the x-axis.
    * @param ySkew How much to skew the projection on the y-axis.
    */
+  @ExperimentalMaplibreComposeApi
   public data class Axonometric(
     public val xSkew: Double = 0.0,
     public val ySkew: Double = 1.0,

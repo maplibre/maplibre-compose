@@ -1387,6 +1387,7 @@ internal class MlnFfiMapSession(
 
 private fun TileLodOptions.toFfi(): TileOptions = algorithm.toFfi()
 
+@OptIn(ExperimentalMaplibreComposeApi::class)
 private fun CameraProjection.toFfi(): ProjectionModeOptions =
   ProjectionModeOptions().also { options ->
     when (this) {

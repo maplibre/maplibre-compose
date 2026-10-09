@@ -7,8 +7,10 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.CameraProjection
 import org.maplibre.compose.map.RenderOptions
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 @Composable
+@OptIn(ExperimentalMaplibreComposeApi::class)
 actual fun RenderSettingsItems(settings: DemoSettings) {
   val options = settings.renderOptions
   SectionHeader("Camera projection")
