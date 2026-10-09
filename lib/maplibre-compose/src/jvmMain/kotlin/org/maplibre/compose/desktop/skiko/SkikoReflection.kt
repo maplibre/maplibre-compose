@@ -7,6 +7,7 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
 import org.maplibre.compose.logging.MapLog
@@ -18,6 +19,13 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
  * Every reflective access in MapLibre Compose lives in this file.
  */
 internal object SkikoReflection {
+  // Cache metadata, never field values: Skiko replaces contexts during a window's lifetime.
+  // ClassValue also lets a disposed class loader release its cached reflective members.
+  private val fieldCache =
+    object : ClassValue<ConcurrentHashMap<String, Field>>() {
+      override fun computeValue(type: Class<*>) = ConcurrentHashMap<String, Field>()
+    }
+
   const val SkiaLayerClass = "org.jetbrains.skiko.SkiaLayer"
   const val ComposeWindowClass = "androidx.compose.ui.awt.ComposeWindow"
   const val MetalRedrawerClass = "org.jetbrains.skiko.redrawer.MetalRedrawer"
@@ -163,6 +171,14 @@ internal object SkikoReflection {
   }
 
   fun Class<*>.findField(name: String): Field {
+    val cache = fieldCache.get(this)
+    cache[name]?.let {
+      return it
+    }
+    return cache.computeIfAbsent(name) { findUncachedField(it) }
+  }
+
+  private fun Class<*>.findUncachedField(name: String): Field {
     var current: Class<*>? = this
     while (current != null) {
       try {
