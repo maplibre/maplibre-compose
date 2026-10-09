@@ -2,6 +2,7 @@ package org.maplibre.compose.expressions.value
 
 import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /**
  * A named map projection. See [Projection][org.maplibre.compose.style.Projection].
@@ -17,11 +18,13 @@ public value class ProjectionType private constructor(override val value: String
     public val Mercator: ProjectionType = ProjectionType("mercator")
 
     /** A globe projection at every zoom level. */
+    @ExperimentalMaplibreComposeApi
     public val VerticalPerspective: ProjectionType = ProjectionType("vertical-perspective")
 
     /** [VerticalPerspective] below zoom 11, interpolating to [Mercator] by zoom 12. */
-    public val Globe: ProjectionType = ProjectionType("globe")
+    @ExperimentalMaplibreComposeApi public val Globe: ProjectionType = ProjectionType("globe")
 
+    @OptIn(ExperimentalMaplibreComposeApi::class)
     public override val entries: List<ProjectionType> = listOf(Mercator, VerticalPerspective, Globe)
   }
 }

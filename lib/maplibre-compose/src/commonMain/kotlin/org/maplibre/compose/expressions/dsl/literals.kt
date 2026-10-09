@@ -48,6 +48,7 @@ import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
 import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Creates a literal expression for a [String] value. */
 public fun const(string: String): Expression<StringValue> = StringLiteral.of(string)
@@ -94,6 +95,7 @@ public fun const(dpOffset: DpOffset): Expression<DpOffsetValue> = DpOffsetLitera
 public fun const(padding: DpPadding): Expression<DpPaddingValue> = DpPaddingLiteral.of(padding)
 
 /** Creates a literal expression for a [ProjectionTransition] value. */
+@ExperimentalMaplibreComposeApi
 public fun const(transition: ProjectionTransition): Expression<ProjectionValue> =
   ProjectionTransitionLiteral.of(transition)
 

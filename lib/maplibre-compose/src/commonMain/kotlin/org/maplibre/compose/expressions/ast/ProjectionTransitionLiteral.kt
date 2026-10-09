@@ -2,8 +2,10 @@ package org.maplibre.compose.expressions.ast
 
 import org.maplibre.compose.expressions.value.ProjectionValue
 import org.maplibre.compose.style.ProjectionTransition
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** A [Literal] representing a [ProjectionTransition] value. */
+@OptIn(ExperimentalMaplibreComposeApi::class)
 internal data class ProjectionTransitionLiteral
 private constructor(override val value: ProjectionTransition) :
   CompiledLiteral<ProjectionValue, ProjectionTransition> {

@@ -29,6 +29,7 @@ internal fun CompiledExpression<*>.toStyleJson(): JsonElement = normalizeJsonLik
  * @param inLiteral whether this node is already inside a `["literal", ...]` wrapper. Arrays and
  *   objects need literal context because the style spec reads `[1, 2]` as a function call.
  */
+@OptIn(ExperimentalMaplibreComposeApi::class)
 private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonElement =
   when (this) {
     NullLiteral -> JsonNull

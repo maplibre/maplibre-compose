@@ -7,6 +7,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ProjectionType
 import org.maplibre.compose.expressions.value.ProjectionValue
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /**
  * The style's map projection.
@@ -46,6 +47,7 @@ public data class Projection(
  *   `[0..1]`.
  */
 @Immutable
+@ExperimentalMaplibreComposeApi
 public data class ProjectionTransition(
   val from: ProjectionType,
   val to: ProjectionType,
