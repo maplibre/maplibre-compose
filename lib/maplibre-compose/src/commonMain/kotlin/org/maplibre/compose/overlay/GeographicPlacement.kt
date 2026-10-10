@@ -25,13 +25,20 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.Position
 
-/** Layout operations for direct children of a map overlay or [GeographicLayout]. */
+/**
+ * Layout operations for direct children of a map overlay or [GeographicLayout].
+ *
+ * As in a `Box`, children without a placement modifier sit at the top-start, and [BoxScope.align]
+ * places them within the layout.
+ */
 @Stable
 public sealed interface MapOverlayScope : BoxScope {
   /**
-   * Places this child at [position]. [alignment] selects the child's anchor point. The child is
-   * hidden before a viewport exists or when entirely outside the layout. Apply this modifier to a
-   * direct child; sizing and padding describe the child itself.
+   * Places this child at [position]. The child is hidden before a viewport exists or when entirely
+   * outside the layout. Apply this modifier to a direct child; sizing and padding describe the
+   * child itself.
+   *
+   * @param alignment Selects the child's anchor point.
    */
   public fun Modifier.placedAt(
     position: Position,

@@ -49,10 +49,9 @@ import org.maplibre.compose.util.formatToString
 /**
  * Immutable inputs for one snapshot capture.
  *
- * @property size Size of the captured map. Both dimensions must be finite and positive. MapLibre
- *   lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and to at
- *   least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density], rounded
- *   up.
+ * @property size Size of the captured map. Both dimensions must be finite and positive. Each
+ *   dimension is rounded to the nearest whole dp, and to at least 1 dp. Each image dimension in
+ *   pixels is the rounded size multiplied by [density], rounded up.
  * @property cameraPosition Camera position used for this capture.
  * @property density Pixel density for rendering and font scale for style composition.
  * @property layoutDirection Layout direction used while evaluating the style composition.
@@ -257,7 +256,13 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   }
 }
 
-/** An independent non-UI map that captures images. */
+/**
+ * An independent non-UI map that captures images.
+ *
+ * An image contains only the rendered map: the sources, layers, and images of the style. It
+ * contains no Compose UI, such as map controls, and no attribution text, so show the
+ * [attributions][org.maplibre.compose.overlay.attributions] of [style] with the image.
+ */
 public sealed interface MapSnapshotter {
   /**
    * Desired and applied style state for this snapshotter's engine map.
@@ -281,7 +286,9 @@ public sealed interface MapSnapshotter {
    * On the browser, MapLibre draws text whose glyphs fail to load with a local font instead.
    *
    * @throws IllegalStateException if the snapshotter is closed before this call.
-   * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
+   * @throws IllegalArgumentException if the request cannot be rendered on the current platform,
+   *   such as a request whose size times its density, rounded to whole pixels, is more than 4,096
+   *   in either dimension on the browser, which is the MapLibre GL JS canvas limit.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
    * @throws MapSnapshotException if the runtime cannot render offscreen, such as when MapLibre
    *   Native offers no offscreen rendering backend for the device, style evaluation or rendering

@@ -21,8 +21,8 @@ public sealed interface CameraProjection {
    * camera operations still calculate from the padded center. See
    * [MapLibre Native issue #4545](https://github.com/maplibre/maplibre-native/issues/4545).
    *
-   * @param xSkew How much to skew the projection on the x-axis.
-   * @param ySkew How much to skew the projection on the y-axis.
+   * @property xSkew How much to skew the projection on the x-axis.
+   * @property ySkew How much to skew the projection on the y-axis.
    */
   @ExperimentalMaplibreComposeApi
   public data class Axonometric(

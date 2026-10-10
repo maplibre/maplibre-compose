@@ -83,9 +83,9 @@ public class ResolvedStyleImage(
      * main thread. Later changes to [image] do not change the result. Keep and reuse the result
      * while the image is unchanged to avoid preparing another pixel copy.
      *
-     * [sdf] indicates that the pixels already form a signed distance field; it does not convert
-     * them. [stretch] defines the stretch and content box for an icon that wraps its text.
-     *
+     * @param sdf Indicates that the pixels already form a signed distance field; it does not
+     *   convert them.
+     * @param stretch Defines the stretch and content box for an icon that wraps its text.
      * @throws IllegalArgumentException if [image] has a zero width or height.
      */
     public fun fromBitmap(
@@ -97,16 +97,19 @@ public class ResolvedStyleImage(
     /**
      * Renders [painter] once for a missing-image resolver or another imperative image operation.
      *
-     * [density] and [layoutDirection] describe the environment in which the painter draws. In
-     * Compose, pass `LocalDensity.current` and `LocalLayoutDirection.current` from the caller's
-     * composition. Rendering uses a standalone graphics context and releases it before returning.
+     * Changes to the painter after this call do not update the result.
      *
-     * [size] is in DP. When omitted, the painter's intrinsic pixel size is used, falling back to 16
-     * by 16 DP. [drawAsSdf] converts the rendered pixels to a signed distance field for monochrome
-     * icons. [alpha] and [colorFilter] are passed to [Painter.draw]. Changes to the painter after
-     * this call do not update the result.
-     *
-     * @throws IllegalArgumentException If the size has a non-positive dimension.
+     * @param density Describes the environment in which the painter draws. In Compose, pass
+     *   `LocalDensity.current` from the caller's composition.
+     * @param layoutDirection Describes the environment in which the painter draws. In Compose, pass
+     *   `LocalLayoutDirection.current` from the caller's composition.
+     * @param size In DP. When omitted, the painter's intrinsic pixel size is used, falling back to
+     *   16 by 16 DP.
+     * @param drawAsSdf Converts the rendered pixels to a signed distance field for monochrome
+     *   icons.
+     * @param alpha Passed to [Painter.draw].
+     * @param colorFilter Passed to [Painter.draw].
+     * @throws IllegalArgumentException if the size has a non-positive dimension.
      */
     public suspend fun fromPainter(
       painter: Painter,

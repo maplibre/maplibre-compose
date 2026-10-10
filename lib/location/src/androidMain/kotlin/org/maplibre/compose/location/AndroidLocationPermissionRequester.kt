@@ -49,8 +49,10 @@ internal constructor(
 ) : AutoCloseable {
 
   /**
-   * Reads permission from [context]. A context that cannot reach an activity cannot answer the
-   * rationale check or launch a request.
+   * Reads permission from [context].
+   *
+   * @param context A context that cannot reach an activity cannot answer the rationale check or
+   *   launch a request.
    */
   public constructor(
     context: Context
@@ -141,10 +143,9 @@ internal constructor(
    * Starts a foreground permission request and returns immediately. The result is published to
    * [status].
    *
-   * The launcher registers on the activity's result registry at request time, so a directly
-   * constructed requester works when the supplied context can reach a [ComponentActivity]. With a
-   * context that cannot, such as a service context, this call does nothing and [status] stays
-   * accurate.
+   * A directly constructed requester works when the supplied context can reach a
+   * [ComponentActivity]. With a context that cannot, such as a service context, this call does
+   * nothing and [status] stays accurate.
    *
    * Android's rationale check returns `false` both before the first request and after a permanent
    * denial. This requester tells the two apart by recording a denial that arrives while the check

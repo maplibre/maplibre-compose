@@ -21,13 +21,13 @@ public sealed interface MapEvent {
   /**
    * The engine could not load the base style.
    *
-   * [reason] is the engine's failure text, or a message from this library when the engine reports
-   * none.
+   * @property reason The engine's failure text, or a message from this library when the engine
+   *   reports none.
    */
   public data class StyleLoadFailed internal constructor(val reason: String) : MapEvent
 
   /**
-   * Native could not asynchronously serialize, prepare, or install GeoJSON data on [sourceId].
+   * Native could not asynchronously install GeoJSON data on [sourceId].
    *
    * The source retains its previously installed data, or remains empty if its initial data failed.
    * Superseded submissions and removed sources do not report failures. This event belongs to the
@@ -42,8 +42,8 @@ public sealed interface MapEvent {
   /**
    * The engine started one camera change. A drag reports one change per pointer move.
    *
-   * [animated] is true for an animated transition and false for an immediate change. On the browser
-   * it is null, because MapLibre GL JS reports no such distinction.
+   * @property animated True for an animated transition and false for an immediate change. On the
+   *   browser it is null, because MapLibre GL JS reports no such distinction.
    */
   public data class CameraMoveStarted internal constructor(val animated: Boolean?) : MapEvent
 
@@ -53,16 +53,16 @@ public sealed interface MapEvent {
   /**
    * The engine finished one camera change.
    *
-   * [animated] is true for an animated transition and false for an immediate change. On the browser
-   * it is null, because MapLibre GL JS reports no such distinction.
+   * @property animated True for an animated transition and false for an immediate change. On the
+   *   browser it is null, because MapLibre GL JS reports no such distinction.
    */
   public data class CameraMoveEnded internal constructor(val animated: Boolean?) : MapEvent
 
   /**
    * The engine finished rendering one frame.
    *
-   * [stats] holds the engine's measurements on native platforms. On the browser it is null, because
-   * MapLibre GL JS reports no measurements with its render event.
+   * @property stats The engine's measurements on native platforms. On the browser it is null,
+   *   because MapLibre GL JS reports no measurements with its render event.
    */
   public data class FrameRendered internal constructor(val stats: RenderStats?) : MapEvent
 }
@@ -92,10 +92,10 @@ internal constructor(
   /**
    * Whether everything the frame needed had loaded when the engine drew it.
    *
-   * [value] is MapLibre Native's name for the mode, such as `Full`. A mode that has no name here
-   * holds the number that MapLibre Native reports, as decimal text.
-   *
    * Values may be added in minor releases; use an `else` branch when matching.
+   *
+   * @property value MapLibre Native's name for the mode, such as `Full`. A mode that has no name
+   *   here holds the number that MapLibre Native reports, as decimal text.
    */
   @Immutable
   @JvmInline

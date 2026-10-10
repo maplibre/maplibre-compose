@@ -34,10 +34,12 @@ internal constructor(
   public val downloadProgress: StateFlow<DownloadProgress> = progressState.asStateFlow()
 
   /**
-   * Replaces the arbitrary metadata that is associated with this offline pack.
+   * Replaces the arbitrary metadata that is associated with this offline pack. Waits while the
+   * storage is [OfflineStorageState.Loading].
    *
    * @throws IllegalStateException if the pack's runtime is closed.
-   * @throws [OfflineStorageException] if the operation failed.
+   * @throws OfflineStorageException if the operation failed.
+   * @throws Throwable the storage's [OfflineStorageState.Failed.cause] if its initialization fails.
    */
   public suspend fun setMetadata(metadata: ByteArray) {
     owner.requireRuntimeOpen()

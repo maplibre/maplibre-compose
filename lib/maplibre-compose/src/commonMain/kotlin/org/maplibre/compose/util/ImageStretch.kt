@@ -14,11 +14,12 @@ public sealed class ImageStretch {
      * Stretch intervals and an optional text box, from the top-left of the image.
      *
      * Empty [x] or [y] omits stretch on that axis. Overlapping, out-of-image, or unspecified ranges
-     * on an axis are omitted. An out-of-image [content] box is omitted.
+     * on an axis are omitted.
      *
      * @param x Horizontal stretch intervals.
      * @param y Vertical stretch intervals.
      * @param content Box that `icon-text-fit` fills. When omitted, MapLibre uses the whole image.
+     *   An out-of-image box is omitted.
      */
     public operator fun invoke(
       x: List<ClosedRange<Dp>>,

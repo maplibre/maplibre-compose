@@ -60,7 +60,11 @@ internal constructor(
   private val owner: MapPresentationOwnerToken,
   initialOptions: MapViewOptions,
 ) : AutoCloseable {
-  /** Creates a standalone presentation. [density] also supplies the initial detached map scale. */
+  /**
+   * Creates a standalone presentation.
+   *
+   * @param density The initial [density], which also supplies the initial detached map scale.
+   */
   public constructor(
     state: MapState,
     viewportInsets: PaddingValues = PaddingValues(0.dp),
@@ -157,14 +161,17 @@ internal constructor(
     set(value) = update { copy(interactions = value) }
 
   /**
-   * Attaches [layer], replacing the previous binding. [width] and [height] are physical pixels;
-   * [density] is physical pixels per logical pixel. A density change recreates the native map.
+   * Attaches [layer], replacing the previous binding.
    *
    * The host owns the layer and its layout. Use a BGRA8Unorm layer dedicated to this presentation;
    * MapLibre owns its drawable size and presentation. Call [LayerBinding.close], then await
    * [LayerBinding.awaitClosed] before repurposing the layer. Closing returns immediately; the
    * renderer retains the layer until it has stopped using it, so the host may release its reference
    * without waiting.
+   *
+   * @param width The width in physical pixels.
+   * @param height The height in physical pixels.
+   * @param density Physical pixels per logical pixel. A density change recreates the native map.
    */
   public fun attachLayer(
     layer: CAMetalLayer,

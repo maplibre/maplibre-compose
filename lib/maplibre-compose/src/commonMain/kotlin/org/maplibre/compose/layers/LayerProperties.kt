@@ -166,7 +166,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
  * Conversion factors for text units in one property. A null factor leaves that unit unscaled;
  * mixing EM and SP then requires explicit factors. Factors may themselves be expressions.
  *
- * [spScale] also determines conversion of DP text offsets using the map's font scale.
+ * @property spScale Also determines conversion of DP text offsets using the map's font scale.
  */
 public data class LayerExpressionContext(
   public val emScale: Expression<FloatValue>? = null,

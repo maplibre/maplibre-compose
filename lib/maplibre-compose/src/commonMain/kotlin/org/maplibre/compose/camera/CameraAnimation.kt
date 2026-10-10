@@ -9,8 +9,8 @@ import org.maplibre.compose.map.MapOptionsDsl
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  *
- * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. MapLibre Native and
- * MapLibre GL JS each implement both transitions. Their paths and timing are engine-dependent.
+ * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. Their paths and timing are
+ * engine-dependent.
  */
 @Immutable
 public expect sealed interface CameraAnimation {

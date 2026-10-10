@@ -28,13 +28,14 @@ import org.maplibre.spatialk.units.extensions.inMeters
 /**
  * Displays the latest location and the most accurate course or device heading from [locationState].
  *
- * By default, remembers lifecycle-aware location and heading providers. Permission is never
- * requested automatically. Pass a hoisted [rememberLocationState] to request permission, inspect
- * provider status, share measurements with camera tracking, or supply a custom provider.
- *
  * Retained measurements remain visible when tracking stops. The layer does not apply stale styling
  * or an accuracy threshold. Use the value overload for other display policies. Other parameters
  * behave as in the [Position] overload.
+ *
+ * @param locationState By default, remembers lifecycle-aware location and heading providers.
+ *   Permission is never requested automatically. Pass a hoisted [rememberLocationState] to request
+ *   permission, inspect provider status, share measurements with camera tracking, or supply a
+ *   custom provider.
  */
 @Composable
 @MaplibreComposable
@@ -105,7 +106,6 @@ public fun LocationIndicatorLayer(
  *
  * The first location appears immediately; later measurements animate with the supplied transition
  * options. Bearing and longitude changes take the shortest path across north and the antimeridian.
- * A null [location] removes the indicator and resets its animation history.
  *
  * Click handlers target the top and bearing image bounds, including transparent margins, but not
  * the shadow, accuracy circle, or bearing accuracy sector. Each gesture invokes its handler at most
@@ -114,7 +114,8 @@ public fun LocationIndicatorLayer(
  * or [ClickResult.Consume] to stop dispatch.
  *
  * @param id Unique layer ID.
- * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
+ * @param location Position of the indicator, or null to hide it. Altitude is not rendered. A null
+ *   [location] removes the indicator and resets its animation history.
  * @param bearing Rotation of all three images clockwise from north. Null hides [bearingImage] and
  *   resets the other images to zero rotation. Its first available value appears immediately.
  * @param accuracyRadius Horizontal error radius in meters, or null to hide the circle.
