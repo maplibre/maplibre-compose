@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.map_24px
@@ -23,29 +22,40 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberImageSource
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
-@OptIn(ExperimentalResourceApi::class)
 fun Images() {
   val iconState = rememberMapState {
     // #region icon-painter
-    val stations =
-      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
+    val earthquakes =
+      rememberGeoJsonSource(
+        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+      )
 
     SymbolLayer(
-      id = "station-icons",
-      source = stations,
+      id = "earthquake-icons",
+      source = earthquakes,
       iconImage = image(painterResource(Res.drawable.map_24px), size = DpSize(24.dp, 24.dp)),
     )
     // #endregion icon-painter
-
-    // #region icon-sprite
-    SymbolLayer(id = "station-markers", source = stations, iconImage = image("marker"))
-    // #endregion icon-sprite
   }
   MaplibreMap(state = iconState)
+
+  // #region icon-sprite
+  val spriteState =
+    rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
+      val earthquakes =
+        rememberGeoJsonSource(
+          GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+        )
+
+      SymbolLayer(id = "earthquake-markers", source = earthquakes, iconImage = image("marker"))
+    }
+  MaplibreMap(state = spriteState)
+  // #endregion icon-sprite
 
   val imageState = rememberMapState {
     // #region image-source

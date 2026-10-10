@@ -1,6 +1,6 @@
 ---
 title: Add images and icons
-description: Draw icons from Compose painters or the style sprite, and place an image on the map.
+description: Draw icons from Compose painters or the style's sprite, and place an image on the map.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,51 +9,59 @@ import { region, rememberedMapStyle } from "../../snippets";
 
 import images from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Images.kt?raw";
 
-A <Api of="SymbolLayer" /> draws an icon at each feature in its source. The
-<Api of="image" /> expression supplies the icon, from a Compose painter, an
-`ImageBitmap`, or the base style's sprite.
+A <Api of="SymbolLayer" /> draws an icon at each feature in its source. Its
+`iconImage` parameter takes an <Api of="image" /> expression, which chooses the
+icon.
 
 ## Draw icons from a Compose painter
 
-Pass a painter to `image()`. Use `painterResource` to load an app resource, or
-supply your own painter:
+Pass any Compose `Painter` to `image()`, such as one from `painterResource`.
+This example puts a map icon at every earthquake location:
 
 <Code code={rememberedMapStyle(region(images, "icon-painter"))} lang="kotlin" title="App.kt" />
 
-## Draw icons from the style sprite
+`size` sets the size of the icon. To color a single-color icon from the layer,
+pass `drawAsSdf = true` to `image()` and set the layer's `iconColor`.
 
-Base styles usually bundle a sprite: a named set of icons. Pass the icon name
-to `image()`:
+The map hides an icon that would overlap another icon or label. Set
+`iconAllowOverlap = const(true)` on the layer to draw every icon.
 
-<Code code={rememberedMapStyle(region(images, "icon-sprite"))} lang="kotlin" title="App.kt" />
+## Use icons from the style's sprite
+
+Most styles come with a sprite: a set of named icons that the style uses for
+places such as shops and stations. Pass an icon's name to `image()` to use it in
+your own layer:
+
+<Code code={region(images, "icon-sprite")} lang="kotlin" title="App.kt" />
+
+Each style has its own icon names. The style JSON gives the sprite's URL under
+`sprite`; add `.json` to that URL to see the list of names.
 
 ## Place an image on the map
 
-An <Api of="ImageSource" /> positions one image on the map by its four corner
-coordinates. A <Api of="RasterLayer" /> draws it:
+<Api of="rememberImageSource" /> pins one image to the map at four corner
+coordinates, and a <Api of="RasterLayer" /> draws it. The image moves and
+scales with the map. This example lays a 1660 plan of New Amsterdam over lower
+Manhattan:
 
 <Code code={rememberedMapStyle(region(images, "image-source"))} lang="kotlin" title="App.kt" />
 
+The corners do not need to form a rectangle that faces north, so you can
+rotate the image to fit the map. To draw pixels that your app creates, pass a
+<Api of="PreparedImage" /> instead of a URI.
+
 ## Supply a missing image
 
-A style can reference an icon that its sprite does not contain. Set
-<Api of="MapState.missingImageResolver" /> to supply one. The map calls the
-resolver with a <Api of="MissingImageRequest" /> that holds the icon's ID, and
-adds the <Api of="ResolvedStyleImage" /> that it returns:
+A layer can ask for an icon that the style does not contain, for example when
+your data names an icon for each feature. The map then draws no icon for that
+feature. Set <Api of="MapState.missingImageResolver" /> to supply the image
+when the map asks for it. This example draws a fallback painter for every
+missing icon:
 
 <Code code={region(images, "missing-image")} lang="kotlin" title="App.kt" />
 
-## Prepared images
+The resolver receives a <Api of="MissingImageRequest" /> with the icon's ID.
+Return a <Api of="ResolvedStyleImage" />, or null to leave the icon empty.
 
-For imperative image updates, prepare an image with
-`ResolvedStyleImage.fromBitmap(bitmap)` or
-`ResolvedStyleImage.fromPainter`, then submit it with
-`state.style.images.set(id, image)`. Preparation owns a pixel copy,
-so the result can be reused across image IDs and loaded styles.
-
-`set`, `setAll`, and `remove` enqueue commands without waiting for the map. A
-replacement keeps the previous image until it succeeds; an engine rejection is
-logged. Looking up an image with `state.style.images[id]` suspends until the
-commands enqueued before it have run, so code that needs an image in place
-awaits its lookup. A finished command does not mean the map has rendered a
-frame.
+To add or replace an image under a fixed ID from code, call
+<Api of="StyleImages.set" /> on `mapState.style.images`.
