@@ -1,6 +1,6 @@
 ---
 title: How the map composes
-description: The declarative style model that applies your sources and layers to the map.
+description: How MapState, the base style, and your declared sources and layers fit together, and what happens to the map when Compose state changes.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,60 +9,108 @@ import { region } from "../../snippets";
 
 import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
-<Api of="MapState" /> defines a
-logical map, including its base style and declarative style content.
-<Api of="MaplibreMap" /> displays it in Compose UI. Use the state to control the
-camera, read the visible area, and query features.
+<Api of="MapState" /> holds one map: its base style, its camera, and the
+sources and layers that you declare. <Api of="MaplibreMap" /> draws a
+`MapState` on the screen. The state is a separate object, so code outside the
+map can use it. For example, a button elsewhere on the screen can move the
+camera.
 
-## The style is base plus content
+## The base style and your content
 
-A MapLibre style is a document with sources and layers. The `baseStyle`
-parameter loads that document without modification. The trailing
-<Api of="rememberMapState" /> block declares your sources, layers, and their
-positions in the layer stack.
+Every map starts from a base style. A base style is a style document, usually
+published by a map provider at a URL. It contains sources, which supply the
+data, and layers, which draw that data: roads, water, labels, and so on.
+
+The trailing block of <Api of="rememberMapState" /> declares your own sources
+and layers. The library adds them to the base style. It does not change the
+layers of the base style.
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
-The library manages the sources and layers in the style block. It
-does not modify the rest of the base style. To change a base style layer, use
-the `asMutable` view of its <Api of="LayerHandle" /> from `mapState.style.layers`.
+Your layers draw above the layers of the base style, in the order that you
+declare them: a later layer draws above an earlier one. To put a layer between
+layers of the base style, for example under the labels, wrap it in an
+<Api of="Anchor" />. [Add data to the map](/maplibre-compose/layers/) shows how.
 
-Use Compose state to update sources, layers, and images declared in the style
-block. Use handles for runtime operations such as feature state and cluster
-queries. For example, `mapState.style.sources[source]` gives you the typed
-handle for a declared source. See <Api of="MapStyleState" /> for handle access and
-mutation rules.
+The library adds a source to the map only while one of your layers uses it. A
+source that no layer uses loads no data.
 
-## Recomposition updates the style
+## Compose state changes the map
 
-The style block is evaluated as a Compose composition. When the state that it
-reads changes, it recomposes, and the library applies the difference to the style: a
-layer that is no longer in the composition is removed from the style, a new
-layer is added, and a changed property is updated in place. You do not call
-add or remove functions yourself.
+The content block is a composable. When state that it reads changes, the block
+recomposes, and the library changes the map to match.
 
-This is the same contract as Compose UI: describe the map content for the
-current state, and let the runtime reconcile it.
+<Code code={region(composition, "recomposition")} lang="kotlin" title="App.kt" />
 
-## Style switches re-apply your content
+When `showStrongOnly` becomes true, the library adds the `strong-earthquakes`
+layer. When it becomes false, the library removes that layer. When `dotColor`
+changes, the library sets the new color on the existing `earthquakes` layer.
 
-When you change `baseStyle`, the map loads the new style and evaluates
-the style block against it. Each evaluation declares your
-sources and layers against the new style. They persist across the switch
-without extra code. An `Anchor` is resolved against the new style's layers.
+You do not call add or remove functions. Use `if`, loops, and parameters, as you
+do with UI composables.
 
-To share one definition between several maps, write the style content as a
-composable function and call that function from each style block. The same
-function applies to `rememberMapState`, `MapRuntime.createMapState`, and
-`MapRuntime.createSnapshotter`.
+## Switching the base style keeps your content
 
-Use <Api of="LocalViewport" /> for content that depends on the visible area.
-When sharing content with a snapshotter, keep interactive behavior separate:
-<Api of="LocalMapState" /> is available only in an interactive map.
+When `baseStyle` changes, the map loads the new style document. The library
+then adds your content to the new style, so your sources and layers stay on the
+map. [Style the map](/maplibre-compose/styling/#switch-styles-at-runtime) shows
+how to switch styles.
+
+The content block composes again from the start for each style that the map
+loads. Values that you `remember` inside the block reset at that point, so keep
+app state that must outlast a style change outside the block. An `Anchor`
+places your layers again among the layers of the new style.
+
+## Share content between maps
+
+To show the same sources and layers in more than one place, write them as a
+composable function and call it from each content block. Here an interactive
+map and a <Api of="MapSnapshotter" />, which captures map images, show the same
+earthquakes:
+
+<Code code={region(composition, "shared-content")} lang="kotlin" title="App.kt" />
+
+A snapshotter has no `MapState`, so <Api of="LocalMapState" /> is null inside
+it, and shared content must work without it. A snapshotter also does not wait
+for effects in the content, such as one that loads data. Pass any data that the
+image needs as a parameter of the shared function.
+[Capture a map image](/maplibre-compose/snapshotter/) shows how to capture.
+
+## Change the map with handles
+
+Some changes are commands, not declarations: hiding a layer of the base style,
+setting the state of one feature, or reading the points inside a cluster. For
+these, get a handle from `mapState.style`. <Api of="MapStyleState.layers" />
+returns a <Api of="LayerHandle" /> for a layer ID.
+<Api of="MapStyleState.sources" /> returns a <Api of="SourceHandle" /> for a
+source ID or for a source object that you declared.
+
+This example hides the 3D buildings of the base style:
+
+<Code code={region(composition, "handles")} lang="kotlin" title="App.kt" />
+
+A handle belongs to one loaded style. It is null until the style is ready, and
+after a style switch the map gives you a new handle. The example reads the
+handle during composition, so the effect runs again for each new style.
+
+`asMutable` gives write access to layers and sources of the base style. For
+layers and sources that you declared, it is null: change the declaration
+instead. Handles of declared sources still set feature state and read clusters.
+See [Query and highlight features](/maplibre-compose/features/) and
+[Cluster points](/maplibre-compose/clustering/).
 
 ## Layer and source IDs
 
-Layers and sources have string IDs because the underlying MapLibre style
-identifies them by ID. Within one map, each layer ID must be unique, including
-against the base style's layers. A feature query takes layer IDs to limit its
-scope, and an `Anchor` can select a base style layer by its ID.
+MapLibre identifies each layer by a text ID, and you choose the ID of each layer
+that you declare. The ID must be different from every other layer on the map,
+including the layers of the base style. See <Api of="Layer" /> for what happens
+when an ID repeats. Keep each ID the same across recompositions: a different ID
+is a different layer, so the library removes the old layer and adds a new one.
+
+Other functions find layers by ID. An `Anchor` can name a layer of the base
+style, <Api of="MapState.queryRenderedFeatures" /> can return features from
+only some layers, and `mapState.style.layers` returns a handle by ID.
+
+Sources that you remember get their ID from the library, so refer to them by
+the source object. To draw data from a source of the base style, get it by its
+ID with <Api of="getBaseSource" />.
