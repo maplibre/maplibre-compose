@@ -59,6 +59,7 @@ export default defineConfig({
             { label: "Add data to the map", slug: "layers" },
             { label: "Add images and icons", slug: "images" },
             { label: "Cluster points", slug: "clustering" },
+            { label: "Show 3D buildings and relief", slug: "terrain" },
             { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Query and highlight features", slug: "features" },
             { label: "Overlay Compose UI", slug: "controls" },
