@@ -225,9 +225,9 @@ internal constructor(
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
    * declares. The caller must close the result.
    *
-   * [content] reads the returned state through [LocalMapState] and its viewport through
-   * [LocalViewport]. It composes from the start for each style the map loads, so values it
-   * remembers reset when the base style changes.
+   * @param content Declares the map's sources, layers, and images. It reads the returned state
+   *   through [LocalMapState] and its viewport through [LocalViewport]. It composes from the start
+   *   for each style the map loads, so values it remembers reset when the base style changes.
    */
   public fun createMapState(
     baseStyle: BaseStyle,
@@ -242,10 +242,11 @@ internal constructor(
    * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
    * [content] declares, for image capture. The caller must close the result.
    *
-   * [content] reads the viewport of each capture request through [LocalViewport]. It has no
-   * [MapState], so [LocalMapState] is null. It composes from the start for each capture, so values
-   * it remembers do not carry over between captures. A capture does not wait for effects in
-   * [content], such as one that loads data; pass data that the image needs into [content].
+   * @param content Declares the snapshotter's sources, layers, and images. It reads the viewport of
+   *   each capture request through [LocalViewport]. It has no [MapState], so [LocalMapState] is
+   *   null. It composes from the start for each capture, so values it remembers do not carry over
+   *   between captures. A capture does not wait for effects in [content], such as one that loads
+   *   data; pass data that the image needs into [content].
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,
@@ -1576,20 +1577,19 @@ internal constructor(
 internal class MapPresentationOwnerToken
 
 /**
- * Remembers a logical map and closes it when this call leaves composition.
+ * Remembers a logical map and closes it when this call leaves composition. Restoration creates a
+ * new map with the saved camera position and the current [baseStyle].
  *
- * [baseStyle] owns the map's base style and updates it on recomposition. Its
- * [MapStyleState.asMutable] is null. [initialCameraPosition] only seeds the camera; use
- * [MapState.setCameraPosition] to move it. Changes to [content] update the declared resources.
- * Restoration creates a new map with the saved camera position and the current [baseStyle].
- *
- * [content] declares the map's sources, layers, and images. It reads the returned state through
- * [LocalMapState] and its viewport through [LocalViewport]. It composes from the start for each
- * style the map loads, so values it remembers reset when [baseStyle] changes.
- *
- * The default [runtime] is [DefaultMapRuntime.instance]. In [LocalInspectionMode], such as an IDE
- * `@Preview`, it is instead a runtime that never starts MapLibre, so the map state works but no map
- * renders.
+ * @param runtime The runtime that owns the map. Defaults to [DefaultMapRuntime.instance]. In
+ *   [LocalInspectionMode], such as an IDE `@Preview`, the default is instead a runtime that never
+ *   starts MapLibre, so the map state works but no map renders.
+ * @param baseStyle The map's base style, updated on recomposition. Its [MapStyleState.asMutable] is
+ *   null.
+ * @param initialCameraPosition Only seeds the camera; use [MapState.setCameraPosition] to move it.
+ * @param content Declares the map's sources, layers, and images. Changes to it update the declared
+ *   resources. It reads the returned state through [LocalMapState] and its viewport through
+ *   [LocalViewport]. It composes from the start for each style the map loads, so values it
+ *   remembers reset when [baseStyle] changes.
  */
 @Composable
 public fun rememberMapState(

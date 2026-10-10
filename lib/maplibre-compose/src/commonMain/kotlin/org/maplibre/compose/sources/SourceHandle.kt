@@ -107,13 +107,14 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
   ): FeatureCollection<Geometry, JsonObject?>?
 
   /**
-   * Merges [state] into the runtime state of the feature identified by [featureId]. Captures the
-   * state and its nested values before submitting the update.
+   * Merges [state] into the runtime state of the feature identified by [featureId].
    *
-   * [featureId] is the feature's GeoJSON `id` as text, such as `"7"` for an `id` of `7`. For a
-   * feature from a query or a click, that is `feature.id?.content`. Give features integer ids:
-   * MapLibre GL JS reads a GeoJSON `id` as an integer, so on the browser, state set for an `id`
-   * such as `"a7"` does not reach the feature.
+   * @param featureId The feature's GeoJSON `id` as text, such as `"7"` for an `id` of `7`. For a
+   *   feature from a query or a click, that is `feature.id?.content`. Give features integer ids:
+   *   MapLibre GL JS reads a GeoJSON `id` as an integer, so on the browser, state set for an `id`
+   *   such as `"a7"` does not reach the feature.
+   * @param state The values to merge. The state and its nested values are captured before the
+   *   update is submitted.
    */
   public fun setFeatureState(featureId: String, state: JsonObject): Unit
 

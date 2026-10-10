@@ -14,8 +14,9 @@ import org.maplibre.compose.gljs.GlJsRuntime
  * a Blob URL as well.
  *
  * Serve `maplibre-gl/worker.mjs` extracted from this library's JS KLIB, from the same release as
- * the library. It includes the matching engine patches and has no sibling imports. Relative URLs
- * resolve against the page URL.
+ * the library. It includes the matching engine patches and has no sibling imports.
+ *
+ * @param workerUrl The URL of the worker module. A relative URL resolves against the page URL.
  */
 public fun configureMaplibreWorker(workerUrl: String) {
   GlJsRuntime.pointAtWorker(workerUrl)
