@@ -1,6 +1,6 @@
 ---
 title: Overlay Compose UI
-description: Position the logo, attribution, and your own controls on top of the map.
+description: Choose the map controls, add your own, and place Compose UI on map locations.
 ---
 
 import { Aside, Code } from "@astrojs/starlight/components";
@@ -10,40 +10,55 @@ import { region } from "../../snippets";
 import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
 import material3 from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt?raw";
 
-<Api of="MaplibreMap" /> draws controls on top of the map. The `overlay`
-block replaces the default controls when you supply it. The default draws a
-scale bar and a compass along the top edge. It draws the MapLibre logo and an
-attribution button along the bottom edge. The scale bar and the compass appear
-only while they are relevant.
+<Api of="MaplibreMap" /> draws Compose UI on top of the map in its trailing
+`overlay` block. Without a block, it draws <Api of="MapOverlay.Default" />: a
+scale bar and a compass along the top edge, and the MapLibre logo and an
+attribution button along the bottom edge. The scale bar appears for a moment
+when the zoom changes. The compass appears while the map is rotated or tilted.
 
 <Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
+The attribution button shows the attribution text of the sources in the style.
+
 <Aside type="caution">
-  Most tile sources require attribution. If you replace `MapOverlay.Default`,
-  show the source attribution yourself.
+  Most tile providers require you to show their attribution. If you remove the
+  attribution button, show the attribution somewhere else in your app.
 </Aside>
 
-Two variants cover common needs. `MapOverlay.Full` adds zoom in and zoom out
-buttons at the middle of the end edge. `MapOverlay.AttributionOnly` draws only
+## Choose a preset
+
+<Api of="include" /> draws a preset inside the overlay block.
+<Api of="MapOverlay.Full" /> adds zoom buttons to the default controls, which
+helps users with a mouse. <Api of="MapOverlay.AttributionOnly" /> keeps only
 the logo and the attribution button.
 
-## Replace the overlay
+<Code code={region(controls, "preset")} lang="kotlin" title="App.kt" />
 
-An empty block, or `MapOverlay.None`, draws no controls. Use it when your app
-shows the attribution somewhere else, such as an about screen.
+An empty block draws nothing. Use it when your app shows the attribution
+somewhere else. Call <Api of="attributions" /> on `mapState.style` to get the
+attribution text of the style's sources, and draw it with
+<Api of="org.maplibre.compose.overlay.AttributionLinks" />.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-The trailing block draws the controls that you list. Inside a `Box`, `Modifier.align` positions
-a control against an inset edge of the map.
+## Add your own controls
+
+The overlay block lays out its children like a `Box` that covers the map. This
+example puts the controls in a `Box` with `safeDrawingPadding()`, so they stay
+clear of the system bars, and places each one with `Modifier.align`.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
-## Theme the controls with Material 3
+The library's controls, such as
+<Api of="org.maplibre.compose.overlay.ZoomButtons" /> and
+<Api of="org.maplibre.compose.overlay.CompassButton" />, are composables you can
+place the same way.
 
-The base library draws controls with a fixed palette that stays legible on any
-basemap. The `maplibre-compose-material3` module draws the same controls with
-your Material 3 color scheme and typography. Add the dependency:
+## Use Material 3 colors
+
+The base controls use fixed colors that are readable on light and dark maps.
+The `maplibre-compose-material3` module draws the same controls with the colors
+and typography of your Material 3 theme. Add the dependency:
 
 ```toml title="libs.versions.toml"
 [libraries]
@@ -56,83 +71,66 @@ commonMain.dependencies {
 }
 ```
 
-<Api of="Material3" display="MapOverlay.Material3" /> draws the same controls
-as <Api of="MapOverlay.Default" /> in the same places. Include it in the block:
+Then include <Api of="Material3" display="MapOverlay.Material3" />. It places
+the same controls as <Api of="MapOverlay.Default" />.
+`MapOverlay.Material3Full` and `MapOverlay.Material3AttributionOnly` are the
+Material 3 versions of `MapOverlay.Full` and `MapOverlay.AttributionOnly`.
 
 <Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
 
-`MapOverlay.Material3AttributionOnly` and `MapOverlay.Material3Full` apply the
-theme to the other presets.
-
-Each Material 3 control is also a composable that you can place in the trailing
-block:
+The module has a Material 3 version of each control except the MapLibre logo,
+in the `org.maplibre.compose.material3` package. Use them in your own layout:
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
-1. `ScaleBar` calls `metersPerDp` while it draws, so read the map state inside
-   the lambda rather than passing a value.
-2. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
-   that `MapOverlay.Material3` uses fade in when the zoom or the orientation
-   changes, and fade out once it settles.
+## Read the map in a control
 
-## Map context inside overlays
+A control can read the map it is drawn on through
+<Api of="LocalMapState" />. You do not need to pass the map state to it. This
+label shows the current zoom level and updates as the user zooms:
 
-Overlay content uses <Api of="MapOverlayScope" /> to position direct children.
-Controls are ordinary composables that read the enclosing map through
-<Api of="LocalMapState" />. <Api of="LocalViewport" /> exposes its current viewport,
-and <Api of="LocalViewportInsets" /> exposes its viewport insets. These values
-remain available inside nested composables and layouts. A nested map provides its own context.
+<Code code={region(controls, "map-context")} lang="kotlin" title="ZoomLabel.kt" />
 
-## Inset overlays and the camera
+<Api of="LocalMapState" /> is null outside a map. <Api of="LocalViewport" />
+gives the camera, size, and visible area of the last frame the map drew.
 
-The overlay fills the map without implicit padding. Arrange custom controls with
-Compose layouts such as `Box`, `Row`, and `Column`, and apply padding and system
-insets to those layouts.
+## Keep controls clear of your UI
 
-The built-in presets use the larger of `viewportInsets` and safe-drawing insets on
-each edge, then add <Api of="MapOverlay.Spacing" />. They consume padding and insets
-using Compose layout rules, accounting for safe areas handled by an outer layout.
-The padding takes effect without waiting for a map frame.
-
-`viewportInsets` also shifts the camera center. For custom controls that follow this
-padding, read <Api of="LocalViewportInsets" /> and apply it to their container.
+When your app draws UI over part of the map, such as a bottom panel, pass that
+area to `viewportInsets`. The default controls then stay above the panel, and
+camera moves center their target in the part of the map the user can see.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
-1. `union` takes the larger inset on each edge.
+Your own controls can read the same insets from
+<Api of="LocalViewportInsets" /> and apply them as padding.
 
-Camera padding frames the target inside these insets without moving controls.
-Padding on a bounding-box camera move adds a margin inside both for that fit.
+## Pin UI to a location
 
-## Pin Compose UI to a location
-
-<Api of="MapOverlayScope.placedAt" /> puts a child on a geographic position.
-Include <Api of="MapOverlay.Default" /> to keep the default controls. A pan, a
-zoom, or a window resize moves the child with the map.
+<Api of="MapOverlayScope.placedAt" /> puts a composable on a geographic
+position. The composable moves with the map when the user pans or zooms. Use it
+for a label or a button that belongs to a place. Apply it to a direct child of
+the overlay block.
 
 <Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
 
-1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
-   Padding lifts the chip above the feature.
+The `alignment` chooses which point of the composable sits on the position.
+`Alignment.BottomCenter` puts the bottom of the label on the position, and the
+bottom padding lifts it a little above.
 
-## Point at an off-screen location
+## Point to an off-screen location
 
-Use <Api of="MapOverlayScope.placedTowards" /> for a direction indicator when
-a location is out of view. It places the child along the parent layout's inscribed
-ellipse and hides it while the location is inside that ellipse.
-
-Use <Api of="GeographicLayout" /> to choose a smaller placement region. Apply sizing
-and padding to that layout; geographic positions still refer to the enclosing map,
-including when the layout moves. Placement modifiers apply to direct children of
-the map overlay or `GeographicLayout`. To place a compound marker, apply the modifier
-to its outer container. Sizing and padding on a child describe that child, independent
-of the placement modifier's position in the chain.
+<Api of="org.maplibre.compose.overlay.PointerPinButton" /> shows a pin at the
+edge of the map that points toward a position outside the view. The pin moves
+along an oval that fills its layout, and it hides while the position is inside
+that oval. In this example, a tap moves the camera to the position.
 
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 
-1. The state stores the placement that the overlay computed.
-2. `angleDegrees` is the direction of the target, clockwise from screen-up.
+<Api of="GeographicLayout" /> sets the area that the pin moves around in. Here
+the padding keeps the pin away from the system bars and the edge of the map.
 
-<Api of="org.maplibre.compose.overlay.PointerPinButton" /> uses this modifier
-to display a pin-shaped button that points at the target. The Material 3 module
-provides a themed version of it.
+To draw your own indicator, use <Api of="MapOverlayScope.placedTowards" /> with
+<Api of="rememberPlacedTowardsState" />. The state's
+<Api of="PlacedTowardsState.angleDegrees" display="angleDegrees" /> tells you
+which way to rotate it.

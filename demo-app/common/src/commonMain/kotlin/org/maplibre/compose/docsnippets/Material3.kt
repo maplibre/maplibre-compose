@@ -10,12 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.material3.CompassButton
 import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.material3.Material3
-import org.maplibre.compose.material3.ScaleBar
 import org.maplibre.compose.material3.ZoomButtons
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
@@ -30,18 +28,10 @@ fun Material3() {
   // #region controls
   MaplibreMap {
     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
-      val mapState = checkNotNull(LocalMapState.current)
-      ScaleBar(
-        metersPerDp = { mapState.viewport?.metersPerDpAtCenter ?: 0.0 }, // (1)!
-        modifier = Modifier.align(Alignment.TopStart),
-      ) // (2)!
-      CompassButton(modifier = Modifier.align(Alignment.TopEnd))
+      CompassButton(Modifier.align(Alignment.TopEnd))
       ZoomButtons(Modifier.align(Alignment.CenterEnd))
       MaplibreLogo(Modifier.align(Alignment.BottomStart))
-      ExpandingAttributionButton(
-        modifier = Modifier.align(Alignment.BottomEnd),
-        contentAlignment = Alignment.BottomEnd,
-      )
+      ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
     }
   }
   // #endregion controls
