@@ -8,8 +8,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import java.lang.FunctionalInterface
 import java.lang.invoke.MethodHandles
 import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -24,6 +26,8 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Picture
+import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
 import org.junit.Assume.assumeTrue
@@ -89,6 +93,86 @@ import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
 class LinuxOpenGlInteropTest {
+
+  @Test
+  fun `asynchronous presentation stops requesting frames after the map settles`() =
+    onLinux("asynchronous presentation is a Linux Vulkan experiment") {
+      assumeTrue(packagedProducer() == MapRenderBackend.Vulkan)
+      EglTestContext.create().use { egl ->
+        val host =
+          LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer(), asyncFrames = true)
+        try {
+          InteropMap(host).use { map ->
+            egl.withCurrent {
+              host.setPresentedTarget(map.renderStyle(FirstStyle, FirstExtent))
+              val deadline = TimeSource.Monotonic.markNow() + 5.seconds
+              while (map.renderOnDemand(FirstExtent, 250) > 0) {
+                check(deadline.hasNotPassedNow()) { "An idle map is still rendering" }
+              }
+              assertEquals(0, map.renderOnDemand(FirstExtent, 500))
+            }
+          }
+        } finally {
+          host.close()
+        }
+      }
+    }
+
+  @Test
+  fun `asynchronous presentation freezes completed pixels without rotating the producer`() =
+    onLinux("external-memory buffering is a Linux-only experiment") {
+      assumeTrue(packagedProducer() == MapRenderBackend.Vulkan)
+      EglTestContext.create().use { egl ->
+        val host =
+          LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer(), asyncFrames = true)
+        try {
+          InteropMap(host).use { map ->
+            egl.withCurrent {
+              val first = map.renderStyle(FirstStyle, FirstExtent)
+              host.setPresentedTarget(first)
+              assertNear(FirstPixel, egl.drawAndRead(host, first), "first completed frame")
+              val retainedPicture = egl.recordFrame(host, first)
+              val second = map.renderStyle(SecondStyle, FirstExtent)
+              assertEquals(first.generation, second.generation)
+              assertNear(
+                FirstPixel,
+                egl.drawAndRead(host, first),
+                "first frame while second is ready",
+              )
+              host.setPresentedTarget(second)
+              assertNear(SecondPixel, egl.drawAndRead(host, second), "second completed frame")
+              val third = map.renderStyle(solidStyle("#669933"), FirstExtent)
+              assertEquals(
+                (first as org.maplibre.compose.mlnffi.VulkanImageTarget).image,
+                (third as org.maplibre.compose.mlnffi.VulkanImageTarget).image,
+                "Native must keep the same producer allocation",
+              )
+              assertNear(
+                SecondPixel,
+                egl.drawAndRead(host, second),
+                "second frame after first allocation is reused",
+              )
+              host.setPresentedTarget(third)
+              val thirdPixel = RgbaPixel(0x66, 0x99, 0x33, 0xff)
+              assertNear(thirdPixel, egl.drawAndRead(host, third), "third completed frame")
+              retainedPicture.use {
+                assertNear(
+                  FirstPixel,
+                  egl.replayAndRead(it),
+                  "recorded first frame after its allocation was overwritten",
+                )
+              }
+              val resized = map.renderStyle(SecondStyle, SecondExtent)
+              assertNear(thirdPixel, egl.drawAndRead(host, third), "retained frame while resizing")
+              host.setPresentedTarget(resized)
+              assertNear(SecondPixel, egl.drawAndRead(host, resized), "resized completed frame")
+            }
+          }
+        } finally {
+          host.close()
+        }
+      }
+    }
 
   @Test
   fun `an inherited GL error does not poison the first memory import`() =
@@ -238,6 +322,7 @@ class LinuxOpenGlInteropTest {
   }
 
   private class InteropMap(private val host: LinuxOpenGlMapHost) : AutoCloseable {
+    private val frameRequested = AtomicBoolean(true)
     private val cacheDirectory = Files.createTempDirectory("maplibre-egl-interop-test")
 
     @Volatile private var styleLoads = 0
@@ -290,7 +375,9 @@ class LinuxOpenGlInteropTest {
         override val isClosed = false
         override val backends = host.backends
 
-        override fun requestFrame() {}
+        override fun requestFrame() {
+          frameRequested.set(true)
+        }
 
         override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
 
@@ -348,7 +435,24 @@ class LinuxOpenGlInteropTest {
       }
     }
 
+    fun renderOnDemand(extent: MapExtent, durationMillis: Long): Int {
+      val deadline = System.nanoTime() + durationMillis * 1_000_000
+      var rendered = 0
+      while (System.nanoTime() < deadline) {
+        if (frameRequested.getAndSet(false)) {
+          val frame = pumpFrame(extent)
+          if (frame.rendered) {
+            host.setPresentedTarget(checkNotNull(frame.target))
+            rendered++
+          }
+        }
+        Thread.sleep(PollIntervalMillis)
+      }
+      return rendered
+    }
+
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
+      frameRequested.set(false)
       val frame = assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(extent)).frame
       try {
         val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
@@ -439,6 +543,32 @@ class LinuxOpenGlInteropTest {
           )
       }
       assertTrue(drew, "The OpenGL host did not draw generation ${target.generation}")
+      return readDestination()
+    }
+
+    fun recordFrame(host: LinuxOpenGlMapHost, target: MlnFfiRenderTarget): Picture =
+      PictureRecorder().use { recorder ->
+        val canvas = recorder.beginRecording(0f, 0f, DrawWidth.toFloat(), DrawHeight.toFloat())
+        CanvasDrawScope().draw(
+          Density(1f),
+          LayoutDirection.Ltr,
+          canvas.asComposeCanvas(),
+          Size(DrawWidth.toFloat(), DrawHeight.toFloat()),
+        ) {
+          assertTrue(
+            host.draw(
+              this,
+              target,
+              MlnFfiMapDestination(0, 0, target.extent.physicalWidth, target.extent.physicalHeight),
+            )
+          )
+        }
+        recorder.finishRecordingAsPicture()
+      }
+
+    fun replayAndRead(picture: Picture): RgbaPixel {
+      destination.canvas.clear(0xff00ff00.toInt())
+      destination.canvas.drawPicture(picture)
       return readDestination()
     }
 

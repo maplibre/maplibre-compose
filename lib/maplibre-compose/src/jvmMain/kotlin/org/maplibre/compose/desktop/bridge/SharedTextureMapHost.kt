@@ -52,6 +52,10 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
   /** Frees [texture] once Compose will not draw it again. */
   protected abstract fun release(texture: T)
 
+  protected open fun releaseAfterDraw(generation: Long) {
+    textures.releaseRetired(except = generation)
+  }
+
   /** Releases every texture and the Skia wrappers around them, for [close]. */
   protected abstract fun closeTextures()
 
@@ -91,10 +95,12 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
     destination: MlnFfiMapDestination,
   ): Boolean {
     if (target.backend != producer) return false
-    return withPreparedContext { context ->
-      val texture = textures[target.generation] ?: return@withPreparedContext false
+    return withComposeContext { context ->
+      if (supportsAsyncFrames) frameCompletion.observe(context.skiaContext, ::contextReplaced)
+      else frameCompletion.prepare(context.skiaContext, ::contextReplaced)
+      val texture = textures[target.generation] ?: return@withComposeContext false
       val drew = present(scope, context, texture, target.generation, destination)
-      if (drew) textures.releaseRetired(except = target.generation)
+      if (drew) releaseAfterDraw(target.generation)
       drew
     } ?: false
   }

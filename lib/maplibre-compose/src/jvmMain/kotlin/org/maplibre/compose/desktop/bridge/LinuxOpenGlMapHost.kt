@@ -3,6 +3,11 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.skiaCanvas
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.SamplingMode
 import org.lwjgl.opengl.EXTMemoryObject.GL_DEDICATED_MEMORY_OBJECT_EXT
 import org.lwjgl.opengl.EXTMemoryObject.GL_DEVICE_UUID_EXT
 import org.lwjgl.opengl.EXTMemoryObject.GL_NUM_DEVICE_UUIDS_EXT
@@ -48,6 +53,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
+import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
@@ -60,6 +66,7 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 internal class LinuxOpenGlMapHost(
   presentationHost: OpenGlPresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Vulkan,
+  asyncFrames: Boolean = System.getProperty("maplibre.experiment.asyncFrames").toBoolean(),
 ) :
   SharedTextureMapHost<OpenGlComposeGpuContext, LinuxOpenGlMapHost.LinuxSharedTexture>(
     presentationHost,
@@ -71,6 +78,48 @@ internal class LinuxOpenGlMapHost(
   private var egl: DesktopEglContext? = null
 
   @Volatile private var acquireProducerWrites = false
+  override val supportsAsyncFrames = producer == MapRenderBackend.Vulkan && asyncFrames
+  private var presentedGeneration: Long? = null
+  private var completedImage: Image? = null
+
+  override fun setPresentedTarget(target: MlnFfiRenderTarget?) {
+    if (!supportsAsyncFrames) return
+    if (target == null) {
+      completedImage?.close()
+      completedImage = null
+      presentedGeneration = null
+      return
+    }
+    val copied =
+      withPreparedContext { context ->
+        val texture =
+          textures[target.generation]
+            ?: throw MlnFfiRecoverableFrameException(
+              "Compose replaced the context of the completed map target",
+              null,
+            )
+        acquireWrites()
+        val nextImage =
+          presenter.freeze(context.skiaContext, texture.imported.target(target.generation))
+        completedImage?.close()
+        completedImage = nextImage
+        presentedGeneration = target.generation
+        // Native finished on this target and no next producer job has been submitted yet.
+        textures.releaseRetired(except = target.generation)
+        true
+      } ?: false
+    if (!copied)
+      throw MlnFfiRecoverableFrameException(
+        "Compose lost its context before the completed map image could be copied",
+        null,
+      )
+  }
+
+  override fun releaseAfterDraw(generation: Long) {
+    if (!supportsAsyncFrames) super.releaseAfterDraw(generation)
+    // In asynchronous mode the current target may still be rendering. Retire allocations when
+    // setPresentedTarget freezes a newly completed frame instead.
+  }
 
   // Importing into GL needs Compose's context current, so reallocation happens in acquireFrame.
   // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
@@ -104,12 +153,26 @@ internal class LinuxOpenGlMapHost(
     generation: Long,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (acquireProducerWrites) {
-      // EXT_memory_object does not make producer completion visible to this context. glFinish
-      // acquires those writes.
-      glFinish()
-      acquireProducerWrites = false
+    if (supportsAsyncFrames) {
+      val image = completedImage?.takeIf { generation == presentedGeneration } ?: return false
+      scope.drawIntoCanvas {
+        it.skiaCanvas.drawImageRect(
+          image,
+          Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          Rect.makeLTRB(
+            destination.left.toFloat(),
+            destination.top.toFloat(),
+            destination.right.toFloat(),
+            destination.bottom.toFloat(),
+          ),
+          SamplingMode.LINEAR,
+          null,
+          true,
+        )
+      }
+      return true
     }
+    acquireWrites()
     return presenter.draw(
       scope,
       context.skiaContext,
@@ -119,6 +182,15 @@ internal class LinuxOpenGlMapHost(
     )
   }
 
+  private fun acquireWrites() {
+    if (acquireProducerWrites) {
+      // EXT_memory_object does not make producer completion visible to this context. glFinish
+      // acquires those writes.
+      glFinish()
+      acquireProducerWrites = false
+    }
+  }
+
   /** Frees every view of [texture]'s allocation. Compose's GL context must be current. */
   override fun release(texture: LinuxSharedTexture) {
     texture.close()
@@ -126,6 +198,9 @@ internal class LinuxOpenGlMapHost(
 
   /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
   override fun contextReplaced() {
+    completedImage?.close()
+    completedImage = null
+    presentedGeneration = null
     presenter.abandonAll()
     acquireProducerWrites = false
     // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
@@ -135,6 +210,8 @@ internal class LinuxOpenGlMapHost(
   }
 
   override fun closeTextures() {
+    completedImage?.close()
+    completedImage = null
     // At window close the Compose surface may already be gone; the driver reclaims the GL objects
     // along with the context.
     runCatching {
