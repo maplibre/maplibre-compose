@@ -9,6 +9,7 @@ import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
 
 import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
+import nucleusMain from "../../../../demo-app/desktop-nucleus/src/main/kotlin/org/maplibre/compose/nucleus/Main.kt?raw";
 
 [Getting started](/maplibre-compose/getting-started/) picks one setup for each
 target. Read the section for a target when you need a different runtime, want to
@@ -96,18 +97,50 @@ Java's foreign function API, so every way you start the app must pass
 load. [Getting started](/maplibre-compose/getting-started/#desktop-jvm) shows
 how to add the flag.
 
-### Presentation hosts
+### Window hosts
 
 Maps draw with the GPU context of the window that shows them. A
 <Api of="ComposeMapPresentationHost" /> gives maps that context, and
 <Api of="org.maplibre.compose.desktop.ProvideMapPresentationHost" /> installs it
-for a window's content. Each window needs its own host.
+for a window's content. Each window that shows a map needs a host.
+
+Maps also deliver their events on `Dispatchers.Main`, so the window toolkit must
+supply a main dispatcher. Without one, the map runtime fails to start.
+
+#### Nucleus
+
+We recommend [Nucleus][nucleus] with its Tao backend. Add its application and
+Tao window modules:
+
+```kotlin title="build.gradle.kts"
+jvmMain.dependencies {
+  implementation("dev.nucleusframework:nucleus.nucleus-application:{{nucleus}}")
+  implementation("dev.nucleusframework:nucleus.decorated-window-tao:{{nucleus}}")
+}
+```
+
+Start the app with `nucleusApplication(backend = NucleusBackend.Tao)`. Tao
+supplies the main dispatcher. Copy [the demo's Tao host][nucleus-host] into your
+app; it builds a host from the window's Tao GPU context. Then wrap each window's
+content:
+
+<Code code={region(nucleusMain, "host")} lang="kotlin" />
+
+Start the JVM with `--enable-native-access=ALL-UNNAMED`, and on macOS also with
+`-XstartOnFirstThread`, which gives Tao the main thread that macOS windows need.
+The [Nucleus demo][nucleus-demo] shows a complete app.
+
+#### Compose Desktop (AWT)
 
 For a Compose window that uses AWT, such as one from `singleWindowApplication`
-or `Window`, use <Api of="rememberAwtComposeMapPresentationHost" />. It works on
-macOS, Windows, and Linux.
+or `Window`, use <Api of="rememberAwtComposeMapPresentationHost" />, and add
+`kotlinx-coroutines-swing` for the main dispatcher.
+[Getting started](/maplibre-compose/getting-started/#desktop-jvm) shows the
+setup.
 
-A window that draws Compose without AWT creates its host with a factory on
+#### Other windows
+
+A window that draws Compose another way creates its host with a factory on
 <Api of="ComposeMapPresentationHost" />: `macosMetal`, `windowsDirect3d12`,
 `linuxOpenGl`, or `windowsAngle`. Pick the one that matches the window's
 operating system and graphics API. You supply the window's Skia context and a
@@ -117,9 +150,12 @@ way to run code on its GPU thread:
 
 These factories take types from Skiko, the Skia library that Compose draws
 with. Those types may change in any minor release, so the factories require
-opt-in to <Api of="ExperimentalMaplibreComposeApi" />. The API
-reference describes what each callback must do. For a complete host, see
-[the Nucleus demo][nucleus-host].
+opt-in to <Api of="ExperimentalMaplibreComposeApi" />. The API reference
+describes what each callback must do.
+
+If the toolkit has no `Dispatchers.Main`, set `mainDispatcher` in
+<Api of="DefaultMapRuntime.configure" /> to a single-threaded dispatcher for the
+window's thread.
 
 ### Signed packages
 
@@ -193,6 +229,10 @@ runtime artifact:
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
 ```
 
+[nucleus]: https://github.com/NucleusFramework/Nucleus
+
 [nucleus-host]: https://github.com/maplibre/maplibre-compose/blob/main/demo-app/desktop-nucleus/src/main/kotlin/org/maplibre/compose/nucleus/TaoComposeMapPresentationHost.kt
+
+[nucleus-demo]: https://github.com/maplibre/maplibre-compose/tree/main/demo-app/desktop-nucleus
 
 [snapshots]: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/

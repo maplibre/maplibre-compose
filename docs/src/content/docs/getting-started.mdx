@@ -97,13 +97,19 @@ settings:
 
 ### Desktop (JVM)
 
-Desktop apps run on Java 25 or later. Add the runtime for each operating system
-and CPU you ship. This example is for Linux on x64:
+Desktop apps run on Java 25 or later. These steps use a Compose Desktop window,
+which runs on AWT. [Platform setup](/maplibre-compose/platform-setup/#window-hosts)
+covers other windows, including Nucleus, which we recommend.
+
+Add the runtime for each operating system and CPU you ship, and
+`kotlinx-coroutines-swing`, which supplies the main thread that maps deliver
+their events on. This example is for Linux on x64:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
     ```kotlin title="build.gradle.kts"
     jvmMain.dependencies {
+      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:{{coroutines}}")
       runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
     }
     ```
@@ -113,6 +119,7 @@ and CPU you ship. This example is for Linux on x64:
     ```yaml title="desktop-app/module.yaml"
     dependencies:
       - //shared
+      - org.jetbrains.kotlinx:kotlinx-coroutines-swing:{{coroutines}}
       - org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}:
           scope: runtime-only
     ```
