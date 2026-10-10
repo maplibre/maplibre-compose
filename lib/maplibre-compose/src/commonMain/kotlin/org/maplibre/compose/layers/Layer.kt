@@ -25,10 +25,8 @@ import org.maplibre.compose.util.MaplibreComposable
  * that do not have a built-in composable. The renderer must support the type and its properties.
  *
  * [id] must differ from the ID of every other declared layer and of every layer in the loaded base
- * style. The built-in layer composables follow the same rule. A repeated ID makes the style content
- * fail when it is applied: a map's composition throws [IllegalArgumentException], and a snapshot
- * capture throws [MapSnapshotException][org.maplibre.compose.map.MapSnapshotException]. A changed
- * [id] declares a different layer: the map removes the old layer and adds a new one.
+ * style; a repeated ID fails when the style content is applied. A changed [id] declares a different
+ * layer: the map removes the old layer and adds a new one.
  *
  * [properties] describes the complete layer; omitted properties are removed on recomposition. Call
  * composable helpers before this regular Kotlin builder. Expressions support painters, bitmaps, and

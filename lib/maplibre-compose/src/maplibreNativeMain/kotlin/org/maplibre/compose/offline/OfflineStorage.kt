@@ -25,9 +25,8 @@ public val MapRuntime.offlineStorage: OfflineStorage
  * Maps and snapshotters of the same runtime load resources from this storage's database when it has
  * them, so a region that a downloaded pack covers displays without a network connection.
  *
- * The suspending functions, including [OfflinePack.setMetadata], wait while [state] is
- * [OfflineStorageState.Loading]. If initialization fails, they throw
- * [OfflineStorageState.Failed.cause].
+ * The suspending functions wait while [state] is [OfflineStorageState.Loading]. If initialization
+ * fails, they throw [OfflineStorageState.Failed.cause].
  */
 public sealed interface OfflineStorage {
 

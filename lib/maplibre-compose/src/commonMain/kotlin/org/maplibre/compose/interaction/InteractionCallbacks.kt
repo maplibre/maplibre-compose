@@ -3,10 +3,8 @@ package org.maplibre.compose.interaction
 import org.maplibre.compose.interaction.internal.InteractionCallbacks
 
 /**
- * Map-wide click callbacks. For each click, the matching callback set here runs first, then the
- * `onClick`, `onDoubleClick`, or `onLongClick` handlers of layers with features at the click, front
- * to back, and then the camera response, such as double-tap zoom. Returning [ClickResult.Consume]
- * stops the rest.
+ * Map-wide callbacks for clicks, double clicks, and long clicks. Each runs before the matching
+ * handlers of layers, and returning [ClickResult.Consume] stops the click there.
  */
 @MapInteractionDsl
 public class InteractionCallbacksBuilder

@@ -14,9 +14,7 @@ import org.maplibre.spatialk.geojson.Position
  * @param zoom Zoom level at center. A value in the range of `[0 .. 25.5]`
  * @param bearing Direction that the camera is pointing in, in degrees clockwise from north.
  * @param pitch The camera angle, in degrees, from the nadir (directly down). The map keeps it
- *   within the minimum and maximum pitch of
- *   [CameraConstraints][org.maplibre.compose.map.CameraConstraints], which default to 0 and 60.
- *   Both engines accept a maximum pitch of up to 180.
+ *   within the pitch limits of its [CameraConstraints][org.maplibre.compose.map.CameraConstraints].
  * @param padding Physical edge insets in dp, added to the presentation's viewport insets. The
  *   center appears at the center of the remaining area.
  */

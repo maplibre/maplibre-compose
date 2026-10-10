@@ -27,8 +27,7 @@ import org.maplibre.compose.overlay.include
  *
  * [viewportInsets] marks the edges of the map that the app's own UI covers. They add to
  * [org.maplibre.compose.camera.CameraPosition.padding] for camera moves and fitting, so the camera
- * center appears at the center of the area inside them. The [MapOverlay] presets keep their
- * controls inside them, and overlay content reads them from
+ * center appears at the center of the area inside them. Overlay content reads them from
  * [LocalViewportInsets][org.maplibre.compose.overlay.LocalViewportInsets].
  *
  * [cameraConstraints] limits the zoom, pitch, and area that the camera can reach.

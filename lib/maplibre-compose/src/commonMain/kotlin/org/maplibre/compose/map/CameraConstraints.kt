@@ -13,7 +13,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * @property minZoom Minimum camera zoom. Defaults to 0.
  * @property maxZoom Maximum camera zoom. Defaults to 20.
  * @property minPitch Minimum camera pitch in degrees. Defaults to 0.
- * @property maxPitch Maximum camera pitch in degrees. Defaults to 60.
+ * @property maxPitch Maximum camera pitch in degrees, up to 180. Defaults to 60.
  * @property boundingBox Geographic bounds for the camera, or `null` for no bounds. On MapLibre
  *   Native (Android, iOS, and desktop), the camera center stays inside the bounds, so the map can
  *   show area outside them near its edges. In the browser, the visible area stays inside the

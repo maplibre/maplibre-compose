@@ -261,9 +261,8 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
  * An independent non-UI map that captures images.
  *
  * An image contains only the rendered map: the sources, layers, and images of the style. It
- * contains no Compose UI, such as map controls, and no attribution text. After a capture,
- * [org.maplibre.compose.overlay.attributions] on [style] returns the attribution text of the
- * captured style, to show with the image.
+ * contains no Compose UI, such as map controls, and no attribution text, so show the
+ * [attributions][org.maplibre.compose.overlay.attributions] of [style] with the image.
  */
 public sealed interface MapSnapshotter {
   /**
