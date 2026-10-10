@@ -307,15 +307,12 @@ public val Expression<FloatValue>.dp: Expression<DpValue>
  * meters have on screen at the current zoom and the camera's latitude. Use it to draw features at
  * their real-world size, for example a road 10 meters wide or a circle with a 50 meter radius.
  *
- * In Web Mercator, one meter covers more dp the farther the camera is from the equator. Zoom
- * expressions alone cannot account for this, so the map tracks the camera's latitude and supplies
- * it to the style. The conversion uses the scale at the center of the map, so with pitch or at very
- * low zoom, features far from the center are drawn at the center's scale.
+ * The conversion uses the scale at the center of the map, so with pitch or at very low zoom,
+ * features far from the center are drawn at the center's scale.
  *
- * The result is an [interpolate] expression on [zoom], so it must be the whole value of a layer
- * property, not part of another expression. Use it in paint properties such as line width or circle
- * radius. Layout properties also accept it, but the map can then reload the source's tiles each
- * time the camera's latitude changes enough to update the scale.
+ * The result must be the whole value of a layer property, not part of another expression. Use it in
+ * paint properties such as line width or circle radius. Layout properties also accept it, but the
+ * map can then reload the source's tiles as the camera moves north or south.
  */
 public val Expression<FloatValue>.meters: Expression<DpValue>
   get() = metersToDp(this)
