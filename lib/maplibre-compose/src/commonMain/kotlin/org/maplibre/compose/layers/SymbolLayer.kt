@@ -287,10 +287,12 @@ private fun rememberEmContext(textSize: Expression<TextUnitValue>): LayerExpress
  *
  *   Ignored if [textField] is not specified.
  *
- *   **Important:** If using zoom interpolation for text size, then all other properties defined in
- *   text units (like [textLetterSpacing], [textOffset], etc) MUST be defined in EM units, not SP or
- *   DP units. If text size does not use zoom interpolation, then those other properties can use
- *   their supported units.
+ *   **Important:** If [textSize] depends on [zoom][org.maplibre.compose.expressions.dsl.zoom],
+ *   define the other text-unit properties ([textLetterSpacing], [textOffset], and so on) in EM
+ *   units, not SP or DP. SP and DP values depend on the text size, and MapLibre accepts
+ *   [zoom][org.maplibre.compose.expressions.dsl.zoom] only as the input of a top-level
+ *   [step][org.maplibre.compose.expressions.dsl.step] or
+ *   [interpolate][org.maplibre.compose.expressions.dsl.interpolate].
  *
  * @param textTransform Specifies how to capitalize text. The expression may use feature properties.
  * @param textLetterSpacing Text tracking amount. The expression may use feature properties.
