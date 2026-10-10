@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.ContinuationInterceptor
@@ -10,6 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -137,15 +137,13 @@ class PlatformMapAccessTest {
   @Test
   fun detached_native_access_creates_the_map_and_runs_on_the_calling_thread() = runBlocking {
     withNativeMapState { state, _ ->
-      val zoom =
-        withContext(Dispatchers.Default) {
-          val caller = currentMlnFfiThreadName()
-          state.withPlatformMap {
-            assertEquals(caller, currentMlnFfiThreadName())
-            val rawMap: MapHandle = map
-            rawMap.camera.zoom
-          }
-        }
+      // runBlocking resumes every suspension on the test thread, so the callback runs there.
+      val caller = currentMlnFfiThreadName()
+      val zoom = state.withPlatformMap {
+        assertEquals(caller, currentMlnFfiThreadName())
+        val rawMap: MapHandle = map
+        rawMap.camera.zoom
+      }
 
       assertEquals(state.cameraPosition.zoom, zoom)
       assertNull(state.currentMapAttachment)
@@ -278,7 +276,6 @@ class PlatformMapAccessTest {
             return true
           }
         }
-      var newHostCommands = 0
       val newHost =
         object : MlnFfiMapHostSession {
           override val isClosed = false
@@ -289,7 +286,6 @@ class PlatformMapAccessTest {
           override fun <T> withRendererAccess(action: () -> T): T = action()
 
           override fun enqueueRenderer(action: () -> Unit): Boolean {
-            newHostCommands++
             action()
             return true
           }
@@ -304,8 +300,11 @@ class PlatformMapAccessTest {
         oldLoss.await()
         assertTrue(oldLossReleasedInTime.await())
         session.onSurfaceAvailable(oldHost)
-        session.queryRenderedFeatures(DpOffset.Zero, null, null)
-        assertEquals(1, newHostCommands, "Late old-host callbacks cleared the replacement")
+        assertSame<MlnFfiMapHostSession?>(
+          newHost,
+          session.presentationHostForTest,
+          "Late old-host callbacks cleared the replacement",
+        )
       } finally {
         finishOldLoss.countDown()
         oldLoss.await()

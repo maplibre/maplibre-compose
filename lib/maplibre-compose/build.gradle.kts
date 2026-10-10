@@ -32,9 +32,11 @@ kotlin {
     }
   }
 
-  iosArm64()
-  iosSimulatorArm64()
-  macosArm64()
+  listOf(iosArm64(), iosSimulatorArm64(), macosArm64()).forEach {
+    // STOPGAP: MlnFfiEventSource.apple.kt reads the FFI binding's internal map handle, which
+    // Kotlin/Native can reach only by suppressing an error. Remove with that file.
+    it.compilerOptions { freeCompilerArgs.add("-Xwarning-level=ERROR_SUPPRESSION:disabled") }
+  }
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 

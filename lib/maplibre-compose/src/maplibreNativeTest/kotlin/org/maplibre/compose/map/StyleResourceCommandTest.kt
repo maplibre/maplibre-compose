@@ -37,6 +37,7 @@ import org.maplibre.compose.sources.implementation
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
@@ -223,7 +224,11 @@ class StyleResourceCommandTest {
           release.countDown()
         }
         assertTrue(ownerReleased.await())
-        assertEquals(Moved.corners(), binding.readMap { it.imageSourceCorners("image") })
+        // A visit runs after every visit the writes posted.
+        assertEquals(
+          Moved.corners(),
+          binding.onOwner { binding.readMap { it.imageSourceCorners("image") } },
+        )
         assertEquals(emptyList(), records.problems())
       }
     }

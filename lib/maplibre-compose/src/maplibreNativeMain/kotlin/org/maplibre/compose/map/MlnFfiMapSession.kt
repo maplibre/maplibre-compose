@@ -191,6 +191,10 @@ internal class MlnFfiMapSession(
   internal val runtimeForTest: MlnFfiRuntime
     get() = owner
 
+  /** Test seam: the host session the map presents into, if any. */
+  internal val presentationHostForTest: MlnFfiMapHostSession?
+    get() = presentation.host
+
   /** The engine [map] belongs to. Written before the map is registered with the event pump. */
   @Volatile private var mapEngine: EngineMapIdentity? = null
 

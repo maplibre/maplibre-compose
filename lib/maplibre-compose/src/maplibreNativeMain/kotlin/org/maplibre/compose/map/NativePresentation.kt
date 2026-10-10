@@ -325,6 +325,10 @@ internal class NativePresentation(
   }
 
   /** The attached render session, once it has drawn a frame, for queries from any thread. */
+  /** The host session presented into, if any. */
+  val host: MlnFfiMapHostSession?
+    get() = rendererAttachment?.host
+
   fun readySession(): RenderSessionHandle? {
     val attachment = rendererAttachment ?: return null
     if (isClosing() || attachment.releaseRequested || !attachment.ready) return null

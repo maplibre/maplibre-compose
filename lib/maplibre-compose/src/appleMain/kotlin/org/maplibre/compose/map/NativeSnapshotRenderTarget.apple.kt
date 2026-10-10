@@ -10,6 +10,8 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.MetalContextDescriptor
 import org.maplibre.nativeffi.generated.MetalOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
+import org.maplibre.nativeffi.generated.RenderSessionAttachment
 import org.maplibre.nativeffi.render.NativePointer
 import platform.Metal.MTLCreateSystemDefaultDevice
 import platform.Metal.MTLDeviceProtocol

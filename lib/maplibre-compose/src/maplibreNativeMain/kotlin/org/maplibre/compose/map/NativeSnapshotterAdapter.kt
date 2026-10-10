@@ -141,7 +141,10 @@ private class NativeSnapshotterAdapter(
       // MapLibre keeps a failed tile or glyph range failed and would not load it again, and a
       // cancelled capture leaves its still image pending, so the next capture needs a new engine.
       current.replace = true
-      throw error
+      // A provider's failure is reported before the tile error it causes, so it explains a still
+      // image that failed on that tile.
+      if (error is CancellationException) throw error
+      throw providerFailure ?: error
     }
     providerFailure?.let { throw it }
     return readImage(current, request)
