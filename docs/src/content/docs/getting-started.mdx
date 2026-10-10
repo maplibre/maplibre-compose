@@ -3,7 +3,7 @@ title: Getting started
 description: Add MapLibre Compose to a Compose Multiplatform project and display your first map.
 ---
 
-import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
@@ -13,21 +13,20 @@ import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotli
 import macosGettingStarted from "../../../../demo-app/common/src/macosMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedMacos.kt?raw";
 import webGettingStarted from "../../../../demo-app/common/src/jsMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedWeb.kt?raw";
 
-This page assumes you have a Compose Multiplatform project. To create one,
-follow [the official JetBrains documentation][compose-guide] or run
-`kotlin init compose-multiplatform`.
+You need a Compose Multiplatform project. To create one, follow
+[the JetBrains guide][compose-guide] or run `kotlin init compose-multiplatform`.
 
 ## Add the library
 
-The library is published on [Maven Central][maven]. The latest release is
-**v{versions.release}**. Add it to the version catalog:
+The library is on [Maven Central][maven]. The latest release is
+**v{versions.release}**. Add it to your version catalog:
 
 ```toml title="libs.versions.toml"
 [libraries]
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{release}}" }
 ```
 
-Declare the dependency in the shared source set:
+Then add it to the shared source set:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -46,23 +45,23 @@ Declare the dependency in the shared source set:
   </TabItem>
 </Tabs>
 
-Use the same version for the library and for every runtime artifact below.
+## Set up each target
 
-## Configure your targets
-
-Complete the section for each target that your app supports.
+Follow the steps for each target your app has. Android and desktop also need a
+runtime artifact, which contains the native map engine for one graphics API. Use
+the same version for the library and the runtime. The steps below pick one
+runtime per target; [Platform setup](/maplibre-compose/platform-setup/) lists
+the others and explains how to choose.
 
 ### Android
 
-Alongside the library, add a runtime for one render backend.
+Add the Vulkan runtime to the Android app:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
     ```kotlin title="build.gradle.kts"
-    androidMain {
-      dependencies {
-        runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}")
-      }
+    androidMain.dependencies {
+      runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}")
     }
     ```
   </TabItem>
@@ -77,21 +76,12 @@ Alongside the library, add a runtime for one render backend.
   </TabItem>
 </Tabs>
 
-Available runtimes:
-
-| Render backend | Runtime                                   |
-| -------------- | ----------------------------------------- |
-| OpenGL         | `maplibre-compose-runtime-opengl-android` |
-| Vulkan         | `maplibre-compose-runtime-vulkan-android` |
-
-Both Android runtimes support `armeabi-v7a`, `arm64-v8a`, and `x86_64`.
-
 ### iOS
 
-Requires iOS 15.5 or later.
+iOS needs no runtime artifact. The app must target iOS 15.5 or later.
 
-The runtime's system libraries link when Xcode links your app. Add them to
-your iOS app target's **Other Linker Flags** build setting:
+Add these lines to **Other Linker Flags** in your iOS app target's build
+settings:
 
 ```text
 -l"c++"
@@ -105,84 +95,32 @@ your iOS app target's **Other Linker Flags** build setting:
 -framework QuartzCore
 ```
 
-### macOS (Kotlin/Native)
-
-Native macOS support is experimental and requires Apple Silicon. Enable
-`org.jetbrains.compose.experimental.macos.enabled=true` in `gradle.properties`.
-
-Inside the native Compose `Window`, wrap your content with
-`ProvideMapPresentationHost(window)`:
-
-<Code code={region(macosGettingStarted, "host")} lang="kotlin" />
-
 ### Desktop (JVM)
 
-**Desktop requires Java 25 or later.**
-
-Alongside the library, add a runtime for your platform and one render backend.
+Desktop apps run on Java 25 or later. Add the runtime for each operating system
+and CPU you ship. This example is for Linux on x64:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
     ```kotlin title="build.gradle.kts"
-    sourceSets {
-      val jvmMain by getting {
-        dependencies {
-          implementation(compose.desktop.currentOs)
-          implementation("org.maplibre.compose:maplibre-compose:{{release}}")
-
-          // Linux x64 with Vulkan, for example.
-          runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
-        }
-      }
+    jvmMain.dependencies {
+      runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
     }
     ```
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    Requires Kotlin Toolchain 0.13.0 or later.
-
     ```yaml title="desktop-app/module.yaml"
     dependencies:
       - //shared
-      - $compose.desktop.currentOs
-      - $libs.maplibre.compose
-
-      # Linux x64 with Vulkan, for example.
       - org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}:
           scope: runtime-only
     ```
   </TabItem>
 </Tabs>
 
-Available runtimes (package one backend for each target platform):
-
-| Platform      | Metal                                        | Vulkan                                          | OpenGL                                          |
-| ------------- | -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
-| Linux x64     | —                                            | `maplibre-compose-runtime-vulkan-linux-x64`     | `maplibre-compose-runtime-opengl-linux-x64`     |
-| Linux arm64   | —                                            | `maplibre-compose-runtime-vulkan-linux-arm64`   | `maplibre-compose-runtime-opengl-linux-arm64`   |
-| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64` | `maplibre-compose-runtime-vulkan-macos-arm64`   | `maplibre-compose-runtime-opengl-macos-arm64`   |
-| Windows x64   | —                                            | `maplibre-compose-runtime-vulkan-windows-x64`   | `maplibre-compose-runtime-opengl-windows-x64`   |
-| Windows arm64 | —                                            | `maplibre-compose-runtime-vulkan-windows-arm64` | `maplibre-compose-runtime-opengl-windows-arm64` |
-
-Linux OpenGL also requires a Vulkan driver. Linux and Windows OpenGL require
-drivers with external-memory support.
-
-On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
-graphics context. For Java AWT windows, use
-<Api of="rememberAwtComposeMapPresentationHost" />. A window that draws Compose
-another way creates its host with the factory for its operating system and
-graphics API, such as `ComposeMapPresentationHost.macosMetal`; the API reference
-lists them and what their callbacks must do. These factories take Skiko types,
-which may change in any minor release, so they require opt-in to
-<Api of="ExperimentalMaplibreComposeApi" />.
-
-<Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
-
-A custom Metal host supplies its window callbacks:
-
-<Code code={region(desktopGettingStarted, "custom-host")} lang="kotlin" />
-
-Enable native access when you run the desktop app:
+The map engine calls native code through Java's foreign function API, so the
+JVM must start with `--enable-native-access=ALL-UNNAMED`:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -200,30 +138,35 @@ Enable native access when you run the desktop app:
     kotlin run --module desktop-app --jvm-args="--enable-native-access=ALL-UNNAMED"
     ```
 
-    <Aside type="caution">
-      Kotlin Toolchain can't add this flag to a packaged app. Pass it yourself
-      when you run the JAR:
-      `java --enable-native-access=ALL-UNNAMED -jar desktop-app-jvm-executable.jar`.
-    </Aside>
+    Pass the same flag when you start a packaged JAR:
+    `java --enable-native-access=ALL-UNNAMED -jar desktop-app-jvm-executable.jar`.
   </TabItem>
 </Tabs>
 
-#### Signed packages
+A map draws with the graphics context of its window. Wrap the content of each
+window that shows a map in
+<Api of="org.maplibre.compose.desktop.ProvideMapPresentationHost" />, and pass it
+a host from <Api of="rememberAwtComposeMapPresentationHost" />:
 
-Signing an application can modify LWJGL's native libraries, particularly when
-re-signing macOS dylibs. This can cause LWJGL to print
-`Incompatible Java and native library versions detected` even though the libraries
-load and the map works normally.
+<Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
-If signing changes these libraries and triggers the warning, add
-`-Dorg.lwjgl.util.NoHashChecks=true` to `compose.desktop.application.jvmArgs` in
-`build.gradle.kts`.
+### Native macOS
 
-See [LWJGL discussion #1007](https://github.com/orgs/LWJGL/discussions/1007).
+Native macOS (the `macosArm64` target) is experimental in Compose. Turn it on in
+`gradle.properties`:
+
+```properties title="gradle.properties"
+org.jetbrains.compose.experimental.macos.enabled=true
+```
+
+Wrap the content of each `Window` that shows a map in
+<Api of="org.maplibre.compose.macos.ProvideMapPresentationHost" />:
+
+<Code code={region(macosGettingStarted, "host")} lang="kotlin" />
 
 ### Web (JS)
 
-Compile the JS target to ES modules. Non-ESM builds are not supported.
+Build the JS target as ES modules:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -253,66 +196,34 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
   </TabItem>
 </Tabs>
 
-Install the browser graphics integration inside `onWasmReady`, before Compose
-starts.
+Call <Api of="installMaplibreCompose" /> inside `onWasmReady`, before
+`ComposeViewport`. Without it, maps load but never appear on screen.
 
 <Code code={region(webGettingStarted, "main")} lang="kotlin" title="main.kt" />
 
-## Display your first map
+## Display a map
 
-In your Composable UI, add a map:
+Add a map to your shared UI:
 
-<Code code={region(gettingStarted, "app")} lang="kotlin" title="App.kt" />
+<Code code={region(gettingStarted, "first-map")} lang="kotlin" title="MyMap.kt" />
 
-When you run your app, the map shows the default [demotiles] style. To load a
-full-featured style, proceed to [Styling](/maplibre-compose/styling/).
+<Api of="rememberMapState" /> creates the map's state. `baseStyle` loads a
+style from a URL. The style decides what the map shows and how it looks. This
+example uses the free [OpenFreeMap][openfreemap] Liberty style. If you leave out
+`baseStyle`, the map shows the [MapLibre demo style][demotiles], which has
+little detail. `initialCameraPosition` is where the map opens: here, downtown
+Portland at zoom 13.
 
-## Use a development snapshot
+<Api of="MaplibreMap" /> fills all the space its parent gives it. Users can
+pan, zoom, rotate, and tilt the map with touch gestures or a mouse.
 
-Snapshot builds of `main` are available from [Central Portal
-Snapshots][snapshots]. This site documents the latest release, which may not
-match the snapshot. If you use snapshots, read the
-[documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
-instead.
-
-Add the snapshot repository, then set the catalog version to
-**v{versions.snapshot}**.
-
-<Tabs syncKey="build-system">
-  <TabItem label="Gradle" icon="seti:gradle">
-    ```kotlin title="settings.gradle.kts"
-    repositories {
-      maven {
-        name = "Central Portal Snapshots"
-        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-        mavenContent { snapshotsOnly() }
-        content {
-          includeGroup("org.maplibre.compose")
-          includeGroup("org.maplibre.nativeffi")
-        }
-      }
-    }
-    ```
-  </TabItem>
-
-  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    ```yaml title="shared/module.yaml"
-    repositories:
-      - id: central-portal-snapshots
-        url: https://central.sonatype.com/repository/maven-snapshots/
-    ```
-  </TabItem>
-</Tabs>
-
-```toml title="libs.versions.toml"
-[libraries]
-maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
-```
+Next, [choose a style](/maplibre-compose/styling/) or
+[move the camera](/maplibre-compose/camera/).
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
 
-[snapshots]: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
+[openfreemap]: https://openfreemap.org/
 
 [demotiles]: https://demotiles.maplibre.org/
