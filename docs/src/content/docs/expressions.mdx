@@ -1,6 +1,6 @@
 ---
 title: Expressions in Kotlin
-description: The expression DSL that computes layer properties from feature data and zoom.
+description: Why layer properties are expressions, and how to build them from constants, feature data, and the zoom level.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,69 +9,94 @@ import { region, rememberedMapStyle } from "../../snippets";
 
 import expressions from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Expressions.kt?raw";
 
-Layer properties in MapLibre are not plain values. Each property takes an
-expression: a formula that the map evaluates while it renders, per feature and
-per zoom level. The [MapLibre Style Specification][spec-expressions] defines
-expressions as JSON arrays. MapLibre Compose provides a Kotlin DSL that builds
-them with type checking, in <Api of="org.maplibre.compose.expressions.dsl" />.
-
-The DSL uses Compose types when a Compose type matches the property: `Dp` for
-sizes, `Color` for colors, and `DpOffset` for offsets.
+A layer property, such as the color of a circle, can have one value for the
+whole layer or a different value for each feature. It can also change with the
+zoom level. MapLibre describes these properties with expressions: small
+formulas inside the style that the map evaluates while it draws. The
+[MapLibre Style Specification][spec-expressions] writes expressions as JSON
+arrays. MapLibre Compose builds them with typed Kotlin functions from
+<Api of="org.maplibre.compose.expressions.dsl" />, so a layer parameter has a
+type such as `Expression<ColorValue>`.
 
 ## Constants
 
-A constant value must also be an expression. Wrap a plain value in
-<Api of="const" />:
+For a fixed value, wrap the value in <Api of="const" />. Sizes take a Compose
+`Dp`, colors take a Compose `Color`, and offsets take a `DpOffset`.
 
 <Code code={rememberedMapStyle(region(expressions, "constants"))} lang="kotlin" title="App.kt" />
 
+The examples below draw the same `earthquakes` source.
+
 ## Read feature data
 
-<Api of="feature" /> accesses the properties of the feature being rendered.
-The result is untyped, so convert it with functions such as `asNumber()` or
-`asString()`. Functions such as <Api of="step" /> and <Api of="switch" />
-select an output from the value:
+Each feature in a source has properties, such as the magnitude of an
+earthquake. The <Api of="feature" /> object reads the data of the feature that
+the map is drawing: `feature["mag"]` is its `mag` property. The map learns the
+type of a property only when it evaluates the expression, so give the property
+a type with a type assertion such as <Api of="asNumber" /> before you compare or
+calculate with it. An equality test such as <Api of="eq" /> works without a
+type.
+
+<Api of="step" /> picks an output by ranges of its input. <Api of="switch" />
+picks the output of the first condition that is true.
 
 <Code code={rememberedMapStyle(region(expressions, "feature-data"))} lang="kotlin" title="App.kt" />
 
-The map evaluates this formula once per feature: each earthquake receives a
-radius and a color computed from its own magnitude.
+The map evaluates these expressions separately for each earthquake, so each
+circle gets its size and color from its own data.
 
-## React to zoom
+## Change with zoom
 
-<Api of="zoom" /> is the current zoom level. <Api of="interpolate" /> computes
-a smooth value between stops:
+<Api of="zoom" /> is the current zoom level of the map. Pass it to
+<Api of="interpolate" /> to compute a value between stops, so that circles grow
+as the user zooms in.
 
 <Code code={rememberedMapStyle(region(expressions, "zoom"))} lang="kotlin" title="App.kt" />
 
+MapLibre accepts `zoom()` only as the input of a `step` or `interpolate` at the
+top of a property's expression.
+
 ## Filter features
 
-The `filter` parameter takes a boolean expression. The layer renders only the
-features for which it is true:
+The `filter` parameter of a layer takes a true-or-false expression. The layer
+draws only the features for which it is true. The source keeps every feature,
+so another layer on the same source can draw the rest.
 
 <Code code={rememberedMapStyle(region(expressions, "filter"))} lang="kotlin" title="App.kt" />
 
 ## Missing data
 
-Feature data can be incomplete. Use <Api of="coalesce" /> or an assertion's
-fallback argument, such as `asNumber(const(0f))`, to choose what to show when a
-value is missing:
+A feature does not always have every property. In this data, most earthquakes
+have no `felt` value, so `feature["felt"]` is null for them. A type assertion
+such as `asNumber()` fails on null. When an expression fails for a feature,
+MapLibre uses the default value of the property for that feature, and a filter
+that fails hides the feature.
+
+To choose the value yourself, give the type assertion a fallback. To skip
+features that lack the value, filter them out.
 
 <Code code={rememberedMapStyle(region(expressions, "missing-data"))} lang="kotlin" title="App.kt" />
 
-Use <Api of="nil" /> to compare an expression with null. To leave a layer
-property unset, pass Kotlin `null` to the layer. The API reference describes
-nullable expressions and type assertions in detail.
+To use the first of several properties that has a value, use
+<Api of="coalesce" />. The <Api of="Expression" /> reference lists which
+functions accept a missing value.
 
-## Where the code runs
+## Kotlin code and expression code
 
-Kotlin code outside an expression runs during composition and produces an
-expression. The expression runs inside the map renderer, once per feature. A
-Kotlin `if` selects which expression to build; an expression `switch` selects
-a value per feature. Use Kotlin for decisions that depend on app state, and
-expressions for decisions that depend on feature data or zoom.
+Kotlin code in the content block runs when the content composes. It builds an
+expression and passes it to the layer. The map evaluates that expression later,
+while it draws, for each feature.
 
-The API reference documents the full set of expression functions under
-<Api of="org.maplibre.compose.expressions.dsl" />.
+<Code code={rememberedMapStyle(region(expressions, "kotlin-or-expression"))} lang="kotlin" title="App.kt" />
+
+The Kotlin `if` reads app state and picks one stroke color for the whole layer.
+When the system theme changes, the content recomposes and the layer gets the
+new color. The `switch` expression reads the data of each earthquake, which
+Kotlin code cannot see, and picks a fill color for each one.
+
+Use Kotlin for choices that depend on app state, and expressions for choices
+that depend on feature data or zoom. To change how one feature looks when the
+user selects it, use feature state; see
+[Query and highlight features](/maplibre-compose/features/).
 
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/
