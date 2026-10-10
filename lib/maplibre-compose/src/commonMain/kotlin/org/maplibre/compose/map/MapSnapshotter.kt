@@ -257,7 +257,14 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   }
 }
 
-/** An independent non-UI map that captures images. */
+/**
+ * An independent non-UI map that captures images.
+ *
+ * An image contains only the rendered map: the sources, layers, and images of the style. It
+ * contains no Compose UI, such as map controls, and no attribution text. After a capture,
+ * [org.maplibre.compose.overlay.attributions] on [style] returns the attribution text of the
+ * captured style, to show with the image.
+ */
 public sealed interface MapSnapshotter {
   /**
    * Desired and applied style state for this snapshotter's engine map.
@@ -281,7 +288,9 @@ public sealed interface MapSnapshotter {
    * On the browser, MapLibre draws text whose glyphs fail to load with a local font instead.
    *
    * @throws IllegalStateException if the snapshotter is closed before this call.
-   * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
+   * @throws IllegalArgumentException if the request cannot be rendered on the current platform,
+   *   such as an image wider or taller than 4,096 pixels on the browser, which is the MapLibre GL
+   *   JS canvas limit.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
    * @throws MapSnapshotException if the runtime cannot render offscreen, such as when MapLibre
    *   Native offers no offscreen rendering backend for the device, style evaluation or rendering

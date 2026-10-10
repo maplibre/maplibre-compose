@@ -28,8 +28,9 @@ import org.maplibre.compose.expressions.value.FloatValue
  * @param skyHorizonBlend How to blend the sky color and the horizon color. A value in the range of
  *   `[0..1]`, where 1 blends the color at the middle of the sky and 0 uses the sky color only.
  * @param atmosphereBlend How visible the atmosphere around a globe is. A value in the range of
- *   `[0..1]`, where 1 shows the atmosphere and 0 hides it. Interpolate it by zoom when using a
- *   globe projection, so that it is hidden once the projection is Mercator.
+ *   `[0..1]`, where 1 shows the atmosphere and 0 hides it. MapLibre GL JS draws the atmosphere only
+ *   while the projection shows a globe, and fades it as the camera nears the surface and as the
+ *   projection changes to Mercator.
  * @param skyColorTransition Timing for changes to [skyColor]. Null uses the style's global
  *   transition.
  * @param horizonColorTransition Timing for changes to [horizonColor]. Null uses the style's global

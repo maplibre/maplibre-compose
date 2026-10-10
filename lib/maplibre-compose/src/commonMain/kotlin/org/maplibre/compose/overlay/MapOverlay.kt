@@ -70,6 +70,9 @@ public fun MapOverlayScope.include(overlay: MapOverlay) {
 
 /**
  * Reusable controls that a [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws over itself.
+ *
+ * The presets keep their controls inside [LocalViewportInsets] and the safe-drawing window insets
+ * that outer layouts have not consumed, whichever is larger on each edge, plus [Spacing].
  */
 @Immutable
 public class MapOverlay(

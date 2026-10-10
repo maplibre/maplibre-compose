@@ -19,10 +19,25 @@ public val MapRuntime.offlineStorage: OfflineStorage
       "This map runtime has no offline storage"
     }
 
-/** Manages the offline packs and ambient cache that belong to one map runtime. */
+/**
+ * Manages the offline packs and ambient cache that belong to one map runtime.
+ *
+ * Maps and snapshotters of the same runtime load resources from this storage's database when it has
+ * them, so a region that a downloaded pack covers displays without a network connection.
+ *
+ * The suspending functions, including [OfflinePack.setMetadata], wait while [state] is
+ * [OfflineStorageState.Loading]. If initialization fails, they throw
+ * [OfflineStorageState.Failed.cause].
+ */
 public sealed interface OfflineStorage {
 
-  /** Initialization and the current packs. Constructing a runtime never waits for its database. */
+  /**
+   * Initialization and the current packs. Constructing a runtime never waits for its database.
+   *
+   * The state starts as [OfflineStorageState.Loading] while the storage opens its database and
+   * lists the packs stored there, then becomes [OfflineStorageState.Ready] or
+   * [OfflineStorageState.Failed].
+   */
   public val state: StateFlow<OfflineStorageState>
 
   /**
@@ -35,7 +50,13 @@ public sealed interface OfflineStorage {
     metadata: ByteArray = ByteArray(0),
   ): OfflinePack
 
-  /** Resumes the download of [pack]. */
+  /**
+   * Resumes the download of [pack]. Returns without waiting; [OfflinePack.downloadProgress] reports
+   * the new status.
+   *
+   * The database does not store whether a pack was downloading. After the runtime is created again,
+   * such as in a later app launch, an incomplete pack is paused until this is called.
+   */
   public fun resume(pack: OfflinePack)
 
   /** Pauses the download of [pack]. */
@@ -112,8 +133,12 @@ public sealed interface OfflineStorageState {
   public data object Loading : OfflineStorageState
 
   /**
-   * Initialization succeeded, with the current [packs]. This state can remain after the runtime
-   * closes; it does not indicate whether the storage accepts operations.
+   * Initialization succeeded, with the current [packs]. [packs] includes the packs stored in the
+   * database before this runtime started, and a new state replaces it when a pack is created,
+   * merged, or deleted.
+   *
+   * This state can remain after the runtime closes; it does not indicate whether the storage
+   * accepts operations.
    */
   public data class Ready internal constructor(public val packs: Set<OfflinePack>) :
     OfflineStorageState

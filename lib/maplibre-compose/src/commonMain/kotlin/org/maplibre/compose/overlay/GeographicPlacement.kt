@@ -25,7 +25,13 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.util.formatToString
 import org.maplibre.spatialk.geojson.Position
 
-/** Layout operations for direct children of a map overlay or [GeographicLayout]. */
+/**
+ * Layout operations for direct children of a map overlay or [GeographicLayout].
+ *
+ * The map overlay is itself a [GeographicLayout] that covers the map. As in a `Box`, children
+ * without a placement modifier sit at the top-start, and [BoxScope.align] places them within the
+ * layout.
+ */
 @Stable
 public sealed interface MapOverlayScope : BoxScope {
   /**

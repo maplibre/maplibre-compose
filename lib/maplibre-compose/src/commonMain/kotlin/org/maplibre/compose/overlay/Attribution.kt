@@ -75,6 +75,9 @@ import org.maplibre.compose.util.vertical
  * Info button from which an attribution popup text is expanded. This version retracts when the user
  * interacts with the map.
  *
+ * It shows [attributions] of the enclosing map's style and draws nothing while the style declares
+ * none. The text starts expanded and collapses when a gesture moves the camera.
+ *
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *

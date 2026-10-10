@@ -226,7 +226,8 @@ internal constructor(
    * declares. The caller must close the result.
    *
    * [content] reads the returned state through [LocalMapState] and its viewport through
-   * [LocalViewport].
+   * [LocalViewport]. It composes from the start for each style the map loads, so values it
+   * remembers reset when the base style changes.
    */
   public fun createMapState(
     baseStyle: BaseStyle,
@@ -242,7 +243,9 @@ internal constructor(
    * [content] declares, for image capture. The caller must close the result.
    *
    * [content] reads the viewport of each capture request through [LocalViewport]. It has no
-   * [MapState], so [LocalMapState] is null.
+   * [MapState], so [LocalMapState] is null. It composes from the start for each capture, so values
+   * it remembers do not carry over between captures. A capture does not wait for effects in
+   * [content], such as one that loads data; pass data that the image needs into [content].
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,
@@ -1581,7 +1584,8 @@ internal class MapPresentationOwnerToken
  * Restoration creates a new map with the saved camera position and the current [baseStyle].
  *
  * [content] declares the map's sources, layers, and images. It reads the returned state through
- * [LocalMapState] and its viewport through [LocalViewport].
+ * [LocalMapState] and its viewport through [LocalViewport]. It composes from the start for each
+ * style the map loads, so values it remembers reset when [baseStyle] changes.
  *
  * The default [runtime] is [DefaultMapRuntime.instance]. In [LocalInspectionMode], such as an IDE
  * `@Preview`, it is instead a runtime that never starts MapLibre, so the map state works but no map

@@ -22,10 +22,16 @@ import org.maplibre.compose.overlay.include
 /**
  * Displays [state] on a map surface. The caller controls the lifetime of a supplied [state].
  *
- * [overlay] draws Compose UI over the map. A supplied block replaces [MapOverlay.Default].
+ * [overlay] draws Compose UI over the map. Its layout covers the whole map and adds no padding. A
+ * supplied block replaces [MapOverlay.Default].
  *
- * [viewportInsets] adds to [org.maplibre.compose.camera.CameraPosition.padding] for camera moves
- * and fitting. Built-in controls also use these insets.
+ * [viewportInsets] marks the edges of the map that the app's own UI covers. They add to
+ * [org.maplibre.compose.camera.CameraPosition.padding] for camera moves and fitting, so the camera
+ * center appears at the center of the area inside them. The [MapOverlay] presets keep their
+ * controls inside them, and overlay content reads them from
+ * [LocalViewportInsets][org.maplibre.compose.overlay.LocalViewportInsets].
+ *
+ * [cameraConstraints] limits the zoom, pitch, and area that the camera can reach.
  */
 @Composable
 public fun MaplibreMap(

@@ -49,11 +49,10 @@ public object Feature {
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
    *
-   * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
-   * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
-   * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. Only data-driven paint properties documented as supporting feature
-   * state accept [state].
+   * Features are identified by their `id`, which must be an integer or a string that can be cast to
+   * an integer. In the browser, a base-style source that sets `promoteId` identifies its features
+   * by that property instead; MapLibre Native ignores `promoteId`. Only data-driven paint
+   * properties documented as supporting feature state accept [state].
    */
   public fun state(key: Expression<StringValue>): Expression<AnyValue?> = call("feature-state", key)
 
@@ -65,11 +64,10 @@ public object Feature {
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
    *
-   * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
-   * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
-   * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. Only data-driven paint properties documented as supporting feature
-   * state accept [state].
+   * Features are identified by their `id`, which must be an integer or a string that can be cast to
+   * an integer. In the browser, a base-style source that sets `promoteId` identifies its features
+   * by that property instead; MapLibre Native ignores `promoteId`. Only data-driven paint
+   * properties documented as supporting feature state accept [state].
    */
   public fun state(key: String): Expression<AnyValue?> = state(const(key))
 

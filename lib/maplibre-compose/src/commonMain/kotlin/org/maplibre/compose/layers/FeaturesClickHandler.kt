@@ -11,7 +11,8 @@ import org.maplibre.spatialk.geojson.Geometry
  * receiver, so it can read where the click happened.
  *
  * The features are the layer's features within the layer's `hitPadding` of the click, in render
- * order, front first. Feature geometries keep the coordinates the engine rendered; see
+ * order, front first. The map calls the handler only when the click hits at least one of them, so
+ * the list is never empty. Feature geometries keep the coordinates the engine rendered; see
  * [org.maplibre.compose.map.MapState.queryRenderedFeatures].
  *
  * When a double tap could also respond, as with the default double-tap zoom, a touch tap reaches

@@ -16,8 +16,16 @@ import kotlinx.serialization.json.putJsonObject
 @Immutable
 public sealed interface BaseStyle {
 
+  /**
+   * A style document that the map loads from [uri].
+   *
+   * MapLibre Native fetches `http:` and `https:` URIs over the network and reads other URIs, such
+   * as `file:` URIs and the URIs that Compose Multiplatform's `Res.getUri` returns, as packaged
+   * resources. In the browser, MapLibre GL JS fetches [uri].
+   */
   @Immutable public data class Uri(public val uri: String) : BaseStyle
 
+  /** A style document given as JSON text, a [JsonObject], or a JSON builder. */
   @Immutable
   public data class Json(public val json: String) : BaseStyle {
 

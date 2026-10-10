@@ -35,11 +35,16 @@ internal constructor(
   initialAvailability: LocationBackendAvailability = LocationBackendAvailability.Available,
   initialPermission: LocationPermission = LocationPermission.NotDetermined,
 ) {
-  /** The user's last known location measurement. */
+  /**
+   * The user's last known location measurement, or `null` before the first measurement arrives.
+   *
+   * The value stays after collection stops, such as when the lifecycle drops below the active state
+   * or permission is revoked, so a location indicator keeps showing the last position.
+   */
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
     internal set
 
-  /** The device's last known heading. */
+  /** The device's last known heading, or `null` before the first heading arrives. */
   public var lastHeading: HeadingMeasurement? by mutableStateOf(null)
     internal set
 
