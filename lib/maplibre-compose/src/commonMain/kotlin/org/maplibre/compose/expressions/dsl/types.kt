@@ -310,9 +310,10 @@ public val Expression<FloatValue>.dp: Expression<DpValue>
  * The conversion uses the scale at the center of the map, so with pitch or at very low zoom,
  * features far from the center are drawn at the center's scale.
  *
- * The result must be the whole value of a layer property, not part of another expression. Use it in
- * paint properties such as line width or circle radius. Layout properties also accept it, but the
- * map can then reload the source's tiles as the camera moves north or south.
+ * This expression must not depend on [zoom], and the result must be the whole value of a layer
+ * property, not part of another expression. Use it in paint properties such as line width or circle
+ * radius. Layout properties also accept it, but the map can then reload the source's tiles as the
+ * camera moves north or south.
  */
 public val Expression<FloatValue>.meters: Expression<DpValue>
   get() = metersToDp(this)
