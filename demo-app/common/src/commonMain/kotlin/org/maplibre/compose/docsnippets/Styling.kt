@@ -4,14 +4,12 @@ package org.maplibre.compose.docsnippets
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 
 @Composable
-@OptIn(ExperimentalResourceApi::class)
 fun Styling() {
   // #region simple
   val simple =
@@ -20,14 +18,17 @@ fun Styling() {
   // #endregion simple
 
   // #region dynamic
-  val variant = if (isSystemInDarkTheme()) "dark" else "light"
-  val baseStyle = BaseStyle.Uri("https://api.protomaps.com/styles/v4/$variant/en.json?key=MY_KEY")
-  val dynamic = rememberMapState(baseStyle = baseStyle)
-  MaplibreMap(state = dynamic)
+  val flavor = if (isSystemInDarkTheme()) "dark" else "light"
+  val themed =
+    rememberMapState(
+      baseStyle =
+        BaseStyle.Uri("https://api.protomaps.com/styles/v5/$flavor/en.json?key=MY_API_KEY")
+    )
+  MaplibreMap(state = themed)
   // #endregion dynamic
 
   // #region local
-  val local = rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/style.json")))
+  val local = rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/styles/colorful.json")))
   MaplibreMap(state = local)
   // #endregion local
 }
