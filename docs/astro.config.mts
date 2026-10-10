@@ -58,6 +58,7 @@ export default defineConfig({
             { label: "Control the camera", slug: "camera" },
             { label: "Add data to the map", slug: "layers" },
             { label: "Add images and icons", slug: "images" },
+            { label: "Cluster points", slug: "clustering" },
             { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Query and highlight features", slug: "features" },
             { label: "Overlay Compose UI", slug: "controls" },
