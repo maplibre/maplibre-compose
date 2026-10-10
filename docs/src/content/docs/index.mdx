@@ -1,0 +1,96 @@
+---
+title: Overview
+description: MapLibre Compose adds interactive vector maps to Compose Multiplatform apps.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
+
+MapLibre Compose shows interactive maps in [Compose Multiplatform][compose]
+apps on Android, iOS, desktop, and the web. You build the map with composables
+and Kotlin state, the same way you build the rest of your UI. The maps render
+with [MapLibre][maplibre], an open-source map engine, and work with any map
+style and tiles that MapLibre can load.
+
+This composable shows a street map of Portland:
+
+<Code code={region(gettingStarted, "first-map")} lang="kotlin" />
+
+<Api of="rememberMapState" /> holds the map's style and camera.
+<Api of="MaplibreMap" /> draws it and lets the user pan and zoom.
+
+## What you can do
+
+- [Style the map](/maplibre-compose/styling/): choose a map style, switch it
+  while the app runs, or ship one with your app.
+- [Control the camera](/maplibre-compose/camera/): open the map at a place,
+  animate to another, or fit an area on screen.
+- [Add data to the map](/maplibre-compose/layers/): draw your own GeoJSON or
+  vector tile data as lines, fills, circles, and labels.
+- [Add images and icons](/maplibre-compose/images/): draw icons from Compose
+  painters and place images on the map.
+- [Cluster points](/maplibre-compose/clustering/): group nearby points into one
+  marker with a count.
+- [Show 3D buildings and relief](/maplibre-compose/terrain/): show 3D
+  buildings, shade hills, and show the world as a globe.
+- [Handle gestures and clicks](/maplibre-compose/interaction/): respond to
+  clicks and change what gestures do.
+- [Query and highlight features](/maplibre-compose/features/): find the features
+  on screen or in a source and change how they look.
+- [Overlay Compose UI](/maplibre-compose/controls/): place zoom buttons, a
+  compass, a scale bar, or your own composables over the map.
+- [Show the user's location](/maplibre-compose/location/): draw the user's
+  position and follow it with the camera.
+- [Capture a map image](/maplibre-compose/snapshotter/): render a map to an
+  `ImageBitmap` without showing it.
+- [Download maps for offline use](/maplibre-compose/offline/): save a region so
+  the map works without a network.
+- [Rewrite or serve map requests](/maplibre-compose/requests/): add headers to
+  tile requests, or serve tiles from app code.
+- [Present outside Compose UI](/maplibre-compose/presentation/): show a map in
+  Android Auto, CarPlay, UIKit, SwiftUI, or an HTML page.
+
+## Platforms
+
+| Platform             | Map engine      | Stability    |
+| -------------------- | --------------- | ------------ |
+| Android              | MapLibre Native | Beta         |
+| iOS                  | MapLibre Native | Beta         |
+| Native macOS (arm64) | MapLibre Native | Experimental |
+| Desktop (JVM)        | MapLibre Native | Alpha        |
+| Web (Kotlin/JS)      | MapLibre GL JS  | Alpha        |
+
+[MapLibre Native][mln] and [MapLibre GL JS][mljs] read the same style format,
+and you use the same Kotlin API on every platform. Offline downloads are not
+available in the browser.
+
+Desktop and web are Alpha because they depend on internal details of Compose
+and Skia. [Platform setup](/maplibre-compose/platform-setup/) lists the
+requirements of each platform.
+
+## API stability
+
+The API is not stable yet. Until version 1.0, a minor release can contain
+breaking changes.
+
+## Next steps
+
+- [Getting started](/maplibre-compose/getting-started/): add the library and
+  show your first map.
+- [Live demo](/maplibre-compose/demo/): try the demo app in your browser.
+- [How the map composes](/maplibre-compose/composition/) and
+  [Expressions in Kotlin](/maplibre-compose/expressions/): the concepts behind
+  every guide.
+- <a href="/maplibre-compose/api/" target="_blank" rel="noopener noreferrer">API reference</a>:
+  every public class and function.
+
+[compose]: https://www.jetbrains.com/compose-multiplatform/
+
+[maplibre]: https://maplibre.org/
+
+[mln]: https://github.com/maplibre/maplibre-native
+
+[mljs]: https://github.com/maplibre/maplibre-gl-js
