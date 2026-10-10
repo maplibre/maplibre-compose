@@ -1,6 +1,6 @@
 ---
 title: Download maps for offline use
-description: Download a region as an offline pack, track its progress, and delete it.
+description: Download a region as an offline pack, show its progress, and delete it.
 ---
 
 import { Aside, Code } from "@astrojs/starlight/components";
@@ -9,60 +9,78 @@ import { region } from "../../snippets";
 
 import offline from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/org/maplibre/compose/docsnippets/Offline.kt?raw";
 
-An offline pack holds the resources needed to show a region without a network:
-map tiles, the style, and other assets. The <Api of="OfflineStorage" />
-creates, tracks, and deletes packs.
+An offline pack stores the style, tiles, fonts, and icons for one area, so the
+map can show that area without a network connection. Use packs when people
+need the map in places with no signal, such as on a hike or a flight.
 
 <Aside type="note">
-  The browser has no offline API. Call it from Android, iOS, or Desktop code,
-  or through an `expect` function.
+  Offline packs work on Android, iOS, macOS, and desktop (JVM). The browser has
+  no offline storage, so call this API from those platforms' source sets.
 </Aside>
 
-Get the offline storage from the map runtime with the
-<Api of="offlineStorage" /> extension. A composable, a view model, a background
-worker, or `main` can hold and use it:
+## Get the offline storage
+
+Each map runtime has one <Api of="OfflineStorage" />. Get the one for the
+default runtime with the <Api of="offlineStorage" /> extension. It also works
+outside composables, such as in a view model:
 
 <Code code={region(offline, "storage")} lang="kotlin" title="App.kt" />
 
 ## Download a region
 
-A pack is defined by a style URL, a bounding box, and a zoom range.
-<Api of="OfflineStorage.create" /> registers the pack in a paused state; call
-<Api of="OfflineStorage.resume" /> to start the download:
+<Api of="OfflineStorage.create" /> saves a new pack, and
+<Api of="OfflineStorage.resume" /> starts its download:
 
 <Code code={region(offline, "create")} lang="kotlin" title="App.kt" />
 
-The library does not interpret the `metadata` bytes. Use them to identify the
-pack later, for example with a display name.
+The pack is defined by:
 
-<Api of="OfflinePackDefinition.Shape" /> downloads the region that covers a
-GeoJSON geometry instead of a bounding box.
+- `styleUrl`: the style that the map uses. Use the same URL in the map, because
+  MapLibre finds downloaded resources by their URL.
+- `bounds`: the area to download. To download the area of a GeoJSON shape, such
+  as a hiking route, use <Api of="OfflinePackDefinition.Shape" /> instead.
+- `minZoom` and `maxZoom`: the zoom levels to download. Each extra zoom level
+  needs about four times as many tiles as the one before, so keep `maxZoom` as
+  low as your use case allows.
+- `pixelRatio`: the screen density, so the pack has tiles for this screen.
 
-## Track download progress
+`metadata` holds any bytes you want to keep with the pack. The example stores a
+name to show in a list.
 
-<Api of="OfflineStorage.state" /> and <Api of="OfflinePack.downloadProgress" />
-are `StateFlow`s. A composition collects them with `collectAsState` and
-recomposes as the download proceeds:
+The button stays disabled while the storage opens its database.
 
-<Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
+## List downloaded packs
 
-A background worker can collect `downloadProgress` until the pack reports
-`DownloadStatus.Complete`. Offline storage starts in
-`OfflineStorageState.Loading` while it lists stored packs.
-`OfflineStorageState.Ready` includes the packs from earlier sessions;
-`OfflineStorageState.Failed` reports initialization errors.
-Operations suspend until initialization completes.
+<Api of="OfflineStorageState.Ready" /> lists every pack in the database,
+including packs from earlier app launches. The `maplibre-compose-material3`
+module has <Api of="OfflinePackListItem" />, which shows a pack's progress and
+has buttons to pause, resume, update, and delete it:
 
-`pause` and `resume` switch a pack between the `Paused` and `Downloading`
-states. <Api of="OfflineStorage.invalidate" /> re-checks a pack's tiles
-against the server and updates the ones that changed.
+<Code code={region(offline, "list")} lang="kotlin" title="App.kt" />
+
+A download stops when the app closes. On the next launch, an incomplete pack is
+paused until you call `resume` again. `OfflinePackListItem` shows a resume
+button for it.
+
+## Show download progress
+
+To build your own UI, collect <Api of="OfflinePack.downloadProgress" />. It
+updates as resources download:
+
+<Code code={region(offline, "progress")} lang="kotlin" title="PackProgress.kt" />
+
+<Api of="DownloadProgress.Healthy" /> counts downloaded and required resources
+and tells you whether the pack is downloading, paused, or complete.
+<Api of="DownloadProgress.Error" /> and
+<Api of="DownloadProgress.TileLimitExceeded" /> report a problem.
 
 ## Delete a pack
 
-<Api of="OfflineStorage.delete" /> unregisters the pack and frees the
-resources that no remaining pack requires:
+<Api of="OfflineStorage.delete" /> removes a pack:
 
-<Code code={region(offline, "delete")} lang="kotlin" title="App.kt" />
+<Code code={region(offline, "delete")} lang="kotlin" title="DeletePackButton.kt" />
 
-Once a pack is downloaded, the map uses its resources automatically when the
-device has no network. No map configuration is required.
+## Show the downloaded area on a map
+
+You do not need to configure the map. A map from the same runtime uses the
+pack's resources, so the downloaded area shows when the device has no network.
