@@ -1,0 +1,77 @@
+---
+title: Query and highlight features
+description: Find the features on screen or in a source, and change how a selected feature looks.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import features from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Features.kt?raw";
+
+A feature is one point, line, or polygon in a source, with its properties. You
+can ask the map which features it draws at a place on the screen, or which
+features a source has loaded. You can also attach a value such as `selected` to
+one feature and draw that feature differently.
+
+To respond when the user taps a feature in one of your layers, give the layer
+an `onClick` handler instead, as shown in
+[Handle gestures and clicks](/maplibre-compose/interaction/#respond-to-clicks-on-a-layer).
+The handler receives the features at the tap.
+
+## Find features on screen
+
+<Api of="MapState.queryRenderedFeatures" /> returns the features that the map
+draws inside a rectangle on the screen. This map lists the names of the places
+near a long press:
+
+<Code code={region(features, "query-rendered")} lang="kotlin" title="App.kt" />
+
+`layerIds` limits the result to features drawn by those layers. Here they are
+the point-of-interest layers of the OpenFreeMap Liberty style. Without
+`layerIds`, the result includes every layer, such as roads, water, and labels.
+The topmost feature comes first. To query a single point, pass a `DpOffset`
+instead of a `DpRect`. To keep only features with certain properties, pass an
+expression as `predicate`.
+
+`queryRenderedFeatures` is a suspend function, so call it from a coroutine.
+
+## Find features in a source
+
+<Api of="VectorTileSourceHandle.querySourceFeatures" /> returns the features of
+a vector tile source, whether or not a layer draws them. Use it to search the
+data behind the map, such as every café in the loaded tiles:
+
+<Code code={region(features, "query-source")} lang="kotlin" title="Places.kt" />
+
+`state.style.sources` returns a source's handle by ID, or by the source object
+that you declared. It returns null until the style has loaded. The result
+contains only features from the tiles that the map has loaded for the current
+view, and it can contain the same feature more than once when the feature
+crosses a tile edge.
+
+## Highlight a selected feature
+
+Feature state is data that your app attaches to one feature while the map
+runs. A layer can read it with <Api of="Feature.state" display="feature.state" />
+and draw that feature differently. This map draws three stops in blue and turns
+the tapped stop red:
+
+<Code code={region(features, "highlight-selected")} lang="kotlin" title="App.kt" />
+
+<Api of="GeoJsonSourceHandle.setFeatureState" display="setFeatureState" /> adds
+values to a feature's state. The map clears feature state when it loads another
+base style, so the example remembers `selectedId` inside the content block,
+which resets at the same time. `removeFeatureState` removes them, and
+`resetFeatureStates` clears the state of every feature in the source. Inside the
+content block of `rememberMapState`, <Api of="LocalMapState" /> gives the map
+state, and `style.sources` gives the source's handle.
+
+Feature state finds a feature by its `id`. Give each GeoJSON feature an integer
+`id`, and pass the `id` to `setFeatureState` as text, as
+`features.first().id?.content` does in the example. For a vector tile source,
+also pass the source layer, and the tile data must give each feature an `id`.
+
+Only some layer properties can read feature state, such as the `color` and
+`radius` of a circle layer. The API reference for each layer property says
+whether it can. Filters cannot read feature state.
