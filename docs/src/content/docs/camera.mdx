@@ -1,6 +1,6 @@
 ---
 title: Control the camera
-description: Set the initial position, animate the camera, fit bounds, and convert coordinates.
+description: Set where the map starts, move it from code, fit an area on screen, and limit where users can go.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,111 +9,140 @@ import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
 
-The camera defines the visible part of the map: a center position, a zoom
-level, a bearing, and a pitch. <Api of="rememberMapState" /> creates a
-<Api of="MapState" /> with a read-only camera position. Pass an
-initial <Api of="CameraPosition" /> to set the camera at startup:
+The camera decides which part of the map is on screen. A
+<Api of="CameraPosition" /> has a center position, a zoom level, a bearing, and
+a pitch. At zoom 0 the whole world is 512 dp wide, and each zoom level doubles
+the scale. Bearing is the compass direction at the top of the screen, in
+degrees clockwise from north. Pitch tilts the map, in degrees away from looking
+straight down.
+
+## Set the starting position
+
+Pass `initialCameraPosition` to <Api of="rememberMapState" />:
 
 <Code code={region(camera, "first-position")} lang="kotlin" title="App.kt" />
 
+The map starts at this position. Later changes to `initialCameraPosition` do not
+move the map; use the functions below instead. The map state saves the camera,
+so the map comes back to the same place after an Android activity is recreated.
+
+Read the current camera from <Api of="MapState.cameraPosition" />. A composable
+that reads it recomposes when the camera moves.
+
 ## Animate the camera
 
-<Api of="MapState.animateCamera" /> is a suspend function that moves
-only the properties specified in a <Api of="CameraUpdate" />. Call it from a
-coroutine. The function waits for an attached viewport and returns when its
-properties finish or are superseded:
+<Api of="MapState.animateCamera" /> moves the camera smoothly. It is a suspend
+function, so call it from a coroutine. List only the properties you want to
+change in a <Api of="CameraUpdate" />; the others keep their current values:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
-Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
-position is retained when the map is detached and restored when it is displayed
-again.
+If the map is not on screen yet, the call waits until it is, so you can also
+start an animation from `LaunchedEffect` when the screen opens.
 
-### Choose the transition
+### Fly or ease
 
-The `animation` parameter selects one of two transitions.
+The `animation` parameter chooses how the camera travels.
 
-<Api of="CameraAnimation.Fly" /> follows a flight path. The camera zooms out, crosses
-the ground, and zooms back in, so the map stays legible over any distance.
-Without a duration, the flight takes as long as its path length and speed
-require. Set `duration` for a fixed time, `speed` in screenfuls per second for a
-constant pace. The exact path and additional flight settings depend on the engine:
+<Api of="CameraAnimation.Ease" /> is the default. It moves straight to the
+target in 300 ms and never zooms out on the way. Use it for short moves, such as
+zooming in place or following a moving point. Over long distances the map
+moves too fast to follow.
+
+<Api of="CameraAnimation.Fly" /> zooms out, travels, and zooms back in, so the
+user can see where the camera is going. Use it to move between places that are
+far apart, such as two cities:
 
 <Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
 
-<Api of="CameraAnimation.Ease" /> is the default. It moves the camera directly to its target over a
-fixed duration, without zooming out on the way. Use it for short moves, such as
-changing zoom in place or following a location:
+Without a `duration`, the flight takes longer for longer distances. Set `speed`
+to change how fast it travels. To change the length of an ease, set its
+`duration` in the same way: `CameraAnimation.Ease { duration = 1.seconds }`.
 
-<Code code={region(camera, "animate-ease")} lang="kotlin" title="App.kt" />
+## Move without animation
 
-Both transitions accept an `easing` timing curve, a <Api of="CubicBezier" />.
-On Android, the system animator duration scale multiplies the duration of
-either transition. A scale of zero jumps to the target.
+<Api of="MapState.setCameraPosition" /> moves the camera at once. It replaces
+every camera property, so copy the current position and change only what you
+need:
 
-### Keep a point fixed on screen
+<Code code={region(camera, "set-position")} lang="kotlin" title="App.kt" />
+
+You can call it before the map is on screen. The map then starts at that
+position.
+
+## Zoom around a point
 
 <Api of="MapState.animateCameraAround" /> changes zoom, bearing, or pitch while
-keeping a point at its screen location. Use <Api of="CameraAnchor.Screen" /> for
-coordinates in dp from the full map's top-left corner:
+one point stays at the same place on screen. For example, zoom in on a place the
+user selected without moving that place on screen:
 
 <Code code={region(camera, "animate-around")} lang="kotlin" title="App.kt" />
 
-Use <Api of="CameraAnchor.Geographic" /> to keep a selected geographic location
-at its current screen point. The anchor is resolved when the animation starts
-and must be visible on the map. This operation supports easing; it does not
-accept a flight or a center because the center moves to keep the anchor
-fixed.
+<Api of="CameraAnchor.Geographic" /> keeps a geographic position in place.
+<Api of="CameraAnchor.Screen" /> keeps a screen point in place, in dp from the
+map's top-left corner. The point must be visible when the animation starts.
 
-Persistent camera padding participates in projection. Changing viewport insets,
-resizing the logical viewport, or losing the attachment cancels the animation.
-Camera constraints
-take precedence over anchor preservation. The preservation guarantee applies to
-flat Mercator maps, including pitched cameras; it does not extend to globe or
-terrain.
+## Fit an area on screen
 
-## Fit a bounding box
-
-<Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current
-viewport with the same `animation` choices. Set `fitPadding` in `CameraFit` to add
-space around the box inside the viewport insets and camera padding:
+<Api of="MapState.animateCameraToBounds" /> moves the camera so a
+`BoundingBox` fits on screen. Use it to show a whole route or a set of search
+results. By default it flies.
 
 <Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 
-Use <Api of="MapState.fitCameraToBounds" /> to fit the same bounding box without
-an animation.
+`fitPadding` in <Api of="CameraFit" /> keeps space between the box and the
+edges of the map. The fit also stays clear of the `viewportInsets` that you pass
+to <Api of="MaplibreMap" />, such as the area under a bottom sheet; see
+[Keep controls clear of your UI](/maplibre-compose/controls/#keep-controls-clear-of-your-ui). To fit
+without animation, call <Api of="MapState.fitCameraToBounds" />.
 
-Use <Api of="MapState.cameraForBounds" /> to calculate a position before applying
-it. The query waits for a viewport and leaves the current camera and animation
-unchanged. For example, cap the calculated zoom before animating:
+<Api of="MapState.cameraForBounds" /> calculates the fitted camera without
+moving the map, so you can change it before you apply it. For example, cap the
+zoom so that a fit around a few nearby points does not zoom in too far:
 
 <Code code={region(camera, "camera-for-bounds")} lang="kotlin" title="App.kt" />
 
+To fit a list of points or a line instead of a box, use
+<Api of="MapState.cameraForCoordinates" /> or
+<Api of="MapState.cameraForGeometry" />.
+
 ## Read the visible area
 
-<Api of="MapState.viewport" /> reports the last rendered camera, size,
-visible bounds, and visible region, which all describe the same frame. It is
-null until the map renders its first viewport, while
-<Api of="MapState.cameraPosition" /> is available before that. A composition
-that reads the viewport recomposes when the camera moves or the map resizes:
+<Api of="MapState.viewport" /> describes what the map shows on screen: the
+camera, the map's size, and the geographic area in view. Use it to load data for
+the visible area or to show the current zoom:
 
 <Code code={region(camera, "viewport")} lang="kotlin" title="App.kt" />
 
-## Convert between screen and geographic coordinates
+The viewport is `null` until the map draws for the first time. A composable that
+reads it recomposes when the camera moves or the map changes size.
 
-<Api of="MapState.screenLocationFromPosition" /> converts a geographic
-position to an offset from the top-left corner of the map composable.
-<Api of="MapState.positionFromScreenLocation" /> converts in the other
-direction:
+The map repeats the world to the left and right, so longitudes in
+<Api of="Viewport.visibleBounds" /> can go past ±180°. Call
+<Api of="VisibleBounds.toBoundingBox" /> to get a standard GeoJSON bounding box.
+
+## Convert between screen and map coordinates
+
+<Api of="MapState.screenLocationFromPosition" /> finds where a geographic
+position appears on screen.
+<Api of="MapState.positionFromScreenLocation" /> finds the geographic position
+under a screen point. Screen points are in dp from the map's top-left corner:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />
 
-## The repeated world and the antimeridian
+Both return `null` until the map draws for the first time. To place Compose UI
+at a geographic position, use <Api of="MapOverlayScope.placedAt" /> from
+[Overlay Compose UI](/maplibre-compose/controls/) instead.
 
-MapLibre repeats the world horizontally. Geographic values read from the map,
-such as <Api of="Viewport.visibleBounds" /> and
-<Api of="MapState.positionFromScreenLocation" />, preserve the world copy:
-longitudes may extend past ±180°, and the visible bounds may span more than
-360°. `VisibleBounds.toBoundingBox()` converts to a GeoJSON `BoundingBox`, where an
-antimeridian crossing follows RFC 7946 with an east longitude less than the
-west.
+## Limit where the camera can go
+
+Pass <Api of="CameraConstraints" /> to <Api of="MaplibreMap" /> to keep the
+camera inside limits. Use it to keep users in the area your app covers, or to
+stop them zooming past the detail your map data has:
+
+<Code code={region(camera, "constraints")} lang="kotlin" title="App.kt" />
+
+Properties you leave out keep their defaults: zoom 0 to 20 and pitch 0 to 60.
+Setting `maxPitch` to 0 keeps the map flat. The limits apply to gestures and to
+camera movements from your code. `boundingBox` stops the user from panning away
+from that area.
