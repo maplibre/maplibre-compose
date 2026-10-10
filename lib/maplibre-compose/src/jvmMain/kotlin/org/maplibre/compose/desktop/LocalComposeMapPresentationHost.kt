@@ -18,7 +18,8 @@ import org.maplibre.compose.location.LocalXdgPortalWindow
  * from [rememberAwtComposeMapPresentationHost]. Prefer [ProvideMapPresentationHost] over setting
  * this directly.
  *
- * Replacing the host rebuilds the map's GPU bridge, even when the two host objects compare equal.
+ * Replacing the host recreates the map's GPU resources, even when the two host objects compare
+ * equal.
  */
 public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMapPresentationHost> =
   compositionLocalOf(referentialEqualityPolicy()) {

@@ -5,16 +5,14 @@ import org.maplibre.compose.gljs.GlJsRuntime
 /**
  * Sets the MapLibre GL JS worker URL without initializing Compose graphics.
  *
- * Call before creating any browser maps or snapshotters to self-host the worker. Otherwise the
- * library creates a Blob URL for its embedded, patched worker. The first worker configuration wins;
- * later calls, including [installMaplibreCompose], do not change it.
+ * Call before creating any browser maps or snapshotters to self-host the worker. The first worker
+ * configuration wins; later calls, including [installMaplibreCompose], do not change it.
  *
  * Self-host the worker when the page's Content Security Policy does not allow workers from `blob:`
- * URLs. Serve it from the page's origin: the library loads a worker URL from another origin through
- * a Blob URL as well.
+ * URLs. Serve it from the page's origin.
  *
  * Serve `maplibre-gl/worker.mjs` extracted from this library's JS KLIB, from the same release as
- * the library. It includes the matching engine patches and has no sibling imports.
+ * the library. It has no sibling imports.
  *
  * @param workerUrl The URL of the worker module. A relative URL resolves against the page URL.
  */

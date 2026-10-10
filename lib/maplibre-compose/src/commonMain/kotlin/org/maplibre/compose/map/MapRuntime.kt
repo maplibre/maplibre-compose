@@ -1376,8 +1376,8 @@ internal constructor(
    *
    * An overlapping native command or any browser command supersedes this move. Accepted input, a
    * logical viewport resize, changed viewport insets, or attachment loss cancels this call.
-   * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Until selective
-   * cancellation is available, anchor geometry changes stop all camera animations.
+   * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Anchor geometry
+   * changes stop all camera animations.
    *
    * Anchor preservation applies to flat Mercator maps, including pitched cameras. Camera
    * constraints take precedence and can move the anchor. Globe and terrain do not have this

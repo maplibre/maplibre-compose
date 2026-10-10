@@ -289,8 +289,8 @@ private fun rememberEmContext(textSize: Expression<TextUnitValue>): LayerExpress
  *
  *   **Important:** If using zoom interpolation for text size, then all other properties defined in
  *   text units (like [textLetterSpacing], [textOffset], etc) MUST be defined in EM units, not SP or
- *   DP units. This is a limitation of the MapLibre expression parser. If text size does not use
- *   zoom interpolation, then those other properties can use their supported units.
+ *   DP units. If text size does not use zoom interpolation, then those other properties can use
+ *   their supported units.
  *
  * @param textTransform Specifies how to capitalize text. The expression may use feature properties.
  * @param textLetterSpacing Text tracking amount. The expression may use feature properties.

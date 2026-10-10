@@ -51,11 +51,10 @@ public fun image(value: String): Expression<ImageValue?> = image(const(value))
  * [LineLayer][org.maplibre.compose.layers.LineLayer]) and as a section in the [format] expression.
  *
  * The [ImageBitmap] will be registered with the style when it's referenced by a layer, and
- * unregistered from the style if it's no longer referenced by any layer. An ID referencing the
- * bitmap will be generated automatically and inserted into the expression. The pixels are read
- * after composition, so do not draw into the bitmap after passing it here. A new layer property
- * stays unset until its bitmaps are ready. When replacing an existing property, its previous value
- * stays visible until the replacement bitmaps are ready.
+ * unregistered from the style if it's no longer referenced by any layer. The pixels are read after
+ * composition, so do not draw into the bitmap after passing it here. A new layer property stays
+ * unset until its bitmaps are ready. When replacing an existing property, its previous value stays
+ * visible until the replacement bitmaps are ready.
  *
  * @param isSdf Should be set to true if the bitmap is a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)
@@ -78,11 +77,10 @@ public fun image(
  *
  * The [Painter] will be drawn asynchronously to an [ImageBitmap] and registered with the style when
  * it's referenced by a layer, and unregistered from the style if it's no longer referenced by any
- * layer. An ID referencing the bitmap will be generated automatically and inserted into the
- * expression. A new layer property stays unset until its painters are ready. When replacing an
- * existing property, its previous value stays visible until the replacement painters are ready.
- * Painters that draw identical pixels share one style image, so calling `painterResource` for the
- * same resource in several layers registers the image once.
+ * layer. A new layer property stays unset until its painters are ready. When replacing an existing
+ * property, its previous value stays visible until the replacement painters are ready. Painters
+ * that draw identical pixels share one style image, so calling `painterResource` for the same
+ * resource in several layers registers the image once.
  *
  * @param size The size to create the bitmap with. If not provided, the intrinsic size of the
  *   painter is used, or 16x16 DP if the painter has no intrinsic size.

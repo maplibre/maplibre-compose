@@ -97,8 +97,7 @@ public class ResolvedStyleImage(
     /**
      * Renders [painter] once for a missing-image resolver or another imperative image operation.
      *
-     * Rendering uses a standalone graphics context and releases it before returning. Changes to the
-     * painter after this call do not update the result.
+     * Changes to the painter after this call do not update the result.
      *
      * @param density Describes the environment in which the painter draws. In Compose, pass
      *   `LocalDensity.current` from the caller's composition.

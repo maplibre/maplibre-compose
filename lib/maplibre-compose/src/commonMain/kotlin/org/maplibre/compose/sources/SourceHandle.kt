@@ -144,8 +144,7 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
    * newer call supersedes older pending data preparation. Loading a new base style discards the
    * submitted data. This function does not wait for URL loading or rendering.
    *
-   * Native engines serialize and prepare the data on a background thread. Preparation or
-   * installation failures after submission emit
+   * Preparation or installation failures after submission emit
    * [org.maplibre.compose.map.MapEvent.SourceDataFailed] and retain the previous source data.
    *
    * [GeoJsonOptions.synchronousTiling] controls native tile generation and does not make this

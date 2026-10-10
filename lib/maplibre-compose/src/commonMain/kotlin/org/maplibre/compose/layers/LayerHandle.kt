@@ -33,8 +33,7 @@ public sealed interface LayerHandle {
    *
    * @return null when the layer states no transition for that property, and when it states one
    *   without both a duration and a delay: an engine times the omitted field with the style's
-   *   global transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an
-   *   empty object for a transition that was cleared, and this returns null for it.
+   *   global transition, which [TransitionOptions] states no value for.
    */
   public suspend fun getPaintTransition(property: String): TransitionOptions?
 }
@@ -56,9 +55,7 @@ public sealed interface MutableLayerHandle : LayerHandle {
    * On Android, the system animator duration scale multiplies the timing that reaches the engine. A
    * scale of zero applies the property change instantly.
    *
-   * @param options Null returns the property to the style's global transition. The reset is written
-   *   at once, as the spec's empty transition object; a layer composable drops the key from its
-   *   layer definition instead, with the same result.
+   * @param options Null returns the property to the style's global transition.
    */
   public fun setPaintTransition(property: String, options: TransitionOptions?): Unit
 

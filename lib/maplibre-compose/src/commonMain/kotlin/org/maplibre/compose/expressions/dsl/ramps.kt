@@ -104,8 +104,6 @@ public fun interpolateLab(
 /**
  * How [interpolate], [interpolateHcl], and [interpolateLab] compute values between stops. Create
  * one with [linear], [exponential], or [cubicBezier].
- *
- * MapLibre reads the interpolation when the style loads, so it is a fixed value, not an expression.
  */
 public data class Interpolation internal constructor(internal val json: JsonArray)
 

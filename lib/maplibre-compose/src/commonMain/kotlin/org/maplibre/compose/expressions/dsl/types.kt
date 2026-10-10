@@ -30,8 +30,6 @@ public fun Expression<*>.type(): Expression<ExpressionType> = call("typeof", thi
 /**
  * Asserts that this is a list, optionally of items of one [type] and of one [length].
  *
- * Both [type] and [length] are plain values because MapLibre reads them when the style loads.
- *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
  * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
  *

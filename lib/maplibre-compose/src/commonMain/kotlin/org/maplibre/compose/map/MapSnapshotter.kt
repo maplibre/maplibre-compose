@@ -49,10 +49,9 @@ import org.maplibre.compose.util.formatToString
 /**
  * Immutable inputs for one snapshot capture.
  *
- * @property size Size of the captured map. Both dimensions must be finite and positive. MapLibre
- *   lays out maps in whole dp, so each dimension is rounded to the nearest whole dp, and to at
- *   least 1 dp. Each image dimension in pixels is the rounded size multiplied by [density], rounded
- *   up.
+ * @property size Size of the captured map. Both dimensions must be finite and positive. Each
+ *   dimension is rounded to the nearest whole dp, and to at least 1 dp. Each image dimension in
+ *   pixels is the rounded size multiplied by [density], rounded up.
  * @property cameraPosition Camera position used for this capture.
  * @property density Pixel density for rendering and font scale for style composition.
  * @property layoutDirection Layout direction used while evaluating the style composition.
