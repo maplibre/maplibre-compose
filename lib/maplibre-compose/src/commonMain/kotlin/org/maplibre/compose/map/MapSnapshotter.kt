@@ -287,8 +287,8 @@ public sealed interface MapSnapshotter {
    *
    * @throws IllegalStateException if the snapshotter is closed before this call.
    * @throws IllegalArgumentException if the request cannot be rendered on the current platform,
-   *   such as an image wider or taller than 4,096 pixels on the browser, which is the MapLibre GL
-   *   JS canvas limit.
+   *   such as a request whose size times its density, rounded to whole pixels, is more than 4,096
+   *   in either dimension on the browser, which is the MapLibre GL JS canvas limit.
    * @throws CancellationException if the snapshotter closes after accepting this capture.
    * @throws MapSnapshotException if the runtime cannot render offscreen, such as when MapLibre
    *   Native offers no offscreen rendering backend for the device, style evaluation or rendering

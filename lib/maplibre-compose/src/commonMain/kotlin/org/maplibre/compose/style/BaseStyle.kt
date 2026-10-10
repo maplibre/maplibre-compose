@@ -21,7 +21,10 @@ public sealed interface BaseStyle {
    *
    * @property uri MapLibre Native fetches `http:` and `https:` URIs over the network and reads
    *   other URIs, such as `file:` URIs and the URIs that Compose Multiplatform's `Res.getUri`
-   *   returns, as packaged resources. In the browser, MapLibre GL JS fetches [uri].
+   *   returns, as packaged resources. In the browser, MapLibre GL JS fetches [uri]. A runtime's
+   *   [MapRequestInterceptor][org.maplibre.compose.resource.MapRequestInterceptor] and
+   *   [MapResourceProvider][org.maplibre.compose.resource.MapResourceProvider] apply to this
+   *   request as to any other.
    */
   @Immutable public data class Uri(public val uri: String) : BaseStyle
 

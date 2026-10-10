@@ -137,7 +137,8 @@ public sealed interface OfflineStorageState {
    * accepts operations.
    *
    * @property packs The current packs. Includes the packs stored in the database before this
-   *   runtime started, and a new state replaces it when a pack is created, merged, or deleted.
+   *   runtime started, except packs whose definition this library cannot represent, which are
+   *   logged and left out. A new state replaces it when the set of packs changes.
    */
   public data class Ready internal constructor(public val packs: Set<OfflinePack>) :
     OfflineStorageState
