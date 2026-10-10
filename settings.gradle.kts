@@ -20,6 +20,17 @@ pluginManagement {
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
+    exclusiveContent {
+      forRepository {
+        maven {
+          url =
+            uri(
+              "/Users/sargunv/orca/workspaces/maplibre-native-ffi/move-execution-into-the-native-core-and-generate/build/packages/kotlin/maven-local"
+            )
+        }
+      }
+      filter { includeGroup("org.maplibre.nativeffi") }
+    }
     google {
       mavenContent {
         includeGroupAndSubgroups("androidx")

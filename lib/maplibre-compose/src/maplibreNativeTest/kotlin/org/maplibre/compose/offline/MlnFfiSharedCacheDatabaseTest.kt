@@ -12,12 +12,12 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestThread
 import org.maplibre.nativeffi.error.MaplibreStatus
-import org.maplibre.nativeffi.runtime.AmbientCacheOperation
-import org.maplibre.nativeffi.runtime.OfflineOperationHandle
-import org.maplibre.nativeffi.runtime.RuntimeEventPayload
-import org.maplibre.nativeffi.runtime.RuntimeEventType
-import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
+import org.maplibre.nativeffi.generated.AmbientCacheOperation
+import org.maplibre.nativeffi.generated.OfflineOperationHandle
+import org.maplibre.nativeffi.generated.RuntimeEventPayload
+import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.RuntimeOptions
 
 /**
  * Verifies that two MapLibre runtimes can use one persistent cache database.

@@ -20,7 +20,7 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.log.LogSeverity
+import org.maplibre.nativeffi.generated.LogSeverity
 
 /** Native static destruction runs after JVM shutdown, so only a child process tests its exit. */
 class NativeProcessExitTest {

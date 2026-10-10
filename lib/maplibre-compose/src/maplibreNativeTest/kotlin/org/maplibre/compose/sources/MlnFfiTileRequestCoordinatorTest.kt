@@ -19,8 +19,8 @@ import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.CanonicalTileId
+import org.maplibre.nativeffi.generated.MapHandle
 
 class MlnFfiTileRequestCoordinatorTest {
 

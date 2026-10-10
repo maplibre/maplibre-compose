@@ -40,7 +40,7 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.spatialk.geojson.Position
 
 class StyleResourceCommandTest {

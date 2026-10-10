@@ -29,8 +29,8 @@ import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.runtime.RuntimeEventType
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.RuntimeEventType
 
 class MlnFfiMapRuntimeLoopTest {
 

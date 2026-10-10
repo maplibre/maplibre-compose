@@ -86,7 +86,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.nativeffi.generated.RenderBackend
 
 class LinuxOpenGlInteropTest {
 

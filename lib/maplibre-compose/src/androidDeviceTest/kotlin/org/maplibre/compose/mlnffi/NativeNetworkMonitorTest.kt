@@ -5,7 +5,7 @@ import android.os.Parcel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.maplibre.nativeffi.runtime.NetworkStatus
+import org.maplibre.nativeffi.generated.NetworkStatus
 
 class NativeNetworkMonitorTest {
   @Test

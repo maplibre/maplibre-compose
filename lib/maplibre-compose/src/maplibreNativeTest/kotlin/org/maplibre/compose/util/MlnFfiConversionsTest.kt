@@ -9,8 +9,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.query.QueriedFeature
+import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.QueriedFeature
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.Point

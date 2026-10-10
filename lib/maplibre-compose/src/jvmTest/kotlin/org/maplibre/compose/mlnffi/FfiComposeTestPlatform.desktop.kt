@@ -14,7 +14,7 @@ import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.resetForTest
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.nativeffi.generated.RenderBackend
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {

@@ -31,7 +31,7 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.MapHandle
 
 class PlatformMapAccessTest {
   @Test

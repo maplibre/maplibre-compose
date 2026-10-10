@@ -5,7 +5,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.MapHandle
 
 /** Provides the borrowed MapLibre Native map for one [MapState.withPlatformMap] callback. */
 @DelicateMaplibreComposeApi

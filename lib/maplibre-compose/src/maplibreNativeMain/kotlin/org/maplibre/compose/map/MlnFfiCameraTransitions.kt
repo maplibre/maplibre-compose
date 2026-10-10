@@ -6,15 +6,20 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MlnFfiLock
+import org.maplibre.compose.mlnffi.failed
+import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.withLock
-import org.maplibre.nativeffi.camera.AnimationOptions
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.AnimationOptions
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.runtime.CommandCompletion
 
 /**
- * Native ID completion. Commands/events use the map owner; [releaseAll] may run during failed
- * renderer teardown. The lock protects state; engine calls and continuations run outside it.
+ * Native ID completion. Transitions start from any thread; their finish events arrive on the event
+ * pump. The lock protects state; engine calls and continuations run outside it.
  */
 internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
   private class Anchor(val id: Long, val size: DpSize)
@@ -31,11 +36,14 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
     animation: AnimationOptions,
     continuation: CancellableContinuation<Unit>,
     anchored: Boolean,
-    start: (MapHandle, AnimationOptions) -> Unit,
+    start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
   ) {
     // Cancellation while this waits for the map must not start a native transition.
     if (!continuation.isActive) return
-    val size = if (anchored) map.size.let { DpSize(it.width.dp, it.height.dp) } else null
+    val size =
+      if (anchored)
+        map.getSnapshot().logicalExtent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
+      else null
     val id = lock.withLock {
       if (retired) return@withLock null
       val id = ++nextId
@@ -50,13 +58,24 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
       // Withdrawing a waiter cannot safely stop its tracks without scoped FFI cancellation.
       lock.withLock { waiters.remove(id) }
     }
-    try {
-      start(map, animation.copy { transitionId = id })
-    } catch (error: Throwable) {
-      // A rejected command emits no event, so nothing else would resume the continuation.
-      lock.withLock { waiters.remove(id) }
-      if (continuation.isActive) continuation.resumeWithException(error)
-      return
+    val started =
+      try {
+        start(map, animation.copy(transitionId = id.toULong()))
+      } catch (error: Throwable) {
+        // A rejected command emits no event, so nothing else would resume the continuation.
+        lock.withLock { waiters.remove(id) }
+        if (continuation.isActive) continuation.resumeWithException(error)
+        return
+      }
+    started.invokeOnCompletion { error ->
+      @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+      val failure =
+        error ?: started.getCompleted().takeIf { it.failed }?.let(::CommandFailedException)
+      if (failure != null) {
+        // A command that failed on the map worker starts no transition and reports no finish.
+        val waiter = lock.withLock { waiters.remove(id) }
+        if (waiter?.isActive == true) waiter.resumeWithException(failure)
+      }
     }
     // Native drains finish events after this command; a rejected start keeps the old anchor.
     if (size != null) lock.withLock { if (!retired) anchor = Anchor(id, size) }
@@ -85,7 +104,7 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
       waiters[current.id]
     }
     waiter?.cancel(CancellationException("The anchor viewport changed"))
-    map.cancelTransitions()
+    map.cancelTransitions().reportFailure(logger(), "cancel camera transitions")
   }
 
   fun eventsDrained() {

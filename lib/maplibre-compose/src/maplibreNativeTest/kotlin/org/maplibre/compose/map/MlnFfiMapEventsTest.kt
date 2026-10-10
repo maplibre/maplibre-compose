@@ -6,12 +6,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.nativeffi.map.RenderingStats
-import org.maplibre.nativeffi.render.RenderMode
-import org.maplibre.nativeffi.runtime.RuntimeEvent
-import org.maplibre.nativeffi.runtime.RuntimeEventPayload
-import org.maplibre.nativeffi.runtime.RuntimeEventSourceType
-import org.maplibre.nativeffi.runtime.RuntimeEventType
+import org.maplibre.nativeffi.generated.RenderMode
+import org.maplibre.nativeffi.generated.RenderingStats
+import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventPayload
+import org.maplibre.nativeffi.generated.RuntimeEventSourceType
+import org.maplibre.nativeffi.generated.RuntimeEventType
 
 class MlnFfiMapEventsTest {
 

@@ -24,7 +24,7 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.offline.OfflineStorageException
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.nativeffi.camera.AnimationOptions
+import org.maplibre.nativeffi.generated.AnimationOptions
 
 class MlnFfiEngineStartupTest {
   @Test

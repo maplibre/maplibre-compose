@@ -24,10 +24,10 @@ import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toPosition
-import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.ScreenPoint
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.map.ProjectionModeOptions
+import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.ProjectionModeOptions
+import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiViewportTest {

@@ -26,15 +26,15 @@ import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.nativeffi.resource.ResourceErrorReason
-import org.maplibre.nativeffi.resource.ResourceKind
-import org.maplibre.nativeffi.resource.ResourceLoadingMethod
-import org.maplibre.nativeffi.resource.ResourcePriority
-import org.maplibre.nativeffi.resource.ResourceRequest
-import org.maplibre.nativeffi.resource.ResourceResponse
-import org.maplibre.nativeffi.resource.ResourceResponseStatus
-import org.maplibre.nativeffi.resource.ResourceStoragePolicy
-import org.maplibre.nativeffi.resource.ResourceUsage
+import org.maplibre.nativeffi.generated.ResourceErrorReason
+import org.maplibre.nativeffi.generated.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceLoadingMethod
+import org.maplibre.nativeffi.generated.ResourcePriority
+import org.maplibre.nativeffi.generated.ResourceRequest
+import org.maplibre.nativeffi.generated.ResourceResponse
+import org.maplibre.nativeffi.generated.ResourceResponseStatus
+import org.maplibre.nativeffi.generated.ResourceStoragePolicy
+import org.maplibre.nativeffi.generated.ResourceUsage
 
 /** Long enough that a wait failing here means the thing waited for is not going to happen. */
 private const val WaitSeconds = 10L

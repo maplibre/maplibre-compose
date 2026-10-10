@@ -12,8 +12,8 @@ import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.ClusterIdProperty
-import org.maplibre.nativeffi.query.QueriedFeature
-import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
+import org.maplibre.nativeffi.generated.QueriedFeature
+import org.maplibre.nativeffi.generated.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry as GeoJsonGeometry
 
@@ -22,10 +22,10 @@ internal fun renderedQueryOptions(
   predicate: CompiledExpression<BooleanValue>?,
 ): RenderedFeatureQueryOptions? {
   if (layerIds == null && predicate == null) return null
-  return RenderedFeatureQueryOptions().also {
-    it.layerIds = layerIds?.toList()
-    it.filter = predicate?.toStyleJson()?.toJsonBytes()
-  }
+  return RenderedFeatureQueryOptions(
+    layerIds = layerIds?.toList(),
+    filter = predicate?.toStyleJson()?.toJsonBytes(),
+  )
 }
 
 /** Decodes each hit's GeoJSON Feature. Source ids and feature state stay on [QueriedFeature]. */

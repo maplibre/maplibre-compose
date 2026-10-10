@@ -5,9 +5,9 @@ import kotlin.test.assertEquals
 import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.toCommon
 import org.maplibre.compose.resource.toFfi
-import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
-import org.maplibre.nativeffi.offline.OfflineRegionStatus
-import org.maplibre.nativeffi.resource.ResourceErrorReason
+import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
+import org.maplibre.nativeffi.generated.OfflineRegionStatus
+import org.maplibre.nativeffi.generated.ResourceErrorReason
 
 /** How a native offline status or error becomes the [DownloadProgress] common code switches on. */
 class OfflineProgressMappingTest {

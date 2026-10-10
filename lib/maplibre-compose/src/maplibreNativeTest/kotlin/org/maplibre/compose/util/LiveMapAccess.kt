@@ -4,7 +4,7 @@ import kotlin.test.assertNotNull
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.readMap
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.MapHandle
 
 /** Reads the live map for a loaded-style generation. */
 internal fun <T> StyleBinding.onMap(block: (MapHandle) -> T): T =

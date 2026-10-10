@@ -12,12 +12,12 @@ import kotlin.time.TimeSource
 import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.compose.resource.MapConnectivity
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.map.MapOptions
-import org.maplibre.nativeffi.runtime.NetworkStatus
-import org.maplibre.nativeffi.runtime.RuntimeEventType
-import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.MapOptions
+import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.RuntimeOptions
 
 class NativeNetworkRecoveryTest {
   @Test

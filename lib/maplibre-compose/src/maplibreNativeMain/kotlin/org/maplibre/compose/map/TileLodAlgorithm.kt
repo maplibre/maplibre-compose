@@ -2,8 +2,8 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
 import kotlin.math.PI
-import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
-import org.maplibre.nativeffi.map.TileOptions
+import org.maplibre.nativeffi.generated.MapTileOptions as TileOptions
+import org.maplibre.nativeffi.generated.TileLodMode as FfiTileLodMode
 
 /** A MapLibre Native tile-detail algorithm and its tuning parameters. */
 @Immutable
@@ -145,10 +145,10 @@ private fun tileOptions(
   pitchThreshold: Double,
   zoomShift: Double,
 ): TileOptions =
-  TileOptions().also {
-    it.lodMode = mode
-    it.lodMinRadius = minRadius
-    it.lodScale = scale
-    it.lodPitchThreshold = pitchThreshold * PI / 180.0
-    it.lodZoomShift = zoomShift
-  }
+  TileOptions(
+    lodMode = mode,
+    lodMinRadius = minRadius,
+    lodScale = scale,
+    lodPitchThreshold = pitchThreshold * PI / 180.0,
+    lodZoomShift = zoomShift,
+  )

@@ -1,8 +1,8 @@
 package org.maplibre.compose.map
 
 import org.maplibre.compose.mlnffi.MlnFfiGate
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.style.StyleImageInfo
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.StyleImageInfo
 
 /**
  * Blocks the calling thread until [action] has run on the owner thread, and returns its result.

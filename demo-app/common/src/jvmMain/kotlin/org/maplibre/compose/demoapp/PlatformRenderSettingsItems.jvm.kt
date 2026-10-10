@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.nativeffi.generated.RenderBackend
 
 @Composable
 actual fun PlatformRenderSettingsItems(settings: DemoSettings) {

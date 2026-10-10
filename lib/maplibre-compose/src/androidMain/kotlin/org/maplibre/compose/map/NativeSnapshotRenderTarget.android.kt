@@ -9,16 +9,16 @@ import org.maplibre.compose.mlnffi.AndroidEglDisplay
 import org.maplibre.compose.mlnffi.AndroidVulkanOffscreenContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.VulkanContextHandles
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.render.EglContextDescriptor
+import org.maplibre.nativeffi.generated.EglContextDescriptor
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.OpenglClientApi
+import org.maplibre.nativeffi.generated.OpenglContextOwnership
+import org.maplibre.nativeffi.generated.OpenglOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.RenderSessionHandle
+import org.maplibre.nativeffi.generated.RenderTargetExtent
+import org.maplibre.nativeffi.generated.VulkanContextDescriptor
+import org.maplibre.nativeffi.generated.VulkanOwnedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
-import org.maplibre.nativeffi.render.OpenGLClientApi
-import org.maplibre.nativeffi.render.OpenGLContextOwnership
-import org.maplibre.nativeffi.render.OpenGLOwnedTextureDescriptor
-import org.maplibre.nativeffi.render.RenderSessionHandle
-import org.maplibre.nativeffi.render.RenderTargetExtent
-import org.maplibre.nativeffi.render.VulkanContextDescriptor
-import org.maplibre.nativeffi.render.VulkanOwnedTextureDescriptor
 
 internal actual class NativeSnapshotRenderTarget
 private constructor(private val delegate: Delegate) : AutoCloseable {
@@ -72,15 +72,15 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
     override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle {
       val currentDisplay = checkNotNull(display) { "The snapshot render target is closed" }
       return map.attachOpenGLOwnedTexture(
-        OpenGLOwnedTextureDescriptor(
+        OpenglOwnedTextureDescriptor(
           RenderTargetExtent(extent.width, extent.height, extent.scaleFactor),
           EglContextDescriptor(
             display = NativePointer.ofAddress(currentDisplay.nativeHandle),
             config = NativePointer.ofAddress(config.nativeHandle),
             shareContext = NativePointer.ofAddress(context.nativeHandle),
             getProcAddress = NativePointer.NULL_POINTER,
-            clientApi = OpenGLClientApi.GLES,
-            ownership = OpenGLContextOwnership.SHARED,
+            clientApi = OpenglClientApi.GLES,
+            ownership = OpenglContextOwnership.SHARED,
           ),
         )
       )

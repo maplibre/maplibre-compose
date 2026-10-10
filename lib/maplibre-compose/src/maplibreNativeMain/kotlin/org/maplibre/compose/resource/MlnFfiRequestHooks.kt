@@ -1,11 +1,11 @@
 package org.maplibre.compose.resource
 
-import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.resource.HttpHeader
-import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
-import org.maplibre.nativeffi.resource.ResourceKind
-import org.maplibre.nativeffi.resource.ResourceTransformCallback
-import org.maplibre.nativeffi.runtime.RuntimeHandle
+import org.maplibre.compose.mlnffi.reportFailure
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.HttpHeaderTransform
+import org.maplibre.nativeffi.generated.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceTransform
+import org.maplibre.nativeffi.generated.RuntimeHandle
 
 /**
  * Installs the URL and header callbacks, each of which uses the interceptor in [config].
@@ -14,29 +14,28 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
  * callback the URL that the URL callback returned.
  */
 internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) {
-  try {
-    setHttpHeaderTransform(
-      HttpHeaderTransformCallback { request ->
-        val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-        config.interceptor.headersOrNone(mapRequest, config.logger).map {
-          HttpHeader(it.key, it.value)
+  // OpenHarmony and the browser FFI decline header transforms; that failure arrives here and leaves
+  // the URL transform in place.
+  setHttpHeaderTransform(
+      HttpHeaderTransform { kind, url, response ->
+        val mapRequest = MapResourceRequest(url, kind.toCommon())
+        config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
+          GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
         }
       }
     )
-  } catch (error: Throwable) {
-    rethrowIfFatal(error)
-    // OpenHarmony and the browser FFI decline header transforms.
-    config.logger?.w(error) {
-      "This platform declined the header transform; request interceptor headers are ignored"
-    }
-  }
+    .reportFailure(
+      config.logger,
+      "install the header transform; request interceptor headers are ignored",
+    )
   setResourceTransform(
-    ResourceTransformCallback { request ->
-      val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-      val url = config.interceptor.rewrittenUrl(mapRequest, config.logger)
-      if (url == request.url) null else url
-    }
-  )
+      ResourceTransform { kind, url, response ->
+        val mapRequest = MapResourceRequest(url, kind.toCommon())
+        val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
+        if (rewritten != url) GeneratedApi.resourceTransformResponseSetUrl(response, rewritten)
+      }
+    )
+    .reportFailure(config.logger, "install the request interceptor's URL transform")
 }
 
 /** The kind with the same name in MapLibre GL JS, or the native number as decimal text. */
@@ -50,5 +49,5 @@ internal fun ResourceKind.toCommon(): MapResourceKind =
     ResourceKind.SPRITE_JSON -> MapResourceKind.SpriteJson
     ResourceKind.SPRITE_IMAGE -> MapResourceKind.SpriteImage
     ResourceKind.IMAGE -> MapResourceKind.Image
-    else -> MapResourceKind(nativeValue.toString())
+    else -> MapResourceKind(rawValue.toString())
   }

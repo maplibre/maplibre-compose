@@ -1,11 +1,12 @@
 package org.maplibre.compose.map
 
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.nativeffi.render.RenderMode
-import org.maplibre.nativeffi.runtime.CameraChangeMode
-import org.maplibre.nativeffi.runtime.RuntimeEvent
-import org.maplibre.nativeffi.runtime.RuntimeEventPayload
-import org.maplibre.nativeffi.runtime.RuntimeEventType
+import org.maplibre.nativeffi.generated.CameraChangeMode
+import org.maplibre.nativeffi.generated.RenderMode
+import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventPayload
+import org.maplibre.nativeffi.generated.RuntimeEventRenderFrame
+import org.maplibre.nativeffi.generated.RuntimeEventType
 
 /** Null for an event type that has no counterpart in the common catalog. */
 internal fun RuntimeEvent.toMapEvent(): MapEvent? =
@@ -17,7 +18,7 @@ internal fun RuntimeEvent.toMapEvent(): MapEvent? =
     RuntimeEventType.MAP_CAMERA_IS_CHANGING -> MapEvent.CameraMoved
     RuntimeEventType.MAP_CAMERA_DID_CHANGE -> MapEvent.CameraMoveEnded(isAnimatedChange())
     RuntimeEventType.MAP_RENDER_FRAME_FINISHED ->
-      MapEvent.FrameRendered((payload as? RuntimeEventPayload.RenderFrame)?.toRenderStats())
+      MapEvent.FrameRendered((payload as? RuntimeEventPayload.RenderFrame)?.value?.toRenderStats())
     else -> null
   }
 
@@ -27,9 +28,9 @@ internal fun RuntimeEvent.styleLoadFailureReason(): String = message.ifBlank {
 }
 
 private fun RuntimeEvent.isAnimatedChange(): Boolean =
-  CameraChangeMode(code) == CameraChangeMode.ANIMATED
+  CameraChangeMode(code.toUInt()) == CameraChangeMode.ANIMATED
 
-private fun RuntimeEventPayload.RenderFrame.toRenderStats(): RenderStats =
+private fun RuntimeEventRenderFrame.toRenderStats(): RenderStats =
   RenderStats(
     mode = mode.toCommon(),
     needsRepaint = needsRepaint,
@@ -46,5 +47,5 @@ internal fun RenderMode.toCommon(): RenderStats.Mode =
   when (this) {
     RenderMode.PARTIAL -> RenderStats.Mode.Partial
     RenderMode.FULL -> RenderStats.Mode.Full
-    else -> RenderStats.Mode(nativeValue.toString())
+    else -> RenderStats.Mode(rawValue.toString())
   }

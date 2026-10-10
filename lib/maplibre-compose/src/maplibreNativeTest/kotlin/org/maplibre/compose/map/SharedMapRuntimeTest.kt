@@ -43,7 +43,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.runtime.OfflineOperationHandle
+import org.maplibre.nativeffi.generated.OfflineOperationHandle
 import org.maplibre.spatialk.geojson.BoundingBox
 
 class SharedMapRuntimeTest {

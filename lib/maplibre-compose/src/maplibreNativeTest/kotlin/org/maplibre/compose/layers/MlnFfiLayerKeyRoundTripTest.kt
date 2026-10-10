@@ -21,7 +21,7 @@ import org.maplibre.compose.style.install
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
-import org.maplibre.nativeffi.style.StyleLayerVisibility
+import org.maplibre.nativeffi.generated.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 

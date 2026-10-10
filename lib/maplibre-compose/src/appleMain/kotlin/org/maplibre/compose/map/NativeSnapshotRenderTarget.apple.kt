@@ -7,12 +7,12 @@ import kotlinx.cinterop.autoreleasepool
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.toLong
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.render.MetalContextDescriptor
-import org.maplibre.nativeffi.render.MetalOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.MetalContextDescriptor
+import org.maplibre.nativeffi.generated.MetalOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.RenderSessionHandle
+import org.maplibre.nativeffi.generated.RenderTargetExtent
 import org.maplibre.nativeffi.render.NativePointer
-import org.maplibre.nativeffi.render.RenderSessionHandle
-import org.maplibre.nativeffi.render.RenderTargetExtent
 import platform.Metal.MTLCreateSystemDefaultDevice
 import platform.Metal.MTLDeviceProtocol
 

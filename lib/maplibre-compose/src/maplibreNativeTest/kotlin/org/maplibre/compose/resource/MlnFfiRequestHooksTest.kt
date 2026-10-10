@@ -2,7 +2,7 @@ package org.maplibre.compose.resource
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import org.maplibre.nativeffi.resource.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceKind
 
 class MlnFfiRequestHooksTest {
 

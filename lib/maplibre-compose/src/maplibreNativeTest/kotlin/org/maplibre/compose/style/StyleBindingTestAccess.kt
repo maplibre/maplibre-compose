@@ -1,8 +1,8 @@
 package org.maplibre.compose.style
 
 import org.maplibre.compose.map.readBlocking
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.style.ImageStretch
+import org.maplibre.nativeffi.generated.ImageStretch
+import org.maplibre.nativeffi.generated.MapHandle
 
 /**
  * Blocks until [action] has run with the map on the binding's owner thread. Throws when the style

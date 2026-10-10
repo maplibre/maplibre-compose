@@ -20,7 +20,7 @@ import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
+import org.maplibre.nativeffi.generated.TileLodMode as FfiTileLodMode
 
 class MlnFfiTileLodTest {
 
