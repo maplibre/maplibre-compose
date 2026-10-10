@@ -18,6 +18,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.util.MaplibreComposable
 
 /** Owns the live style composition and submits its committed snapshots to the loaded map. */
@@ -28,6 +29,7 @@ internal fun rememberStyleComposition(
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
   compositionLocals: CompositionLocalContext = currentCompositionLocalContext,
+  viewport: () -> Viewport? = { null },
   applyRevision: suspend (StyleBinding, StyleSnapshot) -> Unit = { _, _ -> },
 ): State<StyleSnapshot?> {
   // This is observed by click dispatch, not by the reconciliation scheduler.
@@ -36,6 +38,7 @@ internal fun rememberStyleComposition(
   val scope = rememberCoroutineScope()
   val currentLocals by rememberUpdatedState(compositionLocals)
   val apply by rememberUpdatedState(applyRevision)
+  val currentViewport by rememberUpdatedState(viewport)
 
   DisposableEffect(content, maybeStyle) {
     val style = maybeStyle ?: return@DisposableEffect onDispose {}
@@ -58,7 +61,9 @@ internal fun rememberStyleComposition(
     }
     try {
       composition.setContent {
-        CompositionLocalProvider(currentLocals) { StyleContent(rootNode, content) }
+        CompositionLocalProvider(currentLocals) {
+          StyleContent(rootNode, viewport = { currentViewport() }, content = content)
+        }
       }
     } catch (error: Throwable) {
       dispose()
@@ -88,23 +93,35 @@ internal fun rememberStyleComposition(
 @Composable
 internal fun StyleContent(
   rootNode: StyleNode,
+  viewport: () -> Viewport? = { null },
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   val fontScale = LocalDensity.current.fontScale
-  val animatorDurationScale = rootNode.style.animatorDurationScale
-  ComposeNode<StyleEnvironmentNode, MapNodeApplier>(
-    factory = ::StyleEnvironmentNode,
-    update = {
-      set(fontScale) { this.fontScale = it }
-      set(animatorDurationScale) { this.animatorDurationScale = it }
-    },
-  )
+  StyleEnvironment(fontScale, rootNode.style.animatorDurationScale, viewport)
   CompositionLocalProvider(
     LocalStyleNode provides rootNode,
     LocalStyleFontScale provides fontScale,
   ) {
     content()
   }
+}
+
+/** Reads [viewport] in its own scope, so camera frames recompose only this node. */
+@Composable
+private fun StyleEnvironment(
+  fontScale: Float,
+  animatorDurationScale: Float,
+  viewport: () -> Viewport?,
+) {
+  val groundScale = viewport()?.let { roundedGroundScale(it.cameraPosition.center.latitude) }
+  ComposeNode<StyleEnvironmentNode, MapNodeApplier>(
+    factory = ::StyleEnvironmentNode,
+    update = {
+      set(fontScale) { this.fontScale = it }
+      set(animatorDurationScale) { this.animatorDurationScale = it }
+      set(groundScale) { this.groundScale = it }
+    },
+  )
 }
 
 internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }

@@ -44,6 +44,18 @@ a smooth value between stops:
 
 <Code code={rememberedMapStyle(region(expressions, "zoom"))} lang="kotlin" title="App.kt" />
 
+## Size in meters
+
+Sizes such as circle radius and line width are in dp, so a feature keeps its
+size on screen as the map zooms. To draw something at its real size on the
+ground instead, convert meters with <Api of="meters" />:
+
+<Code code={rememberedMapStyle(region(expressions, "meters"))} lang="kotlin" title="App.kt" />
+
+The conversion depends on the zoom and on the camera's latitude, because the
+map projection stretches areas far from the equator. Use the result as the
+whole property value, not inside another expression.
+
 ## Filter features
 
 The `filter` parameter takes a boolean expression. The layer renders only the

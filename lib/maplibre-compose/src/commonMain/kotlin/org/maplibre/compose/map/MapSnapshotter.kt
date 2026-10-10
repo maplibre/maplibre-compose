@@ -235,6 +235,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               ) {
                 StyleContent(
                   rootNode = root,
+                  viewport = { viewport },
                   content = content,
                 )
               }

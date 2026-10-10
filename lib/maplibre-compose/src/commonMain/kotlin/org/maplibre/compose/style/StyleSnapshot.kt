@@ -13,6 +13,8 @@ internal data class StyleSnapshot(
   /** The animator duration scale the composition read; layer transitions are scaled by it. */
   val animatorDurationScale: Float = 1f,
   val fontScale: Float? = null,
+  /** Meters per dp at zoom 0 and the camera's latitude, rounded so small pans keep it. */
+  val groundScale: Float? = null,
   /** At least one committed property is waiting for painter preparation. */
   val imagesPending: Boolean = false,
 ) {

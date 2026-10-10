@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
 import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.meters
 import org.maplibre.compose.expressions.dsl.neq
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.dsl.step
@@ -77,6 +78,15 @@ fun Expressions() {
         ),
     )
     // #endregion zoom
+
+    // #region meters
+    CircleLayer(
+      id = "quakes-10-km",
+      source = earthquakes,
+      // A circle 10 kilometers in radius at every zoom level and latitude.
+      radius = const(10_000f).meters,
+    )
+    // #endregion meters
 
     // #region filter
     CircleLayer(
