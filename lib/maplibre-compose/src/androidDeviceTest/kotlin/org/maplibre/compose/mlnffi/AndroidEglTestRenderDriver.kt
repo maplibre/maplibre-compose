@@ -9,7 +9,9 @@ import android.opengl.GLES30
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.generated.OpenglClientApi
 import org.maplibre.nativeffi.generated.OpenglContextOwnership
@@ -26,6 +28,16 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   override val backends = RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
   override fun <T> withRendererAccess(action: () -> T): T = action()
+
+  /**
+   * The test thread that pumps frames is this host's renderer thread, so queued renderer work runs
+   * on its event loop, which drains while the test body awaits.
+   */
+  override fun enqueueRenderer(action: () -> Unit): Boolean {
+    val loop = TestMain.loop ?: return super.enqueueRenderer(action)
+    loop.dispatch(EmptyCoroutineContext, Runnable(action))
+    return true
+  }
 
   override fun resize(extent: MapExtent) {
     ensureSurface(extent)
