@@ -1,6 +1,6 @@
 ---
 title: Present outside Compose UI
-description: Reuse map state and styles in Android Auto, CarPlay, native UI, or HTML hosts.
+description: Show a map in Android Auto, CarPlay, UIKit, SwiftUI, or an HTML page that Compose UI does not draw.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -11,60 +11,71 @@ import android from "../../../../demo-app/common/src/androidMain/kotlin/org/mapl
 import apple from "../../../../demo-app/common/src/iosMain/kotlin/org/maplibre/compose/docsnippets/ApplePresentation.kt?raw";
 import web from "../../../../demo-app/common/src/jsMain/kotlin/org/maplibre/compose/docsnippets/WebPresentation.kt?raw";
 
-<Api of="MaplibreMap" /> provides the map's Compose UI integration. When another
-framework owns the UI, such as Android Auto, CarPlay, UIKit, SwiftUI, or React, use a
-platform presentation to reuse the same map state, camera operations, and
-declarative styles.
+<Api of="MaplibreMap" /> draws a map inside Compose UI. Some screens are drawn
+by another UI framework: an Android Auto car screen, a CarPlay screen, a UIKit
+or SwiftUI view, or a web page built with Compose HTML, Kobweb, or React. To
+show a map there, use a presentation. It draws the map into the surface, view,
+or HTML element that the other framework gives you.
 
-Create a <Api of="MapState" /> with <Api of="MapRuntime.createMapState" /> and
-pass it to a presentation. Your application supplies the host, manages its
-lifecycle, and forwards recognized gestures through the
-[map's input methods](/maplibre-compose/interaction/#pass-gestures-from-your-own-code).
-Compose UI dependencies are still required, but a Compose UI hierarchy is not.
+You still write the map's sources, layers, and camera code in Kotlin. Create the
+<Api of="MapState" /> with <Api of="MapRuntime.createMapState" />, which takes
+the same base style and content block as `rememberMapState`, and close the
+state when you no longer need the map.
+
+A presentation draws only the map. It has no gestures, buttons, or attribution:
+
+- Pass gestures from your framework to <Api of="MapState.panBy" />,
+  <Api of="MapState.scaleBy" />, <Api of="MapState.fling" />, and
+  <Api of="MapState.click" />.
+- Show the data sources' attribution in your own UI.
+  <Api of="attributions" display="state.style.attributions()" /> returns the
+  attribution texts as a list of HTML strings.
 
 ## Android
 
-<Api of="AndroidMapPresentation" /> draws into an Android `Surface`, such as
-one supplied by Android Auto. Connect the presentation to the host's lifecycle
-and surface callbacks:
+<Api of="AndroidMapPresentation" /> draws into an Android `Surface`, such as the
+one that Android Auto gives a car app. Connect the host's surface callbacks to
+the presentation:
 
 <Code code={region(android, "surface-host")} lang="kotlin" title="SurfaceMapHost.kt" />
 
-The [Android Auto demo](https://github.com/maplibre/maplibre-compose/tree/main/demo-app/android-auto)
-shows a complete car-app integration. See <Api of="AndroidMapPresentation" />
-for configuration, surface ownership, and lifecycle contracts.
+`width` and `height` are in physical pixels, and `density` is physical pixels
+per dp. The map stops drawing while `lifecycle` is below `STARTED`. Pass the
+host's configuration changes, so your map content sees the current night mode
+and locale.
+
+The [Android Auto demo](https://github.com/maplibre/maplibre-compose/blob/main/demo-app/android-auto/src/main/kotlin/org/maplibre/compose/demoapp/auto/CarMapSurface.kt)
+connects these calls to the car app library's `SurfaceCallback`, including
+scroll and zoom gestures.
 
 ## iOS
 
-<Api of="AppleMapPresentation" /> presents the map, and
-<Api of="MaplibreMapView" /> supplies a UIKit view that manages the Metal layer
-and its layout:
+<Api of="AppleMapPresentation" /> draws the map, and
+<Api of="MaplibreMapView" /> is a UIKit view that shows it:
 
 <Code code={region(apple, "apple-view")} lang="kotlin" title="UiKitMapHost.kt" />
 
-Add the view to a UIKit or CarPlay view hierarchy, or return it from SwiftUI's
-`UIViewRepresentable.makeUIView`. Forward activation from the scene hosting
-the map; CarPlay has a separate scene from the phone's UI. The
-[CarPlay demo](https://github.com/maplibre/maplibre-compose/blob/main/demo-app/ios/iosApp/CarPlaySceneDelegate.swift)
-shows the scene integration. See
-<Api of="MaplibreMapView" /> and <Api of="AppleMapPresentation" /> for ownership,
-configuration, and lifecycle contracts.
+Add `view` to a UIKit view hierarchy or a CarPlay window, or return it from
+`makeUIView` in a SwiftUI `UIViewRepresentable`. Set `isActive` from the scene
+that shows the map, so the map stops drawing while that scene is in the
+background. A CarPlay screen has its own scene, separate from the phone's.
 
-For hosts that already manage a Metal layer, use
-<Api of="AppleMapPresentation.attachLayer" /> directly. This is the same
-attachment API used by `MaplibreMapView`.
+The [CarPlay demo](https://github.com/maplibre/maplibre-compose/blob/main/demo-app/ios/iosApp/CarPlaySceneDelegate.swift)
+creates a [Kotlin host](https://github.com/maplibre/maplibre-compose/blob/main/demo-app/common/src/iosMain/kotlin/org/maplibre/compose/demoapp/car/CarPlayMapHost.kt)
+like this one from Swift. If you manage your own `CAMetalLayer`, use
+<Api of="AppleMapPresentation.attachLayer" /> instead of `MaplibreMapView`.
 
 ## Web
 
-<Api of="WebMapPresentation" /> presents a map in an HTML element for Kobweb,
-Compose HTML, or Kotlin React. Give the element a CSS width and height:
+<Api of="WebMapPresentation" /> draws the map into an HTML element. Give the
+element a CSS width and height:
 
 <Code code={region(web, "web-container")} lang="kotlin" title="WebMapHost.kt" />
 
-Create the host when your framework mounts the element, and close it before the
-element is removed. See <Api of="WebMapPresentation" /> for configuration,
-container ownership, and lifecycle contracts. The default worker is embedded in
-the library and uses a Blob URL. If your Content Security Policy excludes blob
-workers, serve `maplibre-gl/worker.mjs` from the library's JS KLIB and pass its URL
-to <Api of="configureMaplibreWorker" /> before creating maps. Use the worker from
-the same Compose release so it includes the matching engine patches.
+Create the host when your framework adds the element to the page, and close it
+before the element is removed. The
+[ferry departures demo](/maplibre-compose/demo/app/?ferries) does this in
+[Compose HTML](https://github.com/maplibre/maplibre-compose/blob/main/demo-app/common/src/jsMain/kotlin/org/maplibre/compose/demoapp/ferry/FerryBoard.kt).
+
+If your Content Security Policy blocks workers from `blob:` URLs, see
+<Api of="configureMaplibreWorker" />.

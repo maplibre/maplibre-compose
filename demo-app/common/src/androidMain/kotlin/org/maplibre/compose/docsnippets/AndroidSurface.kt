@@ -7,11 +7,18 @@ import android.content.res.Configuration
 import android.view.Surface
 import androidx.lifecycle.Lifecycle
 import org.maplibre.compose.map.AndroidMapPresentation
-import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.style.BaseStyle
 
 // #region surface-host
-/** Your code owns the MapState and each Surface. Call these methods on the main thread. */
-class SurfaceMapHost(context: Context, state: MapState, lifecycle: Lifecycle) : AutoCloseable {
+/** Call every method on the main thread. */
+class SurfaceMapHost(context: Context, lifecycle: Lifecycle) : AutoCloseable {
+  val state =
+    DefaultMapRuntime.instance.createMapState(
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
+    ) {
+      // Sources and layers, as in rememberMapState
+    }
   val presentation = AndroidMapPresentation(context, state, lifecycle)
   private var binding: AndroidMapPresentation.SurfaceBinding? = null
 
@@ -34,6 +41,7 @@ class SurfaceMapHost(context: Context, state: MapState, lifecycle: Lifecycle) : 
 
   override fun close() {
     presentation.close()
+    state.close()
   }
 }
 
