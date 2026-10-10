@@ -221,6 +221,9 @@ private class NativeSnapshotterAdapter(
 
   private suspend fun loadStyle(current: NativeSnapshotEngine, baseStyle: BaseStyle) {
     val load = current.expectStyle()
+    // This snapshot's own commands are the map's only ones, so an event of a later generation
+    // than the latest published one comes from this style command or after it.
+    load.minimumGeneration = current.map.getSnapshot().generation + 1u
     val submitted =
       try {
         current.styleVisits.lock.withLock {
@@ -235,8 +238,6 @@ private class NativeSnapshotterAdapter(
         throw IllegalStateException(error.message ?: "MapLibre snapshot capture failed", error)
       }
     val completion = submitted.await()
-    load.minimumGeneration = completion.generation
-    owner.requestDrain()
     if (completion.failed) {
       current.endStyleLoad(load)
       throw IllegalStateException(

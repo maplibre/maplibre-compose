@@ -292,19 +292,19 @@ class MlnFfiSurfaceLossTest {
   }
 }
 
-/**
- * Reads a feature's state with a blocking query. The bridge fixture drives the map without
- * coroutines, so this stays off the suspend read a caller would use.
- */
+/** Reads a feature's state in a style visit, so it follows every visit posted before it. */
 private fun StyleBinding.featureStateOnOwnerThread(
   sourceId: String,
   featureId: String,
 ): JsonObject {
-  val bytes =
-    checkNotNull(
-      (this as MlnFfiStyleBinding).readMap { map ->
-        map.getFeatureState(featureStateSelector(sourceId, null, featureId)).awaitBlocking()
-      }
-    )
+  val bytes = runBlocking {
+    onOwner {
+      checkNotNull(
+        (this@featureStateOnOwnerThread as MlnFfiStyleBinding).readMap { map ->
+          map.getFeatureState(featureStateSelector(sourceId, null, featureId)).awaitBlocking()
+        }
+      )
+    }
+  }
   return Json.parseToJsonElement(bytes.decodeToString()).jsonObject
 }
