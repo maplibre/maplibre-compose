@@ -586,6 +586,7 @@ public final class org/maplibre/compose/expressions/dsl/TypesKt {
 	public static synthetic fun formatToString$default (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;ILjava/lang/Object;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun getDp (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun getEm (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
+	public static final fun getMeters (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun getMilliseconds (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun getSeconds (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;
 	public static final fun getSp (Lorg/maplibre/compose/expressions/ast/Expression;)Lorg/maplibre/compose/expressions/ast/Expression;

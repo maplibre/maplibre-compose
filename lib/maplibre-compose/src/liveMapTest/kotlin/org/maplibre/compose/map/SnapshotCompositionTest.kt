@@ -33,6 +33,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
@@ -41,9 +42,12 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.GroundScaleGlobalState
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.groundScale
 import org.maplibre.compose.testing.setImage
+import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SnapshotCompositionTest {
@@ -109,6 +113,28 @@ class SnapshotCompositionTest {
       assertNull(imageHandle.asMutable)
       snapshotter.style.sources.add(source)
       snapshotter.style.setImage(imageId, bitmap)
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
+  @Test
+  fun a_capture_writes_the_ground_scale_of_its_camera() = runTest {
+    val binding = RecordingStyleBinding()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) }
+      )
+    try {
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) {}
+      snapshotter.capture(DpSize(4.dp, 4.dp)) {
+        cameraPosition = CameraPosition(center = Position(0.0, 60.0))
+      }
+      assertEquals(
+        JsonPrimitive(groundScale(latitude = 60.0)),
+        binding.globalStateValues[GroundScaleGlobalState],
+      )
     } finally {
       runtime.close()
       runtime.awaitClosed()

@@ -23,6 +23,7 @@ import org.maplibre.compose.expressions.value.NumberValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.VectorValue
+import org.maplibre.compose.style.metersToDp
 
 /** Returns a string describing the type of this expression. */
 public fun Expression<*>.type(): Expression<ExpressionType> = call("typeof", this)
@@ -300,6 +301,21 @@ public fun Expression<*>.convertToColor(vararg fallbacks: Expression<*>): Expres
 /** Converts a numeric [Expression] to a [DpValue] expression. */
 public val Expression<FloatValue>.dp: Expression<DpValue>
   get() = this.cast()
+
+/**
+ * Converts a numeric [Expression] of meters on the ground to a [DpValue] expression: the size those
+ * meters have on screen at the current zoom and the camera's latitude. Use it to draw features at
+ * their real-world size, for example a road 10 meters wide or a circle with a 50 meter radius.
+ *
+ * The conversion uses the scale at the center of the map, so with pitch or at very low zoom,
+ * features far from the center are drawn at the center's scale.
+ *
+ * The result must be the whole value of a layer property, not part of another expression. Use it in
+ * paint properties such as line width or circle radius. Layout properties also accept it, but the
+ * map can then reload the source's tiles as the camera moves north or south.
+ */
+public val Expression<FloatValue>.meters: Expression<DpValue>
+  get() = metersToDp(this)
 
 /** Converts a numeric [Expression] in milliseconds to a [MillisecondsValue] expression. */
 public val Expression<FloatValue>.milliseconds: Expression<MillisecondsValue>

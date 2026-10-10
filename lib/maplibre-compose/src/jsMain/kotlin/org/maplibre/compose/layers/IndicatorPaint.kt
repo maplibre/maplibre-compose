@@ -5,14 +5,17 @@ import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.gljs.createPropertyExpression
 import org.maplibre.compose.style.StyleMutationException
 
-/** A data-constant paint property. Zoom changes evaluate both ends of a running transition. */
+/**
+ * A data-constant paint property. Zoom and global-state changes evaluate both ends of a running
+ * transition.
+ */
 internal class IndicatorPaint(
   private val name: String,
   initial: JsonElement,
   private val color: Boolean = false,
 ) {
   private class Transition(
-    val target: (Double) -> DoubleArray,
+    val target: (Double, Any?) -> DoubleArray,
     var prior: Transition? = null,
     val progress: IndicatorAnimation = IndicatorAnimation(1.0),
   ) {
@@ -20,10 +23,10 @@ internal class IndicatorPaint(
       if (!progress.active(now)) prior = null else prior?.trim(now)
     }
 
-    fun value(zoom: Double, now: Double): DoubleArray {
+    fun value(zoom: Double, globalState: Any?, now: Double): DoubleArray {
       if (!progress.active(now)) prior = null
-      val end = target(zoom)
-      val from = prior?.value(zoom, now) ?: return end
+      val end = target(zoom, globalState)
+      val from = prior?.value(zoom, globalState, now) ?: return end
       val t = progress.value(now)
       return DoubleArray(end.size) { from[it] + (end[it] - from[it]) * t }
     }
@@ -31,7 +34,9 @@ internal class IndicatorPaint(
 
   private var transition = Transition(compile(initial))
 
-  fun value(zoom: Double, now: Double): DoubleArray = transition.value(zoom, now)
+  /** Evaluates at [zoom] with the map's [globalState] object, or with no values when null. */
+  fun value(zoom: Double, now: Double, globalState: Any? = null): DoubleArray =
+    transition.value(zoom, globalState, now)
 
   fun retarget(value: JsonElement, now: Double, delay: Double, duration: Double) {
     val next = compile(value)
@@ -50,7 +55,7 @@ internal class IndicatorPaint(
 
   fun active(now: Double): Boolean = transition.prior != null && transition.progress.active(now)
 
-  private fun compile(value: JsonElement): (Double) -> DoubleArray {
+  private fun compile(value: JsonElement): (Double, Any?) -> DoubleArray {
     val specification: dynamic = js("({})")
     specification.type = if (color) "color" else "number"
     specification.default = if (color) "white" else 0
@@ -65,8 +70,14 @@ internal class IndicatorPaint(
       )
     }
     val expression = result.value
-    return { zoom ->
-      val evaluated = expression.evaluate(unsafeJso<dynamic> { this.zoom = zoom })
+    return { zoom, globalState ->
+      val evaluated =
+        expression.evaluate(
+          unsafeJso<dynamic> {
+            this.zoom = zoom
+            this.globalState = globalState
+          }
+        )
       // Style-spec Color components are premultiplied, as required by the custom layer's blend
       // mode.
       if (color)

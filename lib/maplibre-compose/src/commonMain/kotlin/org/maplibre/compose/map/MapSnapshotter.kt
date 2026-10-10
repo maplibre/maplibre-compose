@@ -32,17 +32,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.GroundScaleGlobalState
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.groundScale
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
@@ -456,9 +459,14 @@ internal class MapSnapshotterImplementation(
                 evaluationOwnership,
               )
             // A command sees the revision before or after this, never part of it.
+            val groundScale =
+              JsonPrimitive(groundScale(prepared.viewport.cameraPosition.center.latitude))
             resourceCommands.withCommit {
               declareRevision(currentBinding, revision)
               recordStyleOwnership(currentClaim, revision)
+              currentBinding.awaitOwner {
+                currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
+              }
               platform.apply(revision)
               // Publish a reused style's handles before rendering, as a map does.
               commitSourcesAfterCommand(currentBinding) {}
