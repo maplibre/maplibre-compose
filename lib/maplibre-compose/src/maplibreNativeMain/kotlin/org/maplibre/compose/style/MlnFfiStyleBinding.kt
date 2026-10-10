@@ -166,6 +166,11 @@ internal open class MlnFfiStyleBinding(
   private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
   @Volatile private var loaded = true
+
+  /** Test seam: the map this style is loaded in. */
+  internal val mapForTest: MapHandle
+    get() = map
+
   private val geoJsonCoordinators =
     mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle>>()
   private val geoJsonLock = MlnFfiLock()

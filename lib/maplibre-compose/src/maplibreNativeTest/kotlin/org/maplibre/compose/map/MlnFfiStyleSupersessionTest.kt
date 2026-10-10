@@ -15,7 +15,9 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
@@ -87,11 +89,16 @@ class MlnFfiStyleSupersessionTest {
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
       assertTrue(first.started.await(TimeoutMillis))
-      fixture.session.loop.submit { map ->
+      val pumpHeld = TestGate()
+      try {
+        fixture.session.holdEventPump { pumpHeld.awaitOpen() }
         // Produce a real old native terminal event without letting the runtime drain it yet.
         // The raw setter controls timing only; Compose still owns the old request identity.
-        runCatching { map.setStyleJson(oldResult.json.encodeToByteArray()) }
+        val map = checkNotNull(fixture.session.mapForTest)
+        runCatching { map.setStyleJson(oldResult.json.encodeToByteArray()).awaitBlocking() }
         fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
+      } finally {
+        pumpHeld.open()
       }
 
       assertTrue(second.started.await(TimeoutMillis))
@@ -180,9 +187,13 @@ class MlnFfiStyleSupersessionTest {
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
       assertTrue(first.started.await(TimeoutMillis))
-      fixture.session.loop.submit {
+      val pumpHeld = TestGate()
+      try {
+        fixture.session.holdEventPump { pumpHeld.awaitOpen() }
         fixture.session.setBaseStyle(BaseStyle.Json("{invalid intermediate"))
         fixture.session.setBaseStyle(style("latest"))
+      } finally {
+        pumpHeld.open()
       }
 
       fixture.pumpUntil("only the latest queued request to load", timeout = 5.seconds) {

@@ -220,15 +220,15 @@ class GeoJsonSourceUpdateTest {
     val release = TestLatch(1)
     val finished = TestLatch(1)
     try {
-      bridge.session.loop.submit {
+      checkNotNull(bridge.style as? MlnFfiStyleBinding).postOwner {
         parked.countDown()
         release.await(5_000L)
         finished.countDown()
       }
 
-      assertTrue(parked.await(5_000L), "native owner did not reach the gate")
+      assertTrue(parked.await(5_000L), "the style visit did not reach the gate")
       submit()
-      assertEquals(1L, finished.count, "submission waited for the busy native owner")
+      assertEquals(1L, finished.count, "submission waited for the busy style visit")
     } finally {
       release.countDown()
     }

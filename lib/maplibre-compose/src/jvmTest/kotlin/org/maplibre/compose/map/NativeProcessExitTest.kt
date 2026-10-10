@@ -20,7 +20,8 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.generated.LogSeverity
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.LogSeverityMask
 
 /** Native static destruction runs after JVM shutdown, so only a child process tests its exit. */
 class NativeProcessExitTest {
@@ -72,7 +73,7 @@ internal object NativeProcessExitProbe {
       }
     }
     Maplibre.loadNativeLibrary()
-    Maplibre.setAsyncLogSeverities(setOf(LogSeverity.WARNING))
+    GeneratedApi.logSetAsyncSeverityMask(LogSeverityMask.WARNING)
     runBlocking {
       val cache = FfiTestPlatform.createCacheFile()
       val runtime = createNativeMapRuntime(MlnFfiRuntimeOptions(cacheFile = cache))

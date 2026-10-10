@@ -12,8 +12,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.map.styleSourceInfo
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
@@ -43,22 +45,22 @@ class SourceVolatilityTest {
       val finished = CompletableDeferred<Boolean>()
       val replacement = CompletableDeferred<Result<Unit>>()
       try {
-        fixture.session.loop.submit {
+        binding.postOwner {
           parked.countDown()
           finished.complete(release.await(5_000L))
         }
 
-        assertTrue(parked.await(5_000L), "native owner did not reach the gate")
+        assertTrue(parked.await(5_000L), "the style visit did not reach the gate")
         handle.setVolatile(true)
         featureHandle.setFeatureState("layer", "1", JsonObject(state))
         state["selected"] = JsonPrimitive(false)
         nested["value"] = JsonPrimitive("changed after submission")
-        fixture.session.loop.submit {
+        binding.postOwner {
           replacement.complete(
             runCatching {
               assertEquals(
                 true,
-                binding.readMap { it.styleSourceInfo(source.id)?.volatileSource },
+                binding.readMap { it.styleSourceInfo(source.id)?.isVolatile },
               )
               assertEquals(
                 Json.parseToJsonElement("""{"selected":true,"nested":{"value":"submitted"}}"""),
@@ -66,6 +68,7 @@ class SourceVolatilityTest {
                   Json.parseToJsonElement(
                     it
                       .getFeatureState(featureStateSelector(source.id, "layer", "1"))
+                      .awaitBlocking()
                       .decodeToString()
                   )
                 },
@@ -79,15 +82,15 @@ class SourceVolatilityTest {
 
         // This command belongs to the old installation until queued removal actually commits.
         handle.setVolatile(true)
-        assertEquals(false, finished.isCompleted, "source write waited for the native owner")
+        assertEquals(false, finished.isCompleted, "source write waited for the style visit")
       } finally {
         release.countDown()
       }
-      assertTrue(finished.await(), "native owner gate timed out")
+      assertTrue(finished.await(), "style visit gate timed out")
       replacement.await().getOrThrow()
       assertEquals(
         false,
-        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+        binding.awaitOwner { binding.sourceVolatile(source.id) },
       )
     }
   }
@@ -119,7 +122,7 @@ class SourceVolatilityTest {
       mutable.setVolatile(true)
       assertEquals(
         false,
-        binding.awaitOwner { binding.withMap { it.styleSourceInfo(source.id)?.volatileSource } },
+        binding.awaitOwner { binding.sourceVolatile(source.id) },
       )
 
       val oldFeatureHandle = handle() as VectorTileSourceHandle

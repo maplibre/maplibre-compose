@@ -10,25 +10,26 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.MetalContextDescriptor
 import org.maplibre.nativeffi.generated.MetalOwnedTextureDescriptor
-import org.maplibre.nativeffi.generated.RenderSessionHandle
-import org.maplibre.nativeffi.generated.RenderTargetExtent
 import org.maplibre.nativeffi.render.NativePointer
 import platform.Metal.MTLCreateSystemDefaultDevice
 import platform.Metal.MTLDeviceProtocol
 
 internal actual class NativeSnapshotRenderTarget
 private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
-  actual fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle = withAccess {
+  actual fun attach(
+    map: MapHandle,
+    extent: MapExtent,
+    options: RenderSessionAttachOptions,
+  ): RenderSessionAttachment = autoreleasepool {
     val current = checkNotNull(device) { "The snapshot render target is closed" }
     map.attachMetalOwnedTexture(
       MetalOwnedTextureDescriptor(
-        RenderTargetExtent(extent.width, extent.height, extent.scaleFactor),
+        extent.toFfiExtent(),
         MetalContextDescriptor(NativePointer.ofAddress(current.rawAddress())),
-      )
+      ),
+      options,
     )
   }
-
-  actual fun <T> withAccess(action: () -> T): T = autoreleasepool { action() }
 
   actual override fun close() {
     device = null

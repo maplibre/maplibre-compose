@@ -12,6 +12,12 @@ import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.map.layerFilter
+import org.maplibre.compose.map.layerMaxZoom
+import org.maplibre.compose.map.layerMinZoom
+import org.maplibre.compose.map.layerSourceId
+import org.maplibre.compose.map.layerSourceLayer
+import org.maplibre.compose.map.layerVisibility
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource

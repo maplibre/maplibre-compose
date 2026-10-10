@@ -16,15 +16,16 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 public expect class PlatformMapScope
 
 /**
- * Runs [block] on this logical map's engine owner context.
+ * Runs [block] with this logical map's engine map.
  *
  * The platform map is borrowed for [block]. Use the raw handle only during [block]. Kotlin cannot
- * prevent retention. A long-running block stops the map from processing other work.
+ * prevent retention. Closing the map waits for a running [block].
  *
  * Native platforms create the engine map when necessary and permit access without an attached UI
- * surface. Web requires an attached surface. Cancelling while the invocation is queued prevents
- * [block] from running. Once execution starts, cancellation does not interrupt [block], but its
- * result is discarded.
+ * surface, then run [block] on the calling thread. A native map runs each call on its own thread in
+ * call order: a command or query returns a `Deferred` that completes once it has run, so [block]
+ * starts work rather than waiting for it. Web requires an attached surface. Cancelling before
+ * [block] starts prevents it from running.
  *
  * The map is a maplibre-native-ffi `MapHandle` on Native platforms and a MapLibre GL JS `Map` on
  * web. Those engine types may change in any minor release, so this function also requires opt-in to

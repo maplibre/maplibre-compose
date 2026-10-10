@@ -13,8 +13,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiFrameResult
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.install
@@ -72,7 +70,7 @@ class MlnFfiMapRepaintTest {
   }
 
   @Test
-  fun a_paint_transition_waits_for_fresh_native_updates_then_finishes_and_settles() {
+  fun a_paint_transition_renders_until_it_finishes_then_settles() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(background("#0000ff"))
       fixture.pumpUntilRendered()
@@ -87,25 +85,6 @@ class MlnFfiMapRepaintTest {
             LayerPropertyKind.Paint,
           )
         }
-      }
-      val ownerEntered = MlnFfiGate()
-      val releaseOwner = MlnFfiGate()
-      try {
-        fixture.session.loop.submit {
-          ownerEntered.open()
-          releaseOwner.awaitUntilOpen()
-        }
-
-        assertTrue(ownerEntered.await(5_000), "The owner did not reach the gate")
-        // Allow one draw of the published update while its native transition clock is held.
-        fixture.session.onSurfaceChanged(BridgeMapFixture.DefaultExtent)
-        assertTrue(fixture.frame() is MlnFfiFrameResult.Rendered)
-        assertTrue(
-          fixture.renderOnDemand(300.milliseconds) <= 1,
-          "Rendering kept requesting frames while the native update could not advance",
-        )
-      } finally {
-        releaseOwner.open()
       }
       val deadline = TimeSource.Monotonic.markNow() + 5.seconds
       while (!fixture.readPixel(256, 256).isNear(RgbaPixel(0, 255, 0, 255))) {

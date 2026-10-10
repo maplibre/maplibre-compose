@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.style.BaseStyle
@@ -37,7 +38,7 @@ class DesktopGroundScalePresentationTest {
           ) {}
         fun groundScale(): Float? =
           (state.currentMapAttachment?.adapter as? MlnFfiMapSession)
-            ?.readMap { it.getGlobalState().decodeToString() }
+            ?.readMap { it.getGlobalState().awaitBlocking().decodeToString() }
             ?.let { Json.parseToJsonElement(it).jsonObject[GroundScaleGlobalState] }
             ?.jsonPrimitive
             ?.float

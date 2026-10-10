@@ -63,10 +63,6 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -78,7 +74,7 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiGate
+import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.mlnffi.performMouseInputOnUiThread
 import org.maplibre.compose.mlnffi.performTouchInputOnUiThread
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -810,20 +806,12 @@ class MlnFfiMapCompositionTest {
       presented = false
       waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
 
-      // Holding the owner thread keeps the next presentation attaching, so the key change detaches
+      // Holding the event pump keeps the next presentation attaching, so the key change detaches
       // it while its attachment is still running and the replacement composes before that
       // detachment finishes.
-      val ownerHeld = CompletableDeferred<Unit>()
-      val releaseOwner = MlnFfiGate()
-      val access =
-        CoroutineScope(Dispatchers.Default).async {
-          state.withPlatformMap {
-            ownerHeld.complete(Unit)
-            releaseOwner.awaitUntilOpen()
-          }
-        }
+      val releaseOwner = TestGate()
+      (firstMap as MlnFfiMapSession).holdEventPump { releaseOwner.awaitOpen() }
       try {
-        ownerHeld.await()
         presented = true
         waitForIdle()
         generation++
@@ -831,7 +819,6 @@ class MlnFfiMapCompositionTest {
       } finally {
         releaseOwner.open()
       }
-      access.await()
       waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment != null }
 
       assertTrue(!firstAttachment.isValid)

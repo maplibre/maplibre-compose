@@ -17,7 +17,7 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiGate
+import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.skipMapTest
@@ -33,8 +33,8 @@ class MlnFfiIndependentCameraTest {
       state.setCameraPosition(state.cameraPosition.copy(padding = padding))
       fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
 
-      val ownerHeld = MlnFfiGate()
-      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
+      val ownerHeld = TestGate()
+      fixture.session.holdEventPump { ownerHeld.awaitOpen() }
       val animation =
         try {
           state.setCameraPosition(
@@ -70,10 +70,9 @@ class MlnFfiIndependentCameraTest {
         )
       }
       fixture.awaitUntil("the anchor to start") { state.cameraPosition.zoom > 3.1 }
-      // The owner thread holds still, so both commands enter the same owner batch, before another
-      // native event drain.
-      val ownerHeld = MlnFfiGate()
-      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
+      // The event pump holds still, so both commands reach native before another event drain.
+      val ownerHeld = TestGate()
+      fixture.session.holdEventPump { ownerHeld.awaitOpen() }
       val replacement =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(

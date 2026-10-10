@@ -8,6 +8,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.map.styleSourceIds
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.readMap

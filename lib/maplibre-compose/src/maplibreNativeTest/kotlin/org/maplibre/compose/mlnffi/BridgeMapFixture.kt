@@ -467,17 +467,17 @@ private constructor(
     private class Access(
       val framesStartedWhenQueued: Long,
       val run: () -> Unit,
-      val done: MlnFfiGate,
+      val done: TestGate,
     )
 
     private val lock = MlnFfiLock()
     private val queue = ArrayDeque<Access>()
     private var framesStarted = 0L
     private var stopped = false
-    private val finished = MlnFfiGate()
+    private val finished = TestGate()
     @Volatile private var stopRequested = false
     @Volatile private var failure: Throwable? = null
-    private val thread = MlnFfiOwnerThread("maplibre-compose-test-renderer", ::loop)
+    private val thread = TestDedicatedThread("maplibre-compose-test-renderer", ::loop)
 
     fun start() {
       thread.start()
@@ -499,8 +499,8 @@ private constructor(
     }
 
     /** Queues [run] and returns the gate that opens once it has run or been abandoned. */
-    private fun enqueue(run: () -> Unit): MlnFfiGate {
-      val done = MlnFfiGate()
+    private fun enqueue(run: () -> Unit): TestGate {
+      val done = TestGate()
       val accepted = lock.withLock {
         if (!stopped) queue += Access(framesStarted, run, done)
         !stopped

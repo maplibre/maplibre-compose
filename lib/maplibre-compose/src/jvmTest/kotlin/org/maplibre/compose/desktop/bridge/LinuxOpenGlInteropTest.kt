@@ -75,6 +75,7 @@ import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
+import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -85,8 +86,6 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.generated.RenderBackend
 
 class LinuxOpenGlInteropTest {
 
@@ -201,9 +200,9 @@ class LinuxOpenGlInteropTest {
   }
 
   private fun packagedProducer(): MapRenderBackend =
-    when (val backend = Maplibre.supportedRenderBackends().single()) {
-      RenderBackend.OPENGL -> MapRenderBackend.OpenGl
-      RenderBackend.VULKAN -> MapRenderBackend.Vulkan
+    when (val backend = tryLoadRuntimeBackends().getOrThrow().single()) {
+      MapRenderBackend.OpenGl -> MapRenderBackend.OpenGl
+      MapRenderBackend.Vulkan -> MapRenderBackend.Vulkan
       else -> error("No Linux OpenGL bridge for $backend")
     }
 

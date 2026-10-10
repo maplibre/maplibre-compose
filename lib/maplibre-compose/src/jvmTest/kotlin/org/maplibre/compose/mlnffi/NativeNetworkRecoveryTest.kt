@@ -8,16 +8,18 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.compose.resource.MapConnectivity
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MapOptions
 import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventType
 import org.maplibre.nativeffi.generated.RuntimeHandle
-import org.maplibre.nativeffi.generated.RuntimeOptions
+import org.maplibre.nativeffi.generated.Wake
 
 class NativeNetworkRecoveryTest {
   @Test
@@ -42,31 +44,30 @@ class NativeNetworkRecoveryTest {
       MapConnectivity.mode = ConnectivityMode.ForceOnline
       MapConnectivity.acquireMonitor().use {
         try {
-          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cache.toString() }).use {
-            runtime ->
-            MapHandle.create(runtime, MapOptions()).use { map ->
+          TestRuntime(cache.toString()).use { runtime ->
+            runtime.withMap { map ->
               map.setStyleUrl(styleUrl)
-              awaitStyleLoaded(runtime)
+              runtime.awaitStyleLoaded()
             }
             assertEquals(1, requests.get())
 
             MapConnectivity.mode = ConnectivityMode.ForceOffline
-            assertEquals(NetworkStatus.OFFLINE, Maplibre.networkStatus)
-            MapHandle.create(runtime, MapOptions()).use { map ->
+            assertEquals(NetworkStatus.OFFLINE, GeneratedApi.networkGetStatus())
+            runtime.withMap { map ->
               map.setStyleUrl(styleUrl)
-              awaitStyleLoaded(runtime)
+              runtime.awaitStyleLoaded()
             }
             assertEquals(1, requests.get(), "A cached style must load without an HTTP request")
 
-            MapHandle.create(runtime, MapOptions()).use { map ->
+            runtime.withMap { map ->
               map.setStyleUrl("$styleUrl?uncached")
               // The cached load above has drained the earlier maps' events.
-              pumpUntil(runtime, 5.seconds) {
-                runtime.drainEvents().events.any { it.type == RuntimeEventType.MAP_LOADING_STARTED }
+              runtime.awaitEvents(5.seconds) { event ->
+                event.type == RuntimeEventType.MAP_LOADING_STARTED
               }
               assertEquals(1, requests.get())
               MapConnectivity.mode = ConnectivityMode.ForceOnline
-              awaitStyleLoaded(runtime)
+              runtime.awaitStyleLoaded()
               assertEquals(
                 2,
                 requests.get(),
@@ -98,27 +99,23 @@ class NativeNetworkRecoveryTest {
           onStatus = callback
           AutoCloseable {}
         },
-        setStatus = Maplibre::setNetworkStatus,
+        setStatus = GeneratedApi::networkSetStatus,
       )
     var server: HttpServer? = null
     try {
       monitor.acquire().use {
-        RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cache.toString() }).use {
-          runtime ->
-          MapHandle.create(runtime, MapOptions()).use { map ->
+        TestRuntime(cache.toString()).use { runtime ->
+          runtime.withMap { map ->
             map.setStyleUrl("http://127.0.0.1:$port/style.json")
             var failures = 0
-            pumpUntil(runtime, 20.seconds) {
-              failures +=
-                runtime.drainEvents().events.count {
-                  it.type == RuntimeEventType.MAP_LOADING_FAILED
-                }
+            runtime.awaitEvents(20.seconds) { event ->
+              if (event.type == RuntimeEventType.MAP_LOADING_FAILED) failures++
               failures >= 4
             }
             // Four connection errors leave an eight-second retry timer. Make the same URL
             // available, then report reconnect without setting the style again.
             onStatus(NetworkStatus.OFFLINE)
-            assertEquals(NetworkStatus.OFFLINE, Maplibre.networkStatus)
+            assertEquals(NetworkStatus.OFFLINE, GeneratedApi.networkGetStatus())
             val restored = HttpServer.create(InetSocketAddress("127.0.0.1", port), 0)
             server = restored
             restored.createContext("/style.json") { exchange ->
@@ -130,31 +127,52 @@ class NativeNetworkRecoveryTest {
             }
             restored.start()
             onStatus(NetworkStatus.ONLINE)
-            pumpUntil(runtime, 5.seconds) {
-              runtime.drainEvents().events.any { it.type == RuntimeEventType.MAP_STYLE_LOADED }
-            }
+            runtime.awaitStyleLoaded()
           }
         }
       }
     } finally {
       server?.stop(0)
-      Maplibre.setNetworkStatus(NetworkStatus.ONLINE)
+      GeneratedApi.networkSetStatus(NetworkStatus.ONLINE)
       FfiTestPlatform.deleteCacheFile(cache)
     }
   }
+}
 
-  private fun pumpUntil(runtime: RuntimeHandle, timeout: Duration, condition: () -> Boolean) {
-    val started = TimeSource.Monotonic.markNow()
-    while (started.elapsedNow() < timeout) {
-      runtime.pump(10)
-      if (condition()) return
+/** A raw runtime whose event wake lets a test wait for events without polling. */
+private class TestRuntime(cachePath: String) : AutoCloseable {
+  private val wakes = Channel<Unit>(Channel.CONFLATED)
+  val runtime: RuntimeHandle =
+    GeneratedApi.runtimeCreate(
+      GeneratedApi.runtimeOptionsDefault()
+        .copy(cachePath = cachePath, eventWake = Wake { wakes.trySend(Unit) })
+    )
+
+  fun <T> withMap(block: (MapHandle) -> T): T = runBlocking {
+    val map = runtime.createMap(GeneratedApi.mapOptionsDefault()).await()
+    try {
+      block(map)
+    } finally {
+      map.release().await()
     }
-    assertTrue(condition(), "Network request did not reach the expected state within $timeout")
   }
 
-  private fun awaitStyleLoaded(runtime: RuntimeHandle) {
-    pumpUntil(runtime, 5.seconds) {
-      runtime.drainEvents().events.any { it.type == RuntimeEventType.MAP_STYLE_LOADED }
-    }
+  /** Drains events until [condition] accepts one, or fails after [timeout]. */
+  fun awaitEvents(timeout: Duration, condition: (RuntimeEvent) -> Boolean) = runBlocking {
+    val met =
+      withTimeoutOrNull(timeout) {
+        var found = false
+        while (!found) {
+          val events = runtime.drainEvents()?.use { it.get().events }.orEmpty()
+          found = events.any(condition)
+          if (!found && events.isEmpty()) wakes.receive()
+        }
+        true
+      } == true
+    assertTrue(met, "Network request did not reach the expected state within $timeout")
   }
+
+  fun awaitStyleLoaded() = awaitEvents(5.seconds) { it.type == RuntimeEventType.MAP_STYLE_LOADED }
+
+  override fun close() = runBlocking { runtime.release().await() }
 }

@@ -30,6 +30,7 @@ import org.maplibre.nativeffi.generated.ResourceErrorReason
 import org.maplibre.nativeffi.generated.ResourceKind
 import org.maplibre.nativeffi.generated.ResourceLoadingMethod
 import org.maplibre.nativeffi.generated.ResourcePriority
+import org.maplibre.nativeffi.generated.ResourceRange
 import org.maplibre.nativeffi.generated.ResourceRequest
 import org.maplibre.nativeffi.generated.ResourceResponse
 import org.maplibre.nativeffi.generated.ResourceResponseStatus
@@ -320,7 +321,7 @@ class MlnFfiResourceRequestTest {
         priority = ResourcePriority.LOW,
         usage = ResourceUsage.OFFLINE,
         storagePolicy = ResourceStoragePolicy.VOLATILE,
-        range = ResourceRequest.ByteRange(0, 9),
+        range = ResourceRange(0u, 9u),
         priorModifiedUnixMs = 10,
         priorExpiresUnixMs = 20,
         priorEtag = "v1",
@@ -372,10 +373,10 @@ class MlnFfiResourceRequestTest {
           requestedUrl = Url,
           resolvedUrl = Url,
           kind = ResourceKind.STYLE,
-          loadingMethod = ResourceLoadingMethod(9),
-          priority = ResourcePriority(9),
-          usage = ResourceUsage(9),
-          storagePolicy = ResourceStoragePolicy(9),
+          loadingMethod = ResourceLoadingMethod(9u),
+          priority = ResourcePriority(9u),
+          usage = ResourceUsage(9u),
+          storagePolicy = ResourceStoragePolicy(9u),
           range = null,
           priorModifiedUnixMs = null,
           priorExpiresUnixMs = null,
@@ -499,7 +500,7 @@ class MlnFfiResourceRequestTest {
   }
 
   private fun ok(body: String) =
-    ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.encodeToByteArray() }
+    ResourceResponse(ResourceResponseStatus.OK, bytes = body.encodeToByteArray())
 
   /** A request the provider can take, recording what it did with it. */
   @OptIn(ExperimentalAtomicApi::class)

@@ -17,6 +17,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -33,6 +35,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.implementation
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RecordingList
@@ -58,7 +61,7 @@ class StyleResourceCommandTest {
       val parked = TestLatch(1)
       val release = TestLatch(1)
       try {
-        (fixture.session as MlnFfiMapSession).loop.submit {
+        (fixture.style as MlnFfiStyleBinding).postOwner {
           parked.countDown()
           check(release.await(5_000)) { "style write blocked its caller" }
         }
@@ -114,9 +117,8 @@ class StyleResourceCommandTest {
         val parked = TestLatch(1)
         val release = TestLatch(1)
         val ownerReleased = CompletableDeferred<Boolean>()
-        val session = fixture.session as MlnFfiMapSession
         try {
-          session.loop.submit {
+          (assertNotNull(fixture.style) as MlnFfiStyleBinding).postOwner {
             parked.countDown()
             ownerReleased.complete(release.await(5_000))
           }
@@ -148,7 +150,7 @@ class StyleResourceCommandTest {
           assertEquals(null, style.images["removed"])
           assertNotNull(added.await())
           val binding = assertNotNull(fixture.style) as MlnFfiStyleBinding
-          assertEquals(2, binding.readMap { it.styleImageInfo("replaced")?.width })
+          assertEquals(2u, binding.readMap { it.styleImageInfo("replaced")?.width })
           assertEquals(1, reads, "reusing prepared pixels must not read the caller bitmap again")
         } finally {
           release.countDown()
@@ -172,19 +174,18 @@ class StyleResourceCommandTest {
       val binding = snapshotter.style.readyLoadedStyle() as MlnFfiStyleBinding
       val imageSource =
         checkNotNull(snapshotter.style.sources.add(ImageSource("image", Quad, image(OpaqueRed))))
-      val holdOwner =
-        async(Dispatchers.Default) {
-          binding.readMap {
-            parked.countDown()
-            check(release.await(5_000)) { "snapshot resource command blocked its caller" }
-          }
-        }
+      val held = CompletableDeferred<Unit>()
+      binding.postOwner {
+        parked.countDown()
+        check(release.await(5_000)) { "snapshot resource command blocked its caller" }
+        held.complete(Unit)
+      }
       assertTrue(parked.await(5_000))
       snapshotter.style.images.remove("absent")
       // Snapshotter handles are not confined to the main thread.
       withContext(Dispatchers.Default) { imageSource.setImage(image(OpaqueGreen)) }
       release.countDown()
-      holdOwner.await()
+      held.await()
       snapshotter.style.awaitCommands()
     } finally {
       release.countDown()
@@ -208,7 +209,7 @@ class StyleResourceCommandTest {
       val ownerReleased = CompletableDeferred<Boolean>()
       recordingLogs { records ->
         try {
-          (fixture.session as MlnFfiMapSession).loop.submit {
+          binding.postOwner {
             parked.countDown()
             ownerReleased.complete(release.await(5_000))
           }
@@ -248,7 +249,7 @@ class StyleResourceCommandTest {
         }
         assertTrue(ran.await(5_000))
         val drained = TestLatch(1)
-        (fixture.session as MlnFfiMapSession).loop.submit { drained.countDown() }
+        binding.visits.scope.launch { drained.countDown() }
         assertTrue(drained.await(5_000))
         // The dropped write is logged as skipped, not as an engine failure.
         assertEquals(
@@ -270,7 +271,7 @@ class StyleResourceCommandTest {
       val release = TestLatch(1)
       recordingLogs { records ->
         try {
-          (fixture.session as MlnFfiMapSession).loop.submit {
+          binding.postOwner {
             parked.countDown()
             release.await(5_000)
           }
@@ -309,7 +310,12 @@ class StyleResourceCommandTest {
       val binding =
         checkNotNull(
           actual.readMap { map ->
-            MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { false })
+            MlnFfiStyleBinding(
+              map = map,
+              visits = actual.visits,
+              contents = runBlocking { LoadedStyleContents.read(map) },
+              sessionOpen = { false },
+            )
           }
         )
       assertEquals(listOf("background"), binding.baseLayers.map { it.id })
@@ -319,7 +325,7 @@ class StyleResourceCommandTest {
   }
 
   @Test
-  fun synchronous_binding_calls_run_only_on_the_owner_and_only_while_loaded() = runMapTest {
+  fun synchronous_binding_calls_run_only_while_loaded() = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val actual = fixture.style as MlnFfiStyleBinding
@@ -327,24 +333,18 @@ class StyleResourceCommandTest {
       fixture.state.style.images.set("retained", prepared)
       fixture.state.style.awaitCommands()
 
-      val offOwner = assertFailsWith<IllegalStateException> { actual.imageExists("retained") }
-      assertTrue("owner thread" in offOwner.message.orEmpty(), offOwner.message)
-      assertFailsWith<IllegalStateException> { actual.removeImage("retained") }
-      assertFailsWith<IllegalStateException> { actual.globalState() }
-      assertFailsWith<IllegalStateException> {
-        actual.setGlobalStateProperty("value", JsonPrimitive(1))
-      }
-      assertFailsWith<IllegalStateException> {
-        actual.layerProperty("missing", "background-opacity")
-      }
-      assertFailsWith<IllegalStateException> { actual.featureState("missing", null, "1") }
       assertEquals(true, actual.awaitOwner { actual.imageExists("retained") })
 
       for (mutating in listOf(false, true)) {
         val binding =
           checkNotNull(
             actual.readMap { map ->
-              MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { true })
+              MlnFfiStyleBinding(
+                map = map,
+                visits = actual.visits,
+                contents = runBlocking { LoadedStyleContents.read(map) },
+                sessionOpen = { true },
+              )
             }
           )
         binding.invalidate()
@@ -369,7 +369,7 @@ class StyleResourceCommandTest {
     listOf(topLeft, topRight, bottomRight, bottomLeft).map { it.longitude to it.latitude }
 
   private fun MapHandle.imageSourceCorners(id: String): List<Pair<Double, Double>>? =
-    imageSourceCoordinates(id)?.map { it.longitude to it.latitude }
+    imageSourceCoordinates(id).map { it.longitude to it.latitude }
 
   /** Records what the library logs while [block] runs. */
   private inline fun recordingLogs(block: (RecordingList<MapLogRecord>) -> Unit) {

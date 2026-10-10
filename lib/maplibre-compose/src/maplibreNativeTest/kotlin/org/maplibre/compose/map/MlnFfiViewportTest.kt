@@ -18,6 +18,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.skipMapTest
@@ -26,7 +27,7 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toPosition
 import org.maplibre.nativeffi.generated.EdgeInsets
 import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.ProjectionModeOptions
+import org.maplibre.nativeffi.generated.ProjectionMode
 import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
@@ -197,12 +198,9 @@ class MlnFfiViewportTest {
 
       // A projection mode change moves the viewport's corners without a camera event.
       state.withPlatformMap {
-        map.projectionMode =
-          ProjectionModeOptions().also {
-            it.axonometric = true
-            it.xSkew = 0.5
-            it.ySkew = 0.5
-          }
+        map
+          .setProjectionMode(ProjectionMode(axonometric = true, xSkew = 0.5, ySkew = 0.5))
+          .awaitBlocking()
       }
       val engineRegion = fixture.session.readMap { map -> map.visibleRegion() }
       assertNotEquals(before, engineRegion, "the raw access must move the viewport")
@@ -226,6 +224,7 @@ class MlnFfiViewportTest {
             ScreenPoint(width, height),
           )
         )
+        .awaitBlocking()
         .map { it.toPosition() }
     return VisibleRegion(corners[0], corners[1], corners[2], corners[3])
   }

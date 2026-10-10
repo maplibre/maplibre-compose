@@ -183,6 +183,14 @@ internal class MlnFfiMapSession(
   /** The map, once created and until destroyed. */
   @Volatile private var map: MapHandle? = null
 
+  /** Test seam: the map, once created and until destroyed. */
+  internal val mapForTest: MapHandle?
+    get() = map
+
+  /** Test seam: the runtime this session's map belongs to. */
+  internal val runtimeForTest: MlnFfiRuntime
+    get() = owner
+
   /** The engine [map] belongs to. Written before the map is registered with the event pump. */
   @Volatile private var mapEngine: EngineMapIdentity? = null
 
@@ -193,6 +201,7 @@ internal class MlnFfiMapSession(
   internal val presentation: NativePresentation =
     NativePresentation(
       backend = backend,
+      mapScaleFactor = scaleFactor,
       isClosing = { lifecycleAuthority.isClosed || isClosing },
       canRender = { !isClosing && lifecycleRenderLease != null },
       getLogger = { logger },
@@ -225,12 +234,20 @@ internal class MlnFfiMapSession(
   /** The bearing the active gesture has rotated to, for haptic feedback. Under [gestureLock]. */
   private var gestureBearing: Double? = null
 
-  /** A gesture end whose last command has completed, waiting for its events to drain. */
+  /**
+   * A gesture end whose last command has completed, waiting for its events to drain: those carry
+   * [generation] or less, and a drain numbered above [afterDrain] has delivered them all.
+   */
   private class GestureFence(
     val token: CameraInputToken,
-    val ended: Boolean,
+    /** The gesture activation this end closes, or null when the gesture never held the camera. */
+    val activation: Long?,
+    val generation: ULong,
     val afterDrain: Long,
   )
+
+  /** Counts gestures that took the camera, under [gestureLock]. */
+  private var gestureActivations = 0L
 
   private val gestureFences = mutableListOf<GestureFence>()
 
@@ -569,6 +586,7 @@ internal class MlnFfiMapSession(
 
   /** Runs on the event pump, as do the callbacks it makes. */
   private suspend fun handleEvent(engine: EngineMapIdentity, map: MapHandle, event: RuntimeEvent) {
+    finishGesturesBefore(event)
     val lease = pumpRenderLease
     val mapEvent = event.toMapEvent()
     when (event.type) {
@@ -956,7 +974,11 @@ internal class MlnFfiMapSession(
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { map, options ->
+    startTransitionAwaitingRelease(
+      animation.toAnimationOptions(),
+      guard = guard,
+      fields = update.fields(),
+    ) { map, options ->
       map.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
@@ -979,6 +1001,12 @@ internal class MlnFfiMapSession(
       animation.toAnimationOptions(),
       guard = guard,
       anchored = true,
+      fields =
+        buildSet {
+          if (zoom != null) add(TransitionField.Zoom)
+          if (bearing != null) add(TransitionField.Bearing)
+          if (pitch != null) add(TransitionField.Pitch)
+        },
     ) { map, options ->
       val size = map.getSnapshot().logicalExtent
       val point =
@@ -1062,6 +1090,7 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
     anchored: Boolean = false,
+    fields: Set<TransitionField> = TransitionField.entries.toSet(),
     shouldStart: (MapHandle) -> Boolean = { true },
     start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
   ): Unit = suspendCancellableCoroutine { continuation ->
@@ -1076,11 +1105,21 @@ internal class MlnFfiMapSession(
             runCameraCommand(
               gestureToken,
               guard,
-              activate = { gestureToken?.let { activateGesture(map, it) } },
+              activate = {
+                gestureToken?.let {
+                  // A transition carries no gesture phase of its own, so a gesture that begins
+                  // with one marks itself with an empty update first.
+                  if (activateGesture(map, it) == GesturePhase.BEGIN) {
+                    map
+                      .updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
+                      .report("begin a gesture")
+                  }
+                }
+              },
             ) {
               cameraLock.withLock {
                 if (shouldStart(map)) {
-                  cameraTransitions.start(map, animation, continuation, anchored, start)
+                  cameraTransitions.start(map, animation, continuation, anchored, fields, start)
                 } else release()
               }
             }
@@ -1342,13 +1381,13 @@ internal class MlnFfiMapSession(
         token.complete()
         return@finish
       }
-      var ended = false
+      var ended: Long? = null
       var last: Deferred<CommandCompletion>? = null
       gestureLock.withLock {
         if (activeGestureToken === token) {
           activeGestureToken = null
           gestureBearing = null
-          ended = true
+          ended = gestureActivations
           if (token.isCancelled) map.cancelTransitions().report("cancel camera transitions")
           last =
             map
@@ -1356,34 +1395,53 @@ internal class MlnFfiMapSession(
               .report("end a gesture")
         }
       }
-      // The fence completes after the events of the gesture's last command: those are queued
-      // before its completion runs, so a drain that starts afterward delivers them.
+      // The fence completes after the events of the gesture's last command and before those of
+      // any later command. Native queues a command's events before its completion runs, and runs
+      // the next command only after that, so the fence is registered before a later event exists.
       val pending = last
-      if (pending == null) registerGestureFence(token, ended)
-      else pending.invokeOnCompletion { registerGestureFence(token, ended) }
+      if (pending == null) registerGestureFence(token, ended, generation = 0uL)
+      else
+        pending.invokeOnCompletion { error ->
+          @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+          val generation = if (error == null) pending.getCompleted().generation else ULong.MAX_VALUE
+          registerGestureFence(token, ended, generation)
+        }
     }
   }
 
-  private fun registerGestureFence(token: CameraInputToken, ended: Boolean) {
+  private fun registerGestureFence(token: CameraInputToken, ended: Long?, generation: ULong) {
     val queued = gestureLock.withLock {
       if (map == null) false
       else {
-        gestureFences += GestureFence(token, ended, owner.drainsStarted)
+        gestureFences += GestureFence(token, ended, generation, owner.drainsStarted)
         true
       }
     }
     if (queued) owner.requestDrain() else token.complete()
   }
 
+  /** Event pump. Completes the fences whose events [event] follows, before it is delivered. */
+  private fun finishGesturesBefore(event: RuntimeEvent) {
+    if (gestureLock.withLock { gestureFences.isEmpty() }) return
+    completeFences { it.generation < event.generation }
+  }
+
   /** Event pump. Completes the fences that this drain has caught up with. */
-  private fun finishGestures(drain: Long) {
+  private fun finishGestures(drain: Long) = completeFences { it.afterDrain < drain }
+
+  private inline fun completeFences(crossinline isReady: (GestureFence) -> Boolean) {
     val ready = gestureLock.withLock {
-      val ready = gestureFences.filter { it.afterDrain < drain }
+      val ready = gestureFences.filter { isReady(it) }
       gestureFences.removeAll(ready)
       ready
     }
     for (fence in ready) {
-      if (fence.ended) reportGestureActive(false)
+      // A gesture that a newer one replaced does not end the camera's gesture.
+      if (
+        fence.activation != null && gestureLock.withLock { gestureActivations == fence.activation }
+      ) {
+        reportGestureActive(false)
+      }
       fence.token.complete()
     }
   }
@@ -1397,6 +1455,7 @@ internal class MlnFfiMapSession(
       if (activeGestureToken !== token) {
         map.cancelTransitions().report("cancel camera transitions")
         activeGestureToken = token
+        gestureActivations++
         gestureBearing = null
         GesturePhase.BEGIN
       } else GesturePhase.UPDATE
@@ -1456,9 +1515,11 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
-      map,
-      animation ->
+    startTransitionAwaitingRelease(
+      duration.toAnimationOptions(),
+      gestureToken = gestureToken,
+      fields = setOf(TransitionField.Center),
+    ) { map, animation ->
       map.applyCameraDelta(CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation))
     }
   }
@@ -1478,9 +1539,11 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
-      map,
-      animation ->
+    startTransitionAwaitingRelease(
+      duration.toAnimationOptions(),
+      gestureToken = gestureToken,
+      fields = setOf(TransitionField.Center, TransitionField.Zoom),
+    ) { map, animation ->
       map.applyCameraDelta(
         CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation)
       )
@@ -1542,6 +1605,7 @@ internal class MlnFfiMapSession(
     startTransitionAwaitingRelease(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
+      fields = setOf(TransitionField.Bearing),
       shouldStart = { map ->
         val current = map.getSnapshot().camera.bearing ?: 0.0
         snapping.delta(current)?.let {
@@ -1568,9 +1632,11 @@ internal class MlnFfiMapSession(
     anchor: DpOffset?,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
-      map,
-      animation ->
+    startTransitionAwaitingRelease(
+      duration.toAnimationOptions(),
+      gestureToken = gestureToken,
+      fields = setOf(TransitionField.Center, TransitionField.Bearing, TransitionField.Pitch),
+    ) { map, animation ->
       val camera = map.getSnapshot().camera
       map.updateCamera(
         FfiCameraUpdate(
@@ -1616,6 +1682,17 @@ internal class MlnFfiMapSession(
   private fun <T> Deferred<T>.report(what: String): Deferred<T> = reportFailure(logger, what)
 
   // endregion
+}
+
+private typealias TransitionField = MlnFfiCameraTransitions.Field
+
+/** The camera fields an absolute update animates. */
+private fun CameraUpdate.fields(): Set<TransitionField> = buildSet {
+  if (center != null) add(TransitionField.Center)
+  if (zoom != null) add(TransitionField.Zoom)
+  if (bearing != null) add(TransitionField.Bearing)
+  if (pitch != null) add(TransitionField.Pitch)
+  if (padding != null) add(TransitionField.Padding)
 }
 
 private fun TileLodOptions.toFfi(): MapTileOptions = algorithm.toFfi()

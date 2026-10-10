@@ -22,7 +22,16 @@ import org.maplibre.nativeffi.runtime.CommandCompletion
  * pump. The lock protects state; engine calls and continuations run outside it.
  */
 internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
-  private class Anchor(val id: Long, val size: DpSize)
+  /** A camera field that a transition animates. */
+  enum class Field {
+    Center,
+    Zoom,
+    Bearing,
+    Pitch,
+    Padding,
+  }
+
+  private class Anchor(val id: Long, val size: DpSize, val fields: Set<Field>)
 
   private val lock = MlnFfiLock()
   private var retired = false
@@ -36,6 +45,11 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
     animation: AnimationOptions,
     continuation: CancellableContinuation<Unit>,
     anchored: Boolean,
+    /**
+     * The fields the transition animates. An anchor couples center with every field of its update,
+     * so a later transition of any of them stops the anchored one.
+     */
+    fields: Set<Field> = Field.entries.toSet(),
     start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
   ) {
     // Cancellation while this waits for the map must not start a native transition.
@@ -77,8 +91,12 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
         if (waiter?.isActive == true) waiter.resumeWithException(failure)
       }
     }
+    // Native stops a replaced anchor and reports its end later. Geometry changes until then no
+    // longer belong to it, so they must not cancel the replacement. A rejected start keeps it.
+    lock.withLock { if (anchor?.fields?.any { it in fields } == true) anchor = null }
     // Native drains finish events after this command; a rejected start keeps the old anchor.
-    if (size != null) lock.withLock { if (!retired) anchor = Anchor(id, size) }
+    if (size != null)
+      lock.withLock { if (!retired) anchor = Anchor(id, size, fields + Field.Center) }
   }
 
   fun finished(id: Long) {

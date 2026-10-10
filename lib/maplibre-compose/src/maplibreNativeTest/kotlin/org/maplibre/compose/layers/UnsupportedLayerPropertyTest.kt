@@ -21,6 +21,8 @@ import org.maplibre.compose.expressions.value.TextRotationAlignment
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogger
 import org.maplibre.compose.logging.MapLogging
+import org.maplibre.compose.map.layerProperty
+import org.maplibre.compose.map.styleLayerExists
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource

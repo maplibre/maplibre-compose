@@ -28,6 +28,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
@@ -76,6 +77,8 @@ import org.maplibre.nativeffi.render.NativePointer
  */
 internal class NativePresentation(
   private val backend: MapRenderBackend,
+  /** The scale factor the map was created with, which a map resize must keep. */
+  private val mapScaleFactor: Double,
   private val isClosing: () -> Boolean,
   private val canRender: () -> Boolean,
   private val getLogger: () -> MapLog?,
@@ -429,12 +432,12 @@ internal class NativePresentation(
 
     // A renderer compiles its shaders for one pixel ratio, so a scale-factor change needs a new
     // one.
-    if (
+    val retargeted =
       live != null &&
         attached != null &&
         attached.extent.scaleFactor == extent.scaleFactor &&
         retarget(attachment, live, frame.target, extent)
-    ) {
+    if (retargeted) {
       retargetCount++
     } else {
       // A map permits one render session; release it before borrowing the replacement target.
@@ -448,6 +451,13 @@ internal class NativePresentation(
       attachCount++
     }
     attachment.target = frame.target
+    // Attaching or replacing a target sizes the session, not the map. A session resize submits the
+    // map's resize itself; every other target needs the host to resize the map to match.
+    if (!retargeted || frame.target !is VulkanSurfaceTarget) {
+      map
+        .resize(extent.toFfiExtent().copy(scaleFactor = mapScaleFactor))
+        .reportFailure(logger, "resize the map to its target")
+    }
     requestViewport(extent)
     // A new target needs a frame even when the map is idle.
     renderForced.store(true)

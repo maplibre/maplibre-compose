@@ -6,21 +6,20 @@ import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.offline.OfflineStorageException
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.style.BaseStyle
@@ -28,36 +27,15 @@ import org.maplibre.nativeffi.generated.AnimationOptions
 
 class MlnFfiEngineStartupTest {
   @Test
-  fun work_posted_before_the_engine_runs_in_order_once_it_starts() = runBlocking {
+  fun settings_made_before_the_engine_reach_it_once_it_starts() = runBlocking {
     withNativeMapState { state, runtime ->
       val session = newSession(state, runtime)
       try {
-        val order = mutableListOf<String>()
-        var maxZoomBefore: Double? = null
-        var maxZoomAfter: Double? = null
-        session.loop.submit { map ->
-          order += "before constraints"
-          maxZoomBefore = map.bounds.maxZoom
-        }
-
+        assertEquals(null, session.readMap { it.bounds.maxZoom })
         session.setCameraConstraints(CameraConstraints { maxZoom = 10.0 })
-        session.loop.submit { map ->
-          order += "after constraints"
-          maxZoomAfter = map.bounds.maxZoom
-        }
-
         session.ensureEngine()
-        val done = CompletableDeferred<Unit>()
-        session.loop.submit {
-          order += "after start"
-          done.complete(Unit)
-        }
 
-        withTimeout(TimeoutMillis) { done.await() }
-
-        assertEquals(listOf("before constraints", "after constraints", "after start"), order)
-        assertNotEquals(10.0, maxZoomBefore)
-        assertEquals(10.0, maxZoomAfter)
+        assertEquals(10.0, session.readMap { it.bounds.maxZoom })
       } finally {
         session.close()
         session.awaitClosed()
@@ -66,47 +44,23 @@ class MlnFfiEngineStartupTest {
   }
 
   @Test
-  fun failed_runtime_initialization_releases_queued_map_work() = runBlocking {
+  fun failed_runtime_initialization_fails_the_attachment() = runBlocking {
     withNativeMapState(configure = { it.copy(maximumCacheSizeBytes = -1) }) { state, runtime ->
       val session = newSession(state, runtime)
       try {
-        val abandoned = CompletableDeferred<Unit>()
-        var ran = false
-        session.loop.submit(onDropped = { abandoned.complete(Unit) }) { ran = true }
-
         assertFailsWith<OfflineStorageException> { session.attachPresentation() }
-        assertTrue(abandoned.isCompleted, "Queued work was not released when initialization failed")
-        assertFalse(ran)
+        assertEquals(null, session.mapForTest)
       } finally {
         session.close()
         session.awaitClosed()
       }
-    }
-  }
-
-  @Test
-  fun closing_a_session_that_never_started_releases_its_queued_work() = runBlocking {
-    withNativeMapState { state, runtime ->
-      val session = newSession(state, runtime)
-      val abandoned = CompletableDeferred<Unit>()
-      var ran = false
-      session.loop.submit(onDropped = { abandoned.complete(Unit) }) { ran = true }
-
-      session.close()
-      withTimeout(TimeoutMillis) { session.awaitClosed() }
-
-      assertTrue(abandoned.isCompleted, "Queued work was not released at close")
-      assertFalse(ran)
-      var refused = false
-      session.loop.submit(onDropped = { refused = true }) {}
-      assertTrue(refused, "A closed session accepted owner work")
     }
   }
 
   @Test
   fun closing_while_the_first_engine_waits_for_the_runtime_completes() = runBlocking {
     val entered = CompletableDeferred<Unit>()
-    val release = MlnFfiGate()
+    val release = TestGate()
     try {
       withNativeMapState(
         configure = { options ->
@@ -145,13 +99,13 @@ class MlnFfiEngineStartupTest {
         val transitions = MlnFfiCameraTransitions { null }
         try {
           session.ensureEngine()
+          val map = checkNotNull(session.mapForTest)
           val previous =
             async(start = CoroutineStart.UNDISPATCHED) {
               suspendCancellableCoroutine<Unit> { continuation ->
-                session.loop.submit { map ->
-                  transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, _
-                    ->
-                  }
+                transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, _ ->
+                  // A transition native accepted and has not finished.
+                  CompletableDeferred()
                 }
               }
             }
@@ -159,17 +113,15 @@ class MlnFfiEngineStartupTest {
             assertFailsWith<IllegalArgumentException> {
               withTimeout(TimeoutMillis) {
                 suspendCancellableCoroutine<Unit> { continuation ->
-                  session.loop.submit { map ->
-                    transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, _
-                      ->
-                      throw IllegalArgumentException("rejected camera options")
-                    }
+                  transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, _
+                    ->
+                    throw IllegalArgumentException("rejected camera options")
                   }
                 }
               }
             }
           assertEquals("rejected camera options", actual.message)
-          session.loop.await { transitions.cancelAnchor(it) }
+          transitions.cancelAnchor(map)
           withTimeout(TimeoutMillis) {
             assertFailsWith<CancellationException> { previous.await() }
           }
@@ -182,42 +134,39 @@ class MlnFfiEngineStartupTest {
     }
 
   @Test
-  fun retiring_camera_completion_while_the_shared_owner_is_alive_rejects_late_work() = runBlocking {
+  fun retiring_camera_completion_while_the_map_is_alive_rejects_late_work() = runBlocking {
     withNativeMapState { state, runtime ->
       val session = newSession(state, runtime)
-      val ownerHeld = MlnFfiGate()
+      val ownerHeld = TestGate()
       val entered = CompletableDeferred<Long>()
       val transitions = MlnFfiCameraTransitions { null }
       try {
         session.ensureEngine()
-        val movement = async {
-          suspendCancellableCoroutine<Unit> { continuation ->
-            session.loop.submit { map ->
+        val map = checkNotNull(session.mapForTest)
+        val movement =
+          async(Dispatchers.Default) {
+            suspendCancellableCoroutine<Unit> { continuation ->
               transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, options
                 ->
-                entered.complete(requireNotNull(options.transitionId))
+                entered.complete(requireNotNull(options.transitionId).toLong())
                 ownerHeld.awaitUntilOpen()
+                CompletableDeferred()
               }
             }
           }
-        }
         val id = withTimeout(TimeoutMillis) { entered.await() }
         // Failed renderer release can leave the map owner running while physical cleanup retires
         // completion. Hold a start in progress to exercise that handoff without leaking a renderer.
         transitions.releaseAll()
-        withTimeout(TimeoutMillis) { movement.await() }
         ownerHeld.open()
-        session.loop.await {
-          transitions.finished(id)
-          transitions.eventsDrained()
-          transitions.cancelAnchor(it)
-        }
+        withTimeout(TimeoutMillis) { movement.await() }
+        transitions.finished(id)
+        transitions.eventsDrained()
+        transitions.cancelAnchor(map)
         withTimeout(TimeoutMillis) {
           suspendCancellableCoroutine<Unit> { continuation ->
-            session.loop.submit { map ->
-              transitions.start(map, AnimationOptions(), continuation, anchored = false) { _, _ ->
-                error("A retired completion owner started another movement")
-              }
+            transitions.start(map, AnimationOptions(), continuation, anchored = false) { _, _ ->
+              error("A retired completion owner started another movement")
             }
           }
         }

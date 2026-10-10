@@ -61,6 +61,9 @@ internal class MlnFfiRuntime(
 
   var onFailure: (Throwable) -> Unit = {}
 
+  /** Test seam: runs on the event pump before each drain, which can hold events back. */
+  @Volatile internal var beforeDrainForTest: (suspend () -> Unit)? = null
+
   /** The number of the latest drain that has started fetching events. */
   @Volatile
   var drainsStarted: Long = 0L
@@ -135,6 +138,7 @@ internal class MlnFfiRuntime(
   }
 
   private suspend fun drain(runtime: RuntimeHandle) {
+    beforeDrainForTest?.invoke()
     val drain = ++drainsStarted
     while (true) {
       val events =

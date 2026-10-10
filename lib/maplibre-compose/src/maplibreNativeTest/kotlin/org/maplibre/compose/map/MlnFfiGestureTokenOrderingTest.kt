@@ -5,12 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.internal.inputPanBy
-import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
@@ -21,7 +18,7 @@ import org.maplibre.compose.testing.runMapTest
 class MlnFfiGestureTokenOrderingTest {
 
   @Test
-  fun a_backlogged_owner_rejects_stale_commands_and_ignores_stale_ends(): MapTestResult =
+  fun a_backlogged_event_pump_reports_one_gesture_end_for_replaced_gestures(): MapTestResult =
     runMapTest {
       coroutineScope {
         createMapFixture().use { fixture ->
@@ -40,10 +37,7 @@ class MlnFfiGestureTokenOrderingTest {
 
           val entered = TestLatch(1)
           val release = TestLatch(1)
-          session.loop.submit {
-            entered.countDown()
-            check(release.await(5_000))
-          }
+          session.holdEventPump(onHeld = { entered.countDown() }) { check(release.await(5_000)) }
 
           try {
             assertTrue(entered.await(5_000))
@@ -62,13 +56,18 @@ class MlnFfiGestureTokenOrderingTest {
             release.countDown()
           }
 
+          // Each delta went to native while its gesture owned the camera, so both moved it.
           val camera = session.getCameraPosition()
           assertTrue(
-            abs(camera.center.longitude - start.center.longitude) < ZoomTolerance &&
+            abs(camera.center.longitude - start.center.longitude) > MinDeltaDegrees &&
               abs(camera.center.latitude - start.center.latitude) > MinDeltaDegrees,
-            "only the current owner's delta should reach the camera: $start then $camera",
+            "each gesture's delta should reach the camera: $start then $camera",
           )
-          assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
+          assertEquals(
+            CameraMoveReason.Gesture,
+            fixture.state.cameraMoveReason,
+            fixture.events.toString(),
+          )
           assertFalse(fixture.state.isCameraMoving)
 
           val gestures = fixture.events.filter { it.startsWith("gesture(") }
@@ -80,80 +79,6 @@ class MlnFfiGestureTokenOrderingTest {
         }
       }
     }
-
-  @Test
-  fun cancellation_rejects_commands_already_queued_on_the_owner(): MapTestResult = runMapTest {
-    coroutineScope {
-      createMapFixture().use { fixture ->
-        val session = fixture.session as MlnFfiMapSession
-        fixture.loadStyle(BaseStyle.Empty)
-        fixture.awaitMapReady()
-        fixture.state.setCameraPosition(CameraPosition(zoom = StartZoom))
-        fixture.settle()
-        val before = fixture.state.cameraPosition
-        val entered = TestLatch(1)
-        val release = TestLatch(1)
-        session.loop.submit {
-          entered.countDown()
-          check(release.await(5_000))
-        }
-
-        try {
-          assertTrue(entered.await(5_000))
-          val input = GestureInputSession(this, fixture.gestures)
-          fixture.gestures.inputPanBy(DragStepDp, 0.0, input.token)
-          input.end()
-          input.scope.cancel()
-          release.countDown()
-          fixture.awaitWhileRendering("cancelled gesture completion fence") {
-            input.token.awaitCompletion()
-          }
-          fixture.settle()
-          assertEquals(before.center.longitude, fixture.state.cameraPosition.center.longitude, 1e-6)
-          assertFalse(fixture.state.isCameraMoving)
-        } finally {
-          release.countDown()
-        }
-      }
-    }
-  }
-
-  @Test
-  fun a_new_gesture_rejects_a_queued_public_camera_set(): MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
-      val session = fixture.session as MlnFfiMapSession
-      fixture.loadStyle(BaseStyle.Empty)
-      fixture.awaitMapReady()
-      fixture.state.setCameraPosition(CameraPosition(zoom = StartZoom))
-      fixture.settle()
-      val entered = TestLatch(1)
-      val release = TestLatch(1)
-      session.loop.submit {
-        entered.countDown()
-        check(release.await(5_000))
-      }
-
-      try {
-        assertTrue(entered.await(5_000))
-        fixture.state.setCameraPosition(CameraPosition(zoom = 12.0))
-        val gesture = fixture.gestures.onGestureStarted()
-        fixture.gestures.moveBy(DragStepDp, 0.0, gestureToken = gesture)
-        fixture.gestures.onGestureEnded(gesture)
-        release.countDown()
-        fixture.awaitWhileRendering("the replacement gesture to finish") {
-          gesture.awaitCompletion()
-        }
-        val camera = session.getCameraPosition()
-        assertEquals(StartZoom, camera.zoom, 1e-6)
-        assertTrue(
-          abs(camera.center.longitude) > MinDeltaDegrees,
-          "the current gesture's pan must still execute",
-        )
-      } finally {
-        release.countDown()
-      }
-    }
-  }
 
   private companion object {
     const val DragStepDp = 10.0

@@ -66,6 +66,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
         val runtime = owner.awaitRuntime()
         options.maximumCacheSizeBytes?.let { size ->
           run("set the initial maximum ambient cache size to $size bytes") {
+            require(size >= 0) { "The maximum ambient cache size must not be negative" }
             runtime.setMaximumAmbientCacheSize(size.toULong())
           }
           logger?.d { "Ambient cache size set to $size bytes" }
@@ -171,6 +172,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     cacheBudgetMutex.withLock {
       val runtime = awaitRuntime()
       run("set the maximum ambient cache size to $sizeBytes bytes") {
+        require(sizeBytes >= 0) { "The maximum ambient cache size must not be negative" }
         runtime.setMaximumAmbientCacheSize(sizeBytes.toULong())
       }
     }

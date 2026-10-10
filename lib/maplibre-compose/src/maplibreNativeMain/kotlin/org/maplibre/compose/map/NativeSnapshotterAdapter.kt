@@ -13,6 +13,7 @@ import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.failed
+import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.use
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.BaseStyle
@@ -201,15 +202,21 @@ private class NativeSnapshotterAdapter(
     check(current.scaleFactor == extent.scaleFactor) {
       "The snapshot engine scale does not match the capture request"
     }
-    val resized = current.session.resize(extent.toFfiExtent())
-    val moved =
-      current.map.updateCamera(
-        CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets()))
-      )
-    for (command in listOf(resized, moved)) {
-      val completion = command.await()
-      if (completion.failed) throw CommandFailedException(completion)
+    // The session's resize completes only once the map publishes an update at the new extent,
+    // which a static map does only for a loaded style, and a detach waits behind it. So resize
+    // only for a new extent. The resize submits the map's resize at once, so the camera command
+    // after it observes the new size when it completes.
+    if (current.extent != extent) {
+      current.extent = extent
+      current.session
+        .resize(extent.toFfiExtent())
+        .reportFailure(owner.options.logger, "resize the snapshot target")
     }
+    val moved =
+      current.map
+        .updateCamera(CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets())))
+        .await()
+    if (moved.failed) throw CommandFailedException(moved)
   }
 
   private suspend fun loadStyle(current: NativeSnapshotEngine, baseStyle: BaseStyle) {
@@ -376,6 +383,8 @@ private constructor(
   val map: MapHandle,
   private val target: NativeSnapshotRenderTarget,
   val scaleFactor: Double,
+  /** The extent the session last sized its target to. */
+  @Volatile var extent: MapExtent,
 ) : MlnFfiRuntime.MapChild {
   lateinit var session: RenderSessionHandle
     private set
@@ -485,7 +494,7 @@ private constructor(
           runCatching { map.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error
         }
-      val engine = NativeSnapshotEngine(owner, map, target, extent.scaleFactor)
+      val engine = NativeSnapshotEngine(owner, map, target, extent.scaleFactor, extent)
       try {
         check(owner.register(map, engine)) { "The map runtime is closed" }
         val attachment: RenderSessionAttachment =

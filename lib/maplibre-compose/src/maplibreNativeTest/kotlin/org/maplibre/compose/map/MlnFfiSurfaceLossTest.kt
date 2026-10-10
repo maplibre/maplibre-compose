@@ -33,7 +33,8 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiGate
+import org.maplibre.compose.mlnffi.TestGate
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.featureStateSelector
@@ -139,7 +140,7 @@ class MlnFfiSurfaceLossTest {
       fixture.pumpUntilRendered()
       val session = fixture.session
       val engine = checkNotNull(session.lifecycle.engine)
-      val map = checkNotNull(session.loop.map)
+      val map = checkNotNull(session.mapForTest)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
           session.animateCamera(
@@ -149,19 +150,16 @@ class MlnFfiSurfaceLossTest {
           )
         }
       fixture.awaitUntil("the camera animation to start") { session.getCameraPosition().zoom > 0.1 }
-      val ownerHeld = MlnFfiGate()
+      val ownerHeld = TestGate()
       val entered = CompletableDeferred<Unit>()
-      session.loop.submit {
-        entered.complete(Unit)
-        ownerHeld.awaitUntilOpen()
-      }
+      session.holdEventPump(onHeld = { entered.complete(Unit) }) { ownerHeld.awaitOpen() }
       entered.await()
       fixture.rendererEnqueueFailure = IllegalStateException("renderer cleanup unavailable")
       try {
         session.close()
         closureFailure = assertFailsWith<MapCleanupException> { session.awaitClosed() }
         withTimeout(5.seconds) { animation.await() }
-        assertSame(map, session.loop.map, "renderer failure must retain its map")
+        assertSame(map, session.mapForTest, "renderer failure must retain its map")
       } finally {
         fixture.rendererEnqueueFailure = null
         ownerHeld.open()
@@ -295,8 +293,8 @@ class MlnFfiSurfaceLossTest {
 }
 
 /**
- * Reads a feature's state through the fixture's blocking owner-thread seam. The bridge fixture
- * drives the map without coroutines, so this stays off the suspend read a caller would use.
+ * Reads a feature's state with a blocking query. The bridge fixture drives the map without
+ * coroutines, so this stays off the suspend read a caller would use.
  */
 private fun StyleBinding.featureStateOnOwnerThread(
   sourceId: String,
@@ -305,7 +303,7 @@ private fun StyleBinding.featureStateOnOwnerThread(
   val bytes =
     checkNotNull(
       (this as MlnFfiStyleBinding).readMap { map ->
-        map.getFeatureState(featureStateSelector(sourceId, null, featureId))
+        map.getFeatureState(featureStateSelector(sourceId, null, featureId)).awaitBlocking()
       }
     )
   return Json.parseToJsonElement(bytes.decodeToString()).jsonObject

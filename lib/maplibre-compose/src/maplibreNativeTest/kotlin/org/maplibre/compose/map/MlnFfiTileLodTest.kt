@@ -10,6 +10,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.sources.CustomVectorTileSource
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.TileCoordinate
@@ -20,6 +21,7 @@ import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.nativeffi.generated.MapTileOptions
 import org.maplibre.nativeffi.generated.TileLodMode as FfiTileLodMode
 
 class MlnFfiTileLodTest {
@@ -30,7 +32,7 @@ class MlnFfiTileLodTest {
       fixture.loadStyle(BaseStyle.Empty)
 
       fixture.session.readMap { map ->
-        map.tileOptions = map.tileOptions.also { it.prefetchZoomDelta = Prefetch }
+        map.setTileOptions(MapTileOptions(prefetchZoomDelta = Prefetch)).awaitBlocking()
       }
       fixture.session.setTileLodSettings(TileLodOptions.Performance)
       val applied = assertNotNull(fixture.session.readMap { it.tileOptions })
@@ -165,7 +167,7 @@ class MlnFfiTileLodTest {
     }
 
   private companion object {
-    const val Prefetch = 7
+    val Prefetch = 7u
 
     fun assertAngleDegrees(expected: Double, radians: Double?) {
       val actual = assertNotNull(radians) * 180.0 / PI

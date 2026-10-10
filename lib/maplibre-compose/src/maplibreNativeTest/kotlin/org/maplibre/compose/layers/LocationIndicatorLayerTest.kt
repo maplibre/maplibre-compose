@@ -24,6 +24,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToString
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.map.layerProperty
+import org.maplibre.compose.map.styleLayerExists
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding

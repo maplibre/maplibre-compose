@@ -43,7 +43,7 @@ class MlnFfiStyleImageStretchTest {
 
       val info = assertNotNull(it.session.styleImageInfo(ImageId), "the image should be uploaded")
       assertEquals(2f, info.pixelRatio, "pixel ratio")
-      assertEquals(140, info.width, "the uploaded bitmap remains unscaled")
+      assertEquals(140u, info.width, "the uploaded bitmap remains unscaled")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to

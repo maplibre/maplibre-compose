@@ -55,7 +55,7 @@ class OfflineProgressMappingTest {
    */
   @Test
   fun an_unrecognized_download_state_keeps_its_number() {
-    val progress = status(OfflineRegionDownloadState(999), complete = false).toDownloadProgress()
+    val progress = status(OfflineRegionDownloadState(999u), complete = false).toDownloadProgress()
 
     assertEquals(UnrecognizedDownloadStatus(999), (progress as DownloadProgress.Healthy).status)
   }
@@ -68,9 +68,9 @@ class OfflineProgressMappingTest {
     assertEquals(MapResourceError.RateLimit, ResourceErrorReason.RATE_LIMIT.toCommon())
     assertEquals(MapResourceError.Other, ResourceErrorReason.OTHER.toCommon())
 
-    val unnamed = ResourceErrorReason(999).toCommon()
+    val unnamed = ResourceErrorReason(999u).toCommon()
     assertEquals("999", unnamed.value)
-    assertEquals(ResourceErrorReason(999), unnamed.toFfi())
+    assertEquals(ResourceErrorReason(999u), unnamed.toFfi())
   }
 
   private fun status(
@@ -79,12 +79,12 @@ class OfflineProgressMappingTest {
   ): OfflineRegionStatus =
     OfflineRegionStatus(
       downloadState = downloadState,
-      completedResourceCount = 12,
-      completedResourceSize = 3_400,
-      completedTileCount = 9,
-      requiredTileCount = 15,
-      completedTileSize = 2_500,
-      requiredResourceCount = 20,
+      completedResourceCount = 12u,
+      completedResourceSize = 3_400u,
+      completedTileCount = 9u,
+      requiredTileCount = 15u,
+      completedTileSize = 2_500u,
+      requiredResourceCount = 20u,
       requiredResourceCountIsPrecise = true,
       complete = complete,
     )

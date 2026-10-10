@@ -11,24 +11,23 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.nativeffi.generated.MapHandle
@@ -107,7 +106,7 @@ class PlatformMapAccessTest {
         assertTrue(session.isCurrentEngine(engine))
         assertTrue(session.isCurrentStyle(style))
         val ownerHeld = CompletableDeferred<Unit>()
-        val releaseOwner = MlnFfiGate()
+        val releaseOwner = TestGate()
         val holding =
           async(Dispatchers.Default) {
             session.readMap {
@@ -136,12 +135,13 @@ class PlatformMapAccessTest {
   }
 
   @Test
-  fun detached_native_access_creates_the_map_and_runs_on_its_owner_context() = runBlocking {
-    withNativeMapState { state, runtime ->
+  fun detached_native_access_creates_the_map_and_runs_on_the_calling_thread() = runBlocking {
+    withNativeMapState { state, _ ->
       val zoom =
         withContext(Dispatchers.Default) {
+          val caller = currentMlnFfiThreadName()
           state.withPlatformMap {
-            assertTrue(runtime.nativeOwner.isCurrent())
+            assertEquals(caller, currentMlnFfiThreadName())
             val rawMap: MapHandle = map
             rawMap.camera.zoom
           }
@@ -156,7 +156,7 @@ class PlatformMapAccessTest {
   fun closure_waits_for_a_started_native_callback_and_later_access_is_rejected() = runBlocking {
     withNativeMapState { state, _ ->
       val callbackStarted = CompletableDeferred<Unit>()
-      val releaseCallback = MlnFfiGate()
+      val releaseCallback = TestGate()
       val access =
         async(Dispatchers.Default) {
           state.withPlatformMap {
@@ -211,90 +211,6 @@ class PlatformMapAccessTest {
       assertTrue(result)
       assertTrue(state.isClosed)
       closed.await()
-    }
-  }
-
-  @Test
-  fun replacing_the_engine_before_a_queued_native_callback_rejects_it() = runBlocking {
-    withNativeMapState { state, runtime ->
-      state.withPlatformMap { map.hashCode() }
-      val original = state.lifecycle.currentAdapter() as MlnFfiMapSession
-      val ownerEntered = CompletableDeferred<Unit>()
-      val releaseOwner = MlnFfiGate()
-      original.loop.submit {
-        ownerEntered.complete(Unit)
-        releaseOwner.awaitUntilOpen()
-      }
-
-      ownerEntered.await()
-
-      var callbackRan = false
-      supervisorScope {
-        val access =
-          async(start = CoroutineStart.UNDISPATCHED) {
-            state.withPlatformMap {
-              callbackRan = true
-              map.hashCode()
-            }
-          }
-
-        val token = state.reservePresentation()
-        val replacement =
-          MlnFfiMapSession(
-            lifecycleAuthority = state.lifecycle,
-            callbacks = state.durableStyleCallbacks(),
-            logger = runtime.logger,
-            renderBackend = MapRenderBackend.OpenGl,
-            scaleFactor = 2.0,
-            layoutDirection = LayoutDirection.Ltr,
-            owner = runtime.nativeOwner,
-          )
-        state.publishPresentation(token, replacement)
-        releaseOwner.open()
-
-        val failure = assertFailsWith<CancellationException> { access.await() }
-        assertEquals("The native platform map changed before access could begin", failure.message)
-      }
-      assertFalse(callbackRan)
-    }
-  }
-
-  @Test
-  fun cancelling_a_queued_native_invocation_prevents_its_callback() = runBlocking {
-    withNativeMapState { state, _ ->
-      state.withPlatformMap { map.hashCode() }
-      val session = state.lifecycle.currentAdapter() as MlnFfiMapSession
-      val ownerEntered = CompletableDeferred<Unit>()
-      val releaseOwner = MlnFfiGate()
-      session.loop.submit {
-        ownerEntered.complete(Unit)
-        releaseOwner.awaitUntilOpen()
-      }
-
-      ownerEntered.await()
-
-      var callbackRan = false
-      try {
-        supervisorScope {
-          val access =
-            async(start = CoroutineStart.UNDISPATCHED) {
-              state.withPlatformMap {
-                callbackRan = true
-                map.hashCode()
-              }
-            }
-          val ownerDrained = CompletableDeferred<Unit>()
-          session.loop.submit { ownerDrained.complete(Unit) }
-
-          access.cancel()
-          assertFailsWith<CancellationException> { access.await() }
-          releaseOwner.open()
-          ownerDrained.await()
-        }
-      } finally {
-        releaseOwner.open()
-      }
-      assertFalse(callbackRan)
     }
   }
 

@@ -4,6 +4,7 @@ package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -14,15 +15,38 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * A one-shot gate for tests, opened once and awaited by any number of threads. A wait on an open
+ * gate returns at once.
+ */
+internal class TestGate {
+  private val opened = CompletableDeferred<Unit>()
+
+  fun open() {
+    opened.complete(Unit)
+  }
+
+  /** Waits until the gate opens. */
+  fun awaitUntilOpen() = runBlocking { opened.await() }
+
+  /** Suspends until the gate opens. */
+  suspend fun awaitOpen() = opened.await()
+
+  /** Waits up to [timeoutMillis], reporting whether the gate opened. */
+  fun await(timeoutMillis: Long): Boolean = runBlocking {
+    withTimeoutOrNull(timeoutMillis) { opened.await() } != null
+  }
+}
 
 /**
  * A count-down gate for tests, as `java.util.concurrent.CountDownLatch` is JVM-only.
  *
- * Waits run over [MlnFfiGate], so they carry its wakeup semantics: a wait on an open gate returns
- * at once.
+ * Waits run over [TestGate], so a wait on an open gate returns at once.
  */
 internal class TestLatch(count: Int) {
-  private val gate = MlnFfiGate()
+  private val gate = TestGate()
   private val remaining = AtomicLong(count.toLong())
 
   val count: Long
@@ -55,12 +79,7 @@ internal fun launchTestTask(block: () -> Unit) {
   CoroutineScope(Dispatchers.Default).launch { block() }
 }
 
-/**
- * One dedicated thread that runs every submitted task in submission order.
- *
- * MapLibre binds a runtime to its creating thread, so a test that keeps a runtime per thread spells
- * it with this rather than with a pool.
- */
+/** One dedicated thread that runs every submitted task in submission order. */
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 internal class TestThread(name: String) : AutoCloseable {
   private val threadContext = newSingleThreadContext(name)

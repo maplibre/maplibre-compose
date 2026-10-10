@@ -59,7 +59,7 @@ internal class AppleMlnFfiSurfaceController(
 
   private val completion = CompletableDeferred<Result<Unit>>()
   private val renderThread =
-    MlnFfiOwnerThread("maplibre-compose-render") {
+    AppleRenderThread("maplibre-compose-render") {
       completion.complete(runCatching { runQueue() }.onFailure(::rethrowIfFatal))
     }
 
@@ -137,17 +137,17 @@ internal class AppleMlnFfiSurfaceController(
   }
 
   override fun <T> runAndWait(action: () -> T): T {
-    val gate = MlnFfiGate()
+    val done = MlnFfiSignal()
     var result: Result<T>? = null
     check(
       post {
         result = runCatching(action)
-        gate.open()
+        done.signal()
       }
     ) {
       "The Apple map render thread is shutting down"
     }
-    gate.awaitUntilOpen()
+    done.await()
     return checkNotNull(result).getOrThrow()
   }
 
