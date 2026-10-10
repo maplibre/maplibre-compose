@@ -25,11 +25,13 @@ import org.maplibre.nativeffi.runtime.CommandCompletion
  * anchor policy: a viewport resize or padding change cancels the anchored transition. Cancelling a
  * caller only withdraws it; the camera keeps moving, as on every platform.
  *
- * [observe] runs before a transition's caller resumes, so camera getters show where it ended.
+ * A caller resumes through [afterEvents], which runs its action once the session has delivered the
+ * map events queued so far, the final camera change among them, so camera state shows where the
+ * transition ended.
  */
 internal class MlnFfiCameraTransitions(
   private val logger: () -> MapLog?,
-  private val observe: (MapHandle) -> Unit,
+  private val afterEvents: (action: () -> Unit) -> Unit,
 ) {
   /** A camera field that a transition animates. */
   enum class Field {
@@ -62,10 +64,10 @@ internal class MlnFfiCameraTransitions(
 
     fun transitionEnded(end: CameraTransitionEnd) {
       lock.withLock { if (anchor?.transition === this) anchor = null }
-      // The snapshot of the end's generation shows the final camera, so getters read after the
-      // caller resumes show it. A closed map has nothing left to show.
-      if (end.outcome != CameraTransitionOutcome.CLOSED) runCatching { observe(map) }
-      settle { ended = true }
+      // Native queues the events of the change that ended the transition before this runs. A
+      // closed map delivers no more events.
+      if (end.outcome == CameraTransitionOutcome.CLOSED) settle { ended = true }
+      else afterEvents { settle { ended = true } }
     }
 
     private fun settle(update: () -> Unit) {

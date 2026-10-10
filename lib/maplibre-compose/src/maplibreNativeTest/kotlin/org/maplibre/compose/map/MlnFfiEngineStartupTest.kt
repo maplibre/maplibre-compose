@@ -95,7 +95,7 @@ class MlnFfiEngineStartupTest {
     runBlocking {
       withNativeMapState { state, runtime ->
         val session = newSession(state, runtime)
-        val transitions = MlnFfiCameraTransitions(logger = { null }, observe = {})
+        val transitions = MlnFfiCameraTransitions(logger = { null }, afterEvents = { it() })
         try {
           session.ensureEngine()
           val map = checkNotNull(session.mapForTest)

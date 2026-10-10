@@ -212,7 +212,7 @@ internal class MlnFfiMapSession(
     )
 
   private val cameraTransitions =
-    MlnFfiCameraTransitions(logger = { logger }, observe = { viewport.snapshot(it) })
+    MlnFfiCameraTransitions(logger = { logger }, afterEvents = ::afterPumpDrain)
 
   /** Where this map's style visits run. Internal for tests. */
   internal val styleVisits = MlnFfiStyleVisits()
@@ -560,6 +560,21 @@ internal class MlnFfiMapSession(
         onEventsDrained(map, drain)
       }
     }
+
+  /**
+   * Runs [action] on the event pump after a drain that starts after this call, or at once once the
+   * session is closing and its camera state no longer matters.
+   */
+  private fun afterPumpDrain(action: () -> Unit) {
+    val queued = gestureLock.withLock {
+      if (map == null || isClosing) false
+      else {
+        drainBarriers += owner.drainsStarted to action
+        true
+      }
+    }
+    if (queued) owner.requestDrain() else action()
+  }
 
   /** Runs [action] on the event pump after a drain that starts after this call. */
   private suspend fun awaitPumpDrain(action: () -> Unit) {
