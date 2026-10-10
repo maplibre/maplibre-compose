@@ -1,6 +1,6 @@
 ---
 title: Add data to the map
-description: Declare sources and layers as composables, and anchor them in the layer stack.
+description: Draw your own data with sources and layers, and place it between the style's layers.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,68 +9,97 @@ import { region, rememberedMapStyle } from "../../snippets";
 
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-The base style defines the map's content. To show your own data on top of it,
-declare sources and layers in the trailing <Api of="rememberMapState" /> block,
-then pass that state to <Api of="MaplibreMap" />. A source holds the data, and a
-layer draws data from a source.
+To draw your own data, you add a source and at least one layer. A source holds
+data, such as points, lines, or shapes. A layer draws the data from one source
+in one way, for example as lines or circles. Declare both in the block that you
+pass to <Api of="rememberMapState" />.
 
-## Declare your own source
+## Draw GeoJSON data
 
-<Api of="rememberGeoJsonSource" /> creates a source from a GeoJSON URI or
-string. Layers reference the source object directly:
+<Api of="rememberGeoJsonSource" /> loads GeoJSON from a URL. This example draws
+a hiking trail as a blue line with a white outline:
 
-<Code code={rememberedMapStyle(region(layers, "amtrak-1"))} lang="kotlin" title="App.kt" />
+<Code code={rememberedMapStyle(region(layers, "geojson"))} lang="kotlin" title="App.kt" />
 
-Other source types cover vector tiles, raster tiles, and images. The API
-reference documents them under <Api of="org.maplibre.compose.sources" />.
+Layers draw in the order you declare them, so the wide white line goes first
+and the blue line draws on top of it. Each layer needs an ID that no other
+layer in the map uses.
+
+<Api of="GeoJsonData" /> also takes a GeoJSON string or a GeoJSON object that
+you build in Kotlin. When the data changes, pass a new value, and the map
+redraws the layers. To group many nearby points, see
+[Cluster points](/maplibre-compose/clustering/). To respond when the user taps
+a feature, see
+[Handle gestures and clicks](/maplibre-compose/interaction/#respond-to-clicks-on-a-layer).
+
+Other sources load tiles from a server:
+<Api of="rememberVectorTileSource" /> for vector tiles and
+<Api of="rememberRasterTileSource" /> for image tiles.
+[Show 3D buildings and relief](/maplibre-compose/terrain/) uses elevation
+tiles, and
+[Add images and icons](/maplibre-compose/images/) places a single image.
 
 ## Style a layer with expressions
 
-Layer properties accept expressions: formulas that the map evaluates at render
-time. Wrap a constant value in <Api of="const" />. Functions such as
-<Api of="interpolate" /> and <Api of="zoom" /> build dynamic values:
+Layer properties take expressions instead of plain values. An expression can
+compute a value for each feature or for the current zoom level. Here the line
+for the `trail` source from the first example gets wider as the user zooms in:
 
-<Code code={rememberedMapStyle(region(layers, "amtrak-2"))} lang="kotlin" title="App.kt" />
+<Code code={rememberedMapStyle(region(layers, "expressions"))} lang="kotlin" title="App.kt" />
 
-[Expressions in Kotlin](/maplibre-compose/expressions/) explains the expression
-system. The [MapLibre Style Specification][spec-layers] documents every layer
-type and property.
+[Expressions in Kotlin](/maplibre-compose/expressions/) explains how to write
+them. The [MapLibre Style Specification][spec-layers] lists every layer type and
+property.
 
-## Anchor a layer in the stack
+## Draw under the labels
 
-By default, your layers draw above the base style layers. <Api of="Anchor" />
-inserts a layer at another position: at the `Bottom`, at the `Top`, or `Above`
-or `Below` a base style layer selected by ID or by a predicate over its
-<Api of="LayerSummary" />:
+Your layers draw above the whole base style, so a line covers street names and
+place names. <Api of="Anchor.Companion.Below" display="Anchor.Below" /> puts
+layers lower in the stack. This example draws `trail` under all of the base
+style's labels and icons, whatever the style names those layers:
 
 <Code code={rememberedMapStyle(region(layers, "anchors"))} lang="kotlin" title="App.kt" />
 
-## Reference a base style source
+The lambda receives a <Api of="LayerSummary" /> for each base style layer.
+Layers with the type `symbol` draw text and icons. To place your layers next to
+one layer that you know, pass its ID instead, such as
+`Anchor.Above("road_motorway") { ... }`. `Anchor.Bottom` draws your layers
+under the whole base style.
 
-<Api of="getBaseSource" /> looks up a source that the base style defines, so a
-layer of yours can draw data that the style already loads:
+## Draw data from the base style
 
-<Code code={region(layers, "simple")} lang="kotlin" title="App.kt" />
+A base style already loads its own data. <Api of="getBaseSource" /> returns one
+of its sources by ID, so you can draw that data in another way. This example
+marks every point of interest in the OpenFreeMap tiles with a red circle:
 
-## Time a property change
+<Code code={region(layers, "base-source")} lang="kotlin" title="App.kt" />
 
-When a paint property changes, the map animates it over the style's global
-transition. Pass a <Api of="TransitionOptions" /> to time one property instead:
+The source ID and the `sourceLayer` names come from the style. To find them,
+open the style's JSON and look at its `sources` and at the `source-layer` of
+its layers.
+
+## Animate property changes
+
+When a property such as a color changes, the map fades from the old value to
+the new one. Pass <Api of="TransitionOptions" /> to set how long that takes for
+one property. Here the `trail` line turns red over half a second when
+`selected` becomes true:
 
 <Code code={rememberedMapStyle(region(layers, "transitions"))} lang="kotlin" title="App.kt" />
 
-Every transitionable paint property has a matching transition parameter, named
-after the property. The default, null, uses the global transition that
-<Api of="StyleTransition" /> reads and sets.
+Each property that can fade has a parameter that ends in `Transition`, such as
+`colorTransition` for `color`.
 
 ## Use another layer type
 
-Use <Api of="Layer" /> for a layer type without a built-in composable. You can
-wrap it in a typed composable to reuse in your app or publish in a plugin library:
+<Api of="Layer" /> declares a layer of any type by name. Use it for a type
+that has no composable in this library, such as one that a MapLibre Native
+plugin adds. This example wraps the `ngon` type from MapLibre Native's sample
+layer plugin in a composable, so the properties get Kotlin types:
 
-<Code code={region(layers, "plugin-layer")} lang="kotlin" title="PluginMeshLayer.kt" />
+<Code code={region(layers, "custom-layer")} lang="kotlin" title="NgonLayer.kt" />
 
-The renderer must support the layer type and its properties. See the
-<Api of="LayerProperties" /> API reference for the available property setters.
+The map must support the layer type and its properties.
+<Api of="LayerProperties" /> lists the functions that set properties.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
