@@ -106,7 +106,7 @@ class StyleCommitTest {
           LocalDensity provides Density(1f),
           LocalLayoutDirection provides LayoutDirection.Ltr,
         ) {
-          StyleContent(root, content = content)
+          StyleContent(root, content)
         }
       }
       scope.runCurrent()

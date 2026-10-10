@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -12,10 +13,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.GroundScaleGlobalState
+import org.maplibre.compose.style.GroundScaleTolerance
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.groundScale
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
@@ -40,6 +45,9 @@ internal class MapStyleAuthority(
     get() = runtime.logger
 
   private var baseStyleCommandRevision = 0L
+  private var groundScale: Float? = null
+  /** The style and value of the last ground-scale write. */
+  private var writtenGroundScale: Pair<StyleBinding, Float>? = null
   // Referential: an equal but distinct resolver still replaces the current one.
   private var missingImageResolverState: MissingImageResolver? by
     mutableStateOf(null, referentialEqualityPolicy())
@@ -67,6 +75,7 @@ internal class MapStyleAuthority(
       if (style.loadState is StyleLoadState.Failed) return@withCommit false
       if (ready && style.hasResources(binding)) {
         style.loadState = StyleLoadState.Ready
+        writeGroundScale()
         return@withCommit true
       }
       val resources =
@@ -80,7 +89,10 @@ internal class MapStyleAuthority(
         }
       if (!acceptsResources(adapter, binding) || !publishResources(resources))
         return@withCommit false
-      if (ready) style.loadState = StyleLoadState.Ready
+      if (ready) {
+        style.loadState = StyleLoadState.Ready
+        writeGroundScale()
+      }
       true
     }
   }
@@ -108,9 +120,38 @@ internal class MapStyleAuthority(
     if (style.currentLoadedStyle() === loadedStyle) return true
     resourceCommands.clear()
     cancelMissingImageResolutions()
+    writtenGroundScale = null
     style.loadState = StyleLoadState.Loading
     style.updateLoadedStyle(loadedStyle)
     return true
+  }
+
+  /**
+   * Records the ground scale at [latitude] and writes it to the ready style once it differs from
+   * the last write by more than [GroundScaleTolerance]. The write is one global-state command,
+   * outside style revisions.
+   */
+  internal fun updateGroundScale(latitude: Double) {
+    lifecycle.requireMain()
+    groundScale = groundScale(latitude)
+    writeGroundScale()
+  }
+
+  private fun writeGroundScale() {
+    val value = groundScale ?: return
+    val binding = readyLoadedStyle() ?: return
+    val written = writtenGroundScale
+    if (
+      written != null &&
+        written.first === binding &&
+        abs(value / written.second - 1f) <= GroundScaleTolerance
+    )
+      return
+    writtenGroundScale = binding to value
+    val json = JsonPrimitive(value)
+    style.post(binding, "The ground scale", json) {
+      binding.setGlobalStateProperty(GroundScaleGlobalState, json)
+    }
   }
 
   override fun readyLoadedStyle(): StyleBinding? =

@@ -303,15 +303,17 @@ internal class GlJsLocationIndicator(
   private inner class Measurements(input: CustomRenderMethodInput) {
     private val time = now()
     val zoom = map.getZoom()
+    private val globalState = map.getGlobalState()
     val globe = input.defaultProjectionData.projectionTransition > 0.0
     private val latitudeLimit = if (globe) 89.999999 else 85.0511287798066
     val lat = latitude.value(time).coerceIn(-latitudeLimit, latitudeLimit)
     val lng = longitude.value(time)
     val accuracyMeters = accuracy.value(time).coerceAtLeast(0.0)
     val bearingRadians = bearing.value(time) * PI / 180
-    val sectorHalfAngle = sectorAngle.value(zoom, time)[0].coerceIn(0.0, 180.0) * PI / 180
-    val sectorPixels = sectorRadius.value(zoom, time)[0].coerceAtLeast(0.0)
-    val sectorRgba = sectorColor.value(zoom, time)
+    val sectorHalfAngle =
+      sectorAngle.value(zoom, time, globalState)[0].coerceIn(0.0, 180.0) * PI / 180
+    val sectorPixels = sectorRadius.value(zoom, time, globalState)[0].coerceAtLeast(0.0)
+    val sectorRgba = sectorColor.value(zoom, time, globalState)
     val centerX = (lng + 180) / 360
     val centerY = mercatorY(lat)
     val worldPixels = 512 * 2.0.pow(zoom)

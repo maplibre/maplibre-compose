@@ -85,7 +85,6 @@ internal fun <T> MapPresentationContent(
         state.style.declaredRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
         },
-      viewport = { state.viewport },
       applyRevision = { style, revision ->
         // A loaded engine can receive content before its physical presentation is published.
         val map = state.lifecycle.currentAdapter()

@@ -23,7 +23,6 @@ internal class StyleNode(
   private var committedSources = emptyList<SourceDefinition>()
   private var animatorDurationScale = 1f
   private var fontScale: Float? = null
-  private var groundScale: Float? = null
   private val images = StyleImageRegistry(imageScope, prepareImage, ::publishSnapshot)
   private var closed = false
 
@@ -62,7 +61,6 @@ internal class StyleNode(
     committedLayers = layerNodes
     animatorDurationScale = environment?.animatorDurationScale ?: 1f
     fontScale = environment?.fontScale
-    groundScale = environment?.groundScale
     images.update(
       layerNodes.flatMap { it.imageProperties.values }.flatMap { it.images }.toSet(),
       previous?.images.orEmpty(),
@@ -81,7 +79,6 @@ internal class StyleNode(
         images = committedLayers.flatMap { it.images }.distinctBy { it.id },
         animatorDurationScale = animatorDurationScale,
         fontScale = fontScale,
-        groundScale = groundScale,
         imagesPending = images.pending,
       )
     images.retain(revision.images)
@@ -95,5 +92,4 @@ internal class StyleNode(
 internal class StyleEnvironmentNode : MapNode {
   var animatorDurationScale: Float = 1f
   var fontScale: Float? = null
-  var groundScale: Float? = null
 }

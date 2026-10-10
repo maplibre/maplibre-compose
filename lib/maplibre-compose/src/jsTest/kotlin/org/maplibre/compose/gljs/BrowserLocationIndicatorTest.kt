@@ -95,6 +95,17 @@ class BrowserLocationIndicatorTest {
   }
 
   @Test
+  fun sector_paint_reads_the_map_global_state() {
+    val radius =
+      IndicatorPaint(
+        "bearing-accuracy-radius",
+        Json.parseToJsonElement("""["coalesce",["global-state","radius"],5]"""),
+      )
+    assertEquals(5.0, radius.value(0.0, 0.0)[0])
+    assertEquals(30.0, radius.value(0.0, 0.0, js("({radius: 30})"))[0])
+  }
+
+  @Test
   fun rotated_quads_reject_bounding_box_corners_and_accept_padding() {
     val diamond =
       listOf(

@@ -100,6 +100,7 @@ internal class MapAttachmentAuthority(
     if (viewport != null) {
       cameraPositionState = viewport.cameraPosition
       current.updateViewport(viewport)
+      styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
     }
     return current
   }
@@ -228,6 +229,7 @@ internal class MapAttachmentAuthority(
     // then corrects it through synchronizeCamera.
     cameraPositionState = viewport.cameraPosition
     current.updateViewport(viewport)
+    styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
   }
 
   private fun applyCameraCommand(initial: CameraCommand) {

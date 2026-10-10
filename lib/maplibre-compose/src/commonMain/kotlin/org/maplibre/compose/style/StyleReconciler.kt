@@ -7,7 +7,6 @@ import org.maplibre.compose.layers.LayerSummary
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
   private var fontScale: Float? = null
-  private var groundScale: Float? = null
 
   // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
@@ -52,12 +51,6 @@ internal class StyleReconciler {
       if (fontScale != next) {
         style.setGlobalStateProperty(FontScaleGlobalState, JsonPrimitive(next))
         fontScale = next
-      }
-    }
-    revision.groundScale?.let { next ->
-      if (groundScale != next) {
-        style.setGlobalStateProperty(GroundScaleGlobalState, JsonPrimitive(next))
-        groundScale = next
       }
     }
     val desiredSources = revision.sources.associateBy(SourceDefinition::id)
@@ -144,7 +137,6 @@ internal class StyleReconciler {
   private fun reset(style: StyleBinding) {
     binding = style
     fontScale = null
-    groundScale = null
     sources.clear()
     layers.clear()
     images.clear()
