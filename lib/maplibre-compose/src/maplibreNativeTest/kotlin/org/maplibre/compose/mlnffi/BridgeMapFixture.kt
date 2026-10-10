@@ -120,9 +120,12 @@ private constructor(
         return thread.run { driver.withRendererAccess(action) }
       }
 
+      // Queues without waiting, as the host contract requires: native wakes the session's driver
+      // work from inside a render, while this fixture's renderer thread waits for that render.
       override fun enqueueRenderer(action: () -> Unit): Boolean {
         rendererEnqueueFailure?.let { throw it }
-        withRendererAccess(action)
+        val thread = rendererThread ?: return true.also { driver.withRendererAccess(action) }
+        thread.post { driver.withRendererAccess(action) }
         return true
       }
     }
@@ -499,6 +502,11 @@ private constructor(
     }
 
     /** Queues [run] and returns the gate that opens once it has run or been abandoned. */
+    /** Queues [action] for the thread without waiting; a failure stops the thread. */
+    fun post(action: () -> Unit) {
+      enqueue(action)
+    }
+
     private fun enqueue(run: () -> Unit): TestGate {
       val done = TestGate()
       val accepted = lock.withLock {
