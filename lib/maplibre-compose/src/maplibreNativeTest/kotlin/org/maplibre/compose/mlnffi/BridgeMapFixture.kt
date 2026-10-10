@@ -124,7 +124,7 @@ private constructor(
       // work from inside a render, while this fixture's renderer thread waits for that render.
       override fun enqueueRenderer(action: () -> Unit): Boolean {
         rendererEnqueueFailure?.let { throw it }
-        val thread = rendererThread ?: return true.also { driver.withRendererAccess(action) }
+        val thread = rendererThread ?: return driver.enqueueRenderer(action)
         thread.post { driver.withRendererAccess(action) }
         return true
       }

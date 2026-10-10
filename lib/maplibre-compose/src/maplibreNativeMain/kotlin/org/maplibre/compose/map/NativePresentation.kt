@@ -6,8 +6,12 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -121,10 +125,20 @@ internal class NativePresentation(
             Wake {
               work.signal()
               // Work that arrives between frames, such as a query, needs the renderer thread.
+              // Native can wake from inside a MapLibre mailbox push that holds the mailbox lock,
+              // and a host may run a renderer task inline, so the service starts on another stack.
               if (serviceQueued.compareAndSet(false, true)) {
-                host.enqueueRenderer {
-                  serviceQueued.store(false)
-                  service()
+                driverWakeScope.launch {
+                  try {
+                    host.enqueueRenderer {
+                      serviceQueued.store(false)
+                      service()
+                    }
+                  } catch (error: Exception) {
+                    // A host that cannot queue work is going away; teardown services the rest.
+                    serviceQueued.store(false)
+                    logger?.d(error) { "Could not queue render session driver work" }
+                  }
                 }
               }
             },
@@ -672,3 +686,6 @@ internal fun WglContextHandles.toFfi(): OpenglContextDescriptor =
         )
       ),
   )
+
+/** Hops driver wakes off the native stack that raised them. */
+private val driverWakeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
