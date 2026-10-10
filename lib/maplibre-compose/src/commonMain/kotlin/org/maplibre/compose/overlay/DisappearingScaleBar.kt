@@ -26,15 +26,14 @@ import kotlinx.coroutines.flow.collectLatest
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration].
  *
- * [metersPerDp] is called while drawing and [zoom] is observed as snapshot state. Read map state
- * inside them rather than capturing a value.
- *
  * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
- *   [Viewport.metersPerDpAtCenter][org.maplibre.compose.camera.Viewport.metersPerDpAtCenter]
- * @param zoom zoom level of the map
+ *   [Viewport.metersPerDpAtCenter][org.maplibre.compose.camera.Viewport.metersPerDpAtCenter]. It is
+ *   called while drawing. Read map state inside it rather than capturing a value.
+ * @param zoom zoom level of the map. It is observed as snapshot state. Read map state inside it
+ *   rather than capturing a value.
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,
  *   or otherwise the user's locale.

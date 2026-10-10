@@ -84,9 +84,8 @@ public fun image(
  * Painters that draw identical pixels share one style image, so calling `painterResource` for the
  * same resource in several layers registers the image once.
  *
- * The bitmap will be created with the provided [size], or the intrinsic size of the painter if not
- * provided, or 16x16 DP if the painter has no intrinsic size.
- *
+ * @param size The size to create the bitmap with. If not provided, the intrinsic size of the
+ *   painter is used, or 16x16 DP if the painter has no intrinsic size.
  * @param drawAsSdf If true, will draw the image to a bitmap as a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.

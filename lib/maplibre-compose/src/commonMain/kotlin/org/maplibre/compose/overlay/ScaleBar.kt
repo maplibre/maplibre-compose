@@ -37,13 +37,12 @@ import org.maplibre.spatialk.units.extensions.meters
  * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
  * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
  *
- * [metersPerDp] is called while drawing. Read map state inside it rather than capturing a value.
- *
  * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
- *   [Viewport.metersPerDpAtCenter][org.maplibre.compose.camera.Viewport.metersPerDpAtCenter]
+ *   [Viewport.metersPerDpAtCenter][org.maplibre.compose.camera.Viewport.metersPerDpAtCenter]. It is
+ *   called while drawing. Read map state inside it rather than capturing a value.
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,
  *   or otherwise the user's locale.

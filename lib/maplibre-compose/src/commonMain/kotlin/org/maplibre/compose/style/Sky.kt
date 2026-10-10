@@ -18,33 +18,33 @@ import org.maplibre.compose.expressions.value.FloatValue
  * MapLibre Native does not implement the sky; see
  * [maplibre-native#4414](https://github.com/maplibre/maplibre-native/issues/4414).
  *
- * @param skyColor The base color for the sky.
- * @param horizonColor The base color at the horizon.
- * @param fogColor The base color for the fog.
- * @param fogGroundBlend How to blend the fog over the 3D terrain. A value in the range of `[0..1]`,
- *   where 0 is the map center and 1 is the horizon.
- * @param horizonFogBlend How to blend the fog color and the horizon color. A value in the range of
- *   `[0..1]`, where 0 uses the horizon color only and 1 uses the fog color only.
- * @param skyHorizonBlend How to blend the sky color and the horizon color. A value in the range of
- *   `[0..1]`, where 1 blends the color at the middle of the sky and 0 uses the sky color only.
- * @param atmosphereBlend How visible the atmosphere around a globe is. A value in the range of
+ * @property skyColor The base color for the sky.
+ * @property horizonColor The base color at the horizon.
+ * @property fogColor The base color for the fog.
+ * @property fogGroundBlend How to blend the fog over the 3D terrain. A value in the range of
+ *   `[0..1]`, where 0 is the map center and 1 is the horizon.
+ * @property horizonFogBlend How to blend the fog color and the horizon color. A value in the range
+ *   of `[0..1]`, where 0 uses the horizon color only and 1 uses the fog color only.
+ * @property skyHorizonBlend How to blend the sky color and the horizon color. A value in the range
+ *   of `[0..1]`, where 1 blends the color at the middle of the sky and 0 uses the sky color only.
+ * @property atmosphereBlend How visible the atmosphere around a globe is. A value in the range of
  *   `[0..1]`, where 1 shows the atmosphere and 0 hides it. MapLibre GL JS draws the atmosphere only
  *   while the projection shows a globe, and fades it as the camera nears the surface and as the
  *   projection changes to Mercator.
- * @param skyColorTransition Timing for changes to [skyColor]. Null uses the style's global
+ * @property skyColorTransition Timing for changes to [skyColor]. Null uses the style's global
  *   transition.
- * @param horizonColorTransition Timing for changes to [horizonColor]. Null uses the style's global
+ * @property horizonColorTransition Timing for changes to [horizonColor]. Null uses the style's
+ *   global transition.
+ * @property fogColorTransition Timing for changes to [fogColor]. Null uses the style's global
  *   transition.
- * @param fogColorTransition Timing for changes to [fogColor]. Null uses the style's global
- *   transition.
- * @param fogGroundBlendTransition Timing for changes to [fogGroundBlend]. Null uses the style's
+ * @property fogGroundBlendTransition Timing for changes to [fogGroundBlend]. Null uses the style's
  *   global transition.
- * @param horizonFogBlendTransition Timing for changes to [horizonFogBlend]. Null uses the style's
- *   global transition.
- * @param skyHorizonBlendTransition Timing for changes to [skyHorizonBlend]. Null uses the style's
- *   global transition.
- * @param atmosphereBlendTransition Timing for changes to [atmosphereBlend]. Null uses the style's
- *   global transition.
+ * @property horizonFogBlendTransition Timing for changes to [horizonFogBlend]. Null uses the
+ *   style's global transition.
+ * @property skyHorizonBlendTransition Timing for changes to [skyHorizonBlend]. Null uses the
+ *   style's global transition.
+ * @property atmosphereBlendTransition Timing for changes to [atmosphereBlend]. Null uses the
+ *   style's global transition.
  */
 @Immutable
 public data class Sky(

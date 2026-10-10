@@ -144,14 +144,15 @@ public sealed interface MutableGeoJsonSourceHandle : GeoJsonSourceHandle, Mutabl
    * newer call supersedes older pending data preparation. Loading a new base style discards the
    * submitted data. This function does not wait for URL loading or rendering.
    *
-   * Submitted [GeoJsonData.Features] and all nested collections and properties must remain
-   * immutable. Native engines serialize and prepare the data on a background thread. Preparation or
+   * Native engines serialize and prepare the data on a background thread. Preparation or
    * installation failures after submission emit
    * [org.maplibre.compose.map.MapEvent.SourceDataFailed] and retain the previous source data.
    *
    * [GeoJsonOptions.synchronousTiling] controls native tile generation and does not make this
    * function wait for preparation, installation, or rendering.
    *
+   * @param data Submitted [GeoJsonData.Features] and all nested collections and properties must
+   *   remain immutable.
    * @throws IllegalStateException if style content declares this source.
    */
   public fun setData(data: GeoJsonData): Unit
@@ -166,12 +167,14 @@ public sealed interface VectorTileSourceHandle : SourceHandle {
   override val asMutable: MutableVectorTileSourceHandle?
 
   /**
-   * Returns loaded features from [sourceLayerIds] that match [predicate]. The result is empty
-   * before the map has rendered and when this handle has expired.
+   * Returns loaded features from [sourceLayerIds] that match [predicate].
    *
    * Features come from the tiles loaded for the current view, whether or not a layer draws them. A
    * feature that crosses tile boundaries can come back as several pieces, one per tile, and a point
    * near a tile edge can appear more than once.
+   *
+   * @return the features, which are empty before the map has rendered and when this handle has
+   *   expired.
    */
   public suspend fun querySourceFeatures(
     sourceLayerIds: Set<String>,

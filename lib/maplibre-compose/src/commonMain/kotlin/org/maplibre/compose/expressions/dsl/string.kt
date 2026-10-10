@@ -26,7 +26,9 @@ public fun String.contains(substring: Expression<StringValue>): Expression<Boole
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun Expression<StringValue>.indexOf(
@@ -36,7 +38,9 @@ public fun Expression<StringValue>.indexOf(
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun String.indexOf(
@@ -46,7 +50,9 @@ public fun String.indexOf(
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun Expression<StringValue>.indexOf(
@@ -115,8 +121,9 @@ public operator fun Expression<StringValue>.plus(
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun Expression<StringValue>.split(
   separator: Expression<StringValue>
@@ -125,8 +132,9 @@ public fun Expression<StringValue>.split(
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun Expression<StringValue>.split(separator: String): Expression<ListValue<StringValue>> =
   split(const(separator))
@@ -134,8 +142,9 @@ public fun Expression<StringValue>.split(separator: String): Expression<ListValu
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun String.split(separator: Expression<StringValue>): Expression<ListValue<StringValue>> =
   const(this).split(separator)

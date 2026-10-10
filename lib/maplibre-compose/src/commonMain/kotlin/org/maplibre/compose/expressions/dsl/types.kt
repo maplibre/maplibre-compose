@@ -30,11 +30,13 @@ public fun Expression<*>.type(): Expression<ExpressionType> = call("typeof", thi
 /**
  * Asserts that this is a list, optionally of items of one [type] and of one [length].
  *
- * [type] is [ExpressionType.String], [ExpressionType.Number], or [ExpressionType.Boolean]. A
- * [length] needs a [type]. Both are plain values because MapLibre reads them when the style loads.
+ * Both [type] and [length] are plain values because MapLibre reads them when the style loads.
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
  * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
+ *
+ * @param type One of [ExpressionType.String], [ExpressionType.Number], or [ExpressionType.Boolean].
+ * @param length Needs a [type].
  */
 public fun Expression<*>.asList(
   type: ExpressionType? = null,
@@ -102,12 +104,13 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
   call("string", this, *fallbacks)
 
 /**
- * Asserts that this expression resolves to one of the named values of [type]. Pass the style type's
- * companion, such as `LineCap`, to obtain an expression of that type.
+ * Asserts that this expression resolves to one of the named values of [type].
  *
  * Each of the [fallbacks] is evaluated in order until a value matches. If neither this expression
  * nor a fallback matches, the expression is an error. Membership in [EnumType.entries] is checked
  * when MapLibre evaluates the expression.
+ *
+ * @param type The style type's companion, such as `LineCap`, to obtain an expression of that type.
  */
 public fun <T : EnumValue> Expression<*>.asEnum(
   type: EnumType<T>,
@@ -155,11 +158,13 @@ public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapV
   call("object", this, *fallbacks)
 
 /**
- * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
- * [diacriticSensitive] options default to `false`. The [locale] argument specifies the IETF
- * language tag of the locale to use. If none is provided, the default locale is used. If the
- * requested locale is not available, the collator will use a system-defined fallback locale. Use
- * [resolvedLocale] to test the results of locale fallback behavior.
+ * Returns a collator for use in locale-dependent comparison operations.
+ *
+ * @param caseSensitive Defaults to `false`.
+ * @param diacriticSensitive Defaults to `false`.
+ * @param locale The IETF language tag of the locale to use. If none is provided, the default locale
+ *   is used. If the requested locale is not available, the collator will use a system-defined
+ *   fallback locale. Use [resolvedLocale] to test the results of locale fallback behavior.
  */
 public fun collator(
   caseSensitive: Expression<BooleanValue>? = null,
@@ -182,11 +187,13 @@ public fun collator(
 public fun collator(): Expression<CollatorValue> = call("collator", options())
 
 /**
- * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
- * [diacriticSensitive] options default to `false`. The [locale] argument specifies the IETF
- * language tag of the locale to use. If none is provided, the default locale is used. If the
- * requested locale is not available, the collator will use a system-defined fallback locale. Use
- * [resolvedLocale] to test the results of locale fallback behavior.
+ * Returns a collator for use in locale-dependent comparison operations.
+ *
+ * @param caseSensitive Defaults to `false`.
+ * @param diacriticSensitive Defaults to `false`.
+ * @param locale The IETF language tag of the locale to use. If none is provided, the default locale
+ *   is used. If the requested locale is not available, the collator will use a system-defined
+ *   fallback locale. Use [resolvedLocale] to test the results of locale fallback behavior.
  */
 public fun collator(
   caseSensitive: Boolean? = null,

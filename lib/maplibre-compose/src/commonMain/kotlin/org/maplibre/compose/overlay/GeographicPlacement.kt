@@ -34,9 +34,11 @@ import org.maplibre.spatialk.geojson.Position
 @Stable
 public sealed interface MapOverlayScope : BoxScope {
   /**
-   * Places this child at [position]. [alignment] selects the child's anchor point. The child is
-   * hidden before a viewport exists or when entirely outside the layout. Apply this modifier to a
-   * direct child; sizing and padding describe the child itself.
+   * Places this child at [position]. The child is hidden before a viewport exists or when entirely
+   * outside the layout. Apply this modifier to a direct child; sizing and padding describe the
+   * child itself.
+   *
+   * @param alignment Selects the child's anchor point.
    */
   public fun Modifier.placedAt(
     position: Position,

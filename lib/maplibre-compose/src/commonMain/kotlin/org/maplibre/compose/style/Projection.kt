@@ -28,8 +28,8 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
  *
  * MapLibre Native supports only the Mercator projection.
  *
- * @param type The projection: a [ProjectionType], a [ProjectionTransition], or an expression that
- *   resolves to one of them.
+ * @property type The projection: a [ProjectionType], a [ProjectionTransition], or an expression
+ *   that resolves to one of them.
  */
 @Immutable
 public data class Projection(
@@ -41,9 +41,9 @@ public data class Projection(
 /**
  * A projection interpolated between two others.
  *
- * @param from The projection at a [progress] of 0.
- * @param to The projection at a [progress] of 1.
- * @param progress How far the projection has moved from [from] to [to]. A value in the range of
+ * @property from The projection at a [progress] of 0.
+ * @property to The projection at a [progress] of 1.
+ * @property progress How far the projection has moved from [from] to [to]. A value in the range of
  *   `[0..1]`.
  */
 @Immutable

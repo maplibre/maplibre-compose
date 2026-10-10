@@ -78,14 +78,13 @@ public sealed interface OfflineStorage {
   /**
    * Merges the offline packs and their resources from [databaseFile] into this storage's database.
    *
-   * [databaseFile] must identify a readable MapLibre offline database with the same schema version
-   * as this runtime's database. The merge does not modify the source database. Ambient-cache
-   * resources are not imported.
+   * The merge does not modify the source database. Ambient-cache resources are not imported.
    *
-   * The returned set contains the packs represented by the source database. It includes an existing
-   * pack when the source contains the same definition and metadata. Imported packs can be
-   * incomplete when the source database does not contain every required resource.
-   *
+   * @param databaseFile Must identify a readable MapLibre offline database with the same schema
+   *   version as this runtime's database.
+   * @return The set of packs represented by the source database. It includes an existing pack when
+   *   the source contains the same definition and metadata. Imported packs can be incomplete when
+   *   the source database does not contain every required resource.
    * @throws OfflineStorageException if the operation failed.
    */
   // Exposes kotlinx-io Path, which is not yet stable.
@@ -132,12 +131,13 @@ public sealed interface OfflineStorageState {
   public data object Loading : OfflineStorageState
 
   /**
-   * Initialization succeeded, with the current [packs]. [packs] includes the packs stored in the
-   * database before this runtime started, and a new state replaces it when a pack is created,
-   * merged, or deleted.
+   * Initialization succeeded, with the current [packs].
    *
    * This state can remain after the runtime closes; it does not indicate whether the storage
    * accepts operations.
+   *
+   * @property packs The current packs. Includes the packs stored in the database before this
+   *   runtime started, and a new state replaces it when a pack is created, merged, or deleted.
    */
   public data class Ready internal constructor(public val packs: Set<OfflinePack>) :
     OfflineStorageState

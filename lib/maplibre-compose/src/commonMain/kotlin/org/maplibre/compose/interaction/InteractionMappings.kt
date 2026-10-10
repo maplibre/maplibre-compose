@@ -148,9 +148,10 @@ public class KeyMappingsBuilder internal constructor() {
 
   /**
    * Adds a row for [action] that matches when [key] is pressed and the pressed modifier keys
-   * satisfy [modifiers]. A `null` [modifiers] matches any modifier keys. Modifiers match exactly by
-   * default, so unconfigured system shortcuts remain unclaimed.
+   * satisfy [modifiers].
    *
+   * @param modifiers `null` matches any modifier keys. Modifiers match exactly by default, so
+   *   unconfigured system shortcuts remain unclaimed.
    * @throws IllegalArgumentException if [otherwise] was already called.
    */
   public fun on(

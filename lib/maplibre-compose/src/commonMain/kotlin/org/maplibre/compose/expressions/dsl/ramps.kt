@@ -38,8 +38,6 @@ private fun stopArguments(stops: Array<out Pair<Number, Expression<*>>>): List<E
  * Produces continuous, smooth results by interpolating between pairs of input and output values
  * ([stops]), given the [input] value.
  *
- * Requires the [type] of interpolation to use. Use [linear], [exponential], or [cubicBezier].
- *
  * Example:
  * ```kt
  * interpolate(
@@ -52,6 +50,8 @@ private fun stopArguments(stops: Array<out Pair<Number, Expression<*>>>): List<E
  * interpolates exponentially from 1 to 256 in zoom levels 16 to 24. Below zoom 16, it is 1, above
  * zoom 24, it is 256. Applied to for example line width, this has the visual effect that the line
  * stays the same width in meters on the map (rather than on the viewport).
+ *
+ * @param type The type of interpolation to use. Use [linear], [exponential], or [cubicBezier].
  */
 public fun <T, V : InterpolatableValue<T>> interpolate(
   type: Interpolation,
@@ -63,8 +63,6 @@ public fun <T, V : InterpolatableValue<T>> interpolate(
  * Produces continuous, smooth results by interpolating between pairs of input and output values
  * ([stops]), given the [input] value. Works like [interpolate], but the interpolation is performed
  * in the [Hue-Chroma-Luminance color space](https://en.wikipedia.org/wiki/HCL_color_space).
- *
- * Requires the [type] of interpolation to use. Use [linear], [exponential], or [cubicBezier].
  *
  * Example:
  * ```kt
@@ -79,6 +77,8 @@ public fun <T, V : InterpolatableValue<T>> interpolate(
  *
  * interpolates linearly from red to blue between in zoom levels 1 to 5, then interpolates linearly
  * from blue to green in zoom levels 5 to 10, which it where it remains until maximum zoom.
+ *
+ * @param type The type of interpolation to use. Use [linear], [exponential], or [cubicBezier].
  */
 public fun interpolateHcl(
   type: Interpolation,
@@ -92,7 +92,7 @@ public fun interpolateHcl(
  * ([stops]), given the [input] value. Works like [interpolate], but the interpolation is performed
  * in the [CIELAB color space](https://en.wikipedia.org/wiki/CIELAB_color_space).
  *
- * Requires the [type] of interpolation to use. Use [linear], [exponential], or [cubicBezier].
+ * @param type The type of interpolation to use. Use [linear], [exponential], or [cubicBezier].
  */
 public fun interpolateLab(
   type: Interpolation,

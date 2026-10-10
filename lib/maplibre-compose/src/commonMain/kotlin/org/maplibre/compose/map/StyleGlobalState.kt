@@ -30,8 +30,10 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
     }
 
   /**
-   * Arrays and objects are stored as data, not evaluated as style expressions. [JsonNull] restores
-   * the style's default for [name], or null when no default exists.
+   * Sets the global state property [name] to [value].
+   *
+   * @param value Arrays and objects are stored as data, not evaluated as style expressions.
+   *   [JsonNull] restores the style's default for [name], or null when no default exists.
    */
   public fun setProperty(name: String, value: JsonElement) {
     require(!name.startsWith(InternalGlobalStatePrefix)) {

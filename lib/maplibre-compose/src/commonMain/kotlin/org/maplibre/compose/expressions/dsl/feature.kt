@@ -92,11 +92,13 @@ public object Feature {
 
   /**
    * Returns true if the evaluated feature is fully contained inside a boundary of the input
-   * geometry, false otherwise. The input value can be a valid GeoJSON of type Polygon,
-   * MultiPolygon, Feature, or FeatureCollection. Supported features for evaluation:
+   * geometry, false otherwise. Supported features for evaluation:
    * - Point: Returns false if a point is on the boundary or falls outside the boundary.
    * - LineString: Returns false if any part of a line falls outside the boundary, the line
    *   intersects the boundary, or a line's endpoint is on the boundary.
+   *
+   * @param geometry Can be a valid GeoJSON of type Polygon, MultiPolygon, Feature, or
+   *   FeatureCollection.
    */
   public fun within(geometry: Expression<GeoJsonValue>): Expression<BooleanValue> =
     call("within", geometry)

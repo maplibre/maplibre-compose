@@ -49,8 +49,10 @@ internal constructor(
 ) : AutoCloseable {
 
   /**
-   * Reads permission from [context]. A context that cannot reach an activity cannot answer the
-   * rationale check or launch a request.
+   * Reads permission from [context].
+   *
+   * @param context A context that cannot reach an activity cannot answer the rationale check or
+   *   launch a request.
    */
   public constructor(
     context: Context
