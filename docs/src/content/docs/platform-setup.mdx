@@ -1,0 +1,240 @@
+---
+title: Platform setup
+description: Choose a render backend and meet the requirements of each target platform.
+---
+
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+import versions from "../../generated/versions.json";
+
+import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
+import nucleusMain from "../../../../demo-app/desktop-nucleus/src/main/kotlin/org/maplibre/compose/nucleus/Main.kt?raw";
+
+[Getting started](/maplibre-compose/getting-started/) picks one setup for each
+target. Read the section for a target when you need a different runtime, want to
+know its limits, or are preparing a release.
+
+| Target       | Kotlin targets                  | Map engine                           | Requires             |
+| ------------ | ------------------------------- | ------------------------------------ | -------------------- |
+| Android      | `android`                       | MapLibre Native                      | Android 7.0 (API 24) |
+| iOS          | `iosArm64`, `iosSimulatorArm64` | MapLibre Native                      | iOS 15.5             |
+| Native macOS | `macosArm64`                    | MapLibre Native                      | Apple silicon        |
+| Desktop      | `jvm`                           | MapLibre Native                      | Java 25              |
+| Web          | `js`                            | MapLibre GL JS {versions.maplibreJs} | ES modules           |
+
+The library has no Kotlin/Wasm target.
+
+## Android
+
+Android apps package one runtime. Each runtime renders with one graphics API:
+
+| Graphics API | Runtime                                   |
+| ------------ | ----------------------------------------- |
+| OpenGL ES    | `maplibre-compose-runtime-opengl-android` |
+| Vulkan       | `maplibre-compose-runtime-vulkan-android` |
+
+Choose Vulkan. If your app must run on devices without a Vulkan driver, choose
+OpenGL ES instead.
+
+Both runtimes contain native code for the `armeabi-v7a`, `arm64-v8a`, and
+`x86_64` ABIs. They have none for `x86`, so 32-bit x86 emulators can't show a
+map.
+
+## iOS
+
+iOS always renders with Metal, and the runtime comes with the library. The
+library builds for devices (`iosArm64`) and Apple silicon simulators
+(`iosSimulatorArm64`). It has no `iosX64` target, so the simulator on Intel Macs
+is not supported.
+
+Add the system libraries to **Other Linker Flags**, as shown in
+[Getting started](/maplibre-compose/getting-started/#ios).
+
+## Native macOS
+
+The `macosArm64` target runs Compose without a JVM. Like iOS, it renders with
+Metal and needs no runtime artifact. It is experimental in both Compose and this
+library, and it runs only on Apple silicon.
+
+Each window that shows a map needs
+<Api of="org.maplibre.compose.macos.ProvideMapPresentationHost" /> around its
+content. Maps draw in a native view behind the window's Compose content, so
+they don't support `graphicsLayer` effects such as scaling and rotation. The
+API reference of `ProvideMapPresentationHost` lists every limit.
+
+## Desktop (JVM)
+
+### Choose a runtime
+
+Desktop apps package one runtime for each operating system and CPU they ship to.
+Runtimes for different platforms can sit on the same classpath; the library
+loads the one that matches the machine.
+
+| Platform      | Metal                                        | Vulkan                                          | OpenGL                                          |
+| ------------- | -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| Linux x64     | —                                            | `maplibre-compose-runtime-vulkan-linux-x64`     | `maplibre-compose-runtime-opengl-linux-x64`     |
+| Linux arm64   | —                                            | `maplibre-compose-runtime-vulkan-linux-arm64`   | `maplibre-compose-runtime-opengl-linux-arm64`   |
+| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64` | `maplibre-compose-runtime-vulkan-macos-arm64`   | `maplibre-compose-runtime-opengl-macos-arm64`   |
+| Windows x64   | —                                            | `maplibre-compose-runtime-vulkan-windows-x64`   | `maplibre-compose-runtime-opengl-windows-x64`   |
+| Windows arm64 | —                                            | `maplibre-compose-runtime-vulkan-windows-arm64` | `maplibre-compose-runtime-opengl-windows-arm64` |
+
+Use Metal on macOS and Vulkan on Linux and Windows. The demo app packages these
+by default. Intel Macs are not supported.
+
+The OpenGL runtimes need more from the graphics driver:
+
+- On Linux and Windows, OpenGL must be able to share GPU memory with other
+  graphics APIs (the `GL_EXT_memory_object` extensions).
+- On Linux, the machine also needs a Vulkan driver, because the library uses
+  Vulkan to allocate the memory that the map and Compose share.
+
+### Java and native access
+
+Desktop apps run on Java 25 or later. The map engine calls native code through
+Java's foreign function API, so every way you start the app must pass
+`--enable-native-access=ALL-UNNAMED` to the JVM. Without it, the map fails to
+load. [Getting started](/maplibre-compose/getting-started/#desktop-jvm) shows
+how to add the flag.
+
+### Window hosts
+
+Maps draw with the GPU context of the window that shows them. A
+<Api of="ComposeMapPresentationHost" /> gives maps that context, and
+<Api of="org.maplibre.compose.desktop.ProvideMapPresentationHost" /> installs it
+for a window's content. Each window that shows a map needs a host.
+
+Maps also deliver their events on `Dispatchers.Main`, so the window toolkit must
+supply a main dispatcher. Without one, the map runtime fails to start.
+
+#### Nucleus
+
+We recommend [Nucleus][nucleus] with its Tao backend. Its windows integrate
+more fully with each platform than AWT windows, which makes map gestures work
+better, and on Linux it supports Wayland and fractional scaling. Add its
+application and Tao window modules:
+
+```kotlin title="build.gradle.kts"
+jvmMain.dependencies {
+  implementation("dev.nucleusframework:nucleus.nucleus-application:{{nucleus}}")
+  implementation("dev.nucleusframework:nucleus.decorated-window-tao:{{nucleus}}")
+}
+```
+
+Start the app with `nucleusApplication(backend = NucleusBackend.Tao)`. Tao
+supplies the main dispatcher. Copy [the demo's Tao host][nucleus-host] into your
+app; it builds a host from the window's Tao GPU context. Then wrap each window's
+content:
+
+<Code code={region(nucleusMain, "host")} lang="kotlin" />
+
+Start the JVM with `--enable-native-access=ALL-UNNAMED`, and on macOS also with
+`-XstartOnFirstThread`, which gives Tao the main thread that macOS windows need.
+The [Nucleus demo][nucleus-demo] shows a complete app.
+
+#### Compose Desktop (AWT)
+
+For a Compose window that uses AWT, such as one from `singleWindowApplication`
+or `Window`, use <Api of="rememberAwtComposeMapPresentationHost" />, and add
+`kotlinx-coroutines-swing` for the main dispatcher.
+[Getting started](/maplibre-compose/getting-started/#desktop-jvm) shows the
+setup.
+
+#### Other windows
+
+A window that draws Compose another way creates its host with a factory on
+<Api of="ComposeMapPresentationHost" />: `macosMetal`, `windowsDirect3d12`,
+`linuxOpenGl`, or `windowsAngle`. Pick the one that matches the window's
+operating system and graphics API. You supply the window's Skia context and a
+way to run code on its GPU thread:
+
+<Code code={region(desktopGettingStarted, "custom-host")} lang="kotlin" />
+
+These factories take types from Skiko, the Skia library that Compose draws
+with. Those types may change in any minor release, so the factories require
+opt-in to <Api of="ExperimentalMaplibreComposeApi" />. The API reference
+describes what each callback must do.
+
+If the toolkit has no `Dispatchers.Main`, set `mainDispatcher` in
+<Api of="DefaultMapRuntime.configure" /> to a single-threaded dispatcher for the
+window's thread.
+
+### Signed packages
+
+Signing a macOS app re-signs LWJGL's native libraries and changes their bytes.
+LWJGL then prints `Incompatible Java and native library versions detected`,
+even though the libraries load and the map works. To turn off this check, add
+`-Dorg.lwjgl.util.NoHashChecks=true` to the JVM arguments:
+
+```kotlin title="build.gradle.kts"
+compose.desktop {
+  application {
+    jvmArgs += "-Dorg.lwjgl.util.NoHashChecks=true"
+  }
+}
+```
+
+See [LWJGL discussion #1007](https://github.com/orgs/LWJGL/discussions/1007).
+
+## Web
+
+The library imports MapLibre GL JS as an ES module, so the JS target must build
+ES modules with `useEsModules()`. The library includes its own build of MapLibre
+GL JS; you don't add it from npm.
+
+Call <Api of="installMaplibreCompose" /> inside `onWasmReady`, before
+`ComposeViewport`, as shown in
+[Getting started](/maplibre-compose/getting-started/#web-js).
+
+## Use a development snapshot
+
+Builds of `main` are published to [Central Portal Snapshots][snapshots]. This
+site documents the latest release. If you use a snapshot, read the
+[documentation for `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
+instead.
+
+Add the snapshot repository:
+
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="settings.gradle.kts"
+    dependencyResolutionManagement {
+      repositories {
+        maven {
+          name = "Central Portal Snapshots"
+          url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+          mavenContent { snapshotsOnly() }
+          content {
+            includeGroup("org.maplibre.compose")
+            includeGroup("org.maplibre.nativeffi")
+          }
+        }
+      }
+    }
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="shared/module.yaml"
+    repositories:
+      - id: central-portal-snapshots
+        url: https://central.sonatype.com/repository/maven-snapshots/
+    ```
+  </TabItem>
+</Tabs>
+
+Then set the version to **v{versions.snapshot}**, for the library and for every
+runtime artifact:
+
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
+```
+
+[nucleus]: https://github.com/NucleusFramework/Nucleus
+
+[nucleus-host]: https://github.com/maplibre/maplibre-compose/blob/main/demo-app/desktop-nucleus/src/main/kotlin/org/maplibre/compose/nucleus/TaoComposeMapPresentationHost.kt
+
+[nucleus-demo]: https://github.com/maplibre/maplibre-compose/tree/main/demo-app/desktop-nucleus
+
+[snapshots]: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/

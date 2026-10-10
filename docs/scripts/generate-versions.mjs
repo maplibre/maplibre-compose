@@ -46,6 +46,8 @@ const versions = {
   release: demand(properties, "maplibreReleaseVersion", "version-args"),
   snapshot: demand(properties, "maplibreSnapshotVersion", "version-args"),
   maplibreJs: demand(catalog, "maplibre-js", catalogPath),
+  coroutines: demand(catalog, "kotlinx-coroutines", catalogPath),
+  nucleus: demand(catalog, "nucleus", catalogPath),
 };
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
