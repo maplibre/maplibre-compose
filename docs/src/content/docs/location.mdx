@@ -1,6 +1,6 @@
 ---
 title: Show the user's location
-description: Track the user's position, draw a puck, and follow it with the camera.
+description: Draw the user's position on the map and move the camera with it.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,58 +9,101 @@ import { region } from "../../snippets";
 
 import location from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt?raw";
 
-The location module tracks the user's position and draws it on the map. A
-<Api of="LocationProvider" /> supplies location updates,
-<Api of="rememberLocationState" /> collects them, <Api of="org.maplibre.compose.layers.LocationIndicatorLayer" />
-draws the latest measurement, and <Api of="LocationTrackingEffect" /> keeps the camera
-in sync with location changes:
+Show the user where they are with a dot on the map, and move the camera as they
+move. This example draws the dot and keeps the camera on it:
 
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
-All platforms provide default location providers. Android and iOS also provide
-default heading providers. <Api of="LocationState.availability" /> reports an
-unsupported or misconfigured provider before the application requests permission.
+The dot appears only after the user allows location access.
+[Ask for permission](#ask-for-permission) shows how to ask.
 
-`locationState.lastLocation` is null until the first measurement arrives, so the puck
-initially draws nothing. Afterward, the state retains the last measurement when
-tracking stops or permission changes.
+Four pieces work together:
 
-Use <Api of="LocationRequest" /> and <Api of="HeadingRequest" /> to configure
-update preferences. Omitted settings use the `Standard` preset:
+- A <Api of="LocationProvider" /> reads the device's location.
+  <Api of="rememberDefaultLocationProvider" /> returns the provider for the
+  current platform.
+- <Api of="rememberLocationState" /> collects locations from the provider while
+  the screen is visible, and stores the latest one in
+  <Api of="LocationState.lastLocation" />.
+- <Api of="org.maplibre.compose.layers.LocationIndicatorLayer" /> draws a dot at
+  that location, with a circle that shows its accuracy. It draws nothing until
+  the first location arrives.
+- <Api of="LocationTrackingEffect" /> runs its block each time the location or
+  its direction changes. Here it zooms in on the first location, then uses
+  <Api of="updateCamera" /> to center the camera on each new one. By default,
+  `updateCamera` also rotates the map to the direction the user moves or faces,
+  when that direction is known. Pass `updateBearing = BearingUpdate.Ignore` to
+  keep the map's rotation.
+
+The heading provider is optional. With it, the dot also shows which way the
+device points. <Api of="rememberDefaultHeadingProvider" /> reads the compass on
+Android and iOS, and supplies no heading on other platforms.
+
+To stop moving the camera, for example after the user pans the map, pass
+`enabled = false` to `LocationTrackingEffect`.
+[Detect when the user moves the camera](/maplibre-compose/interaction/#detect-when-the-user-moves-the-camera)
+shows how to detect a pan.
+
+## Change how often locations arrive
+
+By default, `rememberLocationState` asks for high accuracy and at most one
+location per second. To use less battery, ask for lower accuracy or fewer
+updates with <Api of="LocationRequest" />. <Api of="HeadingRequest" /> does
+the same for heading updates:
 
 <Code code={region(location, "requests")} lang="kotlin" title="App.kt" />
 
-## Request permission
+Settings that you leave out keep their default values.
 
-The library never requests location permission automatically. Call
-<Api of="LocationState.requestPermission" /> when the application is ready to
-present the platform permission UI:
+## Ask for permission
+
+The library never asks the user for location permission by itself. Call
+<Api of="LocationState.requestPermission" /> when the user asks to see their
+location, for example from a button:
 
 <Code code={region(location, "permission")} lang="kotlin" title="App.kt" />
 
-When authorization is absent, <Api of="LocationPermission.NotGranted" />
-reports the next step: explain first when `shouldShowRationale` is set
-(Android only), request when `canRequest` is not `false`, and send the user to
-the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
-opens the settings screens on the platforms that have them.
+The platform shows its permission dialog.
+
+If the user denies access, <Api of="LocationPermission.NotGranted" /> tells you
+what to do next:
+
+- `shouldShowRationale` is `true`: explain why your app needs the location, then
+  ask again. Only Android sets this.
+- `canRequest` is `true` or `null`: you can ask again.
+- `canRequest` is `false`: only the system settings can change the permission.
+  <Api of="rememberSystemSettingsLauncher" /> opens them on the platforms that
+  have such a screen.
 
 <Code code={region(location, "permission-settings")} lang="kotlin" title="App.kt" />
 
-Use <Api of="LocationState.status" /> to show tracking failures and
-<Api of="LocationState.retry" /> to let the user try again.
+## Show problems to the user
+
+<Api of="LocationState.availability" /> tells you if the platform cannot provide
+locations at all. <Api of="LocationState.status" /> tells you if locations stop
+arriving, for example because the user turned off location services. Show a
+message, and call <Api of="LocationState.retry" /> when the user asks to try
+again:
+
+<Code code={region(location, "status")} lang="kotlin" title="App.kt" />
+
+When `availability` is <Api of="LocationBackendAvailability.Misconfigured" />,
+its `cause` describes what is wrong with the app's setup.
 
 ## Platform requirements
 
 ### Android
 
-Declare `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION` in the application
-manifest. Declare `ACCESS_BACKGROUND_LOCATION` only when the application tracks
-location in the background.
+Declare the location permissions in your app's manifest:
 
-For fused location on devices with Google Play services, add the optional
-runtime module. The default providers then use fused location and heading
-where Google Play services is available, and the framework providers
-otherwise.
+```xml title="AndroidManifest.xml"
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+```
+
+The default providers use Android's built-in location service. To use Google's
+fused location and heading instead, add the optional Google Play services
+runtime:
 
 ```kotlin title="build.gradle.kts"
 androidMain.dependencies {
@@ -68,30 +111,43 @@ androidMain.dependencies {
 }
 ```
 
-For Huawei devices, `location-runtime-hms` provides fused location through HMS
-Core instead. It requires Huawei's repository and
-[HMS Core preparation](https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html).
+On devices without Google Play services, the default providers still use the
+built-in service.
+
+For Huawei devices, `location-runtime-hms` provides fused location through
+Huawei Mobile Services. It needs Huawei's Maven repository,
+`https://developer.huawei.com/repo/`, and the
+[HMS Core setup](https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html).
 
 ### iOS
 
-Add the
-[location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
-that Apple requires to your `Info.plist`.
+Add a location usage description to your app's `Info.plist`. iOS shows this text
+in the permission dialog:
+
+```xml title="Info.plist"
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Shows your position on the map.</string>
+```
 
 ### Web
 
-Browsers supply location only in a
-[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts),
-except for development origins such as `localhost`.
+Browsers provide location only on pages served over HTTPS or from `localhost`.
+See [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts).
 
 ### Desktop
 
-On macOS, add the
-[location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
-and the
-[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location)
-that Apple requires. On Linux, location comes from the desktop portal on the
-D-Bus session bus, commonly backed by
-[GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). On Windows, location
-comes from Windows Runtime geolocation. A missing backend reports an
-unsupported value through <Api of="LocationState.availability" />.
+Each desktop runtime in [Platform setup](/maplibre-compose/platform-setup/)
+includes location support for its operating system.
+
+- macOS: add `NSLocationWhenInUseUsageDescription` to the app's `Info.plist`,
+  as on iOS. For a JVM app, set it in Compose Desktop's
+  `nativeDistributions { macOS { infoPlist { extraKeysRawXml = ... } } }`. A
+  signed JVM app runs with the hardened runtime, so it also needs the
+  [location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location),
+  or macOS ignores the permission request.
+- Linux: location comes from the
+  [XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
+  Without the portal, `availability` is `Unsupported`.
+- Windows: location comes from the Windows location service. Users allow access
+  in the location privacy settings, which
+  <Api of="SystemSettingsLauncher.openApplicationSettings" /> opens.
