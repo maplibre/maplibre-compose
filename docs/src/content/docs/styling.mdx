@@ -1,6 +1,6 @@
 ---
 title: Style the map
-description: Choose a style for the map, switch it at runtime, or load one from app resources.
+description: Choose a map style, switch it at runtime, or ship one with your app.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,35 +9,57 @@ import { region } from "../../snippets";
 
 import styling from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt?raw";
 
-Every map requires a style: a JSON document that describes the data the map
-shows and how the map draws it. Tile providers usually publish styles designed
-for their data and serve them at a URI. You can also create your own styles
-with [Maputnik][maputnik], a visual style editor for MapLibre styles.
+A style is a JSON document that tells the map what to draw. It lists the data
+sources, such as vector tiles, and the layers that draw that data: roads,
+water, buildings, labels.
 
-Free and commercial tile providers are listed in the
-[awesome-maplibre][awesome-maplibre] repository. This documentation uses
-[OpenFreeMap][openfreemap] and [Protomaps][protomaps].
+## Choose a style
+
+You usually get a style from a map tile provider, which serves the style and
+the tiles it uses. The [awesome-maplibre][awesome-maplibre] list names free and
+commercial providers. The examples in this documentation use
+[OpenFreeMap][openfreemap], which needs no account, and
+[Protomaps][protomaps], which needs an API key.
+
+To design your own style, edit one in [Maputnik][maputnik], a visual style
+editor.
 
 ## Use a style
 
-Create a <Api of="MapState" /> with the style URI as its initial
-<Api of="BaseStyle" />, then pass that state to <Api of="MaplibreMap" />:
+Pass the style's URL as a <Api of="BaseStyle.Uri" /> to
+<Api of="rememberMapState" />, then pass the state to
+<Api of="MaplibreMap" />:
 
 <Code code={region(styling, "simple")} lang="kotlin" title="App.kt" />
 
+Without a `baseStyle`, the map uses <Api of="BaseStyle.Demo" />, a simple
+world map from MapLibre's demo tiles.
+
 ## Switch styles at runtime
 
-Pass the current style to `rememberMapState` to follow Compose state such as
-the system theme:
+When the `baseStyle` argument changes, the map loads the new style. This
+example follows the system theme and shows a dark map in dark mode:
 
 <Code code={region(styling, "dynamic")} lang="kotlin" title="App.kt" />
 
-## Load a local style
+The sources and layers you declare in the `rememberMapState` block stay on the
+map when the style changes. [Add data to the map](/maplibre-compose/layers/)
+shows how to declare them, and
+[How the map composes](/maplibre-compose/composition/#switching-the-base-style-keeps-your-content)
+explains what a style change resets.
 
-To ship a style with your app, load it with
-[Compose Multiplatform resources][resources]:
+## Ship a style with your app
+
+Put the style file under your module's `composeResources/files/` folder and
+pass its URI from [Compose Multiplatform resources][resources]:
 
 <Code code={region(styling, "local")} lang="kotlin" title="App.kt" />
+
+A packaged style can still load tiles, fonts, and icons from the network. To
+show maps without a network connection, see
+[Download maps for offline use](/maplibre-compose/offline/).
+
+To build a style in code instead, pass its JSON to <Api of="BaseStyle.Json" />.
 
 [maputnik]: https://maputnik.github.io/
 
