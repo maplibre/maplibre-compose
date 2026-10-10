@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerId
@@ -7,14 +8,17 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.interaction.GestureAnchor
@@ -25,6 +29,7 @@ import org.maplibre.compose.map.GestureTestFixture
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapPlatformTransformTest {
   private val map = GestureTestFixture()
+  private val clock = BroadcastFrameClock()
 
   @AfterTest fun closeMap() = map.close()
 
@@ -299,9 +304,211 @@ class MapPlatformTransformTest {
     assertFalse(routing.route(PointerEventType.Press, false, listOf(change(1, true, false))))
   }
 
+  private fun TestScope.frame(millis: Long) {
+    runCurrent()
+    clock.sendFrame(millis * 1_000_000)
+    runCurrent()
+  }
+
+  private fun Fixture.pinch(direction: Double = 1.0, endAt: Long = 80) {
+    input.onInput(PointerEventType.ScaleStart, sample(0))
+    repeat(4) { index ->
+      input.onInput(
+        PointerEventType.ScaleChange,
+        sample((index + 1) * 20L),
+        scaleFactor = 2.0.pow(direction * 0.02),
+      )
+    }
+    input.onInput(PointerEventType.ScaleEnd, sample(endAt))
+  }
+
+  @Test
+  fun native_scale_release_uses_zoom_gain_anchor_and_momentum_in_both_directions() = runTest {
+    for (direction in listOf(-1.0, 1.0)) {
+      val fixture =
+        Fixture(
+          backgroundScope,
+          InputConfiguration {
+            bindings { transform { zoom { zoomScale = 0.5 } } }
+          },
+        )
+      val completedBefore = fixture.target.endedCount
+      fixture.pinch(direction)
+      assertEquals(4, fixture.target.scaleCalls.size)
+      assertEquals(completedBefore, fixture.target.endedCount)
+      frame(0)
+      frame(600)
+      val zoom = fixture.target.scaleCalls.sumOf { kotlin.math.ln(it.scale) / kotlin.math.ln(2.0) }
+      assertEquals(direction * (0.04 + 0.075), zoom, 1e-5)
+      assertTrue(fixture.target.scaleCalls.all { it.anchor == sample(0).screenOffset })
+      assertEquals(completedBefore + 1, fixture.target.endedCount)
+      fixture.input.cancel()
+      fixture.target.scaleCalls.clear()
+    }
+  }
+
+  @Test
+  fun native_scale_momentum_honors_duration_and_camera_center_anchor() = runTest {
+    val fixture =
+      Fixture(
+        backgroundScope,
+        InputConfiguration {
+          camera {
+            zoom {
+              momentum {
+                durationScale = 0.5
+                maximumDuration = 100.milliseconds
+              }
+            }
+          }
+          bindings { transform { zoom { anchor = GestureAnchor.CameraCenter } } }
+        },
+      )
+    fixture.pinch()
+    frame(0)
+    frame(100)
+    val zoom = fixture.target.scaleCalls.sumOf { kotlin.math.ln(it.scale) / kotlin.math.ln(2.0) }
+    assertEquals(0.08 + 0.025, zoom, 1e-5)
+    assertTrue(fixture.target.scaleCalls.all { it.anchor == null })
+    assertEquals(1, fixture.target.endedCount)
+    fixture.input.cancel()
+  }
+
+  @Test
+  fun disabled_momentum_and_a_pause_before_release_start_no_animation() = runTest {
+    val disabled = Fixture(backgroundScope)
+    disabled.pinch()
+    frame(0)
+    frame(600)
+    assertEquals(4, disabled.target.scaleCalls.size)
+    assertEquals(1, disabled.target.endedCount)
+    disabled.input.cancel()
+    disabled.target.scaleCalls.clear()
+    val paused = Fixture(backgroundScope, InputConfiguration.Standard)
+    paused.pinch(endAt = 300)
+    frame(0)
+    frame(600)
+    assertEquals(4, paused.target.scaleCalls.size)
+    assertEquals(2, paused.target.endedCount)
+    paused.input.cancel()
+  }
+
+  @Test
+  fun cancelled_or_consumed_scale_end_starts_no_momentum() = runTest {
+    for (consumed in listOf(false, true)) {
+      val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+      fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
+      repeat(4) { index ->
+        fixture.input.onInput(
+          PointerEventType.ScaleChange,
+          sample((index + 1) * 20L),
+          scaleFactor = 1.02,
+        )
+      }
+      if (!consumed) fixture.input.cancel()
+      fixture.input.onInput(PointerEventType.ScaleEnd, sample(80), consumed = consumed)
+      frame(0)
+      frame(600)
+      assertEquals(4, fixture.target.scaleCalls.size)
+      fixture.input.cancel()
+      fixture.target.scaleCalls.clear()
+    }
+  }
+
+  @Test
+  fun camera_takeover_and_handler_cancellation_stop_release_momentum() = runTest {
+    for (takeover in listOf(false, true)) {
+      val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+      fixture.pinch()
+      frame(0)
+      frame(100)
+      val before = fixture.target.scaleCalls.size
+      assertTrue(before > 4)
+      if (takeover) fixture.target.interruptCamera() else fixture.input.cancel()
+      frame(600)
+      assertEquals(before, fixture.target.scaleCalls.size)
+      fixture.input.cancel()
+      fixture.target.scaleCalls.clear()
+    }
+  }
+
+  @Test
+  fun new_scale_stops_previous_momentum_and_restarts_velocity_history() = runTest {
+    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+    fixture.pinch()
+    frame(0)
+    frame(100)
+    fixture.input.onInput(PointerEventType.ScaleStart, sample(120))
+    val before = fixture.target.scaleCalls.size
+    frame(600)
+    assertEquals(before, fixture.target.scaleCalls.size)
+    fixture.input.onInput(PointerEventType.ScaleChange, sample(140), scaleFactor = 1.01)
+    fixture.input.onInput(PointerEventType.ScaleEnd, sample(300))
+    frame(700)
+    frame(1300)
+    assertEquals(before + 1, fixture.target.scaleCalls.size)
+    fixture.input.cancel()
+  }
+
+  @Test
+  fun scale_momentum_can_finish_while_the_host_pan_remains_open() = runTest {
+    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+    fixture.input.onInput(PointerEventType.PanStart, sample(0))
+    fixture.input.onInput(PointerEventType.PanMove, sample(20), panDelta = DpOffset(10.dp, 5.dp))
+    fixture.pinch()
+    frame(0)
+    frame(600)
+    assertEquals(0, fixture.target.endedCount)
+    assertTrue(fixture.target.scaleCalls.size > 4)
+    fixture.input.onInput(PointerEventType.PanEnd, sample(700))
+    runCurrent()
+    assertEquals(1, fixture.target.endedCount)
+    assertEquals(listOf(Offset(10f, 5f)), fixture.target.moveCalls)
+    fixture.input.cancel()
+  }
+
+  @Test
+  fun equal_time_scale_samples_do_not_fabricate_release_velocity() = runTest {
+    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+    fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
+    repeat(4) { fixture.input.onInput(PointerEventType.ScaleChange, sample(0), scaleFactor = 1.02) }
+    fixture.input.onInput(PointerEventType.ScaleEnd, sample(0))
+    frame(0)
+    frame(600)
+    assertEquals(4, fixture.target.scaleCalls.size)
+    assertEquals(1, fixture.target.endedCount)
+    fixture.input.cancel()
+  }
+
+  @Test
+  fun a_single_discrete_scale_step_has_no_release_momentum() = runTest {
+    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+    fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
+    fixture.input.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 1.5)
+    fixture.input.onInput(PointerEventType.ScaleEnd, sample(20))
+    frame(0)
+    frame(600)
+    assertEquals(1, fixture.target.scaleCalls.size)
+    assertEquals(1, fixture.target.endedCount)
+    fixture.input.cancel()
+  }
+
+  @Test
+  fun a_short_release_delay_keeps_the_measured_zoom_direction() = runTest {
+    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+    fixture.pinch(endAt = 119)
+    frame(0)
+    frame(600)
+    assertTrue(fixture.target.scaleCalls.size > 4)
+    assertTrue(fixture.target.scaleCalls.all { it.scale > 1.0 })
+    fixture.input.cancel()
+  }
+
   private inner class Fixture(
     scope: CoroutineScope,
-    initial: InputConfiguration = InputConfiguration.Standard,
+    initial: InputConfiguration = InputConfiguration {
+      camera { zoom { momentum { enabled = false } } }
+    },
   ) {
     init {
       map.state.gestureAuthority.updateConfiguration(initial.camera)
@@ -314,7 +521,7 @@ class MapPlatformTransformTest {
       PlatformTransformSession(
         target,
         initial,
-        scope,
+        CoroutineScope(scope.coroutineContext + clock),
         routing,
         {},
       )

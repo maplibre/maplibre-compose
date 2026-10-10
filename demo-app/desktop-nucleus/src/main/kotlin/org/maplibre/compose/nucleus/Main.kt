@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.rememberWindowState
-import dev.nucleusframework.application.NucleusBackend
 import dev.nucleusframework.application.nucleusApplication
 import dev.nucleusframework.window.TitleBarPlacement
 import dev.nucleusframework.window.WindowAppearance
@@ -30,9 +29,8 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
 fun main(args: Array<String>) {
   val launch = DemoLaunch.parse(args.toList())
   nucleusApplication(
-    backend = NucleusBackend.Tao,
     // A fixture, not a shipped app: allow parallel launches next to other demos.
-    enableSingleInstance = false,
+    enableSingleInstance = false
   ) {
     MaterialDecoratedWindow(
       onCloseRequest = ::exitApplication,
