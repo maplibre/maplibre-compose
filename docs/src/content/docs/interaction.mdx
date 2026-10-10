@@ -1,90 +1,112 @@
 ---
-title: Handle map input and clicks
-description: Customize map controls and respond to clicks on the map or its features.
+title: Handle gestures and clicks
+description: Limit camera movement, respond to clicks on the map and its layers, and change what gestures do.
 ---
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
-import { region, rememberedMapStyle } from "../../snippets";
+import { region } from "../../snippets";
 
 import interaction from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
-import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-Users can pan, zoom, rotate, and pitch the map by default. Two builders configure
-input. <Api of="MapInteractions" /> sets which camera movements are allowed and
-how your app responds to clicks. <Api of="MapUiOptions" /> sets what gestures,
-scrolling, and keys do.
+Users can pan, zoom, rotate, and pitch the map by default.
+<Api of="MapInteractions" /> sets which of these camera movements users can
+make and what your app does when they click. <Api of="MapUiOptions" /> sets
+which gesture, scroll, or key does what.
 
 ## Restrict camera movement
 
-For a map that users can pan and zoom but cannot rotate or pitch, disable those
-camera movements:
+Turn off a camera movement when your map must stay a certain way, such as
+north-up and flat. This map can be panned and zoomed, but not rotated or
+pitched:
 
 <Code code={region(interaction, "camera-movement")} lang="kotlin" title="App.kt" />
 
-Omitted settings keep their defaults. Use `MapInteractions(from = existing)`
-to build on another configuration. `MapInteractions.None` disallows every
-camera movement. `MapUiOptions.None` disables every gesture, scroll, and key
-binding, including feature clicks.
+Settings that you leave out keep their defaults. To turn off every camera
+movement, pass `MapInteractions.None`; clicks still reach the layers'
+`onClick` handlers. To make the map ignore all input, including clicks, pass
+`MapUiOptions.None` as `uiOptions`. To keep the camera inside an area or a zoom
+range instead, see
+[Limit where the camera can go](/maplibre-compose/camera/#limit-where-the-camera-can-go).
 
-To stop [following the user's location](/maplibre-compose/location/) when they
-pan, use <Api of="PanCameraBuilder.onStart" display="camera.pan.onStart" />.
-For moving the camera from app code, see [Control the camera](/maplibre-compose/camera/).
+## Detect when the user moves the camera
 
-## Handle map clicks
+Some app behavior should stop when the user moves the map, such as
+[following the user's location](/maplibre-compose/location/). Pass a function
+to <Api of="PanCameraBuilder.onStart" display="onStart" />, and the map calls it
+each time the user starts to pan:
 
-Use `callbacks.click` to act on a geographic location. For example, pass the
-clicked position to your app:
+<Code code={region(interaction, "pan-start")} lang="kotlin" title="App.kt" />
+
+`zoom`, `rotate`, and `pitch` have `onStart` too.
+
+## Respond to map clicks
+
+Use `callbacks.click` to get the geographic position that the user clicked, for
+example to drop a pin there:
 
 <Code code={region(interaction, "map-click")} lang="kotlin" title="App.kt" />
 
-Return <Api of="ClickResult.Consume" /> when your app handles the click, or
-<Api of="ClickResult.Pass" /> to let it continue to interactive layers.
-Use `longClick` for a long press or secondary mouse click.
+The callback runs before any layer receives the click. Return
+<Api of="ClickResult.Consume" /> to stop there, or
+<Api of="ClickResult.Pass" /> to let layers receive the click too. For a touch
+long press or a right click, use `longClick` in the same way.
 
-## Select layer features
+## Respond to clicks on a layer
 
-A layer's `onClick` receives the layer's features at the click and can read the
-click's `position` and `screenOffset`. Use `hitPadding` to make small features,
-such as thin lines, easier to select by touch:
+Give a layer an `onClick` handler to let users select its features. This map
+reports the earthquake that the user taps, and reports `null` when they tap
+anywhere else:
 
-<Code code={rememberedMapStyle(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
+<Code code={region(interaction, "layer-click")} lang="kotlin" title="App.kt" />
 
-Layers receive clicks from front to back until a handler returns
-`ClickResult.Consume`. Use `callbacks.click.onUnhandled` for clicks that no
-layer handles, such as clearing an app's selection.
+`onClick` receives the layer's features at the click, topmost first. Its
+receiver is the <Api of="ClickEvent" />, so the handler can also read
+`position` and `screenOffset`. `hitPadding` widens the area around the click
+that counts as a hit, which makes small circles and thin lines easier to tap.
 
-## Change scroll controls
+When several layers have features at the click, they receive it from the top
+layer down until one handler returns `ClickResult.Consume`. If none does,
+<Api of="ClickCallbackBuilder.onUnhandled" display="onUnhandled" /> runs.
 
-Vertical scrolling zooms by default. This example makes scrolling pan the map,
-while Ctrl-scroll zooms:
+## Change what scrolling does
+
+Scrolling zooms the map by default. This map pans when the user scrolls and
+zooms when they hold Ctrl and scroll:
 
 <Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
 
-A `mappings` block replaces the default actions for that input. Rows are
-tried from top to bottom; `otherwise` handles the remaining input. Available
-gestures depend on the input device and platform. A mapping cannot enable a
-camera movement that `MapInteractions` disallows.
+A `mappings` block replaces the default mappings. The map uses the first `on`
+row that matches the input, and `otherwise` matches any other input. Drags, taps, and keys
+have their own `mappings` blocks in `bindings`.
 
 ## Snap rotation to bearings
 
-Use `camera.rotate.snapping` to snap to nearby bearings after rotation ends.
-Choose specific bearings or evenly spaced targets, such as the four cardinal
-directions:
+When a rotation ends within 7° of north, the map turns to exactly north. Use
+`snapping` to choose other bearings. This map snaps to north, east, south, and
+west:
 
-<Code code={region(interaction, "bearing-snapping")} lang="kotlin" />
+<Code code={region(interaction, "bearing-snapping")} lang="kotlin" title="App.kt" />
 
-## Feel bearing notches
+To turn snapping off, set `enabled = false` in the `snapping` block.
 
-Use `camera.rotate.haptics` to add feedback at chosen bearings while rotating.
-Haptics work independently of snapping and support Android, iOS, and macOS.
-Combine notches with different emphasis levels:
+## Change haptic feedback for rotation
 
-<Code code={region(interaction, "bearing-haptics")} lang="kotlin" />
+On Android, iOS, and macOS, the device gives haptic feedback when the user
+rotates the map past north. Use `haptics` to choose the bearings and how strong
+the feedback is. This map gives subtle feedback every 15°, standard feedback at
+east, south, and west, and emphasized feedback at north:
+
+<Code code={region(interaction, "bearing-haptics")} lang="kotlin" title="App.kt" />
+
+A `haptics` block replaces the default north notch. Where notches overlap, the
+strongest emphasis wins.
 
 ## Pass gestures from your own code
 
-For hosts with their own gesture recognizer, use <Api of="MapState.panBy" />,
+If your app recognizes gestures itself, for example in a host that is not
+Compose UI, pass them to the map with <Api of="MapState.panBy" />,
 <Api of="MapState.scaleBy" />, <Api of="MapState.fling" />, and
-<Api of="MapState.click" />. See
-[Present outside Compose UI](/maplibre-compose/presentation/) for platform hosting options.
+<Api of="MapState.click" />. They follow the same `MapInteractions` settings
+and click callbacks as the built-in gestures. See
+[Present outside Compose UI](/maplibre-compose/presentation/) for hosts.
