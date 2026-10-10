@@ -1,0 +1,87 @@
+---
+title: Show 3D buildings and relief
+description: Draw 3D buildings, shade hills from elevation data, and show the world as a globe.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region, rememberedMapStyle } from "../../snippets";
+
+import terrain from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Terrain.kt?raw";
+
+Height data helps users see the shape of a city or a landscape. You can draw
+buildings as 3D blocks, shade mountains from elevation tiles, and show the
+whole world as a globe.
+
+MapLibre Compose has no API for 3D terrain, which raises the ground itself.
+Hillshade and color relief shade the flat map instead.
+
+## Show 3D buildings
+
+<Api of="FillExtrusionLayer" /> raises each polygon to a height in meters.
+OpenFreeMap serves vector tiles with a `building` source layer, where each
+building has a `render_height` and a `render_min_height`:
+
+<Code code={region(terrain, "buildings")} lang="kotlin" title="App.kt" />
+
+The camera starts tilted with `pitch`, so the heights are visible. The layer
+goes below the base style's labels, so buildings do not cover them. Some
+styles, such as OpenFreeMap Liberty, already include 3D buildings.
+
+## Light 3D buildings
+
+The style's light shades the sides of extruded buildings. Set it with
+<Api of="StyleLight.set" /> when the style is ready:
+
+<Code code={region(terrain, "light")} lang="kotlin" title="App.kt" />
+
+`position` lists the light's distance, its direction in degrees clockwise from
+north, and its angle in degrees from straight above. With
+`IlluminationAnchor.Map`, the light keeps its direction when the user rotates
+the map.
+
+Loading another base style replaces the light with the new style's light. The
+effect sets it again each time <Api of="MapStyleState.loadState" /> becomes
+<Api of="StyleLoadState.Ready" />.
+
+## Shade hills
+
+A raster DEM source loads elevation tiles: images that store a height in the
+color of each pixel. <Api of="HillshadeLayer" /> draws shadows and highlights
+from those heights, so mountains and valleys stand out:
+
+<Code code={region(terrain, "hillshade")} lang="kotlin" title="App.kt" />
+
+The sample tiles from `demotiles.maplibre.org` cover only a small area of the
+Alps around Innsbruck, Austria, so the camera starts there. For other areas,
+use a provider that serves elevation tiles. Pass its tile URLs and its
+<Api of="RasterDemEncoding" /> to <Api of="rememberRasterDemTileSource" />.
+
+## Color by elevation
+
+<Api of="ColorReliefLayer" /> colors each pixel by its height. Build the colors
+with <Api of="interpolate" /> over <Api of="elevation" />, in meters:
+
+<Code code={rememberedMapStyle(region(terrain, "color-relief"))} lang="kotlin" title="App.kt" />
+
+Without `color`, the layer uses <Api of="LayerDefaults.ColorReliefColors" />.
+With the sample tiles from the previous section, start the camera over
+Innsbruck as that example does; elsewhere the layer has no data to color.
+
+## Show a globe
+
+Set the style's projection to <Api of="ProjectionType.Globe" /> to show the
+world as a globe when the user zooms out:
+
+<Code code={region(terrain, "globe")} lang="kotlin" title="App.kt" />
+
+Below zoom 11, the map is a globe. Between zoom 11 and zoom 12, it turns into
+the flat Mercator map. `ProjectionType.Globe` is experimental, so the function
+opts in to <Api of="ExperimentalMaplibreComposeApi" />. As with the light, a new base
+style replaces the projection, so the effect sets it again.
+
+Only the browser draws a globe. MapLibre Native supports only the Mercator
+projection, so it logs a warning and keeps the flat map. On the browser, the
+globe has an atmosphere around it. <Api of="StyleSky.set" /> changes the
+atmosphere and the color of the sky above the horizon. MapLibre Native does not
+draw a sky.
