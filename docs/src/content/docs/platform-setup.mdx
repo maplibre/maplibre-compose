@@ -109,8 +109,10 @@ supply a main dispatcher. Without one, the map runtime fails to start.
 
 #### Nucleus
 
-We recommend [Nucleus][nucleus] with its Tao backend. Add its application and
-Tao window modules:
+We recommend [Nucleus][nucleus] with its Tao backend. Its windows integrate
+more fully with each platform than AWT windows, which makes map gestures work
+better, and on Linux it supports Wayland and fractional scaling. Add its
+application and Tao window modules:
 
 ```kotlin title="build.gradle.kts"
 jvmMain.dependencies {
