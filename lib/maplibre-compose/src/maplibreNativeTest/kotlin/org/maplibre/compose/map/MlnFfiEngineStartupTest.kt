@@ -11,7 +11,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -96,7 +95,7 @@ class MlnFfiEngineStartupTest {
     runBlocking {
       withNativeMapState { state, runtime ->
         val session = newSession(state, runtime)
-        val transitions = MlnFfiCameraTransitions { null }
+        val transitions = MlnFfiCameraTransitions(logger = { null }, observe = {})
         try {
           session.ensureEngine()
           val map = checkNotNull(session.mapForTest)
@@ -121,62 +120,16 @@ class MlnFfiEngineStartupTest {
               }
             }
           assertEquals("rejected camera options", actual.message)
-          transitions.cancelAnchor(map)
+          transitions.cancelAnchor()
           withTimeout(TimeoutMillis) {
             assertFailsWith<CancellationException> { previous.await() }
           }
         } finally {
-          transitions.releaseAll()
           session.close()
           session.awaitClosed()
         }
       }
     }
-
-  @Test
-  fun retiring_camera_completion_while_the_map_is_alive_rejects_late_work() = runBlocking {
-    withNativeMapState { state, runtime ->
-      val session = newSession(state, runtime)
-      val ownerHeld = TestGate()
-      val entered = CompletableDeferred<Long>()
-      val transitions = MlnFfiCameraTransitions { null }
-      try {
-        session.ensureEngine()
-        val map = checkNotNull(session.mapForTest)
-        val movement =
-          async(Dispatchers.Default) {
-            suspendCancellableCoroutine<Unit> { continuation ->
-              transitions.start(map, AnimationOptions(), continuation, anchored = true) { _, options
-                ->
-                entered.complete(requireNotNull(options.transitionId).toLong())
-                ownerHeld.awaitUntilOpen()
-                CompletableDeferred()
-              }
-            }
-          }
-        val id = withTimeout(TimeoutMillis) { entered.await() }
-        // Failed renderer release can leave the map owner running while physical cleanup retires
-        // completion. Hold a start in progress to exercise that handoff without leaking a renderer.
-        transitions.releaseAll()
-        ownerHeld.open()
-        withTimeout(TimeoutMillis) { movement.await() }
-        transitions.finished(id)
-        transitions.eventsDrained()
-        transitions.cancelAnchor(map)
-        withTimeout(TimeoutMillis) {
-          suspendCancellableCoroutine<Unit> { continuation ->
-            transitions.start(map, AnimationOptions(), continuation, anchored = false) { _, _ ->
-              error("A retired completion owner started another movement")
-            }
-          }
-        }
-      } finally {
-        ownerHeld.open()
-        session.close()
-        session.awaitClosed()
-      }
-    }
-  }
 
   private fun newSession(
     state: MapState,

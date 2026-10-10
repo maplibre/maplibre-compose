@@ -97,7 +97,6 @@ import org.maplibre.nativeffi.generated.RenderedQueryGeometry
 import org.maplibre.nativeffi.generated.RenderedQueryGeometryData
 import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventMask
-import org.maplibre.nativeffi.generated.RuntimeEventPayload
 import org.maplibre.nativeffi.generated.RuntimeEventType
 import org.maplibre.nativeffi.generated.ScreenBox
 import org.maplibre.nativeffi.generated.ScreenPoint
@@ -123,7 +122,6 @@ private val HandledMapEvents: RuntimeEventMask =
     RuntimeEventMask.MAP_CAMERA_WILL_CHANGE or
     RuntimeEventMask.MAP_CAMERA_IS_CHANGING or
     RuntimeEventMask.MAP_CAMERA_DID_CHANGE or
-    RuntimeEventMask.MAP_CAMERA_TRANSITION_FINISHED or
     RuntimeEventMask.MAP_RENDER_ERROR or
     RuntimeEventMask.MAP_RENDER_FRAME_FINISHED or
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
@@ -213,7 +211,8 @@ internal class MlnFfiMapSession(
       requestViewport = { extent -> if (viewport.request(extent)) owner.requestDrain() },
     )
 
-  private val cameraTransitions = MlnFfiCameraTransitions { logger }
+  private val cameraTransitions =
+    MlnFfiCameraTransitions(logger = { logger }, observe = { viewport.snapshot(it) })
 
   /** Where this map's style visits run. Internal for tests. */
   internal val styleVisits = MlnFfiStyleVisits()
@@ -484,8 +483,6 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun closeResources() {
-    // Completion can retire independently of a map kept alive by failed renderer release.
-    cameraTransitions.releaseAll()
     retireOwnerState()
   }
 
@@ -541,7 +538,6 @@ internal class MlnFfiMapSession(
       }
     fences.forEach { it.complete() }
     barriers.forEach { runCatching(it) }
-    if (isClosing) cameraTransitions.releaseAll()
   }
 
   // endregion
@@ -657,15 +653,6 @@ internal class MlnFfiMapSession(
         }
       }
 
-      RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
-        val payload = event.payload
-        if (payload !is RuntimeEventPayload.CameraTransitionFinished) {
-          logger?.w { "A camera transition finished without a payload naming it" }
-        } else {
-          cameraTransitions.finished(payload.value.transitionId.toLong())
-        }
-      }
-
       RuntimeEventType.MAP_RENDER_FRAME_FINISHED ->
         if (lease != null && mapEvent != null) events.presentationEvent(engine, lease, mapEvent)
 
@@ -692,7 +679,6 @@ internal class MlnFfiMapSession(
     applyPendingViewport(map)
     if (viewport.snapshotStale) viewport.snapshot(map)
     finishGestures(drain)
-    cameraTransitions.eventsDrained()
     runDrainBarriers(drain)
     // Apply once per drain, including while detached. Events already in this batch belong to the
     // preceding producer; setters requested by callbacks cannot change their attribution midway.
@@ -714,8 +700,8 @@ internal class MlnFfiMapSession(
       cameraLock.withLock {
         viewport.pendingRequest(
           map,
-          beforeResize = { size -> cameraTransitions.viewportChanged(map, size) },
-          beforePadding = { cameraTransitions.cancelAnchor(map) },
+          beforeResize = { size -> cameraTransitions.viewportChanged(size) },
+          beforePadding = { cameraTransitions.cancelAnchor() },
         )
       } ?: return
     // Size and padding describe one viewport only once the padding has reached the map.
@@ -864,7 +850,7 @@ internal class MlnFfiMapSession(
       val map = map ?: return
       if (!viewport.hasViewport) return
       viewport
-        .applyInsets(map) { cameraTransitions.cancelAnchor(map) }
+        .applyInsets(map) { cameraTransitions.cancelAnchor() }
         ?.let { map.updateCamera(it).refreshViewportOnCompletion().report("apply insets") }
     }
   }

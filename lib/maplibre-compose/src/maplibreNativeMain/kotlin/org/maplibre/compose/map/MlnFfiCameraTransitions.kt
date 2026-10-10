@@ -14,14 +14,23 @@ import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.generated.AnimationOptions
+import org.maplibre.nativeffi.generated.CameraTransitionEnd
+import org.maplibre.nativeffi.generated.CameraTransitionHandler
+import org.maplibre.nativeffi.generated.CameraTransitionOutcome
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.runtime.CommandCompletion
 
 /**
- * Native ID completion. Transitions start from any thread; their finish events arrive on the event
- * pump. The lock protects state; engine calls and continuations run outside it.
+ * Starts camera transitions that resume their caller when native reports their end, and keeps the
+ * anchor policy: a viewport resize or padding change cancels the anchored transition. Cancelling a
+ * caller only withdraws it; the camera keeps moving, as on every platform.
+ *
+ * [observe] runs before a transition's caller resumes, so camera getters show where it ended.
  */
-internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
+internal class MlnFfiCameraTransitions(
+  private val logger: () -> MapLog?,
+  private val observe: (MapHandle) -> Unit,
+) {
   /** A camera field that a transition animates. */
   enum class Field {
     Center,
@@ -31,14 +40,49 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
     Padding,
   }
 
-  private class Anchor(val id: Long, val size: DpSize, val fields: Set<Field>)
+  private class Anchor(val transition: Transition, val size: DpSize, val fields: Set<Field>)
+
+  /**
+   * One camera command. Its caller resumes once native has reported both the command's completion
+   * and the end of its transitions, so a command that fails before it starts them reports why.
+   */
+  private inner class Transition(
+    val id: ULong,
+    val map: MapHandle,
+    val continuation: CancellableContinuation<Unit>,
+  ) {
+    private var failure: Throwable? = null
+    private var completed = false
+    private var ended = false
+
+    fun commandCompleted(error: Throwable?) = settle {
+      completed = true
+      failure = error
+    }
+
+    fun transitionEnded(end: CameraTransitionEnd) {
+      lock.withLock { if (anchor?.transition === this) anchor = null }
+      // The snapshot of the end's generation shows the final camera, so getters read after the
+      // caller resumes show it. A closed map has nothing left to show.
+      if (end.outcome != CameraTransitionOutcome.CLOSED) runCatching { observe(map) }
+      settle { ended = true }
+    }
+
+    private fun settle(update: () -> Unit) {
+      val (resume, error) =
+        lock.withLock {
+          val wasDone = completed && ended
+          update()
+          (!wasDone && completed && ended) to failure
+        }
+      if (!resume || !continuation.isActive) return
+      if (error != null) continuation.resumeWithException(error) else continuation.resume(Unit)
+    }
+  }
 
   private val lock = MlnFfiLock()
-  private var retired = false
-  private var nextId = 0L
+  private var nextId = 0uL
   private var anchor: Anchor? = null
-  private val waiters = mutableMapOf<Long, CancellableContinuation<Unit>>()
-  private val pendingResumes = mutableListOf<CancellableContinuation<Unit>>()
 
   fun start(
     map: MapHandle,
@@ -58,26 +102,18 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
       if (anchored)
         map.getSnapshot().logicalExtent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
       else null
-    val id = lock.withLock {
-      if (retired) return@withLock null
-      val id = ++nextId
-      waiters[id] = continuation
-      id
-    }
-    if (id == null) {
-      continuation.resume(Unit)
-      return
-    }
-    continuation.invokeOnCancellation {
-      // Withdrawing a waiter cannot safely stop its tracks without scoped FFI cancellation.
-      lock.withLock { waiters.remove(id) }
-    }
+    val transition = Transition(lock.withLock { ++nextId }, map, continuation)
     val started =
       try {
-        start(map, animation.copy(transitionId = id.toULong()))
+        start(
+          map,
+          animation.copy(
+            transitionId = transition.id,
+            endHandler = CameraTransitionHandler(transition::transitionEnded),
+          ),
+        )
       } catch (error: Throwable) {
-        // A rejected command emits no event, so nothing else would resume the continuation.
-        lock.withLock { waiters.remove(id) }
+        // A rejected command never runs its end handler.
         if (continuation.isActive) continuation.resumeWithException(error)
         return
       }
@@ -85,65 +121,26 @@ internal class MlnFfiCameraTransitions(private val logger: () -> MapLog?) {
       @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
       val failure =
         error ?: started.getCompleted().takeIf { it.failed }?.let(::CommandFailedException)
-      if (failure != null) {
-        // A command that failed on the map worker starts no transition and reports no finish.
-        val waiter = lock.withLock { waiters.remove(id) }
-        if (waiter?.isActive == true) waiter.resumeWithException(failure)
-      }
+      transition.commandCompleted(failure)
     }
-    // Native stops a replaced anchor and reports its end later. Geometry changes until then no
-    // longer belong to it, so they must not cancel the replacement. A rejected start keeps it.
-    lock.withLock { if (anchor?.fields?.any { it in fields } == true) anchor = null }
-    // Native drains finish events after this command; a rejected start keeps the old anchor.
-    if (size != null)
-      lock.withLock { if (!retired) anchor = Anchor(id, size, fields + Field.Center) }
-  }
-
-  fun finished(id: Long) {
-    val known = lock.withLock {
-      if (anchor?.id == id) anchor = null
-      val waiter = waiters.remove(id)
-      if (waiter != null) pendingResumes += waiter
-      waiter != null
+    lock.withLock {
+      // Native stops a replaced anchor. Geometry changes from here on no longer belong to it, so
+      // they must not cancel the replacement.
+      if (anchor?.fields?.any { it in fields } == true) anchor = null
+      if (size != null) anchor = Anchor(transition, size, fields + Field.Center)
     }
-    // Native queues this before MAP_CAMERA_DID_CHANGE. Resume only after the final observation.
-    if (!known) logger()?.d { "Ignoring the end of unknown camera transition $id" }
   }
 
-  fun viewportChanged(map: MapHandle, size: DpSize) {
-    if (lock.withLock { anchor?.let { it.size != size } == true }) cancelAnchor(map)
+  fun viewportChanged(size: DpSize) {
+    if (lock.withLock { anchor?.let { it.size != size } == true }) cancelAnchor()
   }
 
-  /** Geometry invalidates the anchor. Without scoped cancellation this stops every track. */
-  fun cancelAnchor(map: MapHandle) {
-    val waiter = lock.withLock {
-      val current = anchor ?: return
-      anchor = null
-      waiters[current.id]
-    }
-    waiter?.cancel(CancellationException("The anchor viewport changed"))
-    map.cancelTransitions().reportFailure(logger(), "cancel camera transitions")
-  }
-
-  fun eventsDrained() {
-    val resuming = lock.withLock { pendingResumes.toList().also { pendingResumes.clear() } }
-    resume(resuming)
-  }
-
-  /** Closing a map discards its queued events, so no finish event will follow. */
-  fun releaseAll() {
-    val stranded = lock.withLock {
-      retired = true
-      anchor = null
-      (waiters.values + pendingResumes).also {
-        waiters.clear()
-        pendingResumes.clear()
-      }
-    }
-    resume(stranded)
-  }
-
-  private fun resume(continuations: List<CancellableContinuation<Unit>>) {
-    continuations.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+  /** Geometry invalidates the anchor, so its transition stops where it stands. */
+  fun cancelAnchor() {
+    val current = lock.withLock { anchor.also { anchor = null } } ?: return
+    current.transition.continuation.cancel(CancellationException("The anchor viewport changed"))
+    current.transition.map
+      .cancelCameraTransition(current.transition.id)
+      .reportFailure(logger(), "cancel the anchored camera transition")
   }
 }
