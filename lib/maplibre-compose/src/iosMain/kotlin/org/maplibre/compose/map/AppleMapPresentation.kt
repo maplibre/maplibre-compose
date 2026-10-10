@@ -367,9 +367,8 @@ internal constructor(
 
     /**
      * Waits until every renderer has stopped using this binding's layer. Call [close] first;
-     * replacing the binding or closing its presentation also closes it.
-     *
-     * @throws Throwable if release failed, in which case the layer must not be reused.
+     * replacing the binding or closing its presentation also closes it. Throws if release failed,
+     * in which case the layer must not be reused.
      */
     public suspend fun awaitClosed() {
       closure.await().mapNotNull { it.await().exceptionOrNull() }.throwCleanupFailures()

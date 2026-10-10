@@ -75,7 +75,7 @@ internal constructor(
    * Starts a foreground permission request and returns immediately. The result is published to
    * [status].
    *
-   * @throws IllegalStateException if the requester is closed or called off the main thread.
+   * Throws `IllegalStateException` if the requester is closed or called off the main thread.
    */
   public fun requestForegroundPermission() {
     check(NSThread.isMainThread) { "Location permission requester requires the main thread" }
