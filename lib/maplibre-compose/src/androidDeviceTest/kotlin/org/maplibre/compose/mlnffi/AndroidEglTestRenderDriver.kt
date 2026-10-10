@@ -9,6 +9,7 @@ import android.opengl.GLES30
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.TestMain
@@ -27,16 +28,30 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override val backends = RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
-  override fun <T> withRendererAccess(action: () -> T): T = action()
+  /** The thread that creates this host pumps its frames, so it is the host's renderer thread. */
+  private val rendererThread = Thread.currentThread()
+  private val pending = ConcurrentLinkedQueue<() -> Unit>()
+
+  override fun <T> withRendererAccess(action: () -> T): T {
+    runPending()
+    return action()
+  }
 
   /**
-   * The test thread that pumps frames is this host's renderer thread, so queued renderer work runs
-   * on its event loop, which drains while the test body awaits.
+   * Runs [action] on the renderer thread: at once on it, else on its test event loop, which drains
+   * while the test body awaits, else before its next frame.
    */
   override fun enqueueRenderer(action: () -> Unit): Boolean {
-    val loop = TestMain.loop ?: return super.enqueueRenderer(action)
-    loop.dispatch(EmptyCoroutineContext, Runnable(action))
+    when {
+      Thread.currentThread() === rendererThread -> action()
+      TestMain.loop != null -> TestMain.loop?.dispatch(EmptyCoroutineContext, Runnable(action))
+      else -> pending += action
+    }
     return true
+  }
+
+  private fun runPending() {
+    while (true) (pending.poll() ?: return).invoke()
   }
 
   override fun resize(extent: MapExtent) {
@@ -44,6 +59,7 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   }
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
+    runPending()
     ensureSurface(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(

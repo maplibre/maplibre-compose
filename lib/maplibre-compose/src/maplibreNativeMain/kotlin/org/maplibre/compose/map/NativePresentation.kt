@@ -199,11 +199,19 @@ internal class NativePresentation(
       ready = false
       target = null
       var failure: Throwable? = null
-      try {
-        await(closing, closing.detach())
-      } catch (error: Throwable) {
-        failure = error
-        runCatching { closing.abandon() }.exceptionOrNull()?.let(error::addSuppressed)
+      val retired =
+        try {
+          await(closing, closing.detach())
+          true
+        } catch (error: Throwable) {
+          failure = error
+          runCatching { closing.abandon() }.onFailure(error::addSuppressed).isSuccess
+        }
+      if (!retired) {
+        // Neither detach nor abandon took, so native retires the session once it can.
+        runCatching { closing.dispose() }.exceptionOrNull()?.let { failure?.addSuppressed(it) }
+        failure?.let { throw it }
+        return
       }
       // A query that is being submitted holds the handle for that call, so a close can race it.
       while (true) {

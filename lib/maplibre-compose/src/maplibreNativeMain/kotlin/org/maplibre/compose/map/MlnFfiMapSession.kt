@@ -483,6 +483,9 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun closeResources() {
+    // A failed renderer release keeps the map alive, and its transitions would never end. Stopping
+    // them ends each with its handler, which resumes its waiter.
+    map?.cancelTransitions()?.report("cancel camera transitions")
     retireOwnerState()
   }
 
