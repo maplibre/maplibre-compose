@@ -112,6 +112,12 @@ public object PointerPinButtonDefaults {
   /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
   public val ContainerColor: Color = Color.White.copy(alpha = 0.9f)
 
+  /**
+   * Contrasts with [ContainerColor], in the absence of a theme to draw colors from. The button does
+   * not apply it; tint the content with it, such as an icon's `tint`.
+   */
+  public val ContentColor: Color = Color.Black.copy(alpha = 0.75f)
+
   public val ShadowElevation: Dp = 0.dp
 
   public val HoveredShadowElevation: Dp = 0.dp

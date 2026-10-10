@@ -90,6 +90,7 @@ import org.maplibre.compose.overlay.GeographicLayout
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.PointerPinButton
+import org.maplibre.compose.overlay.PointerPinButtonDefaults
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.util.DpPadding
@@ -399,7 +400,7 @@ fun DemoMap(
                   Icon(
                     vectorResource(Res.drawable.filter_center_focus_24px),
                     description,
-                    tint = ZoomButtonsDefaults.ContentColor,
+                    tint = PointerPinButtonDefaults.ContentColor,
                   )
                 }
               }

@@ -3357,6 +3357,7 @@ public final class org/maplibre/compose/overlay/PointerPinButtonDefaults {
 	public static final field $stable I
 	public static final field INSTANCE Lorg/maplibre/compose/overlay/PointerPinButtonDefaults;
 	public final fun getContainerColor-0d7_KjU ()J
+	public final fun getContentColor-0d7_KjU ()J
 	public final fun getHoveredShadowElevation-D9Ej5fM ()F
 	public final fun getShadowElevation-D9Ej5fM ()F
 	public final fun style ()Lorg/maplibre/compose/overlay/PointerPinButtonStyle;

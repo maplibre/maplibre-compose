@@ -3906,6 +3906,8 @@ final object org.maplibre.compose.overlay/CompassDefaults { // org.maplibre.comp
 final object org.maplibre.compose.overlay/PointerPinButtonDefaults { // org.maplibre.compose.overlay/PointerPinButtonDefaults|null[0]
     final val ContainerColor // org.maplibre.compose.overlay/PointerPinButtonDefaults.ContainerColor|{}ContainerColor[0]
         final fun <get-ContainerColor>(): androidx.compose.ui.graphics/Color // org.maplibre.compose.overlay/PointerPinButtonDefaults.ContainerColor.<get-ContainerColor>|<get-ContainerColor>(){}[0]
+    final val ContentColor // org.maplibre.compose.overlay/PointerPinButtonDefaults.ContentColor|{}ContentColor[0]
+        final fun <get-ContentColor>(): androidx.compose.ui.graphics/Color // org.maplibre.compose.overlay/PointerPinButtonDefaults.ContentColor.<get-ContentColor>|<get-ContentColor>(){}[0]
     final val HoveredShadowElevation // org.maplibre.compose.overlay/PointerPinButtonDefaults.HoveredShadowElevation|{}HoveredShadowElevation[0]
         final fun <get-HoveredShadowElevation>(): androidx.compose.ui.unit/Dp // org.maplibre.compose.overlay/PointerPinButtonDefaults.HoveredShadowElevation.<get-HoveredShadowElevation>|<get-HoveredShadowElevation>(){}[0]
     final val ShadowElevation // org.maplibre.compose.overlay/PointerPinButtonDefaults.ShadowElevation|{}ShadowElevation[0]
