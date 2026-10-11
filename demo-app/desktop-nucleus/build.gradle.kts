@@ -32,7 +32,8 @@ dependencies {
 
 nucleus.application {
   mainClass = "org.maplibre.compose.nucleus.MainKt"
-  // Nucleus defaults to the Gradle daemon's JDK rather than the Kotlin toolchain.
+  // Nucleus ignores the Kotlin toolchain and defaults to the Gradle daemon's JDK.
+  // https://github.com/NucleusFramework/Nucleus/issues/830
   javaHome =
     javaToolchains
       .launcherFor {
@@ -44,7 +45,8 @@ nucleus.application {
       .asFile
       .absolutePath
   if (desktopHostPlatform == DesktopHostPlatform.MacosArm64) {
-    // Nucleus adds this to hot reload, but not the ordinary JVM launcher.
+    // Tao records the wrong dispatcher thread without this flag on ordinary launches.
+    // https://github.com/NucleusFramework/Nucleus/issues/829
     jvmArgs += "-XstartOnFirstThread"
   }
 }
