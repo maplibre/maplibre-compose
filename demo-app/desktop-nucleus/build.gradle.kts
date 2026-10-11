@@ -35,15 +35,7 @@ nucleus.application {
   // Nucleus ignores the Kotlin toolchain and defaults to the Gradle daemon's JDK.
   // https://github.com/NucleusFramework/Nucleus/issues/830
   javaHome =
-    javaToolchains
-      .launcherFor {
-        languageVersion.set(JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt()))
-      }
-      .get()
-      .metadata
-      .installationPath
-      .asFile
-      .absolutePath
+    javaToolchains.launcherFor(java.toolchain).get().metadata.installationPath.asFile.absolutePath
   if (desktopHostPlatform == DesktopHostPlatform.MacosArm64) {
     // Tao records the wrong dispatcher thread without this flag on ordinary launches.
     // https://github.com/NucleusFramework/Nucleus/issues/829
@@ -52,6 +44,6 @@ nucleus.application {
 }
 
 tasks.withType<ComposeHotRun>().configureEach {
-  // Nucleus supplies the main class and macOS first-thread flag for hot reload.
+  // Nucleus enables native access for ordinary launches; hot reload needs it explicitly.
   jvmArgs(NATIVE_ACCESS_JVM_ARGS)
 }
