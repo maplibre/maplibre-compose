@@ -47,50 +47,6 @@ zoom, pan, and window closure.
 
 The browser demo serves a Compose HTML ferry departure board at `/?ferries`.
 
-### Packaged demos
-
-Download demo artifacts from the **Artifacts** section of a GitHub Actions run.
-They are retained for seven days. Draft PRs produce Android, browser, and Linux
-x64 packages; ready PRs also produce macOS, Windows x64, and iOS simulator
-packages. The `ci:full` label adds Linux and Windows ARM64 packages.
-
-| Platform                                 | Local task (`mise run …`) | CI artifact                       | Contents                         |
-| ---------------------------------------- | ------------------------- | --------------------------------- | -------------------------------- |
-| Android phone, tablet, TV, Auto, Wear OS | `build:android-app`       | `demo-app-android`                | Debug-key-signed release APKs    |
-| Browser                                  | `package:js-app`          | `demo-app-browser`                | Static site in `.tar.gz`         |
-| Linux x64 / ARM64                        | `build:desktop-app`       | `demo-app-desktop-linux-<arch>`   | Nucleus `.AppImage` in `.tar.gz` |
-| Windows x64 / ARM64                      | `build:desktop-app`       | `demo-app-desktop-windows-<arch>` | Nucleus NSIS `.exe` installer    |
-| macOS ARM64                              | `build:desktop-app`       | `demo-app-desktop-macos-arm64`    | Nucleus `.dmg` with bundled JVM  |
-| macOS ARM64, Kotlin/Native host          | `build:macos-app`         | `demo-app-macos-native-arm64`     | `.app` in `.tar.gz`              |
-| iOS simulator ARM64, including CarPlay   | `build:ios-simulator-app` | `demo-app-ios-simulator-arm64`    | Simulator `.app` in `.tar.gz`    |
-
-Desktop packages build for the host OS and architecture and include its default
-MapLibre backend. They use
-[Nucleus packaging](https://nucleusframework.dev/en/docs/packaging/); the AWT
-host remains available through `demo:desktop` for development and tests. The
-version comes from Git tags. macOS bundle versions add one to the major version
-because `jpackage` rejects a zero major version. Packages use ad hoc signing on
-macOS, without notarization, and no publisher signature on Windows.
-
-Extract the Linux archive before launching the AppImage so its executable
-permission is preserved. Open the Windows installer, or copy the macOS app from
-the DMG to Applications. The native macOS archive can be extracted and its app
-launched directly. Install Android APKs with `adb install <apk>`; Auto and Wear
-OS use their own APKs. The phone APK also supports Android TV.
-
-Extract the browser archive and serve its directory over HTTP, for example with
-`python3 -m http.server`; opening `index.html` as a file does not work.
-
-The iOS archive runs on an Apple Silicon simulator with a compatible iOS runtime
-and requires no provisioning profile. Extract it, boot a simulator, and run:
-
-```sh
-xcrun simctl install booted maplibre-compose-demo.app
-xcrun simctl launch booted org.maplibre.compose.demoapp --route=demo/castello-plan
-```
-
-Physical iOS devices require a signed, provisioned build made with Xcode.
-
 ### Android Auto
 
 `mise run demo:android-auto` needs the
