@@ -1,0 +1,126 @@
+---
+import MapDiagram from "./MapDiagram.astro";
+import "../styles/camera-diagrams.css";
+
+const route = "M32 124L70 90L114 110L132 32L182 70L212 140L244 104L288 48";
+---
+
+<figure class="camera-illustration fit-diagram">
+  <MapDiagram
+    label="A route fits inside its dashed bounding box, with 32 dp of fit padding around it and the bottom-sheet viewport inset below."
+  >
+    <path
+      d="M0 0H320V172H0ZM32 32V140H288V32Z"
+      fill="var(--sl-color-accent)"
+      fill-opacity=".16"
+      fill-rule="evenodd"
+    />
+    <rect
+      x="32"
+      y="32"
+      width="256"
+      height="108"
+      fill="none"
+      stroke="#285daa"
+      stroke-width="1.5"
+      stroke-dasharray="5 4"
+    />
+    <path
+      d={route}
+      fill="none"
+      stroke="#fff"
+      stroke-width="6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d={route}
+      fill="none"
+      stroke="#285daa"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <circle
+      cx="32"
+      cy="124"
+      r="4"
+      fill="#fff"
+      stroke="#285daa"
+      stroke-width="2"
+    />
+    <circle
+      cx="288"
+      cy="48"
+      r="4"
+      fill="#fff"
+      stroke="#285daa"
+      stroke-width="2"
+    />
+    <rect
+      x="111"
+      y="3"
+      width="98"
+      height="23"
+      rx="4"
+      fill="var(--sl-color-bg)"
+    />
+    <text
+      x="160"
+      y="19"
+      fill="var(--sl-color-text)"
+      font-family="sans-serif"
+      font-size="12"
+      text-anchor="middle"
+    >
+      fitPadding
+    </text>
+    <path
+      d="M0 240V200A28 28 0 0 1 28 172H292A28 28 0 0 1 320 200V240Z"
+      fill="var(--sl-color-bg)"
+    />
+    <path
+      d="M0 200A28 28 0 0 1 28 172H292A28 28 0 0 1 320 200"
+      fill="none"
+      stroke="var(--sl-color-gray-5)"
+    />
+    <path
+      d="M0 172H320"
+      fill="none"
+      stroke="#285daa"
+      stroke-width="1.5"
+      stroke-dasharray="5 4"
+    />
+    <rect
+      x="143"
+      y="181"
+      width="34"
+      height="3"
+      rx="1.5"
+      fill="var(--sl-color-gray-4)"
+    />
+    <text
+      x="160"
+      y="207"
+      fill="var(--sl-color-text)"
+      font-family="sans-serif"
+      font-size="13"
+      text-anchor="middle"
+    >
+      Bottom sheet
+    </text>
+    <text
+      x="160"
+      y="226"
+      fill="var(--sl-color-gray-2)"
+      font-family="sans-serif"
+      font-size="11"
+      text-anchor="middle"
+    >
+      viewportInsets
+    </text>
+  </MapDiagram>
+  <figcaption>
+    The route bounds fit inside the padding, above the bottom sheet.
+  </figcaption>
+</figure>

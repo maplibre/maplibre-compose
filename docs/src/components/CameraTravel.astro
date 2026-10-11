@@ -1,0 +1,54 @@
+---
+import Api from "./Api.astro";
+import CameraMotion from "./CameraMotion.astro";
+import CameraScene from "./CameraScene.astro";
+---
+
+<CameraMotion label="Compare ease and fly camera animations">
+  <div class="travel-comparison">
+    <figure>
+      <div class="animated-view"><CameraScene motion="ease" animated /></div>
+      <div class="motion-frames">
+        <figure>
+          <CameraScene motion="ease" frame="start" /><figcaption>
+            Start
+          </figcaption>
+        </figure>
+        <figure>
+          <CameraScene motion="ease" frame="middle" /><figcaption>
+            Travelling
+          </figcaption>
+        </figure>
+        <figure>
+          <CameraScene motion="ease" frame="end" /><figcaption>End</figcaption>
+        </figure>
+      </div>
+      <figcaption>
+        <Api of="CameraAnimation.Ease" display="Ease" />
+        <p>Moves directly to the target.</p>
+      </figcaption>
+    </figure>
+    <figure>
+      <div class="animated-view"><CameraScene motion="fly" animated /></div>
+      <div class="motion-frames">
+        <figure>
+          <CameraScene motion="fly" frame="start" /><figcaption>
+            Start
+          </figcaption>
+        </figure>
+        <figure>
+          <CameraScene motion="fly" frame="middle" /><figcaption>
+            Travelling
+          </figcaption>
+        </figure>
+        <figure>
+          <CameraScene motion="fly" frame="end" /><figcaption>End</figcaption>
+        </figure>
+      </div>
+      <figcaption>
+        <Api of="CameraAnimation.Fly" display="Fly" />
+        <p>Zooms out, travels, then zooms back in.</p>
+      </figcaption>
+    </figure>
+  </div>
+</CameraMotion>

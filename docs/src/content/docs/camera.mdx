@@ -5,6 +5,9 @@ description: Set where the map starts, move it from code, fit an area on screen,
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import CameraTravel from "../../components/CameraTravel.astro";
+import CameraAnchor from "../../components/CameraAnchor.astro";
+import CameraFit from "../../components/CameraFit.astro";
 import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
@@ -45,15 +48,17 @@ start an animation from `LaunchedEffect` when the screen opens.
 The `animation` parameter chooses how the camera travels.
 
 <Api of="CameraAnimation.Ease" /> is the default. It moves straight to the
-target in 300 ms and never zooms out on the way. Use it for short moves, such as
-zooming in place or following a moving point. Over long distances the map
-moves too fast to follow.
+target in 300 ms. Zoom changes directly from the current level to the target
+level. Use it for short moves, such as zooming in place or following a moving
+point. Over long distances the map moves too fast to follow.
 
 <Api of="CameraAnimation.Fly" /> zooms out, travels, and zooms back in, so the
 user can see where the camera is going. Use it to move between places that are
 far apart, such as two cities:
 
 <Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
+
+<CameraTravel />
 
 Without a `duration`, the flight takes longer for longer distances. Set `speed`
 to change how fast it travels. To change the length of an ease, set its
@@ -82,6 +87,8 @@ user selected without moving that place on screen:
 <Api of="CameraAnchor.Screen" /> keeps a screen point in place, in dp from the
 map's top-left corner. The point must be visible when the animation starts.
 
+<CameraAnchor />
+
 ## Fit an area on screen
 
 <Api of="MapState.animateCameraToBounds" /> moves the camera so a
@@ -95,6 +102,8 @@ edges of the map. The fit also stays clear of the `viewportInsets` that you pass
 to <Api of="MaplibreMap" />, such as the area under a bottom sheet; see
 [Keep controls clear of your UI](/maplibre-compose/controls/#keep-controls-clear-of-your-ui). To fit
 without animation, call <Api of="MapState.fitCameraToBounds" />.
+
+<CameraFit />
 
 <Api of="MapState.cameraForBounds" /> calculates the fitted camera without
 moving the map, so you can change it before you apply it. For example, cap the

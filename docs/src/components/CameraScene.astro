@@ -1,0 +1,106 @@
+---
+import MapDiagram from "./MapDiagram.astro";
+import MapTerrain from "./MapTerrain.astro";
+
+interface Props {
+  motion: "ease" | "fly" | "anchor";
+  frame?: "start" | "middle" | "end";
+  animated?: boolean;
+}
+
+const { motion, frame = "start", animated = false } = Astro.props;
+// Equal starting/ending zoom: specialize MapLibre GL JS camera.ts's van Wijk
+// flight curve to a 320 dp viewport and a 480 dp ground distance at scale 3.
+// Pinned source: 7976a989280508d763265f95f523e945d04d87b0.
+const rho = 1.42;
+const rho2 = rho * rho;
+const span = 320;
+const distance = 480;
+const r0 = -Math.asinh(rho2 * distance / (2 * span));
+const flightLength = -2 * r0 / rho;
+function cameraView(progress: number) {
+  if (motion === "anchor") {
+    const scale = 4 ** progress;
+    return { x: 110 * (1 - scale), y: 145 * (1 - scale), scale };
+  }
+  let center = 80 + 160 * progress;
+  let scale = 3;
+  if (motion === "fly") {
+    const path = r0 + rho * progress * flightLength;
+    const visibleSpan = Math.cosh(r0) / Math.cosh(path);
+    const fraction = span * (Math.cosh(r0) * Math.tanh(path) - Math.sinh(r0)) / (rho2 * distance);
+    scale = 3 / visibleSpan;
+    center = 80 + 160 * fraction;
+  }
+  return { x: 160 - center * scale, y: 120 - 120 * scale, scale };
+}
+const view = cameraView({ start: 0, middle: 0.5, end: 1 }[frame]);
+const views = animated ? Array.from({ length: 61 }, (_, index) => cameraView(index / 60)) : [];
+const n = (value: number) => Number(value.toFixed(5));
+const transform = (v: typeof view) => `translate(${n(v.x)}px, ${n(v.y)}px) scale(${n(v.scale)})`;
+const sceneFrames = views.map((v) => ({ transform: transform(v) }));
+const markerTransform = (v: typeof view, x: number) =>
+  `translate(${n(v.x + x * v.scale)}px, ${n(v.y + 120 * v.scale)}px)`;
+const markerFrames = (x: number) => views.map((v) => ({ transform: markerTransform(v, x) }));
+const label = motion === "anchor"
+  ? "Zooming in around the mouse cursor, keeping the point beneath its tip at the same screen position."
+  : `${motion === "fly" ? "Fly zooms out, travels, and zooms back in" : "Ease pans without zooming out"}, from point A to point B.`;
+---
+
+<MapDiagram label={label}>
+  <g
+    slot="map"
+    style={`transform: ${transform(view)}`}
+    data-camera-frames={animated ? JSON.stringify(sceneFrames) : undefined}
+  >
+    <MapTerrain />
+  </g>
+  <g display={motion === "anchor" ? "none" : undefined}>
+    <g
+      style={`transform: ${markerTransform(view, 80)}`}
+      data-camera-frames={animated && motion !== "anchor" ? JSON.stringify(markerFrames(80)) : undefined}
+    >
+      <circle r="14" fill="#285daa" stroke="#fff" stroke-width="2" />
+      <text
+        y="5"
+        text-anchor="middle"
+        fill="#fff"
+        font-size="14"
+        font-family="sans-serif"
+      >
+        A
+      </text>
+    </g>
+    <g
+      style={`transform: ${markerTransform(view, 240)}`}
+      data-camera-frames={animated && motion !== "anchor" ? JSON.stringify(markerFrames(240)) : undefined}
+    >
+      <circle r="14" fill="#285daa" stroke="#fff" stroke-width="2" />
+      <text
+        y="5"
+        text-anchor="middle"
+        fill="#fff"
+        font-size="14"
+        font-family="sans-serif"
+      >
+        B
+      </text>
+    </g>
+  </g>
+  <g display={motion === "anchor" ? undefined : "none"}>
+    <path
+      d="M110 0V240M0 145H320"
+      stroke="#fff"
+      stroke-opacity=".7"
+      stroke-dasharray="4 4"
+    />
+    <path
+      transform="translate(110 145)"
+      d="M0 0V23L6 17L11 27L15 25L10 15H19Z"
+      fill="#172033"
+      stroke="#fff"
+      stroke-width="1.5"
+      stroke-linejoin="round"
+    />
+  </g>
+</MapDiagram>
