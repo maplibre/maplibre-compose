@@ -21,8 +21,8 @@
     "tier": "draft",
     "runner": "ubuntu-24.04",
     "save_toolchains": "false",
-    "artifact_type": "appimage",
-    "artifact_glob": "*.tar",
+    "artifact_type": "AppImage",
+    "artifact_glob": "*.tar.gz",
     "artifact_name": "demo-app-desktop-linux-x64",
     "test_variant": "desktop-linux-x64"
   },
@@ -33,7 +33,7 @@
     "runner": "macos-26",
     "save_toolchains": "false",
     "artifact_type": "dmg",
-    "artifact_glob": "*",
+    "artifact_glob": "*.dmg",
     "artifact_name": "demo-app-desktop-macos-arm64",
     "test_variant": "desktop-macos-arm64"
   },
@@ -43,8 +43,8 @@
     "tier": "ready",
     "runner": "windows-2022",
     "save_toolchains": "true",
-    "artifact_type": "msi",
-    "artifact_glob": "*",
+    "artifact_type": "nsis",
+    "artifact_glob": "*.exe",
     "artifact_name": "demo-app-desktop-windows-x64",
     "test_variant": "desktop-windows-x64"
   },
@@ -54,8 +54,8 @@
     "tier": "full",
     "runner": "ubuntu-24.04-arm",
     "save_toolchains": "true",
-    "artifact_type": "appimage",
-    "artifact_glob": "*.tar",
+    "artifact_type": "AppImage",
+    "artifact_glob": "*.tar.gz",
     "artifact_name": "demo-app-desktop-linux-arm64",
     "test_variant": "desktop-linux-arm64"
   },
@@ -65,8 +65,8 @@
     "tier": "full",
     "runner": "windows-11-arm",
     "save_toolchains": "true",
-    "artifact_type": "msi",
-    "artifact_glob": "*",
+    "artifact_type": "nsis",
+    "artifact_glob": "*.exe",
     "artifact_name": "demo-app-desktop-windows-arm64",
     "test_variant": "desktop-windows-arm64"
   }

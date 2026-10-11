@@ -49,7 +49,6 @@ swiftformat_version = "0.62.1"
 wrangler_version = "4.125.0"
 xcodes_version = "2.0.3"
 zig_version = "0.16.0"
-appimagetool_version = "1.9.1"
 
 [tools]
 "aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
@@ -80,10 +79,6 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 "aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
 
 # Linux-only. Packs the jpackage application directory into a .AppImage.
-# Upstream ships the tool as an AppImage; the packaging script sets
-# APPIMAGE_EXTRACT_AND_RUN so it does not need FUSE. The tag is `1.9.1`,
-# not `v1.9.1`.
-"github:AppImage/appimagetool" = { version = "{{vars.appimagetool_version}}", os = ["linux"], version_prefix = "", bin = "appimagetool" }
 
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
@@ -381,16 +376,18 @@ run = '''
 '''
 
 [tasks."build:desktop-app"]
-description = "Package the demo app as an AppImage, DMG, or MSI for this host."
+description = "Package the Nucleus demo as an AppImage, DMG, or NSIS installer for this host."
 depends = ["deps:ngon-plugin"]
-run = '''
-if [ "$(uname -s)" = Linux ]; then
-  ./gradlew :demo-app:desktop:createDistributable
-  .mise/bin/package-desktop-appimage
-else
-  ./gradlew :demo-app:desktop:packageDistributionForCurrentOS
-fi
-'''
+env = { APPIMAGE_EXTRACT_AND_RUN = "1" }
+run = ".mise/bin/gradle-with-version build :demo-app:desktop-nucleus:packageDemo"
+
+[tasks."build:ios-simulator-app"]
+description = "Package the iOS demo for Apple Silicon simulators."
+run = ".mise/bin/package-ios-simulator-demo"
+
+[tasks."package:js-app"]
+description = "Archive the browser demo for static hosting."
+run = "./gradlew :demo-app:common:archiveBrowserDemo"
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."

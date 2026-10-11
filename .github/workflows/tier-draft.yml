@@ -152,6 +152,13 @@ jobs:
       - name: Measure the head commit for the code metrics page
         if: github.event_name == 'pull_request'
         run: mise run metrics:check
+      - run: mise run package:js-app
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          name: demo-app-browser
+          path: demo-app/common/build/packages/MapLibreCompose-browser.tar.gz
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/dist

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+derived_data="$PWD/demo-app/ios/build/DerivedData"
+xcodebuild \
+  -project demo-app/ios/iosApp.xcodeproj \
+  -scheme iosApp \
+  -configuration Debug \
+  -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath "$derived_data" \
+  ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGN_IDENTITY=- \
+  build
+
+# Simulator signing is ad hoc, including the CarPlay entitlement, without a provisioning profile.
+# Tar preserves the executable and framework symlinks.
+tar -czf demo-app/ios/build/MapLibreCompose-ios-simulator-arm64.tar.gz \
+  -C "$derived_data/Build/Products/Debug-iphonesimulator" maplibre-compose-demo.app
