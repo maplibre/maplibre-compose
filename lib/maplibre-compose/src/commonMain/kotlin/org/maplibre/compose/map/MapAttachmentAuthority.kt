@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import org.maplibre.compose.camera.CameraPosition
@@ -85,6 +86,15 @@ internal class MapAttachmentAuthority(
         it.viewport != null
       }
       .viewport!!
+
+  /** Waits for published style handles, or fails when this presentation ends. */
+  internal suspend fun awaitStyle(attachment: MapAttachment) {
+    combine(presence, styleAuthority.style.loadStates) { presentation, style ->
+        if (presentation.attachment !== attachment) throw MapAttachmentChangedException()
+        style
+      }
+      .first { it !is StyleLoadState.Loading }
+  }
 
   /**
    * Publishes the viewport of [adapter], and the camera it was rendered with, and returns the
@@ -177,7 +187,6 @@ internal class MapAttachmentAuthority(
       outgoing?.invalidate()
     }
     presence.value = Presence(closed = true)
-    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun invalidatePresentation(adapter: MapAdapter?) {
@@ -191,7 +200,6 @@ internal class MapAttachmentAuthority(
       }
     }
     presence.value = Presence()
-    outgoing?.cancelLeaseBoundOperations()
   }
 
   /**
@@ -210,7 +218,6 @@ internal class MapAttachmentAuthority(
       }
     }
     if (outgoing != null) presence.value = Presence()
-    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {

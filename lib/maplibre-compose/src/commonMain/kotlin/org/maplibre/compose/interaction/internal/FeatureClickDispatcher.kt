@@ -46,10 +46,10 @@ internal class FeatureClickDispatcher(
       if (!valid()) return@ClickPath ClickResult.Consume
       // The published handles carry the engine's layer order, so a tap makes no engine call. They
       // appear one owner read after the style loads; a tap in that window waits for them rather
-      // than reading the unpublished set as an empty layer stack. The wait is lease-bound, so a
-      // presentation that ends first drops the tap instead of parking the dispatcher.
+      // than reading the unpublished set as an empty layer stack. A presentation that ends
+      // first drops the tap.
       if (nodes.isNotEmpty()) {
-        attachment.runLeaseBound { state.style.awaitLoaded() }
+        state.attachmentAuthority.awaitStyle(attachment)
         if (!valid()) return@ClickPath ClickResult.Consume
       }
       val layerIds =

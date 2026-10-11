@@ -41,16 +41,13 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
@@ -69,7 +66,6 @@ import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
-import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
@@ -448,7 +444,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   private val loadStateState = mutableStateOf<StyleLoadState>(StyleLoadState.Pending)
-  private val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
+  internal val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
 
   public var loadState: StyleLoadState
     get() = loadStateState.value
@@ -846,7 +842,6 @@ internal constructor(
   internal val token: MapPresentationToken,
   internal val adapter: MapAdapter,
 ) {
-  private val invalidated = CompletableDeferred<Unit>()
   @Volatile private var live = true
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
@@ -900,19 +895,17 @@ internal constructor(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, guard)
+  }
 
   suspend fun animateCamera(
     update: CameraUpdate,
     animation: CameraAnimation = CameraAnimation.Ease.Standard,
     guard: CameraCommandGuard? = null,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCamera(update, animation, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.animateCamera(update, animation, guard)
+  }
 
   suspend fun animateCameraAround(
     anchor: CameraAnchor,
@@ -921,10 +914,9 @@ internal constructor(
     pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCameraAround(anchor, zoom, bearing, pitch, animation, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.animateCameraAround(anchor, zoom, bearing, pitch, animation, guard)
+  }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -934,18 +926,17 @@ internal constructor(
     fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCameraToBounds(
-        boundingBox,
-        bearing,
-        pitch,
-        cameraPadding,
-        fitPadding,
-        animation,
-        boundGuard,
-      )
-    }
+  ): Unit = afterViewport {
+    adapter.animateCameraToBounds(
+      boundingBox,
+      bearing,
+      pitch,
+      cameraPadding,
+      fitPadding,
+      animation,
+      guard,
+    )
+  }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
@@ -1032,15 +1023,6 @@ internal constructor(
     engagedState = false
   }
 
-  /**
-   * Fails lease-bound operations parked on this attachment. Callers on an immediate dispatcher
-   * resume inline, so this runs after the owner has replaced the attachment and closed its
-   * snapshot.
-   */
-  internal fun cancelLeaseBoundOperations() {
-    invalidated.complete(Unit)
-  }
-
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? {
     if (this == const(true)) return null
     return compile(ExpressionContext.None)
@@ -1050,55 +1032,11 @@ internal constructor(
     owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
 
   /** Runs [block] once this attachment has a viewport, while it stays current. */
-  private suspend fun <T> afterViewport(block: suspend () -> T): T = runLeaseBound {
+  private suspend fun <T> afterViewport(block: suspend () -> T): T {
     owner.awaitViewport(this)
-    block()
-  }
-
-  /**
-   * [afterViewport] for a camera command: waits for [guard]'s dispatch turn, then passes [block] a
-   * guard that also fails once this attachment is replaced.
-   */
-  private suspend fun <T> afterCameraTurn(
-    guard: CameraCommandGuard?,
-    block: suspend (CameraCommandGuard) -> T,
-  ): T = afterViewport {
-    guard?.awaitDispatchTurn()
-    block(boundGuard(guard))
-  }
-
-  private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard =
-    object : CameraCommandGuard {
-      override fun isValid(): Boolean =
-        owner.isCurrent(this@MapAttachment) && guard?.isValid() != false
-
-      override fun dispatched() {
-        guard?.dispatched()
-      }
-    }
-
-  /**
-   * Runs [block] while this attachment is current. Invalidation fails it with
-   * [MapAttachmentChangedException] instead of leaving it parked.
-   */
-  internal suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
-    if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-    val operation =
-      async(start = CoroutineStart.UNDISPATCHED) {
-        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-        block()
-      }
-    select {
-      operation.onAwait { result ->
-        // An inline operation can finish after invalidation, before select starts listening.
-        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-        result
-      }
-      invalidated.onAwait {
-        operation.cancelAndJoin()
-        throw MapAttachmentChangedException()
-      }
-    }
+    val result = block()
+    if (!owner.isCurrent(this)) throw MapAttachmentChangedException()
+    return result
   }
 }
 

@@ -51,35 +51,6 @@ class RecognizedMapInputTest {
   }
 
   @Test
-  fun cancelling_a_fling_revokes_queued_camera_commands_before_the_engine_drains() = runTest {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState(org.maplibre.compose.style.BaseStyle.Empty)
-    val target = RecordingGestureTarget(state, deferred = true)
-    try {
-      val clock = BroadcastFrameClock()
-      val input = input(CoroutineScope(backgroundScope.coroutineContext + clock), target)
-      input.fling(DpOffset(2100.dp, 0.dp))
-      runCurrent()
-      clock.sendFrame(0)
-      runCurrent()
-      clock.sendFrame(100_000_000)
-      runCurrent()
-      input.cancel()
-      target.drain()
-      assertTrue(target.moveCalls.isEmpty())
-      assertEquals(1, target.endedCount)
-      clock.sendFrame(1_000_000_000)
-      runCurrent()
-      target.drain()
-      assertTrue(target.moveCalls.isEmpty())
-    } finally {
-      state.close()
-      target.drain()
-      runtime.close()
-    }
-  }
-
-  @Test
   fun fling_produces_motion_then_finishes_without_more_frames() = runTest {
     val clock = BroadcastFrameClock()
     val input = input(CoroutineScope(backgroundScope.coroutineContext + clock))

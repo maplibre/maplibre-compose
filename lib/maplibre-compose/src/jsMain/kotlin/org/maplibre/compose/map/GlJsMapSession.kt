@@ -1208,29 +1208,23 @@ internal class GlJsMapSession(
     start: (MaplibreMap) -> Unit,
   ) = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
-    val enqueue: () -> Unit = {
-      if (closing) release()
-      else {
-        cameraTransitions.start(
-          map?.takeIf { hasLoadedInitialStyle },
-          continuation,
-          anchored,
-        ) command@{ current ->
-          runCameraCommand(
-            gestureToken,
-            guard,
-            activate = { activateGesture(gestureToken) },
-          ) {
-            if (!continuation.isActive) return@command false
-            start(current)
-          }
+    if (closing) release()
+    else {
+      cameraTransitions.start(
+        map?.takeIf { hasLoadedInitialStyle },
+        continuation,
+        anchored,
+      ) command@{ current ->
+        runCameraCommand(
+          gestureToken,
+          guard,
+          activate = { activateGesture(gestureToken) },
+        ) {
+          if (!continuation.isActive) return@command false
+          start(current)
         }
       }
     }
-    if (guard?.isValid() == false || gestureToken != null && !gestureToken.enqueue(enqueue)) {
-      release()
-    } else if (gestureToken == null) enqueue()
-    guard?.dispatched()
   }
 
   override fun interruptCamera() {
@@ -1274,7 +1268,7 @@ internal class GlJsMapSession(
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       if (activeGestureToken === token) {
-        if (token.isCancelled) map?.stop()
+        if (cancelled) map?.stop()
         if (activeGestureToken === token) {
           activeGestureToken = null
           reportGestureActive(false)
@@ -1289,7 +1283,7 @@ internal class GlJsMapSession(
     if (token == null) return
     if (activeGestureToken !== token) {
       map?.stop()
-      if (!token.canExecute) return
+      if (!token.acceptsCommands) return
       activeGestureToken = token
     }
     reportGestureActive(true)
@@ -1297,13 +1291,10 @@ internal class GlJsMapSession(
 
   private fun onGestureMap(token: CameraInputToken?, action: (MaplibreMap) -> Unit) {
     if (!isGestureReady) return
-    val enqueue = {
-      onMap { map ->
-        if (isGestureReady)
-          runCameraCommand(token, activate = { activateGesture(token) }) { action(map) }
-      }
+    onMap { map ->
+      if (isGestureReady)
+        runCameraCommand(token, activate = { activateGesture(token) }) { action(map) }
     }
-    if (token == null) enqueue() else token.enqueue(enqueue)
   }
 
   private fun reportGestureActive(active: Boolean) {

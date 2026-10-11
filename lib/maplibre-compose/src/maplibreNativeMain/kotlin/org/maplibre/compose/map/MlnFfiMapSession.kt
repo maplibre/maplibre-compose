@@ -379,6 +379,7 @@ internal class MlnFfiMapSession(
    * callbacks; the next presentation installs its own after it attaches.
    */
   override suspend fun detachPresentation() {
+    map?.cancelTransitions()?.report("cancel camera transitions on detach")
     callbacks = durableCallbacks
     lifecycle.detach()
   }
@@ -1023,39 +1024,33 @@ internal class MlnFfiMapSession(
     start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
-    val enqueue = {
-      val map = map
-      if (isClosing || map == null) {
-        release()
-      } else {
-        val started =
-          continuation.isActive &&
-            runCameraCommand(
-              gestureToken,
-              guard,
-              activate = {
-                gestureToken?.let {
-                  // A transition carries no gesture phase of its own, so a gesture that begins
-                  // with one marks itself with an empty update first.
-                  if (activateGesture(map, it) == GesturePhase.BEGIN) {
-                    map
-                      .updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
-                      .report("begin a gesture")
-                  }
-                }
-              },
-            ) {
-              if (shouldStart(map)) {
-                cameraTransitions.start(map, animation, continuation, anchored, fields, start)
-              } else release()
-            }
-        if (!started) release()
-      }
-    }
-    if (guard?.isValid() == false || gestureToken != null && !gestureToken.enqueue(enqueue)) {
+    val map = map
+    if (isClosing || map == null) {
       release()
-    } else if (gestureToken == null) enqueue()
-    guard?.dispatched()
+    } else {
+      val started =
+        continuation.isActive &&
+          runCameraCommand(
+            gestureToken,
+            guard,
+            activate = {
+              gestureToken?.let {
+                // A transition carries no gesture phase of its own, so a gesture that begins
+                // with one marks itself with an empty update first.
+                if (activateGesture(map, it) == GesturePhase.BEGIN) {
+                  map
+                    .updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
+                    .report("begin a gesture")
+                }
+              }
+            },
+          ) {
+            if (shouldStart(map)) {
+              cameraTransitions.start(map, animation, continuation, anchored, fields, start)
+            } else release()
+          }
+      if (!started) release()
+    }
   }
 
   override fun getCameraConstraints(): CameraConstraints =
@@ -1313,7 +1308,7 @@ internal class MlnFfiMapSession(
       }
       activeGestureToken = null
       gestureBearing = null
-      if (token.isCancelled) map.cancelTransitions().report("cancel camera transitions")
+      if (cancelled) map.cancelTransitions().report("cancel camera transitions")
       val last =
         map.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.END)).report("end a gesture")
       gestureEnd = last
@@ -1369,19 +1364,14 @@ internal class MlnFfiMapSession(
     command: MapHandle.(GesturePhase) -> Deferred<CommandCompletion>?,
   ) {
     if (!acceptsGestures) return
-    val enqueue = {
-      val map = map
-      if (map != null && acceptsGestures) {
-        var phase = GesturePhase.NONE
-        runCameraCommand(
-          gestureToken,
-          activate = { gestureToken?.let { phase = activateGesture(map, it) } },
-        ) {
-          map.command(phase)?.report("move the camera")
-        }
-      }
+    val map = map ?: return
+    var phase = GesturePhase.NONE
+    runCameraCommand(
+      gestureToken,
+      activate = { gestureToken?.let { phase = activateGesture(map, it) } },
+    ) {
+      map.command(phase)?.report("move the camera")
     }
-    if (gestureToken == null) enqueue() else gestureToken.enqueue(enqueue)
   }
 
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
