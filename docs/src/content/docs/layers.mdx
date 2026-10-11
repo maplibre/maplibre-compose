@@ -5,6 +5,8 @@ description: Draw your own data with sources and layers, and place it between th
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import LayerOrder from "../../components/LayerOrder.astro";
+import SourceLayers from "../../components/SourceLayers.astro";
 import { region, rememberedMapStyle } from "../../snippets";
 
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
@@ -24,6 +26,8 @@ a hiking trail as a blue line with a white outline:
 Layers draw in the order you declare them, so the wide white line goes first
 and the blue line draws on top of it. Each layer needs an ID that no other
 layer in the map uses.
+
+<SourceLayers />
 
 <Api of="GeoJsonData" /> also takes a GeoJSON string or a GeoJSON object that
 you build in Kotlin. When the data changes, pass a new value, and the map
@@ -57,6 +61,8 @@ Your layers draw above the whole base style, so a line covers street names and
 place names. <Api of="Anchor.Companion.Below" display="Anchor.Below" /> puts
 layers lower in the stack. This example draws `trail` under all of the base
 style's labels and icons, whatever the style names those layers:
+
+<LayerOrder />
 
 <Code code={rememberedMapStyle(region(layers, "anchors"))} lang="kotlin" title="App.kt" />
 
