@@ -151,9 +151,14 @@ content:
 
 <Code code={region(nucleusMain, "host")} lang="kotlin" />
 
-Start the JVM with `--enable-native-access=ALL-UNNAMED`, and on macOS also with
-`-XstartOnFirstThread`, which gives Tao the main thread that macOS windows need.
-The [Nucleus demo][nucleus-demo] shows a complete app.
+Use the [Nucleus Gradle plugin][nucleus-setup] to configure the launcher. It
+enables native access for ordinary launches and configures the entry point for
+Compose Hot Reload. On macOS, add `-XstartOnFirstThread` to
+`nucleus.application.jvmArgs` to work around
+[Tao's dispatcher thread detection bug](https://github.com/NucleusFramework/Nucleus/issues/829).
+Hot reload also
+needs `--enable-native-access=ALL-UNNAMED`. The [Nucleus demo][nucleus-demo]
+shows the Gradle configuration and a complete app.
 
 #### Compose Desktop (AWT)
 
@@ -257,6 +262,8 @@ maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version =
 ```
 
 [nucleus]: https://github.com/NucleusFramework/Nucleus
+
+[nucleus-setup]: https://nucleusframework.dev/en/docs/start/project-setup/
 
 [nucleus-host]: https://github.com/maplibre/maplibre-compose/blob/main/demo-app/desktop-nucleus/src/main/kotlin/org/maplibre/compose/nucleus/TaoComposeMapPresentationHost.kt
 
