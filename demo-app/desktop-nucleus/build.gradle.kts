@@ -5,6 +5,7 @@ plugins {
   id(libs.plugins.kotlin.jvm.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
+  id(libs.plugins.nucleus.get().pluginId)
 }
 
 val desktopHostPlatform = DesktopHostPlatform.current()
@@ -23,45 +24,32 @@ dependencies {
   implementation(project(":lib:maplibre-compose"))
   implementation(libs.jetbrains.compose.material3)
   implementation(libs.nucleus.application)
-  implementation(libs.nucleus.decoratedWindowMaterial3)
   implementation(libs.nucleus.decoratedWindowTao)
 
   runtimeOnly(compose.desktop.currentOs)
   runtimeOnly(project(":lib:${desktopHostPlatform.runtimeArtifactId(desktopRenderBackend)}"))
 }
 
-/**
- * Runs the fixture. A plain `JavaExec` rather than the Nucleus application plugin: this module only
- * needs a runnable host for the shared demo, and packaging stays with the AWT desktop app.
- *
- * Both JVM arguments are mandatory on the hosts that need them: Tao must own AppKit's first thread
- * on macOS, and the FFI binding is refused native access without the other.
- *
- * This stays a module of its own so that Tao's `MainDispatcherFactory`, which outranks
- * `kotlinx-coroutines-swing`, never reaches the AWT demo's runtime classpath.
- */
-val mainRuntimeClasspath = sourceSets.named("main").map { it.runtimeClasspath }
-
-val run by
-  tasks.registering(JavaExec::class) {
-    group = "application"
-    description = "Runs the Nucleus Tao desktop host fixture."
-
-    classpath = mainRuntimeClasspath.get()
-    mainClass = "org.maplibre.compose.nucleus.MainKt"
-    jvmArgs(NATIVE_ACCESS_JVM_ARGS)
-    if (System.getProperty("os.name").lowercase().startsWith("mac")) {
-      jvmArgs("-XstartOnFirstThread")
-    }
-    javaLauncher = javaToolchains.launcherFor {
-      languageVersion = JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt())
-    }
+nucleus.application {
+  mainClass = "org.maplibre.compose.nucleus.MainKt"
+  // Nucleus defaults to the Gradle daemon's JDK rather than the Kotlin toolchain.
+  javaHome =
+    javaToolchains
+      .launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt()))
+      }
+      .get()
+      .metadata
+      .installationPath
+      .asFile
+      .absolutePath
+  if (desktopHostPlatform == DesktopHostPlatform.MacosArm64) {
+    // Nucleus adds this to hot reload, but not the ordinary JVM launcher.
+    jvmArgs += "-XstartOnFirstThread"
   }
+}
 
 tasks.withType<ComposeHotRun>().configureEach {
-  mainClass = "org.maplibre.compose.nucleus.MainKt"
+  // Nucleus supplies the main class and macOS first-thread flag for hot reload.
   jvmArgs(NATIVE_ACCESS_JVM_ARGS)
-  if (System.getProperty("os.name").lowercase().startsWith("mac")) {
-    jvmArgs("-XstartOnFirstThread")
-  }
 }

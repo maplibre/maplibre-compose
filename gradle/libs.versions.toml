@@ -115,7 +115,6 @@ dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-jav
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
 hms-location = { module = "com.huawei.hms:location", version.ref = "hms-location" }
 nucleus-application = { module = "dev.nucleusframework:nucleus.nucleus-application", version.ref = "nucleus" }
-nucleus-decoratedWindowMaterial3 = { module = "dev.nucleusframework:nucleus.decorated-window-material3", version.ref = "nucleus" }
 nucleus-decoratedWindowTao = { module = "dev.nucleusframework:nucleus.decorated-window-tao", version.ref = "nucleus" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-compiler = { module = "org.jetbrains.kotlin:kotlin-compiler", version.ref = "gradle-kotlin" }
@@ -174,6 +173,7 @@ android-classicLibrary = { id = "com.android.library", version.ref = "gradle-and
 android-lint = { id = "com.android.lint", version.ref = "gradle-android" }
 android-composeScreenshot = { id = "com.android.compose.screenshot", version.ref = "gradle-composeScreenshot" }
 compose = { id = "org.jetbrains.compose", version.ref = "gradle-compose" }
+nucleus = { id = "dev.nucleusframework", version.ref = "nucleus" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "gradle-dokka" }
 kotlin-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "gradle-kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "gradle-kotlin" }
