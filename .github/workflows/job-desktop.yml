@@ -30,6 +30,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-tags: true
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
@@ -67,4 +68,4 @@ jobs:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
           path:
-            "demo-app/desktop/build/compose/binaries/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"
+            "demo-app/desktop-nucleus/build/packages/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"

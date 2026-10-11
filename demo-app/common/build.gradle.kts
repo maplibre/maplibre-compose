@@ -145,3 +145,11 @@ compose.resources {
 if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
   composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
 }
+
+tasks.register<Tar>("archiveBrowserDemo") {
+  dependsOn("jsBrowserDistribution")
+  from(layout.buildDirectory.dir("dist/js/productionExecutable"))
+  compression = Compression.GZIP
+  archiveFileName.set("MapLibreCompose-browser.tar.gz")
+  destinationDirectory.set(layout.buildDirectory.dir("packages"))
+}
