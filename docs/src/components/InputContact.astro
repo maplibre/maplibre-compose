@@ -1,0 +1,28 @@
+---
+interface Props {
+  touch: boolean;
+  swipe: boolean;
+  frames: Keyframe[];
+}
+const { touch, swipe, frames } = Astro.props;
+---
+
+<g
+  style={`transform: ${frames[0]!.transform}`}
+  data-camera-frames={JSON.stringify(frames)}
+>
+  <circle
+    r={touch ? 12 : swipe ? 5 : 7}
+    fill={swipe ? "none" : "#fff"}
+    fill-opacity=".45"
+    stroke={swipe ? "#fff" : undefined}
+    stroke-width="4"
+    stroke-opacity=".85"
+  />
+  <circle
+    r={touch ? 7 : swipe ? 5 : 4}
+    fill={swipe ? "none" : "#285daa"}
+    stroke={swipe ? "#285daa" : "#fff"}
+    stroke-width="2"
+  />
+</g>

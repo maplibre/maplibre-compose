@@ -14,6 +14,7 @@
     "astro": "^7.2.8",
     "sharp": "^0.35.5",
     "starlight-copy-button": "github:dionysuzx/starlight-copy-button",
+    "starlight-kbd": "^0.4.0",
     "starlight-links-validator": "^0.25.2"
   },
   "devDependencies": {
