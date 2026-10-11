@@ -70,6 +70,7 @@ import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.DpPadding
@@ -87,7 +88,6 @@ import org.maplibre.compose.util.toLngLatBounds
 import org.maplibre.compose.util.toPaddingOptions
 import org.maplibre.compose.util.toPoint
 import org.maplibre.compose.util.toPosition
-import org.maplibre.compose.util.toStyleJson
 import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -1166,7 +1166,9 @@ internal class GlJsMapSession(
       val options =
         unsafeJso<QueryRenderedFeaturesOptions> {
           known?.let { layers = it.toTypedArray() }
-          filter = predicate?.toStyleJson()?.toJsValue<FilterSpecification>()
+          filter = predicate?.let {
+            StyleValue.Expression(it).encoded.toJsValue<FilterSpecification>()
+          }
         }
       val geometry =
         if (rect.left == rect.right && rect.top == rect.bottom)

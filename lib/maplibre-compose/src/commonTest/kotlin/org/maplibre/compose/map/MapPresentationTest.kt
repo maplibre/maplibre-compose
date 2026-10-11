@@ -262,14 +262,14 @@ class MapPresentationTest {
         val definition =
           layer.definition().let {
             it.copy(
-              value =
-                JsonObject(
-                  it.value +
-                    ("paint" to
+              properties =
+                it.properties +
+                  ("paint" to
+                    org.maplibre.compose.style.internal.StyleValue.Json(
                       buildJsonObject {
                         put("background-opacity", opacity)
-                      })
-                )
+                      }
+                    ))
             )
           }
         val revision =
