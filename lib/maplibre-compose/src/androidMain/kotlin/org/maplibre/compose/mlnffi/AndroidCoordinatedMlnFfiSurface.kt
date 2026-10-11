@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -339,6 +340,9 @@ internal class AndroidCoordinatedMapSurface(
       renderer.presentFrame(candidate.projection, destination, extent.scaleFactor)
       previous?.projection?.close()
     } else renderer.presentFrame(frame.projection, destination, extent.scaleFactor)
+    // Placement observes the presentation revision. Notify those reads before this window draw;
+    // Android's global snapshot observer otherwise schedules them after the current traversal.
+    Snapshot.sendApplyNotifications()
     this.destination = destination
     // applyTransactionOnDraw doesn't schedule a window draw on its own.
     view.invalidate()
