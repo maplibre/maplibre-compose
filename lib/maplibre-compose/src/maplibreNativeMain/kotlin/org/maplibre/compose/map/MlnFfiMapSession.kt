@@ -132,7 +132,7 @@ internal data class NativeEngineCompatibility(
 /**
  * One logical MapLibre Native map. Commands and event delivery run on main; native orders the
  * commands. The render session belongs to the host's graphics thread. NativePresentation owns that
- * attachment and NativeViewport owns extent acknowledgement and projection snapshots.
+ * attachment and NativeViewport reads camera and extent snapshots.
  */
 internal class MlnFfiMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
@@ -183,7 +183,7 @@ internal class MlnFfiMapSession(
   /** The engine [map] belongs to. Written before the map is registered with the runtime. */
   @Volatile private var mapEngine: EngineMapIdentity? = null
 
-  private val viewport = NativeViewport { isClosing }
+  private val viewport = NativeViewport()
   internal val presentation: NativePresentation =
     NativePresentation(
       backend = backend,
@@ -191,9 +191,14 @@ internal class MlnFfiMapSession(
       canRender = { !isClosing && lifecycleRenderLease != null },
       getLogger = { logger },
       viewport = viewport,
-      requestViewport = { extent ->
+      onAttached = {
         owner.postToMain {
-          if (viewport.request(extent)) applyPendingViewport()
+          val map = map ?: return@postToMain
+          if (isClosing || lifecycleRenderLease == null) return@postToMain
+          viewport.attach(map)
+          cameraTransitions.viewportChanged(viewport.size)
+          applyViewportInsets(map)
+          notifyViewportChanged()
         }
       },
     )
@@ -432,7 +437,7 @@ internal class MlnFfiMapSession(
       withContext(NonCancellable) {
         map?.cancelTransitions()?.report("cancel camera transitions")?.await()
         owner.drain()
-        viewport.clearRequest(clearApplied = true)
+        viewport.detach()
         if (lifecycleRenderLease == lease) lifecycleRenderLease = null
         presentation.release()
       }
@@ -459,7 +464,7 @@ internal class MlnFfiMapSession(
 
   /** MapLibre refuses to release a map that still has a render session attached. */
   private suspend fun stopMap() {
-    viewport.clearRequest(clearApplied = true)
+    viewport.detach()
     if (styleBinding != null) {
       lifecycleAuthority.postToMain { callbacks.onStyleChanged(this, null) }
     }
@@ -506,12 +511,6 @@ internal class MlnFfiMapSession(
         val engine = mapEngine ?: return
         val map = map ?: return
         handleEvent(engine, map, event)
-      }
-
-      override fun onEventsDrained() {
-        val map = map ?: return
-        applyPendingViewport()
-        if (viewport.snapshotStale) viewport.snapshot(map)
       }
     }
 
@@ -587,18 +586,20 @@ internal class MlnFfiMapSession(
         }
       }
 
-      // MapState reads the camera and viewport on each of the three, so the mirror the getters
-      // read is refreshed before the event is delivered. A snapshot read after draining an event
-      // shows state at least as new as the event.
+      // A snapshot read after an event includes its transform change. Older events in the
+      // same drain reuse the projection from that snapshot generation.
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
-        // One drain can span several generations, so each event newer than the mirror marks it.
-        if (event.generation > viewport.generation) viewport.snapshotStale = true
-        if (lease != null && mapEvent != null) {
-          if (viewport.snapshotStale) viewport.snapshot(map)
-          events.presentationEvent(engine, lease, mapEvent)
+        if (event.generation > viewport.generation) {
+          val previousSize = viewport.size
+          viewport.refresh(map)
+          if (viewport.size != previousSize) {
+            cameraTransitions.viewportChanged(viewport.size)
+            if (viewport.hasViewport) notifyViewportChanged()
+          }
         }
+        if (lease != null && mapEvent != null) events.presentationEvent(engine, lease, mapEvent)
       }
 
       RuntimeEventType.MAP_RENDER_FRAME_FINISHED ->
@@ -618,31 +619,12 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Main only. Publishes newly available viewport geometry after its inset command. */
-  private var applyingViewport = false
-
-  private fun applyPendingViewport() {
-    if (applyingViewport || isClosing) return
-    val map = map ?: return
-    val (request, insets) =
-      viewport.pendingRequest(
-        map,
-        beforeResize = { size -> cameraTransitions.viewportChanged(size) },
-        beforePadding = { cameraTransitions.cancelAnchor() },
-      ) ?: return
-    val submitted = insets?.let { map.updateCamera(it).report("apply insets") }
-    applyingViewport = true
+  private fun applyViewportInsets(map: MapHandle) {
+    val update = viewport.applyInsets(map) { cameraTransitions.cancelAnchor() } ?: return
+    val submitted = map.updateCamera(update).report("apply insets")
     owner.launchOnMain {
-      try {
-        submitted?.await()
-        owner.drain()
-        if (this@MlnFfiMapSession.map !== map || isClosing) return@launchOnMain
-        viewport.snapshot(map)
-        if (viewport.acknowledge(request)) notifyViewportChanged()
-      } finally {
-        applyingViewport = false
-        applyPendingViewport()
-      }
+      submitted.await()
+      owner.drain()
     }
   }
 
@@ -775,7 +757,6 @@ internal class MlnFfiMapSession(
     owner.launchOnMain {
       submitted.await()
       owner.drain()
-      if (this@MlnFfiMapSession.map === map && !isClosing) viewport.snapshot(map)
     }
   }
 
@@ -785,13 +766,7 @@ internal class MlnFfiMapSession(
 
     val map = map ?: return
     if (!viewport.hasViewport) return
-    val update = viewport.applyInsets(map) { cameraTransitions.cancelAnchor() } ?: return
-    val submitted = map.updateCamera(update).report("apply insets")
-    owner.launchOnMain {
-      submitted.await()
-      owner.drain()
-      if (this@MlnFfiMapSession.map === map && !isClosing) viewport.snapshot(map)
-    }
+    applyViewportInsets(map)
   }
 
   override suspend fun cameraForBounds(
@@ -840,7 +815,6 @@ internal class MlnFfiMapSession(
     val completion = map.updateCamera(FfiCameraUpdate(camera = camera)).await()
     if (completion.failed) throw CommandFailedException(completion)
     owner.drain()
-    viewport.snapshot(map)
   }
 
   private suspend fun cameraForBounds(
@@ -1105,7 +1079,7 @@ internal class MlnFfiMapSession(
         mode.await()
         owner.drain()
         if (this@MlnFfiMapSession.map !== this@applyRenderSettings || isClosing) return@launchOnMain
-        viewport.snapshot(this@applyRenderSettings)
+        viewport.refresh(this@applyRenderSettings)
         notifyViewportChanged()
       }
     }
@@ -1135,9 +1109,12 @@ internal class MlnFfiMapSession(
           result = runCatching { PlatformMapScope(map).block() }
         }
     if (!accepted) throw CancellationException(changed)
-    // Raw access can change the transform without an event, so refresh the mirror inline.
-    viewport.snapshotStale = true
+    // Raw access can change projection options without a camera event.
     owner.drain()
+    if (!isClosing && this.map === map) {
+      viewport.refresh(map)
+      notifyViewportChanged()
+    }
     return checkNotNull(result).getOrThrow()
   }
 

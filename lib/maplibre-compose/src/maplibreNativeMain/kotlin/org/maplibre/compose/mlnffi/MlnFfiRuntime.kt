@@ -31,11 +31,9 @@ internal class MlnFfiRuntime(
   private val resourceConfig: MapResourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
 ) {
-  /** A map's event handlers. Both run on main and never suspend a drain. */
+  /** A map's event handler, running on main without suspending a drain. */
   interface MapChild {
     fun onEvent(event: RuntimeEvent)
-
-    fun onEventsDrained() = Unit
   }
 
   val mainDispatcher = options.mainDispatcher ?: Dispatchers.Main
@@ -143,13 +141,6 @@ internal class MlnFfiRuntime(
               return
             }
           for (event in events) dispatch(event)
-        }
-        for (child in lock.withLock { maps.values.toList() }) {
-          try {
-            child.onEventsDrained()
-          } catch (error: Throwable) {
-            options.logger?.e(error) { "Failed to finish handling a MapLibre event batch" }
-          }
         }
       } while (drainAgain)
     } finally {

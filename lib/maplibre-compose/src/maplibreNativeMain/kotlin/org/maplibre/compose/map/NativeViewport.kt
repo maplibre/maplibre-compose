@@ -10,11 +10,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.boxZoomFit
-import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameProjection
 import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -30,110 +28,38 @@ import org.maplibre.nativeffi.generated.CameraUpdate
 import org.maplibre.nativeffi.generated.EdgeInsets
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.MapProjectionHandle
+import org.maplibre.nativeffi.generated.MapSnapshot
 import org.maplibre.nativeffi.generated.RenderSessionHandle
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * Requested/applied extent and frozen map projections; presented frames remain a separate borrow.
- *
- * The mirror is rebuilt from the map's published snapshot, which any thread can read, whenever the
- * session learns that the camera or viewport changed. Commands that read the applied insets and
- * viewport acknowledgement run on main.
- */
-internal class NativeViewport(private val isClosing: () -> Boolean) {
-  private val stateLock = MlnFfiLock()
-  @Volatile private var viewportInsets: EdgeInsets = EdgeInsets()
-  @Volatile
-  var appliedViewportInsets: EdgeInsets = EdgeInsets()
+/** Main-thread snapshot cache, with a separate projection borrow for presented frames. */
+internal class NativeViewport {
+  private var viewportInsets = EdgeInsets()
+  var appliedViewportInsets = EdgeInsets()
     private set
 
-  @Volatile private var renderedCameraPadding: EdgeInsets = EdgeInsets()
+  @Volatile private var renderedCameraPadding = EdgeInsets()
 
-  /** Main only: do not apply camera framing against the bootstrap 1x1 viewport. */
+  /** Defer camera framing until a render target has attached and queued its resize. */
   private var pendingCameraPadding: DpPadding? = null
 
-  private class ViewportRequest(val extent: MapExtent)
+  var hasViewport = false
+    private set
 
-  /** Requested by the renderer and acknowledged by the main thread, under [stateLock]. */
-  @Volatile private var viewportRequest: ViewportRequest? = null
-  @Volatile private var appliedViewportRequest: ViewportRequest? = null
+  private var snapshot: MapSnapshot? = null
+  @Volatile private var geometry = MapViewportGeometry(CameraPosition(), EdgeInsets(), DpSize.Zero)
+  private var projection: MapProjectionHandle? = null
+  private var wrappedProjection: MapProjectionHandle? = null
+  private var extents: MapViewportExtents? = null
 
-  val hasViewport: Boolean
-    get() = appliedViewportRequest != null
+  val generation: ULong
+    get() = snapshot?.generation ?: 0uL
 
-  /**
-   * Applied camera, extents, and a projection frozen at that camera. One write publishes them
-   * together so any-thread getters agree with one map snapshot, and read it without a native call.
-   * The default answers reads made before the first snapshot.
-   */
-  private class MirroredViewport(
-    val generation: ULong = 0uL,
-    val camera: CameraPosition = CameraPosition(),
-    val effectivePadding: EdgeInsets = EdgeInsets(),
-    val size: DpSize = DpSize.Zero,
-    val projection: MapProjectionHandle? = null,
-    val wrappedProjection: MapProjectionHandle? = null,
-    extents: MapViewportExtents? = null,
-    metersPerDpAtCenter: Double? = null,
-  ) {
-    /**
-     * The corners this camera renders. They are derived from the frozen projection on the thread
-     * that asks for them, and kept for later readers of the same publish.
-     */
-    @Volatile private var derivedExtents: MapViewportExtents? = extents
-    private var derivedMetersPerDpAtCenter: Double? = metersPerDpAtCenter
+  val camera: CameraPosition
+    get() = geometry.camera
 
-    /** Read under the projection lock, like [extents]. */
-    fun metersPerDpAtCenter(): Double =
-      derivedMetersPerDpAtCenter
-        ?: metersPerDpAtLatitude(camera.center.latitude).also {
-          derivedMetersPerDpAtCenter = it
-        }
-
-    fun metersPerDpAtLatitude(latitude: Double): Double =
-      projection?.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
-        ?: metersPerDpAtLatitude(camera.zoom, latitude)
-
-    /**
-     * Call under the projection lock, having read the mirror under that same lock: a replaced
-     * publish's handles close as soon as the lock is free.
-     */
-    fun extents(): MapViewportExtents {
-      derivedExtents?.let {
-        return it
-      }
-      val corners = projection?.let { unprojectedCorners(it, size) } ?: EmptyCorners
-      return MapViewportExtents(corners).also { derivedExtents = it }
-    }
-
-    /** Freezes what the projection can still answer, before the handle is closed. */
-    fun withoutProjection(): MirroredViewport =
-      MirroredViewport(
-        generation,
-        camera,
-        effectivePadding,
-        size,
-        null,
-        null,
-        extents(),
-        metersPerDpAtCenter(),
-      )
-  }
-
-  @Volatile private var mirroredViewport = MirroredViewport()
-
-  /**
-   * Publication of [mirroredViewport] versus a conversion that is using its projection. A publish
-   * swaps the snapshot and closes the outgoing handle only after that conversion returns.
-   */
-  private val projectionLock = MlnFfiLock()
-
-  /**
-   * True from a camera event until the next snapshot. The engine reports every transform change as
-   * camera events, so the mirror is read again only after one of them, once per drain, rather than
-   * after every drain.
-   */
-  @Volatile var snapshotStale = false
+  val size: DpSize
+    get() = geometry.size
 
   // Keep native handles outside Compose snapshots: an older snapshot must not read a closed handle.
   private var presentedProjection: PresentedProjection? = null
@@ -177,12 +103,10 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     destination: MlnFfiMapDestination,
     scaleFactor: Double,
   ) {
-    projectionLock.withLock {
-      val next = projection?.let { PresentedProjection(it, destination, scaleFactor) }
-      if (presentedProjection == next) return
-      presentedProjection = next
-      presentationRevision.longValue += 1
-    }
+    val next = projection?.let { PresentedProjection(it, destination, scaleFactor) }
+    if (presentedProjection == next) return
+    presentedProjection = next
+    presentationRevision.longValue += 1
   }
 
   fun captureFrameProjection(
@@ -203,112 +127,39 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     )
   }
 
-  /**
-   * The renderer sends dimensions; the main thread acknowledges them once the map's snapshot
-   * reports the size that the render session applied.
-   */
-  fun request(extent: MapExtent): Boolean = stateLock.withLock {
-    if (isClosing()) return@withLock false
-    viewportRequest = ViewportRequest(extent)
-    true
+  /** Read once on attachment, then whenever a camera event reports a newer generation. */
+  fun refresh(map: MapHandle) {
+    val next = map.getSnapshot()
+    if (next.generation == snapshot?.generation) return
+    projection?.close()
+    wrappedProjection?.close()
+    snapshot = next
+    geometry = next.viewportGeometry(appliedViewportInsets)
+    projection = map.createProjection()
+    wrappedProjection =
+      if (camera.center.longitude !in -180.0..<180.0) map.createWrappedProjection() else null
+    extents = null
   }
 
-  /**
-   * Main only. Returns the request whose size the map now has, and the jump that applies the insets
-   * with it, or null while no request waits or its size has not reached the map. Acknowledge it
-   * with [acknowledge] once the jump has run.
-   */
-  fun pendingRequest(
-    map: MapHandle,
-    beforeResize: (DpSize) -> Unit,
-    beforePadding: () -> Unit,
-  ): Pair<Any, CameraUpdate?>? {
-    val request = viewportRequest?.takeUnless { it === appliedViewportRequest } ?: return null
-    val size = map.getSnapshot().logicalExtent
-    if (
-      size.width.toInt() != request.extent.width || size.height.toInt() != request.extent.height
-    ) {
-      return null
-    }
-    beforeResize(DpSize(size.width.toInt().dp, size.height.toInt().dp))
-    return request to applyInsets(map, beforePadding)
+  fun attach(map: MapHandle) {
+    hasViewport = true
+    refresh(map)
   }
 
-  /**
-   * Publishes readiness after size and padding describe the same viewport. Keeps the last usable
-   * viewport during resize and surface loss: a detached presentation cannot be made ready by an
-   * acknowledgment that was already in flight.
-   */
-  fun acknowledge(request: Any): Boolean = stateLock.withLock {
-    if (viewportRequest !== request) return@withLock false
-    appliedViewportRequest = viewportRequest
-    true
-  }
-
-  /** Publishes the map's latest camera and viewport for any-thread getters. Any thread. */
-  fun snapshot(map: MapHandle) {
-    // Cleared first, so a camera event that arrives during the read marks the mirror again.
-    snapshotStale = false
-    val snapshot = map.getSnapshot()
-    if (snapshot.generation < mirroredViewport.generation) return
-    val geometry = snapshot.viewportGeometry(appliedViewportInsets)
-    publishViewport(
-      MirroredViewport(
-        generation = snapshot.generation,
-        camera = geometry.camera,
-        effectivePadding = geometry.padding,
-        size = geometry.size,
-        // A fresh handle per snapshot: createProjection freezes the transform at creation.
-        projection = map.createProjection(),
-        wrappedProjection =
-          if (geometry.camera.center.longitude !in -180.0..<180.0) {
-            map.createWrappedProjection()
-          } else null,
-      )
-    )
+  fun detach() {
+    hasViewport = false
   }
 
   fun retire() {
-    val previous = projectionLock.withLock {
-      val current = mirroredViewport
-      mirroredViewport = current.withoutProjection()
-      current
-    }
-    runCatching { previous.projection?.close() }
-    runCatching { previous.wrappedProjection?.close() }
+    viewportExtents()
+    projection?.close()
+    projection = null
+    wrappedProjection?.close()
+    wrappedProjection = null
   }
-
-  private fun publishViewport(next: MirroredViewport) {
-    val previous = projectionLock.withLock {
-      val current = mirroredViewport
-      // Two threads can read snapshots concurrently; the older one must not win.
-      if (next.generation < current.generation) {
-        current.also { mirroredViewport = it }
-        return@withLock next
-      }
-      mirroredViewport = next
-      current
-    }
-    runCatching { previous.projection?.close() }
-    runCatching { previous.wrappedProjection?.close() }
-  }
-
-  val camera
-    get() = mirroredViewport.camera
-
-  /** The snapshot generation the mirror shows. */
-  val generation: ULong
-    get() = mirroredViewport.generation
 
   fun captureRenderPadding() {
-    renderedCameraPadding = mirroredViewport.effectivePadding
-  }
-
-  fun clearRequest(clearApplied: Boolean = false) {
-    stateLock.withLock {
-      viewportRequest = null
-      if (clearApplied) appliedViewportRequest = null
-    }
+    renderedCameraPadding = geometry.padding
   }
 
   fun setInsets(insets: EdgeInsets): Boolean {
@@ -319,6 +170,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
 
   /** Main only. Returns the jump that moves a new map to [requested], if any. */
   fun prepareCamera(requested: CameraPosition?): CameraUpdate? {
+    snapshot = null
     appliedViewportInsets = EdgeInsets()
     pendingCameraPadding = requested?.padding?.takeUnless { it == DpPadding.Zero }
     return requested?.let {
@@ -352,64 +204,51 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     return CameraUpdate(camera = CameraOptions(padding = effective))
   }
 
-  fun getVisibleBounds(): VisibleBounds = projectionLock.withLock {
-    mirroredViewport.extents().bounds
-  }
+  private fun viewportExtents(): MapViewportExtents =
+    extents
+      ?: MapViewportExtents(projection?.let { unprojectedCorners(it, size) } ?: EmptyCorners).also {
+        extents = it
+      }
 
-  fun getVisibleRegion(): VisibleRegion = projectionLock.withLock {
-    mirroredViewport.extents().region
-  }
+  fun getVisibleBounds(): VisibleBounds = viewportExtents().bounds
+
+  fun getVisibleRegion(): VisibleRegion = viewportExtents().region
 
   fun getViewport(): Viewport? {
-    // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once the
-    // session has acknowledged the render target's dimensions and applied padding.
-    if (!hasViewport) return null
-    // One read under the lock that keeps its projection open: every property comes from the same
-    // publish, and nothing can close that publish's handles while they are read.
-    return projectionLock.withLock {
-      val mirror = mirroredViewport
-      if (mirror.size == DpSize.Zero) return@withLock null
-      val extents = mirror.extents()
-      Viewport(
-        cameraPosition = mirror.camera,
-        size = mirror.size,
-        visibleBounds = extents.bounds,
-        visibleRegion = extents.region,
-        metersPerDpAtCenter = mirror.metersPerDpAtCenter(),
-      )
-    }
+    if (!hasViewport || size == DpSize.Zero) return null
+    val extents = viewportExtents()
+    return Viewport(
+      cameraPosition = camera,
+      size = size,
+      visibleBounds = extents.bounds,
+      visibleRegion = extents.region,
+      metersPerDpAtCenter = metersPerDpAtLatitude(camera.center.latitude),
+    )
   }
 
-  fun positionFromScreenLocation(offset: DpOffset): Position? = projectionLock.withLock {
-    mirroredViewport.projection?.latLngForPixelUnwrapped(offset.toScreenPoint())?.toPosition()
-  }
+  fun positionFromScreenLocation(offset: DpOffset): Position? =
+    projection?.latLngForPixelUnwrapped(offset.toScreenPoint())?.toPosition()
 
-  fun boxZoomFit(rect: DpRect): BoxZoomFit? = projectionLock.withLock {
-    val projection = mirroredViewport.projection ?: return@withLock null
-    boxZoomFit(rect, mirroredViewport.camera) {
+  fun boxZoomFit(rect: DpRect): BoxZoomFit? {
+    val projection = projection ?: return null
+    return boxZoomFit(rect, camera) {
       projection.latLngForPixel(it.toScreenPoint()).toPosition()
     }
   }
 
-  fun screenLocationFromPosition(position: Position): DpOffset? = projectionLock.withLock {
-    val snapshot = mirroredViewport
-    val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
-    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
-  }
+  fun screenLocationFromPosition(position: Position): DpOffset? =
+    (wrappedProjection ?: projection)?.pixelForLatLng(position.toLatLng())?.toDpOffset()
 
-  fun overlayScreenLocationFromPosition(position: Position): DpOffset? = projectionLock.withLock {
+  fun overlayScreenLocationFromPosition(position: Position): DpOffset? {
     presentationRevision.longValue
     val presented = presentedProjection
-    if (presented != null)
-      return@withLock presented.toScreen(presented.frame.screenLocation(position))
-    val snapshot = mirroredViewport
-    val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
-    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+    if (presented != null) return presented.toScreen(presented.frame.screenLocation(position))
+    return screenLocationFromPosition(position)
   }
 
-  fun metersPerDpAtLatitude(latitude: Double): Double = projectionLock.withLock {
-    mirroredViewport.metersPerDpAtLatitude(latitude)
-  }
+  fun metersPerDpAtLatitude(latitude: Double): Double =
+    projection?.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
+      ?: metersPerDpAtLatitude(camera.zoom, latitude)
 }
 
 /**

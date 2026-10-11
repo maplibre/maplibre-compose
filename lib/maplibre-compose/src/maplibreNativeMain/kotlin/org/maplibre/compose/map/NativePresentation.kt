@@ -84,7 +84,7 @@ internal class NativePresentation(
   private val canRender: () -> Boolean,
   private val getLogger: () -> MapLog?,
   private val viewport: NativeViewport,
-  private val requestViewport: (MapExtent) -> Unit,
+  private val onAttached: () -> Unit,
 ) {
   private val logger
     get() = getLogger()
@@ -300,7 +300,6 @@ internal class NativePresentation(
     logger?.i { "Host surface lost; closing the render session and waiting for a new one" }
     val attachment = stateLock.withLock {
       val current = rendererAttachment?.takeIf { it.host === session } ?: return
-      viewport.clearRequest()
       current
     }
     attachment.host.withRendererAccess { attachment.release().getOrThrow() }
@@ -474,7 +473,7 @@ internal class NativePresentation(
       attachCount++
     }
     attachment.target = frame.target
-    requestViewport(extent)
+    onAttached()
     // A new target needs a frame even when the map is idle.
     renderForced.store(true)
     return true

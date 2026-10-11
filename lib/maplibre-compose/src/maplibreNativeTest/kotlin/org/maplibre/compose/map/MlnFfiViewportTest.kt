@@ -103,7 +103,7 @@ class MlnFfiViewportTest {
   }
 
   @Test
-  fun camera_events_describe_the_mirrored_camera() = runBlocking {
+  fun camera_events_describe_the_snapshot_camera() = runBlocking {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state

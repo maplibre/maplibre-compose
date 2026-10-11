@@ -8,10 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -19,8 +15,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Off the owner thread, coordinate conversion uses the snapshot's frozen projection, including
- * under pitch and bearing, so overlays land where the map draws them.
+ * Coordinate conversion uses the snapshot's frozen projection, including under pitch and bearing,
+ * so overlays land where the map draws them.
  */
 class MlnFfiProjectionTest {
 
@@ -77,7 +73,7 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun an_off_thread_projection_round_trips_under_pitch_and_bearing() {
+  fun a_snapshot_projection_round_trips_under_pitch_and_bearing() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(RotatedCamera)
@@ -90,7 +86,7 @@ class MlnFfiProjectionTest {
           projected.isNear(ScreenCenter)
       }
 
-      // The test thread is not the owner thread, so both calls take the snapshot handle.
+      // Both conversions use the same snapshot projection.
       val camera = fixture.session.getCameraPosition()
       val projected = fixture.session.screenLocationFromPosition(camera.center)
       assertTrue(
@@ -167,39 +163,6 @@ class MlnFfiProjectionTest {
         fixture.events.count { it == "viewportChanged" } > movedBefore,
         "a resize should report viewportChanged so Compose overlays re-read the projection",
       )
-    }
-  }
-
-  @Test
-  fun conversions_succeed_while_the_owner_thread_replaces_the_snapshot() = runBlocking {
-    BridgeMapFixture.create().use { fixture ->
-      fixture.loadStyle(BaseStyle.Empty)
-      fixture.session.setCameraPosition(StartCamera)
-      fixture.pumpUntil("the starting camera to apply") {
-        abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) < 0.01
-      }
-
-      val flight = launch {
-        fixture.session.animateCamera(
-          RotatedCamera.toCameraUpdate(),
-          CameraAnimation.Fly { duration = 2.seconds },
-        )
-      }
-      fixture.awaitUntil("the camera to start moving") {
-        abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) > 0.01
-      }
-
-      repeat(200) {
-        val unprojected = assertNotNull(fixture.session.positionFromScreenLocation(ScreenCenter))
-        val projected = fixture.session.screenLocationFromPosition(unprojected)
-        assertTrue(
-          projected.isNear(ScreenCenter),
-          "a live conversion should round-trip, was $projected from $unprojected",
-        )
-        fixture.frame()
-      }
-
-      fixture.awaitUntil("the flight to finish") { flight.isCompleted }
     }
   }
 
