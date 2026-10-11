@@ -1,6 +1,6 @@
 ---
 title: Rewrite or serve map requests
-description: Rewrite map HTTP requests, or serve tiles and fonts from application code.
+description: Add headers or API keys to map requests, or serve tiles and fonts from application code.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,31 +9,66 @@ import { region } from "../../snippets";
 
 import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Requests.kt?raw";
 
-Tiles, sprites, and fonts come from URLs in the style.
-<Api of="MapRequestInterceptor" /> rewrites those URLs or adds HTTP headers.
-<Api of="MapResourceProvider" /> supplies bytes for rewritten URLs it accepts.
+MapLibre downloads the style, tiles, fonts, and icons from URLs in the style.
+You can change these requests from Kotlin code. Do this when:
 
-## Configure requests
+- your tile server needs an API key or an `Authorization` header,
+- requests must go to a different server than the URLs in the style, or
+- the app has tiles or fonts in its resources, in a database, or in a file
+  that MapLibre cannot read directly.
 
-Set either or both hooks in the runtime configuration block. They are fixed for
-the runtime's lifetime and apply to its maps, snapshotters, and offline
-operations.
-Call <Api of="DefaultMapRuntime.configure" /> during application startup, before
-the first map, snapshotter, or offline storage:
+A <Api of="MapRequestInterceptor" /> changes the URL or headers of a request
+before MapLibre sends it. A <Api of="MapResourceProvider" /> returns the data
+for a request from your code, so MapLibre sends no request. Both work on every
+platform, and they also apply to snapshots and offline downloads.
+
+## Add headers
+
+This interceptor adds a token to requests for one tile server:
+
+<Code code={region(requests, "headers")} lang="kotlin" title="MapRequests.kt" />
+
+Check the URL before you add credentials. A style often loads resources from
+several servers, and a token for your server should not go to the others.
+
+The example reads the token from a `StateFlow` on each request, so a new token
+applies to later requests.
+
+## Rewrite URLs
+
+`rewriteUrl` returns the URL to fetch instead, or `null` to keep the original.
+This interceptor adds an API key as a query parameter:
+
+<Code code={region(requests, "rewrite")} lang="kotlin" title="MapRequests.kt" />
+
+## Serve data from app code
+
+A provider returns the bytes for URLs it accepts. Give these URLs your own
+scheme in the style, such as `app://tiles/{z}/{x}/{y}.pbf` as a vector source's
+tile URL. This provider reads them from the app's Compose resources:
+
+<Code code={region(requests, "scheme")} lang="kotlin" title="MapRequests.kt" />
+
+To choose the requests yourself, pass `accepts` and `load`, and return a
+<Api of="MapResourceLoad" />. Return
+<Api of="MapResourceLoad.NoContent" /> for a tile that has no data, so MapLibre
+draws an empty tile and reports no error. If `load` throws, the request fails:
+
+<Code code={region(requests, "outcomes")} lang="kotlin" title="MapRequests.kt" />
+
+## Install the interceptor and provider
+
+Set them on the default runtime with <Api of="DefaultMapRuntime.configure" />.
+Call it once at app startup, such as in `Application.onCreate` on Android or in
+`main` on desktop, before the app shows a map:
 
 <Code code={region(requests, "configuration")} lang="kotlin" title="App.kt" />
 
-Attach credentials only to hosts you own. Update the token state to refresh
-credentials for later callbacks.
+The settings cannot change after the runtime exists. To change a token,
+update the value that the interceptor reads.
 
-For separate configuration, set the hooks in <Api of="createMapRuntime" /> and pass the result
-to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
-when finished.
+To use different settings for some maps only, create a separate runtime with
+<Api of="createMapRuntime" /> and pass it to <Api of="rememberMapState" />.
+Close the runtime when you no longer need it:
 
-## Serve the bytes
-
-For local tiles, return a <Api of="MapResourceLoad" />: `Bytes` for resource data,
-`NoContent` for an empty tile, or `Failed` with a <Api of="MapResourceError" />
-for an error:
-
-<Code code={region(requests, "outcomes")} lang="kotlin" title="App.kt" />
+<Code code={region(requests, "separate-runtime")} lang="kotlin" title="App.kt" />

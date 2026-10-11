@@ -2,16 +2,23 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.StateFlow
+import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.resource.MapRequestInterceptor
-import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.MapResourceKind
 import org.maplibre.compose.resource.MapResourceLoad
 import org.maplibre.compose.resource.MapResourceProvider
+import org.maplibre.compose.style.BaseStyle
 
-// #region configuration
-fun configureMapRequests(token: StateFlow<String?>) {
+fun authHeaders(token: StateFlow<String?>): MapRequestInterceptor {
+  // #region headers
   val interceptor =
     MapRequestInterceptor(
       headers = { request ->
@@ -23,7 +30,60 @@ fun configureMapRequests(token: StateFlow<String?>) {
         }
       }
     )
-  val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
+  // #endregion headers
+  return interceptor
+}
+
+fun apiKeyRewrite(apiKey: String): MapRequestInterceptor {
+  // #region rewrite
+  val interceptor =
+    MapRequestInterceptor(
+      rewriteUrl = { request ->
+        if (request.url.startsWith("https://tiles.example.com/")) {
+          val separator = if ('?' in request.url) '&' else '?'
+          "${request.url}${separator}key=$apiKey"
+        } else {
+          null
+        }
+      }
+    )
+  // #endregion rewrite
+  return interceptor
+}
+
+fun bundledTiles(): MapResourceProvider {
+  // #region scheme
+  // Serves app://tiles/14/2627/5721.pbf from composeResources/files/tiles/14/2627/5721.pbf
+  val provider =
+    MapResourceProvider(scheme = "app") { request ->
+      Res.readBytes("files/" + request.url.removePrefix("app://"))
+    }
+  // #endregion scheme
+  return provider
+}
+
+@Suppress("UNUSED_PARAMETER") suspend fun readTile(url: String): ByteArray? = null
+
+fun databaseTiles(): MapResourceProvider {
+  // #region outcomes
+  val provider =
+    MapResourceProvider(
+      accepts = { request ->
+        request.kind == MapResourceKind.Tile && request.url.startsWith("app://tiles/")
+      },
+      load = { request ->
+        when (val bytes = readTile(request.url)) {
+          null -> MapResourceLoad.NoContent()
+          else -> MapResourceLoad.Bytes(bytes)
+        }
+      },
+    )
+  // #endregion outcomes
+  return provider
+}
+
+// #region configuration
+fun configureMaps(interceptor: MapRequestInterceptor, provider: MapResourceProvider) {
   DefaultMapRuntime.configure {
     requestInterceptor = interceptor
     resourceProvider = provider
@@ -32,26 +92,17 @@ fun configureMapRequests(token: StateFlow<String?>) {
 
 // #endregion configuration
 
-@Suppress("UNUSED_PARAMETER") suspend fun readAsset(url: String): ByteArray = ByteArray(0)
+@Composable
+fun SeparateRuntimeMap(interceptor: MapRequestInterceptor) {
+  // #region separate-runtime
+  val runtime = remember { createMapRuntime { requestInterceptor = interceptor } }
+  DisposableEffect(runtime) { onDispose { runtime.close() } }
 
-@Suppress("UNUSED_PARAMETER") suspend fun readTile(url: String): ByteArray? = null
-
-fun tileProvider(): MapResourceProvider {
-  // #region outcomes
-  val provider =
-    MapResourceProvider(
-      accepts = { request -> request.kind == MapResourceKind.Tile },
-      load = { request ->
-        try {
-          when (val bytes = readTile(request.url)) {
-            null -> MapResourceLoad.NoContent()
-            else -> MapResourceLoad.Bytes(bytes)
-          }
-        } catch (error: Exception) {
-          MapResourceLoad.Failed(MapResourceError.Server, error.message ?: "tile read failed")
-        }
-      },
+  val state =
+    rememberMapState(
+      runtime = runtime,
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
     )
-  // #endregion outcomes
-  return provider
+  MaplibreMap(state = state)
+  // #endregion separate-runtime
 }
