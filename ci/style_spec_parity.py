@@ -71,11 +71,10 @@ OMITTED_SOURCE_TYPES = frozenset({"video"})
 
 # Style-root objects the imperative style API writes as typed Kotlin classes in
 # `style/<Name>.kt`. `transition` is typed by `TransitionOptions` and audited by
-# hand; `terrain` is not yet exposed.
+# hand. Objects may live in an engine-specific source set.
 ROOT_OBJECTS = ("light", "sky", "projection", "terrain")
-OMITTED_ROOT_OBJECTS = frozenset({"terrain"})
-STYLE_DIR = MODULE / "commonMain/kotlin/org/maplibre/compose/style"
-ROOT_OBJECT_WRITE = re.compile(r'putExpression\(\s*"(?P<name>[^"]+)"')
+OMITTED_ROOT_OBJECTS: frozenset[str] = frozenset()
+ROOT_OBJECT_WRITE = re.compile(r'\b(?:putExpression|put)\(\s*"(?P<name>[^"]+)"')
 
 
 class Version:
@@ -397,13 +396,17 @@ def scan_root_objects(root: pathlib.Path) -> dict[str, set[str]]:
     """Map each style-root object to the spec property names its class writes."""
     found: dict[str, set[str]] = {}
     for name in ROOT_OBJECTS:
-        path = root / STYLE_DIR / f"{name.capitalize()}.kt"
-        if not path.is_file():
-            continue
-        found[name] = {
-            match.group("name")
-            for match in ROOT_OBJECT_WRITE.finditer(path.read_text())
-        }
+        paths = sorted(
+            (root / MODULE).glob(
+                f"*Main/kotlin/org/maplibre/compose/style/*{name.capitalize()}.kt"
+            )
+        )
+        if paths:
+            found[name] = {
+                match.group("name")
+                for path in paths
+                for match in ROOT_OBJECT_WRITE.finditer(path.read_text())
+            }
     return found
 
 
@@ -705,7 +708,9 @@ def _audit_root_objects(
         }
         writes = written.get(name)
         if writes is None:
-            report.error(f"{name}: no {name.capitalize()}.kt in {STYLE_DIR}")
+            report.error(
+                f"{name}: no {name.capitalize()}.kt in a Main style source set"
+            )
             continue
         missing = sorted(
             f"{prop} ({_format_engines(spec_prop.engines(pins))})"

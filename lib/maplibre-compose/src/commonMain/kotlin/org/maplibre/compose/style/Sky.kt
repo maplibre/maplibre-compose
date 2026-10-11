@@ -13,7 +13,7 @@ import org.maplibre.compose.expressions.value.FloatValue
  * The style's sky: the area above the horizon, and the atmosphere around a globe.
  *
  * The defaults match the style spec's `sky` object. Each expression may use the zoom level. The fog
- * properties apply only with 3D terrain, which this library does not yet expose.
+ * properties apply only with 3D terrain, configured by the browser's [StyleOverrides].
  *
  * MapLibre Native does not implement the sky; see
  * [maplibre-native#4414](https://github.com/maplibre/maplibre-native/issues/4414).

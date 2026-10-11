@@ -48,6 +48,21 @@ shows how to declare them, and
 [How the map composes](/maplibre-compose/composition/#switching-the-base-style-keeps-your-content)
 explains what a style change resets.
 
+## Override the light and other root objects
+
+Besides sources and layers, a style has root objects that apply to the whole
+map: the light, and in the browser the sky, the projection, and 3D terrain.
+Pass <Api of="StyleOverrides" /> to `rememberMapState` to replace them. This
+example dims the light that shades 3D buildings:
+
+<Code code={region(styling, "overrides")} lang="kotlin" title="App.kt" />
+
+The map applies the overrides again after each style load, so they also apply
+to a style you switch to. A root object you do not override keeps the base
+style's value, and clearing an override restores it. MapLibre Native supports
+only the light; [Show 3D buildings and relief](/maplibre-compose/terrain/)
+shows the sky, the globe projection, and 3D terrain in the browser.
+
 ## Ship a style with your app
 
 Put the style file under your module's `composeResources/files/` folder and
