@@ -146,9 +146,10 @@ region for each Kotlin example.
 
 ## Issue and PR organization
 
-Follow the [classification rules](CONTRIBUTING.md#issue-and-pr-labels): exactly
-one kind and at least one `area:*` label for each work issue and PR. Leave
-native issue types unset. Usage questions go to Discussions.
+Label work issues and PRs with exactly one kind (`bug`, `feature`, `perf`,
+`chore`, or `research`) and at least one `area:*` label. Add engine, platform,
+and modifier labels when they explain the work. Leave native issue types unset.
+Usage questions go to Discussions.
 
 ## Pull requests
 
