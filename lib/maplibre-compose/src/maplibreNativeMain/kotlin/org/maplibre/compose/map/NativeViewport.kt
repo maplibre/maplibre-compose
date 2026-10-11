@@ -296,6 +296,10 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
   val camera
     get() = mirroredViewport.camera
 
+  /** The snapshot generation the mirror shows. */
+  val generation: ULong
+    get() = mirroredViewport.generation
+
   fun captureRenderPadding() {
     renderedCameraPadding = mirroredViewport.effectivePadding
   }

@@ -659,12 +659,8 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
-        // The transform does not change between the events of one drain, so the first camera
-        // event of a drain marks the mirror stale for all of them.
-        if (!cameraEventInDrain) {
-          cameraEventInDrain = true
-          viewport.snapshotStale = true
-        }
+        // One drain can span several generations, so each event newer than the mirror marks it.
+        if (event.generation > viewport.generation) viewport.snapshotStale = true
         if (lease != null && mapEvent != null) {
           if (viewport.snapshotStale) viewport.snapshot(map)
           events.presentationEvent(engine, lease, mapEvent)
@@ -688,12 +684,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Event pump only. True from the first camera event of a drain until the drain ends. */
-  private var cameraEventInDrain = false
-
   private suspend fun onEventsDrained(map: MapHandle, drain: Long) {
-    // Cleared first: a failure below must not leave the next drain unable to mark the mirror stale.
-    cameraEventInDrain = false
     applyPendingViewport(map)
     if (viewport.snapshotStale) viewport.snapshot(map)
     finishGestures(drain)
