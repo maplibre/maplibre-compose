@@ -6,10 +6,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
+import org.maplibre.compose.map.MapStateCallbacks
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.readSourceIds
 import org.maplibre.compose.testing.runMapTest
 
 class StyleLayerSummariesTest {
@@ -54,9 +56,13 @@ class StyleLayerSummariesTest {
           binding.addLayer(TestLayer("external", "background").definition(), "pins")
           binding.moveLayer("pins", "backdrop")
         }
-        fixture.state.styleAuthority.refreshStyleResources(fixture.session)
+        MapStateCallbacks(fixture.state).onStyleSourcesChanged(fixture.session)
+        fixture.pumpUntil("the external edits to be published") {
+          fixture.state.style.layers.map { it.id } ==
+            listOf("pins", "backdrop", "lakes", "rivers", "external")
+        }
         assertEquals(
-          binding.awaitOwner { binding.sourceIds() },
+          fixture.readSourceIds(),
           fixture.state.style.sources.map { it.id },
         )
         assertEquals(

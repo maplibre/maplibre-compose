@@ -8,6 +8,7 @@ import org.maplibre.compose.sources.Source
  * MapLibre Native that is the map's owner thread.
  */
 internal suspend fun <T> StyleBinding.onOwner(block: () -> T): T {
+  // Design step 5 removes owner visits when style installation writes become fire-and-forget.
   var result: Result<T>? = null
   awaitOwner { result = runCatching(block) }
   return checkNotNull(result) { "The style unloaded before the test's owner call ran" }.getOrThrow()

@@ -26,6 +26,8 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapStateCallbacks
+import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.resource.MapResourceProvider
@@ -44,6 +46,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
       baseStyle = BaseStyle.Empty,
     )
   private val glJsSession = GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr)
+  // Design step 6 simplifies presentation publication; this fixture supplies its own canvas.
   private val token = state.reservePresentation()
 
   override val session: MapAdapter
@@ -76,38 +79,42 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         }
       }
     )
+    recorder.bindState(state)
     state.publishPresentation(token, glJsSession)
-    recorder.attachment = requireNotNull(state.currentMapAttachment)
-    recorder.state = state
   }
 
   private fun frame(): Boolean {
     frameRequested = false
     val rendered = glJsSession.render(GlJsFrameTarget.OwnCanvas, extent)
+    // Design step 7 removes the pending-action replay queues behind this host acknowledgement.
     glJsSession.markPresentationStateReplayed()
     return rendered.also { if (it) hasRendered = true }
   }
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
-    state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
-    state.styleAuthority.updateLoadedStyle(glJsSession, null)
     val styleLoadsBefore = events.count { it == MapFixture.StyleLoaded }
-    glJsSession.setBaseStyle(style)
+    checkNotNull(state.style.asMutable).baseStyle = style
     if (recorder.style?.isLoaded != true) {
       pumpUntil("style $style to load", timeout) {
         events.count { it == MapFixture.StyleLoaded } > styleLoadsBefore
       }
     }
+    // Design step 5 replaces reconciliation; this frame-driven host has no style composition.
     glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
-    state.styleAuthority.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
-    state.styleAuthority.markStyleReady(glJsSession)
+    // Fixture loads wait for parsed style resources, independently of tile loading.
+    MapStateCallbacks(state).onStyleReady(glJsSession)
+    pumpUntil("the loaded style to be ready", timeout) {
+      state.style.loadState == StyleLoadState.Ready
+    }
   }
 
   internal fun fireStyleError(message: String) {
+    // Design step 7 replaces listener delivery; MapState has no command to inject engine errors.
     glJsSession.fireStyleErrorForTest(message)
   }
 
   internal fun detachPresentationForTest() {
+    // Design step 6 simplifies presentation release; this fixture supplies its own canvas.
     state.releasePresentation(token, glJsSession)
   }
 

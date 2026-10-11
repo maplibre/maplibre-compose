@@ -14,6 +14,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.readSourceIds
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.setImage
 
@@ -71,7 +72,7 @@ class LoadedStyleResourceMutationTest {
         )
       fixture.state.styleAuthority.applyStyleRevision(fixture.session, binding, rejected)
       assertIs<StyleLoadState.Failed>(fixture.state.style.loadState)
-      assertEquals(true, binding.awaitOwner { binding.sourceExists("installed") })
+      assertEquals(true, "installed" in fixture.readSourceIds())
       assertNull(fixture.state.style.sources["installed"])
       fixture.state.styleAuthority.applyStyleRevision(
         fixture.session,

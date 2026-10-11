@@ -13,11 +13,11 @@ import kotlinx.coroutines.Deferred
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.DefaultStyleCompositionEvaluator
 import org.maplibre.compose.map.MapAdapter
-import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.MapStateCallbacks
 import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
@@ -153,6 +153,7 @@ internal suspend fun MapFixture.declare(
       LayoutDirection.Ltr,
       ownership,
     )
+  // Design step 5 replaces revision submission; MapState has no command to replace content.
   state.styleAuthority.applyStyleRevision(session, checkNotNull(style), revision)
 }
 
@@ -174,10 +175,11 @@ internal class RecordingMapCallbacks(
   private val beforeStyleChanged: (MapAdapter, StyleBinding?) -> Unit = { _, _ -> }
 ) : MapAdapter.Callbacks {
 
-  var attachment: MapAttachment? = null
+  private var callbacks: MapAdapter.Callbacks? = null
 
-  /** Set so the recorder exercises the real reactions rather than a copy of them. */
-  var state: MapState? = null
+  fun bindState(state: MapState) {
+    callbacks = MapStateCallbacks(state) { map, _ -> callbacks?.onViewportChanged(map) }
+  }
 
   val events: RecordingList<String> = RecordingList()
 
@@ -191,38 +193,39 @@ internal class RecordingMapCallbacks(
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     beforeStyleChanged(map, style)
     this.style = style
-    // The state learns of the binding here, as it does in composition, so that work the engine
-    // starts on a freshly loaded style reaches it.
-    state?.styleAuthority?.updateLoadedStyle(map, style)
-    attachment?.updateViewport(map.getViewport())
+    callbacks?.onStyleChanged(map, style)
     events += if (style == null) "styleChanged(null)" else MapFixture.StyleLoaded
   }
 
   override fun onStyleReady(map: MapAdapter) {
+    callbacks?.onStyleReady(map)
     events += MapFixture.StyleReady
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {
+    callbacks?.onStyleFailed(map, reason)
     errors += "styleFailed: $reason"
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter) {
+    callbacks?.onStyleSourcesChanged(map)
+  }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     engineEvents += event
-    state?.attachmentAuthority?.onEvent(map, event)
+    callbacks?.onEvent(map, event)
   }
 
   override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
-    state?.styleAuthority?.resolveMissingImage(map, imageId)
+    callbacks?.resolveMissingImage(map, imageId)
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
     events += "gesture($active)"
-    state?.attachmentAuthority?.setGestureActive(map, active)
+    callbacks?.onGestureActive(map, active)
   }
 
   override fun onViewportChanged(map: MapAdapter) {
     events += "viewportChanged"
-    state?.attachmentAuthority?.synchronizeCamera(map)
+    callbacks?.onViewportChanged(map)
   }
 }

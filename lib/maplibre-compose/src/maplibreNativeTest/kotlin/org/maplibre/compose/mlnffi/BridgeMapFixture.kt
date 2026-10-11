@@ -96,8 +96,7 @@ private constructor(
     )
 
   fun bindState(state: MapState) {
-    recorder.attachment = requireNotNull(state.currentMapAttachment)
-    recorder.state = state
+    recorder.bindState(state)
   }
 
   /** The thread [whileRenderingOnRendererThread] drives frames from, while one is running. */
@@ -131,6 +130,7 @@ private constructor(
     }
 
   init {
+    recorder.bindState(state)
     session.start()
     session.onSurfaceAvailable(hostSession)
   }
@@ -367,6 +367,12 @@ private constructor(
     }
   }
 
+  private fun requestStyle(style: BaseStyle) {
+    checkNotNull(state.style.asMutable).baseStyle = style
+    // Design step 6 removes pending adapters; unpresented bridge tests still configure the session.
+    session.setBaseStyle(style)
+  }
+
   /** [loadStyle] for a coroutine. */
   suspend fun awaitStyle(
     style: BaseStyle,
@@ -374,7 +380,7 @@ private constructor(
     extent: MapExtent = DefaultExtent,
   ) {
     val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
+    requestStyle(style)
     if (this.style?.isLoaded != true) {
       awaitUntil("style $style to load", timeout, extent) {
         events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
@@ -411,7 +417,7 @@ private constructor(
     extent: MapExtent = DefaultExtent,
   ) {
     val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
+    requestStyle(style)
     if (this.style?.isLoaded != true) {
       pumpUntil("style $style to load", timeout, extent) {
         events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
@@ -427,7 +433,7 @@ private constructor(
    */
   fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
     val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
+    requestStyle(style)
     val deadline = TimeSource.Monotonic.markNow() + timeout
     while (events.count { it == StyleLoaded } <= styleLoadsBefore || this.style == null) {
       check(deadline.hasNotPassedNow()) {

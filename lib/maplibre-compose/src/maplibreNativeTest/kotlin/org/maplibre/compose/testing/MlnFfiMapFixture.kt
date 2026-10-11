@@ -11,6 +11,8 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapStateCallbacks
+import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -26,13 +28,12 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   MapFixture {
 
   override val state = bridge.state
+  // Design step 6 simplifies presentation publication; the fixture supplies its own GPU host.
   private val token = state.reservePresentation()
 
   init {
-    state.styleAuthority.setBaseStyle(BaseStyle.Empty)
     state.setCameraPosition(CameraPosition(zoom = 0.0))
     state.publishPresentation(token, bridge.session)
-    bridge.bindState(state)
   }
 
   override val session: MapAdapter
@@ -54,12 +55,13 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     get() = bridge.errors
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
-    state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
-    state.styleAuthority.updateLoadedStyle(bridge.session, null)
     bridge.awaitStyle(style, timeout, extent)
+    // Design step 5 replaces reconciliation; this frame-driven host has no style composition.
     bridge.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
-    state.styleAuthority.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
-    check(state.styleAuthority.markStyleReady(bridge.session))
+    MapStateCallbacks(state).onStyleReady(bridge.session)
+    pumpUntil("the loaded style to be ready", timeout) {
+      state.style.loadState == StyleLoadState.Ready
+    }
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {

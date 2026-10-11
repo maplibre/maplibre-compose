@@ -44,9 +44,9 @@ class MissingImageResolverTest {
       fixture.settle()
       assertFalse(fixture.readPixel(256, 256).isNear(RgbaPixel(255, 0, 0, 255)))
       release.complete(Unit)
-      val style = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil("the delayed image to reach the style") {
-        style.onOwner { style.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.pumpUntilPixel("the delayed icon to be drawn", 256, 256, RgbaPixel(255, 0, 0, 255))
     }
@@ -87,9 +87,9 @@ class MissingImageResolverTest {
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
-      val style = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil("the resolved image to reach the style", timeout = 20.seconds) {
-        style.onOwner { style.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
 
@@ -108,17 +108,18 @@ class MissingImageResolverTest {
         ResolvedStyleImage(PreparedImage.fromBitmap(ImageBitmap(1, 1)))
       }
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
-      val style = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil("the first resolution to reach the style") {
-        style.onOwner { style.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
 
       // Bypass Compose's ownership records, as Native does when evicting unused images.
+      val style = checkNotNull(fixture.style)
       style.onOwner { style.removeImage(MissingIconId) }
       fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 4.0))
       fixture.pumpUntil("the removed image to be requested and restored") {
-        requests.size >= 2 && style.onOwner { style.imageExists(MissingIconId) } == true
+        requests.size >= 2 && fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
       assertEquals(listOf(MissingIconId, MissingIconId), requests.toList())
@@ -135,17 +136,17 @@ class MissingImageResolverTest {
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
-      val firstStyle = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil("the first resolution to reach the style", timeout = 20.seconds) {
-        firstStyle.onOwner { firstStyle.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
 
       // The name differs because the native fixture times out reloading identical style JSON.
       fixture.loadStyle(BaseStyle.Json(missingIconStyle(name = "missing icon again")))
-      val reloadedStyle = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil("the resolved image to reach the reloaded style", timeout = 20.seconds) {
-        reloadedStyle.onOwner { reloadedStyle.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
 
@@ -182,12 +183,12 @@ class MissingImageResolverTest {
       // Each engine asks once per tile parse, so a new zoom is what puts the request in front of
       // the replacement resolver.
       fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 4.0))
-      val style = assertNotNull(fixture.style)
+      assertNotNull(fixture.style)
       fixture.pumpUntil(
         "the replacement resolver's image to reach the style",
         timeout = 20.seconds,
       ) {
-        style.onOwner { style.imageExists(MissingIconId) } == true
+        fixture.state.style.images.get(MissingIconId) != null
       }
       fixture.settle()
 
