@@ -74,4 +74,26 @@ expressions for decisions that depend on feature data or zoom.
 The API reference documents the full set of expression functions under
 <Api of="org.maplibre.compose.expressions.dsl" />.
 
+## Export an expression as JSON
+
+Use <Api of="org.maplibre.compose.expressions.toStyleJson" /> to inspect an
+expression or pass it to a style-spec evaluator in an application test. It
+returns a JSON string without creating a map or starting a composition.
+
+<Code code={region(expressions, "export-expression")} lang="kotlin" />
+
+EM and SP text values need explicit conversion factors in
+<Api of="org.maplibre.compose.expressions.ExpressionJsonOptions" />. DP text
+offsets also need a factor; ordinary DP sizes and offsets keep their values.
+The destination property determines the output unit. For example, an EM text
+size exported to DP uses the text size in DP as its EM scale.
+
+Named images export directly. Bitmap and painter images need an
+<Api of="org.maplibre.compose.expressions.ExpressionImageResolver" /> that
+returns their style image IDs. Exporting does not draw or register images.
+
+Export compiles and encodes the expression; it does not evaluate feature data
+or validate operators against an engine. Compare parsed JSON in tests because
+number formatting and object key order can differ across platforms and releases.
+
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/

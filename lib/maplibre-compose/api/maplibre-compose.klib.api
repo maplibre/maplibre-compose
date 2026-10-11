@@ -87,6 +87,10 @@ final enum class org.maplibre.compose.location/BearingUpdate : kotlin/Enum<org.m
     final fun values(): kotlin/Array<org.maplibre.compose.location/BearingUpdate> // org.maplibre.compose.location/BearingUpdate.values|values#static(){}[0]
 }
 
+abstract fun interface org.maplibre.compose.expressions/ExpressionImageResolver { // org.maplibre.compose.expressions/ExpressionImageResolver|null[0]
+    abstract fun resolve(org.maplibre.compose.expressions/ExpressionImageReference): kotlin/String? // org.maplibre.compose.expressions/ExpressionImageResolver.resolve|resolve(org.maplibre.compose.expressions.ExpressionImageReference){}[0]
+}
+
 abstract fun interface org.maplibre.compose.logging/MapLogger { // org.maplibre.compose.logging/MapLogger|null[0]
     open val minLevel // org.maplibre.compose.logging/MapLogger.minLevel|{}minLevel[0]
         open fun <get-minLevel>(): org.maplibre.compose.logging/MapLogLevel // org.maplibre.compose.logging/MapLogger.minLevel.<get-minLevel>|<get-minLevel>(){}[0]
@@ -383,6 +387,54 @@ sealed interface org.maplibre.compose.expressions.value/NullValue : org.maplibre
 sealed interface org.maplibre.compose.expressions.value/ProjectionValue : org.maplibre.compose.expressions.value/ExpressionValue, org.maplibre.compose.expressions.value/InterpolatableValue<org.maplibre.compose.expressions.value/ProjectionValue> // org.maplibre.compose.expressions.value/ProjectionValue|null[0]
 
 sealed interface org.maplibre.compose.expressions.value/StringValue : org.maplibre.compose.expressions.value/ComparableValue<org.maplibre.compose.expressions.value/StringValue>, org.maplibre.compose.expressions.value/EquatableValue, org.maplibre.compose.expressions.value/ExpressionValue, org.maplibre.compose.expressions.value/FormattableValue, org.maplibre.compose.expressions.value/FormattedValue, org.maplibre.compose.expressions.value/MatchableValue // org.maplibre.compose.expressions.value/StringValue|null[0]
+
+sealed interface org.maplibre.compose.expressions/ExpressionImageReference { // org.maplibre.compose.expressions/ExpressionImageReference|null[0]
+    abstract val isSdf // org.maplibre.compose.expressions/ExpressionImageReference.isSdf|{}isSdf[0]
+        abstract fun <get-isSdf>(): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.isSdf.<get-isSdf>|<get-isSdf>(){}[0]
+    abstract val stretch // org.maplibre.compose.expressions/ExpressionImageReference.stretch|{}stretch[0]
+        abstract fun <get-stretch>(): org.maplibre.compose.util/ImageStretch? // org.maplibre.compose.expressions/ExpressionImageReference.stretch.<get-stretch>|<get-stretch>(){}[0]
+
+    final class Bitmap : org.maplibre.compose.expressions/ExpressionImageReference { // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap|null[0]
+        final val bitmap // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.bitmap|{}bitmap[0]
+            final fun <get-bitmap>(): androidx.compose.ui.graphics/ImageBitmap // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.bitmap.<get-bitmap>|<get-bitmap>(){}[0]
+        final val isSdf // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.isSdf|{}isSdf[0]
+            final fun <get-isSdf>(): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.isSdf.<get-isSdf>|<get-isSdf>(){}[0]
+        final val stretch // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.stretch|{}stretch[0]
+            final fun <get-stretch>(): org.maplibre.compose.util/ImageStretch? // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.stretch.<get-stretch>|<get-stretch>(){}[0]
+
+        final fun component1(): androidx.compose.ui.graphics/ImageBitmap // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.component1|component1(){}[0]
+        final fun component2(): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.component2|component2(){}[0]
+        final fun component3(): org.maplibre.compose.util/ImageStretch? // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.component3|component3(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.expressions/ExpressionImageReference.Bitmap.toString|toString(){}[0]
+    }
+
+    final class Painter : org.maplibre.compose.expressions/ExpressionImageReference { // org.maplibre.compose.expressions/ExpressionImageReference.Painter|null[0]
+        final val alpha // org.maplibre.compose.expressions/ExpressionImageReference.Painter.alpha|{}alpha[0]
+            final fun <get-alpha>(): kotlin/Float // org.maplibre.compose.expressions/ExpressionImageReference.Painter.alpha.<get-alpha>|<get-alpha>(){}[0]
+        final val colorFilter // org.maplibre.compose.expressions/ExpressionImageReference.Painter.colorFilter|{}colorFilter[0]
+            final fun <get-colorFilter>(): androidx.compose.ui.graphics/ColorFilter? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.colorFilter.<get-colorFilter>|<get-colorFilter>(){}[0]
+        final val isSdf // org.maplibre.compose.expressions/ExpressionImageReference.Painter.isSdf|{}isSdf[0]
+            final fun <get-isSdf>(): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Painter.isSdf.<get-isSdf>|<get-isSdf>(){}[0]
+        final val painter // org.maplibre.compose.expressions/ExpressionImageReference.Painter.painter|{}painter[0]
+            final fun <get-painter>(): androidx.compose.ui.graphics.painter/Painter // org.maplibre.compose.expressions/ExpressionImageReference.Painter.painter.<get-painter>|<get-painter>(){}[0]
+        final val size // org.maplibre.compose.expressions/ExpressionImageReference.Painter.size|{}size[0]
+            final fun <get-size>(): androidx.compose.ui.unit/DpSize? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.size.<get-size>|<get-size>(){}[0]
+        final val stretch // org.maplibre.compose.expressions/ExpressionImageReference.Painter.stretch|{}stretch[0]
+            final fun <get-stretch>(): org.maplibre.compose.util/ImageStretch? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.stretch.<get-stretch>|<get-stretch>(){}[0]
+
+        final fun component1(): androidx.compose.ui.graphics.painter/Painter // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component1|component1(){}[0]
+        final fun component2(): androidx.compose.ui.unit/DpSize? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component2|component2(){}[0]
+        final fun component3(): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component3|component3(){}[0]
+        final fun component4(): org.maplibre.compose.util/ImageStretch? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component4|component4(){}[0]
+        final fun component5(): kotlin/Float // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component5|component5(){}[0]
+        final fun component6(): androidx.compose.ui.graphics/ColorFilter? // org.maplibre.compose.expressions/ExpressionImageReference.Painter.component6|component6(){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionImageReference.Painter.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions/ExpressionImageReference.Painter.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.expressions/ExpressionImageReference.Painter.toString|toString(){}[0]
+    }
+}
 
 sealed interface org.maplibre.compose.interaction/CameraAction { // org.maplibre.compose.interaction/CameraAction|null[0]
     final object FitBounds : org.maplibre.compose.interaction/CameraAction, org.maplibre.compose.interaction/DragAction { // org.maplibre.compose.interaction/CameraAction.FitBounds|null[0]
@@ -1262,6 +1314,47 @@ final class org.maplibre.compose.expressions.dsl/Interpolation { // org.maplibre
     final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions.dsl/Interpolation.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions.dsl/Interpolation.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.expressions.dsl/Interpolation.toString|toString(){}[0]
+}
+
+final class org.maplibre.compose.expressions/ExpressionJsonOptions { // org.maplibre.compose.expressions/ExpressionJsonOptions|null[0]
+    constructor <init>(org.maplibre.compose.expressions/ExpressionJsonOptions = ..., kotlin/Function1<org.maplibre.compose.expressions/ExpressionJsonOptions.Builder, kotlin/Unit>) // org.maplibre.compose.expressions/ExpressionJsonOptions.<init>|<init>(org.maplibre.compose.expressions.ExpressionJsonOptions;kotlin.Function1<org.maplibre.compose.expressions.ExpressionJsonOptions.Builder,kotlin.Unit>){}[0]
+
+    final val dpScale // org.maplibre.compose.expressions/ExpressionJsonOptions.dpScale|{}dpScale[0]
+        final fun <get-dpScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.dpScale.<get-dpScale>|<get-dpScale>(){}[0]
+    final val emScale // org.maplibre.compose.expressions/ExpressionJsonOptions.emScale|{}emScale[0]
+        final fun <get-emScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.emScale.<get-emScale>|<get-emScale>(){}[0]
+    final val imageResolver // org.maplibre.compose.expressions/ExpressionJsonOptions.imageResolver|{}imageResolver[0]
+        final fun <get-imageResolver>(): org.maplibre.compose.expressions/ExpressionImageResolver? // org.maplibre.compose.expressions/ExpressionJsonOptions.imageResolver.<get-imageResolver>|<get-imageResolver>(){}[0]
+    final val spScale // org.maplibre.compose.expressions/ExpressionJsonOptions.spScale|{}spScale[0]
+        final fun <get-spScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.spScale.<get-spScale>|<get-spScale>(){}[0]
+
+    final fun component1(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.component1|component1(){}[0]
+    final fun component2(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.component2|component2(){}[0]
+    final fun component3(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.component3|component3(){}[0]
+    final fun component4(): org.maplibre.compose.expressions/ExpressionImageResolver? // org.maplibre.compose.expressions/ExpressionJsonOptions.component4|component4(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.expressions/ExpressionJsonOptions.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.expressions/ExpressionJsonOptions.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.expressions/ExpressionJsonOptions.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder|null[0]
+        final var dpScale // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.dpScale|{}dpScale[0]
+            final fun <get-dpScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.dpScale.<get-dpScale>|<get-dpScale>(){}[0]
+            final fun <set-dpScale>(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>?) // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.dpScale.<set-dpScale>|<set-dpScale>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>?){}[0]
+        final var emScale // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.emScale|{}emScale[0]
+            final fun <get-emScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.emScale.<get-emScale>|<get-emScale>(){}[0]
+            final fun <set-emScale>(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>?) // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.emScale.<set-emScale>|<set-emScale>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>?){}[0]
+        final var imageResolver // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.imageResolver|{}imageResolver[0]
+            final fun <get-imageResolver>(): org.maplibre.compose.expressions/ExpressionImageResolver? // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.imageResolver.<get-imageResolver>|<get-imageResolver>(){}[0]
+            final fun <set-imageResolver>(org.maplibre.compose.expressions/ExpressionImageResolver?) // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.imageResolver.<set-imageResolver>|<set-imageResolver>(org.maplibre.compose.expressions.ExpressionImageResolver?){}[0]
+        final var spScale // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.spScale|{}spScale[0]
+            final fun <get-spScale>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>? // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.spScale.<get-spScale>|<get-spScale>(){}[0]
+            final fun <set-spScale>(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>?) // org.maplibre.compose.expressions/ExpressionJsonOptions.Builder.spScale.<set-spScale>|<set-spScale>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>?){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.expressions/ExpressionJsonOptions.Companion|null[0]
+        final val Standard // org.maplibre.compose.expressions/ExpressionJsonOptions.Companion.Standard|{}Standard[0]
+            final fun <get-Standard>(): org.maplibre.compose.expressions/ExpressionJsonOptions // org.maplibre.compose.expressions/ExpressionJsonOptions.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
+    }
 }
 
 final class org.maplibre.compose.interaction/BearingHapticsBuilder { // org.maplibre.compose.interaction/BearingHapticsBuilder|null[0]
@@ -3991,6 +4084,10 @@ final val org.maplibre.compose.expressions.dsl/seconds // org.maplibre.compose.e
     final fun (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>).<get-seconds>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin.time/Duration>> // org.maplibre.compose.expressions.dsl/seconds.<get-seconds>|<get-seconds>@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>(){}[0]
 final val org.maplibre.compose.expressions.dsl/sp // org.maplibre.compose.expressions.dsl/sp|@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>{}sp[0]
     final fun (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>>).<get-sp>(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<androidx.compose.ui.unit/TextUnit>> // org.maplibre.compose.expressions.dsl/sp.<get-sp>|<get-sp>@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.NumberValue<kotlin.Number>>(){}[0]
+final val org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop|#static{}org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop[0]
+final val org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop|#static{}org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop[0]
+final val org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop|#static{}org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop[0]
+final val org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop|#static{}org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop[0]
 final val org.maplibre.compose.generated/org_maplibre_compose_generated_Res_array$stableprop // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_array$stableprop|#static{}org_maplibre_compose_generated_Res_array$stableprop[0]
 final val org.maplibre.compose.generated/org_maplibre_compose_generated_Res_drawable$stableprop // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_drawable$stableprop|#static{}org_maplibre_compose_generated_Res_drawable$stableprop[0]
 final val org.maplibre.compose.generated/org_maplibre_compose_generated_Res_font$stableprop // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_font$stableprop|#static{}org_maplibre_compose_generated_Res_font$stableprop[0]
@@ -4257,6 +4354,7 @@ final fun (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.comp
 final fun (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions.dsl/convertToNumber(kotlin/Array<out org.maplibre.compose.expressions.ast/Expression<*>>...): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>> // org.maplibre.compose.expressions.dsl/convertToNumber|convertToNumber@org.maplibre.compose.expressions.ast.Expression<*>(kotlin.Array<out|org.maplibre.compose.expressions.ast.Expression<*>>...){}[0]
 final fun (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions.dsl/convertToString(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/StringValue> // org.maplibre.compose.expressions.dsl/convertToString|convertToString@org.maplibre.compose.expressions.ast.Expression<*>(){}[0]
 final fun (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions.dsl/type(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/ExpressionType> // org.maplibre.compose.expressions.dsl/type|type@org.maplibre.compose.expressions.ast.Expression<*>(){}[0]
+final fun (org.maplibre.compose.expressions.ast/Expression<*>).org.maplibre.compose.expressions/toStyleJson(org.maplibre.compose.expressions/ExpressionJsonOptions = ...): kotlin/String // org.maplibre.compose.expressions/toStyleJson|toStyleJson@org.maplibre.compose.expressions.ast.Expression<*>(org.maplibre.compose.expressions.ExpressionJsonOptions){}[0]
 final fun (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue>).org.maplibre.compose.expressions.dsl/and(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/and|and@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>){}[0]
 final fun (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue>).org.maplibre.compose.expressions.dsl/not(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/not|not@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>(){}[0]
 final fun (org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue>).org.maplibre.compose.expressions.dsl/or(org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue>): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/BooleanValue> // org.maplibre.compose.expressions.dsl/or|or@org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>(org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.BooleanValue>){}[0]
@@ -4435,6 +4533,10 @@ final fun org.maplibre.compose.expressions.dsl/textOffset(androidx.compose.ui.un
 final fun org.maplibre.compose.expressions.dsl/textVariableAnchorOffset(kotlin/Array<out kotlin/Pair<org.maplibre.compose.expressions.value/SymbolAnchor, org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/OffsetValue<androidx.compose.ui.unit/TextUnit>>>>...): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/AlternatingListValue<org.maplibre.compose.expressions.value/SymbolAnchor, org.maplibre.compose.expressions.value/OffsetValue<kotlin/Number>>> // org.maplibre.compose.expressions.dsl/textVariableAnchorOffset|textVariableAnchorOffset(kotlin.Array<out|kotlin.Pair<org.maplibre.compose.expressions.value.SymbolAnchor,org.maplibre.compose.expressions.ast.Expression<org.maplibre.compose.expressions.value.OffsetValue<androidx.compose.ui.unit.TextUnit>>>>...){}[0]
 final fun org.maplibre.compose.expressions.dsl/verbatim(kotlinx.serialization.json/JsonElement): org.maplibre.compose.expressions.ast/CallArgument // org.maplibre.compose.expressions.dsl/verbatim|verbatim(kotlinx.serialization.json.JsonElement){}[0]
 final fun org.maplibre.compose.expressions.dsl/zoom(): org.maplibre.compose.expressions.ast/Expression<org.maplibre.compose.expressions.value/NumberValue<kotlin/Number>> // org.maplibre.compose.expressions.dsl/zoom|zoom(){}[0]
+final fun org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop_getter|org_maplibre_compose_expressions_ExpressionImageReference_Bitmap$stableprop_getter(){}[0]
+final fun org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop_getter|org_maplibre_compose_expressions_ExpressionImageReference_Painter$stableprop_getter(){}[0]
+final fun org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop_getter|org_maplibre_compose_expressions_ExpressionJsonOptions$stableprop_getter(){}[0]
+final fun org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.expressions/org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop_getter|org_maplibre_compose_expressions_ExpressionJsonOptions_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.generated/org_maplibre_compose_generated_Res_array$stableprop_getter(): kotlin/Int // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_array$stableprop_getter|org_maplibre_compose_generated_Res_array$stableprop_getter(){}[0]
 final fun org.maplibre.compose.generated/org_maplibre_compose_generated_Res_drawable$stableprop_getter(): kotlin/Int // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_drawable$stableprop_getter|org_maplibre_compose_generated_Res_drawable$stableprop_getter(){}[0]
 final fun org.maplibre.compose.generated/org_maplibre_compose_generated_Res_font$stableprop_getter(): kotlin/Int // org.maplibre.compose.generated/org_maplibre_compose_generated_Res_font$stableprop_getter|org_maplibre_compose_generated_Res_font$stableprop_getter(){}[0]

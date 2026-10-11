@@ -88,10 +88,12 @@ internal class TextStyleValueWriter : StyleValueWriter {
 
   override fun numberValue(value: Float) {
     require(value.isFinite()) { "JSON numbers must be finite: $value" }
-    numberText(value.toString())
+    beforeValue()
+    text.append(value.toString())
   }
 
   override fun numberText(value: String) {
+    require(value.toDoubleOrNull()?.isFinite() == true) { "JSON numbers must be finite: $value" }
     beforeValue()
     text.append(value)
   }
