@@ -144,6 +144,13 @@ Site pages that show how to use the library import Kotlin examples from
 with the demo app, so examples stay correct as the API changes. Add or update a
 region for each Kotlin example.
 
+## Issue and PR organization
+
+Label work issues and PRs with exactly one kind (`bug`, `feature`, `perf`,
+`chore`, or `research`) and at least one `area:*` label. Add engine, platform,
+and modifier labels when they explain the work. Leave native issue types unset.
+Usage questions go to Discussions.
+
 ## Pull requests
 
 Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft

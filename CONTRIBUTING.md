@@ -2,10 +2,13 @@
 
 For a feature or a bug fix without an issue,
 [file one](https://github.com/maplibre/maplibre-compose/issues/new/choose) first
-to discuss the change. New contributors can start with
-[good first issues](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22);
-[help wanted](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)
-issues need MapLibre, Android, iOS, or other expertise.
+to discuss the change. Browse
+[open bugs](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Abug)
+and
+[feature requests](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Afeature),
+or filter the
+[label catalog](https://github.com/maplibre/maplibre-compose/labels) by the area
+or platform you know.
 
 If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
