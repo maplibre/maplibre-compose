@@ -9,88 +9,92 @@ import { region } from "../../snippets";
 
 import location from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt?raw";
 
-Show the user where they are with a dot on the map, and move the camera as they
-move. This example draws the dot and keeps the camera on it:
+Draw the user's location as a dot on the map and center the camera on each
+location update:
 
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
-The dot appears only after the user allows location access.
-[Ask for permission](#ask-for-permission) shows how to ask.
+The dot requires location access.
+[Request location permission](#request-location-permission)
+when the user chooses to display their location.
 
-Four pieces work together:
+The example uses these APIs:
 
 - A <Api of="LocationProvider" /> reads the device's location.
   <Api of="rememberDefaultLocationProvider" /> returns the provider for the
   current platform.
-- <Api of="rememberLocationState" /> collects locations from the provider while
-  the screen is visible, and stores the latest one in
+- <Api of="rememberLocationState" /> collects location updates from the provider
+  while the screen is visible and stores the latest one in
   <Api of="LocationState.lastLocation" />.
 - <Api of="org.maplibre.compose.layers.LocationIndicatorLayer" /> draws a dot at
   that location, with a circle that shows its accuracy. It draws nothing until
-  the first location arrives.
+  the provider reports a location.
 - <Api of="LocationTrackingEffect" /> runs its block each time the location or
-  its direction changes. Here it zooms in on the first location, then uses
-  <Api of="updateCamera" /> to center the camera on each new one. By default,
-  `updateCamera` also rotates the map to the direction the user moves or faces,
-  when that direction is known. Pass `updateBearing = BearingUpdate.Ignore` to
-  keep the map's rotation.
+  its direction changes. The example sets the zoom for the first location,
+  then uses <Api of="updateCamera" /> to center the camera on each update.
+  By default, `updateCamera` also rotates the map to the user's movement
+  direction or the device's heading, when available. Pass
+  `updateBearing = BearingUpdate.Ignore` to preserve the camera's bearing.
 
-The heading provider is optional. With it, the dot also shows which way the
-device points. <Api of="rememberDefaultHeadingProvider" /> reads the compass on
-Android and iOS, and supplies no heading on other platforms.
+An optional heading provider supplies the device's compass direction, which
+the dot displays when available.
+<Api of="rememberDefaultHeadingProvider" /> reads the compass on Android and
+iOS, and supplies no heading on other platforms.
 
-To stop moving the camera, for example after the user pans the map, pass
-`enabled = false` to `LocationTrackingEffect`.
-[Detect when the user moves the camera](/maplibre-compose/interaction/#detect-when-the-user-moves-the-camera)
-shows how to detect a pan.
+Pass `enabled = false` to `LocationTrackingEffect` to stop moving the camera.
+Use [camera gesture events](/maplibre-compose/interaction/#detect-when-the-user-moves-the-camera)
+to disable tracking when the user pans the map.
 
-## Change how often locations arrive
+## Configure location updates
 
-By default, `rememberLocationState` asks for high accuracy and at most one
-location per second. To use less battery, ask for lower accuracy or fewer
-updates with <Api of="LocationRequest" />. <Api of="HeadingRequest" /> does
-the same for heading updates:
+By default, `rememberLocationState` requests high accuracy and at most one
+location update per second. To reduce battery use, configure lower accuracy or
+less frequent updates with <Api of="LocationRequest" />.
+<Api of="HeadingRequest" /> configures heading updates:
 
 <Code code={region(location, "requests")} lang="kotlin" title="App.kt" />
 
-Settings that you leave out keep their default values.
+Omitted parameters use their default values.
 
-## Ask for permission
+## Request location permission
 
-The library never asks the user for location permission by itself. Call
-<Api of="LocationState.requestPermission" /> when the user asks to see their
-location, for example from a button:
+The library does not request location permission automatically. Call
+<Api of="LocationState.requestPermission" /> in response to a user action,
+such as pressing a button to display their location:
 
 <Code code={region(location, "permission")} lang="kotlin" title="App.kt" />
 
 The platform shows its permission dialog.
 
-If the user denies access, <Api of="LocationPermission.NotGranted" /> tells you
-what to do next:
+If the user denies access, use the properties of
+<Api of="LocationPermission.NotGranted" /> to determine whether to request
+permission again or open system settings:
 
 - `shouldShowRationale` is `true`: explain why your app needs the location, then
-  ask again. Only Android sets this.
-- `canRequest` is `true` or `null`: you can ask again.
+  request permission again. Only Android sets this property.
+- `canRequest` is `true` or `null`: you can request permission again.
 - `canRequest` is `false`: only the system settings can change the permission.
   <Api of="rememberSystemSettingsLauncher" /> opens them on the platforms that
-  have such a screen.
+  support this action.
 
 <Code code={region(location, "permission-settings")} lang="kotlin" title="App.kt" />
 
-## Show problems to the user
+## Handle location errors
 
-<Api of="LocationState.availability" /> tells you if the platform cannot provide
-locations at all. <Api of="LocationState.status" /> tells you if locations stop
-arriving, for example because the user turned off location services. Show a
-message, and call <Api of="LocationState.retry" /> when the user asks to try
-again:
+Use <Api of="LocationState.availability" /> to check for missing or
+misconfigured location support. <Api of="LocationState.status" /> reports interruptions to
+location updates, such as disabled location services. Display a message and
+call <Api of="LocationState.retry" /> when the user chooses to retry:
 
 <Code code={region(location, "status")} lang="kotlin" title="App.kt" />
 
 When `availability` is <Api of="LocationBackendAvailability.Misconfigured" />,
-its `cause` describes what is wrong with the app's setup.
+its `cause` describes the configuration error.
 
 ## Platform requirements
+
+The JVM desktop runtimes in [Platform setup](/maplibre-compose/platform-setup/)
+include location support for their operating system.
 
 ### Android
 
@@ -134,20 +138,26 @@ in the permission dialog:
 Browsers provide location only on pages served over HTTPS or from `localhost`.
 See [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts).
 
-### Desktop
+### macOS
 
-Each desktop runtime in [Platform setup](/maplibre-compose/platform-setup/)
-includes location support for its operating system.
+For both JVM and native macOS apps, add a location usage description to the
+app bundle's `Info.plist`:
 
-- macOS: add `NSLocationWhenInUseUsageDescription` to the app's `Info.plist`,
-  as on iOS. For a JVM app, set it in Compose Desktop's
-  `nativeDistributions { macOS { infoPlist { extraKeysRawXml = ... } } }`. A
-  signed JVM app runs with the hardened runtime, so it also needs the
-  [location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location),
-  or macOS ignores the permission request.
-- Linux: location comes from the
-  [XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
-  Without the portal, `availability` is `Unsupported`.
-- Windows: location comes from the Windows location service. Users allow access
-  in the location privacy settings, which
-  <Api of="SystemSettingsLauncher.openApplicationSettings" /> opens.
+```xml title="Info.plist"
+<key>NSLocationUsageDescription</key>
+<string>Shows your position on the map.</string>
+```
+
+Apps using App Sandbox or Hardened Runtime also need the
+[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location).
+
+For JVM apps packaged with Compose Desktop, set the usage description in
+`nativeDistributions { macOS { infoPlist { extraKeysRawXml = ... } } }`.
+Configure `entitlementsFile` and `runtimeEntitlementsFile` if the location
+entitlement is required.
+
+### Linux
+
+Location uses the
+[XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
+Without the portal, `availability` is `Unsupported`.
