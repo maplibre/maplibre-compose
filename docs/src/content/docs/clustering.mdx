@@ -5,6 +5,7 @@ description: Group nearby points into clusters, size them by point count, and zo
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import ClusteringExample from "../../components/ClusteringExample.astro";
 import { region, rememberedMapStyle } from "../../snippets";
 
 import clustering from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Clustering.kt?raw";
@@ -13,6 +14,8 @@ Thousands of points drawn at once overlap and hide each other. A clustered
 GeoJSON source replaces each group of nearby points with one cluster point. As
 the user zooms in, clusters split into smaller clusters and then into single
 points.
+
+<ClusteringExample />
 
 ## Enable clustering
 

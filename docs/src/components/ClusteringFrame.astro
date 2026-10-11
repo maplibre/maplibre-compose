@@ -1,0 +1,30 @@
+---
+import ClusteringMarker from "./ClusteringMarker.astro";
+import MapDiagram from "./MapDiagram.astro";
+import MapTerrain from "./MapTerrain.astro";
+
+interface Props {
+  label: string;
+  scale: number;
+  markers: { point: number[]; count?: number }[];
+}
+const { label, scale, markers } = Astro.props;
+const positions = markers.map(({ point: [x, y], count }) => ({
+  count,
+  visible: true,
+  transform: `translate(${160 + (x - 160) * scale}px, ${120 + (y - 120) * scale}px)`,
+}));
+---
+
+<figure>
+  <MapDiagram label={label}>
+    <g
+      slot="map"
+      transform={`translate(${160 * (1 - scale)}, ${120 * (1 - scale)}) scale(${scale})`}
+    >
+      <MapTerrain />
+    </g>
+    {positions.map((marker) => <ClusteringMarker {...marker} />)}
+  </MapDiagram>
+  <figcaption>{label}</figcaption>
+</figure>
