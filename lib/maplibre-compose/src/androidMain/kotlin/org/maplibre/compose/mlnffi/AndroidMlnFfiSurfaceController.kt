@@ -1,5 +1,6 @@
 package org.maplibre.compose.mlnffi
 
+import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -38,6 +39,20 @@ internal class AndroidMlnFfiSurfaceController(
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
+
+  /** Image acquisition and projection capture share the render thread's frame order. */
+  fun observeImages(reader: ImageReader, onAvailable: () -> Unit) {
+    reader.setOnImageAvailableListener(
+      {
+        try {
+          onAvailable()
+        } catch (error: Throwable) {
+          fail("Failed to acquire an Android map image", error)
+        }
+      },
+      renderHandler,
+    )
+  }
 
   fun surfaceCreated(surface: Surface, width: Int, height: Int, scaleFactor: Double) {
     renderHandler.post {
