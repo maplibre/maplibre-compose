@@ -1,6 +1,6 @@
 ---
 title: Capture a map image
-description: Render a map to an ImageBitmap without displaying it.
+description: Render a map to an ImageBitmap to share, save, or show as a preview.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -9,24 +9,40 @@ import { region } from "../../snippets";
 
 import snapshotter from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Snapshotter.kt?raw";
 
-Use <Api of="MapSnapshotter" /> to create a map image for a preview or sharing.
-It renders a <Api of="BaseStyle" /> and a content block to an `ImageBitmap`
-without displaying a map.
+A <Api of="MapSnapshotter" /> renders a map to an `ImageBitmap` without showing
+it on screen. Use it to let users share or save a view of the map, or to show a
+static map image where an interactive map is not needed.
 
-To match a displayed map, pass the same base style and content function, then
-copy its camera position into the capture request. Compose overlays are not
-part of the captured image.
-
-Create and close the snapshotter in a coroutine. <Api of="MapSnapshotter.capture" />
-suspends until the image is ready:
+Create a snapshotter with <Api of="MapRuntime.createSnapshotter" />. Use the
+same runtime as your map, so the snapshotter uses the same
+[request settings](/maplibre-compose/requests/).
+<Api of="rememberMapState" /> uses <Api of="DefaultMapRuntime.instance" />
+unless you pass another runtime. This
+button captures what a displayed map shows:
 
 <Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
 
-The request size is in dp, and the image is that size multiplied by the
-request's pixel density. Pass `LocalDensity.current` and
-`LocalLayoutDirection.current` from the calling composable to match the displayed
-map's sizing and layout direction.
+To match the displayed map, the example passes the map's base style and
+`mapContent`, the same function that declares the map's sources and layers in
+`rememberMapState`. It also copies the map's camera position, the screen
+density, and the layout direction into the request. In a snapshotter,
+<Api of="LocalMapState" /> is `null`, so content that reads it must handle that.
+[How the map composes](/maplibre-compose/composition/) shows content that works
+in both places.
 
-For repeated captures, keep one snapshotter and call `capture` again with a new
-request. Follow the same cleanup pattern as the example when its owner finishes
-using it.
+The request size is in dp. The image size in pixels is that size multiplied by
+the request density. With a density of 2, the 640 × 360 dp request above
+produces a 1280 × 720 pixel image.
+
+The image contains only the map. It does not include Compose UI, such as map
+controls, or attribution text. Most map data requires attribution, so show it
+with the image. After a capture,
+<Api of="attributions" display="snapshotter.style.attributions()" /> returns the
+attribution of each source as HTML.
+
+`capture` throws <Api of="MapSnapshotException" /> when rendering fails, for
+example when a tile cannot load.
+
+Keep one snapshotter for repeated captures, and call `capture` with a new
+request each time. Close it when you no longer need it, as the
+`DisposableEffect` in the example does.
