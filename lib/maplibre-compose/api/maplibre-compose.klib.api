@@ -1899,8 +1899,8 @@ final class org.maplibre.compose.map/MapRuntime { // org.maplibre.compose.map/Ma
         final fun <get-isClosed>(): kotlin/Boolean // org.maplibre.compose.map/MapRuntime.isClosed.<get-isClosed>|<get-isClosed>(){}[0]
 
     final fun close() // org.maplibre.compose.map/MapRuntime.close|close(){}[0]
-    final fun createMapState(org.maplibre.compose.style/BaseStyle, org.maplibre.compose.camera/CameraPosition = ..., kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapState // org.maplibre.compose.map/MapRuntime.createMapState|createMapState(org.maplibre.compose.style.BaseStyle;org.maplibre.compose.camera.CameraPosition;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
-    final fun createSnapshotter(org.maplibre.compose.style/BaseStyle, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapSnapshotter // org.maplibre.compose.map/MapRuntime.createSnapshotter|createSnapshotter(org.maplibre.compose.style.BaseStyle;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
+    final fun createMapState(org.maplibre.compose.style/BaseStyle, org.maplibre.compose.style/StyleOverrides = ..., org.maplibre.compose.camera/CameraPosition = ..., kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapState // org.maplibre.compose.map/MapRuntime.createMapState|createMapState(org.maplibre.compose.style.BaseStyle;org.maplibre.compose.style.StyleOverrides;org.maplibre.compose.camera.CameraPosition;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
+    final fun createSnapshotter(org.maplibre.compose.style/BaseStyle, org.maplibre.compose.style/StyleOverrides = ..., kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> = ...): org.maplibre.compose.map/MapSnapshotter // org.maplibre.compose.map/MapRuntime.createSnapshotter|createSnapshotter(org.maplibre.compose.style.BaseStyle;org.maplibre.compose.style.StyleOverrides;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>){}[0]
     final fun toString(): kotlin/String // org.maplibre.compose.map/MapRuntime.toString|toString(){}[0]
     final suspend fun awaitClosed() // org.maplibre.compose.map/MapRuntime.awaitClosed|awaitClosed(){}[0]
 }
@@ -2081,6 +2081,8 @@ final class org.maplibre.compose.map/MapStyleState { // org.maplibre.compose.map
         final fun <get-layers>(): org.maplibre.compose.map/StyleLayers // org.maplibre.compose.map/MapStyleState.layers.<get-layers>|<get-layers>(){}[0]
     final val light // org.maplibre.compose.map/MapStyleState.light|{}light[0]
         final fun <get-light>(): org.maplibre.compose.map/StyleLight // org.maplibre.compose.map/MapStyleState.light.<get-light>|<get-light>(){}[0]
+    final val overrides // org.maplibre.compose.map/MapStyleState.overrides|{}overrides[0]
+        final fun <get-overrides>(): org.maplibre.compose.style/StyleOverrides // org.maplibre.compose.map/MapStyleState.overrides.<get-overrides>|<get-overrides>(){}[0]
     final val projection // org.maplibre.compose.map/MapStyleState.projection|{}projection[0]
         final fun <get-projection>(): org.maplibre.compose.map/StyleProjection // org.maplibre.compose.map/MapStyleState.projection.<get-projection>|<get-projection>(){}[0]
     final val sky // org.maplibre.compose.map/MapStyleState.sky|{}sky[0]
@@ -2134,6 +2136,9 @@ final class org.maplibre.compose.map/MutableMapStyleState { // org.maplibre.comp
     final var baseStyle // org.maplibre.compose.map/MutableMapStyleState.baseStyle|{}baseStyle[0]
         final fun <get-baseStyle>(): org.maplibre.compose.style/BaseStyle // org.maplibre.compose.map/MutableMapStyleState.baseStyle.<get-baseStyle>|<get-baseStyle>(){}[0]
         final fun <set-baseStyle>(org.maplibre.compose.style/BaseStyle) // org.maplibre.compose.map/MutableMapStyleState.baseStyle.<set-baseStyle>|<set-baseStyle>(org.maplibre.compose.style.BaseStyle){}[0]
+    final var overrides // org.maplibre.compose.map/MutableMapStyleState.overrides|{}overrides[0]
+        final fun <get-overrides>(): org.maplibre.compose.style/StyleOverrides // org.maplibre.compose.map/MutableMapStyleState.overrides.<get-overrides>|<get-overrides>(){}[0]
+        final fun <set-overrides>(org.maplibre.compose.style/StyleOverrides) // org.maplibre.compose.map/MutableMapStyleState.overrides.<set-overrides>|<set-overrides>(org.maplibre.compose.style.StyleOverrides){}[0]
 }
 
 final class org.maplibre.compose.map/PlatformMapScope { // org.maplibre.compose.map/PlatformMapScope|null[0]
@@ -3027,6 +3032,85 @@ final class org.maplibre.compose.style/Sky { // org.maplibre.compose.style/Sky|n
 }
 
 final class org.maplibre.compose.style/StyleHandleException : kotlin/RuntimeException // org.maplibre.compose.style/StyleHandleException|null[0]
+
+final class org.maplibre.compose.style/StyleOverrides { // org.maplibre.compose.style/StyleOverrides|null[0]
+    constructor <init>(org.maplibre.compose.style/StyleOverrides = ..., kotlin/Function1<org.maplibre.compose.style/StyleOverrides.Builder, kotlin/Unit>) // org.maplibre.compose.style/StyleOverrides.<init>|<init>(org.maplibre.compose.style.StyleOverrides;kotlin.Function1<org.maplibre.compose.style.StyleOverrides.Builder,kotlin.Unit>){}[0]
+
+    final val light // org.maplibre.compose.style/StyleOverrides.light|{}light[0]
+        final fun <get-light>(): org.maplibre.compose.style/Light? // org.maplibre.compose.style/StyleOverrides.light.<get-light>|<get-light>(){}[0]
+
+    final fun component1(): org.maplibre.compose.style/Light? // org.maplibre.compose.style/StyleOverrides.component1|component1(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.style/StyleOverrides.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.style/StyleOverrides.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.style/StyleOverrides.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.style/StyleOverrides.Builder|null[0]
+        final var light // org.maplibre.compose.style/StyleOverrides.Builder.light|{}light[0]
+            final fun <get-light>(): org.maplibre.compose.style/Light? // org.maplibre.compose.style/StyleOverrides.Builder.light.<get-light>|<get-light>(){}[0]
+            final fun <set-light>(org.maplibre.compose.style/Light?) // org.maplibre.compose.style/StyleOverrides.Builder.light.<set-light>|<set-light>(org.maplibre.compose.style.Light?){}[0]
+
+        // Targets: [js]
+        final var projection // org.maplibre.compose.style/StyleOverrides.Builder.projection|{}projection[0]
+            final fun <get-projection>(): org.maplibre.compose.style/Projection? // org.maplibre.compose.style/StyleOverrides.Builder.projection.<get-projection>|<get-projection>(){}[0]
+            final fun <set-projection>(org.maplibre.compose.style/Projection?) // org.maplibre.compose.style/StyleOverrides.Builder.projection.<set-projection>|<set-projection>(org.maplibre.compose.style.Projection?){}[0]
+
+        // Targets: [js]
+        final var sky // org.maplibre.compose.style/StyleOverrides.Builder.sky|{}sky[0]
+            final fun <get-sky>(): org.maplibre.compose.style/Sky? // org.maplibre.compose.style/StyleOverrides.Builder.sky.<get-sky>|<get-sky>(){}[0]
+            final fun <set-sky>(org.maplibre.compose.style/Sky?) // org.maplibre.compose.style/StyleOverrides.Builder.sky.<set-sky>|<set-sky>(org.maplibre.compose.style.Sky?){}[0]
+
+        // Targets: [js]
+        final var terrain // org.maplibre.compose.style/StyleOverrides.Builder.terrain|{}terrain[0]
+            final fun <get-terrain>(): org.maplibre.compose.style/WebTerrain? // org.maplibre.compose.style/StyleOverrides.Builder.terrain.<get-terrain>|<get-terrain>(){}[0]
+            final fun <set-terrain>(org.maplibre.compose.style/WebTerrain?) // org.maplibre.compose.style/StyleOverrides.Builder.terrain.<set-terrain>|<set-terrain>(org.maplibre.compose.style.WebTerrain?){}[0]
+
+        // Targets: [js]
+        final fun removeSky() // org.maplibre.compose.style/StyleOverrides.Builder.removeSky|removeSky(){}[0]
+
+        // Targets: [js]
+        final fun removeTerrain() // org.maplibre.compose.style/StyleOverrides.Builder.removeTerrain|removeTerrain(){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.style/StyleOverrides.Companion|null[0]
+        final val None // org.maplibre.compose.style/StyleOverrides.Companion.None|{}None[0]
+            final fun <get-None>(): org.maplibre.compose.style/StyleOverrides // org.maplibre.compose.style/StyleOverrides.Companion.None.<get-None>|<get-None>(){}[0]
+    }
+
+    // Targets: [js]
+    final val projection // org.maplibre.compose.style/StyleOverrides.projection|{}projection[0]
+        final fun <get-projection>(): org.maplibre.compose.style/Projection? // org.maplibre.compose.style/StyleOverrides.projection.<get-projection>|<get-projection>(){}[0]
+
+    // Targets: [js]
+    final val sky // org.maplibre.compose.style/StyleOverrides.sky|{}sky[0]
+        final fun <get-sky>(): org.maplibre.compose.style/Sky? // org.maplibre.compose.style/StyleOverrides.sky.<get-sky>|<get-sky>(){}[0]
+
+    // Targets: [js]
+    final val skyRemoved // org.maplibre.compose.style/StyleOverrides.skyRemoved|{}skyRemoved[0]
+        final fun <get-skyRemoved>(): kotlin/Boolean // org.maplibre.compose.style/StyleOverrides.skyRemoved.<get-skyRemoved>|<get-skyRemoved>(){}[0]
+
+    // Targets: [js]
+    final val terrain // org.maplibre.compose.style/StyleOverrides.terrain|{}terrain[0]
+        final fun <get-terrain>(): org.maplibre.compose.style/WebTerrain? // org.maplibre.compose.style/StyleOverrides.terrain.<get-terrain>|<get-terrain>(){}[0]
+
+    // Targets: [js]
+    final val terrainRemoved // org.maplibre.compose.style/StyleOverrides.terrainRemoved|{}terrainRemoved[0]
+        final fun <get-terrainRemoved>(): kotlin/Boolean // org.maplibre.compose.style/StyleOverrides.terrainRemoved.<get-terrainRemoved>|<get-terrainRemoved>(){}[0]
+
+    // Targets: [js]
+    final fun component2(): org.maplibre.compose.style/Sky? // org.maplibre.compose.style/StyleOverrides.component2|component2(){}[0]
+
+    // Targets: [js]
+    final fun component3(): kotlin/Boolean // org.maplibre.compose.style/StyleOverrides.component3|component3(){}[0]
+
+    // Targets: [js]
+    final fun component4(): org.maplibre.compose.style/Projection? // org.maplibre.compose.style/StyleOverrides.component4|component4(){}[0]
+
+    // Targets: [js]
+    final fun component5(): org.maplibre.compose.style/WebTerrain? // org.maplibre.compose.style/StyleOverrides.component5|component5(){}[0]
+
+    // Targets: [js]
+    final fun component6(): kotlin/Boolean // org.maplibre.compose.style/StyleOverrides.component6|component6(){}[0]
+}
 
 final class org.maplibre.compose.style/TransitionOptions { // org.maplibre.compose.style/TransitionOptions|null[0]
     constructor <init>(kotlin.time/Duration = ..., kotlin.time/Duration = ...) // org.maplibre.compose.style/TransitionOptions.<init>|<init>(kotlin.time.Duration;kotlin.time.Duration){}[0]
@@ -4223,6 +4307,8 @@ final val org.maplibre.compose.style/org_maplibre_compose_style_StyleImageReques
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop|#static{}org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop|#static{}org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop|#static{}org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop[0]
+final val org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides$stableprop|#static{}org_maplibre_compose_style_StyleOverrides$stableprop[0]
+final val org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides_Builder$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides_Builder$stableprop|#static{}org_maplibre_compose_style_StyleOverrides_Builder$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop|#static{}org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop|#static{}org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop[0]
 final val org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop|#static{}org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop[0]
@@ -4613,7 +4699,7 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_StyleSources$stablep
 final fun org.maplibre.compose.map/org_maplibre_compose_map_StyleTransition$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_StyleTransition$stableprop_getter|org_maplibre_compose_map_StyleTransition$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions$stableprop_getter|org_maplibre_compose_map_TileLodOptions$stableprop_getter(){}[0]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodOptions_Builder$stableprop_getter|org_maplibre_compose_map_TileLodOptions_Builder$stableprop_getter(){}[0]
-final fun org.maplibre.compose.map/rememberMapState(org.maplibre.compose.map/MapRuntime?, org.maplibre.compose.style/BaseStyle?, org.maplibre.compose.camera/CameraPosition?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.map/MapState // org.maplibre.compose.map/rememberMapState|rememberMapState(org.maplibre.compose.map.MapRuntime?;org.maplibre.compose.style.BaseStyle?;org.maplibre.compose.camera.CameraPosition?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun org.maplibre.compose.map/rememberMapState(org.maplibre.compose.map/MapRuntime?, org.maplibre.compose.style/BaseStyle?, org.maplibre.compose.style/StyleOverrides?, org.maplibre.compose.camera/CameraPosition?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): org.maplibre.compose.map/MapState // org.maplibre.compose.map/rememberMapState|rememberMapState(org.maplibre.compose.map.MapRuntime?;org.maplibre.compose.style.BaseStyle?;org.maplibre.compose.style.StyleOverrides?;org.maplibre.compose.camera.CameraPosition?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.overlay/AttributionLinks(kotlin.collections/List<kotlin/String>, androidx.compose.ui/Modifier?, androidx.compose.ui.text/TextStyle?, androidx.compose.ui.text/TextLinkStyles?, androidx.compose.ui.unit/Dp, kotlin/Boolean, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/AttributionLinks|AttributionLinks(kotlin.collections.List<kotlin.String>;androidx.compose.ui.Modifier?;androidx.compose.ui.text.TextStyle?;androidx.compose.ui.text.TextLinkStyles?;androidx.compose.ui.unit.Dp;kotlin.Boolean;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.overlay/CompassButton(androidx.compose.ui/Modifier?, kotlin/Function0<kotlin/Unit>?, org.maplibre.compose.overlay/CompassButtonStyle?, kotlin/String?, androidx.compose.ui.unit/Dp, androidx.compose.foundation.layout/PaddingValues?, androidx.compose.ui.graphics.painter/Painter?, kotlin/Function1<org.maplibre.compose.camera/CameraPosition, org.maplibre.compose.camera/CameraUpdate>?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/CompassButton|CompassButton(androidx.compose.ui.Modifier?;kotlin.Function0<kotlin.Unit>?;org.maplibre.compose.overlay.CompassButtonStyle?;kotlin.String?;androidx.compose.ui.unit.Dp;androidx.compose.foundation.layout.PaddingValues?;androidx.compose.ui.graphics.painter.Painter?;kotlin.Function1<org.maplibre.compose.camera.CameraPosition,org.maplibre.compose.camera.CameraUpdate>?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun org.maplibre.compose.overlay/DisappearingCompassButton(androidx.compose.ui/Modifier?, kotlin/Function0<kotlin/Unit>?, org.maplibre.compose.overlay/CompassButtonStyle?, kotlin/String?, androidx.compose.ui.unit/Dp, androidx.compose.foundation.layout/PaddingValues?, androidx.compose.ui.graphics.painter/Painter?, kotlin.time/Duration, androidx.compose.animation/EnterTransition?, androidx.compose.animation/ExitTransition?, kotlin/Function1<org.maplibre.compose.camera/CameraPosition, org.maplibre.compose.camera/CameraUpdate>?, kotlin/Double, androidx.compose.ui/Modifier?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int, kotlin/Int) // org.maplibre.compose.overlay/DisappearingCompassButton|DisappearingCompassButton(androidx.compose.ui.Modifier?;kotlin.Function0<kotlin.Unit>?;org.maplibre.compose.overlay.CompassButtonStyle?;kotlin.String?;androidx.compose.ui.unit.Dp;androidx.compose.foundation.layout.PaddingValues?;androidx.compose.ui.graphics.painter.Painter?;kotlin.time.Duration;androidx.compose.animation.EnterTransition?;androidx.compose.animation.ExitTransition?;kotlin.Function1<org.maplibre.compose.camera.CameraPosition,org.maplibre.compose.camera.CameraUpdate>?;kotlin.Double;androidx.compose.ui.Modifier?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
@@ -4707,6 +4793,8 @@ final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleImageReques
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop_getter|org_maplibre_compose_style_StyleLoadTracker_Load_Failed$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop_getter|org_maplibre_compose_style_StyleLoadTracker_Load_Loaded$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop_getter|org_maplibre_compose_style_StyleLoadTracker_Load_Loading$stableprop_getter(){}[0]
+final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides$stableprop_getter|org_maplibre_compose_style_StyleOverrides$stableprop_getter(){}[0]
+final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleOverrides_Builder$stableprop_getter|org_maplibre_compose_style_StyleOverrides_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop_getter|org_maplibre_compose_style_StyleReconciler_Placement_Below$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop_getter|org_maplibre_compose_style_StyleReconciler_Placement_Bottom$stableprop_getter(){}[0]
 final fun org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop_getter|org_maplibre_compose_style_StyleReconciler_Placement_Top$stableprop_getter(){}[0]
@@ -5415,6 +5503,23 @@ final class org.maplibre.compose.map/WebMapPresentation : kotlin/AutoCloseable {
 }
 
 // Targets: [js]
+final class org.maplibre.compose.style/WebTerrain { // org.maplibre.compose.style/WebTerrain|null[0]
+    constructor <init>(kotlin/String, kotlin/Double = ...) // org.maplibre.compose.style/WebTerrain.<init>|<init>(kotlin.String;kotlin.Double){}[0]
+    constructor <init>(org.maplibre.compose.sources/RasterDemTileSource, kotlin/Double = ...) // org.maplibre.compose.style/WebTerrain.<init>|<init>(org.maplibre.compose.sources.RasterDemTileSource;kotlin.Double){}[0]
+
+    final val exaggeration // org.maplibre.compose.style/WebTerrain.exaggeration|{}exaggeration[0]
+        final fun <get-exaggeration>(): kotlin/Double // org.maplibre.compose.style/WebTerrain.exaggeration.<get-exaggeration>|<get-exaggeration>(){}[0]
+    final val source // org.maplibre.compose.style/WebTerrain.source|{}source[0]
+        final fun <get-source>(): kotlin/String // org.maplibre.compose.style/WebTerrain.source.<get-source>|<get-source>(){}[0]
+
+    final fun component1(): kotlin/String // org.maplibre.compose.style/WebTerrain.component1|component1(){}[0]
+    final fun component2(): kotlin/Double // org.maplibre.compose.style/WebTerrain.component2|component2(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.style/WebTerrain.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.style/WebTerrain.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.style/WebTerrain.toString|toString(){}[0]
+}
+
+// Targets: [js]
 final val org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop|#static{}org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop[0]
 
 // Targets: [js]
@@ -5431,6 +5536,9 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$s
 
 // Targets: [js]
 final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop|#static{}org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop[0]
+
+// Targets: [js]
+final val org.maplibre.compose.style/org_maplibre_compose_style_WebTerrain$stableprop // org.maplibre.compose.style/org_maplibre_compose_style_WebTerrain$stableprop|#static{}org_maplibre_compose_style_WebTerrain$stableprop[0]
 
 // Targets: [js]
 final fun org.maplibre.compose.browser/configureMaplibreWorker(kotlin/String) // org.maplibre.compose.browser/configureMaplibreWorker|configureMaplibreWorker(kotlin.String){}[0]
@@ -5455,6 +5563,9 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$s
 
 // Targets: [js]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter|org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter(){}[0]
+
+// Targets: [js]
+final fun org.maplibre.compose.style/org_maplibre_compose_style_WebTerrain$stableprop_getter(): kotlin/Int // org.maplibre.compose.style/org_maplibre_compose_style_WebTerrain$stableprop_getter|org_maplibre_compose_style_WebTerrain$stableprop_getter(){}[0]
 
 // Targets: [macosArm64]
 final fun org.maplibre.compose.macos/ProvideMapPresentationHost(platform.AppKit/NSWindow, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // org.maplibre.compose.macos/ProvideMapPresentationHost|ProvideMapPresentationHost(platform.AppKit.NSWindow;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]

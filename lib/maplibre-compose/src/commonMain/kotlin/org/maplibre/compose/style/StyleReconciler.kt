@@ -1,12 +1,20 @@
 package org.maplibre.compose.style
 
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerSummary
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
   private var fontScale: Float? = null
+  private var lightOverride: JsonObject? = null
+  private var skyOverride: JsonElement? = null
+  private var projectionOverride: JsonObject? = null
+  private var terrain: JsonObject? = null
 
   // Commit state is accessed only by the serialized apply calls.
   private var binding: StyleBinding? = null
@@ -58,6 +66,23 @@ internal class StyleReconciler {
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
         desiredSources[id]?.takeIf { !applied.definition.canUpdateTo(it) }?.let { id }
       }
+    val desiredTerrain =
+      if (revision.overrides.terrain == null) style.baseTerrain
+      else revision.overrides.terrain as? JsonObject
+    val terrainSource = terrain?.get("source")?.jsonPrimitive?.contentOrNull
+    val desiredTerrainSource = desiredTerrain?.get("source")?.jsonPrimitive?.contentOrNull
+    if (
+      style.supportsTerrain &&
+        terrain != null &&
+        (terrainSource != desiredTerrainSource ||
+          terrainSource in replacedSourceIds ||
+          (terrainSource in sources && terrainSource !in desiredSources))
+    ) {
+      // Terrain retains the source's tile manager. Detach before that source is removed or
+      // replaced.
+      style.setTerrain(null)
+      terrain = null
+    }
     val placedLayers = prepared.layers
     val desiredLayers = placedLayers.associateBy { it.definition.id }
 
@@ -91,6 +116,7 @@ internal class StyleReconciler {
       if (definition.id !in sources) addSource(style, definition)
     }
 
+    applyRootOverrides(style, revision, desiredTerrain)
     syncImages(style, revision.images)
 
     placedLayers
@@ -134,9 +160,72 @@ internal class StyleReconciler {
       }
   }
 
+  private fun applyRootOverrides(
+    style: StyleBinding,
+    revision: StyleSnapshot,
+    desiredTerrain: JsonObject?,
+  ) {
+    val overrides = revision.overrides
+    val light = overrides.light?.withScaledTransitions(revision.animatorDurationScale)
+    if (light != lightOverride) {
+      writeRoot(style, "The light", light ?: style.baseLight) {
+        style.setLight(light ?: style.baseLight)
+        lightOverride = light
+      }
+    }
+    val sky =
+      (overrides.sky as? JsonObject)?.withScaledTransitions(revision.animatorDurationScale)
+        ?: overrides.sky
+    if (style.supportsSky && sky != skyOverride) {
+      writeRoot(style, "The sky", sky ?: style.baseSky) {
+        style.setSky(if (sky == null) style.baseSky else sky as? JsonObject)
+        skyOverride = sky
+      }
+    }
+    applyProjectionOverride(style, overrides.projection)
+    if (style.supportsTerrain && terrain != desiredTerrain) {
+      writeRoot(style, "The terrain", desiredTerrain) {
+        style.setTerrain(desiredTerrain)
+        terrain = desiredTerrain
+      }
+    }
+  }
+
+  /** Snapshotters apply projection before reading the viewport used to evaluate content. */
+  internal fun applyProjectionOverride(style: StyleBinding, projection: JsonObject?): Boolean {
+    style.requireCurrent()
+    if (binding !== style) reset(style)
+    var changed = false
+    if (style.supportsProjection && projection != projectionOverride) {
+      writeRoot(style, "The projection", projection ?: style.baseProjection) {
+        style.setProjection(projection ?: style.baseProjection)
+        projectionOverride = projection
+        changed = true
+      }
+    }
+    return changed
+  }
+
+  private inline fun writeRoot(
+    style: StyleBinding,
+    target: String,
+    value: JsonElement?,
+    write: () -> Unit,
+  ) {
+    try {
+      write()
+    } catch (error: StyleMutationException) {
+      style.reportRejectedWrite(target, value, error)
+    }
+  }
+
   private fun reset(style: StyleBinding) {
     binding = style
     fontScale = null
+    lightOverride = null
+    skyOverride = null
+    projectionOverride = null
+    terrain = style.baseTerrain
     sources.clear()
     layers.clear()
     images.clear()

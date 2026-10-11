@@ -7,6 +7,8 @@ import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 
+import browserStyling from "../../../../demo-app/common/src/jsMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt?raw";
+
 import styling from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt?raw";
 
 Every map requires a style: a JSON document that describes the data the map
@@ -31,6 +33,34 @@ Pass the current style to `rememberMapState` to follow Compose state such as
 the system theme:
 
 <Code code={region(styling, "dynamic")} lang="kotlin" title="App.kt" />
+
+## Override the style's root objects
+
+Pass <Api of="StyleOverrides" /> to `rememberMapState` to set lighting independently
+of the base style. The map follows changes to the overrides and reapplies them
+when the base style changes:
+
+<Code code={region(styling, "overrides")} lang="kotlin" title="App.kt" />
+
+Omitted overrides keep the base style's values. Clearing an override restores the
+current base style's value. Light is supported on every platform. Sky, projection,
+and 3D terrain overrides are available in the browser.
+
+## Show 3D terrain in the browser
+
+Terrain draws the map on elevation data from a raster DEM source. Pass the source
+to <Api of="WebTerrain" />; the map installs it even when no layer uses it.
+`exaggeration` scales the elevation:
+
+<Code code={region(browserStyling, "terrain")} lang="kotlin" title="App.kt" />
+
+To use a raster DEM source already in the base style, pass its ID to `WebTerrain`.
+Use separate DEM sources for terrain and hillshade or color relief layers, as
+MapLibre recommends for rendering quality.
+
+`removeSky()` and `removeTerrain()` in the overrides builder remove those objects,
+including ones in the base style. Setting `sky` or `terrain` to null instead stops
+overriding that object and restores the base style's value.
 
 ## Load a local style
 

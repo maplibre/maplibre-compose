@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleSnapshot
 
 internal class FakeSnapshotterAdapter(
@@ -25,6 +26,7 @@ internal class FakeSnapshotterAdapter(
   override suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
+    styleOverrides: StyleOverrides,
     request: MapSnapshotRequest,
   ): SnapshotPreparation =
     SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))

@@ -9,9 +9,42 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Light
+import org.maplibre.compose.style.StyleOverrides
 
 @OptIn(ExperimentalTestApi::class)
 class RememberMapStyleTest {
+  @Test
+  fun recomposition_updates_root_overrides_without_replacing_the_map() = runComposeUiTest {
+    val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedMain)
+    val overrides = mutableStateOf(StyleOverrides.None)
+    lateinit var state: MapState
+    setContent {
+      val remembered =
+        rememberMapState(
+          runtime,
+          baseStyle = BaseStyle.Empty,
+          styleOverrides = overrides.value,
+        )
+      SideEffect { state = remembered }
+    }
+    waitForIdle()
+    val original = state
+    val replacement = StyleOverrides { light = Light() }
+    runOnIdle { overrides.value = replacement }
+    runOnIdle {
+      assertSame(original, state)
+      assertEquals(replacement, state.style.overrides)
+    }
+    runOnIdle { overrides.value = StyleOverrides.None }
+    runOnIdle {
+      assertSame(original, state)
+      assertEquals(StyleOverrides.None, state.style.overrides)
+    }
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
   @Test
   fun recomposition_updates_the_owned_base_style_without_replacing_the_map() = runComposeUiTest {
     // This harness composes on one thread and drives the test from another, so the map has no

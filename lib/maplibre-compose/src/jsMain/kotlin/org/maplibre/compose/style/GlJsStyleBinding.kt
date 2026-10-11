@@ -43,6 +43,7 @@ import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.StyleImageMetadata
 import org.maplibre.compose.gljs.StyleLayer
 import org.maplibre.compose.gljs.StyleSetterOptions
+import org.maplibre.compose.gljs.TerrainSpecification
 import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
@@ -233,6 +234,12 @@ internal class GlJsStyleBinding(
 
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
+
+  override val baseLight: JsonObject = map.getLight().toJsonElement().jsonObject
+  override val baseSky: JsonObject? = map.getSky()?.toJsonElement()?.jsonObject
+  override val baseProjection: JsonObject =
+    map.getProjection()?.toJsonElement()?.jsonObject ?: JsonObject(emptyMap())
+  override val baseTerrain: JsonObject? = map.getTerrain()?.toJsonElement()?.jsonObject
 
   override val baseLayers: List<LayerSummary> = layerSummaries()
   override val baseSources: Map<String, Source> =
@@ -958,6 +965,13 @@ internal class GlJsStyleBinding(
         map.setSky(value, options)
       }
     }
+  }
+
+  override val supportsTerrain: Boolean = true
+
+  override fun setTerrain(terrain: JsonObject?) {
+    requireCurrent()
+    mutate("set the terrain") { map.setTerrain(terrain?.toJsValue<TerrainSpecification>()) }
   }
 
   override val supportsProjection: Boolean = true

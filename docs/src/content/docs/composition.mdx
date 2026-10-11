@@ -17,14 +17,16 @@ camera, read the visible area, and query features.
 ## The style is base plus content
 
 A MapLibre style is a document with sources and layers. The `baseStyle`
-parameter loads that document without modification. The trailing
+parameter selects that document. The trailing
 <Api of="rememberMapState" /> block declares your sources, layers, and their
 positions in the layer stack.
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
-The library manages the sources and layers in the style block. It
-does not modify the rest of the base style. To change a base style layer, use
+The library manages the sources and layers in the style block.
+`styleOverrides` controls the style's root objects, such as light; see
+[Style the map](/maplibre-compose/styling/). The other parts of the base style
+keep their values. To change a base style layer, use
 the `asMutable` view of its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
 Use Compose state to update sources, layers, and images declared in the style

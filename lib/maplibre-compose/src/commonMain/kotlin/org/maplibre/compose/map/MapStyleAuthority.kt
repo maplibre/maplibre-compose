@@ -19,6 +19,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GroundScaleGlobalState
 import org.maplibre.compose.style.GroundScaleTolerance
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.groundScale
 
@@ -31,8 +32,9 @@ internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
   private val runtime: MapRuntime,
   baseStyle: BaseStyle,
+  styleOverrides: StyleOverrides,
 ) : MapStyleStateOwner {
-  val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
+  val style: MapStyleState = MapStyleState(baseStyle, styleOverrides).also { it.attach(this) }
 
   override val resourceCommands =
     StyleResourceCommands(

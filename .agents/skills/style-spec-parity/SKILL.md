@@ -63,8 +63,9 @@ in `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/style/`, one
 file per object, each writing its properties with `putExpression`. The catalog
 checks every spec property of those objects against the writes in that file. An
 engine that lacks a whole object reports it through the `supportsSky`-style flag
-on `StyleBinding` rather than the native table. `terrain` is in the omitted set
-until the API exposes it.
+on `StyleBinding` rather than the native table. `terrain` is browser-only,
+written by `WebTerrain` in `jsMain`. The catalog reads root objects in every
+Main source set and recognizes both `putExpression` and literal `put` writes.
 
 ## Add a property both engines implement
 

@@ -218,7 +218,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
 /**
  * Provides the light of the current loaded-style generation.
  *
- * A base-style reload replaces the light with the one that the new style declares.
+ * A base-style reload replaces the light with the new base style's light, then reapplies
+ * [MapStyleState.overrides].
  *
  * [set] does not wait for the engine to apply the light. A light the engine rejects is logged, and
  * the style keeps its previous light.
@@ -231,7 +232,11 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
    */
   public suspend fun getProperty(name: String): JsonElement? = style.lightProperty(name)
 
-  /** Replaces the loaded style's light. Does nothing and logs a warning while no style is ready. */
+  /**
+   * Replaces the loaded style's light. Does nothing and logs a warning while no style is ready.
+   *
+   * @throws IllegalStateException when style overrides own the light.
+   */
   public fun set(light: Light) {
     style.setLight(light)
   }
@@ -240,8 +245,9 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
 /**
  * Provides the sky of the current loaded-style generation.
  *
- * A base-style reload replaces the sky with the one that the new style declares. MapLibre Native
- * does not support the sky: every property reads null, and a write logs a warning.
+ * A base-style reload replaces the sky with the new base style's sky, then reapplies
+ * [MapStyleState.overrides]. MapLibre Native does not support the sky: every property reads null,
+ * and a write logs a warning.
  *
  * [set] does not wait for the engine to apply the sky. A sky the engine rejects is logged, and the
  * style keeps its previous sky.
@@ -257,6 +263,8 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
   /**
    * Replaces the loaded style's sky, or removes it when [sky] is null. Does nothing and logs a
    * warning while no style is ready.
+   *
+   * @throws IllegalStateException when style overrides own the sky.
    */
   public fun set(sky: Sky?) {
     style.setSky(sky)
@@ -266,9 +274,9 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
 /**
  * Provides the projection of the current loaded-style generation.
  *
- * A base-style reload replaces the projection with the one that the new style declares. MapLibre
- * Native supports only the Mercator projection: every property reads null, and a write logs a
- * warning.
+ * A base-style reload replaces the projection with the new base style's projection, then reapplies
+ * [MapStyleState.overrides]. MapLibre Native supports only the Mercator projection: every property
+ * reads null, and a write logs a warning.
  *
  * [set] does not wait for the engine to apply the projection. A projection the engine rejects is
  * logged, and the style keeps its previous projection.
@@ -284,6 +292,8 @@ public class StyleProjection internal constructor(private val style: MapStyleSta
   /**
    * Replaces the loaded style's projection. Does nothing and logs a warning while no style is
    * ready.
+   *
+   * @throws IllegalStateException when style overrides own the projection.
    */
   public fun set(projection: Projection) {
     style.setProjection(projection)

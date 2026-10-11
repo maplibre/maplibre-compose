@@ -13,8 +13,8 @@ Use <Api of="MapSnapshotter" /> to create a map image for a preview or sharing.
 It renders a <Api of="BaseStyle" /> and a content block to an `ImageBitmap`
 without displaying a map.
 
-To match a displayed map, pass the same base style and content function, then
-copy its camera position into the capture request. Compose overlays are not
+To match a displayed map, pass the same base style, `styleOverrides`, and content
+function, then copy its camera position into the capture request. Compose overlays are not
 part of the captured image.
 
 Create and close the snapshotter in a coroutine. <Api of="MapSnapshotter.capture" />

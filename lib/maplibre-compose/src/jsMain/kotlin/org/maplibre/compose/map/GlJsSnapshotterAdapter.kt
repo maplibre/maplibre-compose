@@ -22,6 +22,7 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
@@ -73,6 +74,7 @@ internal class GlJsSnapshotterAdapter(
   override suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
+    styleOverrides: StyleOverrides,
     request: MapSnapshotRequest,
   ): SnapshotPreparation {
     check(open) { "The Web snapshotter is closed" }
@@ -84,6 +86,9 @@ internal class GlJsSnapshotterAdapter(
         loadedDensity == request.density.density &&
         current?.isLoaded == true
     ) {
+      if (reconciler.applyProjectionOverride(current, styleOverrides.definition().projection)) {
+        currentMap.redraw()
+      }
       return SnapshotPreparation(current, readViewport(currentMap, request))
     }
 
@@ -130,6 +135,9 @@ internal class GlJsSnapshotterAdapter(
     }
     val binding =
       checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
+    if (reconciler.applyProjectionOverride(binding, styleOverrides.definition().projection)) {
+      currentMap.redraw()
+    }
     return SnapshotPreparation(binding, readViewport(currentMap, request))
   }
 
