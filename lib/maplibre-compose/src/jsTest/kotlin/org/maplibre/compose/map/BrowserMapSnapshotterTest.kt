@@ -14,6 +14,7 @@ import kotlin.js.js
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -23,6 +24,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.gljs.runBrowserMapTest
@@ -33,6 +35,8 @@ import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
@@ -48,10 +52,52 @@ import web.html.HTMLElement
 class BrowserMapSnapshotterTest {
 
   @Test
+  fun projection_override_shapes_the_first_capture_viewport_and_clearing_restores_it(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime()
+      var referenceViewport: Viewport? = null
+      var overriddenViewport: Viewport? = null
+      val reference =
+        runtime.createSnapshotter(BaseStyle.Empty) {
+          referenceViewport = LocalViewport.current
+        }
+      val snapshotter =
+        runtime.createSnapshotter(
+          BaseStyle.Json(
+            """{"version":8,"sources":{},"layers":[],"projection":{"type":"globe"}}"""
+          ),
+          styleOverrides = StyleOverrides { projection = Projection() },
+        ) {
+          overriddenViewport = LocalViewport.current
+        }
+      try {
+        reference.capture(DpSize(256.dp, 256.dp))
+        snapshotter.capture(DpSize(256.dp, 256.dp))
+        assertEquals(
+          assertNotNull(referenceViewport).visibleRegion,
+          assertNotNull(overriddenViewport).visibleRegion,
+        )
+        assertNotNull(snapshotter.style.asMutable).overrides = StyleOverrides.None
+        snapshotter.capture(DpSize(256.dp, 256.dp))
+        assertNotEquals(
+          assertNotNull(referenceViewport).visibleRegion,
+          assertNotNull(overriddenViewport).visibleRegion,
+        )
+      } finally {
+        reference.close()
+        snapshotter.close()
+        reference.awaitClosed()
+        snapshotter.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
+
+  @Test
   fun composed_content_renders_in_a_private_target_that_cleanup_removes(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime()
-      val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = PointStyle)
       try {
         assertEquals(0, snapshotTargets().size)
 
@@ -95,7 +141,7 @@ class BrowserMapSnapshotterTest {
       }
       val runtime = createMapRuntime()
       val state = runtime.createMapState(baseStyle = BackgroundStyle, content = content)
-      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content)
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = content)
       try {
         setBrowserMapContent(size = Size) { MaplibreMap(state = state) }
         waitUntilMap("the interactive map to become ready") {
@@ -161,7 +207,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun camera_position_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime()
-    val snapshotter = runtime.createSnapshotter(BackgroundStyle, PointStyle)
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = PointStyle)
     try {
       val centered =
         snapshotter.capture(DpSize(Size.dp, Size.dp)) {
@@ -237,7 +283,7 @@ class BrowserMapSnapshotterTest {
   fun a_density_change_reapplies_an_unchanged_style_image(): Promise<*> = runBrowserMapTest {
     val icon = IntArray(8 * 8) { 0xff00ff00.toInt() }.toImageBitmap(8, 8)
     val runtime = createMapRuntime()
-    val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointIconStyle(icon))
+    val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = pointIconStyle(icon))
     val request =
       MapSnapshotRequest(DpSize(Size.dp, Size.dp)) { cameraPosition = CameraPosition(zoom = 2.0) }
     try {
@@ -300,7 +346,8 @@ class BrowserMapSnapshotterTest {
         }
       }
       val runtime = createMapRuntime()
-      val snapshotter = runtime.createSnapshotter(BaseStyle.Uri(BlockedStyleUri), PointStyle)
+      val snapshotter =
+        runtime.createSnapshotter(BaseStyle.Uri(BlockedStyleUri), content = PointStyle)
       try {
         coroutineScope {
           val capture = async { snapshotter.capture(DpSize(Size.dp, Size.dp)) }

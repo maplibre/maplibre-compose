@@ -574,7 +574,7 @@ private fun drawTargetWithSkia(
   }
 }
 
-private fun constantDem(elevation: Int): String {
+internal fun constantDem(elevation: Int): String {
   val canvas = document.createElement("canvas").asDynamic()
   canvas.width = 256
   canvas.height = 256

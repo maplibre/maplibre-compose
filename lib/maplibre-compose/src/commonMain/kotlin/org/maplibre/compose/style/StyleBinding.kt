@@ -46,6 +46,12 @@ internal interface StyleBinding {
   /** Immutable base resources captured before the binding is published or composition runs. */
   val baseSources: Map<String, Source>
 
+  /** Root objects captured before any declarations or commands change this generation. */
+  val baseLight: JsonObject
+  val baseSky: JsonObject?
+  val baseProjection: JsonObject
+  val baseTerrain: JsonObject?
+
   /** Base-style layers in stack order. */
   val baseLayers: List<LayerSummary>
 
@@ -253,6 +259,12 @@ internal interface StyleBinding {
    * [supportsSky] logs a warning.
    */
   fun setSky(sky: JsonObject?)
+
+  /** Returns true if this engine supports 3D terrain. */
+  val supportsTerrain: Boolean
+
+  /** Replaces 3D terrain, or removes it when null. The source must already be installed. */
+  fun setTerrain(terrain: JsonObject?)
 
   /** Returns true if this engine supports projections other than Mercator. */
   val supportsProjection: Boolean

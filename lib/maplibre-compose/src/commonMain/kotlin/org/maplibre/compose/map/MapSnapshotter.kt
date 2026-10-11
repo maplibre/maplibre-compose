@@ -44,8 +44,10 @@ import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.groundScale
+import org.maplibre.compose.style.internal.StyleOverridesContent
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
@@ -153,6 +155,7 @@ internal interface SnapshotterAdapter {
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
+    styleOverrides: StyleOverrides,
     request: MapSnapshotRequest,
   ): SnapshotPreparation
 
@@ -314,8 +317,13 @@ public sealed interface MapSnapshotter {
 internal class MapSnapshotterImplementation(
   private val runtime: MapRuntime,
   baseStyle: BaseStyle,
-  private val styleContent: @Composable @MaplibreComposable () -> Unit,
+  styleOverrides: StyleOverrides,
+  content: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
+  private val styleContent: @Composable @MaplibreComposable () -> Unit = {
+    StyleOverridesContent(style.overrides)
+    content()
+  }
   private val lock = reentrantLock()
   private val queue = ArrayDeque<Capture>()
   private val closure = CompletableDeferred<Result<Unit>>()
@@ -341,7 +349,8 @@ internal class MapSnapshotterImplementation(
     get() = runtime.logger
 
   private var activeStyleClaim: StyleClaim? = null
-  override val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
+  override val style: MapStyleState =
+    MapStyleState(baseStyle, styleOverrides).also { it.attach(this) }
 
   // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
   // once while runQueue() holds the next capture until cleanup ends.
@@ -442,7 +451,12 @@ internal class MapSnapshotterImplementation(
             val currentClaim = resourceCommands.withCommit { claimStyle() }
             claim = currentClaim
             val prepared =
-              platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
+              platform.prepare(
+                currentClaim.baseStyle,
+                currentClaim.revision,
+                style.overrides,
+                capture.request,
+              )
             val currentBinding = prepared.binding
             binding = currentBinding
             markReloaded(currentBinding)

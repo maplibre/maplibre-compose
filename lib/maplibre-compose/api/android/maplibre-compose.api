@@ -2478,16 +2478,16 @@ public final class org/maplibre/compose/map/MapRuntime {
 	public static final field $stable I
 	public final fun awaitClosed (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun close ()V
-	public final fun createMapState (Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapState;
-	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
-	public final fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
-	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
+	public final fun createMapState (Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/style/StyleOverrides;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapState;
+	public static synthetic fun createMapState$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/style/StyleOverrides;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapState;
+	public final fun createSnapshotter (Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/style/StyleOverrides;Lkotlin/jvm/functions/Function2;)Lorg/maplibre/compose/map/MapSnapshotter;
+	public static synthetic fun createSnapshotter$default (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/style/StyleOverrides;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lorg/maplibre/compose/map/MapSnapshotter;
 	public final fun isClosed ()Z
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/map/MapRuntimeKt {
-	public static final fun rememberMapState (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/map/MapState;
+	public static final fun rememberMapState (Lorg/maplibre/compose/map/MapRuntime;Lorg/maplibre/compose/style/BaseStyle;Lorg/maplibre/compose/style/StyleOverrides;Lorg/maplibre/compose/camera/CameraPosition;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)Lorg/maplibre/compose/map/MapState;
 }
 
 public final class org/maplibre/compose/map/MapRuntimeOptions {
@@ -2637,6 +2637,7 @@ public final class org/maplibre/compose/map/MapStyleState {
 	public final fun getLayers ()Lorg/maplibre/compose/map/StyleLayers;
 	public final fun getLight ()Lorg/maplibre/compose/map/StyleLight;
 	public final fun getLoadState ()Lorg/maplibre/compose/map/StyleLoadState;
+	public final fun getOverrides ()Lorg/maplibre/compose/style/StyleOverrides;
 	public final fun getProjection ()Lorg/maplibre/compose/map/StyleProjection;
 	public final fun getSky ()Lorg/maplibre/compose/map/StyleSky;
 	public final fun getSources ()Lorg/maplibre/compose/map/StyleSources;
@@ -2689,7 +2690,9 @@ public abstract interface class org/maplibre/compose/map/MissingImageResolver {
 public final class org/maplibre/compose/map/MutableMapStyleState {
 	public static final field $stable I
 	public final fun getBaseStyle ()Lorg/maplibre/compose/style/BaseStyle;
+	public final fun getOverrides ()Lorg/maplibre/compose/style/StyleOverrides;
 	public final fun setBaseStyle (Lorg/maplibre/compose/style/BaseStyle;)V
+	public final fun setOverrides (Lorg/maplibre/compose/style/StyleOverrides;)V
 }
 
 public abstract interface class org/maplibre/compose/map/MutableStyleImageHandle : org/maplibre/compose/map/StyleImageHandle {
@@ -4378,6 +4381,28 @@ public final class org/maplibre/compose/style/Sky {
 
 public final class org/maplibre/compose/style/StyleHandleException : java/lang/RuntimeException {
 	public static final field $stable I
+}
+
+public final class org/maplibre/compose/style/StyleOverrides {
+	public static final field $stable I
+	public static final field Companion Lorg/maplibre/compose/style/StyleOverrides$Companion;
+	public fun <init> (Lorg/maplibre/compose/style/StyleOverrides;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/style/StyleOverrides;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/style/Light;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLight ()Lorg/maplibre/compose/style/Light;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/style/StyleOverrides$Builder {
+	public static final field $stable I
+	public final fun getLight ()Lorg/maplibre/compose/style/Light;
+	public final fun setLight (Lorg/maplibre/compose/style/Light;)V
+}
+
+public final class org/maplibre/compose/style/StyleOverrides$Companion {
+	public final fun getNone ()Lorg/maplibre/compose/style/StyleOverrides;
 }
 
 public final class org/maplibre/compose/style/TransitionOptions {
