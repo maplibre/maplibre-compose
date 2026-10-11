@@ -64,8 +64,6 @@ system and CPU. Each window that shows a map also needs a window host.
 ### Choose a runtime
 
 Desktop apps package one runtime for each operating system and CPU they ship to.
-Runtimes for different platforms can sit on the same classpath; the library
-loads the one that matches the machine.
 
 | Platform      | Metal                                        | Vulkan                                          | OpenGL                                          |
 | ------------- | -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
@@ -77,6 +75,35 @@ loads the one that matches the machine.
 
 We recommend Metal on macOS and Vulkan on Linux and Windows. The demo app
 packages these by default. Intel Macs are not supported.
+
+For local development and Compose Desktop installers, select the runtime for the
+machine running Gradle. Build each installer on its target operating system. This
+example selects the recommended backend and uses the same version as the library:
+
+```kotlin title="build.gradle.kts"
+val osName = providers.systemProperty("os.name").get()
+val archName = providers.systemProperty("os.arch").get()
+val architecture = when (archName.lowercase()) {
+  "x86_64", "amd64" -> "x64"
+  "aarch64", "arm64" -> "arm64"
+  else -> error("Unsupported desktop architecture: $archName")
+}
+val runtime = when {
+  osName.startsWith("Mac", ignoreCase = true) && architecture == "arm64" ->
+    "metal-macos-arm64"
+  osName.startsWith("Linux", ignoreCase = true) -> "vulkan-linux-$architecture"
+  osName.startsWith("Windows", ignoreCase = true) -> "vulkan-windows-$architecture"
+  else -> error("Unsupported desktop platform: $osName $archName")
+}
+
+kotlin {
+  sourceSets {
+    jvmMain.dependencies {
+      runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-$runtime:{{release}}")
+    }
+  }
+}
+```
 
 The OpenGL runtimes need more from the graphics driver:
 
