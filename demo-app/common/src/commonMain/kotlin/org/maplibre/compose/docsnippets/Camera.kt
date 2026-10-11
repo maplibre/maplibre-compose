@@ -55,7 +55,7 @@ fun ZoomInButton(mapState: MapState) {
 @Composable
 fun FlyToCity(mapState: MapState, city: Position) {
   // #region animate-fly
-  LaunchedEffect(city) {
+  LaunchedEffect(mapState, city) {
     mapState.animateCamera(
       update = CameraUpdate(center = city, zoom = 12.0),
       animation = CameraAnimation.Fly { duration = 3.seconds },
