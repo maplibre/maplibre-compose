@@ -1,0 +1,63 @@
+---
+title: Cluster points
+description: Group nearby points into clusters, size them by point count, and zoom into a cluster on click.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region, rememberedMapStyle } from "../../snippets";
+
+import clustering from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Clustering.kt?raw";
+
+Thousands of points drawn at once overlap and hide each other. A clustered
+GeoJSON source replaces each group of nearby points with one cluster point. As
+the user zooms in, clusters split into smaller clusters and then into single
+points.
+
+## Enable clustering
+
+Set `cluster = true` in the options block of <Api of="rememberGeoJsonSource" />:
+
+<Code code={rememberedMapStyle(region(clustering, "source"))} lang="kotlin" title="App.kt" />
+
+<Api of="GeoJsonOptions.clusterRadius" /> sets how close points must be to
+join a cluster. A larger radius makes fewer, bigger clusters.
+<Api of="GeoJsonOptions.clusterMaxZoom" /> is the last zoom level with
+clusters. When the user zooms in further, the map shows every point.
+
+## Draw clusters and single points
+
+A clustered source holds two kinds of point features. Each cluster has a
+`point_count` property with the number of points in it, and a
+`point_count_abbreviated` property with the same number shortened for labels,
+such as `1.2k`. Single points keep their own properties and have no
+`point_count`.
+
+Use `feature.has("point_count")` as a layer filter to draw each kind with its
+own layers:
+
+<Code code={rememberedMapStyle(region(clustering, "layers"))} lang="kotlin" title="App.kt" />
+
+<Api of="step" /> picks a radius and a color for each range of
+`point_count`. [Expressions in Kotlin](/maplibre-compose/expressions/) explains
+`step` and filters. `textFont` must name a font that the base style provides. The
+OpenFreeMap styles provide `Noto Sans Regular`.
+
+To add up a value from the points in each cluster, such as a total magnitude,
+set <Api of="GeoJsonOptions.clusterProperties" />.
+
+## Zoom into a cluster on click
+
+When the user clicks a cluster, you can zoom the map in until the cluster
+splits. <Api of="GeoJsonSourceHandle.getClusterExpansionZoom" /> returns that
+zoom level. In the map content, <Api of="LocalMapState" /> gives the map's
+state. Get the source's handle from `mapState.style.sources`, then move the
+camera to the cluster:
+
+<Code code={rememberedMapStyle(region(clustering, "zoom-on-click"))} lang="kotlin" title="App.kt" />
+
+The handle functions suspend, so the click handler launches a coroutine.
+[Handle gestures and clicks](/maplibre-compose/interaction/#respond-to-clicks-on-a-layer)
+covers layer click handlers.
+<Api of="GeoJsonSourceHandle.getClusterLeaves" /> returns the points inside a
+cluster, for example to list them in a panel.
