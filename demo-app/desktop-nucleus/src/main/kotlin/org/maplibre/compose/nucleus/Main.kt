@@ -75,8 +75,10 @@ fun main(args: Array<String>) {
           },
           titleBarPlacement = TitleBarPlacement.Overlay(),
         ) { chromePadding ->
+          // #region host
           val host = rememberTaoComposeMapPresentationHost() ?: return@WindowScaffold
           ProvideMapPresentationHost(host = host) { DemoApp(state, launch, chromePadding) }
+          // #endregion host
         }
       }
     }
