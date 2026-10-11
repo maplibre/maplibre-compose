@@ -42,6 +42,7 @@ nucleus.application {
     // https://github.com/NucleusFramework/Nucleus/issues/829
     jvmArgs += "-XstartOnFirstThread"
     // Packaging re-signs LWJGL dylibs, changing the bytes checked against their JAR hashes.
+    // https://github.com/maplibre/maplibre-compose/issues/1498
     jvmArgs += "-Dorg.lwjgl.util.NoHashChecks=true"
   }
 
@@ -58,6 +59,7 @@ nucleus.application {
     macOS {
       bundleID = "org.maplibre.compose.demoapp"
       // jpackage requires a positive major version; map 0.x.y to 1.x.y for the bundle.
+      // https://youtrack.jetbrains.com/issue/CMP-2360
       val version = project.version.toString()
       packageVersion =
         version.replaceBefore('.', (version.substringBefore('.').toInt() + 1).toString())
