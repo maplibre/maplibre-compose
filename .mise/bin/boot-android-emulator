@@ -208,6 +208,8 @@ if [[ ! -f "$pid_file" ]]; then
     -no-boot-anim
     -no-snapshot
     -no-metrics
+    # The crash reporter can still block startup on a consent dialog with -no-metrics.
+    -crash-report-mode disabled
     -gpu "$gpu_mode"
     -camera-back none
     -camera-front none
