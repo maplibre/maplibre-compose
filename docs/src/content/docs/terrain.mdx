@@ -5,6 +5,7 @@ description: Draw 3D buildings, shade hills from elevation data, and show the wo
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import TerrainExamples from "../../components/TerrainExamples.astro";
 import { region, rememberedMapStyle } from "../../snippets";
 
 import terrain from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Terrain.kt?raw";
@@ -21,6 +22,8 @@ Hillshade and color relief shade the flat map instead.
 <Api of="FillExtrusionLayer" /> raises each polygon to a height in meters.
 OpenFreeMap serves vector tiles with a `building` source layer, where each
 building has a `render_height` and a `render_min_height`:
+
+<TerrainExamples effect="buildings" />
 
 <Code code={region(terrain, "buildings")} lang="kotlin" title="App.kt" />
 
@@ -50,6 +53,8 @@ A raster DEM source loads elevation tiles: images that store a height in the
 color of each pixel. <Api of="HillshadeLayer" /> draws shadows and highlights
 from those heights, so mountains and valleys stand out:
 
+<TerrainExamples effect="hillshade" />
+
 <Code code={region(terrain, "hillshade")} lang="kotlin" title="App.kt" />
 
 The sample tiles from `demotiles.maplibre.org` cover only a small area of the
@@ -61,6 +66,8 @@ use a provider that serves elevation tiles. Pass its tile URLs and its
 
 <Api of="ColorReliefLayer" /> colors each pixel by its height. Build the colors
 with <Api of="interpolate" /> over <Api of="elevation" />, in meters:
+
+<TerrainExamples effect="relief" />
 
 <Code code={rememberedMapStyle(region(terrain, "color-relief"))} lang="kotlin" title="App.kt" />
 
