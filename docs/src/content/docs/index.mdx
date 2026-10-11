@@ -1,0 +1,58 @@
+---
+title: Overview
+description: MapLibre Compose adds interactive vector maps to Compose Multiplatform apps.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import { region } from "../../snippets";
+
+import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
+
+MapLibre Compose shows interactive maps in [Compose Multiplatform][compose]
+apps on Android, iOS, desktop, and the web. You build the map with composables
+and Kotlin state, the same way you build the rest of your UI. The maps render
+with [MapLibre][maplibre], an open-source map engine, and work with any map
+style and tiles that MapLibre can load.
+
+This composable shows a street map of Portland:
+
+<Code code={region(gettingStarted, "first-map")} lang="kotlin" />
+
+## Platforms
+
+| Platform             | Map engine      | Stability    |
+| -------------------- | --------------- | ------------ |
+| Android              | MapLibre Native | Beta         |
+| iOS                  | MapLibre Native | Beta         |
+| Native macOS (arm64) | MapLibre Native | Experimental |
+| Desktop (JVM)        | MapLibre Native | Alpha        |
+| Web (Kotlin/JS)      | MapLibre GL JS  | Alpha        |
+
+[MapLibre Native][mln] and [MapLibre GL JS][mljs] read the same style format,
+and you use the same Kotlin API on every platform. Offline downloads are not
+available in the browser.
+
+Desktop and web are Alpha because they depend on internal details of Compose
+and Skia. [Platform setup](/maplibre-compose/platform-setup/) lists the
+requirements of each platform.
+
+## API stability
+
+The API is not stable yet. Until version 1.0, a minor release can contain
+breaking changes.
+
+## Next steps
+
+- [Getting started](/maplibre-compose/getting-started/): add the library and
+  show your first map.
+- [Live demo](/maplibre-compose/demo/): try the demo app in your browser.
+- <a href="/maplibre-compose/api/" target="_blank" rel="noopener noreferrer">API reference</a>:
+  every public class and function.
+
+[compose]: https://www.jetbrains.com/compose-multiplatform/
+
+[maplibre]: https://maplibre.org/
+
+[mln]: https://github.com/maplibre/maplibre-native
+
+[mljs]: https://github.com/maplibre/maplibre-gl-js
