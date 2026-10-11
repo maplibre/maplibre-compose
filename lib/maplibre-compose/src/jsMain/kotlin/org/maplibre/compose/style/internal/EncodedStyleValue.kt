@@ -19,7 +19,7 @@ internal actual class EncodedStyleValue(private val value: dynamic) {
 }
 
 private fun equalValues(left: dynamic, right: dynamic): Boolean {
-  if (left === right) return true
+  if (js("Object.is(left, right)") as Boolean) return true
   if (left == null || right == null || jsTypeOf(left) != "object" || jsTypeOf(right) != "object")
     return false
   if (js("Array.isArray(left)") != js("Array.isArray(right)")) return false
