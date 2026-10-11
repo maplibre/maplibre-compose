@@ -35,8 +35,9 @@ public interface AndroidLocationBackend {
   @MainThread public fun createLocationProvider(context: Context): LocationProvider
 
   /**
-   * Creates this backend's heading provider, or returns null so the default framework heading
-   * provider is used.
+   * Creates this backend's heading provider.
+   *
+   * @return The heading provider, or null so the default framework heading provider is used.
    */
   public fun createHeadingProvider(context: Context): HeadingProvider? = null
 }

@@ -22,7 +22,7 @@ internal interface ComposeGpuContext {
 public class MetalComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
   override val skiaContext: DirectContext,
-  /** `id<MTLDevice>` Compose renders with. MapLibre's texture is allocated on the same device. */
+  /** `id<MTLDevice>` Compose renders with. */
   public val device: NativeHandle,
 ) : ComposeGpuContext
 
@@ -32,9 +32,6 @@ public class MetalComposeGpuContext(
  * [skiaContext] is borrowed. The host must keep it valid until its context callback reports a
  * replacement, and serialize replacement and disposal with its GPU access callback. MapLibre
  * Compose does not close the Skia context.
- *
- * OpenGL work is bound to whichever context is current on the calling thread, so this carries
- * [withContextCurrent] rather than a context handle alone.
  */
 // Exposes Skiko GPU contexts, which are not yet stable.
 @ExperimentalMaplibreComposeApi
@@ -45,9 +42,8 @@ public class OpenGlComposeGpuContext(
   /**
    * Runs [Runnable] with this context current on the calling thread.
    *
-   * Scoped rather than a bare `makeCurrent`, because a host may have to hold a lock on its drawing
-   * surface for as long as the context is current. Must run synchronously, be safe to nest, and
-   * release that access when the action returns or throws. Called under the host's GPU access.
+   * Must run synchronously, be safe to nest, and release that access when the action returns or
+   * throws. Called under the host's GPU access.
    */
   public val withContextCurrent: (Runnable) -> Unit,
 ) : ComposeGpuContext
@@ -65,6 +61,6 @@ public class OpenGlComposeGpuContext(
 public class Direct3D12ComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
   override val skiaContext: DirectContext,
-  /** `ID3D12Device` Compose renders with. MapLibre's shared texture is created on it. */
+  /** `ID3D12Device` Compose renders with. */
   public val device: NativeHandle,
 ) : ComposeGpuContext

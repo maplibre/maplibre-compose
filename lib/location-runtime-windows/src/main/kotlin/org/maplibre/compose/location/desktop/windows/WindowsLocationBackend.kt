@@ -198,8 +198,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
  * `AppCapability.Create("location").CheckAccess()` maps `Allowed` to [LocationPermission.Granted]
  * with a `null` accuracy authorization, `UserPromptRequired` to a requestable
  * [LocationPermission.NotGranted], user or system denial and a missing packaged capability to a
- * non-requestable value, and unknown failures to `canRequest = null`. `AccessChanged` keeps
- * [status] synchronized with changes made in Windows Settings.
+ * non-requestable value, and unknown failures to `canRequest = null`.
  *
  * [requestForegroundPermission] suppresses duplicate requests and starts
  * `Geolocator.RequestAccessAsync()` on the AWT event-dispatch thread.

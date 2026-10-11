@@ -14,9 +14,8 @@ import org.maplibre.compose.style.InternalGlobalStatePrefix
  * The base style's root `state` object supplies defaults. A base-style reload discards runtime
  * values and loads the new defaults. This object follows the current style.
  *
- * Writes do not wait for the engine. Native applies them on its owner thread; reads await earlier
- * writes. A write while no style is ready does nothing and logs a warning. Engine rejections are
- * logged.
+ * Writes do not wait for the engine. Reads await earlier writes. A write while no style is ready
+ * does nothing and logs a warning. Engine rejections are logged.
  */
 @Stable
 public class StyleGlobalState internal constructor(private val style: MapStyleState) {
@@ -30,8 +29,10 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
     }
 
   /**
-   * Arrays and objects are stored as data, not evaluated as style expressions. [JsonNull] restores
-   * the style's default for [name], or null when no default exists.
+   * Sets the global state property [name] to [value].
+   *
+   * @param value Arrays and objects are stored as data, not evaluated as style expressions.
+   *   [JsonNull] restores the style's default for [name], or null when no default exists.
    */
   public fun setProperty(name: String, value: JsonElement) {
     require(!name.startsWith(InternalGlobalStatePrefix)) {

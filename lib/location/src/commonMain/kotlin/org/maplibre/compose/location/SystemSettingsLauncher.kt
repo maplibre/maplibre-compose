@@ -6,13 +6,14 @@ public expect class SystemSettingsLauncher {
   public val canOpenApplicationSettings: Boolean
 
   /**
-   * Opens the screen where the user manages this application's location permission, and returns
-   * whether the screen opened.
+   * Opens the screen where the user manages this application's location permission.
    *
    * Android opens the application's details screen in the system settings. iOS opens the
    * application's page in the Settings app. macOS opens the Location Services pane in System
    * Settings. Windows opens the location privacy page in Settings. Linux and web expose no such
    * screen, so the call returns `false`.
+   *
+   * @return Whether the screen opened.
    */
   public fun openApplicationSettings(): Boolean
 
@@ -20,12 +21,13 @@ public expect class SystemSettingsLauncher {
   public val canOpenLocationServicesSettings: Boolean
 
   /**
-   * Opens the screen where the user turns system location services on, and returns whether the
-   * screen opened.
+   * Opens the screen where the user turns system location services on.
    *
    * Android opens the location settings screen. macOS opens the Location Services pane in System
    * Settings. Windows opens the location privacy page in Settings. iOS, Linux, and web expose no
    * such screen, so the call returns `false`.
+   *
+   * @return Whether the screen opened.
    */
   public fun openLocationServicesSettings(): Boolean
 }

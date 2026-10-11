@@ -17,8 +17,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * composable rewrites its transitions when the setting changes; a transition set through a handle
  * keeps the scale of the time it was set.
  *
- * @param duration Time allotted for a transition to complete.
- * @param delay Time before a transition begins.
+ * @property duration Time allotted for a transition to complete.
+ * @property delay Time before a transition begins.
  */
 @Immutable
 public data class TransitionOptions(

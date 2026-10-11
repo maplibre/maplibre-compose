@@ -134,9 +134,11 @@ public fun <I : MatchableValue, O : ExpressionValue?> switch(
  * Selects the output from the given [cases] whose label value matches the [input], or the
  * [fallback] value if no match is found.
  *
- * The [input] has a type known only when the map evaluates the expression, such as a feature
- * property, so the labels may be of any one matchable type. If the input type does not match the
- * type of the labels, the result will be the [fallback] value. See [AnyValue].
+ * If the input type does not match the type of the labels, the result will be the [fallback] value.
+ * See [AnyValue].
+ *
+ * @param input A value whose type is known only when the map evaluates the expression, such as a
+ *   feature property, so the labels may be of any one matchable type.
  */
 @JvmName("switchAny")
 public fun <I : MatchableValue, O : ExpressionValue?> switch(
@@ -149,9 +151,11 @@ public fun <I : MatchableValue, O : ExpressionValue?> switch(
  * Selects the output from the given [cases] whose label value matches the [input], or the
  * [fallback] value if no match is found.
  *
- * The [input] has a type known only when the map evaluates the expression, such as a feature
- * property, so the labels may be of any one matchable type. If the input type does not match the
- * type of the labels, the result will be the [fallback] value. See [AnyValue].
+ * If the input type does not match the type of the labels, the result will be the [fallback] value.
+ * See [AnyValue].
+ *
+ * @param input A value whose type is known only when the map evaluates the expression, such as a
+ *   feature property, so the labels may be of any one matchable type.
  */
 @JvmName("switchAny")
 public fun <I : MatchableValue, O : ExpressionValue?> switch(
@@ -282,9 +286,10 @@ public infix fun Expression<EquatableValue?>.eq(
 ): Expression<BooleanValue> = call("==", this, other)
 
 /**
- * Returns whether the [left] string expression is equal to the [right] string expression. An
- * optional [collator] (see [collator] function) can be specified to control locale-dependent string
- * comparisons.
+ * Returns whether the [left] string expression is equal to the [right] string expression.
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun eq(
   left: Expression<StringValue>,
@@ -303,9 +308,10 @@ public infix fun Expression<EquatableValue?>.neq(
 ): Expression<BooleanValue> = call("!=", this, other)
 
 /**
- * Returns whether the [left] string expression is not equal to the [right] string expression. An
- * optional [collator] (see [collator]) can be specified to control locale-dependent string
- * comparisons.
+ * Returns whether the [left] string expression is not equal to the [right] string expression.
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun neq(
   left: Expression<StringValue>,
@@ -324,10 +330,12 @@ public infix fun <T> Expression<ComparableValue<T>>.gt(
 
 /**
  * Returns whether the [left] string expression is strictly greater than the [right] string
- * expression. An optional [collator] (see [collator]) can be specified to control locale-dependent
- * string comparisons.
+ * expression.
  *
  * Strings are compared lexicographically (`"b" > "a"`).
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun gt(
   left: Expression<StringValue>,
@@ -346,10 +354,11 @@ public infix fun <T> Expression<ComparableValue<T>>.lt(
 
 /**
  * Returns whether the [left] string expression is strictly less than the [right] string expression.
- * An optional [collator] (see [collator]) can be specified to control locale-dependent string
- * comparisons.
  *
  * Strings are compared lexicographically (`"a" < "b"`).
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun lt(
   left: Expression<StringValue>,
@@ -368,10 +377,12 @@ public infix fun <T> Expression<ComparableValue<T>>.gte(
 
 /**
  * Returns whether the [left] string expression is greater than or equal to the [right] string
- * expression. An optional [collator] (see [collator]) can be specified to control locale-dependent
- * string comparisons.
+ * expression.
  *
  * Strings are compared lexicographically (`"b" ≥ "a"`).
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun gte(
   left: Expression<StringValue>,
@@ -390,10 +401,12 @@ public infix fun <T> Expression<ComparableValue<T>>.lte(
 
 /**
  * Returns whether the [left] string expression is less than or equal to the [right] string
- * expression. An optional [collator] (see [collator]) can be specified to control locale-dependent
- * string comparisons.
+ * expression.
  *
  * Strings are compared lexicographically (`"a" < "b"`).
+ *
+ * @param collator The collator, from the [collator] function, that controls locale-dependent string
+ *   comparisons.
  */
 public fun lte(
   left: Expression<StringValue>,

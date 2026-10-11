@@ -19,7 +19,9 @@ public object DefaultMapRuntime {
    * Configures [instance] by editing [from] with [block].
    *
    * Call this before the first map, snapshotter, or offline storage, such as from `Application`
-   * creation or `main`. Throws [IllegalStateException] once the runtime exists.
+   * creation or `main`.
+   *
+   * @throws IllegalStateException if the runtime already exists.
    */
   public fun configure(
     from: MapRuntimeOptions = MapRuntimeOptions.Standard,

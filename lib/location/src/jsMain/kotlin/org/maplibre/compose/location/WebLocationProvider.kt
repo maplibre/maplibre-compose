@@ -153,8 +153,9 @@ internal constructor(
   private val coroutineScope: CoroutineScope,
 ) {
   /**
-   * Creates a requester whose permission observation runs in [coroutineScope]. Cancelling the scope
-   * stops the observation.
+   * Creates a requester whose permission observation runs in [coroutineScope].
+   *
+   * @param coroutineScope Cancelling the scope stops the observation.
    */
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
 

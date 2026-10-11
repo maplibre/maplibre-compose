@@ -69,9 +69,7 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
  * and [LocationAccuracy.Lowest] maps to
  * [`COUNTRY`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-createsession).
  *
- * Unlike the other desktop backends, this provider ignores [LocationRequest.minimumDistance]. A
- * portal distance threshold suppresses every update, including the first, on a host whose GeoIP
- * position never moves.
+ * Unlike the other desktop backends, this provider ignores [LocationRequest.minimumDistance].
  *
  * A missing portal maps [LocationProvider.backendAvailability] to
  * [LocationBackendAvailability.Unsupported]. A cancelled

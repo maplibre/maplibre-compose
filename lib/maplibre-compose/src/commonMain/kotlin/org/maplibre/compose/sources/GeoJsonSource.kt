@@ -88,8 +88,7 @@ public class GeoJsonSource : VectorSource {
  * Values may be added in minor releases; use an `else` branch when matching.
  *
  * [Features] retains the supplied object without copying it. Treat the object and every nested
- * collection and property as immutable after submission. Create a new value for each update. Native
- * engines serialize and prepare inline data on a background thread.
+ * collection and property as immutable after submission. Create a new value for each update.
  */
 @Immutable
 public sealed interface GeoJsonData {
@@ -137,9 +136,8 @@ public sealed interface GeoJsonData {
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
  * @property synchronousTiling Whether native engines generate requested tiles during the update
  *   pass instead of scheduling separate tile work. This can make small, frequently updated sources
- *   appear sooner, at the cost of more work during the update. Data preparation still runs on a
- *   worker and source updates return without waiting for native work. Android, iOS, and desktop
- *   honor this option. The browser ignores it.
+ *   appear sooner, at the cost of more work during the update. Source updates still return without
+ *   waiting for native work. Android, iOS, and desktop honor this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions

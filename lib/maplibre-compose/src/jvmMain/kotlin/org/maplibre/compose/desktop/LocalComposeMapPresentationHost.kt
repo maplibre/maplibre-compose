@@ -18,7 +18,8 @@ import org.maplibre.compose.location.LocalXdgPortalWindow
  * from [rememberAwtComposeMapPresentationHost]. Prefer [ProvideMapPresentationHost] over setting
  * this directly.
  *
- * Replacing the host rebuilds the map's GPU bridge, even when the two host objects compare equal.
+ * Replacing the host recreates the map's GPU resources, even when the two host objects compare
+ * equal.
  */
 public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMapPresentationHost> =
   compositionLocalOf(referentialEqualityPolicy()) {
@@ -32,10 +33,10 @@ public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMa
  * Remembers a [ComposeMapPresentationHost] for an AWT-backed Compose [window], such as the window
  * of `singleWindowApplication` or `Window`.
  *
- * Pass the window whose content shows the maps: each AWT window has its own GPU context. On Linux,
- * the host also gives XDG portals the window as the parent of system dialogs, such as the location
- * permission prompt.
+ * On Linux, the host also gives XDG portals the window as the parent of system dialogs, such as the
+ * location permission prompt.
  *
+ * @param window The window whose content shows the maps: each AWT window has its own GPU context.
  * @throws IllegalStateException if the current operating system isn't macOS, Windows, or Linux.
  */
 @Composable

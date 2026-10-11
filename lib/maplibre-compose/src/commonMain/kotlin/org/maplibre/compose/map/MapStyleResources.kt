@@ -141,14 +141,19 @@ public class StyleLayers internal constructor(private val style: MapStyleState) 
  *
  * Writes do nothing and log a warning if no style is ready. They throw [IllegalStateException] if
  * composition declares the image ID or the map state is closed.
+ *
+ * [set], [setAll], and [remove] return without waiting for the map. The map runs image commands in
+ * the order they were called. [get] runs after the commands called before it, so await [get] when
+ * code needs an earlier write in place. A command that has run does not mean that the map has
+ * rendered a frame with the change.
  */
 @Stable
 public class StyleImages internal constructor(private val style: MapStyleState) {
   /**
-   * Enqueues [image], replacing [id] in place. Preparation owns the pixels before submission. A
-   * successful replacement expires old handles; a rejected write keeps the previous image. Native
-   * rejections are logged. Images declared by style content cannot be overwritten. A newer command
-   * for [id] supersedes this one if it is still pending.
+   * Enqueues [image], replacing [id] in place. A successful replacement expires old handles; a
+   * rejected write keeps the previous image. Native rejections are logged. Images declared by style
+   * content cannot be overwritten. A newer command for [id] supersedes this one if it is still
+   * pending.
    */
   public fun set(id: String, image: ResolvedStyleImage) {
     setAll(mapOf(id to image))

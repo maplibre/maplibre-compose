@@ -11,17 +11,15 @@ import kotlinx.coroutines.flow.filterNotNull
 /**
  * A form of [LaunchedEffect] that is specialized for tracking user location.
  *
- * [onLocationChange] is called when [LocationState.lastLocation] changes. Course or device-heading
- * changes also trigger it when [trackBearing] is `true`.
- *
- * If [enabled] is `false`, [onLocationChange] is never called. Disabling this effect stops
- * observation but does not control [LocationState]'s platform location request. Pass the same
- * enabled state to [rememberLocationState] when those lifetimes should match.
- *
  * @param locationState State to observe.
- * @param enabled Whether callbacks are enabled.
+ * @param enabled Whether callbacks are enabled. If `false`, [onLocationChange] is never called.
+ *   Disabling this effect stops observation but does not control [LocationState]'s platform
+ *   location request. Pass the same enabled state to [rememberLocationState] when those lifetimes
+ *   should match.
  * @param trackBearing Whether course or device-heading changes can trigger a callback.
- * @param onLocationChange Callback with the previous and current measurements.
+ * @param onLocationChange Callback with the previous and current measurements. It is called when
+ *   [LocationState.lastLocation] changes. Course or device-heading changes also trigger it when
+ *   [trackBearing] is `true`.
  */
 @Composable
 public fun LocationTrackingEffect(

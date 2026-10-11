@@ -225,8 +225,9 @@ internal constructor(
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
    * declares. The caller must close the result.
    *
-   * [content] reads the returned state through [LocalMapState] and its viewport through
-   * [LocalViewport].
+   * @param content Declares the map's sources, layers, and images. It reads the returned state
+   *   through [LocalMapState] and its viewport through [LocalViewport]. It composes from the start
+   *   for each style the map loads, so values it remembers reset when the base style changes.
    */
   public fun createMapState(
     baseStyle: BaseStyle,
@@ -241,8 +242,11 @@ internal constructor(
    * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
    * [content] declares, for image capture. The caller must close the result.
    *
-   * [content] reads the viewport of each capture request through [LocalViewport]. It has no
-   * [MapState], so [LocalMapState] is null.
+   * @param content Declares the snapshotter's sources, layers, and images. It reads the viewport of
+   *   each capture request through [LocalViewport]. It has no [MapState], so [LocalMapState] is
+   *   null. It composes from the start for each capture, so values it remembers do not carry over
+   *   between captures. A capture does not wait for effects in [content], such as one that loads
+   *   data; pass data that the image needs into [content].
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,
@@ -1255,11 +1259,10 @@ internal constructor(
    * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
    * interrupting camera input or animations. Detaching the surface during the query cancels it.
    *
-   * [fit] sets the camera orientation and padding used for the fit.
-   *
    * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
    * those change before applying it.
    *
+   * @param fit Sets the camera orientation and padding used for the fit.
    * @throws IllegalStateException if the backend cannot calculate a camera for the bounds.
    */
   public suspend fun cameraForBounds(
@@ -1314,7 +1317,9 @@ internal constructor(
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command,
-   * accepted input, or detaching cancels this call. See [cameraForBounds] for [fit].
+   * accepted input, or detaching cancels this call.
+   *
+   * @param fit See [cameraForBounds].
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
@@ -1365,20 +1370,21 @@ internal constructor(
    * The camera center moves to preserve the anchor; this operation does not accept a destination
    * center or a flight animation.
    *
-   * Waits for an attached viewport. The anchor must resolve to a visible point on the map, or this
-   * call throws [IllegalArgumentException]. Camera padding and viewport insets both affect the
-   * anchor's screen location. This command leaves padding unspecified, so native padding animations
-   * can continue. Screen coordinates are relative to the full map, not its padded area.
+   * Waits for an attached viewport. Camera padding and viewport insets both affect the anchor's
+   * screen location. This command leaves padding unspecified, so native padding animations can
+   * continue. Screen coordinates are relative to the full map, not its padded area.
    *
    * An overlapping native command or any browser command supersedes this move. Accepted input, a
    * logical viewport resize, changed viewport insets, or attachment loss cancels this call.
-   * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Until selective
-   * cancellation is available, anchor geometry changes stop all camera animations.
+   * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Anchor geometry
+   * changes stop all camera animations.
    *
    * Anchor preservation applies to flat Mercator maps, including pitched cameras. Camera
    * constraints take precedence and can move the anchor. Globe and terrain do not have this
    * guarantee. On Android, the system animator duration scale multiplies the duration. Zero
    * duration applies the anchored endpoint immediately.
+   *
+   * @throws IllegalArgumentException if the anchor does not resolve to a visible point on the map.
    */
   public suspend fun animateCameraAround(
     anchor: CameraAnchor,
@@ -1412,11 +1418,12 @@ internal constructor(
   /**
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
    * full-camera assignment or accepted input cancels this call. Further partial updates follow
-   * [animateCamera]'s replacement and coroutine-cancellation behavior. See [cameraForBounds] for
-   * [fit]. Detaching cancels the call.
+   * [animateCamera]'s replacement and coroutine-cancellation behavior. Detaching cancels the call.
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
+   *
+   * @param fit See [cameraForBounds].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -1438,21 +1445,23 @@ internal constructor(
   }
 
   /**
-   * Pans the map by [delta] in logical pixels, as a gesture would. A positive x moves the content
-   * right.
+   * Pans the map by [delta] in logical pixels, as a gesture would.
    *
    * [panBy], [scaleBy], [fling], and [click] pass gestures that your code recognized. They follow
    * the camera permissions and callbacks in [org.maplibre.compose.interaction.MapInteractions],
    * interrupt a camera animation in progress, and report [CameraMoveReason.Gesture]. They do
    * nothing while no map is presented.
+   *
+   * @param delta A positive x moves the content right.
    */
   public fun panBy(delta: DpOffset) {
     recognizedInput?.pan(delta)
   }
 
   /**
-   * Scales the map by [factor], as a gesture would, keeping [anchor] fixed on screen. A null anchor
-   * scales about the viewport center. See [panBy].
+   * Scales the map by [factor], as a gesture would, keeping [anchor] fixed on screen. See [panBy].
+   *
+   * @param anchor A null anchor scales about the viewport center.
    */
   public fun scaleBy(factor: Double, anchor: DpOffset? = null) {
     recognizedInput?.scale(factor, anchor)
@@ -1573,19 +1582,19 @@ internal constructor(
 internal class MapPresentationOwnerToken
 
 /**
- * Remembers a logical map and closes it when this call leaves composition.
+ * Remembers a logical map and closes it when this call leaves composition. Restoration creates a
+ * new map with the saved camera position and the current [baseStyle].
  *
- * [baseStyle] owns the map's base style and updates it on recomposition. Its
- * [MapStyleState.asMutable] is null. [initialCameraPosition] only seeds the camera; use
- * [MapState.setCameraPosition] to move it. Changes to [content] update the declared resources.
- * Restoration creates a new map with the saved camera position and the current [baseStyle].
- *
- * [content] declares the map's sources, layers, and images. It reads the returned state through
- * [LocalMapState] and its viewport through [LocalViewport].
- *
- * The default [runtime] is [DefaultMapRuntime.instance]. In [LocalInspectionMode], such as an IDE
- * `@Preview`, it is instead a runtime that never starts MapLibre, so the map state works but no map
- * renders.
+ * @param runtime The runtime that owns the map. Defaults to [DefaultMapRuntime.instance]. In
+ *   [LocalInspectionMode], such as an IDE `@Preview`, the default is instead a runtime that never
+ *   starts MapLibre, so the map state works but no map renders.
+ * @param baseStyle The map's base style, updated on recomposition. Its [MapStyleState.asMutable] is
+ *   null.
+ * @param initialCameraPosition Only seeds the camera; use [MapState.setCameraPosition] to move it.
+ * @param content Declares the map's sources, layers, and images. Changes to it update the declared
+ *   resources. It reads the returned state through [LocalMapState] and its viewport through
+ *   [LocalViewport]. It composes from the start for each style the map loads, so values it
+ *   remembers reset when [baseStyle] changes.
  */
 @Composable
 public fun rememberMapState(

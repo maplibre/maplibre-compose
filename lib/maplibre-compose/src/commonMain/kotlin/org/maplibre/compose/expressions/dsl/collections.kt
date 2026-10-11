@@ -43,7 +43,9 @@ public fun <T : ExpressionValue?> Expression<ListValue<T>>.contains(
 
 /**
  * Returns the first index at which the [item] is located in this list, or `-1` if it cannot be
- * found. Accepts an optional [startIndex] from where to begin the search.
+ * found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfList")
 public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(
@@ -53,7 +55,9 @@ public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(
 
 /**
  * Returns the first index at which the [item] is located in this list, or `-1` if it cannot be
- * found. Accepts an optional [startIndex] from where to begin the search.
+ * found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfList")
 public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(

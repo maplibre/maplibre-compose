@@ -24,16 +24,23 @@ import org.maplibre.compose.util.MaplibreComposable
  * Declares an engine-supported layer [type] using named properties. Use this to wrap layer types
  * that do not have a built-in composable. The renderer must support the type and its properties.
  *
- * [properties] describes the complete layer; omitted properties are removed on recomposition. Call
- * composable helpers before this regular Kotlin builder. Expressions support painters, bitmaps, and
- * text units. Paint transitions follow the system animation-duration scale.
- *
- * [source] supplies a managed source. Alternatively, a root `source` property can name a source
- * already in the style. If both are provided, their IDs must match.
- *
  * The surrounding [Anchor] determines placement. The layer is removed when it leaves composition
  * and restored after a style reload. Its handle is read-only. Support for feature queries depends
  * on the layer type.
+ *
+ * @param id Unique layer name. It must differ from the ID of every other declared layer and of
+ *   every layer in the loaded base style; a repeated ID fails when the style content is applied. A
+ *   changed [id] declares a different layer: the map removes the old layer and adds a new one.
+ * @param type The layer type, such as `"fill"` or a type that a renderer plugin adds.
+ * @param source A managed source. Alternatively, a root `source` property can name a source already
+ *   in the style. If both are provided, their IDs must match.
+ * @param onClick Function to call when any feature in this layer has been clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
+ * @param onDoubleClick Called for a double tap or double click on this layer.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param properties Describes the complete layer; omitted properties are removed on recomposition.
+ *   Call composable helpers before this regular Kotlin builder. Expressions support painters,
+ *   bitmaps, and text units. Paint transitions follow the system animation-duration scale.
  */
 @Composable
 @MaplibreComposable
