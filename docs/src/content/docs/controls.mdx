@@ -5,6 +5,7 @@ description: Choose the map controls, add your own, and place Compose UI on map 
 
 import { Aside, Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import OverlayPresets from "../../components/OverlayPresets.astro";
 import { region } from "../../snippets";
 
 import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
@@ -31,6 +32,8 @@ The attribution button shows the attribution text of the sources in the style.
 <Api of="MapOverlay.Full" /> adds zoom buttons to the default controls, which
 helps users with a mouse. <Api of="MapOverlay.AttributionOnly" /> keeps only
 the logo and the attribution button.
+
+<OverlayPresets />
 
 <Code code={region(controls, "preset")} lang="kotlin" title="App.kt" />
 
