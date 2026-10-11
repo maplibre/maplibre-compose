@@ -53,12 +53,12 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", link: "/" },
-        { label: "Getting started", slug: "getting-started" },
-        { label: "Platform setup", slug: "platform-setup" },
         { label: "Live demo", slug: "demo" },
         {
           label: "Guides",
           items: [
+            { label: "Getting started", slug: "getting-started" },
+            { label: "Platform setup", slug: "platform-setup" },
             { label: "Style the map", slug: "styling" },
             { label: "Control the camera", slug: "camera" },
             { label: "Add data to the map", slug: "layers" },
