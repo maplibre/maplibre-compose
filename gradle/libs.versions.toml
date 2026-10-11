@@ -85,7 +85,7 @@ androidx-wear-compose = "1.6.2"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.4.20"
+gradle-kotlin = "2.4.21"
 # Complexity metrics for tools/code-metrics. Its kotlin-compiler dependency must
 # parse the same syntax the build compiles, so it is built against gradle-kotlin.
 detekt = "2.0.0-alpha.6"
