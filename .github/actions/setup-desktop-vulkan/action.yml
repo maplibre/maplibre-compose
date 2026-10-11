@@ -28,7 +28,7 @@ runs:
 
     - name: Install the Vulkan runtime (Windows)
       if: runner.os == 'Windows'
-      uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+      uses: jakoch/install-vulkan-sdk-action@d17de7e2f5e50efb5d2123efed18497d3c58c533 # v1.7.0
       with:
         vulkan_version: 1.4.341.1
         cache: true
