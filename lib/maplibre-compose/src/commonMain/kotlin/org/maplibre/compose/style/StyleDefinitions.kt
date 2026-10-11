@@ -10,6 +10,7 @@ import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.RasterDemDecoding
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileProvider
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
@@ -56,13 +57,24 @@ internal sealed interface SourceDefinition {
 
 /** Defines an immutable layer. The desired style revision specifies its placement. */
 internal data class LayerDefinition(
-  val value: JsonObject,
+  val properties: Map<String, StyleValue>,
   val unsupportedProperties: Map<String, String> = emptyMap(),
   val filterUnsupportedProperties: Boolean = false,
 ) {
-  val id: String = (value.getValue("id") as JsonPrimitive).content
-  val type: String = (value["type"] as? JsonPrimitive)?.content.orEmpty()
-  val sourceId: String? = (value["source"] as? JsonPrimitive)?.content
+  constructor(
+    value: JsonObject,
+    unsupportedProperties: Map<String, String> = emptyMap(),
+    filterUnsupportedProperties: Boolean = false,
+  ) : this(
+    value.mapValues { StyleValue.Json(it.value) },
+    unsupportedProperties,
+    filterUnsupportedProperties,
+  )
+
+  val value: JsonObject by lazy { JsonObject(properties.mapValues { it.value.json }) }
+  val id: String = (properties.getValue("id").json as JsonPrimitive).content
+  val type: String = (properties["type"]?.json as? JsonPrimitive)?.content.orEmpty()
+  val sourceId: String? = (properties["source"]?.json as? JsonPrimitive)?.content
 }
 
 /** Defines a resolved image without a painter, composition, or loaded-style reference. */
@@ -84,10 +96,10 @@ internal fun layerDefinitionFromJson(id: String, value: JsonObject): LayerDefini
 
 /** Compares construction inputs without allocating filtered property maps. */
 internal fun LayerDefinition.hasSameConstructionProperties(other: LayerDefinition): Boolean {
-  if (value === other.value) return true
-  return value.all { (name, value) ->
-    name in MutableLayerProperties || other.value[name] == value
-  } && other.value.keys.all { it in MutableLayerProperties || it in value }
+  if (properties === other.properties) return true
+  return properties.all { (name, value) ->
+    name in MutableLayerProperties || other.properties[name] == value
+  } && other.properties.keys.all { it in MutableLayerProperties || it in properties }
 }
 
 private val MutableLayerProperties = setOf("layout", "paint", "filter", "minzoom", "maxzoom")

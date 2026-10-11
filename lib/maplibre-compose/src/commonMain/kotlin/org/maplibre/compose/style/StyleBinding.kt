@@ -19,6 +19,7 @@ import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
 import org.maplibre.compose.sources.rasterDemSourceJson
 import org.maplibre.compose.sources.toDataJson
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -108,8 +109,11 @@ internal interface StyleBinding {
 
   fun addLayer(definition: LayerDefinition, beforeLayerId: String): StyleCommand {
     requireCurrent()
-    return addLayer(definition.value, beforeLayerId)
+    return addLayer(StyleValue.Object(definition.properties), beforeLayerId)
   }
+
+  fun addLayer(layer: StyleValue, beforeLayerId: String): StyleCommand =
+    addLayer(layer.json as JsonObject, beforeLayerId)
 
   fun removeLayer(layerId: String): StyleCommand
 
@@ -125,6 +129,11 @@ internal interface StyleBinding {
    *   previous value.
    */
   fun setLayerProperty(layerId: String, name: String, value: JsonElement, kind: LayerPropertyKind)
+
+  fun setLayerProperty(layerId: String, name: String, value: StyleValue, kind: LayerPropertyKind) =
+    setLayerProperty(layerId, name, value.json, kind)
+
+  fun setLayerFilter(layerId: String, filter: StyleValue) = setLayerFilter(layerId, filter.json)
 
   fun setLayerFilter(layerId: String, filter: JsonElement)
 
@@ -158,9 +167,10 @@ internal interface StyleBinding {
 
   /**
    * Reports a posted write that the engine rejected. [target] names what kept its previous value,
-   * such as `The light`; [value] is what the engine refused, or null when the write carried none.
+   * such as `The light`; [value] is what the engine refused, logged as its JSON text, or null when
+   * the write carried none.
    */
-  fun reportRejectedWrite(target: String, value: JsonElement?, error: StyleMutationException) {
+  fun reportRejectedWrite(target: String, value: Any?, error: StyleMutationException) {
     logger?.w(error) {
       "$target kept its previous value: MapLibre rejected ${value ?: "the write"}."
     }
@@ -451,12 +461,10 @@ internal fun LayerDefinition.summary(): LayerSummary =
   LayerSummary(
     id = id,
     type = type,
-    source = sourceId ?: value.rootString("source"),
-    sourceLayer = value.rootString("source-layer"),
+    source = sourceId,
+    sourceLayer =
+      (properties["source-layer"]?.json as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull,
   )
-
-private fun Map<String, JsonElement>.rootString(name: String): String? =
-  (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {
@@ -475,9 +483,17 @@ internal class LayerPropertyWrite(
   val layerId: String,
   val layerType: String,
   val name: String,
-  val value: JsonElement,
+  val value: StyleValue,
   val kind: LayerPropertyKind,
-)
+) {
+  constructor(
+    layerId: String,
+    layerType: String,
+    name: String,
+    value: JsonElement,
+    kind: LayerPropertyKind,
+  ) : this(layerId, layerType, name, StyleValue.Json(value), kind)
+}
 
 /** Reports an engine error from a style mutation. */
 internal class StyleMutationException(message: String?, cause: Throwable?) :
