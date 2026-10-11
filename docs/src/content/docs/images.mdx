@@ -1,6 +1,6 @@
 ---
 title: Add images and icons
-description: Draw icons from Compose painters or the style's sprite, and place an image on the map.
+description: Draw icons from Compose painters and place an image on the map.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -15,27 +15,22 @@ icon.
 
 ## Draw icons from a Compose painter
 
-Pass any Compose `Painter` to `image()`, such as one from `painterResource`.
-This example puts a map icon at every earthquake location:
+Pass any Compose `Painter` to `image()`. You can load one with
+`painterResource` or draw your own. This painter draws a badge using your
+Material theme's colors and typography:
 
-<Code code={rememberedMapStyle(region(images, "icon-painter"))} lang="kotlin" title="App.kt" />
+<Code code={region(images, "badge-painter")} lang="kotlin" title="App.kt" />
 
-`size` sets the size of the icon. To color a single-color icon from the layer,
+Use the painter as an icon on a <Api of="SymbolLayer" />:
+
+<Code code={region(images, "icon-painter")} lang="kotlin" title="App.kt" />
+
+`image()` uses the painter's intrinsic size; pass `size` to set a different
+icon size. To color a single-color icon from the layer,
 pass `drawAsSdf = true` to `image()` and set the layer's `iconColor`.
 
 The map hides an icon that would overlap another icon or label. Set
 `iconAllowOverlap = const(true)` on the layer to draw every icon.
-
-## Use icons from the style's sprite
-
-Most styles come with a sprite: a set of named icons that the style uses for
-places such as shops and stations. Pass an icon's name to `image()` to use it in
-your own layer:
-
-<Code code={region(images, "icon-sprite")} lang="kotlin" title="App.kt" />
-
-Each style has its own icon names. The style JSON gives the sprite's URL under
-`sprite`; add `.json` to that URL to see the list of names.
 
 ## Place an image on the map
 
