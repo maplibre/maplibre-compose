@@ -1,0 +1,91 @@
+---
+interface Props {
+  action: string;
+}
+const { action } = Astro.props;
+const leftPressed = action === "pan" || action === "boxZoom";
+const rightPressed = action === "orbit";
+const wheel = action === "zoom";
+const modifier = action === "boxZoom" ? "Shift" : undefined;
+---
+
+<g transform="translate(250 165)">
+  <g display={modifier ? undefined : "none"}>
+    <rect
+      x="0"
+      y="-23"
+      width="48"
+      height="19"
+      rx="4"
+      fill="var(--sl-color-bg)"
+      stroke="var(--sl-color-gray-3)"
+    />
+    <text
+      x="24"
+      y="-9"
+      fill="var(--sl-color-text)"
+      font-family="sans-serif"
+      font-size="11"
+      text-anchor="middle"
+    >
+      {modifier}
+    </text>
+  </g>
+  <path
+    d="M0 24A24 24 0 0 1 48 24V40A24 24 0 0 1 0 40Z"
+    fill="var(--sl-color-bg)"
+    stroke="var(--sl-color-gray-3)"
+    stroke-width="1.5"
+  />
+  <path
+    d="M2 24A22 22 0 0 1 23 2V28H2Z"
+    fill="#285daa"
+    display={action === "pan" || modifier ? undefined : "none"}
+  />
+  <path
+    d="M25 2A22 22 0 0 1 46 24V28H25Z"
+    fill="#285daa"
+    display={rightPressed ? undefined : "none"}
+  />
+  <path
+    d="M24 1V29M1 29H47"
+    fill="none"
+    stroke="var(--sl-color-gray-3)"
+  />
+  <g display={wheel ? undefined : "none"}>
+    <rect
+      x="16"
+      y="6"
+      width="16"
+      height="23"
+      rx="8"
+      fill="#bedaff"
+      stroke="#285daa"
+      stroke-width="1.5"
+    />
+    <path
+      d="M-8 7V31M-13 12L-8 7L-3 12M-13 26L-8 31L-3 26"
+      fill="none"
+      stroke="#fff"
+      stroke-width="5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M-8 7V31M-13 12L-8 7L-3 12M-13 26L-8 31L-3 26"
+      fill="none"
+      stroke="#285daa"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+  <rect
+    x="21"
+    y="11"
+    width="6"
+    height="13"
+    rx="3"
+    fill={wheel ? "#285daa" : "var(--sl-color-gray-3)"}
+  />
+</g>

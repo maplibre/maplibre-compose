@@ -4,6 +4,7 @@ import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightCopyButton from "starlight-copy-button";
+import starlightKbd from "starlight-kbd";
 import starlightLinksValidator from "starlight-links-validator";
 
 const base = "/maplibre-compose";
@@ -34,6 +35,10 @@ export default defineConfig({
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
+        starlightKbd({
+          globalPicker: false,
+          types: [{ id: "keys", label: "Keyboard", default: true }],
+        }),
         // Generated static sites own these paths outside Astro's page tree.
         starlightLinksValidator({
           exclude: [`${base}/api/**`, `${base}/demo/app/**`],

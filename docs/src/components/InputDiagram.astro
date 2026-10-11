@@ -1,0 +1,226 @@
+---
+import CameraMotion from "./CameraMotion.astro";
+import MapDiagram from "./MapDiagram.astro";
+import InputContact from "./InputContact.astro";
+import InputMouse from "./InputMouse.astro";
+import InputTrackpad from "./InputTrackpad.astro";
+import "../styles/input-diagrams.css";
+
+interface Props {
+  device: "touch" | "mouse" | "trackpad";
+  action: "pan" | "zoom" | "pitch" | "zoomRotate" | "quickZoom" | "orbit" | "boxZoom";
+  instruction: string;
+}
+
+const { device, action, instruction } = Astro.props;
+const titles = {
+  pan: "Pan", zoom: "Zoom", pitch: "Pitch", zoomRotate: "Zoom and rotate",
+  quickZoom: "Quick zoom", orbit: "Rotate and pitch", boxZoom: "Box zoom",
+};
+const title = titles[action];
+const directTouch = device === "touch";
+const trackpad = device === "trackpad";
+const trackpadGesture = trackpad && (action === "pan" || action === "zoom");
+const pair = (directTouch && (action === "zoomRotate" || action === "pitch")) || trackpadGesture;
+const drag = !directTouch && !trackpadGesture && action !== "zoom";
+const boxZoom = action === "boxZoom";
+const quickZoom = action === "quickZoom";
+const samples = action === "zoomRotate" ? Array.from({ length: 31 }, (_, i) => i / 30)
+  : action === "orbit" ? [0, 0.25, 0.5, 0.75, 1] : [0, 1];
+const n = (value: number) => Number(value.toFixed(4));
+const frames = (transform: (progress: number) => string) =>
+  samples.map((progress) => ({ transform: transform(progress), easing: action === "orbit" ? "ease-in-out" : "linear" }));
+// A square drag demonstrates rotation and pitch one axis at a time.
+const orbitPosition = (progress: number) => ({
+  x: progress < 0.25 ? progress * 4 : progress < 0.5 ? 1 : progress < 0.75 ? 3 - progress * 4 : 0,
+  y: progress < 0.25 ? 0 : progress < 0.5 ? progress * 4 - 1 : progress < 0.75 ? 1 : 4 - progress * 4,
+});
+const sceneFrames = frames((progress) => {
+  let x = 50;
+  let y = 50;
+  let scale = 2;
+  let angle = 0;
+  let pitch = 0;
+  if (action === "pan") {
+    x += -12.5 + 25 * progress;
+    y += (10 - 20 * progress) / 240 * 100;
+  } else if (action === "boxZoom") {
+    scale *= 1 + (320 / 112 - 1) * progress;
+  } else if (["zoom", "zoomRotate", "quickZoom"].includes(action)) {
+    scale += 1.2 * progress;
+    if (action === "zoomRotate") angle = 50 * progress;
+  } else if (action === "orbit") {
+    const position = orbitPosition(progress);
+    angle = -40 * position.x;
+    pitch = 35 * position.y;
+  } else {
+    pitch = 45 * progress;
+  }
+  return `translate(${n(x)}%, ${n(y)}%) perspective(700px) rotateX(${n(pitch)}deg) rotate(${n(angle)}deg) scale(${n(scale)}) translate(-50%, -50%)`;
+});
+const mapFrames = quickZoom ? [
+  { ...sceneFrames[0], offset: 0 },
+  { ...sceneFrames[0], offset: 0.12, easing: "ease-in-out" },
+  { ...sceneFrames[1], offset: 0.4 },
+  { ...sceneFrames[1], offset: 0.62, easing: "ease-in-out" },
+  { ...sceneFrames[0], offset: 0.9 },
+  { ...sceneFrames[0], offset: 1 },
+] : boxZoom ? [
+  { ...sceneFrames[0], opacity: 1, offset: 0 },
+  { ...sceneFrames[0], opacity: 1, offset: 0.5, easing: "ease-in-out" },
+  { ...sceneFrames[1], opacity: 1, offset: 0.7 },
+  { ...sceneFrames[1], opacity: 1, offset: 0.75 },
+  { ...sceneFrames[1], opacity: 0, offset: 0.85 },
+  { ...sceneFrames[0], opacity: 0, offset: 0.86 },
+  { ...sceneFrames[0], opacity: 1, offset: 1 },
+] : sceneFrames;
+const contactFrames = (second = false, onMap = device !== "trackpad") => frames((progress) => {
+  let x = 160;
+  let y = 120;
+  if (action === "pan") {
+    x += -40 + 80 * progress;
+    y += 10 - 20 * progress;
+    if (pair) x += second ? 24 : -24;
+  } else if (action === "zoomRotate" || (action === "zoom" && device !== "mouse")) {
+    const radius = (second ? 1 : -1) * (40 + 36 * progress);
+    const angle = action === "zoomRotate" ? (-25 + 50 * progress) * Math.PI / 180 : 0;
+    x += radius * Math.cos(angle);
+    y += radius * Math.sin(angle);
+  } else if (action === "quickZoom") {
+    y += -32 + 64 * progress;
+  } else if (action === "orbit") {
+    const position = orbitPosition(progress);
+    x += -32 + 64 * position.x;
+    y += 32 - 64 * position.y;
+  } else if (action === "boxZoom") {
+    x = 104 + 112 * progress;
+    y = 78 + 84 * progress;
+  } else if (action === "pitch") {
+    x += second ? 24 : -24;
+    y += 32 - 64 * progress;
+  }
+  if (!onMap) {
+    x = 256 + (x - 160) * 0.35;
+    y = 199 + (y - 120) * 0.35;
+  }
+  return `translate(${n(x)}px, ${n(y)}px)`;
+});
+const cursorFrames = contactFrames(false, true);
+const pointerFrames = (keyframes: { transform: string }[]) => quickZoom ? [
+  { ...keyframes[0], opacity: 0, offset: 0 },
+  { ...keyframes[0], opacity: 1, offset: 0.025 },
+  { ...keyframes[0], opacity: 0, offset: 0.05 },
+  { ...keyframes[0], opacity: 1, offset: 0.075 },
+  { ...keyframes[0], opacity: 1, offset: 0.12, easing: "ease-in-out" },
+  { ...keyframes[1], opacity: 1, offset: 0.4 },
+  { ...keyframes[1], opacity: 0, offset: 0.44 },
+  { ...keyframes[1], opacity: 0, offset: 0.5 },
+  { ...keyframes[1], opacity: 1, offset: 0.525 },
+  { ...keyframes[1], opacity: 0, offset: 0.55 },
+  { ...keyframes[1], opacity: 1, offset: 0.575 },
+  { ...keyframes[1], opacity: 1, offset: 0.62, easing: "ease-in-out" },
+  { ...keyframes[0], opacity: 1, offset: 0.9 },
+  { ...keyframes[0], opacity: 0, offset: 0.94 },
+  { ...keyframes[0], opacity: 0, offset: 1 },
+] : boxZoom ? [
+  { ...keyframes[0], opacity: 1, offset: 0 },
+  { ...keyframes[0], opacity: 1, offset: 0.12 },
+  { ...keyframes[1], opacity: 1, offset: 0.5 },
+  { ...keyframes[1], opacity: 0, offset: 0.55 },
+  { ...keyframes[1], opacity: 0, offset: 0.85 },
+  { ...keyframes[0], opacity: 0, offset: 0.86 },
+  { ...keyframes[0], opacity: 1, offset: 1 },
+] : keyframes;
+const contacts = directTouch || trackpad
+  ? [contactFrames(), ...(pair ? [contactFrames(true)] : [])].map((frames) => ({
+    touch: directTouch,
+    swipe: trackpadGesture,
+    frames: pointerFrames(frames),
+  })) : [];
+// Draw the selection, fit it on release, then fade to reset the example.
+const boxFrames = [
+  { transform: "translate(104px, 78px) scale(0)", opacity: 1, offset: 0 },
+  { transform: "translate(104px, 78px) scale(0)", opacity: 1, offset: 0.12 },
+  { transform: "translate(104px, 78px) scale(1)", opacity: 1, offset: 0.5, easing: "ease-in-out" },
+  { transform: `translate(0px, 0px) scale(${320 / 112})`, opacity: 1, offset: 0.7 },
+  { transform: `translate(0px, 0px) scale(${320 / 112})`, opacity: 1, offset: 0.75 },
+  { transform: `translate(0px, 0px) scale(${320 / 112})`, opacity: 0, offset: 0.85 },
+  { transform: "translate(104px, 78px) scale(0)", opacity: 0, offset: 1 },
+];
+const arrows = {
+  pan: "M112 132L208 108M116 123L112 132L122 135M198 105L208 108L204 117",
+  zoom: "M106 120H72M80 112L72 120L80 128M214 120H248M240 112L248 120L240 128",
+  pitch: "M136 164V94M128 102L136 94L144 102M184 164V94M176 102L184 94L192 102",
+  zoomRotate: "M106 120H72M80 112L72 120L80 128M214 120H248M240 112L248 120L240 128M97 101A66 66 0 0 1 128 62M117 63L128 62L125 73M223 139A66 66 0 0 1 192 178M203 177L192 178L195 167",
+  quickZoom: "M160 78V172M152 86L160 78L168 86M152 164L160 172L168 164",
+  orbit: "M128 152H192V88H128V152M153 146L160 152L153 158M186 127L192 120L198 127M167 82L160 88L167 94M122 113L128 120L134 113",
+  boxZoom: "",
+};
+const guide = arrows[action];
+---
+
+<CameraMotion
+  label={`${title}: ${instruction}`}
+  direction={boxZoom || quickZoom || action === "orbit" ? "normal" : "alternate"}
+  duration={quickZoom || action === "orbit" ? 7600 : 3800}
+>
+  <figure>
+    <div class="input-diagram-stage">
+      <div
+        class="input-map-plane"
+        style={`transform: ${mapFrames[0]!.transform}`}
+        data-camera-frames={JSON.stringify(mapFrames)}
+      >
+        <MapDiagram label={`${title} the map: ${instruction}`} />
+      </div>
+      <svg class="input-gesture" viewBox="0 0 320 240" aria-hidden="true">
+        <g
+          display={boxZoom ? undefined : "none"}
+          style="transform: translate(104px, 78px)"
+          data-camera-frames={boxZoom ? JSON.stringify(boxFrames) : undefined}
+        >
+          <rect
+            width="112"
+            height="84"
+            fill="#285daa"
+            fill-opacity=".16"
+            stroke="#285daa"
+            stroke-width="2"
+            stroke-dasharray="5 4"
+            vector-effect="non-scaling-stroke"
+          />
+        </g>
+        <g
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          display={trackpadGesture || boxZoom || (device === "mouse" && action === "zoom") ? "none" : undefined}
+        >
+          <path d={guide} stroke="#fff" stroke-width="5" stroke-opacity=".85" />
+          <path d={guide} stroke="#285daa" stroke-width="2" />
+        </g>
+
+        {device === "mouse" && <InputMouse action={action} />}
+        {trackpad && <InputTrackpad action={action} guide={guide} />}
+        {contacts.map((contact) => <InputContact {...contact} />)}
+
+        <g
+          display={device === "mouse" || drag ? undefined : "none"}
+          style={`transform: ${cursorFrames[0]!.transform}`}
+          data-camera-frames={drag ? JSON.stringify(pointerFrames(cursorFrames)) : undefined}
+        >
+          <path
+            d="M0 0V23L6 17L11 27L15 25L10 15H19Z"
+            fill="#172033"
+            stroke="#fff"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          />
+        </g>
+      </svg>
+    </div>
+    <figcaption>
+      <strong>{title}</strong><p><slot>{instruction}</slot></p>
+    </figcaption>
+  </figure>
+</CameraMotion>

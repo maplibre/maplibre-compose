@@ -1,0 +1,140 @@
+---
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+import { Kbd } from "starlight-kbd/components";
+import InputDiagram from "./InputDiagram.astro";
+---
+
+<div class="input-controls">
+  <Tabs>
+    <TabItem label="Touchscreen">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="touch"
+          action="pan"
+          instruction="Drag with one finger."
+        />
+        <InputDiagram
+          device="touch"
+          action="zoomRotate"
+          instruction="Pinch or spread; twist to rotate."
+        />
+        <InputDiagram
+          device="touch"
+          action="pitch"
+          instruction="Drag two fingers up or down."
+        />
+        <InputDiagram
+          device="touch"
+          action="quickZoom"
+          instruction="Double-tap, then drag up or down."
+        />
+      </div>
+      <p class="input-shortcuts">
+        For quick zoom, dragging down zooms in. On iOS, dragging up zooms in.
+      </p>
+    </TabItem>
+    <TabItem label="Mouse">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="mouse"
+          action="pan"
+          instruction="Drag with the left button."
+        />
+        <InputDiagram
+          device="mouse"
+          action="zoom"
+          instruction="Scroll the wheel."
+        />
+        <InputDiagram
+          device="mouse"
+          action="orbit"
+          instruction="Drag with the right button."
+        />
+        <InputDiagram
+          device="mouse"
+          action="boxZoom"
+          instruction="Shift + drag with the left button."
+        >
+          <Kbd keys="Shift" /> + drag with the left button.
+        </InputDiagram>
+      </div>
+      <p class="input-shortcuts">
+        <Kbd keys="Ctrl" /> + left-drag also rotates and pitches. Double-click
+        to zoom in;
+        <Kbd keys="Shift" /> + double-click to zoom out.
+      </p>
+    </TabItem>
+    <TabItem label="Trackpad">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="trackpad"
+          action="pan"
+          instruction="Slide two fingers."
+        />
+        <InputDiagram
+          device="trackpad"
+          action="zoom"
+          instruction="Pinch or spread two fingers."
+        />
+        <InputDiagram
+          device="trackpad"
+          action="orbit"
+          instruction="Ctrl + click-drag."
+        >
+          <Kbd keys="Ctrl" /> + click-drag.
+        </InputDiagram>
+        <InputDiagram
+          device="trackpad"
+          action="boxZoom"
+          instruction="Shift + click-drag."
+        >
+          <Kbd keys="Shift" /> + click-drag.
+        </InputDiagram>
+      </div>
+      <p class="input-shortcuts">
+        Pan and pinch require the host to report trackpad gestures. When it
+        sends scroll events instead, scrolling zooms the map.
+      </p>
+    </TabItem>
+    <TabItem label="Keyboard">
+      <p>
+        Focus the map and press <Kbd keys="Enter" /> to control it with the
+        keyboard. Press <Kbd keys="Escape" /> to release it.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Keys</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Pan</td>
+            <td>
+              <Kbd keys="←" /> <Kbd keys="→" /> <Kbd keys="↑" /> <Kbd
+                keys="↓"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>Zoom in</td>
+            <td><Kbd keys="+" /> or <Kbd keys="=" /></td>
+          </tr>
+          <tr>
+            <td>Zoom out</td>
+            <td><Kbd keys="-" /></td>
+          </tr>
+          <tr>
+            <td>Rotate</td>
+            <td><Kbd keys="Shift+←" /> or <Kbd keys="Shift+→" /></td>
+          </tr>
+          <tr>
+            <td>Pitch</td>
+            <td><Kbd keys="Shift+↑" /> or <Kbd keys="Shift+↓" /></td>
+          </tr>
+        </tbody>
+      </table>
+    </TabItem>
+  </Tabs>
+</div>
