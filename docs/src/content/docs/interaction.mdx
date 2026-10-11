@@ -5,6 +5,7 @@ description: Limit camera movement, respond to clicks on the map and its layers,
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import InputControls from "../../components/InputControls.astro";
 import { region } from "../../snippets";
 
 import interaction from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
@@ -13,6 +14,10 @@ Users can pan, zoom, rotate, and pitch the map by default.
 <Api of="MapInteractions" /> sets which of these camera movements users can
 make and what your app does when they click. <Api of="MapUiOptions" /> sets
 which gesture, scroll, or key does what.
+
+## Default controls
+
+<InputControls />
 
 ## Restrict camera movement
 

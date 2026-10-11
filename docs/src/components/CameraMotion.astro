@@ -4,11 +4,19 @@ import "../styles/camera-diagrams.css";
 interface Props {
   label: string;
   note?: string;
+  direction?: "alternate" | "normal";
+  duration?: number;
 }
-const { label, note } = Astro.props;
+const { label, note, direction = "alternate", duration = 3800 } = Astro.props;
 ---
 
-<camera-motion class="camera-illustration" role="group" aria-label={label}>
+<camera-motion
+  class="camera-illustration"
+  role="group"
+  aria-label={label}
+  data-direction={direction}
+  data-duration={duration}
+>
   <slot />
   {note && <p class="motion-caption">{note}</p>}
 </camera-motion>
@@ -26,13 +34,13 @@ class CameraMotion extends HTMLElement {
       return;
     }
     if (this.visible && !this.animations.length) {
-      for (const element of this.querySelectorAll<SVGElement>("[data-camera-frames]")) {
+      for (const element of this.querySelectorAll<HTMLElement | SVGElement>("[data-camera-frames]")) {
         const frames = JSON.parse(element.dataset.cameraFrames!) as Keyframe[];
         this.animations.push(element.animate(frames, {
-          duration: 3800,
-          easing: "ease-in-out",
+          duration: Number(this.dataset.duration),
+          easing: this.dataset.direction === "normal" ? "linear" : "ease-in-out",
           iterations: Infinity,
-          direction: "alternate",
+          direction: this.dataset.direction as PlaybackDirection,
         }));
       }
     }

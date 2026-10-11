@@ -1,0 +1,93 @@
+---
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+import InputDiagram from "./InputDiagram.astro";
+import "../styles/input-diagrams.css";
+---
+
+<div class="input-controls">
+  <Tabs>
+    <TabItem label="Touchscreen">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="touch"
+          action="pan"
+          instruction="Drag with one finger."
+        />
+        <InputDiagram
+          device="touch"
+          action="zoomRotate"
+          instruction="Pinch or spread; twist to rotate."
+        />
+        <InputDiagram
+          device="touch"
+          action="pitch"
+          instruction="Drag two fingers up or down."
+        />
+        <InputDiagram
+          device="touch"
+          action="quickZoom"
+          instruction="Double-tap, then drag up or down."
+        />
+      </div>
+      <p class="input-shortcuts">
+        For quick zoom, dragging down zooms in. On iOS, dragging up zooms in.
+      </p>
+    </TabItem>
+    <TabItem label="Mouse">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="mouse"
+          action="pan"
+          instruction="Drag with the left button."
+        />
+        <InputDiagram
+          device="mouse"
+          action="zoom"
+          instruction="Scroll the wheel."
+        />
+        <InputDiagram
+          device="mouse"
+          action="orbit"
+          instruction="Drag with the right button."
+        />
+        <InputDiagram
+          device="mouse"
+          action="boxZoom"
+          instruction="Shift + drag with the left button."
+        />
+      </div>
+      <p class="input-shortcuts">
+        Ctrl + left-drag also rotates and pitches. Double-click to zoom in;
+        Shift + double-click to zoom out.
+      </p>
+    </TabItem>
+    <TabItem label="Trackpad">
+      <div class="input-controls-grid">
+        <InputDiagram
+          device="trackpad"
+          action="pan"
+          instruction="Slide two fingers."
+        />
+        <InputDiagram
+          device="trackpad"
+          action="zoom"
+          instruction="Pinch or spread two fingers."
+        />
+        <InputDiagram
+          device="trackpad"
+          action="orbit"
+          instruction="Ctrl + click-drag."
+        />
+        <InputDiagram
+          device="trackpad"
+          action="boxZoom"
+          instruction="Shift + click-drag."
+        />
+      </div>
+      <p class="input-shortcuts">
+        Pan and pinch require the host to report trackpad gestures. When it
+        sends scroll events instead, scrolling zooms the map.
+      </p>
+    </TabItem>
+  </Tabs>
+</div>
