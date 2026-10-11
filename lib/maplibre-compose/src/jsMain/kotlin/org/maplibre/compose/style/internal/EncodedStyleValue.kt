@@ -59,7 +59,10 @@ private class JsStyleValueWriter : StyleValueWriter {
     add(if (value == 0f) 0f else value)
   }
 
-  override fun numberText(value: String) = add(JSON.parse<dynamic>(value))
+  override fun numberText(value: String) {
+    require(value.toDoubleOrNull()?.isFinite() == true) { "JSON numbers must be finite: $value" }
+    add(JSON.parse<dynamic>(value))
+  }
 
   override fun stringValue(value: String) = add(value)
 

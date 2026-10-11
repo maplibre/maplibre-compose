@@ -257,6 +257,86 @@ public final class org/maplibre/compose/camera/Viewport {
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class org/maplibre/compose/expressions/ExpressionImageReference {
+	public abstract fun getStretch ()Lorg/maplibre/compose/util/ImageStretch;
+	public abstract fun isSdf ()Z
+}
+
+public final class org/maplibre/compose/expressions/ExpressionImageReference$Bitmap : org/maplibre/compose/expressions/ExpressionImageReference {
+	public static final field $stable I
+	public final fun component1 ()Landroidx/compose/ui/graphics/ImageBitmap;
+	public final fun component2 ()Z
+	public final fun component3 ()Lorg/maplibre/compose/util/ImageStretch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBitmap ()Landroidx/compose/ui/graphics/ImageBitmap;
+	public fun getStretch ()Lorg/maplibre/compose/util/ImageStretch;
+	public fun hashCode ()I
+	public fun isSdf ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/ExpressionImageReference$Painter : org/maplibre/compose/expressions/ExpressionImageReference {
+	public static final field $stable I
+	public final fun component1 ()Landroidx/compose/ui/graphics/painter/Painter;
+	public final fun component2-rqqXlrw ()Landroidx/compose/ui/unit/DpSize;
+	public final fun component3 ()Z
+	public final fun component4 ()Lorg/maplibre/compose/util/ImageStretch;
+	public final fun component5 ()F
+	public final fun component6 ()Landroidx/compose/ui/graphics/ColorFilter;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlpha ()F
+	public final fun getColorFilter ()Landroidx/compose/ui/graphics/ColorFilter;
+	public final fun getPainter ()Landroidx/compose/ui/graphics/painter/Painter;
+	public final fun getSize-rqqXlrw ()Landroidx/compose/ui/unit/DpSize;
+	public fun getStretch ()Lorg/maplibre/compose/util/ImageStretch;
+	public fun hashCode ()I
+	public fun isSdf ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/expressions/ExpressionImageResolver {
+	public abstract fun resolve (Lorg/maplibre/compose/expressions/ExpressionImageReference;)Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/ExpressionJsonKt {
+	public static final fun toStyleJson (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ExpressionJsonOptions;)Ljava/lang/String;
+	public static synthetic fun toStyleJson$default (Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ExpressionJsonOptions;ILjava/lang/Object;)Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/ExpressionJsonOptions {
+	public static final field $stable I
+	public static final field Companion Lorg/maplibre/compose/expressions/ExpressionJsonOptions$Companion;
+	public fun <init> (Lorg/maplibre/compose/expressions/ExpressionJsonOptions;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/expressions/ExpressionJsonOptions;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun component2 ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun component3 ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun component4 ()Lorg/maplibre/compose/expressions/ExpressionImageResolver;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDpScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun getEmScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun getImageResolver ()Lorg/maplibre/compose/expressions/ExpressionImageResolver;
+	public final fun getSpScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/expressions/ExpressionJsonOptions$Builder {
+	public static final field $stable I
+	public final fun getDpScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun getEmScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun getImageResolver ()Lorg/maplibre/compose/expressions/ExpressionImageResolver;
+	public final fun getSpScale ()Lorg/maplibre/compose/expressions/ast/Expression;
+	public final fun setDpScale (Lorg/maplibre/compose/expressions/ast/Expression;)V
+	public final fun setEmScale (Lorg/maplibre/compose/expressions/ast/Expression;)V
+	public final fun setImageResolver (Lorg/maplibre/compose/expressions/ExpressionImageResolver;)V
+	public final fun setSpScale (Lorg/maplibre/compose/expressions/ast/Expression;)V
+}
+
+public final class org/maplibre/compose/expressions/ExpressionJsonOptions$Companion {
+	public final fun getStandard ()Lorg/maplibre/compose/expressions/ExpressionJsonOptions;
+}
+
 public abstract interface class org/maplibre/compose/expressions/ast/CallArgument {
 }
 

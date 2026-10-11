@@ -5,11 +5,15 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import org.maplibre.compose.expressions.ExpressionJsonOptions
 import org.maplibre.compose.expressions.dsl.asNumber
+import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.dp
+import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
@@ -19,6 +23,7 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.dsl.zoom
+import org.maplibre.compose.expressions.toStyleJson
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.layers.CircleLayer
@@ -103,4 +108,15 @@ fun Expressions() {
     // #endregion missing-data
   }
   MaplibreMap(state = state)
+}
+
+fun exportExpression() {
+  // #region export-expression
+  val filter = feature["kind"].asString() eq const("park")
+  val json = filter.toStyleJson()
+  // ["==",["string",["get","kind"]],"park"]
+
+  val options = ExpressionJsonOptions { emScale = const(16f) }
+  val textSizeJson = const(1.5.em).toStyleJson(options)
+  // #endregion export-expression
 }
