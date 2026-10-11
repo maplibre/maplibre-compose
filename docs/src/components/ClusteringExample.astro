@@ -1,0 +1,125 @@
+---
+import CameraMotion from "./CameraMotion.astro";
+import ClusteringFrame from "./ClusteringFrame.astro";
+import ClusteringMarker from "./ClusteringMarker.astro";
+import MapDiagram from "./MapDiagram.astro";
+import MapTerrain from "./MapTerrain.astro";
+
+// The same twelve locations appear at every zoom. Cluster centers are the
+// averages of their points; marker sizes stay fixed as the map scales.
+const groups = [
+  [[112, 98], [121, 97], [132, 100], [116, 108], [128, 110], [119, 119], [136, 117]],
+  [[158, 124], [170, 124], [178, 132], [162, 138], [174, 142]],
+];
+const points = groups.flat();
+const center = (locations: number[][]) => [
+  locations.reduce((sum, point) => sum + point[0], 0) / locations.length,
+  locations.reduce((sum, point) => sum + point[1], 0) / locations.length,
+];
+const stops = [
+  { offset: 0, scale: 1 },
+  { offset: 0.2, scale: 1 },
+  { offset: 0.42, scale: 1.65 },
+  { offset: 0.58, scale: 1.65 },
+  { offset: 0.82, scale: 3 },
+  { offset: 1, scale: 3 },
+];
+const mapTransform = (scale: number) =>
+  `translate(${160 * (1 - scale)}px, ${120 * (1 - scale)}px) scale(${scale})`;
+const markerTransform = ([x, y]: number[], scale: number) =>
+  `translate(${160 + (x - 160) * scale}px, ${120 + (y - 120) * scale}px)`;
+const mapFrames = stops.map(({ offset, scale }) => ({ offset, transform: mapTransform(scale) }));
+const markerFrames = (point: number[]) =>
+  stops.map(({ offset, scale }) => ({ offset, transform: markerTransform(point, scale) }));
+const visibility = {
+  cluster: [
+    { offset: 0, opacity: 1 },
+    { offset: 0.34, opacity: 1 },
+    { offset: 0.36, opacity: 0 },
+    { offset: 1, opacity: 0 },
+  ],
+  split: [
+    { offset: 0, opacity: 0 },
+    { offset: 0.34, opacity: 0 },
+    { offset: 0.36, opacity: 1 },
+    { offset: 0.74, opacity: 1 },
+    { offset: 0.76, opacity: 0 },
+    { offset: 1, opacity: 0 },
+  ],
+  points: [
+    { offset: 0, opacity: 0 },
+    { offset: 0.74, opacity: 0 },
+    { offset: 0.76, opacity: 1 },
+    { offset: 1, opacity: 1 },
+  ],
+};
+const clusters = [
+  { point: center(points), count: points.length, stage: "cluster" as const },
+  ...groups.map((locations) => ({ point: center(locations), count: locations.length, stage: "split" as const })),
+];
+const stages = [
+  { label: "One cluster", scale: 1, markers: clusters.slice(0, 1) },
+  { label: "Two clusters", scale: 1.65, markers: clusters.slice(1) },
+  { label: "Individual points", scale: 3, markers: points.map((point) => ({ point })) },
+];
+const markers = [
+  ...clusters.map(({ point, count, stage }) => ({
+    count,
+    visible: stage === "split",
+    transform: markerTransform(point, 1.65),
+    frames: markerFrames(point),
+    visibility: visibility[stage],
+  })),
+  ...points.map((point) => ({
+    visible: false,
+    transform: markerTransform(point, 1.65),
+    frames: markerFrames(point),
+    visibility: visibility.points,
+  })),
+];
+---
+
+<CameraMotion
+  label="Twelve points split into clusters of seven and five, then individual points as the map zooms in"
+  duration={5600}
+>
+  <div class="clustering-example">
+    <div class="animated-view">
+      <MapDiagram
+        label="Zooming in separates a cluster of twelve points into two smaller clusters, then twelve individual points"
+      >
+        <g
+          slot="map"
+          style={`transform: ${mapTransform(1.65)}`}
+          data-camera-frames={JSON.stringify(mapFrames)}
+        >
+          <MapTerrain />
+        </g>
+        {markers.map((marker) => <ClusteringMarker {...marker} />)}
+      </MapDiagram>
+    </div>
+    <div class="motion-frames">
+      {stages.map((stage) => <ClusteringFrame {...stage} />)}
+    </div>
+  </div>
+</CameraMotion>
+
+<style>
+.clustering-example {
+  max-width: 28rem;
+  margin-inline: auto;
+  --cluster-color: #4fc3f7;
+  --count-color: #172b38;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clustering-example {
+    max-width: none;
+  }
+}
+
+:global([data-theme="dark"]) .clustering-example {
+  --cluster-color: #73d2ff;
+  --count-color: #142735;
+}
+</style>
