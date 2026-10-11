@@ -3,7 +3,8 @@ package org.maplibre.compose.expressions
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.internal.ExportExpressionContext
-import org.maplibre.compose.style.internal.StyleValue
+import org.maplibre.compose.expressions.internal.TextStyleValueWriter
+import org.maplibre.compose.expressions.internal.writeStyleValue
 
 /**
  * Exports this expression as compact MapLibre style-spec JSON, without a map or composition.
@@ -22,4 +23,7 @@ import org.maplibre.compose.style.internal.StyleValue
  */
 public fun Expression<*>.toStyleJson(
   options: ExpressionJsonOptions = ExpressionJsonOptions.Standard
-): String = StyleValue.Expression(compile(ExportExpressionContext(options))).encoded.toJson()
+): String {
+  val compiled = compile(ExportExpressionContext(options))
+  return TextStyleValueWriter().also { compiled.writeStyleValue(it) }.result
+}

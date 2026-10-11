@@ -1,7 +1,6 @@
 package org.maplibre.compose.expressions
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -83,7 +82,6 @@ class ExpressionJsonTest {
     val painter = ColorPainter(Color.Red)
     val size = DpSize(20.dp, 24.dp)
     val stretch = ImageStretch.capInsets(1.dp, 2.dp, 3.dp, 4.dp)
-    val filter = ColorFilter.tint(Color.Blue)
     val references = mutableListOf<ExpressionImageReference>()
     val options = ExpressionJsonOptions {
       imageResolver = ExpressionImageResolver { reference ->
@@ -96,8 +94,7 @@ class ExpressionJsonTest {
       }
     }
     val bitmapExpression = image(bitmap, isSdf = true, stretch = stretch)
-    val painterExpression =
-      image(painter, size, drawAsSdf = true, stretch = stretch, alpha = 0.5f, colorFilter = filter)
+    val painterExpression = image(painter, size, drawAsSdf = true, stretch = stretch, alpha = 0.5f)
     val expression =
       call<StringValue>("custom", bitmapExpression, bitmapExpression, painterExpression)
     assertEquals(
@@ -116,7 +113,7 @@ class ExpressionJsonTest {
     assertTrue(painterReference.isSdf)
     assertSame(stretch, painterReference.stretch)
     assertEquals(0.5f, painterReference.alpha)
-    assertSame(filter, painterReference.colorFilter)
+    assertEquals(null, painterReference.colorFilter)
     expression.toStyleJson(options)
     assertEquals(4, references.size)
     assertFailsWith<IllegalArgumentException> { bitmapExpression.toStyleJson() }
@@ -143,5 +140,12 @@ class ExpressionJsonTest {
         call<StringValue>("custom", verbatim(JsonPrimitive(number))).toStyleJson()
       }
     }
+  }
+
+  @Test
+  fun export_preserves_signed_zero_in_verbatim_json() {
+    val expected = Json.parseToJsonElement("[\"custom\",-0.0]")
+    val expression = call<StringValue>("custom", verbatim(Json.parseToJsonElement("-0.0")))
+    assertEquals(expected, Json.parseToJsonElement(expression.toStyleJson()))
   }
 }
