@@ -1,0 +1,25 @@
+---
+import CameraMotion from "./CameraMotion.astro";
+import CameraScene from "./CameraScene.astro";
+---
+
+<CameraMotion
+  label="Zooming around the mouse cursor"
+  note="The point under the cursor stays in place."
+>
+  <div class="anchor-comparison">
+    <div class="animated-view"><CameraScene motion="anchor" animated /></div>
+    <div class="motion-frames anchor-frames">
+      <figure>
+        <CameraScene motion="anchor" frame="start" /><figcaption>
+          Before
+        </figcaption>
+      </figure>
+      <figure>
+        <CameraScene motion="anchor" frame="end" /><figcaption>
+          After zooming in
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</CameraMotion>

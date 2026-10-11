@@ -1,0 +1,69 @@
+---
+import "../styles/camera-diagrams.css";
+
+interface Props {
+  label: string;
+  note?: string;
+}
+const { label, note } = Astro.props;
+---
+
+<camera-motion class="camera-illustration" role="group" aria-label={label}>
+  <slot />
+  {note && <p class="motion-caption">{note}</p>}
+</camera-motion>
+
+<script>
+class CameraMotion extends HTMLElement {
+  private animations: Animation[] = [];
+  private reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  private observer?: IntersectionObserver;
+  private visible = false;
+
+  private updateMotion = () => {
+    if (this.reducedMotion.matches) {
+      this.stop();
+      return;
+    }
+    if (this.visible && !this.animations.length) {
+      for (const element of this.querySelectorAll<SVGElement>("[data-camera-frames]")) {
+        const frames = JSON.parse(element.dataset.cameraFrames!) as Keyframe[];
+        this.animations.push(element.animate(frames, {
+          duration: 3800,
+          easing: "ease-in-out",
+          iterations: Infinity,
+          direction: "alternate",
+        }));
+      }
+    }
+    for (const animation of this.animations) {
+      if (this.visible) animation.play();
+      else animation.pause();
+    }
+  };
+
+  private stop = () => {
+    for (const animation of this.animations) animation.cancel();
+    this.animations = [];
+  };
+
+  connectedCallback() {
+    this.reducedMotion.addEventListener("change", this.updateMotion);
+    this.observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        this.visible = entry.isIntersecting && entry.intersectionRatio >= 0.25;
+        this.updateMotion();
+      }
+    }, { threshold: 0.25 });
+    this.observer.observe(this);
+  }
+
+  disconnectedCallback() {
+    this.stop();
+    this.observer?.disconnect();
+    this.reducedMotion.removeEventListener("change", this.updateMotion);
+  }
+}
+
+customElements.define("camera-motion", CameraMotion);
+</script>
