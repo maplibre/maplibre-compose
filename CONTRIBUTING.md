@@ -2,12 +2,67 @@
 
 For a feature or a bug fix without an issue,
 [file one](https://github.com/maplibre/maplibre-compose/issues/new/choose) first
-to discuss the change. New contributors can start with
-[good first issues](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22);
-[help wanted](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)
-issues need MapLibre, Android, iOS, or other expertise.
+to discuss the change. Browse
+[open bugs](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Abug)
+and
+[feature requests](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Afeature),
+or filter the
+[label catalog](https://github.com/maplibre/maplibre-compose/labels) by the area
+or platform you know.
 
 If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
+
+## Issue and PR labels
+
+Maintainers classify each work issue and PR with exactly one kind and at least
+one area. These labels also describe historical, declined, and unmerged work;
+state and merge metadata record the outcome. Native issue types stay unset so
+issues and PRs share one classification.
+
+| Kind       | Work intent                                                                 |
+| ---------- | --------------------------------------------------------------------------- |
+| `bug`      | Correct broken behavior or a violated contract.                             |
+| `feature`  | Add or change a capability.                                                 |
+| `perf`     | Improve runtime speed, resource use, or efficiency.                         |
+| `chore`    | Maintenance, refactoring, tests, documentation, or routine dependency work. |
+| `research` | Investigation, design evaluation, or a deliberate prototype.                |
+
+Choose areas by the substantive subject, rather than the directory or every file
+touched:
+
+| Area               | Subject                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `area:map`         | Map lifecycle/state, camera, rendering, overlays, snapshots, and resource hooks.         |
+| `area:style`       | Styles, sources, layers, images, and style-spec properties.                              |
+| `area:expressions` | Expression DSL, typing, evaluation, and compiler experiments.                            |
+| `area:interaction` | Input, gestures, callbacks, and Compose controls.                                        |
+| `area:location`    | Location providers, tracking, permissions, and presentation.                             |
+| `area:offline`     | Downloads, regions, and cache-management APIs.                                           |
+| `area:integration` | Consumer setup, published artifacts/metadata, linking/loading, and support requirements. |
+| `area:demo`        | Demo behavior, launchers, and presentation.                                              |
+| `area:docs`        | User/contributor documentation, site content, and documentation examples.                |
+| `area:tooling`     | Maintainer build, CI, release/publishing automation, and development tools.              |
+| `area:benchmarks`  | Benchmark harness, scenarios, archived results, and code metrics.                        |
+
+Add `engine:native` or `engine:gl-js` when the backend explains the work. Add
+`platform:android`, `platform:ios`, `platform:web`, `platform:desktop`,
+`platform:linux`, `platform:macos`, or `platform:windows` for a meaningful
+restriction, reproduction, or implementation. JVM desktop work specific to an OS
+gets both desktop and OS labels; native macOS work gets the macOS label. Shared
+work does not automatically receive every platform.
+
+Use `dependencies` when dependency management is substantive, `breaking` for
+caller migration or a compatibility/support-floor change, and `upstream` for an
+evidenced external defect or capability limit. Dependabot defaults to `chore`,
+`area:tooling`, and `dependencies`; revise the kind and area for a purposeful
+engine optimization or consumer integration change. Keep `ci:full` for the
+[CI tier rules](AGENTS.md#ci-tiers), independent of classification.
+
+Usage questions go to
+[Discussions](https://github.com/maplibre/maplibre-compose/discussions). Closed
+support conversations stay in the issue archive without a work kind. Progress
+belongs in Project Status, timing in milestones, and hierarchy in sub-issues or
+linked PRs. Keep blocker links and reasons with the active work.
 
 ## Set up
 

@@ -144,6 +144,21 @@ Site pages that show how to use the library import Kotlin examples from
 with the demo app, so examples stay correct as the API changes. Add or update a
 region for each Kotlin example.
 
+## Issue and PR organization
+
+Follow the [classification rules](CONTRIBUTING.md#issue-and-pr-labels) for
+issues and PRs, including historical work. Assign exactly one kind and at least
+one `area:*` label. Add engine, platform, dependency, compatibility, and
+upstream labels when they explain the work. Kind labels are authoritative; leave
+native issue types unset.
+
+Usage questions go to Discussions. Keep closed support conversations in the
+issue archive without forcing a work kind. State and merge metadata record
+outcome; classify declined and unmerged work by intent. Use Project Status for
+progress, milestones for timing, and sub-issues or linked PRs for relationships.
+Preserve existing `ci:full` assignments during classification; request it only
+under the CI rules below.
+
 ## Pull requests
 
 Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft
