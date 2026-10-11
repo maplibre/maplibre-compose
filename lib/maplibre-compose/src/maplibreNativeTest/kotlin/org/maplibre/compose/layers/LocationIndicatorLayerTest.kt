@@ -49,7 +49,7 @@ class LocationIndicatorLayerTest {
       }
     assertEquals(
       JsonPrimitive("resolved-painter"),
-      managed.compile(context).asLayerProperty().resolve(emptyMap()),
+      managed.compile(context).asLayerProperty().resolve(emptyMap()).json,
     )
 
     val dynamic = image(call<StringValue>("get", const("icon")))

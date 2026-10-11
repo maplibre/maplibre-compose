@@ -77,7 +77,7 @@ internal fun JsonObject.withScaledTransitions(scale: Float): JsonObject {
   )
 }
 
-private fun JsonObject.scaledTransition(scale: Float): JsonObject =
+internal fun JsonObject.scaledTransition(scale: Float): JsonObject =
   JsonObject(
     mapValues { (field, value) ->
       val millis = (value as? JsonPrimitive)?.doubleOrNull
@@ -89,7 +89,7 @@ private fun JsonObject.scaledTransition(scale: Float): JsonObject =
     }
   )
 
-private fun requireScale(scale: Float) {
+internal fun requireScale(scale: Float) {
   require(scale.isFinite() && scale >= 0f) {
     "Animator duration scale must be finite and not negative: $scale"
   }

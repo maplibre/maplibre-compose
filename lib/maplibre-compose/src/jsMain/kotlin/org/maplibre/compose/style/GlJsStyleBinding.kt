@@ -10,7 +10,6 @@ import kotlinx.coroutines.await
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -64,6 +63,7 @@ import org.maplibre.compose.sources.featureIdentifiers
 import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.toFeatureCollection
 import org.maplibre.compose.util.toGeoJsonFeature
@@ -795,6 +795,23 @@ internal class GlJsStyleBinding(
     return JsonObject(layer + ("source-layer" to JsonPrimitive(attachment.sourceLayerName)))
   }
 
+  override fun addLayer(layer: StyleValue, beforeLayerId: String): Boolean {
+    val properties = checkNotNull(layer.objectValues)
+    val type = (properties["type"]?.json as? JsonPrimitive)?.content
+    val sourceId = (properties["source"]?.json as? JsonPrimitive)?.content
+    // The custom location renderer consumes JSON; custom sources rewrite source-layer on insertion.
+    if (type == "location-indicator" || sourceId in customGeometryAttachments) {
+      return addLayer(layer.json as JsonObject, beforeLayerId)
+    }
+    requireCurrent()
+    mutate("add layer") {
+      val spec = layer.encoded.toJsValue<LayerSpecification>()
+      if (beforeLayerId.isEmpty()) map.addLayer(spec) else map.addLayer(spec, beforeLayerId)
+      layerOrder = map.getLayersOrder().toList()
+    }
+    return true
+  }
+
   override fun removeLayer(layerId: String) {
     requireCurrent()
     map.removeLayer(layerId)
@@ -813,18 +830,25 @@ internal class GlJsStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
+  ) = setLayerProperty(layerId, name, StyleValue.Json(value), kind)
+
+  override fun setLayerProperty(
+    layerId: String,
+    name: String,
+    value: StyleValue,
+    kind: LayerPropertyKind,
   ) {
     requireCurrent()
     indicators[layerId]?.let {
-      it.update(name, value, kind)
+      it.update(name, value.json, kind)
       return
     }
-    val js = value.toJsValue<Any?>()
+    val js = value.encoded.toJsValue<Any?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
         LayerPropertyKind.Layout -> map.setLayoutProperty(layerId, name, js)
         LayerPropertyKind.Paint -> map.setPaintProperty(layerId, name, js)
-        LayerPropertyKind.Root -> setRootProperty(layerId, name, value)
+        LayerPropertyKind.Root -> setRootProperty(layerId, name, value.json)
       }
     }
   }
@@ -844,10 +868,13 @@ internal class GlJsStyleBinding(
     map.setLayerZoomRange(layerId, minZoom, maxZoom)
   }
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) {
+  override fun setLayerFilter(layerId: String, filter: JsonElement) =
+    setLayerFilter(layerId, StyleValue.Json(filter))
+
+  override fun setLayerFilter(layerId: String, filter: StyleValue) {
     requireCurrent()
     // The style spec has no null filter; absent means "match every feature".
-    val js = if (filter is JsonNull) null else filter.toJsValue<FilterSpecification>()
+    val js = if (filter.isNull) null else filter.encoded.toJsValue<FilterSpecification>()
     mutate("set the filter on layer '$layerId'") { map.setFilter(layerId, js) }
   }
 

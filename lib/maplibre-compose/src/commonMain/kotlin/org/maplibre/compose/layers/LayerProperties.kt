@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
@@ -11,6 +10,7 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.StyleProperty
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.style.toTransitionJson
 
 /**
@@ -23,9 +23,9 @@ import org.maplibre.compose.style.toTransitionJson
  * properties block.
  */
 public class LayerProperties internal constructor(private val cache: LayerPropertyCache) {
-  private val root = linkedMapOf<String, JsonElement>()
-  private val layout = linkedMapOf<String, JsonElement>()
-  private val paint = linkedMapOf<String, JsonElement>()
+  private val root = linkedMapOf<String, StyleValue>()
+  private val layout = linkedMapOf<String, StyleValue>()
+  private val paint = linkedMapOf<String, StyleValue>()
   private var images: MutableMap<StyleProperty, LayerProperty<*>>? = null
   private var unsupported: MutableMap<String, String>? = null
   private var open = true
@@ -98,7 +98,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
     }
   }
 
-  private fun values(section: String?): MutableMap<String, JsonElement> =
+  private fun values(section: String?): MutableMap<String, StyleValue> =
     when (section) {
       "layout" -> layout
       "paint" -> paint
@@ -107,7 +107,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
 
   private fun putJson(section: String?, name: String, value: JsonElement) {
     validate(section, name)
-    values(section)[name] = value.snapshot()
+    values(section)[name] = StyleValue.Json(value.snapshot())
     cache.entries(section)[name]?.let { images?.remove(it.path) }
   }
 
@@ -141,15 +141,15 @@ public class LayerProperties internal constructor(private val cache: LayerProper
   ): LayerPropertySnapshot {
     check(open) { "LayerProperties was already finished" }
     close()
-    if (layout.isNotEmpty()) root["layout"] = JsonObject(layout)
-    if (paint.isNotEmpty()) root["paint"] = JsonObject(paint)
-    val sourceId = layerSourceId(root, managedSourceId)
-    root["id"] = JsonPrimitive(id)
-    root["type"] = JsonPrimitive(type)
-    if (sourceId != null) root["source"] = JsonPrimitive(sourceId)
+    if (layout.isNotEmpty()) root["layout"] = StyleValue.Object(layout)
+    if (paint.isNotEmpty()) root["paint"] = StyleValue.Object(paint)
+    val sourceId = layerSourceId(root["source"]?.json, managedSourceId)
+    root["id"] = StyleValue.Json(JsonPrimitive(id))
+    root["type"] = StyleValue.Json(JsonPrimitive(type))
+    if (sourceId != null) root["source"] = StyleValue.Json(JsonPrimitive(sourceId))
     return LayerPropertySnapshot(
       LayerDefinition(
-        JsonObject(root),
+        root,
         unsupported.orEmpty(),
         filterUnsupportedProperties,
       ),
@@ -190,8 +190,7 @@ internal class LayerPropertyCache(private val compiler: LayerPropertyCompiler) {
     val property: LayerProperty<*>,
   ) {
     val value =
-      if (property.images.isEmpty()) property.resolve(emptyMap()).takeUnless { it == JsonNull }
-      else null
+      if (property.images.isEmpty()) property.resolve(emptyMap()).takeUnless { it.isNull } else null
     var visited = false
   }
 

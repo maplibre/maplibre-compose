@@ -2,12 +2,11 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.LayerProperty
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.internal.StyleValue
 
 /** Receives immutable snapshots only when composition applies its node updates. */
 internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : MapNode {
@@ -34,7 +33,7 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
         definition
       } else {
         val nextImages = mutableMapOf<StyleProperty, List<StyleImageDefinition>>()
-        val value = definition.value.toMutableMap()
+        val value = definition.properties.toMutableMap()
         imageProperties.forEach { (path, property) ->
           val ready = property.images.all { it in resolved }
           val result =
@@ -43,22 +42,22 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
               property.resolve(resolvedIds)
             } else {
               propertyImages[path]?.let { nextImages[path] = it }
-              previousDefinition?.value?.let { old ->
-                val container = if (path.section == null) old else old[path.section] as? JsonObject
+              previousDefinition?.properties?.let { old ->
+                val container = if (path.section == null) old else old[path.section]?.objectValues
                 container?.get(path.name)
               }
             }
           if (result != null) {
             if (path.section == null) value[path.name] = result
             else {
-              val section = (value[path.section] as? JsonObject).orEmpty().toMutableMap()
-              if (result != JsonNull) section[path.name] = result
-              value[path.section] = JsonObject(section)
+              val section = value[path.section]?.objectValues.orEmpty().toMutableMap()
+              if (!result.isNull) section[path.name] = result
+              value[path.section] = StyleValue.Object(section)
             }
           }
         }
         propertyImages = nextImages
-        definition.copy(value = JsonObject(value))
+        definition.copy(properties = value)
       }
     previousDefinition = resolvedDefinition
     return StyleSnapshot.Layer(

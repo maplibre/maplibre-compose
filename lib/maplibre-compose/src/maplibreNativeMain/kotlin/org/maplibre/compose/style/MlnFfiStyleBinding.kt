@@ -45,6 +45,7 @@ import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toBoundingBox
@@ -845,6 +846,11 @@ internal open class MlnFfiStyleBinding(
     true
   }
 
+  override fun addLayer(layer: StyleValue, beforeLayerId: String): Boolean = mutateMap { map ->
+    map.addStyleLayerJson(layer.encoded.toJsonBytes(), beforeLayerId)
+    true
+  }
+
   override fun removeLayer(layerId: String) {
     mutateMap { map -> map.removeStyleLayer(layerId) }
   }
@@ -858,26 +864,38 @@ internal open class MlnFfiStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
+  ) = setLayerProperty(layerId, name, StyleValue.Json(value), kind)
+
+  override fun setLayerProperty(
+    layerId: String,
+    name: String,
+    value: StyleValue,
+    kind: LayerPropertyKind,
   ) {
     mutateMap { map ->
       when {
         kind == LayerPropertyKind.Root && name == "filter" ->
-          map.setLayerFilter(layerId, value.toJsonBytes())
-        kind != LayerPropertyKind.Root -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-        name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
+          map.setLayerFilter(layerId, value.encoded.toJsonBytes())
+        kind != LayerPropertyKind.Root ->
+          map.setLayerProperty(layerId, name, value.encoded.toJsonBytes())
+        name == "source" ->
+          map.setLayerSourceId(layerId, value.json.requireRootString(layerId, name))
         name == "source-layer" ->
-          map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
-        name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
-        name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
-        else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+          map.setLayerSourceLayer(layerId, value.json.requireRootString(layerId, name))
+        name == "minzoom" ->
+          map.setLayerMinZoom(layerId, value.json.requireRootNumber(layerId, name))
+        name == "maxzoom" ->
+          map.setLayerMaxZoom(layerId, value.json.requireRootNumber(layerId, name))
+        else -> map.setLayerProperty(layerId, name, value.encoded.toJsonBytes())
       }
     }
   }
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutateMap { map ->
-      map.setLayerFilter(layerId, filter.toJsonBytes())
-    }
+  override fun setLayerFilter(layerId: String, filter: JsonElement) =
+    setLayerFilter(layerId, StyleValue.Json(filter))
+
+  override fun setLayerFilter(layerId: String, filter: StyleValue) {
+    mutateMap { map -> map.setLayerFilter(layerId, filter.encoded.toJsonBytes()) }
   }
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = withMap { map ->

@@ -11,6 +11,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.util.toStyleJson
 
@@ -57,11 +58,11 @@ internal class TestLayer(val id: String, private val type: String, source: Sourc
     values[name] = value
   }
 
-  fun root(name: String, value: LayerProperty<*>) = root(name, value.resolve(emptyMap()))
+  fun root(name: String, value: LayerProperty<*>) = root(name, value.resolve(emptyMap()).json)
 
-  fun paint(name: String, value: LayerProperty<*>) = paint(name, value.resolve(emptyMap()))
+  fun paint(name: String, value: LayerProperty<*>) = paint(name, value.resolve(emptyMap()).json)
 
-  fun layout(name: String, value: LayerProperty<*>) = layout(name, value.resolve(emptyMap()))
+  fun layout(name: String, value: LayerProperty<*>) = layout(name, value.resolve(emptyMap()).json)
 
   fun paint(name: String, value: JsonElement) = property("paint", name, value)
 
@@ -88,5 +89,5 @@ internal class TestLayer(val id: String, private val type: String, source: Sourc
 
 internal fun <T : ExpressionValue?> Expression<T>.asLayerProperty(): LayerProperty<T> {
   val json = compile(ExpressionContext.None).toStyleJson()
-  return LayerProperty { json }
+  return LayerProperty { StyleValue.Json(json) }
 }
