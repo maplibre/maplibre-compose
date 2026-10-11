@@ -1,0 +1,139 @@
+<figure
+  class="source-layers not-content"
+  role="img"
+  aria-label="One GeoJSON source, trail, supplies the same line to two layers. The trail-casing layer draws a white line 6 dp wide first. The trail layer draws a blue line 4 dp wide on top."
+>
+  <div class="source">
+    <svg viewBox="0 0 180 72" aria-hidden="true">
+      <path
+        d="M10 46L53 24L101 48L170 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+      />
+      <g fill="var(--sl-color-bg)" stroke="currentColor" stroke-width="3">
+        <circle cx="10" cy="46" r="6" />
+        <circle cx="53" cy="24" r="6" />
+        <circle cx="101" cy="48" r="6" />
+        <circle cx="170" cy="24" r="6" />
+      </g>
+    </svg>
+    <code>trail</code>
+    <span>GeoJSON source</span>
+  </div>
+
+  <svg
+    class="connections"
+    viewBox="0 0 30 180"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    <path d="M0 90H12V44H28M12 90V136H28" />
+    <path d="M23 40L28 44L23 48M23 132L28 136L23 140" />
+  </svg>
+
+  <div class="layers">
+    <div class="layer">
+      <code>trail-casing</code>
+      <svg viewBox="0 0 180 36" aria-hidden="true">
+        <rect width="180" height="36" rx="4" fill="var(--diagram-land)" />
+        <path
+          d="M10 23L53 12L101 24L170 12"
+          fill="none"
+          stroke="white"
+          stroke-width="6"
+        />
+      </svg>
+      <span>Draw first (6 dp)</span>
+    </div>
+    <div class="layer">
+      <code>trail</code>
+      <svg viewBox="0 0 180 36" aria-hidden="true">
+        <rect width="180" height="36" rx="4" fill="var(--diagram-land)" />
+        <path
+          d="M10 23L53 12L101 24L170 12"
+          fill="none"
+          stroke="white"
+          stroke-width="6"
+        />
+        <path
+          d="M10 23L53 12L101 24L170 12"
+          fill="none"
+          stroke="blue"
+          stroke-width="4"
+        />
+      </svg>
+      <span>Draw second (4 dp)</span>
+    </div>
+  </div>
+</figure>
+
+<style>
+.source-layers {
+  --diagram-land: #e9eef0;
+
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) 1.75rem minmax(0, 2fr);
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 31rem;
+  margin: 1.5rem auto;
+  font-size: 0.875rem;
+}
+
+:global([data-theme="dark"]) .source-layers {
+  --diagram-land: #737f89;
+}
+
+.source,
+.layer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.source > svg {
+  display: block;
+  width: 6rem;
+  max-width: 100%;
+}
+
+.source > span,
+.layer > span {
+  color: var(--sl-color-gray-2);
+  text-align: center;
+}
+
+.connections {
+  display: block;
+  width: 100%;
+  height: 11.25rem;
+  fill: none;
+  stroke: var(--sl-color-gray-3);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.layers {
+  display: grid;
+  gap: 1rem;
+}
+
+.layer > svg {
+  display: block;
+  width: 100%;
+  max-width: 13.5rem;
+}
+
+.source-layers code {
+  font-size: 0.8rem;
+}
+
+@media (max-width: 400px) {
+  .source-layers {
+    gap: 0.375rem;
+    grid-template-columns: minmax(4.5rem, 1fr) 1.25rem minmax(0, 2fr);
+  }
+}
+</style>
