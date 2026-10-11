@@ -4,13 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 class DefaultMapRuntimeTest {
   @Test
-  fun a_failed_test_closes_its_explicit_runtime_and_maps() = runTest {
+  fun a_failed_test_closes_its_explicit_runtime_and_maps() = runMapTest {
     val cache = FfiTestPlatform.createCacheFile()
     val failure = AssertionError("test body failed")
     lateinit var runtime: MapRuntime
@@ -18,7 +18,12 @@ class DefaultMapRuntimeTest {
     try {
       val reported =
         assertFailsWith<AssertionError> {
-          withTestRuntime(configure = { cacheFile = cache }) {
+          withTestRuntime(
+            configure = {
+              cacheFile = cache
+              mainDispatcher = TestMainDispatcher()
+            }
+          ) {
             runtime = it
             state = it.createMapState(BaseStyle.Empty)
             throw failure
@@ -35,10 +40,13 @@ class DefaultMapRuntimeTest {
   }
 
   @Test
-  fun closing_the_default_runtime_is_permanent() = runTest {
+  fun closing_the_default_runtime_is_permanent() = runMapTest {
     val cache = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure { cacheFile = cache }
+      DefaultMapRuntime.configure {
+        cacheFile = cache
+        mainDispatcher = TestMainDispatcher()
+      }
       val first = DefaultMapRuntime.instance
       first.close()
       first.awaitClosed()
@@ -55,13 +63,19 @@ class DefaultMapRuntimeTest {
   }
 
   @Test
-  fun configuring_after_the_default_runtime_exists_fails() {
+  fun configuring_after_the_default_runtime_exists_fails() = runMapTest {
     val cache = FfiTestPlatform.createCacheFile()
     try {
-      DefaultMapRuntime.configure { cacheFile = cache }
+      DefaultMapRuntime.configure {
+        cacheFile = cache
+        mainDispatcher = TestMainDispatcher()
+      }
       DefaultMapRuntime.instance
       assertFailsWith<IllegalStateException> {
-        DefaultMapRuntime.configure { cacheFile = cache }
+        DefaultMapRuntime.configure {
+          cacheFile = cache
+          mainDispatcher = TestMainDispatcher()
+        }
       }
     } finally {
       DefaultMapRuntime.resetForTest()

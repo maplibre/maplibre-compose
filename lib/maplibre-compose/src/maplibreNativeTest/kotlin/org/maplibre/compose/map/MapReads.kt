@@ -92,3 +92,18 @@ internal fun MapHandle.imageSourceCoordinates(sourceId: String): List<LatLng> =
   getImageSourceCoordinates(sourceId).awaitBlocking()
 
 internal fun MapHandle.loadedStyleJson(): ByteArray = getLoadedStyleJson().awaitBlocking()
+
+/**
+ * Runs [action] with this session's map, or returns null when the map does not exist. Tests only;
+ * the reads in [org.maplibre.compose.map] wait for every command submitted before them.
+ */
+internal fun <T> MlnFfiMapSession.readMap(action: (MapHandle) -> T): T? = mapForTest?.let(action)
+
+internal fun MlnFfiMapSession.currentStyleLayerIds(): List<String> = readMap {
+  it.styleLayerIds()
+}
+  .orEmpty()
+
+internal fun MlnFfiMapSession.styleImageInfo(imageId: String): StyleImageInfo? = readMap {
+  it.styleImageInfo(imageId)
+}

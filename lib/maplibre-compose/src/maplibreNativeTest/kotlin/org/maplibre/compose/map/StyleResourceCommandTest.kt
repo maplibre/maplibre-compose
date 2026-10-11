@@ -165,7 +165,11 @@ class StyleResourceCommandTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(
+          cacheFile = cacheFile,
+          maximumCacheSizeBytes = null,
+          mainDispatcher = TestMainDispatcher(),
+        )
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val parked = TestLatch(1)

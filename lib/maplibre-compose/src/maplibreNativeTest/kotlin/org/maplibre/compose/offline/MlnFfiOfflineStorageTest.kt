@@ -1,9 +1,12 @@
 package org.maplibre.compose.offline
 
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -25,7 +28,12 @@ class MlnFfiOfflineStorageTest {
   @Test
   fun an_initial_cache_budget_failure_is_published_and_rejects_operations() = runBlocking {
     val configured = options.copy(maximumCacheSizeBytes = -1)
-    val owner = MlnFfiRuntime(configured)
+    val owner =
+      MlnFfiRuntime(
+        configured.copy(
+          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+        )
+      )
     val storage = MlnFfiOfflineStorage(owner)
     owner.start()
     try {

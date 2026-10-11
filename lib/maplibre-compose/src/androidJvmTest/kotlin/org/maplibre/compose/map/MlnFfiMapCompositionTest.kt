@@ -74,7 +74,6 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.mlnffi.performMouseInputOnUiThread
 import org.maplibre.compose.mlnffi.performTouchInputOnUiThread
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -806,19 +805,9 @@ class MlnFfiMapCompositionTest {
       presented = false
       waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
 
-      // Holding the event pump keeps the next presentation attaching, so the key change detaches
-      // it while its attachment is still running and the replacement composes before that
-      // detachment finishes.
-      val releaseOwner = TestGate()
-      (firstMap as MlnFfiMapSession).holdEventPump { releaseOwner.awaitOpen() }
-      try {
-        presented = true
-        waitForIdle()
-        generation++
-        waitForIdle()
-      } finally {
-        releaseOwner.open()
-      }
+      presented = true
+      generation++
+      waitForIdle()
       waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment != null }
 
       assertTrue(!firstAttachment.isValid)

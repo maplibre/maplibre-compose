@@ -6,10 +6,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -22,6 +24,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
@@ -254,6 +257,8 @@ private constructor(
       frames++
       pause()
     }
+    // Ordered queries in the condition can complete before their main-thread event delivery.
+    testMain.drain()
   }
 
   /**
@@ -299,7 +304,7 @@ private constructor(
     val thread = RendererThread { frame() }
     rendererThread = thread
     thread.start()
-    val result = runCatching(block)
+    val result = runCatching { runOnMain { block() } }
     rendererThread = null
     thread.stop()?.let { renderFailure ->
       result.exceptionOrNull()?.addSuppressed(renderFailure) ?: throw renderFailure
@@ -446,6 +451,17 @@ private constructor(
     }
   }
 
+  private fun <T> runOnMain(block: suspend () -> T): T = runBlocking {
+    val previous = TestMain.loop
+    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+    try {
+      testMain.drain()
+      block()
+    } finally {
+      TestMain.loop = previous
+    }
+  }
+
   override fun close() {
     var failure: Throwable? = null
     fun cleanup(action: () -> Unit) {
@@ -459,12 +475,12 @@ private constructor(
     cleanup {
       testMain.drain()
       state.close()
-      runBlocking { state.awaitClosed() }
+      runOnMain { state.awaitClosed() }
     }
     if (ownsRuntime)
       cleanup {
         runtime.close()
-        runBlocking { runtime.awaitClosed() }
+        runOnMain { runtime.awaitClosed() }
       }
     cleanup { driver.close() }
     if (ownsRuntime) cleanup { FfiTestPlatform.deleteCacheFile(cacheFile) }

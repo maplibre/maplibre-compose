@@ -37,8 +37,8 @@ import org.maplibre.spatialk.geojson.Position
  * Requested/applied extent and frozen map projections; presented frames remain a separate borrow.
  *
  * The mirror is rebuilt from the map's published snapshot, which any thread can read, whenever the
- * session learns that the camera or viewport changed. Camera commands that read the applied insets
- * run under the session's camera lock.
+ * session learns that the camera or viewport changed. Commands that read the applied insets and
+ * viewport acknowledgement run on main.
  */
 internal class NativeViewport(private val isClosing: () -> Boolean) {
   private val stateLock = MlnFfiLock()
@@ -49,12 +49,12 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
 
   @Volatile private var renderedCameraPadding: EdgeInsets = EdgeInsets()
 
-  /** Under the camera lock: do not apply camera framing against the bootstrap 1x1 viewport. */
+  /** Main only: do not apply camera framing against the bootstrap 1x1 viewport. */
   private var pendingCameraPadding: DpPadding? = null
 
   private class ViewportRequest(val extent: MapExtent)
 
-  /** Requested by the renderer and acknowledged by the event pump, under [stateLock]. */
+  /** Requested by the renderer and acknowledged by the main thread, under [stateLock]. */
   @Volatile private var viewportRequest: ViewportRequest? = null
   @Volatile private var appliedViewportRequest: ViewportRequest? = null
 
@@ -204,8 +204,8 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
   }
 
   /**
-   * The renderer sends dimensions; the event pump acknowledges them once the map's snapshot reports
-   * the size that the render session applied.
+   * The renderer sends dimensions; the main thread acknowledges them once the map's snapshot
+   * reports the size that the render session applied.
    */
   fun request(extent: MapExtent): Boolean = stateLock.withLock {
     if (isClosing()) return@withLock false
@@ -214,9 +214,9 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
   }
 
   /**
-   * Event pump only, under the camera lock. Returns the request whose size the map now has, and the
-   * jump that applies the insets with it, or null while no request waits or its size has not
-   * reached the map. Acknowledge it with [acknowledge] once the jump has run.
+   * Main only. Returns the request whose size the map now has, and the jump that applies the insets
+   * with it, or null while no request waits or its size has not reached the map. Acknowledge it
+   * with [acknowledge] once the jump has run.
    */
   fun pendingRequest(
     map: MapHandle,
@@ -317,7 +317,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     return true
   }
 
-  /** Under the camera lock. Returns the jump that moves a new map to [requested], if any. */
+  /** Main only. Returns the jump that moves a new map to [requested], if any. */
   fun prepareCamera(requested: CameraPosition?): CameraUpdate? {
     appliedViewportInsets = EdgeInsets()
     pendingCameraPadding = requested?.padding?.takeUnless { it == DpPadding.Zero }
@@ -328,9 +328,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
     }
   }
 
-  /**
-   * Under the camera lock: defer requested camera padding until a real target extent is applied.
-   */
+  /** Main only: defer requested camera padding until a real target extent is applied. */
   fun cameraForAssignment(position: CameraPosition): CameraPosition {
     if (hasViewport) return position
     pendingCameraPadding = position.padding.takeUnless { it == DpPadding.Zero }
@@ -338,8 +336,8 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
   }
 
   /**
-   * Under the camera lock, with a usable viewport. Returns the jump that applies the insets, or
-   * null when nothing changed. Reads the camera from the map's snapshot.
+   * On main, with a usable viewport. Returns the jump that applies the insets, or null when nothing
+   * changed. Reads the camera from the map's snapshot.
    */
   fun applyInsets(map: MapHandle, beforeChange: () -> Unit): CameraUpdate? {
     val padding = viewportInsets

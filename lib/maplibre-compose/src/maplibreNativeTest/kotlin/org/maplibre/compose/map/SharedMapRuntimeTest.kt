@@ -66,7 +66,7 @@ class SharedMapRuntimeTest {
                 for (fixture in listOf(first, second)) {
                   fixture.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
                 }
-                assertSame(first.session.runtimeForTest, second.session.runtimeForTest)
+                assertSame(first.state.runtime, second.state.runtime)
                 val snapshot = runtime.createSnapshotter(BaseStyle.Empty)
                 val styleFile = Path(requireNotNull(cacheFile.parent), "offline.json")
                 SystemFileSystem.sink(styleFile).buffered().use {

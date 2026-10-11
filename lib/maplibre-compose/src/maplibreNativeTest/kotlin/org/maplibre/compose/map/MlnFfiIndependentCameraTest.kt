@@ -17,7 +17,6 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.skipMapTest
@@ -33,21 +32,15 @@ class MlnFfiIndependentCameraTest {
       state.setCameraPosition(state.cameraPosition.copy(padding = padding))
       fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
 
-      val ownerHeld = TestGate()
-      fixture.session.holdEventPump { ownerHeld.awaitOpen() }
+      state.setCameraPosition(
+        state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero)
+      )
       val animation =
-        try {
-          state.setCameraPosition(
-            state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero)
+        async(start = CoroutineStart.UNDISPATCHED) {
+          state.animateCamera(
+            CameraUpdate(center = Position(2.0, 2.0)),
+            CameraAnimation.Ease { duration = 100.milliseconds },
           )
-          async(start = CoroutineStart.UNDISPATCHED) {
-            state.animateCamera(
-              CameraUpdate(center = Position(2.0, 2.0)),
-              CameraAnimation.Ease { duration = 100.milliseconds },
-            )
-          }
-        } finally {
-          ownerHeld.open()
         }
 
       fixture.awaitUntil("the partial animation to finish") { animation.isCompleted }
@@ -70,9 +63,7 @@ class MlnFfiIndependentCameraTest {
         )
       }
       fixture.awaitUntil("the anchor to start") { state.cameraPosition.zoom > 3.1 }
-      // The event pump holds still, so both commands reach native before another event drain.
-      val ownerHeld = TestGate()
-      fixture.session.holdEventPump { ownerHeld.awaitOpen() }
+      // Both commands are submitted on main before the next event drain.
       val replacement =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(
@@ -81,7 +72,6 @@ class MlnFfiIndependentCameraTest {
           )
         }
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
-      ownerHeld.open()
       fixture.awaitUntil("the replacement to finish") { replacement.isCompleted }
       replacement.await()
       anchored.await()

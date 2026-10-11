@@ -73,7 +73,11 @@ class NativeMapSnapshotterTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(
+          cacheFile = cacheFile,
+          maximumCacheSizeBytes = null,
+          mainDispatcher = TestMainDispatcher(),
+        )
       )
     try {
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
@@ -128,7 +132,11 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(
+            cacheFile = cacheFile,
+            maximumCacheSizeBytes = null,
+            mainDispatcher = TestMainDispatcher(),
+          )
         )
       val request =
         MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
@@ -171,7 +179,11 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(
+            cacheFile = cacheFile,
+            maximumCacheSizeBytes = null,
+            mainDispatcher = TestMainDispatcher(),
+          )
         )
       try {
         val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
@@ -205,7 +217,11 @@ class NativeMapSnapshotterTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(
+          cacheFile = cacheFile,
+          maximumCacheSizeBytes = null,
+          mainDispatcher = TestMainDispatcher(),
+        )
       )
     try {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
@@ -237,7 +253,11 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(
+            cacheFile = cacheFile,
+            maximumCacheSizeBytes = null,
+            mainDispatcher = TestMainDispatcher(),
+          )
         )
       val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
       try {

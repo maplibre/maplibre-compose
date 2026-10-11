@@ -3,6 +3,7 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
@@ -11,9 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.resource.MapResourceConfig
@@ -24,52 +25,43 @@ import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventSourceType
 import org.maplibre.nativeffi.generated.RuntimeHandle
 
-/**
- * One native runtime for a public MapRuntime, and the coroutine that drains its events.
- *
- * Commands go straight to native from any thread; the runtime's own thread runs them in submission
- * order. The runtime's event wake starts a drain on [eventPump], one coroutine that hands each
- * event to the map that raised it, in queue order, and then lets every map finish the drain.
- */
+/** One native runtime whose events and map callbacks are drained synchronously on main. */
 internal class MlnFfiRuntime(
   val options: MlnFfiRuntimeOptions,
   private val resourceConfig: MapResourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
 ) {
-  /** A map's event handlers. Both run on the event pump, one call at a time. */
+  /** A map's event handlers. Both run on main and never suspend a drain. */
   interface MapChild {
-    suspend fun onEvent(event: RuntimeEvent)
+    fun onEvent(event: RuntimeEvent)
 
-    /**
-     * Runs after each drain, and after each [requestDrain]. [drain] numbers the drain; it is
-     * greater than [drainsStarted] read at any time before the drain started fetching events.
-     */
-    suspend fun onEventsDrained(drain: Long)
+    fun onEventsDrained() = Unit
   }
 
+  val mainDispatcher = options.mainDispatcher ?: Dispatchers.Main
   private val scope =
-    CoroutineScope(
-      SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-runtime")
-    )
-  private val wakes = Channel<Unit>(Channel.CONFLATED)
+    CoroutineScope(SupervisorJob() + mainDispatcher + CoroutineName("maplibre-compose-runtime"))
   private val lock = MlnFfiLock()
   private val maps = mutableMapOf<ULong, MapChild>()
   private var closed = false
   private val opened = CompletableDeferred<MlnFfiRuntimeOwner>()
-  private var eventPump: Job? = null
+  private var opening: Job? = null
+  private var runtime: RuntimeHandle? = null
+  private var draining = false
+  private var drainAgain = false
 
   var onFailure: (Throwable) -> Unit = {}
 
-  /** Test seam: runs on the event pump before each drain, which can hold events back. */
-  @Volatile internal var beforeDrainForTest: (suspend () -> Unit)? = null
+  /** Receives runtime events that no map raised, on main. */
+  var onRuntimeEvent: (RuntimeEvent) -> Unit = {}
 
-  /** The number of the latest drain that has started fetching events. */
-  @Volatile
-  var drainsStarted: Long = 0L
-    private set
+  /** Posts native callbacks and graphics notifications without running them inline. */
+  fun postToMain(action: () -> Unit) {
+    mainDispatcher.dispatch(EmptyCoroutineContext, Runnable { if (!closed) action() })
+  }
 
-  /** Receives runtime events that no map raised, on the event pump. */
-  var onRuntimeEvent: suspend (RuntimeEvent) -> Unit = {}
+  /** Async event handlers keep the synchronous drain free to deliver the rest of the batch. */
+  fun launchOnMain(action: suspend () -> Unit) = scope.launch { action() }
 
   @Volatile
   var failure: Throwable? = null
@@ -77,29 +69,36 @@ internal class MlnFfiRuntime(
 
   /** Opens the native runtime off the calling thread, then starts draining its events. */
   fun start() {
-    scope.launch(Dispatchers.IO) {
-      val owner =
-        try {
-          MlnFfiRuntimeOwner.open(
-            options.cacheFile,
-            { options.logger },
-            "MapLibre runtime",
-            options.resourceProviderFactory,
-            resourceConfig,
-            eventWake = { wakes.trySend(Unit) },
-          )
-        } catch (error: Throwable) {
-          fail(error)
-          opened.completeExceptionally(error)
-          return@launch
+    opening =
+      scope.launch(Dispatchers.IO) {
+        val owner =
+          try {
+            MlnFfiRuntimeOwner.open(
+              options.cacheFile,
+              { options.logger },
+              "MapLibre runtime",
+              options.resourceProviderFactory,
+              resourceConfig,
+              eventWake = { postToMain { drain() } },
+            )
+          } catch (error: Throwable) {
+            withContext(mainDispatcher) {
+              fail(error)
+              opened.completeExceptionally(error)
+            }
+            return@launch
+          }
+        withContext(NonCancellable + mainDispatcher) {
+          runtime = owner.runtime
+          if (!opened.complete(owner)) {
+            // Closed while opening: nothing else will release it.
+            runtime = null
+            runCatching { owner.close() }
+          } else {
+            drain()
+          }
         }
-      if (!opened.complete(owner)) {
-        // Closed while opening: nothing else will release it.
-        runCatching { owner.close() }
-        return@launch
       }
-      eventPump = scope.launch { for (wake in wakes) drain(owner.runtime) }
-    }
   }
 
   /** The native runtime, once it has opened. */
@@ -120,37 +119,45 @@ internal class MlnFfiRuntime(
     lock.withLock { maps.remove(source) }
   }
 
-  /** Has the event pump drain and then run every map's drain handler, even with nothing queued. */
-  fun requestDrain() {
-    wakes.trySend(Unit)
-  }
-
-  private suspend fun drain(runtime: RuntimeHandle) {
-    beforeDrainForTest?.invoke()
-    val drain = ++drainsStarted
-    while (true) {
-      val events =
-        try {
-          runtime.drainEvents()?.use { it.get().events } ?: break
-        } catch (error: Throwable) {
-          if (error is CancellationException) throw error
-          // Only a released runtime refuses a drain, and the pump stops before release.
-          options.logger?.e(error) { "Could not drain MapLibre runtime events" }
-          return
+  /**
+   * Delivers queued events inline on main. A nested call asks the outer drain to keep going. Native
+   * queues a command's events before completing it, so awaiting it on main and then draining
+   * delivers those events before the caller continues.
+   */
+  fun drain() {
+    if (draining) {
+      drainAgain = true
+      return
+    }
+    val runtime = runtime ?: return
+    draining = true
+    try {
+      do {
+        drainAgain = false
+        while (true) {
+          val events =
+            try {
+              runtime.drainEvents()?.use { it.get().events } ?: break
+            } catch (error: Throwable) {
+              options.logger?.e(error) { "Could not drain MapLibre runtime events" }
+              return
+            }
+          for (event in events) dispatch(event)
         }
-      for (event in events) dispatch(event)
-    }
-    for (child in lock.withLock { maps.values.toList() }) {
-      try {
-        child.onEventsDrained(drain)
-      } catch (error: Throwable) {
-        if (error is CancellationException) throw error
-        options.logger?.e(error) { "Failed to finish handling a MapLibre event batch" }
-      }
+        for (child in lock.withLock { maps.values.toList() }) {
+          try {
+            child.onEventsDrained()
+          } catch (error: Throwable) {
+            options.logger?.e(error) { "Failed to finish handling a MapLibre event batch" }
+          }
+        }
+      } while (drainAgain)
+    } finally {
+      draining = false
     }
   }
 
-  private suspend fun dispatch(event: RuntimeEvent) {
+  private fun dispatch(event: RuntimeEvent) {
     try {
       if (event.sourceType == RuntimeEventSourceType.MAP) {
         lock.withLock { maps[event.source] }?.onEvent(event)
@@ -179,18 +186,18 @@ internal class MlnFfiRuntime(
    * Stops draining events and releases the runtime after its maps. Throws what cleanup reported.
    */
   suspend fun awaitClosed() =
-    withContext(NonCancellable) {
+    withContext(NonCancellable + mainDispatcher) {
+      opening?.join()
       val owner =
         try {
           opened.await()
         } catch (_: Throwable) {
           null
         }
-      wakes.close()
-      eventPump?.join()
+      scope.cancel()
+      runtime = null
       val failures = mutableListOf<Throwable>()
       if (owner != null) runCatching { owner.close() }.exceptionOrNull()?.let(failures::add)
-      scope.cancel()
       failures.throwCleanupFailures()
     }
 }

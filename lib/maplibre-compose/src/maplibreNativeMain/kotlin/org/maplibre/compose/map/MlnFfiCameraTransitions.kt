@@ -9,10 +9,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.CommandFailedException
-import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.reportFailure
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.generated.AnimationOptions
 import org.maplibre.nativeffi.generated.CameraTransitionEnd
 import org.maplibre.nativeffi.generated.CameraTransitionHandler
@@ -25,13 +23,13 @@ import org.maplibre.nativeffi.runtime.CommandCompletion
  * anchor policy: a viewport resize or padding change cancels the anchored transition. Cancelling a
  * caller only withdraws it; the camera keeps moving, as on every platform.
  *
- * A caller resumes through [afterEvents], which runs its action once the session has delivered the
- * map events queued so far, the final camera change among them, so camera state shows where the
- * transition ended.
+ * Native callbacks post to main. An inline drain delivers the final camera events before the caller
+ * resumes, so camera state shows where the transition ended.
  */
 internal class MlnFfiCameraTransitions(
   private val logger: () -> MapLog?,
-  private val afterEvents: (action: () -> Unit) -> Unit,
+  private val postToMain: (action: () -> Unit) -> Unit,
+  private val drain: () -> Unit,
 ) {
   /** A camera field that a transition animates. */
   enum class Field {
@@ -63,26 +61,26 @@ internal class MlnFfiCameraTransitions(
     }
 
     fun transitionEnded(end: CameraTransitionEnd) {
-      lock.withLock { if (anchor?.transition === this) anchor = null }
+      if (anchor?.transition === this) anchor = null
       // Native queues the events of the change that ended the transition before this runs. A
       // closed map delivers no more events.
       if (end.outcome == CameraTransitionOutcome.CLOSED) settle { ended = true }
-      else afterEvents { settle { ended = true } }
+      else {
+        drain()
+        settle { ended = true }
+      }
     }
 
     private fun settle(update: () -> Unit) {
-      val (resume, error) =
-        lock.withLock {
-          val wasDone = completed && ended
-          update()
-          (!wasDone && completed && ended) to failure
-        }
+      val wasDone = completed && ended
+      update()
+      val resume = !wasDone && completed && ended
+      val error = failure
       if (!resume || !continuation.isActive) return
       if (error != null) continuation.resumeWithException(error) else continuation.resume(Unit)
     }
   }
 
-  private val lock = MlnFfiLock()
   private var nextId = 0uL
   private var anchor: Anchor? = null
 
@@ -104,14 +102,17 @@ internal class MlnFfiCameraTransitions(
       if (anchored)
         map.getSnapshot().logicalExtent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
       else null
-    val transition = Transition(lock.withLock { ++nextId }, map, continuation)
+    val transition = Transition(++nextId, map, continuation)
     val started =
       try {
         start(
           map,
           animation.copy(
             transitionId = transition.id,
-            endHandler = CameraTransitionHandler(transition::transitionEnded),
+            endHandler =
+              CameraTransitionHandler { end ->
+                postToMain { transition.transitionEnded(end) }
+              },
           ),
         )
       } catch (error: Throwable) {
@@ -120,26 +121,26 @@ internal class MlnFfiCameraTransitions(
         return
       }
     started.invokeOnCompletion { error ->
-      @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-      val failure =
-        error ?: started.getCompleted().takeIf { it.failed }?.let(::CommandFailedException)
-      transition.commandCompleted(failure)
+      postToMain {
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        val failure =
+          error ?: started.getCompleted().takeIf { it.failed }?.let(::CommandFailedException)
+        transition.commandCompleted(failure)
+      }
     }
-    lock.withLock {
-      // Native stops a replaced anchor. Geometry changes from here on no longer belong to it, so
-      // they must not cancel the replacement.
-      if (anchor?.fields?.any { it in fields } == true) anchor = null
-      if (size != null) anchor = Anchor(transition, size, fields + Field.Center)
-    }
+    // Native stops a replaced anchor. Geometry changes from here on no longer belong to it, so
+    // they must not cancel the replacement.
+    if (anchor?.fields?.any { it in fields } == true) anchor = null
+    if (size != null) anchor = Anchor(transition, size, fields + Field.Center)
   }
 
   fun viewportChanged(size: DpSize) {
-    if (lock.withLock { anchor?.let { it.size != size } == true }) cancelAnchor()
+    if (anchor?.let { it.size != size } == true) cancelAnchor()
   }
 
   /** Geometry invalidates the anchor, so its transition stops where it stands. */
   fun cancelAnchor() {
-    val current = lock.withLock { anchor.also { anchor = null } } ?: return
+    val current = anchor.also { anchor = null } ?: return
     current.transition.continuation.cancel(CancellationException("The anchor viewport changed"))
     current.transition.map
       .cancelCameraTransition(current.transition.id)

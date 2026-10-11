@@ -1,5 +1,7 @@
 package org.maplibre.compose.offline
 
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -10,6 +12,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -364,7 +367,12 @@ class MlnFfiOfflinePackTest {
   }
 
   private suspend fun storage(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineStorage {
-    val owner = MlnFfiRuntime(options)
+    val owner =
+      MlnFfiRuntime(
+        options.copy(
+          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+        )
+      )
     val storage = MlnFfiOfflineStorage(owner)
     owners[storage] = owner
     owner.start()

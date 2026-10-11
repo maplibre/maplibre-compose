@@ -11,7 +11,6 @@ import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -35,7 +34,6 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
-import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameProjection
@@ -132,13 +130,9 @@ internal data class NativeEngineCompatibility(
 )
 
 /**
- * One logical map's MapLibre Native map. Commands go to the map from the thread that issues them,
- * and native runs them in submission order. Events arrive on the runtime's event pump, which is the
- * only place that installs a loaded style and acknowledges a viewport. Camera commands that read
- * the applied viewport insets run under [cameraLock]. The render session belongs to the host's
- * renderer thread. [NativePresentation] owns that attachment and [NativeViewport] owns extent
- * acknowledgement and projection snapshots. A camera transition only steps while frames are being
- * drawn: mbgl advances it after each rendered frame.
+ * One logical MapLibre Native map. Commands and event delivery run on main; native orders the
+ * commands. The render session belongs to the host's graphics thread. NativePresentation owns that
+ * attachment and NativeViewport owns extent acknowledgement and projection snapshots.
  */
 internal class MlnFfiMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
@@ -167,9 +161,6 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
 
-  /** The presentation that events are delivered to. Event pump only. */
-  private var pumpRenderLease: RenderLease? = null
-
   override val retainsEngineBetweenPresentations: Boolean = true
 
   override val presentationCompatibilityKey: Any =
@@ -185,19 +176,12 @@ internal class MlnFfiMapSession(
   internal val mapForTest: MapHandle?
     get() = map
 
-  /** Test seam: the runtime this session's map belongs to. */
-  internal val runtimeForTest: MlnFfiRuntime
-    get() = owner
-
   /** Test seam: the host session the map presents into, if any. */
   internal val presentationHostForTest: MlnFfiMapHostSession?
     get() = presentation.host
 
-  /** The engine [map] belongs to. Written before the map is registered with the event pump. */
+  /** The engine [map] belongs to. Written before the map is registered with the runtime. */
   @Volatile private var mapEngine: EngineMapIdentity? = null
-
-  /** Orders camera commands against changes to the applied viewport insets they read. */
-  private val cameraLock = MlnFfiLock()
 
   private val viewport = NativeViewport { isClosing }
   internal val presentation: NativePresentation =
@@ -207,14 +191,21 @@ internal class MlnFfiMapSession(
       canRender = { !isClosing && lifecycleRenderLease != null },
       getLogger = { logger },
       viewport = viewport,
-      requestViewport = { extent -> if (viewport.request(extent)) owner.requestDrain() },
+      requestViewport = { extent ->
+        owner.postToMain {
+          if (viewport.request(extent)) applyPendingViewport()
+        }
+      },
     )
 
   private val cameraTransitions =
-    MlnFfiCameraTransitions(logger = { logger }, afterEvents = ::afterPumpDrain)
+    MlnFfiCameraTransitions(
+      logger = { logger },
+      postToMain = owner::postToMain,
+      drain = owner::drain,
+    )
 
-  /** Where this map's style visits run. Internal for tests. */
-  internal val styleVisits = MlnFfiStyleVisits()
+  private val styleVisits = MlnFfiStyleVisits()
 
   internal val canPresentFrames: Boolean
     get() = styleLoadTracker.presentation != StylePresentation.Hidden
@@ -222,47 +213,17 @@ internal class MlnFfiMapSession(
   private var failureReported = false
 
   @Volatile private var requestedStyle: BaseStyle? = null
-  @Volatile private var requestedStyleLoad: RequestedStyleLoad? = null
   private val styleLoadTracker = StyleLoadTracker()
 
-  /** The request whose style native is loading, and the generation its command published. */
-  private var appliedStyleRequest: StyleRequestId? = null
-  private var appliedStyleGeneration = 0uL
-
-  /** Guards gesture ownership, gesture fences, and drain barriers. */
-  private val gestureLock = MlnFfiLock()
+  /** The current request and the completion carrying its native generation. Main only. */
+  private var styleCompletion: Deferred<CommandCompletion>? = null
   private var activeGestureToken: CameraInputToken? = null
-
-  /** The bearing the active gesture has rotated to, for haptic feedback. Under [gestureLock]. */
   private var gestureBearing: Double? = null
-
-  /**
-   * A gesture end whose last command has completed, waiting for its events to drain: those carry
-   * [generation] or less, and a drain numbered above [afterDrain] has delivered them all.
-   */
-  private class GestureFence(
-    val token: CameraInputToken,
-    /** The gesture activation this end closes, or null when the gesture never held the camera. */
-    val activation: Long?,
-    val generation: ULong,
-    val afterDrain: Long,
-  )
-
-  /** Counts gestures that took the camera, under [gestureLock]. */
-  private var gestureActivations = 0L
-
-  private val gestureFences = mutableListOf<GestureFence>()
-
-  /** Work that waits for a drain that starts after it is queued, under [gestureLock]. */
-  private val drainBarriers = mutableListOf<Pair<Long, () -> Unit>>()
+  private var gestureEndGeneration = 0uL
+  private var gestureEnd: Deferred<CommandCompletion>? = null
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
 
-  /**
-   * Exists for tests. Runs on the event pump after a style load is claimed and before its binding
-   * is installed.
-   */
-  @Volatile internal var beforeStyleInstallForTest: ((MlnFfiStyleBinding) -> Unit)? = null
   private val styleReconciler = StyleReconciler()
 
   internal val loadedStyleIdentity
@@ -270,27 +231,29 @@ internal class MlnFfiMapSession(
 
   /**
    * URL sources whose TileJSON attribution has already been reported, so each is reported exactly
-   * once rather than on every idle. Under [gestureLock].
+   * once rather than on every idle.
    */
   private val reportedUrlAttribution = mutableSetOf<String>()
 
   /**
-   * Event pump only. Checks for attribution received through a URL source's TileJSON after
-   * addSource returns. The C API has no TileJSON arrival event, so check on idle with one listing
-   * query.
+   * Main only. Checks for attribution received through a URL source's TileJSON after addSource
+   * returns. The C API has no TileJSON arrival event, so check on idle with one listing query.
    */
   private suspend fun reportNewlyArrivedAttribution(map: MapHandle) {
+    val binding = styleBinding ?: return
+    val sources = map.listStyleSources().await()
+    if (styleBinding !== binding || !binding.isLoaded) return
     var changed = false
-    for (info in map.listStyleSources().await()) {
+    for (info in sources) {
       if (
         !info.url.isNullOrEmpty() &&
           !info.attribution.isNullOrEmpty() &&
-          gestureLock.withLock { reportedUrlAttribution.add(info.id) }
+          reportedUrlAttribution.add(info.id)
       ) {
         changed = true
       }
     }
-    if (changed) styleBinding?.identity?.let { events.styleSourcesChanged(it) }
+    if (changed) events.styleSourcesChanged(binding.identity)
   }
 
   private suspend fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =
@@ -302,11 +265,13 @@ internal class MlnFfiMapSession(
       sessionOpen = { !isClosing },
       renderSessions = this,
       sourceChanged = { sourceId ->
-        gestureLock.withLock { reportedUrlAttribution.remove(sourceId) }
+        owner.postToMain { reportedUrlAttribution.remove(sourceId) }
       },
       sourceDataFailed = { bindingIdentity, sourceId, error ->
-        if (styleBinding?.identity === bindingIdentity) {
-          events.styleEvent(bindingIdentity, MapEvent.SourceDataFailed(sourceId, error))
+        owner.postToMain {
+          if (styleBinding?.identity === bindingIdentity) {
+            events.styleEvent(bindingIdentity, MapEvent.SourceDataFailed(sourceId, error))
+          }
         }
       },
       getScale = { scaleFactor.toFloat() },
@@ -418,74 +383,73 @@ internal class MlnFfiMapSession(
     lifecycle.detach()
   }
 
-  override suspend fun createEngine(identity: EngineMapIdentity) {
-    check(!isClosing) { "Cannot start a closed map session" }
-    lifecycleEngineIdentity = identity
-    val runtime = owner.awaitRuntime()
-    val created =
-      runtime
-        .createMap(
-          GeneratedApi.mapOptionsDefault()
-            .copy(
-              // The bootstrap extent until a render target applies its own. The scale factor is
-              // fixed for the map's lifetime.
-              initialExtent = LogicalExtent(1u, 1u, scaleFactor),
-              mapMode = MapMode.CONTINUOUS,
-              eventMask = HandledMapEvents,
-            )
-        )
-        .await()
-    mapEngine = identity
-    if (!owner.register(created, child)) {
-      created.release().await()
-      error("The map runtime is closed")
-    }
-    // Under the camera lock, so a command issued while the map is being published either sees no
-    // map, and is applied here, or sees this map after its initial state was submitted.
-    cameraLock.withLock {
-      this.map = created
+  override suspend fun createEngine(identity: EngineMapIdentity) =
+    withContext(owner.mainDispatcher) {
+      check(!isClosing) { "Cannot start a closed map session" }
+      lifecycleEngineIdentity = identity
+      val runtime = owner.awaitRuntime()
+      val created =
+        runtime
+          .createMap(
+            GeneratedApi.mapOptionsDefault()
+              .copy(
+                // The bootstrap extent until a render target applies its own. The scale factor is
+                // fixed for the map's lifetime.
+                initialExtent = LogicalExtent(1u, 1u, scaleFactor),
+                mapMode = MapMode.CONTINUOUS,
+                eventMask = HandledMapEvents,
+              )
+          )
+          .await()
+      mapEngine = identity
+      if (!owner.register(created, child)) {
+        created.release().await()
+        error("The map runtime is closed")
+      }
+
+      this@MlnFfiMapSession.map = created
       viewport.prepareCamera(requestedCamera)?.let { created.updateCamera(it).report("move") }
       cameraConstraints?.let { created.applyConstraints(it) }
       renderSettings?.let { created.applyRenderSettings(it, projectionChanged = true) }
       if (tileLodOptions != TileLodOptions.Standard)
         created.setTileOptions(tileLodOptions.toFfi()).report("set the tile options")
+
+      requestedStyle?.let { applyRequestedStyle(created, it, styleLoadTracker.requestId) }
+      presentation.requestRender()
     }
-    // The event pump applies the requested style once the map exists.
-    owner.requestDrain()
-    presentation.requestRender()
-  }
 
-  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
-    // Installs the producer only after events raised without a presentation have been discarded.
-    awaitPumpDrain { pumpRenderLease = lease }
-    lifecycleRenderLease = lease
-    presentation.resume()
-  }
-
-  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
-    map?.cancelTransitions()?.report("cancel camera transitions")
-    viewport.clearRequest(clearApplied = true)
-    if (lifecycleRenderLease == lease) lifecycleRenderLease = null
-    presentation.release()
-    if (map == null) return
-    // Not cancellable: a departed lease must not keep attributing events to itself. The drain also
-    // keeps a later attachment from adopting events queued by the departed lease.
-    withContext(NonCancellable) {
-      awaitPumpDrain { if (pumpRenderLease == lease) pumpRenderLease = null }
+  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) =
+    withContext(owner.mainDispatcher) {
+      // Installs the producer only after events raised without a presentation have been discarded.
+      owner.drain()
+      lifecycleRenderLease = lease
+      presentation.resume()
     }
-  }
 
-  override suspend fun destroyEngine(identity: EngineMapIdentity) {
-    if (lifecycleEngineIdentity == identity) lifecycleEngineIdentity = null
-    stopMap()
-  }
+  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) =
+    withContext(owner.mainDispatcher) {
+      withContext(NonCancellable) {
+        map?.cancelTransitions()?.report("cancel camera transitions")?.await()
+        owner.drain()
+        viewport.clearRequest(clearApplied = true)
+        if (lifecycleRenderLease == lease) lifecycleRenderLease = null
+        presentation.release()
+      }
+    }
 
-  override suspend fun closeResources() {
-    // A failed renderer release keeps the map alive, and its transitions would never end. Stopping
-    // them ends each with its handler, which resumes its waiter.
-    map?.cancelTransitions()?.report("cancel camera transitions")
-    retireOwnerState()
-  }
+  override suspend fun destroyEngine(identity: EngineMapIdentity) =
+    withContext(owner.mainDispatcher) {
+      if (lifecycleEngineIdentity == identity) lifecycleEngineIdentity = null
+      stopMap()
+    }
+
+  override suspend fun closeResources() =
+    withContext(owner.mainDispatcher) {
+      // A failed renderer release keeps the map alive. Cancelling its transitions still runs
+      // their end handlers and resumes their waiters.
+      map?.cancelTransitions()?.report("cancel camera transitions")
+      retireOwnerState()
+    }
 
   /** Test seam: adopts this session and attaches it without a presentation reservation. */
   fun start() {
@@ -503,7 +467,7 @@ internal class MlnFfiMapSession(
     styleLoadTracker.engineBecameUnavailable()
     // A frame queued behind this release sees the session closing in ensureAttached.
     presentation.release(keepHost = false)
-    val stopping = cameraLock.withLock { map.also { map = null } }
+    val stopping = map.also { map = null }
     try {
       if (stopping != null) {
         owner.unregister(stopping)
@@ -523,131 +487,102 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Only after the map is unregistered, so the event pump no longer visits this state. */
+  /** Only after the map is unregistered, so drains no longer visit this state. */
   private fun retireOwnerState() {
     viewport.retire()
-    val (fences, barriers) =
-      gestureLock.withLock {
-        val fences = gestureFences.map { it.token }.toMutableList()
-        activeGestureToken?.let(fences::add)
-        activeGestureToken = null
-        gestureBearing = null
-        gestureFences.clear()
-        val barriers = drainBarriers.map { it.second }
-        drainBarriers.clear()
-        fences to barriers
-      }
-    fences.forEach { it.complete() }
-    barriers.forEach { runCatching(it) }
+    activeGestureToken?.complete()
+    activeGestureToken = null
+    gestureBearing = null
   }
 
   // endregion
 
-  // region the event pump
+  // region main-thread events
 
   private val child =
     object : MlnFfiRuntime.MapChild {
-      override suspend fun onEvent(event: RuntimeEvent) {
+      override fun onEvent(event: RuntimeEvent) {
         val engine = mapEngine ?: return
         val map = map ?: return
         handleEvent(engine, map, event)
       }
 
-      override suspend fun onEventsDrained(drain: Long) {
+      override fun onEventsDrained() {
         val map = map ?: return
-        onEventsDrained(map, drain)
+        applyPendingViewport()
+        if (viewport.snapshotStale) viewport.snapshot(map)
       }
     }
 
-  /**
-   * Runs [action] on the event pump after a drain that starts after this call, or at once once the
-   * session is closing and its camera state no longer matters.
-   */
-  private fun afterPumpDrain(action: () -> Unit) {
-    val queued = gestureLock.withLock {
-      if (map == null || isClosing) false
-      else {
-        drainBarriers += owner.drainsStarted to action
-        true
+  /** Runs on main, as do the callbacks it makes. */
+  private fun handleEvent(engine: EngineMapIdentity, map: MapHandle, event: RuntimeEvent) {
+    // A wake can drain later commands before the END waiter resumes on main. Native has already
+    // completed END before queuing a newer generation, so its completed result identifies where
+    // gesture camera reporting stops within this batch.
+    val ending = gestureEnd
+    if (ending?.isCompleted == true) {
+      @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+      val generation = runCatching { ending.getCompleted().generation }.getOrNull()
+      if (generation != null) gestureEndGeneration = generation
+      if (generation != null && event.generation > generation && activeGestureToken == null) {
+        reportGestureActive(false)
       }
     }
-    if (queued) owner.requestDrain() else action()
-  }
-
-  /** Runs [action] on the event pump after a drain that starts after this call. */
-  private suspend fun awaitPumpDrain(action: () -> Unit) {
-    val done = CompletableDeferred<Unit>()
-    val queued = gestureLock.withLock {
-      if (map == null) false
-      else {
-        drainBarriers +=
-          owner.drainsStarted to
-            {
-              try {
-                action()
-              } finally {
-                done.complete(Unit)
-              }
-            }
-        true
-      }
-    }
-    if (!queued) {
-      action()
-      return
-    }
-    owner.requestDrain()
-    done.await()
-  }
-
-  /** Runs on the event pump, as do the callbacks it makes. */
-  private suspend fun handleEvent(engine: EngineMapIdentity, map: MapHandle, event: RuntimeEvent) {
-    finishGesturesBefore(event)
-    val lease = pumpRenderLease
+    val lease = lifecycleRenderLease
     val mapEvent = event.toMapEvent()
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> presentation.requestRender()
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        val request = appliedStyleRequest ?: return
-        // A load the previous document finished before native replaced it.
-        if (event.generation < appliedStyleGeneration) return
-        val binding = createStyleBinding(map)
-        // The tracker claims the load for its request under its lock, so a base style requested
-        // on main before the claim rejects it.
-        if (!styleLoadTracker.loaded(request, binding.identity) || isClosing) {
-          binding.invalidate()
-          return
+        val request = styleLoadTracker.requestId
+        val submitted = styleCompletion ?: return
+        owner.launchOnMain {
+          val completion = submitted.await()
+          if (
+            !isCurrentStyleRequest(request) ||
+              completion.failed ||
+              event.generation < completion.generation
+          )
+            return@launchOnMain
+          val binding = createStyleBinding(map)
+          if (
+            !isCurrentStyleRequest(request) || !styleLoadTracker.loaded(request, binding.identity)
+          ) {
+            binding.invalidate()
+            return@launchOnMain
+          }
+          styleBinding?.invalidate()
+          styleBinding = binding
+          reportedUrlAttribution.clear()
+          events.styleLoaded(binding)
+          mapEvent?.let { events.styleEvent(binding.identity, it) }
         }
-        beforeStyleInstallForTest?.invoke(binding)
-        // Live handles from the previous binding must not write into a style that is gone.
-        styleBinding?.invalidate()
-        styleBinding = binding
-        // setBaseStyle invalidates the installed binding after it requests. A request made after
-        // the claim therefore either invalidates this binding or is seen here.
-        if (!styleLoadTracker.isCurrent(binding.identity)) {
-          binding.invalidate()
-          return
-        }
-        gestureLock.withLock { reportedUrlAttribution.clear() }
-        events.styleLoaded(binding)
-        mapEvent?.let { events.styleEvent(binding.identity, it) }
       }
 
       RuntimeEventType.MAP_IDLE -> {
-        if (styleLoadTracker.isReady && styleBinding != null) reportNewlyArrivedAttribution(map)
+        if (styleLoadTracker.isReady && styleBinding != null) {
+          owner.launchOnMain { reportNewlyArrivedAttribution(map) }
+        }
         mapEvent?.let { events.engineEvent(engine, it) }
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        // Asynchronous document failures arrive here. Setter refusals are reported at submission.
-        val request = appliedStyleRequest
-        if (request == null || event.generation < appliedStyleGeneration) return
-        val reason = event.styleLoadFailureReason()
-        if (styleLoadTracker.failed(request) && !isClosing) {
-          events.styleFailed(request, reason)
-          logger?.e { "Map loading failed (code ${event.code}): $reason" }
-          mapEvent?.let { events.styleRequestEvent(request, it) }
+        val request = styleLoadTracker.requestId
+        val submitted = styleCompletion ?: return
+        owner.launchOnMain {
+          val completion = submitted.await()
+          if (
+            !isCurrentStyleRequest(request) ||
+              completion.failed ||
+              event.generation < completion.generation
+          )
+            return@launchOnMain
+          val reason = event.styleLoadFailureReason()
+          if (styleLoadTracker.failed(request)) {
+            events.styleFailed(request, reason)
+            logger?.e { "Map loading failed (code ${event.code}): $reason" }
+            mapEvent?.let { events.styleRequestEvent(request, it) }
+          }
         }
       }
 
@@ -682,39 +617,32 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private suspend fun onEventsDrained(map: MapHandle, drain: Long) {
-    applyPendingViewport(map)
-    if (viewport.snapshotStale) viewport.snapshot(map)
-    finishGestures(drain)
-    runDrainBarriers(drain)
-    // Apply once per drain, including while detached. Events already in this batch belong to the
-    // preceding producer; setters requested by callbacks cannot change their attribution midway.
-    applyRequestedStyle(map)
-  }
+  /** Main only. Publishes newly available viewport geometry after its inset command. */
+  private var applyingViewport = false
 
-  private fun runDrainBarriers(drain: Long) {
-    val ready = gestureLock.withLock {
-      val ready = drainBarriers.filter { (after, _) -> after < drain }
-      drainBarriers.removeAll(ready)
-      ready
-    }
-    ready.forEach { (_, action) -> runCatching(action) }
-  }
-
-  /** Event pump only. Publishes newly available or changed viewport geometry. */
-  private suspend fun applyPendingViewport(map: MapHandle) {
+  private fun applyPendingViewport() {
+    if (applyingViewport || isClosing) return
+    val map = map ?: return
     val (request, insets) =
-      cameraLock.withLock {
-        viewport.pendingRequest(
-          map,
-          beforeResize = { size -> cameraTransitions.viewportChanged(size) },
-          beforePadding = { cameraTransitions.cancelAnchor() },
-        )
-      } ?: return
-    // Size and padding describe one viewport only once the padding has reached the map.
-    insets?.let { map.updateCamera(it).report("apply insets").await() }
-    viewport.snapshot(map)
-    if (viewport.acknowledge(request)) notifyViewportChanged()
+      viewport.pendingRequest(
+        map,
+        beforeResize = { size -> cameraTransitions.viewportChanged(size) },
+        beforePadding = { cameraTransitions.cancelAnchor() },
+      ) ?: return
+    val submitted = insets?.let { map.updateCamera(it).report("apply insets") }
+    applyingViewport = true
+    owner.launchOnMain {
+      try {
+        submitted?.await()
+        owner.drain()
+        if (this@MlnFfiMapSession.map !== map || isClosing) return@launchOnMain
+        viewport.snapshot(map)
+        if (viewport.acknowledge(request)) notifyViewportChanged()
+      } finally {
+        applyingViewport = false
+        applyPendingViewport()
+      }
+    }
   }
 
   /** Publishes newly available or changed viewport geometry. */
@@ -733,17 +661,13 @@ internal class MlnFfiMapSession(
     if (style == requestedStyle) return
     requestedStyle = style
     val request = styleLoadTracker.request()
-    // After the request, so a load the event pump claimed earlier cannot install a live binding
-    // after this read: the pump re-checks its request once it has installed the binding.
     styleBinding?.invalidate()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // be validated against the base layers being replaced.
     if (lifecycleEngineIdentity != null) events.styleRequested(request)
     // Invalidation calls application code. A nested assignment owns the newer request.
     if (styleLoadTracker.requestId !== request || isClosing) return
-    requestedStyleLoad = RequestedStyleLoad(style, request)
-    // The event pump replaces native's style once it has handled the events queued before it.
-    owner.requestDrain()
+    map?.let { applyRequestedStyle(it, style, request) }
   }
 
   override suspend fun <T> reconcileStyleRevision(
@@ -773,14 +697,9 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Event pump only. */
-  private suspend fun applyRequestedStyle(map: MapHandle) {
-    val load = requestedStyleLoad ?: return
-    val style = load.style
-    if (isClosing || lifecycleEngineIdentity == null) return
-    val request = styleLoadTracker.requestId
-    if (load.trackerRequest != request || appliedStyleRequest == request) return
-    appliedStyleRequest = request
+  private fun applyRequestedStyle(map: MapHandle, style: BaseStyle, request: StyleRequestId) {
+    if (isClosing) return
+    styleCompletion = null
     // Submitted under the style lock that orders it after every command a visit of the replaced
     // style submitted, and before any later one, which then sees that style unloaded.
     val submitted =
@@ -797,19 +716,26 @@ internal class MlnFfiMapSession(
         styleRequestFailed(request, style, error.message ?: "Failed to apply the base style", error)
         return
       }
-    // Events queued before the replacement belong to the replaced document; the generation that
-    // the replacement published tells them apart from the events of this request.
-    val completion =
-      try {
-        submitted.await()
-      } catch (error: Throwable) {
-        if (error is CancellationException) throw error
-        styleRequestFailed(request, style, error.message ?: "Failed to apply the base style", error)
-        return
+    styleCompletion = submitted
+    owner.launchOnMain {
+      val completion =
+        try {
+          submitted.await()
+        } catch (error: Throwable) {
+          if (error is CancellationException) throw error
+          if (isCurrentStyleRequest(request))
+            styleRequestFailed(
+              request,
+              style,
+              error.message ?: "Failed to apply the base style",
+              error,
+            )
+          return@launchOnMain
+        }
+      owner.drain()
+      if (completion.failed && isCurrentStyleRequest(request)) {
+        styleRequestFailed(request, style, completion.failureMessage(), null)
       }
-    appliedStyleGeneration = completion.generation
-    if (completion.failed) {
-      styleRequestFailed(request, style, completion.failureMessage(), null)
     }
   }
 
@@ -827,8 +753,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private class RequestedStyleLoad(val style: BaseStyle, val trackerRequest: StyleRequestId)
-
   /** Applied when a map is created. Getters read [viewport] after native applies it. */
   @Volatile private var requestedCamera: CameraPosition? = null
 
@@ -837,28 +761,35 @@ internal class MlnFfiMapSession(
   override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
     requestedCamera = cameraPosition
-    cameraLock.withLock {
-      val map = map ?: return
-      if (guard?.isValid() == false) return
-      val applied = viewport.cameraForAssignment(cameraPosition)
+
+    val map = map ?: return
+    if (guard?.isValid() == false) return
+    val applied = viewport.cameraForAssignment(cameraPosition)
+    val submitted =
       map
         .updateCamera(
           FfiCameraUpdate(camera = applied.toCameraOptions(viewport.appliedViewportInsets))
         )
-        .refreshViewportOnCompletion()
         .report("move the camera")
+    owner.launchOnMain {
+      submitted.await()
+      owner.drain()
+      if (this@MlnFfiMapSession.map === map && !isClosing) viewport.snapshot(map)
     }
   }
 
   override fun setViewportInsets(insets: PaddingValues) {
     val resolved = insets.toEdgeInsets(layoutDirection)
     if (!viewport.setInsets(resolved)) return
-    cameraLock.withLock {
-      val map = map ?: return
-      if (!viewport.hasViewport) return
-      viewport
-        .applyInsets(map) { cameraTransitions.cancelAnchor() }
-        ?.let { map.updateCamera(it).refreshViewportOnCompletion().report("apply insets") }
+
+    val map = map ?: return
+    if (!viewport.hasViewport) return
+    val update = viewport.applyInsets(map) { cameraTransitions.cancelAnchor() } ?: return
+    val submitted = map.updateCamera(update).report("apply insets")
+    owner.launchOnMain {
+      submitted.await()
+      owner.drain()
+      if (this@MlnFfiMapSession.map === map && !isClosing) viewport.snapshot(map)
     }
   }
 
@@ -907,7 +838,7 @@ internal class MlnFfiMapSession(
     if (guard?.isValid() == false) return
     val completion = map.updateCamera(FfiCameraUpdate(camera = camera)).await()
     if (completion.failed) throw CommandFailedException(completion)
-    // Getters answer for the fitted camera once this returns.
+    owner.drain()
     viewport.snapshot(map)
   }
 
@@ -932,7 +863,7 @@ internal class MlnFfiMapSession(
     fit: (CameraFitOptions) -> Deferred<CameraOptions>,
   ): CameraOptions {
     val (persistent, fitted) =
-      cameraLock.withLock {
+      run {
         val insets = viewport.appliedViewportInsets
         val current = map.getSnapshot().camera.toCameraPosition(insets)
         val destination = current.copy(padding = cameraPadding ?: current.padding)
@@ -1114,11 +1045,9 @@ internal class MlnFfiMapSession(
                 }
               },
             ) {
-              cameraLock.withLock {
-                if (shouldStart(map)) {
-                  cameraTransitions.start(map, animation, continuation, anchored, fields, start)
-                } else release()
-              }
+              if (shouldStart(map)) {
+                cameraTransitions.start(map, animation, continuation, anchored, fields, start)
+              } else release()
             }
         if (!started) release()
       }
@@ -1134,10 +1063,9 @@ internal class MlnFfiMapSession(
 
   override fun setCameraConstraints(value: CameraConstraints) {
     if (value == cameraConstraints) return
-    cameraLock.withLock {
-      cameraConstraints = value
-      map?.applyConstraints(value)
-    }
+
+    cameraConstraints = value
+    map?.applyConstraints(value)
   }
 
   private fun MapHandle.applyConstraints(value: CameraConstraints) {
@@ -1161,12 +1089,11 @@ internal class MlnFfiMapSession(
       maximumFps = value.maximumFps
       presentation.requestRender()
     }
-    cameraLock.withLock {
-      val projectionChanged = cameraProjection != value.cameraProjection
-      cameraProjection = value.cameraProjection
-      renderSettings = value
-      map?.applyRenderSettings(value, projectionChanged)
-    }
+
+    val projectionChanged = cameraProjection != value.cameraProjection
+    cameraProjection = value.cameraProjection
+    renderSettings = value
+    map?.applyRenderSettings(value, projectionChanged)
   }
 
   private fun MapHandle.applyRenderSettings(value: RenderOptions, projectionChanged: Boolean) {
@@ -1179,22 +1106,21 @@ internal class MlnFfiMapSession(
     if (projectionChanged) {
       val mode = setProjectionMode(value.cameraProjection.toFfi()).report("set the projection mode")
       // The projection reshapes the viewport without a camera event.
-      mode.invokeOnCompletion {
-        viewport.snapshotStale = true
-        gestureLock.withLock {
-          drainBarriers += owner.drainsStarted to { notifyViewportChanged() }
-        }
-        owner.requestDrain()
+      owner.launchOnMain {
+        mode.await()
+        owner.drain()
+        if (this@MlnFfiMapSession.map !== this@applyRenderSettings || isClosing) return@launchOnMain
+        viewport.snapshot(this@applyRenderSettings)
+        notifyViewportChanged()
       }
     }
   }
 
   override fun setTileLodSettings(value: TileLodOptions) {
     if (value == tileLodOptions) return
-    cameraLock.withLock {
-      tileLodOptions = value
-      map?.setTileOptions(value.toFfi())?.report("set the tile options")
-    }
+
+    tileLodOptions = value
+    map?.setTileOptions(value.toFfi())?.report("set the tile options")
   }
 
   /** Main thread. Returns the engine for [withPlatformMap], creating it if none exists. */
@@ -1214,10 +1140,9 @@ internal class MlnFfiMapSession(
           result = runCatching { PlatformMapScope(map).block() }
         }
     if (!accepted) throw CancellationException(changed)
-    // Raw access can change the transform without an event, so the mirror is refreshed when the
-    // pump next drains.
+    // Raw access can change the transform without an event, so refresh the mirror inline.
     viewport.snapshotStale = true
-    owner.requestDrain()
+    owner.drain()
     return checkNotNull(result).getOrThrow()
   }
 
@@ -1367,9 +1292,13 @@ internal class MlnFfiMapSession(
       submitCameraInput(token) { phase -> updateCamera(FfiCameraUpdate(gesturePhase = phase)) }
     }
 
-  override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
+  override fun onGestureEnded(token: CameraInputToken) = lifecycleAuthority.postToMain {
+    finishGesture(token, cancelled = false)
+  }
 
-  override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
+  override fun cancelGesture(token: CameraInputToken) = lifecycleAuthority.postToMain {
+    finishGesture(token, cancelled = true)
+  }
 
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
@@ -1378,68 +1307,26 @@ internal class MlnFfiMapSession(
         token.complete()
         return@finish
       }
-      var ended: Long? = null
-      var last: Deferred<CommandCompletion>? = null
-      gestureLock.withLock {
-        if (activeGestureToken === token) {
-          activeGestureToken = null
-          gestureBearing = null
-          ended = gestureActivations
-          if (token.isCancelled) map.cancelTransitions().report("cancel camera transitions")
-          last =
-            map
-              .updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.END))
-              .report("end a gesture")
+      if (activeGestureToken !== token) {
+        token.complete()
+        return@finish
+      }
+      activeGestureToken = null
+      gestureBearing = null
+      if (token.isCancelled) map.cancelTransitions().report("cancel camera transitions")
+      val last =
+        map.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.END)).report("end a gesture")
+      gestureEnd = last
+      owner.launchOnMain {
+        try {
+          gestureEndGeneration = last.await().generation
+          owner.drain()
+          if (activeGestureToken == null) reportGestureActive(false)
+        } finally {
+          if (gestureEnd === last) gestureEnd = null
+          token.complete()
         }
       }
-      // The fence completes after the events of the gesture's last command and before those of
-      // any later command. Native queues a command's events before its completion runs, and runs
-      // the next command only after that, so the fence is registered before a later event exists.
-      val pending = last
-      if (pending == null) registerGestureFence(token, ended, generation = 0uL)
-      else
-        pending.invokeOnCompletion { error ->
-          @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-          val generation = if (error == null) pending.getCompleted().generation else ULong.MAX_VALUE
-          registerGestureFence(token, ended, generation)
-        }
-    }
-  }
-
-  private fun registerGestureFence(token: CameraInputToken, ended: Long?, generation: ULong) {
-    val queued = gestureLock.withLock {
-      if (map == null) false
-      else {
-        gestureFences += GestureFence(token, ended, generation, owner.drainsStarted)
-        true
-      }
-    }
-    if (queued) owner.requestDrain() else token.complete()
-  }
-
-  /** Event pump. Completes the fences whose events [event] follows, before it is delivered. */
-  private fun finishGesturesBefore(event: RuntimeEvent) {
-    if (gestureLock.withLock { gestureFences.isEmpty() }) return
-    completeFences { it.generation < event.generation }
-  }
-
-  /** Event pump. Completes the fences that this drain has caught up with. */
-  private fun finishGestures(drain: Long) = completeFences { it.afterDrain < drain }
-
-  private inline fun completeFences(crossinline isReady: (GestureFence) -> Boolean) {
-    val ready = gestureLock.withLock {
-      val ready = gestureFences.filter { isReady(it) }
-      gestureFences.removeAll(ready)
-      ready
-    }
-    for (fence in ready) {
-      // A gesture that a newer one replaced does not end the camera's gesture.
-      if (
-        fence.activation != null && gestureLock.withLock { gestureActivations == fence.activation }
-      ) {
-        reportGestureActive(false)
-      }
-      fence.token.complete()
     }
   }
 
@@ -1448,15 +1335,13 @@ internal class MlnFfiMapSession(
    * Reports on every camera command, because a report made before the lease attaches is dropped.
    */
   private fun activateGesture(map: MapHandle, token: CameraInputToken): GesturePhase {
-    val phase = gestureLock.withLock {
+    val phase =
       if (activeGestureToken !== token) {
         map.cancelTransitions().report("cancel camera transitions")
         activeGestureToken = token
-        gestureActivations++
         gestureBearing = null
         GesturePhase.BEGIN
       } else GesturePhase.UPDATE
-    }
     reportGestureActive(true)
     return phase
   }
@@ -1565,7 +1450,7 @@ internal class MlnFfiMapSession(
     submitCameraInput(gestureToken) { phase ->
       if (feedback && bearingDelta != 0.0 && gestureToken != null) {
         val (from, to) =
-          gestureLock.withLock {
+          run {
             val from = gestureBearing ?: getSnapshot().camera.bearing ?: 0.0
             val to = from + bearingDelta
             gestureBearing = to
@@ -1664,16 +1549,6 @@ internal class MlnFfiMapSession(
   override fun stopCameraMovement(guard: CameraCommandGuard) {
     if (!guard.isValid()) return
     map?.cancelTransitions()?.report("cancel camera transitions")
-  }
-
-  /** Refreshes the mirror once the camera command has run, as a camera event would. */
-  private fun Deferred<CommandCompletion>.refreshViewportOnCompletion():
-    Deferred<CommandCompletion> {
-    invokeOnCompletion {
-      viewport.snapshotStale = true
-      owner.requestDrain()
-    }
-    return this
   }
 
   private fun <T> Deferred<T>.report(what: String): Deferred<T> = reportFailure(logger, what)

@@ -14,6 +14,7 @@ import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapStateCallbacks
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.TestMain
+import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -128,6 +129,7 @@ internal actual suspend fun withTestMapRuntime(
         cacheFile = cacheFile,
         maximumCacheSizeBytes = null,
         resourceProvider = provider,
+        mainDispatcher = TestMainDispatcher(),
       )
     )
   try {

@@ -1,11 +1,14 @@
 package org.maplibre.compose.sources
 
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -183,7 +186,14 @@ class MlnFfiTileRequestCoordinatorTest {
   private fun withDroppingBinding(action: suspend (DroppingBinding) -> Unit) = runBlocking {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
-    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
+    val owner =
+      MlnFfiRuntime(
+          MlnFfiRuntimeOptions(
+            cacheFile,
+            mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
+          )
+        )
+        .also { it.start() }
     try {
       val map =
         withTimeout(5.seconds) {

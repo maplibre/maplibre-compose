@@ -9,7 +9,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -33,7 +32,6 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.TestGate
 import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
@@ -45,6 +43,7 @@ import org.maplibre.compose.style.install
 import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -104,7 +103,7 @@ class MlnFfiSurfaceLossTest {
         "losing and restoring the surface reported errors: ${it.errors}",
       )
       // A presentation lease can end while its host remains available.
-      runBlocking {
+      runMapTest {
         it.session.detachPresentation()
         it.session.attachPresentation()
       }
@@ -132,7 +131,7 @@ class MlnFfiSurfaceLossTest {
   }
 
   @Test
-  fun failed_renderer_release_finishes_camera_waiters_but_keeps_the_live_map() = runBlocking {
+  fun failed_renderer_release_finishes_camera_waiters_but_keeps_the_live_map() = runMapTest {
     val fixture = BridgeMapFixture.create()
     var closureFailure: Throwable? = null
     try {
@@ -150,10 +149,6 @@ class MlnFfiSurfaceLossTest {
           )
         }
       fixture.awaitUntil("the camera animation to start") { session.getCameraPosition().zoom > 0.1 }
-      val ownerHeld = TestGate()
-      val entered = CompletableDeferred<Unit>()
-      session.holdEventPump(onHeld = { entered.complete(Unit) }) { ownerHeld.awaitOpen() }
-      entered.await()
       fixture.rendererEnqueueFailure = IllegalStateException("renderer cleanup unavailable")
       try {
         session.close()
@@ -162,7 +157,6 @@ class MlnFfiSurfaceLossTest {
         assertSame(map, session.mapForTest, "renderer failure must retain its map")
       } finally {
         fixture.rendererEnqueueFailure = null
-        ownerHeld.open()
         // Recover the deliberately failed handoff so this test releases its real GPU resources.
         session.destroyEngine(engine)
       }

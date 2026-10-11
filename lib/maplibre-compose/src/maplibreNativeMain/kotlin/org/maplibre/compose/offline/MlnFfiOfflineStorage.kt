@@ -8,7 +8,6 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
@@ -41,7 +41,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   private val options = owner.options
   private val logger = options.logger
-  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+  private val scope = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
 
   private val storageState = MutableStateFlow<OfflineStorageState>(OfflineStorageState.Loading)
 
@@ -204,28 +204,35 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
    * Adopts or reuses a region that MapLibre reported, or returns null when its definition cannot be
    * represented. There is at most one [OfflinePack] per region.
    */
-  private fun registerRegion(runtime: RuntimeHandle, info: OfflineRegionInfo): OfflinePack? {
-    val existing = lock.withLock { packsById[info.id] }
-    if (existing != null) {
-      // An operation such as a database merge can change the resources of an existing region.
+  private suspend fun registerRegion(
+    runtime: RuntimeHandle,
+    info: OfflineRegionInfo,
+  ): OfflinePack? =
+    withContext(owner.mainDispatcher) {
+      val existing = lock.withLock { packsById[info.id] }
+      if (existing != null) {
+        // An operation such as a database merge can change the resources of an existing region.
+        refreshStatus(runtime, info.id)
+        return@withContext existing
+      }
+
+      val definition = info.definition.toOfflinePackDefinition(logger) ?: return@withContext null
+      val pack = lock.withLock {
+        packsById
+          .getOrPut(info.id) {
+            OfflinePack(this@MlnFfiOfflineStorage, info.id, definition, info.metadata.copyOf())
+          }
+          .also { publishPacks() }
+      }
+
+      // Submit observation and seed progress before returning: a caller can resume the download
+      // immediately, and its progress must not be overwritten by a late initial status read.
+      launchOperation("observe offline pack ${info.id}") {
+        runtime.setOfflineRegionObserved(info.id, true)
+      }
       refreshStatus(runtime, info.id)
-      return existing
+      pack
     }
-
-    val definition = info.definition.toOfflinePackDefinition(logger) ?: return null
-    val pack = lock.withLock {
-      packsById
-        .getOrPut(info.id) { OfflinePack(this, info.id, definition, info.metadata.copyOf()) }
-        .also { publishPacks() }
-    }
-
-    // Status events only arrive for observed regions, and an unreported pack reads as NotReported.
-    launchOperation("observe offline pack ${info.id}") {
-      runtime.setOfflineRegionObserved(info.id, true)
-    }
-    refreshStatus(runtime, info.id)
-    return pack
-  }
 
   private fun setDownloadState(pack: OfflinePack, state: OfflineRegionDownloadState) {
     if (!open) {
@@ -240,18 +247,16 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     }
   }
 
-  private fun refreshStatus(runtime: RuntimeHandle, regionId: Long) {
-    scope.launch {
-      try {
-        val status =
-          run("read the status of offline pack $regionId") {
-            runtime.getOfflineRegionStatus(regionId)
-          }
-        publishProgress(regionId, status.toDownloadProgress())
-      } catch (error: Throwable) {
-        if (error is CancellationException) throw error
-        logger?.e(error) { "Failed to read the status of offline pack $regionId" }
-      }
+  private suspend fun refreshStatus(runtime: RuntimeHandle, regionId: Long) {
+    try {
+      val status =
+        run("read the status of offline pack $regionId") {
+          runtime.getOfflineRegionStatus(regionId)
+        }
+      publishProgress(regionId, status.toDownloadProgress())
+    } catch (error: Throwable) {
+      if (error is CancellationException) throw error
+      logger?.e(error) { "Failed to read the status of offline pack $regionId" }
     }
   }
 
@@ -267,8 +272,8 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   // region events
 
-  /** Called on the runtime's event pump for every runtime event. */
-  private suspend fun handleEvent(event: RuntimeEvent) {
+  /** Called on main for every runtime event. */
+  private fun handleEvent(event: RuntimeEvent) {
     if (!open) return
     when (event.type) {
       RuntimeEventType.OFFLINE_REGION_STATUS_CHANGED -> {

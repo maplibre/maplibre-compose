@@ -413,14 +413,18 @@ private constructor(
     if (styleLoad === load) styleLoad = null
   }
 
-  override suspend fun onEvent(event: RuntimeEvent) {
+  override fun onEvent(event: RuntimeEvent) {
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
         val load = styleLoad ?: return
         if (event.generation < load.minimumGeneration) return
-        loadedContents = LoadedStyleContents.read(map)
-        styleLoad = null
-        load.result.complete(Result.success(Unit))
+        owner.launchOnMain {
+          val contents = LoadedStyleContents.read(map)
+          if (styleLoad !== load) return@launchOnMain
+          loadedContents = contents
+          styleLoad = null
+          load.result.complete(Result.success(Unit))
+        }
       }
       RuntimeEventType.MAP_LOADING_FAILED -> {
         val load = styleLoad ?: return
@@ -432,8 +436,6 @@ private constructor(
       else -> Unit
     }
   }
-
-  override suspend fun onEventsDrained(drain: Long) = Unit
 
   suspend fun close() =
     withContext(NonCancellable) {
