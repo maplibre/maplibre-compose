@@ -46,10 +46,7 @@ import org.maplibre.nativeffi.generated.RuntimeEventType
 import org.maplibre.nativeffi.generated.Wake
 
 private val SnapshotEvents =
-  RuntimeEventMask.MAP_STYLE_LOADED or
-    RuntimeEventMask.MAP_LOADING_FAILED or
-    RuntimeEventMask.MAP_STILL_IMAGE_FAILED or
-    RuntimeEventMask.MAP_RENDER_ERROR
+  RuntimeEventMask.MAP_STYLE_LOADED or RuntimeEventMask.MAP_LOADING_FAILED
 
 internal fun createNativeSnapshotterAdapter(owner: MlnFfiRuntime): SnapshotterAdapter =
   createNativeSnapshotterAdapter(owner, tryLoadRuntimeBackends())
@@ -93,7 +90,6 @@ private class NativeSnapshotterAdapter(
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
   ): SnapshotPreparation {
-    owner.awaitReady()
     val current = ensureEngine(request)
     currentDensity = request.density.density
     configureRequest(current, request)
@@ -272,11 +268,9 @@ private class NativeSnapshotterAdapter(
         if (image.isCompleted) break
         throw error
       }
-      // A failure event ends the wait as well: native reports a failed tile there first.
       select {
         image.onAwait {}
         current.frameResults.onReceive {}
-        current.failures.onReceive { throw it }
       }
       current.session.drainFrameResults()?.use { it.get() }
     }
@@ -398,9 +392,6 @@ private constructor(
   /** Signalled by the session's frame wake. */
   val frameResults = Channel<Unit>(Channel.CONFLATED)
 
-  /** Rendering failures that the event pump reported. */
-  val failures = Channel<Throwable>(Channel.CONFLATED)
-
   @Volatile private var styleLoad: StyleLoad? = null
   @Volatile
   var loadedContents: LoadedStyleContents? = null
@@ -437,11 +428,6 @@ private constructor(
         styleLoad = null
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         load.result.complete(Result.failure(IllegalStateException(message)))
-      }
-      RuntimeEventType.MAP_STILL_IMAGE_FAILED,
-      RuntimeEventType.MAP_RENDER_ERROR -> {
-        val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
-        failures.trySend(IllegalStateException(message))
       }
       else -> Unit
     }

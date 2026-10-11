@@ -56,7 +56,6 @@ internal class MlnFfiRuntime(
   private val maps = mutableMapOf<ULong, MapChild>()
   private var closed = false
   private val opened = CompletableDeferred<MlnFfiRuntimeOwner>()
-  private val ready = CompletableDeferred<Result<Unit>>()
   private var eventPump: Job? = null
 
   var onFailure: (Throwable) -> Unit = {}
@@ -103,17 +102,6 @@ internal class MlnFfiRuntime(
     }
   }
 
-  /** Marks the runtime usable once the work it needs before its first map has finished. */
-  fun initialized(result: Result<Unit>) {
-    ready.complete(result)
-  }
-
-  /** Waits until maps can use the runtime. */
-  suspend fun awaitReady() {
-    ready.await().getOrThrow()
-    failure?.let { throw it }
-  }
-
   /** The native runtime, once it has opened. */
   suspend fun awaitRuntime(): RuntimeHandle = opened.await().runtime
 
@@ -123,12 +111,12 @@ internal class MlnFfiRuntime(
    */
   fun register(map: MapHandle, child: MapChild): Boolean = lock.withLock {
     if (closed) return@withLock false
-    maps[map.eventSource()] = child
+    maps[map.id] = child
     true
   }
 
   fun unregister(map: MapHandle) {
-    val source = map.eventSource()
+    val source = map.id
     lock.withLock { maps.remove(source) }
   }
 
@@ -177,7 +165,6 @@ internal class MlnFfiRuntime(
 
   private fun fail(error: Throwable) {
     failure = error
-    initialized(Result.failure(error))
     options.logger?.e(error) { "The MapLibre runtime failed" }
     runCatching { onFailure(error) }
   }
@@ -185,7 +172,6 @@ internal class MlnFfiRuntime(
   /** Refuses new maps. Returns at once; see [awaitClosed]. */
   fun close() {
     lock.withLock { closed = true }
-    initialized(Result.failure(IllegalStateException("The map runtime is closed")))
     opened.cancel(CancellationException("The map runtime closed before it opened"))
   }
 

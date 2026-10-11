@@ -184,7 +184,6 @@ class MlnFfiTileRequestCoordinatorTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
     val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
-    owner.initialized(Result.success(Unit))
     try {
       val map =
         withTimeout(5.seconds) {

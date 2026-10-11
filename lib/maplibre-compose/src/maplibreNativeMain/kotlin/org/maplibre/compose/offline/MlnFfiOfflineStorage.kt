@@ -17,8 +17,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
@@ -52,41 +50,40 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   private val lock = MlnFfiLock()
   @Volatile private var open = true
 
-  /** One storage applies one cache-budget change at a time. */
-  private val cacheBudgetMutex = Mutex()
-
   @OptIn(ExperimentalAtomicApi::class) private val runtimeGuard = AtomicReference<() -> Unit> {}
 
   override val state: StateFlow<OfflineStorageState> = storageState.asStateFlow()
 
   init {
     owner.onRuntimeEvent = ::handleEvent
-    scope.launch {
-      try {
-        val runtime = owner.awaitRuntime()
-        options.maximumCacheSizeBytes?.let { size ->
-          run("set the initial maximum ambient cache size to $size bytes") {
-            require(size >= 0) { "The maximum ambient cache size must not be negative" }
-            runtime.setMaximumAmbientCacheSize(size.toULong())
+    val initialCacheSize = options.maximumCacheSizeBytes
+    if (initialCacheSize != null && initialCacheSize < 0) {
+      failStartup(OfflineStorageException("The maximum ambient cache size must not be negative"))
+    } else
+      scope.launch {
+        try {
+          val runtime = owner.awaitRuntime()
+          options.maximumCacheSizeBytes?.let { size ->
+            run("set the initial maximum ambient cache size to $size bytes") {
+              runtime.setMaximumAmbientCacheSize(size.toULong())
+            }
+            logger?.d { "Ambient cache size set to $size bytes" }
           }
-          logger?.d { "Ambient cache size set to $size bytes" }
+          val regions = run("list the offline packs") { runtime.listOfflineRegions() }
+          regions.forEach { info ->
+            runCatching { registerRegion(runtime, info) }
+              .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
+          }
+          lock.withLock {
+            storageState.compareAndSet(
+              OfflineStorageState.Loading,
+              OfflineStorageState.Ready(packsById.values.toSet()),
+            )
+          }
+        } catch (error: Throwable) {
+          failStartup(error)
         }
-        val regions = run("list the offline packs") { runtime.listOfflineRegions() }
-        regions.forEach { info ->
-          runCatching { registerRegion(runtime, info) }
-            .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
-        }
-        owner.initialized(Result.success(Unit))
-        lock.withLock {
-          storageState.compareAndSet(
-            OfflineStorageState.Loading,
-            OfflineStorageState.Ready(packsById.values.toSet()),
-          )
-        }
-      } catch (error: Throwable) {
-        failStartup(error)
       }
-    }
   }
 
   @OptIn(ExperimentalAtomicApi::class)
@@ -100,7 +97,6 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   }
 
   private fun failStartup(error: Throwable) {
-    owner.initialized(Result.failure(error))
     storageState.compareAndSet(OfflineStorageState.Loading, OfflineStorageState.Failed(error))
   }
 
@@ -169,12 +165,10 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
-    cacheBudgetMutex.withLock {
-      val runtime = awaitRuntime()
-      run("set the maximum ambient cache size to $sizeBytes bytes") {
-        require(sizeBytes >= 0) { "The maximum ambient cache size must not be negative" }
-        runtime.setMaximumAmbientCacheSize(sizeBytes.toULong())
-      }
+    val runtime = awaitRuntime()
+    run("set the maximum ambient cache size to $sizeBytes bytes") {
+      require(sizeBytes >= 0) { "The maximum ambient cache size must not be negative" }
+      runtime.setMaximumAmbientCacheSize(sizeBytes.toULong())
     }
   }
 
@@ -241,12 +235,8 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     scope.launch {
       val runtime = owner.awaitRuntime()
       launchOperation("change the download state of offline pack ${pack.regionId}") {
-          runtime.setOfflineRegionDownloadState(pack.regionId, state)
-        }
-        ?.join()
-      // mbgl's setState early-returns when the state is unchanged, emitting no status event, so
-      // the status is read back explicitly.
-      refreshStatus(runtime, pack.regionId)
+        runtime.setOfflineRegionDownloadState(pack.regionId, state)
+      }
     }
   }
 
@@ -335,7 +325,6 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   private suspend fun awaitRuntime(): RuntimeHandle {
     check(open) { "The offline storage has been disposed" }
-    owner.awaitReady()
     return owner.awaitRuntime()
   }
 
@@ -347,6 +336,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     if (!open) {
       throw OfflineStorageException("Cannot $description: the offline storage has been disposed")
     }
+    (storageState.value as? OfflineStorageState.Failed)?.let { throw it.cause }
     currentCoroutineContext().ensureActive()
     return try {
       start().await()

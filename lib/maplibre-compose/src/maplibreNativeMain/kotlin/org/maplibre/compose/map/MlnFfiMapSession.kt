@@ -203,7 +203,6 @@ internal class MlnFfiMapSession(
   internal val presentation: NativePresentation =
     NativePresentation(
       backend = backend,
-      mapScaleFactor = scaleFactor,
       isClosing = { lifecycleAuthority.isClosed || isClosing },
       canRender = { !isClosing && lifecycleRenderLease != null },
       getLogger = { logger },
@@ -420,7 +419,6 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
-    owner.awaitReady()
     check(!isClosing) { "Cannot start a closed map session" }
     lifecycleEngineIdentity = identity
     val runtime = owner.awaitRuntime()
