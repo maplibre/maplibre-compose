@@ -118,6 +118,8 @@ private constructor(
         frameRequested.store(true)
       }
 
+      override fun completeConsumerAccess() = driver.completeConsumerAccess()
+
       override fun <T> withRendererAccess(action: () -> T): T {
         val thread = rendererThread ?: return driver.withRendererAccess(action)
         return thread.run { driver.withRendererAccess(action) }
@@ -177,10 +179,7 @@ private constructor(
   private var surfaceTarget = false
   private var frameExtent: MapExtent? = null
 
-  /**
-   * Visits the renderer once. Textures render synchronously; surfaces submit a demand and wait for
-   * [MlnFfiMapHostSession.requestFrame] before draining its result on another visit.
-   */
+  /** Visits the renderer once, submitting a demand or draining its result after the frame wake. */
   fun frame(
     extent: MapExtent = initialExtent,
     captureProjection: Boolean = false,
@@ -190,7 +189,7 @@ private constructor(
 
   private fun renderFrame(extent: MapExtent, captureProjection: Boolean): MlnFfiFrameResult {
     driver.withRendererAccess {}
-    if (surfaceTarget && frameExtent == extent && !frameRequested.load()) {
+    if (frameExtent == extent && !frameRequested.load()) {
       return MlnFfiFrameResult.AwaitUpdate
     }
     frameRequested.store(false)
@@ -214,11 +213,8 @@ private constructor(
         .also {
           when (it) {
             is MlnFfiFrameResult.Rendered -> {
-              if (surfaceTarget) {
-                // The FFI already presented. Re-arm just as a production surface host does,
-                // leaving the next demand parked at idle until a map update wakes it.
-                hostSession.requestFrame()
-              } else {
+              hostSession.requestFrame()
+              if (!surfaceTarget) {
                 driver.completeProducerAccess(frame)
                 check(driver.present(frame.target)) {
                   "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"

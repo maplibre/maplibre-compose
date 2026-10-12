@@ -104,6 +104,7 @@ internal class MlnFfiSurfaceController(
 
   override fun detach() {
     requestFrame = {}
+    host?.completeConsumerAccess()
   }
 
   override fun prepare(extent: MapExtent): Boolean {
@@ -279,6 +280,8 @@ private class MlnFfiMapHostSessionImpl(
   override fun requestFrame() {
     onRequestFrame()
   }
+
+  override fun completeConsumerAccess() = host.completeConsumerAccess()
 
   override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
 

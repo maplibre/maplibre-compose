@@ -50,7 +50,6 @@ import org.maplibre.nativeffi.generated.OpenglContextDescriptorData
 import org.maplibre.nativeffi.generated.OpenglContextOwnership
 import org.maplibre.nativeffi.generated.OpenglSurfaceDescriptor
 import org.maplibre.nativeffi.generated.RenderDriverKind
-import org.maplibre.nativeffi.generated.RenderFrameResult
 import org.maplibre.nativeffi.generated.RenderResult
 import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
 import org.maplibre.nativeffi.generated.RenderSessionAttachment
@@ -67,9 +66,9 @@ import org.maplibre.nativeffi.render.NativePointer
 /**
  * One host attachment owns its render session and every borrow of its GPU target.
  *
- * Borrowed textures are driven inside the host's producer-access interval. Surface targets present
- * on the native driver and keep a demand parked until the map changes; their host only drains
- * results and schedules the next demand, including its frame-rate limit.
+ * Every target keeps a demand parked until the map changes. Hosts drain results and schedule the
+ * next demand, including their frame-rate limit. Borrowed textures stay acquired until the host has
+ * finished reading them.
  */
 internal class NativePresentation(
   var backend: MapRenderBackend,
@@ -96,24 +95,6 @@ internal class NativePresentation(
     @Volatile var target: MlnFfiRenderTarget? = null
     var nextToken = 0uL
     var demandPending = false
-    val renderForced = AtomicBoolean(true)
-
-    // Borrowed textures stay host-paced: Compose samples them after releasing the FFI frame, so a
-    // parked WAIT_FOR_UPDATE demand could render into a texture Compose is still reading.
-    // TODO: hold each acquired frame until ComposeFrameCompletion.prepare has waited for Compose's
-    //   reads, then release it. The session never renders into an acquired frame's texture, so
-    //   borrowed textures could then use the surface loop, and this split could go. Later, release
-    //   with a GPU consumer sync (mln_acquired_frame_release) instead of the CPU wait, with a
-    //   two-texture ring so rendering overlaps sampling; that needs benchmark evidence first.
-    val hostPaced: Boolean
-      get() =
-        when (target) {
-          is MetalTextureTarget,
-          is OpenGlTextureTarget,
-          is VulkanImageTarget -> true
-          else -> false
-        }
-
     @Volatile var releaseRequested = false
     val released = CompletableDeferred<Result<Unit>>()
 
@@ -132,7 +113,7 @@ internal class NativePresentation(
         frameWake =
           Wake {
             work.signal()
-            if (!hostPaced && !releaseRequested) host.requestFrame()
+            if (!releaseRequested) host.requestFrame()
           },
         driverWorkWake =
           if (driver != RenderDriverKind.CALLER_GRAPHICS_THREAD) Wake()
@@ -188,19 +169,6 @@ internal class NativePresentation(
       return work.getCompleted()
     }
 
-    /** Renderer thread. Waits for the result of the demand with [token]. */
-    fun awaitResult(session: RenderSessionHandle, token: ULong): RenderFrameResult {
-      while (true) {
-        if (callerDriven) session.serviceDriverWork(0uL)
-        val result =
-          session.drainFrameResults()?.use { batch ->
-            batch.get().results.lastOrNull { it.token == token }
-          }
-        if (result != null) return result
-        work.await()
-      }
-    }
-
     /**
      * Renderer thread. Detaches the session and destroys it. A detach that fails abandons the
      * session instead, which releases what it can without this thread's graphics context.
@@ -240,7 +208,9 @@ internal class NativePresentation(
     }
 
     private fun requestRelease() {
+      if (released.isCompleted) return
       releaseRequested = true
+      host.completeConsumerAccess()
       // Rejection means the host is shutting down. Its onSurfaceLost still owns this release.
       host.enqueueRenderer { release() }
     }
@@ -311,6 +281,7 @@ internal class NativePresentation(
       val current = rendererAttachment?.takeIf { it.host === session } ?: return
       current
     }
+    attachment.host.completeConsumerAccess()
     attachment.host.withRendererAccess { attachment.release().getOrThrow() }
     stateLock.withLock { if (rendererAttachment === attachment) rendererAttachment = null }
   }
@@ -360,16 +331,6 @@ internal class NativePresentation(
     attachment.host.requestFrame()
   }
 
-  /** Map updates only schedule borrowed-texture frames; surfaces already have a waiting demand. */
-  fun requestUpdate() {
-    if (rendererAttachment?.hostPaced == true) requestRender()
-  }
-
-  private fun requestRepaint() {
-    rendererAttachment?.renderForced?.store(true)
-    requestRender()
-  }
-
   /** The attached render session, once it has drawn a frame, for queries from any thread. */
   /** The host session presented into, if any. */
   val host: MlnFfiMapHostSession?
@@ -396,57 +357,52 @@ internal class NativePresentation(
     val session = attachment.session ?: return MlnFfiFrameResult.AwaitUpdate
     val result =
       try {
-        if (attachment.hostPaced) {
-          val forced = attachment.renderForced.exchange(false)
-          val token = ++attachment.nextToken
-          session.requestFrame(
-            FrameDemand(
-              flags =
-                if (forced) FrameDemandFlag.PRESENT
-                else FrameDemandFlag.IF_NEEDED or FrameDemandFlag.PRESENT,
-              token = token,
-            )
-          )
-          attachment.awaitResult(session, token).also { if (it.needsRepaint) requestRepaint() }
+        val completed = session.drainFrameResults()?.use { it.get().results.lastOrNull() }
+        if (completed != null) {
+          attachment.demandPending = false
+          completed
         } else {
-          val completed = session.drainFrameResults()?.use { it.get().results.lastOrNull() }
-          if (completed != null) {
-            attachment.demandPending = false
-            completed
-          } else {
-            if (!attachment.demandPending) {
-              attachment.demandPending = true
-              session.requestFrame(
-                FrameDemand(
-                  flags =
-                    FrameDemandFlag.IF_NEEDED or
-                      FrameDemandFlag.WAIT_FOR_UPDATE or
-                      FrameDemandFlag.PRESENT,
-                  token = ++attachment.nextToken,
-                )
+          if (!attachment.demandPending) {
+            attachment.demandPending = true
+            session.requestFrame(
+              FrameDemand(
+                flags =
+                  FrameDemandFlag.IF_NEEDED or
+                    FrameDemandFlag.WAIT_FOR_UPDATE or
+                    FrameDemandFlag.PRESENT,
+                token = ++attachment.nextToken,
               )
-            }
-            return MlnFfiFrameResult.AwaitUpdate
+            )
           }
+          return MlnFfiFrameResult.AwaitUpdate
         }
       } catch (error: MaplibreException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
     when (result.disposition) {
-      RenderResult.RENDERED -> Unit
-      RenderResult.TARGET_NOT_READY -> {
-        // A target that is not ready publishes no map update, so the retry renders regardless.
-        if (attachment.hostPaced) {
-          attachment.renderForced.store(true)
-        }
-        return MlnFfiFrameResult.RetryNextFrame
+      RenderResult.RENDERED -> {
+        // Replacement retires unacquired textures; a queued result can still describe the old one.
+        if (result.extentGeneration != session.getSnapshot().extentGeneration)
+          return MlnFfiFrameResult.RetryNextFrame
       }
-      else ->
-        return if (attachment.hostPaced) MlnFfiFrameResult.AwaitUpdate
-        else MlnFfiFrameResult.RetryNextFrame
+      else -> return MlnFfiFrameResult.RetryNextFrame
     }
     try {
-      if (attachment.acquiresFrames) releaseRenderedFrames(session)
+      if (attachment.acquiresFrames) {
+        val acquired = session.acquireFrame() ?: return MlnFfiFrameResult.RetryNextFrame
+        try {
+          acquired.withProducerSync { sync ->
+            check(sync.kind == GpuSyncKind.CPU_COMPLETE) {
+              "The host draws only frames whose producer work is complete, not ${sync.kind}"
+            }
+          }
+        } catch (error: Throwable) {
+          acquired.release()
+          throw error
+        }
+        frame.releaseAfterReads = { acquired.release() }
+        attachment.host.requestFrame()
+      }
     } catch (error: MaplibreException) {
       throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
     }
@@ -462,26 +418,6 @@ internal class NativePresentation(
     return MlnFfiFrameResult.Rendered(
       if (captureProjection) viewport.captureFrameProjection(session, frame.target.extent) else null
     )
-  }
-
-  /**
-   * Hands every rendered frame of the borrowed ring back. The host draws the texture it lent after
-   * this returns, as it did before rings existed, so the frame is released at once. Its producer
-   * synchronization is CPU-complete: the GPU finished writing before the frame became acquirable.
-   */
-  private fun releaseRenderedFrames(session: RenderSessionHandle) {
-    while (true) {
-      val frame = session.acquireFrame() ?: return
-      try {
-        frame.withProducerSync { sync ->
-          check(sync.kind == GpuSyncKind.CPU_COMPLETE) {
-            "The host draws only frames whose producer work is complete, not ${sync.kind}"
-          }
-        }
-      } finally {
-        frame.release()
-      }
-    }
   }
 
   /**
@@ -502,6 +438,7 @@ internal class NativePresentation(
     )
       return true
 
+    attachment.ready = false
     // A renderer compiles its shaders for one pixel ratio, so a scale-factor change needs a new
     // one.
     val retargeted =
@@ -524,8 +461,6 @@ internal class NativePresentation(
     }
     attachment.target = frame.target
     onAttached()
-    // A new target needs a frame even when the map is idle.
-    if (attachment.hostPaced) attachment.renderForced.store(true)
     return true
   }
 

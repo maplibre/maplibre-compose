@@ -523,8 +523,6 @@ internal class MlnFfiMapSession(
     }
     val mapEvent = event.toMapEvent()
     when (event.type) {
-      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> presentation.requestUpdate()
-
       RuntimeEventType.MAP_STYLE_LOADED -> {
         val request = styleLoadTracker.requestId
         val submitted = styleCompletion ?: return

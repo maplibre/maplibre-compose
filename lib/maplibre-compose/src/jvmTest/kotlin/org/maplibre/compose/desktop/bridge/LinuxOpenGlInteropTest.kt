@@ -291,6 +291,8 @@ class LinuxOpenGlInteropTest {
 
         override fun requestFrame() {}
 
+        override fun completeConsumerAccess() = host.completeConsumerAccess()
+
         override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
 
         override fun enqueueRenderer(action: () -> Unit): Boolean = host.enqueueRenderer(action)

@@ -49,11 +49,6 @@ internal class WindowsAngleMapHost(
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
-  override fun waitForProducers() {
-    vulkan?.waitIdle()
-    wgl?.waitIdle()
-  }
-
   override fun present(
     scope: DrawScope,
     context: OpenGlComposeGpuContext,

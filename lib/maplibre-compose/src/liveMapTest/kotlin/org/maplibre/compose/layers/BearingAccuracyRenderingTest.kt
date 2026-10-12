@@ -78,9 +78,11 @@ class BearingAccuracyRenderingTest {
       checkNotNull(fixture.style).run { handle.update(layer.definition()) }
       fixture.pumpUntil("zero error hides sector") { fixture.readPixel(276, 256).blue < 5 }
       layer.paint("bearing-accuracy", (const(15f).compile(context)).asLayerProperty())
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
+      fixture.pumpUntil("restored sector") { fixture.readPixel(276, 256).blue > 180 }
       layer.paint("bearing-accuracy-radius", (const(0.dp).compile(context)).asLayerProperty())
       checkNotNull(fixture.style).run { handle.update(layer.definition()) }
-      fixture.pump(2)
+      fixture.pumpUntil("zero radius hides sector") { fixture.readPixel(276, 256).blue < 5 }
       assertTrue(fixture.readPixel(276, 256).blue < 5, "zero radius hides sector")
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }

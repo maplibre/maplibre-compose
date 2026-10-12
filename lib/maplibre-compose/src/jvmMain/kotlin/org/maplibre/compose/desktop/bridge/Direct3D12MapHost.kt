@@ -173,11 +173,6 @@ internal class Direct3D12MapHost(
       generation = generation,
     )
 
-  override fun waitForProducers() {
-    vulkan?.waitIdle()
-    wgl?.waitIdle()
-  }
-
   override fun present(
     scope: DrawScope,
     context: Direct3D12ComposeGpuContext,
@@ -200,6 +195,7 @@ internal class Direct3D12MapHost(
 
   override fun contextReplaced() {
     presenter.closeAll()
+    textures.retireCurrent()
   }
 
   override fun closeTextures() {
