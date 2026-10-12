@@ -8,10 +8,11 @@ import org.maplibre.compose.layers.LayerSummary
 internal class StyleReconciler {
   private var fontScale: Float? = null
 
-  // Commit state is accessed only by the serialized apply calls.
+  // Reconciliation and tracked layer order are confined to main.
   private var binding: StyleBinding? = null
   private val sources = linkedMapOf<String, SourceInstallation>()
   private val layers = linkedMapOf<String, AppliedLayer>()
+  private val layerIds = mutableListOf<String>()
 
   /**
    * The image this reconciler wrote for each ID it may have installed, or null while a write has
@@ -37,7 +38,7 @@ internal class StyleReconciler {
 
   fun apply(style: StyleBinding, revision: StyleSnapshot) = apply(style, prepare(style, revision))
 
-  /** Serialized on one executor; native callers use the map owner thread. */
+  /** Runs synchronously on main. */
   fun apply(style: StyleBinding, prepared: PreparedRevision) {
     style.requireCurrent(prepared.identity)
     if (binding !== style) reset(style)
@@ -45,7 +46,6 @@ internal class StyleReconciler {
   }
 
   private fun applyRevision(style: StyleBinding, prepared: PreparedRevision) {
-    val layerIds = style.layerIds().toMutableList()
     val revision = prepared.revision
     revision.fontScale?.let { next ->
       if (fontScale != next) {
@@ -139,6 +139,8 @@ internal class StyleReconciler {
     fontScale = null
     sources.clear()
     layers.clear()
+    layerIds.clear()
+    layerIds.addAll(style.baseLayers.map { it.id })
     images.clear()
   }
 
