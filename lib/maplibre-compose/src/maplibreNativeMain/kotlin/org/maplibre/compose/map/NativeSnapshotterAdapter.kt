@@ -41,6 +41,7 @@ import org.maplibre.nativeffi.generated.RenderSessionHandle
 import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventMask
 import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.generated.TextureReadbackResult
 import org.maplibre.nativeffi.generated.Wake
 
 private val SnapshotEvents =
@@ -125,6 +126,13 @@ private class NativeSnapshotterAdapter(
     configureRequest(current, request)
     try {
       renderStillImage(current)
+      // End the waiting demand and queue readback after it on the same session.
+      val barrier = current.session.barrier()
+      val readback = current.session.readTexture()
+      barrier.await()
+      current.session.drainFrameResults()?.use { it.get() }
+      providerFailure?.let { throw it }
+      return readImage(readback.await(), request)
     } catch (error: Throwable) {
       // MapLibre keeps a failed tile or glyph range failed and would not load it again, and a
       // cancelled capture leaves its still image pending, so the next capture needs a new engine.
@@ -134,8 +142,6 @@ private class NativeSnapshotterAdapter(
       if (error is CancellationException) throw error
       throw providerFailure ?: error
     }
-    providerFailure?.let { throw it }
-    return readImage(current, request)
   }
 
   /**
@@ -265,9 +271,6 @@ private class NativeSnapshotterAdapter(
       current.session.drainFrameResults()?.use { it.get() }
     }
     image.await()
-    // Ends the demand still waiting for an update, so the next capture starts from no demand.
-    current.session.barrier().await()
-    current.session.drainFrameResults()?.use { it.get() }
   }
 
   private suspend fun readViewport(
@@ -317,12 +320,11 @@ private class NativeSnapshotterAdapter(
       },
     )
 
-  private suspend fun readImage(
-    current: NativeSnapshotEngine,
+  private fun readImage(
+    readback: TextureReadbackResult,
     request: MapSnapshotRequest,
   ): ImageBitmap {
     val expected = request.extent()
-    val readback = current.session.readTexture().await()
     val info = readback.info
     val width = info.width.toInt()
     val height = info.height.toInt()
