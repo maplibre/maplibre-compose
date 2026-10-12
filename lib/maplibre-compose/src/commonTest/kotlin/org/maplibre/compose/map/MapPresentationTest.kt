@@ -51,8 +51,13 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
+import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.logging.MapLogRecord
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
@@ -92,6 +97,85 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapPresentationTest {
+
+  @Test
+  fun a_style_change_during_a_resource_read_does_not_fail_the_new_style() = runTest {
+    val finishRead = CompletableDeferred<Unit>()
+    val recorded = RecordingStyleBinding(sources = listOf(attributedVectorSource()))
+    var layersRead = false
+    val binding =
+      object : StyleBinding by recorded {
+        override suspend fun sources(): Map<String, Source> {
+          requireCurrent()
+          val result = recorded.sources()
+          finishRead.await()
+          return result
+        }
+
+        override suspend fun layerSummaries(): List<LayerSummary> {
+          requireCurrent()
+          layersRead = true
+          return recorded.layerSummaries()
+        }
+      }
+    val records = mutableListOf<MapLogRecord>()
+    val previousLogger = MapLogging.logger
+    MapLogging.logger = MapLogger { records += it }
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope = backgroundScope,
+        mainDispatcher = testMainDispatcher(),
+        logger = MapLog,
+      )
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val adapter = PresentationTestAdapter()
+    try {
+      state.publishPresentation(state.reservePresentation(), adapter)
+      val callbacks = state.durableStyleCallbacks()
+      callbacks.onStyleChanged(adapter, binding)
+      callbacks.onStyleReady(adapter)
+      assertTrue(layersRead, "both queries must be submitted before either is awaited")
+      state.styleAuthority.setBaseStyle(BaseStyle.Demo)
+      val replacement = RecordingStyleBinding()
+      callbacks.onStyleChanged(adapter, replacement)
+      callbacks.onStyleReady(adapter)
+      finishRead.complete(Unit)
+      testScheduler.runCurrent()
+      assertEquals(StyleLoadState.Ready, state.style.loadState)
+      assertEquals(emptyList(), state.style.sources.map { it.id })
+      assertTrue(records.isEmpty(), "stale resource reads must not log a failure: $records")
+    } finally {
+      finishRead.complete(Unit)
+      state.close()
+      runtime.close()
+      MapLogging.logger = previousLogger
+    }
+  }
+
+  @Test
+  fun a_query_failure_during_a_current_resource_read_marks_the_style_failed() = runTest {
+    val finishRead = CompletableDeferred<Unit>()
+    val binding =
+      object : StyleBinding by RecordingStyleBinding() {
+        override suspend fun sources(): Map<String, Source> {
+          finishRead.await()
+          error("source query failed")
+        }
+      }
+    val fixture = presentationFixture()
+    try {
+      val callbacks = fixture.state.durableStyleCallbacks()
+      callbacks.onStyleChanged(fixture.adapter, binding)
+      callbacks.onStyleReady(fixture.adapter)
+      finishRead.complete(Unit)
+      testScheduler.runCurrent()
+      val failure = assertIs<StyleLoadState.Failed>(fixture.state.style.loadState)
+      assertEquals("source query failed", failure.reason)
+    } finally {
+      finishRead.complete(Unit)
+      fixture.close()
+    }
+  }
 
   @Test
   fun only_one_owner_can_reserve_a_presentation() {

@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.sources.MutableSourceHandle
@@ -63,16 +62,7 @@ internal class StyleResourceCommands(
       throw StyleHandleException("Could not add source '${source.id}': ${error.message}", error)
     }
     sources[source.id] = OwnedSource(binding, definition)
-    val committed =
-      try {
-        commitSources(binding)
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        if (style.owner.isCurrent(binding)) throw error
-        return null
-      }
-    if (!committed) return null
+    if (!commitSources(binding)) return null
     return style.sourceHandle(source.id)?.asMutable
   }
 

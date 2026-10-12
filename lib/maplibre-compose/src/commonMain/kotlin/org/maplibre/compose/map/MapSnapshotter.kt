@@ -581,7 +581,7 @@ internal class MapSnapshotterImplementation(
   /** Publishes ordered source metadata while the loaded style remains current. */
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
     if (!isCurrent(binding)) return false
-    val resources = style.readResources(binding)
+    val resources = style.readResources(binding) ?: return false
     return lock.withLock {
       if (!isCurrentLocked(binding)) return@withLock false
       style.updateResources(resources)
@@ -688,7 +688,7 @@ internal class MapSnapshotterImplementation(
       true
     }
     if (!accepted) return false
-    val resources = style.readResources(binding)
+    val resources = style.readResources(binding) ?: return false
     return lock.withLock {
       if (
         closed ||

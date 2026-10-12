@@ -37,6 +37,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -602,31 +603,37 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle
 
-  /** Reads ordered source and layer metadata without touching published handles. */
-  internal suspend fun readResources(current: StyleBinding): LoadedStyleResources {
-    val sourceObjects = current.sources()
-    val ids = sourceObjects.keys
-    val sourceMetadata = ids.associateWith { id ->
-      val definition = desiredSourceDefinition(id)
-      val source = sourceObjects[id]
-      LoadedSourceMetadata(
-        identity = current.identity.sources.get(id),
-        kind = sourceKind(definition, source),
-        attributionHtml = source?.attributionHtml.orEmpty(),
-        options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
-        composed = definition != null,
-      )
+  /** Reads ordered metadata, or returns null if the binding becomes stale while awaiting it. */
+  internal suspend fun readResources(current: StyleBinding): LoadedStyleResources? =
+    try {
+      coroutineScope {
+        // Submit both queries on main before awaiting either, so no style change can split them.
+        val sources = async(start = CoroutineStart.UNDISPATCHED) { current.sources() }
+        val layers = async(start = CoroutineStart.UNDISPATCHED) { current.layerSummaries() }
+        val sourceObjects = sources.await()
+        val summaries = layers.await()
+        if (!isCurrentLoadedStyle(current) || !current.isLoaded) return@coroutineScope null
+        val sourceMetadata = sourceObjects.mapValues { (id, source) ->
+          val definition = desiredSourceDefinition(id)
+          LoadedSourceMetadata(
+            identity = current.identity.sources.get(id),
+            kind = sourceKind(definition, source),
+            attributionHtml = source.attributionHtml.orEmpty(),
+            options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
+            composed = definition != null,
+          )
+        }
+        val layerMetadata = summaries.associate { summary ->
+          summary.id to LoadedLayerMetadata(current.identity.layers.get(summary.id), summary)
+        }
+        LoadedStyleResources(current, sourceMetadata, layerMetadata)
+      }
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Exception) {
+      if (isCurrentLoadedStyle(current) && current.isLoaded) throw error
+      null
     }
-    val summaries = current.layerSummaries().associateBy { it.id }
-    val order = summaries.keys
-    val layers = order.associateWith { id ->
-      LoadedLayerMetadata(
-        current.identity.layers.get(id),
-        summaries[id] ?: declarations.layers[id],
-      )
-    }
-    return LoadedStyleResources(current, sourceMetadata, layers)
-  }
 
   private var publishedResources: LoadedStyleResources? = null
 

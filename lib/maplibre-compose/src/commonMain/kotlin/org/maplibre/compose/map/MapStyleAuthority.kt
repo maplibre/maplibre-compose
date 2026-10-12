@@ -78,7 +78,7 @@ internal class MapStyleAuthority(
       return true
     }
     val capturedRevision = revision
-    val resources = style.readResources(binding)
+    val resources = style.readResources(binding) ?: return false
     if (capturedRevision != revision || !publishResources(resources)) return false
     if (ready) {
       style.loadState = StyleLoadState.Ready
@@ -161,7 +161,8 @@ internal class MapStyleAuthority(
     val acceptedRevision = ++this.revision
     try {
       withContext(NonCancellable) {
-        val resources = adapter.reconcileStyleRevision(revision) { style.readResources(it) }
+        val resources =
+          adapter.reconcileStyleRevision(revision) { style.readResources(it) } ?: return@withContext
         if (
           acceptedRevision == this@MapStyleAuthority.revision && acceptsResources(adapter, binding)
         ) {
@@ -293,7 +294,7 @@ internal class MapStyleAuthority(
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
     if (!isCurrent(binding) || !binding.isLoaded) return false
     val capturedRevision = ++revision
-    val resources = style.readResources(binding)
+    val resources = style.readResources(binding) ?: return false
     return capturedRevision == revision && publishResources(resources)
   }
 
