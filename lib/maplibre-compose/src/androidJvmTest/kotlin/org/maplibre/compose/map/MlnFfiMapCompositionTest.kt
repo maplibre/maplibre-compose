@@ -380,11 +380,14 @@ class MlnFfiMapCompositionTest {
           onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
       val originalOverlay = overlayIdentity
-      val originalSession = state.currentMapAttachment?.adapter
+      val originalPresentation = state.currentMapAttachment
+      val originalSession = originalPresentation?.adapter as MlnFfiMapSession
+      val originalMap = originalSession.mapForTest
       runOnUiThread { scale = 2f }
       waitUntil(timeoutMillis = RenderTimeoutMillis) {
         state.currentMapAttachment?.adapter != null &&
-          state.currentMapAttachment?.adapter !== originalSession &&
+          state.currentMapAttachment !== originalPresentation &&
+          originalSession.mapForTest !== originalMap &&
           state.style.loadState == StyleLoadState.Ready &&
           onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
@@ -867,7 +870,8 @@ class MlnFfiMapCompositionTest {
           state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
         val firstPresentation = requireNotNull(state.currentMapAttachment)
-        val firstMap = firstPresentation.adapter
+        val session = firstPresentation.adapter as MlnFfiMapSession
+        val firstMap = requireNotNull(session.mapForTest)
 
         presented = false
         waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
@@ -877,14 +881,13 @@ class MlnFfiMapCompositionTest {
           state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
 
-        val replacementMap = requireNotNull(state.currentMapAttachment).adapter
+        val replacementMap = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
         assertTrue(!firstPresentation.isValid)
         assertNotSame(firstPresentation, state.currentMapAttachment)
-        assertNotSame(firstMap, replacementMap)
+        assertSame(session, replacementMap)
+        assertNotSame(firstMap, replacementMap.mapForTest)
         assertCameraEquals(camera, state.cameraPosition)
-        assertTrue(
-          "replacement-style" in (replacementMap as MlnFfiMapSession).currentStyleLayerIds()
-        )
+        assertTrue("replacement-style" in replacementMap.currentStyleLayerIds())
         assertSame(runtime, state.runtime)
         assertTrue(!runtime.isClosed)
         assertTrue(!state.isClosed)

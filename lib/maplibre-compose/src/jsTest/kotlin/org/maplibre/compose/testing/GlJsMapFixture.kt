@@ -46,7 +46,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
       baseStyle = BaseStyle.Empty,
     )
   private val glJsSession = GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr)
-  // Design step 6 simplifies presentation publication; this fixture supplies its own canvas.
   private val token = state.reservePresentation()
 
   override val session: MapAdapter
@@ -113,7 +112,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
   }
 
   internal fun detachPresentationForTest() {
-    // Design step 6 simplifies presentation release; this fixture supplies its own canvas.
     state.releasePresentation(token, glJsSession)
   }
 

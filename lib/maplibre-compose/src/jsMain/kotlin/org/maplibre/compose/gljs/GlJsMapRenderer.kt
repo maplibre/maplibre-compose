@@ -14,7 +14,7 @@ internal interface GlJsMapRenderer : AutoCloseable {
   fun onSurfaceAvailable(surface: GlJsSurfaceSession)
 
   /** The surface is going away; drop everything that points into it. */
-  fun onSurfaceLost()
+  fun onSurfaceLost(surface: GlJsSurfaceSession)
 
   /**
    * Renders one frame into [target], before Compose overlay placement.

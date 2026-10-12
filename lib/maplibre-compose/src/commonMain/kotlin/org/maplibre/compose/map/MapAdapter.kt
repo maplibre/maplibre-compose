@@ -30,28 +30,10 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 internal interface MapAdapter {
-  /** Whether the engine remains alive after its current presentation detaches. */
-  val retainsEngineBetweenPresentations: Boolean
-    get() = false
-
-  /** Identifies the presentation properties that constrain engine reuse. */
-  val presentationCompatibilityKey: Any?
-    get() = null
-
-  /**
-   * Ends this adapter's current presentation. An adapter that does not retain its engine closes
-   * instead. Returns after the physical detachment and throws its cleanup failures.
-   */
+  /** Ends the presentation and waits for its physical detachment. */
   suspend fun detachPresentation()
 
-  /** True once [close] has been requested. Readable from any thread. */
-  val isClosing: Boolean
-    get() = false
-
-  /**
-   * Rejects new work at once and starts cleanup. Callable from any thread. A session adopted by a
-   * [MapLifecycleAuthority] reports this with [MapLifecycleAuthority.sessionClosing].
-   */
+  /** Requests cleanup; [awaitClosed] waits for it. Callable from any thread. */
   fun close()
 
   suspend fun awaitClosed()

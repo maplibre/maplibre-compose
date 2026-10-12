@@ -29,12 +29,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   MapFixture {
 
   override val state = bridge.state
-  // Design step 6 simplifies presentation publication; the fixture supplies its own GPU host.
-  private val token = state.reservePresentation()
 
   init {
     state.setCameraPosition(CameraPosition(zoom = 0.0))
-    state.publishPresentation(token, bridge.session)
   }
 
   override val session: MapAdapter

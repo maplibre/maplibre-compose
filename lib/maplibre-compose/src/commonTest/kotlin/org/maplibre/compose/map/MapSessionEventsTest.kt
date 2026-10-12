@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
@@ -88,42 +87,24 @@ class MapSessionEventsTest {
 
   @Test
   fun a_presentation_report_queued_before_a_reattachment_is_dropped() = runTest {
-    val lifecycle =
-      mapRuntimeForTest(physicalScope = backgroundScope)
-        .createMapState(BaseStyle.Demo)
-        .lifecycle
-        .createRetainedEngineLifecycle(NoOpEngineSteps, PresentationTestAdapter())
-    // The native session's presentation stamp: the engine it created and the attached lease.
+    val engine = EngineMapIdentity(1L)
+    val firstLease = RenderLease(1L)
+    var currentLease = firstLease
     val stamps =
       object : SessionStamps by TrackerStamps(tracker) {
         override fun isCurrentPresentation(engine: EngineMapIdentity, lease: RenderLease) =
-          !lifecycle.isClosing && engine == lifecycle.engine && lease == lifecycle.lease
+          lease == currentLease
       }
     val events = MapSessionEvents(PresentationTestAdapter(), stamps, main::addLast) { recorder }
-    lifecycle.attach()
-    val engine = checkNotNull(lifecycle.engine)
 
-    events.viewportChanged(engine, checkNotNull(lifecycle.lease))
-    lifecycle.detach()
-    lifecycle.attach()
+    events.viewportChanged(engine, currentLease)
+    currentLease = RenderLease(2L)
     runMain()
     assertEquals(emptyList(), recorder.delivered)
 
-    events.viewportChanged(engine, checkNotNull(lifecycle.lease))
+    events.viewportChanged(engine, currentLease)
     runMain()
     assertEquals(listOf("viewport"), recorder.delivered)
-  }
-
-  private object NoOpEngineSteps : RetainedEngineSteps {
-    override suspend fun createEngine(identity: EngineMapIdentity) = Unit
-
-    override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) = Unit
-
-    override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) = Unit
-
-    override suspend fun destroyEngine(identity: EngineMapIdentity) = Unit
-
-    override suspend fun closeResources() = Unit
   }
 
   /** Accepts every engine and presentation, and the style stamps that [tracker] holds current. */

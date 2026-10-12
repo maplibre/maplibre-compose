@@ -1,11 +1,5 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.map
 
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
@@ -19,13 +13,12 @@ public expect class PlatformMapScope
  * Runs [block] with this logical map's engine map.
  *
  * The platform map is borrowed for [block]. Use the raw handle only during [block]. Kotlin cannot
- * prevent retention. Closing the map waits for a running [block].
+ * prevent retention. The callback runs synchronously.
  *
- * Native platforms create the engine map when necessary and permit access without an attached UI
- * surface, then run [block] on the calling thread. A native map runs each call on its own thread in
- * call order: a command or query returns a `Deferred` that completes once it has run, so [block]
- * starts work rather than waiting for it. Web requires an attached surface. Cancelling before
- * [block] starts prevents it from running.
+ * Native platforms suspend until a map is presented, then run [block] on the runtime's main
+ * dispatcher. A native map runs each command or query in call order and returns a `Deferred` that
+ * completes once it has run, so [block] submits work without waiting for it. Web requires an
+ * attached surface. Cancelling before [block] starts prevents it from running.
  *
  * The map is a maplibre-native-ffi `MapHandle` on Native platforms and a MapLibre GL JS `Map` on
  * web. Those engine types may change in any minor release, so this function also requires opt-in to
@@ -40,56 +33,3 @@ public expect class PlatformMapScope
 // Exposes MapLibre engine bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T
-
-/** Arbitrates cancellation against the start of one queued platform-map action. */
-internal class PlatformMapInvocation<T>(private val continuation: CancellableContinuation<T>) {
-  private val state = AtomicReference(PlatformMapInvocationState.Queued)
-
-  val isQueued: Boolean
-    get() = state.load() == PlatformMapInvocationState.Queued
-
-  fun cancel() {
-    state.compareAndSet(PlatformMapInvocationState.Queued, PlatformMapInvocationState.Cancelled)
-  }
-
-  fun execute(block: () -> T) {
-    if (
-      !state.compareAndSet(PlatformMapInvocationState.Queued, PlatformMapInvocationState.Running)
-    ) {
-      return
-    }
-    val result = runCatching(block)
-    if (continuation.isActive) continuation.resumeWith(result)
-  }
-
-  fun fail(error: Throwable) {
-    execute { throw error }
-  }
-
-  /**
-   * Runs [block] inside [lifecycleGate] and then [authorityGate]. A gate returns false when the map
-   * changed after this invocation was queued, which fails it with [changedMessage].
-   */
-  fun executeGated(
-    changedMessage: String,
-    lifecycleGate: (() -> Unit) -> Boolean,
-    authorityGate: (() -> Unit) -> Boolean,
-    block: () -> T,
-  ) {
-    execute {
-      var result: Result<T>? = null
-      val lifecycleAccepted = lifecycleGate {
-        val authorityAccepted = authorityGate { result = runCatching(block) }
-        if (!authorityAccepted) throw CancellationException(changedMessage)
-      }
-      if (!lifecycleAccepted) throw CancellationException(changedMessage)
-      checkNotNull(result).getOrThrow()
-    }
-  }
-}
-
-private enum class PlatformMapInvocationState {
-  Queued,
-  Running,
-  Cancelled,
-}

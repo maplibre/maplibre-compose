@@ -72,7 +72,8 @@ class DesktopDensityPresentationTest {
               frames.get() > 0
           }
           val firstAttachment = requireNotNull(state.currentMapAttachment)
-          val firstEngine = firstAttachment.adapter
+          val session = firstAttachment.adapter as MlnFfiMapSession
+          val firstEngine = requireNotNull(session.mapForTest)
           val beforeReplacement = frames.get()
           runOnIdle { density = Density(1f) }
           waitUntil(timeoutMillis = 10_000) {
@@ -83,9 +84,10 @@ class DesktopDensityPresentationTest {
               frames.get() > beforeReplacement
           }
           val replacement = requireNotNull(state.currentMapAttachment)
-          assertNotSame(firstEngine, replacement.adapter)
+          assertSame(session, replacement.adapter)
+          val replacementEngine = requireNotNull(session.mapForTest)
+          assertNotSame(firstEngine, replacementEngine)
           assertFalse(firstAttachment.isValid)
-          firstEngine.awaitClosed()
           val retainedCamera = state.cameraPosition
           assertEquals(camera.bearing, retainedCamera.bearing, 1e-4)
           assertEquals(camera.pitch, retainedCamera.pitch, 1e-4)
@@ -106,10 +108,10 @@ class DesktopDensityPresentationTest {
               frames.get() > beforeReturn
           }
           val returned = requireNotNull(state.currentMapAttachment)
-          assertNotSame(firstEngine, returned.adapter)
-          assertNotSame(replacement.adapter, returned.adapter)
+          assertSame(session, returned.adapter)
+          assertNotSame(firstEngine, session.mapForTest)
+          assertNotSame(replacementEngine, session.mapForTest)
           assertFalse(replacement.isValid)
-          replacement.adapter.awaitClosed()
           waitUntil(timeoutMillis = 10_000) {
             "density-2.0-1.0" in (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
           }

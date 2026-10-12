@@ -55,10 +55,6 @@ class SharedMapRuntimeTest {
             second.whileRenderingOnRendererThread {
               runBlocking {
                 for (fixture in listOf(first, second)) {
-                  fixture.state.publishPresentation(
-                    fixture.state.reservePresentation(),
-                    fixture.session,
-                  )
                   fixture.bindState(fixture.state)
                 }
                 first.loadStyle(BaseStyle.Empty)

@@ -85,7 +85,8 @@ class AndroidSurfaceDetachmentTest {
             """{"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#336699"}}]}"""
           )
         )
-        nativeSession.start()
+        state.reservePresentation()
+        nativeSession.beginPresentationAttachment()
       }
       withController(renderer) { controller ->
         assertTrue(rendered.await(10, TimeUnit.SECONDS), "The native renderer never drew")

@@ -125,7 +125,7 @@ private class GlJsSurfaceController(
     if (closed) return
     closed = true
     wake = {}
-    runCatching { renderer.onSurfaceLost() }
+    runCatching { renderer.onSurfaceLost(this) }
       .onFailure { logger?.e(it) { "The map failed to release its surface" } }
     prepared = null
     compositor.close()

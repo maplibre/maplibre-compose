@@ -11,6 +11,7 @@ import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -122,11 +123,6 @@ private val HandledMapEvents: RuntimeEventMask =
     RuntimeEventMask.MAP_RENDER_FRAME_FINISHED or
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
 
-internal data class NativeEngineCompatibility(
-  val renderBackend: MapRenderBackend,
-  val scaleFactor: Double,
-)
-
 /**
  * One logical MapLibre Native map. Commands and event delivery run on main; native orders the
  * commands. The render session belongs to the host's graphics thread. NativePresentation owns that
@@ -140,18 +136,15 @@ internal class MlnFfiMapSession(
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
   private val owner: MlnFfiRuntime,
-) :
-  MapAdapter,
-  RetainedEngineSteps,
-  SessionStamps,
-  MlnFfiMapRenderer,
-  MlnFfiRenderSessions,
-  CameraInputTarget {
+) : MapAdapter, SessionStamps, MlnFfiMapRenderer, MlnFfiRenderSessions, CameraInputTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
-  internal val lifecycle =
-    lifecycleAuthority.createRetainedEngineLifecycle(steps = this, session = this)
+  @Volatile private var closing = false
+  private val closure = CompletableDeferred<Result<Unit>>()
+  private var attaching: CompletableDeferred<Result<Unit>>? = null
+  private var lastDetach: CompletableDeferred<Result<Unit>>? = null
+  private var nextIdentity = 0L
   private val events =
     MapSessionEvents(map = this, stamps = this, postToMain = lifecycleAuthority::postToMain) {
       this.callbacks
@@ -159,13 +152,10 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
 
-  override val retainsEngineBetweenPresentations: Boolean = true
+  override var backend: MapRenderBackend = renderBackend
+    private set
 
-  override val presentationCompatibilityKey: Any =
-    NativeEngineCompatibility(renderBackend = renderBackend, scaleFactor = scaleFactor)
-
-  override val backend: MapRenderBackend = renderBackend
-  private val scaleFactor = scaleFactor
+  private var scaleFactor = scaleFactor
 
   /** The map, once created and until destroyed. */
   @Volatile private var map: MapHandle? = null
@@ -332,22 +322,38 @@ internal class MlnFfiMapSession(
 
   override fun presentationAnchor(extent: MapExtent) = viewport.presentationAnchor(extent)
 
-  override val isClosing: Boolean
-    get() = lifecycle.isClosing
+  internal val isClosing: Boolean
+    get() = closing
 
-  override fun close() {
-    lifecycle.close()
+  override fun close() = owner.postToMain {
+    if (closing) return@postToMain
+    closing = true
+    lifecycleAuthority.sessionClosing(this)
+    owner.launchOnMain {
+      val failures = mutableListOf<Throwable>()
+      attaching
+        ?.await()
+        ?.exceptionOrNull()
+        ?.takeUnless { it is CancellationException }
+        ?.let(failures::addCleanupFailure)
+      runCatching { detachPresentation() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      runCatching { stopMap() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      runCatching { map?.cancelTransitions()?.report("cancel camera transitions") }
+        .exceptionOrNull()
+        ?.let(failures::addCleanupFailure)
+      runCatching { retireOwnerState() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      lifecycleEngineIdentity = null
+      closure.complete(failures.cleanupResult("Map"))
+    }
   }
 
-  override suspend fun awaitClosed() {
-    lifecycle.awaitClosed()
-  }
+  override suspend fun awaitClosed() = closure.await().getOrThrow()
 
   override fun isCurrentEngine(engine: EngineMapIdentity): Boolean =
     !isClosing && engine == lifecycleEngineIdentity
 
   override fun isCurrentPresentation(engine: EngineMapIdentity, lease: RenderLease): Boolean =
-    !isClosing && engine == lifecycleEngineIdentity && lease == lifecycle.lease
+    !isClosing && engine == lifecycleEngineIdentity && lease == lifecycleRenderLease
 
   override fun isCurrentStyleRequest(request: StyleRequestId): Boolean =
     !isClosing && request === styleLoadTracker.requestId
@@ -362,17 +368,47 @@ internal class MlnFfiMapSession(
   internal val isPresentationPublished: Boolean
     get() = lifecycleAuthority.acceptsPresentation(this)
 
-  /**
-   * Requests a render lease in the apply phase. The attachment starts at once, or after a
-   * detachment still in progress.
-   */
-  internal fun beginPresentationAttachment(): Boolean =
-    lifecycleAuthority.selectAdapterForPresentation(this) && lifecycle.beginAttach()
+  internal fun beginPresentationAttachment(
+    renderBackend: MapRenderBackend = backend,
+    density: Double = scaleFactor,
+  ): Boolean {
+    if (isClosing || !lifecycleAuthority.selectAdapterForPresentation(this)) return false
+    beginAttach(renderBackend, density)
+    return true
+  }
 
-  /** Attaches the engine to the current presentation host, creating the engine if needed. */
-  suspend fun attachPresentation() {
-    lifecycleAuthority.adopt(this)
-    lifecycle.attach()
+  private fun beginAttach(renderBackend: MapRenderBackend, density: Double) {
+    if (attaching != null) return
+    val completion = CompletableDeferred<Result<Unit>>()
+    attaching = completion
+    val precedingDetach = lastDetach
+    owner.launchOnMain {
+      completion.complete(
+        runCatching {
+          precedingDetach?.await()?.getOrThrow()
+          if (isClosing) throw CancellationException("The map state is closed")
+          backend = renderBackend
+          presentation.backend = renderBackend
+          if (map != null && scaleFactor != density) stopMap(keepHost = true)
+          scaleFactor = density
+          if (map == null) createMap()
+          owner.drain()
+          lifecycleRenderLease = RenderLease(++nextIdentity)
+          presentation.resume()
+        }
+      )
+    }
+  }
+
+  suspend fun attachPresentation(
+    renderBackend: MapRenderBackend = backend,
+    density: Double = scaleFactor,
+  ) {
+    if (isClosing) throw CancellationException("The map state is closed")
+    beginAttach(renderBackend, density)
+    checkNotNull(attaching).await().getOrThrow()
+    if (isClosing || lifecycleRenderLease == null)
+      throw CancellationException("The presentation ended")
   }
 
   internal fun publishRetainedStyle() {
@@ -386,86 +422,65 @@ internal class MlnFfiMapSession(
    * callbacks; the next presentation installs its own after it attaches.
    */
   override suspend fun detachPresentation() {
-    map?.cancelTransitions()?.report("cancel camera transitions on detach")
     callbacks = durableCallbacks
-    lifecycle.detach()
+    val pendingAttach = attaching
+    attaching = null
+    lifecycleRenderLease = null
+    val completion = CompletableDeferred<Result<Unit>>()
+    val previous = lastDetach
+    lastDetach = completion
+    owner.launchOnMain {
+      completion.complete(
+        runCatching {
+          previous?.await()?.getOrThrow()
+          pendingAttach?.await()
+          map?.cancelTransitions()?.report("cancel camera transitions")?.await()
+          owner.drain()
+          viewport.detach()
+          lifecycleRenderLease = null
+          presentation.release()
+        }
+      )
+    }
+    completion.await().getOrThrow()
   }
 
-  override suspend fun createEngine(identity: EngineMapIdentity) =
-    withContext(owner.mainDispatcher) {
-      check(!isClosing) { "Cannot start a closed map session" }
-      lifecycleEngineIdentity = identity
-      val runtime = owner.awaitRuntime()
-      val created =
-        runtime
-          .createMap(
-            GeneratedApi.mapOptionsDefault()
-              .copy(
-                // The bootstrap extent until a render target applies its own. The scale factor is
-                // fixed for the map's lifetime.
-                initialExtent = LogicalExtent(1u, 1u, scaleFactor),
-                mapMode = MapMode.CONTINUOUS,
-                eventMask = HandledMapEvents,
-              )
-          )
-          .await()
-      mapEngine = identity
-      if (!owner.register(created, child)) {
-        created.release().await()
-        error("The map runtime is closed")
-      }
-
-      this@MlnFfiMapSession.map = created
-      viewport.prepareCamera(requestedCamera)?.let { created.updateCamera(it).report("move") }
-      cameraConstraints?.let { created.applyConstraints(it) }
-      renderSettings?.let { created.applyRenderSettings(it, projectionChanged = true) }
-      if (tileLodOptions != TileLodOptions.Standard)
-        created.setTileOptions(tileLodOptions.toFfi()).report("set the tile options")
-
-      requestedStyle?.let { applyRequestedStyle(created, it, styleLoadTracker.requestId) }
-      presentation.requestRender()
+  private suspend fun createMap() {
+    val identity = EngineMapIdentity(++nextIdentity)
+    lifecycleEngineIdentity = identity
+    val runtime = owner.awaitRuntime()
+    val created =
+      runtime
+        .createMap(
+          GeneratedApi.mapOptionsDefault()
+            .copy(
+              // The bootstrap extent until a render target applies its own. The scale factor is
+              // fixed for the map's lifetime.
+              initialExtent = LogicalExtent(1u, 1u, scaleFactor),
+              mapMode = MapMode.CONTINUOUS,
+              eventMask = HandledMapEvents,
+            )
+        )
+        .await()
+    mapEngine = identity
+    if (!owner.register(created, child)) {
+      created.release().await()
+      error("The map runtime is closed")
     }
 
-  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) =
-    withContext(owner.mainDispatcher) {
-      // Installs the producer only after events raised without a presentation have been discarded.
-      owner.drain()
-      lifecycleRenderLease = lease
-      presentation.resume()
-    }
+    this@MlnFfiMapSession.map = created
+    viewport.prepareCamera(requestedCamera)?.let { created.updateCamera(it).report("move") }
+    cameraConstraints?.let { created.applyConstraints(it) }
+    renderSettings?.let { created.applyRenderSettings(it, projectionChanged = true) }
+    if (tileLodOptions != TileLodOptions.Standard)
+      created.setTileOptions(tileLodOptions.toFfi()).report("set the tile options")
 
-  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) =
-    withContext(owner.mainDispatcher) {
-      withContext(NonCancellable) {
-        map?.cancelTransitions()?.report("cancel camera transitions")?.await()
-        owner.drain()
-        viewport.detach()
-        if (lifecycleRenderLease == lease) lifecycleRenderLease = null
-        presentation.release()
-      }
-    }
-
-  override suspend fun destroyEngine(identity: EngineMapIdentity) =
-    withContext(owner.mainDispatcher) {
-      if (lifecycleEngineIdentity == identity) lifecycleEngineIdentity = null
-      stopMap()
-    }
-
-  override suspend fun closeResources() =
-    withContext(owner.mainDispatcher) {
-      // A failed renderer release keeps the map alive. Cancelling its transitions still runs
-      // their end handlers and resumes their waiters.
-      map?.cancelTransitions()?.report("cancel camera transitions")
-      retireOwnerState()
-    }
-
-  /** Test seam: adopts this session and attaches it without a presentation reservation. */
-  fun start() {
-    if (lifecycleAuthority.adopt(this)) lifecycle.beginAttach()
+    requestedStyle?.let { applyRequestedStyle(created, it, styleLoadTracker.requestId) }
+    presentation.requestRender()
   }
 
   /** MapLibre refuses to release a map that still has a render session attached. */
-  private suspend fun stopMap() {
+  internal suspend fun stopMap(keepHost: Boolean = false) {
     viewport.detach()
     if (styleBinding != null) {
       lifecycleAuthority.postToMain { callbacks.onStyleChanged(this, null) }
@@ -474,7 +489,7 @@ internal class MlnFfiMapSession(
     styleBinding = null
     styleLoadTracker.engineBecameUnavailable()
     // A frame queued behind this release sees the session closing in ensureAttached.
-    presentation.release(keepHost = false)
+    presentation.release(keepHost = keepHost)
     val stopping = map.also { map = null }
     try {
       if (stopping != null) {
@@ -1093,30 +1108,17 @@ internal class MlnFfiMapSession(
     map?.setTileOptions(value.toFfi())?.report("set the tile options")
   }
 
-  /** Main thread. Returns the engine for [withPlatformMap], creating it if none exists. */
-  internal suspend fun ensureEngine(): EngineMapIdentity = lifecycle.ensureEngine()
-
-  /** Runs [block] with the map of [engine], the engine that [ensureEngine] returned. */
   @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
-  internal fun <T> withPlatformMap(engine: EngineMapIdentity, block: PlatformMapScope.() -> T): T {
-    val changed = "The native platform map changed before access could begin"
-    if (isClosing) throw CancellationException("The map state closed before access could begin")
-    val map = map ?: throw CancellationException(changed)
-    var result: Result<T>? = null
-    val accepted =
-      !isClosing &&
-        lifecycleEngineIdentity == engine &&
-        lifecycleAuthority.acceptEnginePlatformAccess(this) {
-          result = runCatching { PlatformMapScope(map).block() }
-        }
-    if (!accepted) throw CancellationException(changed)
-    // Raw access can change projection options without a camera event.
+  internal fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
+    check(!isClosing) { "The map state is closed" }
+    val map = checkNotNull(map) { "The presented map does not exist" }
+    val result = PlatformMapScope(map).block()
     owner.drain()
     if (!isClosing && this.map === map) {
       viewport.refresh(map)
       notifyViewportChanged()
     }
-    return checkNotNull(result).getOrThrow()
+    return result
   }
 
   override suspend fun fitBoundsAwaitingTransition(

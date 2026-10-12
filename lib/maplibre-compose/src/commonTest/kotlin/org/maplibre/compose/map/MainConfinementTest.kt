@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,65 +65,6 @@ class MainConfinementTest {
     assertFalse(attachment.isValid)
     closed.await()
     runtime.close()
-  }
-
-  @Test
-  fun a_close_request_rejects_new_platform_callbacks_before_the_closure_commits() = runTest {
-    val main = StandardTestDispatcher(testScheduler)
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = main)
-    testScheduler.runCurrent() // The dispatcher pins the main thread.
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val adapter = PresentationTestAdapter()
-    state.publishPresentation(state.reservePresentation(), adapter)
-    assertTrue(state.lifecycle.acceptEnginePlatformAccess(adapter) {})
-
-    state.close()
-
-    // Nothing has run on main yet: the closure is queued, but new work is already refused.
-    assertTrue(state.isClosed)
-    assertFalse(state.lifecycle.acceptEnginePlatformAccess(adapter) {})
-    assertFalse(state.lifecycle.acceptsAdapter(adapter))
-    testScheduler.runCurrent()
-    state.awaitClosed()
-    runtime.close()
-  }
-
-  @Test
-  fun a_replaced_retained_adapter_closes_only_after_the_callback_running_on_it_ends() = runTest {
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val retained = ClosableRetainedAdapter(compatibilityKey = "a")
-    assertSame(retained, state.lifecycle.retainAdapterForPlatformAccess { retained })
-
-    // A platform callback is running on the retained adapter when main publishes an
-    // incompatible replacement, which retires the retained adapter.
-    val replacement = ClosableRetainedAdapter(compatibilityKey = "b")
-    assertTrue(
-      state.lifecycle.acceptEnginePlatformAccess(retained) {
-        state.publishPresentation(state.reservePresentation(), replacement)
-        assertFalse(retained.closeCalled)
-      }
-    )
-
-    assertTrue(retained.closeCalled)
-    assertFalse(replacement.closeCalled)
-    state.close()
-    state.awaitClosed()
-    runtime.close()
-  }
-
-  private class ClosableRetainedAdapter(private val compatibilityKey: Any) :
-    PresentationTestAdapter() {
-    var closeCalled = false
-
-    override val retainsEngineBetweenPresentations = true
-    override val presentationCompatibilityKey: Any = compatibilityKey
-
-    override suspend fun detachPresentation() = Unit
-
-    override fun close() {
-      closeCalled = true
-    }
   }
 
   private class RejectingStyleAdapter : PresentationTestAdapter() {

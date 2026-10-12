@@ -109,7 +109,7 @@ internal class GlJsMapSession(
   internal var logger: MapLog?,
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
-  private val mapContainer: HTMLElement? = null,
+  internal var mapContainer: HTMLElement? = null,
 ) : MapAdapter, SessionStamps, GlJsMapRenderer, CameraInputTarget {
 
   init {
@@ -218,7 +218,8 @@ internal class GlJsMapSession(
     surface.requestFrame()
   }
 
-  override fun onSurfaceLost() {
+  override fun onSurfaceLost(surface: GlJsSurfaceSession) {
+    if (this.surface !== surface) return
     // The map's context belongs to the surface, so it cannot outlive it.
     if (engineIdentity != null && renderLease != null) {
       // The replacement keeps the presentation, and the destroyed map emits no `moveend`. A
@@ -227,7 +228,7 @@ internal class GlJsMapSession(
       activeGestureToken = null
       reportGestureActive(false)
       lifecycleAuthority.endCurrentPresentationCameraChange(this)
-      surface = null
+      this.surface = null
       invalidateStyleBinding()
       // Events and queued access from the destroyed map carry its identity and are dropped.
       engineIdentity = null
@@ -235,7 +236,7 @@ internal class GlJsMapSession(
       destroyMap()
       engineIdentity = EngineMapIdentity(++lastIdentity)
     } else {
-      surface = null
+      this.surface = null
     }
   }
 
@@ -246,7 +247,7 @@ internal class GlJsMapSession(
       // A new Skia handle can still share our WebGL context. Only a different WebGL context
       // requires replacing the engine and replaying the presentation's state.
       val host = surface ?: return false
-      onSurfaceLost()
+      onSurfaceLost(host)
       onSurfaceAvailable(host)
       return false
     }
@@ -301,9 +302,6 @@ internal class GlJsMapSession(
   internal fun detachedCanvas(): HTMLCanvasElement? =
     if (lentContext != null) null else map?.getCanvas()
 
-  override val isClosing: Boolean
-    get() = closing
-
   /**
    * Rejects new work, reports the closure to [lifecycleAuthority], then destroys the map and
    * abandons queued work. Each cleanup step runs even when an earlier one fails.
@@ -350,10 +348,16 @@ internal class GlJsMapSession(
   override fun isCurrentStyle(style: StyleIdentity): Boolean =
     !closing && styleLoadTracker.isCurrent(style)
 
-  /** GL JS destroys its map with its presentation, so this closes the session. */
+  /** Releases the presentation's context while keeping the logical adapter. */
   override suspend fun detachPresentation() {
-    close()
-    awaitClosed()
+    renderLease = null
+    engineIdentity = null
+    abandonPending(pendingPlatformMapAccess)
+    destroyMap()
+    cameraTransitions.releaseAll()
+    activeGestureToken = null
+    surface = null
+    lifecycleAuthority.mapUnavailable()
   }
 
   /** Adopts this session and begins its presentation. The map itself waits for the first frame. */
@@ -486,8 +490,9 @@ internal class GlJsMapSession(
   /** Records that the current engine map has applied the logical map's desired state. */
   internal fun markPresentationStateReplayed() {
     if (hasReplayedPresentationState) return
+    val map = map ?: return
     hasReplayedPresentationState = true
-    map?.let(::applyRequestedStyle)
+    applyRequestedStyle(map)
     surface?.requestFrame()
   }
 
@@ -501,30 +506,22 @@ internal class GlJsMapSession(
     val lease = renderLease
     if (closing || engine == null || lease == null) throw CancellationException(changed)
     return suspendCancellableCoroutine { continuation ->
-      val invocation = PlatformMapInvocation(continuation)
-      lateinit var action: PendingMapAction
-      action =
+      val action =
         PendingMapAction(
           run = { map ->
-            invocation.executeGated(
-              changed,
-              lifecycleGate = { event ->
-                isCurrentPresentation(engine, lease).also { if (it) event() }
-              },
-              authorityGate = { lifecycleAuthority.acceptPresentationPlatformAccess(this, it) },
-            ) {
-              PlatformMapScope(map).block()
+            if (continuation.isActive) {
+              continuation.resumeWith(runCatching { PlatformMapScope(map).block() })
             }
           },
-          abandon = { invocation.fail(CancellationException(changed)) },
+          abandon = {
+            if (continuation.isActive)
+              continuation.resumeWith(Result.failure(CancellationException(changed)))
+          },
         )
-      continuation.invokeOnCancellation {
-        invocation.cancel()
-        pendingPlatformMapAccess.remove(action)
-      }
+      continuation.invokeOnCancellation { pendingPlatformMapAccess.remove(action) }
       val current = map
       if (current != null) action.run(current)
-      else if (invocation.isQueued) pendingPlatformMapAccess += action
+      else if (continuation.isActive) pendingPlatformMapAccess += action
     }
   }
 
@@ -645,6 +642,7 @@ internal class GlJsMapSession(
     val request = styleLoadTracker.request()
     if (engineIdentity != null) events.styleRequested(request)
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
+    else if (map == null) lifecycleAuthority.mapUnavailable()
   }
 
   override suspend fun <T> reconcileStyleRevision(

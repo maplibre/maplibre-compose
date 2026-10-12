@@ -76,7 +76,7 @@ class MapStateEventReactionTest {
     state.attachmentAuthority.setEngaged(adapter, engaged = true)
     assertTrue(state.isEngaged)
 
-    state.attachmentAuthority.invalidatePresentation(adapter)
+    state.attachmentAuthority.clearPresentation()
     assertFalse(state.isEngaged)
 
     state.close()
@@ -93,7 +93,7 @@ class MapStateEventReactionTest {
     state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
     assertTrue(state.isCameraMoving)
 
-    state.attachmentAuthority.invalidatePresentation(adapter)
+    state.attachmentAuthority.clearPresentation()
 
     assertFalse(state.isCameraMoving)
 

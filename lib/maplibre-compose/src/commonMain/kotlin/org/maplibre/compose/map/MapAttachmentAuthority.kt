@@ -189,35 +189,14 @@ internal class MapAttachmentAuthority(
     presence.value = Presence(closed = true)
   }
 
-  internal fun invalidatePresentation(adapter: MapAdapter?) {
+  internal fun clearPresentation() {
     lifecycle.requireMain()
     val outgoing = current
     Snapshot.withMutableSnapshot {
       current = null
       outgoing?.invalidate()
-      if (adapter?.retainsEngineBetweenPresentations != true) {
-        styleAuthority.style.loadState = StyleLoadState.Pending
-      }
     }
     presence.value = Presence()
-  }
-
-  /**
-   * Posted from the thread that closed [adapter], so it can run after a replacement was published.
-   * The style then belongs to the replacement and stays.
-   */
-  internal fun invalidateClosedAdapter(adapter: MapAdapter) {
-    lifecycle.requireMain()
-    val outgoing = current?.takeIf { it.adapter === adapter }
-    val replaced = lifecycle.currentAdapter().let { it != null && it !== adapter }
-    Snapshot.withMutableSnapshot {
-      if (!replaced) styleAuthority.invalidateClosedAdapter()
-      if (outgoing != null) {
-        current = null
-        outgoing.invalidate()
-      }
-    }
-    if (outgoing != null) presence.value = Presence()
   }
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {

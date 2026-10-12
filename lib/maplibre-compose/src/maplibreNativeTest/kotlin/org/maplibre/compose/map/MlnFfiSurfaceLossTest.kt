@@ -103,6 +103,7 @@ class MlnFfiSurfaceLossTest {
       // A presentation lease can end while its host remains available.
       runMapTest {
         it.session.detachPresentation()
+        it.session.beginPresentationAttachment()
         it.session.attachPresentation()
       }
       it.pumpUntil("the retained host to render a new attachment") {
@@ -136,7 +137,6 @@ class MlnFfiSurfaceLossTest {
       fixture.loadStyle(Style)
       fixture.pumpUntilRendered()
       val session = fixture.session
-      val engine = checkNotNull(session.lifecycle.engine)
       val map = checkNotNull(session.mapForTest)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
@@ -156,7 +156,7 @@ class MlnFfiSurfaceLossTest {
       } finally {
         fixture.rendererEnqueueFailure = null
         // Recover the deliberately failed handoff so this test releases its real GPU resources.
-        session.destroyEngine(engine)
+        session.stopMap()
       }
     } finally {
       val cleanup = runCatching { fixture.close() }

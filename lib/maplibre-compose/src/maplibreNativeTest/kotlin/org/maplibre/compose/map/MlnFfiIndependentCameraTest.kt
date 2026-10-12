@@ -194,7 +194,6 @@ class MlnFfiIndependentCameraTest {
   private fun fixture(): BridgeMapFixture {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     return BridgeMapFixture.create().also {
-      it.state.publishPresentation(it.state.reservePresentation(), it.session)
       it.bindState(it.state)
       it.loadStyle(BaseStyle.Empty)
       it.state.setCameraPosition(CameraPosition(zoom = 3.0))

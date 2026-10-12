@@ -47,6 +47,7 @@ private constructor(
   private val initialExtent: MapExtent,
   resourceConfig: MapResourceConfig,
   sharedRuntime: MapRuntime?,
+  present: Boolean,
 ) : AutoCloseable {
 
   private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
@@ -134,7 +135,11 @@ private constructor(
 
   init {
     recorder.bindState(state)
-    session.start()
+    if (present) {
+      val token = state.reservePresentation()
+      session.beginPresentationAttachment()
+      state.publishPresentation(token, session)
+    }
     session.onSurfaceAvailable(hostSession)
   }
 
@@ -374,8 +379,6 @@ private constructor(
 
   private fun requestStyle(style: BaseStyle) {
     checkNotNull(state.style.asMutable).baseStyle = style
-    // Design step 6 removes pending adapters; unpresented bridge tests still configure the session.
-    session.setBaseStyle(style)
   }
 
   /** [loadStyle] for a coroutine. */
@@ -593,12 +596,13 @@ private constructor(
       initialExtent: MapExtent = DefaultExtent,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
       runtime: MapRuntime? = null,
+      present: Boolean = true,
     ): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cacheFile = runtime?.nativeOwner?.options?.cacheFile ?: FfiTestPlatform.createCacheFile()
       return try {
-        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig, runtime)
+        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig, runtime, present)
       } catch (error: Throwable) {
         runCatching { driver.close() }
         if (runtime == null) FfiTestPlatform.deleteCacheFile(cacheFile)

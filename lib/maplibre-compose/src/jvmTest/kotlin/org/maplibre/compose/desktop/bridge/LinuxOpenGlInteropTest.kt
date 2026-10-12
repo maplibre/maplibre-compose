@@ -297,7 +297,8 @@ class LinuxOpenGlInteropTest {
       }
 
     init {
-      renderer.start()
+      state.reservePresentation()
+      renderer.beginPresentationAttachment()
       renderer.onSurfaceAvailable(hostSession)
     }
 

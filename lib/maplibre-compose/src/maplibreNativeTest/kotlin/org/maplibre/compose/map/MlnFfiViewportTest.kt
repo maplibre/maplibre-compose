@@ -65,7 +65,6 @@ class MlnFfiViewportTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val start = CameraPosition(zoom = 3.0, padding = DpPadding(top = 12.dp))
@@ -106,7 +105,6 @@ class MlnFfiViewportTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val start = CameraPosition(zoom = 3.0)
@@ -160,7 +158,6 @@ class MlnFfiViewportTest {
   fun an_animation_requested_before_the_first_viewport_reaches_its_target() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
@@ -184,7 +181,6 @@ class MlnFfiViewportTest {
   fun raw_platform_map_access_that_changes_the_transform_refreshes_the_viewport() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val camera = CameraPosition(center = Position(-74.006, 40.7128), zoom = 9.0, pitch = 45.0)

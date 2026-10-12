@@ -1417,9 +1417,6 @@ internal constructor(
   internal fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter? = null) =
     lifecycle.releasePresentation(token, adapter)
 
-  internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? =
-    lifecycle.retainedAdapter(compatibilityKey)
-
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = MapStateCallbacks(this)
 
   private fun requireOpen() {

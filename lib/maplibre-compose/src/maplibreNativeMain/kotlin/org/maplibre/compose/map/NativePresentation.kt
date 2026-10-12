@@ -79,7 +79,7 @@ import org.maplibre.nativeffi.render.NativePointer
  * such as for a feature query.
  */
 internal class NativePresentation(
-  private val backend: MapRenderBackend,
+  var backend: MapRenderBackend,
   private val isClosing: () -> Boolean,
   private val canRender: () -> Boolean,
   private val getLogger: () -> MapLog?,
