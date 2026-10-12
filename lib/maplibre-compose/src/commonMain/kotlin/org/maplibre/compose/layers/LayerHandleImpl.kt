@@ -24,7 +24,7 @@ internal constructor(
   private val operations: StyleHandleOperationGuard,
 ) : LayerHandle {
   override suspend fun getProperty(name: String): JsonElement? = read {
-    operations.visit { style.layerProperty(id, name) }
+    style.layerProperty(id, name)
   }
 
   internal fun setLayoutProperty(name: String, value: JsonElement) {

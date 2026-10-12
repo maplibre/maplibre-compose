@@ -380,33 +380,25 @@ internal interface MapStyleStateOwner {
  * write does nothing and logs a warning, and the read returns null.
  */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
-  /**
-   * Waits for resource commands accepted before this call. Callers wait on the resource instead:
-   * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
-   */
-  internal suspend fun awaitCommands() {
-    owner.resourceCommands.await()
-  }
-
   /** The map or snapshotter that owns this state, attached right after construction. */
   internal lateinit var owner: MapStyleStateOwner
     private set
 
-  // Owner-side commits publish one immutable index for readers on the engine thread too.
-  private val declarations = AtomicReference(StyleDeclarations(StyleSnapshot.Empty))
+  // Desired declarations and published handles are confined to main.
+  private var declarations = StyleDeclarations(StyleSnapshot.Empty)
 
   internal var declaredRevision: StyleSnapshot
-    get() = declarations.load().revision
-    set(value) = declarations.store(StyleDeclarations(value))
+    get() = declarations.revision
+    set(value) { declarations = StyleDeclarations(value) }
 
   internal fun desiredSourceDefinition(id: String): SourceDefinition? =
-    declarations.load().sources[id] ?: owner.resourceCommands.sourceDefinition(id)
+    declarations.sources[id] ?: owner.resourceCommands.sourceDefinition(id)
 
-  internal fun isSourceWritable(id: String): Boolean = id !in declarations.load().sources
+  internal fun isSourceWritable(id: String): Boolean = id !in declarations.sources
 
-  internal fun isLayerWritable(id: String): Boolean = id !in declarations.load().layers
+  internal fun isLayerWritable(id: String): Boolean = id !in declarations.layers
 
-  internal fun isImageWritable(id: String): Boolean = id !in declarations.load().images
+  internal fun isImageWritable(id: String): Boolean = id !in declarations.images
 
   internal fun requireSourceWritable(id: String) =
     requireWritable("Source", id, isSourceWritable(id))
@@ -422,7 +414,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun isReadyBinding(binding: StyleBinding): Boolean =
     loadState == StyleLoadState.Ready && isCurrentLoadedStyle(binding)
 
-  private val loadedStyle = AtomicReference<StyleBinding?>(null)
+  private var loadedStyle: StyleBinding? = null
   private var sourcesState: Map<String, SourceHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
   private var layersState: Map<String, LayerHandle> by
@@ -534,104 +526,14 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     mutateStyle("The projection", value) { it.setProjection(value) }
   }
 
-  /**
-   * Reads from the ready loaded style, or returns null without one. A style that stops being ready
-   * while the engine answers also reads as null: the value belongs to a generation that is gone.
-   */
-  private suspend fun <T> readStyle(read: (StyleBinding) -> T?): T? {
+  /** Ordered read from the ready style; an expired binding has no result. */
+  private suspend fun <T> readStyle(read: suspend (StyleBinding) -> T?): T? {
     owner.requireOpen()
     val current = readyLoadedStyle() ?: return null
-    return visit(current) { read(current) }
+    return operationGuard(current).read({ true }) { read(current) }
   }
 
-  /**
-   * Runs the engine work of a style command or read on the owner of [binding]. Every command and
-   * read reaches the engine through here.
-   *
-   * @return null, discarding what [action] did, when the owner closed or [binding] stopped being
-   *   the ready loaded style before or while [action] ran, including when [action] fails because
-   *   the style unloaded. Callers log a skipped command.
-   */
-  internal suspend fun <T> visit(binding: StyleBinding, action: () -> T?): T? {
-    val result = binding.awaitOwner {
-      if (!isLive(binding)) return@awaitOwner null
-      try {
-        action()
-      } catch (error: Exception) {
-        if (isLive(binding)) throw error
-        null
-      }
-    }
-    return result.takeIf { isLive(binding) }
-  }
-
-  /**
-   * Runs a handle read, such as one that queries the renderer, that may suspend anywhere. Every
-   * handle read goes through here.
-   *
-   * @return null when the owner closed, [binding] stopped being the ready loaded style, or
-   *   [isResourceCurrent] turned false before or while [action] ran, including when [action] fails
-   *   because of it.
-   */
-  internal suspend fun <T> read(
-    binding: StyleBinding,
-    isResourceCurrent: () -> Boolean = { true },
-    action: suspend () -> T?,
-  ): T? {
-    fun live() = isLive(binding) && isResourceCurrent()
-    if (!live()) return null
-    val result =
-      try {
-        action()
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        if (live()) throw error
-        return null
-      }
-    return result.takeIf { live() }
-  }
-
-  /**
-   * Posts a style write to the owner of [binding]. Every write reaches the engine through here. A
-   * write that the owner's close, a style change, or the replacement of its resource
-   * ([isResourceCurrent]) overtakes, before or while it runs, does nothing and logs one warning; an
-   * engine rejection is logged and keeps the previous value.
-   */
-  internal fun post(
-    binding: StyleBinding,
-    target: String,
-    value: JsonElement? = null,
-    isResourceCurrent: () -> Boolean = { true },
-    action: () -> Unit,
-  ) {
-    val dropped: () -> Unit = {
-      owner.logger?.w { "$target was not written: the loaded style changed first" }
-    }
-    binding.postOwner(onDropped = dropped) {
-      if (!isLive(binding)) return@postOwner dropped()
-      if (!isResourceCurrent()) {
-        owner.logger?.w { "$target was not written: it was removed or replaced first" }
-        return@postOwner
-      }
-      try {
-        action()
-      } catch (error: Exception) {
-        when {
-          !isLive(binding) -> dropped()
-          error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
-          else -> throw error
-        }
-      }
-    }
-  }
-
-  private fun isLive(binding: StyleBinding): Boolean = binding.isLoaded && owner.isCurrent(binding)
-
-  /**
-   * Posts a write to the ready loaded style. Without one, the write is skipped and logged. The
-   * engine reports a rejection through the logger.
-   */
+  /** Submits a write inline on main, or logs that no style is ready. */
   private fun mutateStyle(
     target: String,
     value: JsonElement? = null,
@@ -643,7 +545,15 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       owner.logger?.w { "$target was not written: no style is ready" }
       return
     }
-    post(current, target, value) { mutate(current) }
+    try {
+      mutate(current)
+    } catch (error: StyleMutationException) {
+      current.reportRejectedWrite(target, value, error)
+    }
+  }
+
+  internal fun forgetSourceHandle(id: String) {
+    sourcesState = sourcesState - id
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {
@@ -674,7 +584,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun updateLoadedStyle(style: StyleBinding?) {
     declaredRevision = StyleSnapshot.Empty
     publishedResources = null
-    loadedStyle.store(style)
+    loadedStyle = style
     sourcesState = emptyMap()
     layersState = emptyMap()
   }
@@ -682,22 +592,24 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun invalidateLoadedStyle() {
     declaredRevision = StyleSnapshot.Empty
     publishedResources = null
-    loadedStyle.exchange(null)?.invalidate()
+    loadedStyle?.invalidate()
+    loadedStyle = null
     sourcesState = emptyMap()
     layersState = emptyMap()
   }
 
-  internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
+  internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle === style
 
-  internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
+  internal fun currentLoadedStyle(): StyleBinding? = loadedStyle
 
-  /** Captures engine metadata in one owner visit, without touching published handles. */
-  internal fun readResources(current: StyleBinding): LoadedStyleResources {
-    val ids = current.sourceIds()
+  /** Reads ordered source and layer metadata without touching published handles. */
+  internal suspend fun readResources(current: StyleBinding): LoadedStyleResources {
+    val sourceObjects = current.sources()
+    val ids = sourceObjects.keys
     current.identity.sources.retain(ids.toSet())
     val sourceMetadata = ids.associateWith { id ->
       val definition = desiredSourceDefinition(id)
-      val source = current.getSource(id)
+      val source = sourceObjects[id]
       LoadedSourceMetadata(
         identity = current.identity.sources.get(id),
         kind = sourceKind(definition, source),
@@ -706,13 +618,13 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
         composed = definition != null,
       )
     }
-    val order = current.layerIds()
     val summaries = current.layerSummaries().associateBy { it.id }
+    val order = summaries.keys
     current.identity.layers.retain(order.toSet())
     val layers = order.associateWith { id ->
       LoadedLayerMetadata(
         current.identity.layers.get(id),
-        summaries[id] ?: declarations.load().layers[id],
+        summaries[id] ?: declarations.layers[id],
       )
     }
     return LoadedStyleResources(current, sourceMetadata, layers)
@@ -780,20 +692,31 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
       override fun isReady(): Boolean = owner.isCurrent(style)
 
-      override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) =
-        this@MapStyleState.post(
-          style,
-          target,
-          isResourceCurrent = isResourceCurrent,
-          action = action,
-        )
+      override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) {
+        if (!isReady() || !style.isLoaded || !isResourceCurrent()) return
+        try {
+          action()
+        } catch (error: StyleMutationException) {
+          style.reportRejectedWrite(target, null, error)
+        }
+      }
 
       override suspend fun <T> read(
         isResourceCurrent: () -> Boolean,
         action: suspend () -> T?,
-      ): T? = this@MapStyleState.read(style, isResourceCurrent, action)
-
-      override suspend fun <T> visit(action: () -> T?): T? = this@MapStyleState.visit(style, action)
+      ): T? {
+        fun live() = isReady() && style.isLoaded && isResourceCurrent()
+        if (!live()) return null
+        val result = try {
+          action()
+        } catch (error: CancellationException) {
+          throw error
+        } catch (error: Exception) {
+          if (live()) throw error
+          return null
+        }
+        return result.takeIf { live() }
+      }
 
       override fun isSourceWritable(id: String): Boolean = this@MapStyleState.isSourceWritable(id)
 

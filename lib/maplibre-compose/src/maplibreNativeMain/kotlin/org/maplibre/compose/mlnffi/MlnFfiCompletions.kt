@@ -5,7 +5,6 @@ package org.maplibre.compose.mlnffi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
@@ -43,20 +42,6 @@ internal fun <T> Deferred<T>.reportFailure(logger: MapLog?, what: String): Defer
     }
   }
   return this
-}
-
-/**
- * Waits on the calling thread for native work to finish. Only for code that already runs on a
- * background thread and has a synchronous contract to keep, such as a style visit.
- */
-internal fun <T> Deferred<T>.awaitBlocking(): T =
-  if (isCompleted) getCompleted() else runBlocking { await() }
-
-/** Waits for a command and throws its terminal failure. */
-internal fun Deferred<CommandCompletion>.awaitCommittedBlocking(): CommandCompletion {
-  val completion = awaitBlocking()
-  if (completion.failed) throw CommandFailedException(completion)
-  return completion
 }
 
 /** A command that native accepted and then failed. */

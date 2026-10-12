@@ -87,7 +87,7 @@ internal interface MapAdapter {
    * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
    * [capture] runs immediately after mutation in the same engine-owner visit.
    */
-  suspend fun <T> reconcileStyleRevision(revision: StyleSnapshot, capture: (StyleBinding) -> T): T
+  suspend fun <T> reconcileStyleRevision(revision: StyleSnapshot, capture: suspend (StyleBinding) -> T): T
 
   fun getCameraPosition(): CameraPosition
 

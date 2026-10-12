@@ -37,7 +37,7 @@ internal class MlnFfiRuntime(
   }
 
   val mainDispatcher = options.mainDispatcher ?: Dispatchers.Main
-  private val scope =
+  internal val mainScope =
     CoroutineScope(SupervisorJob() + mainDispatcher + CoroutineName("maplibre-compose-runtime"))
   private val lock = MlnFfiLock()
   private val maps = mutableMapOf<ULong, MapChild>()
@@ -59,7 +59,7 @@ internal class MlnFfiRuntime(
   }
 
   /** Async event handlers keep the synchronous drain free to deliver the rest of the batch. */
-  fun launchOnMain(action: suspend () -> Unit) = scope.launch { action() }
+  fun launchOnMain(action: suspend () -> Unit) = mainScope.launch { action() }
 
   @Volatile
   var failure: Throwable? = null
@@ -68,7 +68,7 @@ internal class MlnFfiRuntime(
   /** Opens the native runtime off the calling thread, then starts draining its events. */
   fun start() {
     opening =
-      scope.launch(Dispatchers.IO) {
+      mainScope.launch(Dispatchers.IO) {
         val owner =
           try {
             MlnFfiRuntimeOwner.open(
@@ -185,7 +185,7 @@ internal class MlnFfiRuntime(
         } catch (_: Throwable) {
           null
         }
-      scope.cancel()
+      mainScope.cancel()
       runtime = null
       val failures = mutableListOf<Throwable>()
       if (owner != null) runCatching { owner.close() }.exceptionOrNull()?.let(failures::add)

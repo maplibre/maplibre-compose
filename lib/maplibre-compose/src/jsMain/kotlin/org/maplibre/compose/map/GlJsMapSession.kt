@@ -649,7 +649,7 @@ internal class GlJsMapSession(
 
   override suspend fun <T> reconcileStyleRevision(
     revision: StyleSnapshot,
-    capture: (StyleBinding) -> T,
+    capture: suspend (StyleBinding) -> T,
   ): T {
     val binding = checkNotNull(styleBinding)
     try {

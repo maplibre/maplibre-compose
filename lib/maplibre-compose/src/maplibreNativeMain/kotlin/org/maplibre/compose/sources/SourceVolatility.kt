@@ -14,7 +14,7 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 public suspend fun SourceHandle.isVolatile(): Boolean? {
   val binding = implementation.style as MlnFfiStyleBinding
   return implementation.read {
-    implementation.visit { binding.sourceVolatile(id) }
+    binding.sourceVolatile(id)
   }
 }
 

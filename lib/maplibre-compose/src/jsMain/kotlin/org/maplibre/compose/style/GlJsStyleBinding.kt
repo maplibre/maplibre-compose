@@ -234,9 +234,11 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
-  override val baseLayers: List<LayerSummary> = layerSummaries()
+  override val baseLayers: List<LayerSummary> = map.getLayersOrder().mapNotNull { id ->
+    map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
+  }
   override val baseSources: Map<String, Source> =
-    sourceIds().mapNotNull { id -> getSource(id)?.let { id to it } }.toMap()
+    map.style.tileManagers.keys().mapNotNull { id -> reconstructSource(id)?.let { id to it } }.toMap()
 
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
@@ -282,31 +284,30 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun removeImage(id: String): Boolean {
+  override fun removeImage(id: String) {
     requireCurrent()
     indicatorImages.remove(id)
     indicators.values.forEach { it.resourceChanged() }
-    if (!map.hasImage(id)) return false
+    if (!map.hasImage(id)) return
     mutate("remove image '$id'") { map.removeImage(id) }
-    return true
   }
 
-  override fun imageExists(id: String): Boolean {
+  override suspend fun imageExists(id: String): Boolean {
     requireCurrent()
     return map.hasImage(id)
   }
 
-  override fun getSource(id: String): Source? {
+  override suspend fun getSource(id: String): Source? {
     requireCurrent()
     return reconstructSource(id)
   }
 
-  override fun sourceIds(): List<String> {
+  override suspend fun sourceIds(): List<String> {
     requireCurrent()
     return map.style.tileManagers.keys().toList()
   }
 
-  override fun layerSummaries(): List<LayerSummary> {
+  override suspend fun layerSummaries(): List<LayerSummary> {
     requireCurrent()
     return layerIds().mapNotNull { id ->
       indicators[id]?.let {
@@ -316,7 +317,7 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun getLayer(id: String): LayerDefinition? {
+  override suspend fun getLayer(id: String): LayerDefinition? {
     requireCurrent()
     indicators[id]?.let {
       return layerDefinitionFromJson(id, it.definition)
@@ -344,7 +345,7 @@ internal class GlJsStyleBinding(
         )
     }
 
-  override fun layerIds(): List<String> {
+  override suspend fun layerIds(): List<String> {
     requireCurrent()
     return if (restoringContext) layerOrder else map.getLayersOrder().toList()
   }
@@ -506,10 +507,7 @@ internal class GlJsStyleBinding(
     reloadCustomSource(sourceId)
   }
 
-  override fun sourceExists(sourceId: String): Boolean? {
-    requireCurrent()
-    return map.getSource<SourceHandle>(sourceId) != null
-  }
+
 
   /**
    * Adds the source without a URL and gives it the pixels in the same task, so no frame renders it
@@ -699,7 +697,7 @@ internal class GlJsStyleBinding(
    * Merged across the identifier forms: MapLibre keys state by the feature id's JS type, and a
    * feature the common API names as text may be stored under either.
    */
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
@@ -855,7 +853,7 @@ internal class GlJsStyleBinding(
    * Trying paint before layout is safe: the style spec gives no layer type a name in both. MapLibre
    * throws rather than answering for a name it does not have.
    */
-  override fun layerProperty(layerId: String, name: String): JsonElement? {
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? {
     requireCurrent()
     indicators[layerId]?.let {
       return it.propertyValue(name)
@@ -879,7 +877,7 @@ internal class GlJsStyleBinding(
     return value?.toJsonElement()
   }
 
-  override fun transition(): TransitionOptions? {
+  override suspend fun transition(): TransitionOptions? {
     requireCurrent()
     val transition = map.style.getTransition()
     return TransitionOptions(
@@ -899,7 +897,7 @@ internal class GlJsStyleBinding(
 
   override val supportsPlacementTransitions: Boolean = false
 
-  override fun placementTransitions(): Boolean? {
+  override suspend fun placementTransitions(): Boolean? {
     requireCurrent()
     return true
   }
@@ -911,7 +909,7 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun globalState(): JsonObject {
+  override suspend fun globalState(): JsonObject {
     requireCurrent()
     return map.getGlobalState().toJsonElement().jsonObject
   }
@@ -922,7 +920,7 @@ internal class GlJsStyleBinding(
     mutate("set global state") { map.setGlobalStateProperty(name, js) }
   }
 
-  override fun lightProperty(name: String): JsonElement? {
+  override suspend fun lightProperty(name: String): JsonElement? {
     requireCurrent()
     return map.getLight().asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
   }
@@ -941,7 +939,7 @@ internal class GlJsStyleBinding(
 
   override val supportsSky: Boolean = true
 
-  override fun skyProperty(name: String): JsonElement? {
+  override suspend fun skyProperty(name: String): JsonElement? {
     requireCurrent()
     val sky = map.getSky() ?: return null
     return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
@@ -962,7 +960,7 @@ internal class GlJsStyleBinding(
 
   override val supportsProjection: Boolean = true
 
-  override fun projectionProperty(name: String): JsonElement? {
+  override suspend fun projectionProperty(name: String): JsonElement? {
     requireCurrent()
     val projection = map.getProjection() ?: return null
     return projection.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
@@ -995,10 +993,7 @@ internal class GlJsStyleBinding(
     mutate(what) { set(cleared, unsafeJso { validate = false }) }
   }
 
-  override fun layerExists(layerId: String): Boolean? {
-    requireCurrent()
-    return map.getLayer(layerId) != null
-  }
+
 
   private inline fun mutate(what: String, action: () -> Unit) {
     val before = errorCount

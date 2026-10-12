@@ -95,7 +95,7 @@ protected constructor(
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject? =
     read {
-      operations.visit { style.featureState(id, sourceLayerId, featureId) }
+      style.featureState(id, sourceLayerId, featureId)
     }
 
   protected fun clearFeatureState(
@@ -128,7 +128,6 @@ protected constructor(
   }
 
   /** Runs a read through the owner's single engine path. */
-  internal suspend fun <T> visit(action: () -> T?): T? = operations.visit(action)
 }
 
 internal class GeoJsonSourceHandleImpl

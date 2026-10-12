@@ -333,7 +333,7 @@ internal class MapSnapshotterImplementation(
     StyleResourceCommands(
       style,
       runtime.physicalScope,
-      commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
+      commitSources = { binding -> commitSourcesAfterCommand(binding) },
     )
   }
 
@@ -439,7 +439,7 @@ internal class MapSnapshotterImplementation(
           try {
             // Drain accepted commands before a load enters Loading, which rejects further writes.
             // User composition and platform callbacks must run outside the command mutex.
-            val currentClaim = resourceCommands.withCommit { claimStyle() }
+            val currentClaim = run { claimStyle() }
             claim = currentClaim
             val prepared =
               platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
@@ -461,18 +461,16 @@ internal class MapSnapshotterImplementation(
             // A command sees the revision before or after this, never part of it.
             val groundScale =
               JsonPrimitive(groundScale(prepared.viewport.cameraPosition.center.latitude))
-            resourceCommands.withCommit {
+            run {
               declareRevision(currentBinding, revision)
               recordStyleOwnership(currentClaim, revision)
-              currentBinding.awaitOwner {
-                currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
-              }
+              currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
               platform.apply(revision)
               // Publish a reused style's handles before rendering, as a map does.
-              commitSourcesAfterCommand(currentBinding) {}
+              commitSourcesAfterCommand(currentBinding)
             }
             val image = platform.capture(request)
-            resourceCommands.withCommit {
+            run {
               if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
                 currentBinding.invalidate()
               }
@@ -552,7 +550,6 @@ internal class MapSnapshotterImplementation(
       return
     }
     val closeResult = runCatching {
-      resourceCommands.await()
       adapter?.close()
       Unit
     }
@@ -587,15 +584,9 @@ internal class MapSnapshotterImplementation(
    *
    * @return false, with nothing published, when the loaded style changed first.
    */
-  private suspend fun commitSourcesAfterCommand(
-    binding: StyleBinding,
-    mutate: () -> Unit,
-  ): Boolean {
-    val resources =
-      style.visit(binding) {
-        mutate()
-        style.readResources(binding)
-      } ?: return false
+  private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
+    if (!isCurrent(binding)) return false
+    val resources = style.readResources(binding)
     return lock.withLock {
       if (!isCurrentLocked(binding)) return@withLock false
       style.updateResources(resources)
@@ -702,7 +693,7 @@ internal class MapSnapshotterImplementation(
       true
     }
     if (!accepted) return false
-    val resources = binding.awaitOwner { style.readResources(binding) } ?: return false
+    val resources = style.readResources(binding)
     return lock.withLock {
       if (
         closed ||

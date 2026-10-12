@@ -29,7 +29,6 @@ internal class SourceInstallation(
     get() = current.load()
 
   init {
-    check(style.sourceExists(id) != true) { "Source ID '$id' already exists in style" }
     val added =
       try {
         style.addSource(definition.forInstallation())
@@ -127,7 +126,6 @@ internal class LayerInstallation(
   private val reportedUnsupported = mutableSetOf<String>()
 
   init {
-    check(style.layerExists(id) != true) { "Layer ID '$id' already exists in style" }
     add(beforeLayerId)
     reportUnsupported(definition)
   }

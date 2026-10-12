@@ -1,19 +1,14 @@
 package org.maplibre.compose.style
 
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -32,15 +27,9 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.mlnffi.CommandFailedException
-import org.maplibre.compose.mlnffi.MlnFfiLock
-import org.maplibre.compose.mlnffi.awaitBlocking
-import org.maplibre.compose.mlnffi.awaitCommittedBlocking
 import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.failureMessage
-import org.maplibre.compose.mlnffi.notFound
 import org.maplibre.compose.mlnffi.reportFailure
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -102,25 +91,6 @@ internal interface MlnFfiRenderSessions {
   }
 }
 
-/**
- * Where one map's style visits run, and the lock that orders style commands against a base-style
- * replacement.
- *
- * [StyleBinding] reads and writes synchronously inside a visit. Map commands and queries are
- * asynchronous, so a visit runs on [dispatcher], which serves one visit at a time in submission
- * order, and waits on that thread for the native results it needs.
- *
- * A command for a loaded style is checked and submitted under [lock], and so is the base-style
- * replacement that unloads it. Native runs submissions in order, so a command that passed the check
- * reaches the style it was written for.
- */
-internal class MlnFfiStyleVisits {
-  @OptIn(ExperimentalCoroutinesApi::class)
-  val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1)
-  val lock = MlnFfiLock()
-  val scope = CoroutineScope(SupervisorJob() + dispatcher)
-}
-
 /** What a loaded style held when it finished loading, read once for its binding. */
 internal class LoadedStyleContents(
   val layers: List<LayerSummary>,
@@ -145,15 +115,12 @@ internal class LoadedStyleContents(
 /**
  * [StyleBinding] for one loaded style in a MapLibre Native map.
  *
- * Reads and mutations run inside a visit on [visits], which waits for each native result it needs.
- * Layer property batches are submitted without waiting, and their rejections are reported when they
- * arrive. Feature queries go to the render session from any thread, and data preparation stays on
- * workers.
+ * Commands and ordered queries are submitted on main. Commands report completion failures on main;
+ * GeoJSON and custom tile preparation stay on workers.
  */
 internal open class MlnFfiStyleBinding(
   private val map: MapHandle,
-  /** Where this binding's visits run. Internal for tests. */
-  internal val visits: MlnFfiStyleVisits,
+  private val mainScope: CoroutineScope,
   contents: LoadedStyleContents,
   override val identity: StyleIdentity = StyleIdentity.create(),
   private val loggerProvider: () -> MapLog? = { null },
@@ -162,10 +129,11 @@ internal open class MlnFfiStyleBinding(
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
+  private val styleFailed: (StyleIdentity, Throwable) -> Unit = { _, _ -> },
   /** Receives the exception of a failed custom source provider call. */
   private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
-  @Volatile private var loaded = true
+  private var loaded = true
 
   /** Test seam: the map this style is loaded in. */
   internal val mapForTest: MapHandle
@@ -173,11 +141,9 @@ internal open class MlnFfiStyleBinding(
 
   private val geoJsonCoordinators =
     mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle>>()
-  private val geoJsonLock = MlnFfiLock()
 
   /** The tile coordinators serving this loaded style's custom sources, by source id. */
   private val tileCoordinators = mutableMapOf<String, MlnFfiTileRequestCoordinator<*>>()
-  private val tileLock = MlnFfiLock()
 
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
@@ -196,87 +162,64 @@ internal open class MlnFfiStyleBinding(
   override val baseSources: Map<String, Source> =
     contents.sources.associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
-  /** Runs [action] in a visit on [visits], and suspends until it has run. */
-  override suspend fun <T> awaitOwner(action: () -> T): T? {
-    if (!isLoaded) return null
-    return withContext(visits.dispatcher) {
-      if (!isLoaded) return@withContext null
-      try {
-        action()
-      } catch (error: Exception) {
-        // A style unloaded during this visit has nothing left to read or update.
-        if (isLoaded) throw error
-        null
-      }
-    }
-  }
-
-  override fun postOwner(onDropped: () -> Unit, action: () -> Unit) {
-    if (!isLoaded) return onDropped()
-    visits.scope.launch {
+  /** Posts a worker's prepared result to main before submitting it to the native executor. */
+  open fun submit(onDropped: () -> Unit = {}, command: (MapHandle) -> Unit) {
+    mainScope.launch {
       if (!isLoaded) return@launch onDropped()
       try {
-        action()
-      } catch (error: Exception) {
-        // A style unloaded during this accepted visit has nothing left to update.
-        if (isLoaded) throw error
-        onDropped()
-      }
-    }
-  }
-
-  /**
-   * Submits [command] if this style is still loaded, and returns at once. [onDropped] runs instead
-   * when the style has unloaded, and after [command] when it throws. Callable from any thread.
-   */
-  open fun submit(onDropped: () -> Unit = {}, command: (MapHandle) -> Unit) {
-    val submitted =
-      try {
-        visits.lock.withLock {
-          if (!isLoaded) false
-          else {
-            command(map)
-            true
-          }
-        }
+        command(map)
       } catch (error: Throwable) {
         onDropped()
         throw error
       }
-    if (!submitted) onDropped()
+    }
   }
 
-  /**
-   * Submits a command for this loaded style and returns its completion. Throws
-   * [IllegalStateException] when the style has unloaded, and [StyleMutationException] when native
-   * rejects the submission.
-   */
-  private fun <T> command(start: (MapHandle) -> Deferred<T>): Deferred<T> =
-    visits.lock.withLock {
-      requireCurrent()
+  /** Submits inline on main; failures are delivered on main through the completion. */
+  private fun write(
+    target: String = "The style",
+    value: JsonElement? = null,
+    onFailure: ((StyleMutationException) -> Unit)? = null,
+    start: (MapHandle) -> Deferred<CommandCompletion>,
+  ) {
+    requireCurrent()
+    fun rejected(error: StyleMutationException) {
+      if (!isLoaded) return
+      if (onFailure != null) onFailure(error) else reportRejectedWrite(target, value, error)
+    }
+    val completion = try {
+      start(map)
+    } catch (error: MaplibreException) {
+      rejected(StyleMutationException(error.message, error))
+      return
+    }
+    mainScope.launch {
       try {
-        start(map)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
+        val result = completion.await()
+        if (result.failed) rejected(StyleMutationException(result.failureMessage(), null))
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Exception) {
+        rejected(StyleMutationException(error.message, error))
       }
     }
-
-  /** Submits a command and waits for it, reporting a refusal as a [StyleMutationException]. */
-  private fun mutate(start: (MapHandle) -> Deferred<CommandCompletion>): CommandCompletion {
-    val completion = command(start)
-    return try {
-      completion.awaitCommittedBlocking()
-    } catch (error: CommandFailedException) {
-      throw StyleMutationException(error.message, error)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
   }
 
-  /** Runs one ordered query for this loaded style and waits for its result. */
-  private fun <T> read(start: (MapHandle) -> Deferred<T>): T {
+  /** One ordered query, submitted from main. */
+  private suspend fun <T> query(start: (MapHandle) -> Deferred<T>): T {
     requireCurrent()
-    return start(map).awaitBlocking()
+    return start(map).await()
+  }
+
+  /** Holds render updates while a synchronous revision submits its writes. */
+  fun commandGroup(action: () -> Unit) {
+    requireCurrent()
+    map.beginCommandGroup().reportFailure(logger, "begin style command group")
+    try {
+      action()
+    } finally {
+      map.endCommandGroup().reportFailure(logger, "end style command group")
+    }
   }
 
   override fun setImage(definition: StyleImageDefinition) {
@@ -304,37 +247,37 @@ internal open class MlnFfiStyleBinding(
         content = stretchPx?.content?.let { ImageContent(it.left, it.top, it.right, it.bottom) },
       )
     // The engine replaces an existing image in place, so no existence read is needed.
-    mutate { it.setStyleImage(id, image.pixels.ffi, options) }
+    write { it.setStyleImage(id, image.pixels.ffi, options) }
   }
 
-  override fun removeImage(id: String): Boolean {
-    val completion = command { it.removeStyleImage(id) }.awaitBlocking()
-    if (completion.notFound) return false
-    if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
-    return true
+  override fun removeImage(id: String) {
+    write("Image '$id'") { it.removeStyleImage(id) }
   }
 
-  override fun imageExists(id: String): Boolean? = read { it.getStyleImage(id) } != null
+  override suspend fun imageExists(id: String): Boolean? = query { it.getStyleImage(id) } != null
 
-  override fun getSource(id: String): Source? = read {
+  override suspend fun getSource(id: String): Source? = query {
     it.getStyleSource(id)
   }
     ?.let { reconstructedSource(id, sourceDefinition(it)) }
 
-  override fun sourceIds(): List<String> = read { it.listStyleSources() }.map { it.id }
+  override suspend fun sources(): Map<String, Source> = query { it.listStyleSources() }
+    .associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
-  override fun getLayer(id: String): LayerDefinition? {
-    val json = read { it.getStyleLayerJson(id) } ?: return null
+  override suspend fun sourceIds(): List<String> = query { it.listStyleSources() }.map { it.id }
+
+  override suspend fun getLayer(id: String): LayerDefinition? {
+    val json = query { it.getStyleLayerJson(id) } ?: return null
     val definition =
       json.toJsonElement() as? JsonObject
-        ?: buildJsonObject { read { it.getStyleLayer(id) }?.type?.let { put("type", it) } }
+        ?: buildJsonObject { query { it.getStyleLayer(id) }?.type?.let { put("type", it) } }
     return layerDefinitionFromJson(id, definition)
   }
 
   /** The full engine order: insertions and moves are relative to it. */
-  override fun layerIds(): List<String> = read { it.listStyleLayers() }.map { it.id }
+  override suspend fun layerIds(): List<String> = query { it.listStyleLayers() }.map { it.id }
 
-  override fun layerSummaries(): List<LayerSummary> = read {
+  override suspend fun layerSummaries(): List<LayerSummary> = query {
     it.listStyleLayers()
   }
     .map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
@@ -378,23 +321,19 @@ internal open class MlnFfiStyleBinding(
 
   override fun invalidate() {
     if (!loaded) return
-    visits.lock.withLock { loaded = false }
-    val coordinators = geoJsonLock.withLock {
-      geoJsonCoordinators.values.toList().also { geoJsonCoordinators.clear() }
-    }
-    coordinators.forEach { it.close() }
-    val tiles = tileLock.withLock {
-      tileCoordinators.values.toList().also { tileCoordinators.clear() }
-    }
-    tiles.forEach { it.close() }
+    loaded = false
+    geoJsonCoordinators.values.toList().forEach { it.close() }
+    geoJsonCoordinators.clear()
+    tileCoordinators.values.toList().forEach { it.close() }
+    tileCoordinators.clear()
   }
 
   fun setSourceVolatile(sourceId: String, value: Boolean) {
-    mutate { it.setStyleSourceVolatile(sourceId, value) }
+    write { it.setStyleSourceVolatile(sourceId, value) }
   }
 
   /** Whether the source skips persistent storage writes, or null when it does not exist. */
-  fun sourceVolatile(sourceId: String): Boolean? = read { it.getStyleSource(sourceId) }?.isVolatile
+  suspend fun sourceVolatile(sourceId: String): Boolean? = query { it.getStyleSource(sourceId) }?.isVolatile
 
   /**
    * MapLibre Native implements no encoding but mapbox and terrarium.
@@ -414,15 +353,15 @@ internal open class MlnFfiStyleBinding(
    * JSON. Wraps a refusal the way [addSource] does.
    */
   fun addSourceWith(sourceId: String, add: (MapHandle) -> Deferred<CommandCompletion>): Boolean {
-    mutate(add)
+    write(onFailure = { styleFailed(identity, it) }, start = add)
     sourceChanged(sourceId)
     return true
   }
 
   override fun removeSource(sourceId: String) {
-    mutate { it.removeStyleSource(sourceId) }
+    write { it.removeStyleSource(sourceId) }
     identity.sources.remove(sourceId)
-    geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
+    geoJsonCoordinators.remove(sourceId)?.close()
     sourceChanged(sourceId)
     removeTileCoordinator(sourceId)
   }
@@ -464,11 +403,11 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
-    mutate { it.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds()) }
+    write { it.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds()) }
   }
 
   override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
-    mutate { it.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId()) }
+    write { it.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
 
   override fun addCustomVectorSource(
@@ -519,7 +458,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    mutate { it.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
+    write { it.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
 
   /**
@@ -531,11 +470,7 @@ internal open class MlnFfiStyleBinding(
     coordinator: MlnFfiTileRequestCoordinator<*>,
     add: (MapHandle) -> Deferred<CommandCompletion>,
   ): Boolean {
-    // Checked under the lock that invalidate() takes after unloading, so no coordinator outlives
-    // the style.
-    val replaced = tileLock.withLock {
-      if (isLoaded) tileCoordinators.put(sourceId, coordinator) else coordinator
-    }
+    val replaced = if (isLoaded) tileCoordinators.put(sourceId, coordinator) else coordinator
     replaced?.close()
     val added =
       try {
@@ -549,11 +484,9 @@ internal open class MlnFfiStyleBinding(
   }
 
   private fun removeTileCoordinator(sourceId: String) {
-    tileLock.withLock { tileCoordinators.remove(sourceId) }?.close()
+    tileCoordinators.remove(sourceId)?.close()
   }
 
-  override fun sourceExists(sourceId: String): Boolean? =
-    read { it.getStyleSource(sourceId) } != null
 
   override fun addImageSourceImage(
     sourceId: String,
@@ -567,16 +500,16 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
-    mutate { it.setImageSourceImage(sourceId, image.pixels.ffi) }
+    write { it.setImageSourceImage(sourceId, image.pixels.ffi) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    mutate { it.setImageSourceUrl(sourceId, url) }
+    write { it.setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     val corners = coordinates.map { it.toLatLng() }
-    mutate { it.setImageSourceCoordinates(sourceId, corners) }
+    write { it.setImageSourceCoordinates(sourceId, corners) }
   }
 
   override fun addGeoJsonSource(
@@ -610,13 +543,13 @@ internal open class MlnFfiStyleBinding(
   ) {
     requireCurrent()
     val coordinator =
-      geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
+      geoJsonCoordinators[sourceId]
         ?: geoJsonCoordinator(
           sourceId,
           loadedGeoJsonOptions(sourceId) ?: fallbackOptions.toFfiOptions(),
         )
     try {
-      coordinator.submit(data) { url -> mutate { it.setGeojsonSourceUrl(sourceId, url) } }
+      coordinator.submit(data) { url -> write { it.setGeojsonSourceUrl(sourceId, url) } }
     } catch (error: StyleMutationException) {
       sourceDataFailed(identity, sourceId, error)
       throw error
@@ -645,45 +578,34 @@ internal open class MlnFfiStyleBinding(
         prepare = { data -> prepareGeoJson(data, options) },
         // Native leases the prepared data at submission; the wait reports its outcome.
         install = install@{ prepared, isCurrent ->
-            var installed: Deferred<CommandCompletion>? = null
-            submit {
-              if (isCurrent()) installed = it.setGeojsonSourceData(sourceId, prepared)
+            withContext(mainScope.coroutineContext) {
+              if (!isLoaded || !isCurrent()) return@withContext
+              val completion = map.setGeojsonSourceData(sourceId, prepared).await()
+              if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
             }
-            val completion = installed?.await() ?: return@install
-            if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
           },
         reportFailure = { error, isCurrent ->
-          if (isLoaded && isCurrent()) {
-            logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
-            sourceDataFailed(identity, sourceId, error)
+          withContext(mainScope.coroutineContext) {
+            if (isLoaded && isCurrent()) {
+              logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
+              sourceDataFailed(identity, sourceId, error)
+            }
           }
         },
       )
-    geoJsonLock
-      .withLock {
-        if (!isLoaded) {
-          coordinator.close()
-          requireCurrent()
-        }
-        geoJsonCoordinators.put(sourceId, coordinator)
-      }
-      ?.close()
+    requireCurrent()
+    geoJsonCoordinators.put(sourceId, coordinator)?.close()
     return coordinator
   }
 
   /** Native still-image requests must include data submitted by the desired revision. */
   internal suspend fun awaitGeoJsonUpdates() {
-    // The visit barrier includes accepted URL updates and newly created coordinators.
-    val coordinators = awaitOwner { geoJsonLock.withLock { geoJsonCoordinators.values.toList() } }
-    coordinators?.forEach { it.awaitLatest() }
+    geoJsonCoordinators.values.toList().forEach { it.awaitLatest() }
     requireCurrent()
   }
 
   private fun loadedGeoJsonOptions(sourceId: String): GeojsonSourceOptions? {
-    val document =
-      runCatching { read { it.getLoadedStyleJson() }.toJsonElement() }.getOrNull() as? JsonObject
-    val sources = document?.get("sources") as? JsonObject
-    val source = sources?.get(sourceId) as? JsonObject ?: return null
+    val source = declaredSources[sourceId] as? JsonObject ?: return null
     if ((source["type"] as? JsonPrimitive)?.content != "geojson") return null
     val defaults = GeoJsonOptions.Standard
     val minZoom = (source["minzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.minZoom.toDouble()
@@ -831,16 +753,16 @@ internal open class MlnFfiStyleBinding(
   ): () -> Unit {
     val bytes = state.toJsonBytes()
     val selector = featureStateSelector(sourceId, sourceLayerId, featureId)
-    return { mutate { it.setFeatureState(selector, bytes) } }
+    return { write { it.setFeatureState(selector, bytes) } }
   }
 
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
   ): JsonObject =
     Json.parseToJsonElement(
-        read { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) }
+        query { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) }
           .decodeToString()
       )
       .jsonObject
@@ -851,13 +773,13 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     stateKey: String?,
   ) {
-    mutate {
+    write {
       it.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
     }
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    mutate { it.removeFeatureState(featureStateSelector(sourceId, sourceLayerId)) }
+    write { it.removeFeatureState(featureStateSelector(sourceId, sourceLayerId)) }
   }
 
   /** Empty rather than an exception when no render session is attached. */
@@ -885,16 +807,18 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
-    mutate { it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null }) }
+    write(onFailure = { styleFailed(identity, it) }) {
+      it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
+    }
     return true
   }
 
   override fun removeLayer(layerId: String) {
-    mutate { it.removeStyleLayer(layerId) }
+    write { it.removeStyleLayer(layerId) }
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String) {
-    mutate { it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null }) }
+    write { it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null }) }
   }
 
   override fun setLayerProperty(
@@ -904,7 +828,7 @@ internal open class MlnFfiStyleBinding(
     kind: LayerPropertyKind,
   ) {
     val start = layerPropertyCommand(layerId, name, value, kind)
-    mutate(start)
+    write(start = start)
   }
 
   /**
@@ -912,31 +836,12 @@ internal open class MlnFfiStyleBinding(
    * than one per write. A rejection is reported when it arrives, which the batch contract allows.
    */
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
-    writes.forEach { write ->
+    writes.forEach { change ->
       try {
-        val start =
-          if (write.kind == LayerPropertyKind.Root && write.name == "filter")
-            { map: MapHandle -> map.setStyleLayerFilter(write.layerId, write.value.toJsonBytes()) }
-          else layerPropertyCommand(write.layerId, write.name, write.value, write.kind)
-        val completion = command(start)
-        completion.invokeOnCompletion { error ->
-          @OptIn(ExperimentalCoroutinesApi::class)
-          val failure =
-            when {
-              error is CancellationException -> null
-              error != null -> StyleMutationException(error.message, error)
-              else ->
-                completion
-                  .getCompleted()
-                  .takeIf { it.failed }
-                  ?.let {
-                    StyleMutationException(it.failureMessage(), null)
-                  }
-            }
-          failure?.let { reportRejectedWrite(write, it) }
-        }
+        write(onFailure = { reportRejectedWrite(change, it) },
+          start = layerPropertyCommand(change.layerId, change.name, change.value, change.kind))
       } catch (error: StyleMutationException) {
-        reportRejectedWrite(write, error)
+        reportRejectedWrite(change, error)
       }
     }
   }
@@ -976,84 +881,87 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutate { it.setStyleLayerFilter(layerId, filter.toJsonBytes()) }
+    write { it.setStyleLayerFilter(layerId, filter.toJsonBytes()) }
   }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? =
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
     when (name) {
       "id" -> JsonPrimitive(layerId)
-      "type" -> read { it.getStyleLayer(layerId) }?.type?.let(::JsonPrimitive)
+      "type" -> query { it.getStyleLayer(layerId) }?.type?.let(::JsonPrimitive)
       "source" ->
-        read { it.getStyleLayer(layerId) }
+        query { it.getStyleLayer(layerId) }
           ?.sourceId
           ?.takeIf(String::isNotEmpty)
           ?.let(::JsonPrimitive)
       "source-layer" ->
-        read { it.getStyleLayer(layerId) }
+        query { it.getStyleLayer(layerId) }
           ?.sourceLayer
           ?.takeIf(String::isNotEmpty)
           ?.let(::JsonPrimitive)
       "minzoom" ->
-        read { it.getStyleLayer(layerId) }?.minZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
+        query { it.getStyleLayer(layerId) }?.minZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
       "maxzoom" ->
-        read { it.getStyleLayer(layerId) }?.maxZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "filter" -> read { it.getStyleLayerFilter(layerId) }?.toJsonElement()
-      else -> read { it.getStyleLayerProperty(layerId, name) }?.toJsonElement()
+        query { it.getStyleLayer(layerId) }?.maxZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
+      "filter" -> query { it.getStyleLayerFilter(layerId) }?.toJsonElement()
+      else -> query { it.getStyleLayerProperty(layerId, name) }?.toJsonElement()
     }
 
   /** An unset native duration applies paint changes instantly, so it reads as zero. */
-  override fun transition(): TransitionOptions? {
-    val options = read { it.getStyleTransitionOptions() }
+  override suspend fun transition(): TransitionOptions? {
+    val options = query { it.getStyleTransitionOptions() }
     return TransitionOptions(
       duration = options.durationMs?.milliseconds ?: Duration.ZERO,
       delay = options.delayMs?.milliseconds ?: Duration.ZERO,
     )
   }
 
-  /** Native replaces every field on write, so the placement flag is read back first. */
+  private var transitionOptions = org.maplibre.nativeffi.generated.StyleTransitionOptions(
+    durationMs = ((contents.document?.get("transition") as? JsonObject)?.get("duration") as? JsonPrimitive)?.doubleOrNull,
+    delayMs = ((contents.document?.get("transition") as? JsonObject)?.get("delay") as? JsonPrimitive)?.doubleOrNull,
+    enablePlacementTransitions = true,
+  )
+
   override fun setTransition(options: TransitionOptions) {
-    val current = read { it.getStyleTransitionOptions() }
-    mutate {
-      it.setStyleTransitionOptions(
-        current.copy(
-          durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS),
-          delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS),
-        )
-      )
-    }
+    val next = transitionOptions.copy(
+      durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS),
+      delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS),
+    )
+    write("The style transition") { it.setStyleTransitionOptions(next) }
+    transitionOptions = next
   }
 
   override val supportsPlacementTransitions: Boolean = true
 
-  override fun placementTransitions(): Boolean? =
-    read { it.getStyleTransitionOptions() }.enablePlacementTransitions ?: true
+  override suspend fun placementTransitions(): Boolean? =
+    query { it.getStyleTransitionOptions() }.enablePlacementTransitions ?: true
 
   override fun setPlacementTransitions(enabled: Boolean) {
-    val current = read { it.getStyleTransitionOptions() }
-    mutate { it.setStyleTransitionOptions(current.copy(enablePlacementTransitions = enabled)) }
+    val next = transitionOptions.copy(enablePlacementTransitions = enabled)
+    write("The placement transition setting") { it.setStyleTransitionOptions(next) }
+    transitionOptions = next
   }
 
-  override fun globalState(): JsonObject? =
-    Json.parseToJsonElement(read { it.getGlobalState() }.decodeToString()).jsonObject
+  override suspend fun globalState(): JsonObject? =
+    Json.parseToJsonElement(query { it.getGlobalState() }.decodeToString()).jsonObject
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     val bytes = value.toJsonBytes()
-    mutate { it.setGlobalStateProperty(name, bytes) }
+    write { it.setGlobalStateProperty(name, bytes) }
   }
 
-  override fun lightProperty(name: String): JsonElement? = read {
+  override suspend fun lightProperty(name: String): JsonElement? = query {
     it.getStyleLightProperty(name)
   }
     ?.toJsonElement()
 
   override fun setLight(light: JsonObject) {
     val bytes = light.toJsonBytes()
-    mutate { it.setStyleLightJson(bytes) }
+    write { it.setStyleLightJson(bytes) }
   }
 
   override val supportsSky: Boolean = false
 
-  override fun skyProperty(name: String): JsonElement? {
+  override suspend fun skyProperty(name: String): JsonElement? {
     requireCurrent()
     return null
   }
@@ -1065,7 +973,7 @@ internal open class MlnFfiStyleBinding(
 
   override val supportsProjection: Boolean = false
 
-  override fun projectionProperty(name: String): JsonElement? {
+  override suspend fun projectionProperty(name: String): JsonElement? {
     requireCurrent()
     return null
   }
@@ -1077,7 +985,6 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  override fun layerExists(layerId: String): Boolean? = read { it.getStyleLayer(layerId) } != null
 
   // A property's transition travels the same write path, and native refuses it as hard as the
   // property itself.

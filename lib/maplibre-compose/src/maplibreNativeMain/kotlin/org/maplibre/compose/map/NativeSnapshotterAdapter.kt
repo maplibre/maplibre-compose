@@ -20,7 +20,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.MlnFfiStyleVisits
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.UnspecifiedBaseStyle
@@ -117,14 +116,8 @@ private class NativeSnapshotterAdapter(
   override suspend fun apply(revision: StyleSnapshot) {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     val prepared = reconciler.prepare(binding, revision)
-    checkNotNull(
-      binding.awaitOwner {
-        providerFailure = null
-        reconciler.apply(binding, prepared)
-      }
-    ) {
-      "The snapshotter engine map stopped during style reconciliation"
-    }
+    providerFailure = null
+    binding.commandGroup { reconciler.apply(binding, prepared) }
   }
 
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap {
@@ -225,12 +218,10 @@ private class NativeSnapshotterAdapter(
     load.minimumGeneration = current.map.getSnapshot().generation + 1u
     val submitted =
       try {
-        current.styleVisits.lock.withLock {
-          when (baseStyle) {
-            is BaseStyle.Uri -> current.map.setStyleUrl(baseStyle.uri)
-            is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json.encodeToByteArray())
-            UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
-          }
+        when (baseStyle) {
+          is BaseStyle.Uri -> current.map.setStyleUrl(baseStyle.uri)
+          is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json.encodeToByteArray())
+          UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
         }
       } catch (error: MaplibreException) {
         current.endStyleLoad(load)
@@ -311,7 +302,8 @@ private class NativeSnapshotterAdapter(
   private fun createStyleBinding(current: NativeSnapshotEngine): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = current.map,
-      visits = current.styleVisits,
+      mainScope = owner.mainScope,
+      styleFailed = { _, error -> providerFailure = error },
       contents =
         current.loadedContents ?: error("MapLibre reported a loaded style without contents"),
       loggerProvider = { owner.options.logger },
@@ -387,7 +379,6 @@ private constructor(
   lateinit var session: RenderSessionHandle
     private set
 
-  val styleVisits = MlnFfiStyleVisits()
 
   /** Signalled by the session's frame wake. */
   val frameResults = Channel<Unit>(Channel.CONFLATED)

@@ -25,7 +25,7 @@ import org.maplibre.compose.style.groundScale
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
  * [MapState]. State changes run on the main thread; engine mutations and metadata reads run in
- * accepted owner visits and publish only while their binding is current.
+ * ordered queries and publish only while their binding and revision are current.
  */
 internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
@@ -38,13 +38,13 @@ internal class MapStyleAuthority(
     StyleResourceCommands(
       style,
       runtime.mainScope,
-      commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
+      commitSources = { binding -> commitSourcesAfterCommand(binding) },
     )
 
   override val logger: MapLog?
     get() = runtime.logger
 
-  private var baseStyleCommandRevision = 0L
+  private var revision = 0L
   private var groundScale: Float? = null
   /** The style and value of the last ground-scale write. */
   private var writtenGroundScale: Pair<StyleBinding, Float>? = null
@@ -70,37 +70,26 @@ internal class MapStyleAuthority(
   internal suspend fun refreshStyleResources(adapter: MapAdapter, ready: Boolean = false): Boolean {
     lifecycle.requireMain()
     val binding = style.currentLoadedStyle() ?: return false
-    return resourceCommands.withCommit {
-      if (!acceptsResources(adapter, binding)) return@withCommit false
-      if (style.loadState is StyleLoadState.Failed) return@withCommit false
-      if (ready && style.hasResources(binding)) {
-        style.loadState = StyleLoadState.Ready
-        writeGroundScale()
-        return@withCommit true
-      }
-      val resources =
-        try {
-          binding.awaitOwner { style.readResources(binding) } ?: return@withCommit false
-        } catch (error: CancellationException) {
-          throw error
-        } catch (error: Throwable) {
-          if (acceptsResources(adapter, binding)) throw error
-          return@withCommit false
-        }
-      if (!acceptsResources(adapter, binding) || !publishResources(resources))
-        return@withCommit false
-      if (ready) {
-        style.loadState = StyleLoadState.Ready
-        writeGroundScale()
-      }
-      true
+    if (!acceptsResources(adapter, binding) || style.loadState is StyleLoadState.Failed) return false
+    if (ready && style.hasResources(binding)) {
+      style.loadState = StyleLoadState.Ready
+      writeGroundScale()
+      return true
     }
+    val capturedRevision = revision
+    val resources = style.readResources(binding)
+    if (capturedRevision != revision || !publishResources(resources)) return false
+    if (ready) {
+      style.loadState = StyleLoadState.Ready
+      writeGroundScale()
+    }
+    return true
   }
 
   private fun acceptsResources(adapter: MapAdapter, binding: StyleBinding): Boolean =
     lifecycle.acceptsAdapter(adapter) && style.isCurrentLoadedStyle(binding) && binding.isLoaded
 
-  /** All metadata producers hold the command mutex through this main-thread publication. */
+  /** Publishes ordered metadata while the loaded style remains current. */
   private fun publishResources(resources: LoadedStyleResources): Boolean {
     lifecycle.requireMain()
     if (
@@ -149,9 +138,7 @@ internal class MapStyleAuthority(
       return
     writtenGroundScale = binding to value
     val json = JsonPrimitive(value)
-    style.post(binding, "The ground scale", json) {
-      binding.setGlobalStateProperty(GroundScaleGlobalState, json)
-    }
+    binding.setGlobalStateProperty(GroundScaleGlobalState, json)
   }
 
   override fun readyLoadedStyle(): StyleBinding? =
@@ -167,19 +154,21 @@ internal class MapStyleAuthority(
     adapter: MapAdapter,
     binding: StyleBinding,
     revision: StyleSnapshot,
-  ) = resourceCommands.withCommit {
+  ) {
     currentCoroutineContext().ensureActive()
-    if (!beginStyleRevision(adapter, revision, binding)) return@withCommit
+    if (!beginStyleRevision(adapter, revision, binding)) return
+    val acceptedRevision = ++this.revision
     try {
-      // Once accepted, commit and publish together: cancellation must not lose committed changes.
       withContext(NonCancellable) {
         val resources = adapter.reconcileStyleRevision(revision) { style.readResources(it) }
-        if (acceptsResources(adapter, binding)) publishResources(resources)
+        if (acceptedRevision == this@MapStyleAuthority.revision && acceptsResources(adapter, binding)) {
+          publishResources(resources)
+        }
       }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      if (lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === binding) {
+      if (acceptedRevision == this.revision && acceptsResources(adapter, binding)) {
         runtime.logger?.w(error) { "Could not apply style content" }
         markStyleFailed(adapter, error.message)
       }
@@ -215,11 +204,12 @@ internal class MapStyleAuthority(
     val adapter = lifecycle.currentAdapter()
     if (adapter == null) {
       style.loadState = StyleLoadState.Pending
-      baseStyleCommandRevision++
+      revision++
       return
     }
     style.loadState = StyleLoadState.Loading
-    applyBaseStyleCommand(BaseStyleCommand(adapter, value, ++baseStyleCommandRevision))
+    revision++
+    adapter.setBaseStyle(value)
   }
 
   /**
@@ -260,8 +250,6 @@ internal class MapStyleAuthority(
   ) {
     var rememberFailure = false
     try {
-      // A queued miss may arrive after another request or style command supplied the image.
-      if (binding.awaitOwner { binding.imageExists(imageId) } == true) return
       val resolved =
         try {
           resolver.resolve(MissingImageRequest(imageId))
@@ -298,16 +286,11 @@ internal class MapStyleAuthority(
   }
 
   /** @return false, with nothing published, when the loaded style changed first. */
-  private suspend fun commitSourcesAfterCommand(
-    binding: StyleBinding,
-    mutate: () -> Unit,
-  ): Boolean {
-    val resources =
-      style.visit(binding) {
-        mutate()
-        style.readResources(binding)
-      } ?: return false
-    return publishResources(resources)
+  private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
+    if (!isCurrent(binding) || !binding.isLoaded) return false
+    val capturedRevision = ++revision
+    val resources = style.readResources(binding)
+    return capturedRevision == revision && publishResources(resources)
   }
 
   override fun isCurrent(binding: StyleBinding): Boolean =
@@ -343,20 +326,7 @@ internal class MapStyleAuthority(
   internal fun configurePendingAdapter(adapter: MapAdapter) {
     lifecycle.requireMain()
     if (!lifecycle.isPendingPublication(adapter)) return
-    applyBaseStyleCommand(BaseStyleCommand(adapter, style.baseStyle, baseStyleCommandRevision))
-  }
-
-  private fun applyBaseStyleCommand(initial: BaseStyleCommand) {
-    var command = initial
-    while (true) {
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      command.adapter.setBaseStyle(command.value)
-      // The adapters report the outgoing style and invalidate its binding inside setBaseStyle. Code
-      // that reaches inline can assign a newer base style, which this replays.
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      if (baseStyleCommandRevision == command.revision) return
-      command = BaseStyleCommand(command.adapter, style.baseStyle, baseStyleCommandRevision)
-    }
+    adapter.setBaseStyle(style.baseStyle)
   }
 
   override fun requireOpen() {
@@ -364,9 +334,4 @@ internal class MapStyleAuthority(
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
-  private data class BaseStyleCommand(
-    val adapter: MapAdapter,
-    val value: BaseStyle,
-    val revision: Long,
-  )
 }

@@ -49,7 +49,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.MlnFfiStyleVisits
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
@@ -210,7 +209,6 @@ internal class MlnFfiMapSession(
       drain = owner::drain,
     )
 
-  private val styleVisits = MlnFfiStyleVisits()
 
   internal val canPresentFrames: Boolean
     get() = styleLoadTracker.presentation != StylePresentation.Hidden
@@ -264,7 +262,13 @@ internal class MlnFfiMapSession(
   private suspend fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = map,
-      visits = styleVisits,
+      mainScope = owner.mainScope,
+      styleFailed = { identity, error ->
+        if (styleBinding?.identity === identity) {
+          styleLoadTracker.failed(identity)
+          events.styleFailed(styleLoadTracker.requestId, error.message)
+        }
+      },
       contents = LoadedStyleContents.read(map),
       loggerProvider = { logger },
       sessionOpen = { !isClosing },
@@ -655,23 +659,18 @@ internal class MlnFfiMapSession(
 
   override suspend fun <T> reconcileStyleRevision(
     revision: StyleSnapshot,
-    capture: (StyleBinding) -> T,
+    capture: suspend (StyleBinding) -> T,
   ): T {
     val binding = checkNotNull(styleBinding)
     try {
       val prepared = styleReconciler.prepare(binding, revision)
-      return checkNotNull(
-        binding.awaitOwner {
-          styleReconciler.apply(binding, prepared)
-          val resources = capture(binding)
-          if (!styleLoadTracker.contentReady && styleLoadTracker.reconciled(binding.identity)) {
-            events.styleReady(binding.identity)
-          }
-          resources
-        }
-      ) {
-        "The map became unavailable during style reconciliation"
+      binding.commandGroup { styleReconciler.apply(binding, prepared) }
+      val resources = capture(binding)
+      if (styleBinding === binding && !styleLoadTracker.contentReady &&
+        styleLoadTracker.reconciled(binding.identity)) {
+        events.styleReady(binding.identity)
       }
+      return resources
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -683,17 +682,13 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle, style: BaseStyle, request: StyleRequestId) {
     if (isClosing) return
     styleCompletion = null
-    // Submitted under the style lock that orders it after every command a visit of the replaced
-    // style submitted, and before any later one, which then sees that style unloaded.
     val submitted =
       try {
-        styleVisits.lock.withLock {
-          styleBinding?.invalidate()
-          when (style) {
-            is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-            is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
-            UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
-          }
+        styleBinding?.invalidate()
+        when (style) {
+          is BaseStyle.Uri -> map.setStyleUrl(style.uri)
+          is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
+          UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
         }
       } catch (error: MaplibreException) {
         styleRequestFailed(request, style, error.message ?: "Failed to apply the base style", error)

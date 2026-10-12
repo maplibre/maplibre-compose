@@ -32,12 +32,9 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * Engine reads and mutations run inline inside [awaitOwner] or [postOwner]. Handles and commands
- * choose the visit, check resource identity, and report posted refusals. Mutations throw
- * [StyleMutationException] on engine refusal; layer batches log each refusal and continue.
- *
- * Suspending feature queries use the renderer or the browser's worker API. GeoJSON submission
- * starts worker preparation without waiting; prepared data returns to the owner for installation.
+ * Writes submit inline on main without waiting for engine completion. Native reports rejected
+ * writes asynchronously; browser writes run inline. Suspending reads observe every command
+ * submitted before them. GeoJSON preparation remains asynchronous.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -56,8 +53,7 @@ internal interface StyleBinding {
 
   /**
    * @throws IllegalStateException when the style has unloaded. Handles check first and never let it
-   *   reach the caller; [awaitOwner] and [postOwner] absorb it when the style unloads during a
-   *   visit.
+   *   reach the caller.
    */
   fun requireCurrent() {
     check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
@@ -73,47 +69,32 @@ internal interface StyleBinding {
   val logger: MapLog?
 
   /**
-   * Runs [action] where this binding's synchronous operations execute inline, and suspends until it
-   * has run. On MapLibre Native that is the map's owner thread, so the calls [action] makes need no
-   * round trip each and the caller's thread never waits on the owner. MapLibre GL JS runs [action]
-   * during the call.
-   *
-   * @return the result, or null when the style has unloaded or the owner stops before [action]
-   *   runs, or when the style unloads while [action] runs and [action] fails.
-   */
-  suspend fun <T> awaitOwner(action: () -> T): T? = if (isLoaded) action() else null
-
-  /**
-   * Runs [action] on the engine owner without waiting. It runs inline during an owner visit and is
-   * dropped if this style has unloaded or unloads before it runs; [onDropped] then runs instead.
-   * Callers capture and check resource identity inside [action].
-   */
-  fun postOwner(onDropped: () -> Unit = {}, action: () -> Unit) {
-    if (isLoaded) action() else onDropped()
-  }
-
-  /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
    * two.
    */
   fun setImage(definition: StyleImageDefinition)
 
-  /** @return whether [id] was in the style. */
-  fun removeImage(id: String): Boolean
+  /** Removes [id]; an engine rejection is logged. */
+  fun removeImage(id: String)
 
   /** @return whether [id] exists, or null when the implementation cannot determine the result. */
-  fun imageExists(id: String): Boolean?
+  suspend fun imageExists(id: String): Boolean?
 
-  fun getSource(id: String): Source?
+  suspend fun getSource(id: String): Source?
 
-  fun sourceIds(): List<String>
+  suspend fun sourceIds(): List<String>
 
-  fun getLayer(id: String): LayerDefinition?
+  /** Captures source metadata with one ordered query on native. */
+  suspend fun sources(): Map<String, Source> = sourceIds().mapNotNull { id ->
+    getSource(id)?.let { id to it }
+  }.toMap()
 
-  fun layerIds(): List<String>
+  suspend fun getLayer(id: String): LayerDefinition?
 
-  fun layerSummaries(): List<LayerSummary> = layerIds().mapNotNull { getLayer(it)?.summary() }
+  suspend fun layerIds(): List<String>
+
+  suspend fun layerSummaries(): List<LayerSummary> = layerIds().mapNotNull { getLayer(it)?.summary() }
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -184,16 +165,7 @@ internal interface StyleBinding {
   }
 
   /** @return null if the layer has no value for [name]. */
-  fun layerProperty(layerId: String, name: String): JsonElement?
-
-  /**
-   * Checks whether the style contains a live layer with [layerId]. Callers use the result to report
-   * a specific duplicate-layer error.
-   *
-   * @return null if the style has unloaded or the implementation cannot determine the result. The
-   *   engine still rejects a duplicate during insertion.
-   */
-  fun layerExists(layerId: String): Boolean?
+  suspend fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
    * The platform's current animator duration scale. Every transition the library writes to this
@@ -203,7 +175,7 @@ internal interface StyleBinding {
   val animatorDurationScale: Float
 
   /** @return the loaded style's global transition. */
-  fun transition(): TransitionOptions?
+  suspend fun transition(): TransitionOptions?
 
   /** Replaces the loaded style's global transition. */
   fun setTransition(options: TransitionOptions)
@@ -215,7 +187,7 @@ internal interface StyleBinding {
    * @return whether symbol placement changes cross-fade. An engine without
    *   [supportsPlacementTransitions] reports true.
    */
-  fun placementTransitions(): Boolean?
+  suspend fun placementTransitions(): Boolean?
 
   /**
    * Sets whether symbol placement changes cross-fade. An engine without
@@ -224,13 +196,13 @@ internal interface StyleBinding {
   fun setPlacementTransitions(enabled: Boolean)
 
   /** Reads effective global values. */
-  fun globalState(): JsonObject?
+  suspend fun globalState(): JsonObject?
 
   /** Writes global state. JSON null restores the root default, or null if absent. */
   fun setGlobalStateProperty(name: String, value: JsonElement)
 
   /** @return null if the style light sets no value for [name]. */
-  fun lightProperty(name: String): JsonElement?
+  suspend fun lightProperty(name: String): JsonElement?
 
   /**
    * Replaces the style light. A property absent from [light] returns to its spec default. An engine
@@ -245,7 +217,7 @@ internal interface StyleBinding {
    * @return null if the style sky sets no value for [name]. An engine without [supportsSky] reports
    *   null.
    */
-  fun skyProperty(name: String): JsonElement?
+  suspend fun skyProperty(name: String): JsonElement?
 
   /**
    * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
@@ -261,7 +233,7 @@ internal interface StyleBinding {
    * @return null if the style projection sets no value for [name]. An engine without
    *   [supportsProjection] reports null.
    */
-  fun projectionProperty(name: String): JsonElement?
+  suspend fun projectionProperty(name: String): JsonElement?
 
   /**
    * Replaces the style projection. A property absent from [projection] returns to its spec default.
@@ -328,15 +300,6 @@ internal interface StyleBinding {
 
   /** Removes a source and its feature state. */
   fun removeSource(sourceId: String)
-
-  /**
-   * Checks whether the style contains a live source with [sourceId]. Callers use the result to
-   * report a specific duplicate-source error.
-   *
-   * @return null if the style has unloaded or the implementation cannot determine the result. The
-   *   engine still rejects a duplicate during insertion.
-   */
-  fun sourceExists(sourceId: String): Boolean?
 
   /**
    * Adds an image source from prepared pixels, which source JSON cannot carry.
@@ -453,7 +416,7 @@ internal interface StyleBinding {
 
   /**
    * Captures [state] on the caller; the returned command merges it into one feature's state. A null
-   * value drops that key. Run it inside an owner visit after checking the source installation
+   * value drops that key. Run it on main after checking the source installation
    * identity. Preparation does not call the engine.
    */
   fun prepareFeatureStateUpdate(
@@ -464,7 +427,7 @@ internal interface StyleBinding {
   ): () -> Unit
 
   /** @return an empty object when the feature has no state. */
-  fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
+  suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
 
   /** Removes one key of a feature's state, or the whole state when [stateKey] is null. */
   fun removeFeatureState(

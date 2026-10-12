@@ -28,14 +28,11 @@ internal interface StyleHandleOperationGuard {
    */
   fun isReady(): Boolean
 
-  /** Posts a write through the owner's single write path; see `MapStyleState.post`. */
+  /** Submits a write inline after checking style and resource identity. */
   fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit)
 
-  /** Runs a handle read through the owner's single read path; see `MapStyleState.read`. */
+  /** Runs an ordered query and discards a result whose resource expired. */
   suspend fun <T> read(isResourceCurrent: () -> Boolean, action: suspend () -> T?): T?
-
-  /** Runs a read through the owner's single engine path; see `MapStyleState.visit`. */
-  suspend fun <T> visit(action: () -> T?): T?
 
   fun isSourceWritable(id: String): Boolean
 
