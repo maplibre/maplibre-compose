@@ -216,6 +216,8 @@ class MapPresentationTest {
       older.join()
       assertEquals(listOf("latest"), fixture.state.style.sources.map { it.id })
       assertEquals(revision("latest"), fixture.state.style.declaredRevision)
+      val handle = assertIs<VectorTileSourceHandle>(fixture.state.style.sources["latest"])
+      assertEquals(JsonObject(emptyMap()), handle.getFeatureState("layer", "1"))
     } finally {
       finishRead.complete(Unit)
       fixture.close()

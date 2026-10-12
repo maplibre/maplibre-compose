@@ -27,8 +27,8 @@ class BaseSourceRestoreTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val source = assertIs<VectorTileSource>(runBlocking { style.getSource(SourceId) })
-      runBlocking { style.uninstall(source) }
-      runBlocking { style.install(source) }
+      style.uninstall(source)
+      style.install(source)
 
       val restored = assertIs<VectorTileSource>(runBlocking { style.getSource(SourceId) })
       assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
@@ -25,7 +23,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
@@ -607,7 +604,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal suspend fun readResources(current: StyleBinding): LoadedStyleResources {
     val sourceObjects = current.sources()
     val ids = sourceObjects.keys
-    current.identity.sources.retain(ids.toSet())
     val sourceMetadata = ids.associateWith { id ->
       val definition = desiredSourceDefinition(id)
       val source = sourceObjects[id]
@@ -621,7 +617,6 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     }
     val summaries = current.layerSummaries().associateBy { it.id }
     val order = summaries.keys
-    current.identity.layers.retain(order.toSet())
     val layers = order.associateWith { id ->
       LoadedLayerMetadata(
         current.identity.layers.get(id),
@@ -639,6 +634,8 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   /** Builds and publishes handles on the state owner, reusing unchanged resource identities. */
   internal fun updateResources(resources: LoadedStyleResources) {
     val current = resources.binding
+    current.identity.sources.retain(resources.sources.keys)
+    current.identity.layers.retain(resources.layers.keys)
     val previous = publishedResources?.takeIf { it.binding === current }
     val sources =
       resources.sources

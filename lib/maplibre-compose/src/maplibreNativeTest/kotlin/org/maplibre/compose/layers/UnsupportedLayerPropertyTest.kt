@@ -87,7 +87,7 @@ class UnsupportedLayerPropertyTest {
       )
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and installation turns that into a throw.
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
       style.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
@@ -118,7 +118,7 @@ class UnsupportedLayerPropertyTest {
         "icon-overlap",
         (const("never").compile(ExpressionContext.None)).asLayerProperty(),
       )
-      runBlocking { style.run { handle.update(layer.definition()) } }
+      handle.update(layer.definition())
       style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
@@ -149,12 +149,12 @@ class UnsupportedLayerPropertyTest {
         "text-overlap",
         (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val installation = runBlocking { style.install(layer) }
+      val installation = style.install(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
       for (value in listOf("cooperative", "never")) {
         layer.layout("icon-overlap", const(value).compile(ExpressionContext.None).asLayerProperty())
-        runBlocking { style.run { installation.update(layer.definition()) } }
+        installation.update(layer.definition())
       }
       assertEquals(
         1,
@@ -177,7 +177,7 @@ class UnsupportedLayerPropertyTest {
         "text-rotation-alignment",
         (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
@@ -225,7 +225,7 @@ class UnsupportedLayerPropertyTest {
       layer.paintTransition("fill-layer-opacity", TransitionOptions(500.milliseconds))
       // The assertion is that this returns at all: a layer object carrying either key is refused
       // wholesale, and installation turns that into a throw.
-      runBlocking { style.install(layer) }
+      style.install(layer)
 
       style.onMap { map ->
         assertTrue(map.styleLayerExists("fills"), "the layer should have been added")
@@ -253,7 +253,7 @@ class UnsupportedLayerPropertyTest {
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
       )
-      .also { runBlocking { style.install(it) } }
+      .also { style.install(it) }
 
   private companion object {
     /** Warnings the library logged. */

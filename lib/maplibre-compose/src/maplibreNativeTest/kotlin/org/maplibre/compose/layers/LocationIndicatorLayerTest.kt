@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -134,7 +133,7 @@ class LocationIndicatorLayerTest {
         "perspective-compensation",
         (const(0.9f).compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
       // The renderer evaluates the layer only when a frame is drawn, and image properties that
       // arrive as expressions abort it there rather than at addLayer.
@@ -201,7 +200,7 @@ class LocationIndicatorLayerTest {
           Position(longitude = -122.0, latitude = 37.0, altitude = 10.0)
         ),
       )
-      runBlocking { style.run { handle.update(layer.definition()) } }
+      handle.update(layer.definition())
       style.onMap { map ->
         assertEquals(
           JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),

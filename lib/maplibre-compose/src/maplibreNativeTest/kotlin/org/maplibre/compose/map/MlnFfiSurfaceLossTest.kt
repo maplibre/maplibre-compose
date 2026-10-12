@@ -184,7 +184,7 @@ class MlnFfiSurfaceLossTest {
               }
             ),
         )
-      runBlocking { style.install(source) }
+      style.install(source)
       val layer = TestLayer("circles", "circle", source)
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(
@@ -202,7 +202,7 @@ class MlnFfiSurfaceLossTest {
             .compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      runBlocking { style.install(layer) }
+      style.install(layer)
 
       runBlocking {
         style.run {

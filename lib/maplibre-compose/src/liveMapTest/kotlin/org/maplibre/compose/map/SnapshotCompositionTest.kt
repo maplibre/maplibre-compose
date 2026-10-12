@@ -57,6 +57,7 @@ class SnapshotCompositionTest {
     val reconciler = StyleReconciler()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -65,7 +66,7 @@ class SnapshotCompositionTest {
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
-        }
+        },
       )
     val source =
       GeoJsonSource(
@@ -124,7 +125,8 @@ class SnapshotCompositionTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
-        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) }
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
       )
     try {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) {}
@@ -147,6 +149,7 @@ class SnapshotCompositionTest {
     val reconciler = StyleReconciler()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -155,7 +158,7 @@ class SnapshotCompositionTest {
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
-        }
+        },
       )
     try {
       val snapshotter =
@@ -181,7 +184,11 @@ class SnapshotCompositionTest {
 
   @Test
   fun snapshot_disposes_style_effects_without_holding_resource_commands() = runTest {
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
+    val runtime =
+      mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = { FakeSnapshotterAdapter() },
+      )
     val cleanup = CompletableDeferred<Result<Unit>>()
     try {
       lateinit var snapshotter: MapSnapshotter
@@ -231,7 +238,11 @@ class SnapshotCompositionTest {
           captured.image.toImageBitmap()
         }
       )
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
+    val runtime =
+      mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = { adapter },
+      )
     val source =
       GeoJsonSource(
         "features",
@@ -272,10 +283,11 @@ class SnapshotCompositionTest {
     var adapterCreations = 0
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           adapterCreations++
           FakeSnapshotterAdapter()
-        }
+        },
       )
     try {
       val snapshotter =

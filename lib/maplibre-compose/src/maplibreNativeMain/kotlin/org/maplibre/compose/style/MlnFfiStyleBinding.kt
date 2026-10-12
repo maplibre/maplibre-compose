@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -601,14 +602,14 @@ internal open class MlnFfiStyleBinding(
         prepare = { data -> prepareGeoJson(data, options) },
         // Native leases the prepared data at submission; the wait reports its outcome.
         install = install@{ prepared, isCurrent ->
-            withContext(mainScope.coroutineContext) {
+            withContext(mainScope.coroutineContext.minusKey(Job)) {
               if (!isLoaded || !isCurrent()) return@withContext
               val completion = map.setGeojsonSourceData(sourceId, prepared).await()
               if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
             }
           },
         reportFailure = { error, isCurrent ->
-          withContext(mainScope.coroutineContext) {
+          withContext(mainScope.coroutineContext.minusKey(Job)) {
             if (isLoaded && isCurrent()) {
               logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
               sourceDataFailed(identity, sourceId, error)

@@ -35,8 +35,8 @@ class MlnFfiMapRepaintTest {
         TestLayer("green", "background").apply {
           paint("background-color", (const(Color.Green)).asLayerProperty())
         }
-      fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { runBlocking { style.install(layer) } }
-      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { runBlocking { style.uninstall(layer) } }
+      fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { style.install(layer) }
+      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { style.uninstall(layer) }
       assertEquals(emptyList(), fixture.errors)
     }
   }

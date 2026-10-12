@@ -463,19 +463,15 @@ internal class MapSnapshotterImplementation(
             // A command sees the revision before or after this, never part of it.
             val groundScale =
               JsonPrimitive(groundScale(prepared.viewport.cameraPosition.center.latitude))
-            run {
-              declareRevision(currentBinding, revision)
-              recordStyleOwnership(currentClaim, revision)
-              currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
-              platform.apply(revision)
-              // Publish a reused style's handles before rendering, as a map does.
-              commitSourcesAfterCommand(currentBinding)
-            }
+            declareRevision(currentBinding, revision)
+            recordStyleOwnership(currentClaim, revision)
+            currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
+            platform.apply(revision)
+            // Publish a reused style's handles before rendering, as a map does.
+            commitSourcesAfterCommand(currentBinding)
             val image = platform.capture(request)
-            run {
-              if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
-                currentBinding.invalidate()
-              }
+            if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
+              currentBinding.invalidate()
             }
             Result.success(image)
           } catch (error: Throwable) {
