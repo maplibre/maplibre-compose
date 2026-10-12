@@ -301,7 +301,7 @@ private class NativeSnapshotterAdapter(
   private fun createStyleBinding(current: NativeSnapshotEngine): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = current.map,
-      mainScope = owner.mainScope,
+      owner = owner,
       styleFailed = { _, error -> providerFailure = error },
       contents =
         current.loadedContents ?: error("MapLibre reported a loaded style without contents"),

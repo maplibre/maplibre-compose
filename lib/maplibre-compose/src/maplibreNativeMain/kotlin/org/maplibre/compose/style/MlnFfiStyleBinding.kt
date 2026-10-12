@@ -4,13 +4,11 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -28,6 +26,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.failureMessage
 import org.maplibre.compose.mlnffi.reportFailure
@@ -121,7 +120,7 @@ internal class LoadedStyleContents(
  */
 internal open class MlnFfiStyleBinding(
   private val map: MapHandle,
-  private val mainScope: CoroutineScope,
+  private val owner: MlnFfiRuntime,
   contents: LoadedStyleContents,
   override val identity: StyleIdentity = StyleIdentity.create(),
   private val loggerProvider: () -> MapLog? = { null },
@@ -165,8 +164,8 @@ internal open class MlnFfiStyleBinding(
 
   /** Posts a worker's prepared result to main before submitting it to the native executor. */
   open fun submit(onDropped: () -> Unit = {}, command: (MapHandle) -> Unit) {
-    mainScope.launch {
-      if (!isLoaded) return@launch onDropped()
+    owner.postToMain {
+      if (!isLoaded) return@postToMain onDropped()
       try {
         command(map)
       } catch (error: Throwable) {
@@ -177,6 +176,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   /** Submits inline on main; failures are delivered on main through the completion. */
+  @OptIn(ExperimentalCoroutinesApi::class)
   private fun write(
     target: String = "The style",
     value: JsonElement? = null,
@@ -195,15 +195,18 @@ internal open class MlnFfiStyleBinding(
         rejected(StyleMutationException(error.message, error))
         return
       }
-    completion.invokeOnCompletion {
-      mainScope.launch {
-        try {
-          val result = completion.await()
-          if (result.failed) rejected(StyleMutationException(result.failureMessage(), null))
-        } catch (error: CancellationException) {
-          throw error
-        } catch (error: Exception) {
-          rejected(StyleMutationException(error.message, error))
+    completion.invokeOnCompletion { error ->
+      owner.postToMain {
+        when {
+          error is CancellationException -> Unit
+          error != null -> rejected(StyleMutationException(error.message, error))
+          else ->
+            completion
+              .getCompleted()
+              .takeIf { it.failed }
+              ?.let {
+                rejected(StyleMutationException(it.failureMessage(), null))
+              }
         }
       }
     }
@@ -602,14 +605,14 @@ internal open class MlnFfiStyleBinding(
         prepare = { data -> prepareGeoJson(data, options) },
         // Native leases the prepared data at submission; the wait reports its outcome.
         install = install@{ prepared, isCurrent ->
-            withContext(mainScope.coroutineContext.minusKey(Job)) {
+            withContext(owner.mainDispatcher) {
               if (!isLoaded || !isCurrent()) return@withContext
               val completion = map.setGeojsonSourceData(sourceId, prepared).await()
               if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
             }
           },
         reportFailure = { error, isCurrent ->
-          withContext(mainScope.coroutineContext.minusKey(Job)) {
+          withContext(owner.mainDispatcher) {
             if (isLoaded && isCurrent()) {
               logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
               sourceDataFailed(identity, sourceId, error)

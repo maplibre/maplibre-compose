@@ -199,7 +199,7 @@ class MlnFfiTileRequestCoordinatorTest {
           owner.awaitRuntime().createMap(GeneratedApi.mapOptionsDefault()).await()
         }
       try {
-        action(DroppingBinding(map, owner.mainScope))
+        action(DroppingBinding(map, owner))
       } finally {
         map.release().await()
       }
@@ -210,10 +210,10 @@ class MlnFfiTileRequestCoordinatorTest {
     }
   }
 
-  private class DroppingBinding(map: MapHandle, scope: kotlinx.coroutines.CoroutineScope) :
+  private class DroppingBinding(map: MapHandle, owner: MlnFfiRuntime) :
     MlnFfiStyleBinding(
       map,
-      scope,
+      owner,
       LoadedStyleContents(emptyList(), emptyList(), null),
       sessionOpen = { true },
     ) {

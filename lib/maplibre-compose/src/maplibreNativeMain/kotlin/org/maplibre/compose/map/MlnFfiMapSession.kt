@@ -260,7 +260,7 @@ internal class MlnFfiMapSession(
   private suspend fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = map,
-      mainScope = owner.mainScope,
+      owner = owner,
       styleFailed = { identity, error ->
         if (styleBinding?.identity === identity) {
           styleLoadTracker.failed(identity)

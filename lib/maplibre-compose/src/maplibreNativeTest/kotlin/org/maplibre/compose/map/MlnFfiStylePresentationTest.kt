@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
@@ -16,10 +19,41 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LoadedStyleContents
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.nativeffi.runtime.CommandCompletion
 
 class MlnFfiStylePresentationTest {
+
+  @Test
+  fun an_already_completed_refusal_is_reported_after_the_write_returns() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(InitialStyle)
+      val loaded = assertNotNull(fixture.style) as MlnFfiStyleBinding
+      var reported = false
+      val binding =
+        MlnFfiStyleBinding(
+          map = loaded.mapForTest,
+          owner = fixture.state.runtime.nativeOwner,
+          contents = LoadedStyleContents.read(loaded.mapForTest),
+          sessionOpen = { loaded.isLoaded },
+          styleFailed = { _, error ->
+            assertEquals("refused", error.message)
+            reported = true
+          },
+        )
+      val refusal =
+        CompletableDeferred<CommandCompletion>().apply {
+          completeExceptionally(IllegalArgumentException("refused"))
+        }
+      binding.addSourceWith("refused") { refusal }
+      assertFalse(reported, "a refusal must not call application code during the write")
+      fixture.pumpUntil("the refusal to be delivered on main") { reported }
+      assertTrue(reported)
+    }
+  }
 
   @Test
   fun property_updates_render_without_repeating_style_readiness() = runBlocking {
