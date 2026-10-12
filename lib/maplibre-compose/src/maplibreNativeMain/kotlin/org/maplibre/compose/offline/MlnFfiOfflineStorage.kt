@@ -278,7 +278,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     pack: OfflinePack,
     start: () -> Deferred<OfflineRegionStatus>,
   ) {
-    val revision = pack.progressRevision
+    val revision = lock.withLock { pack.progressRevision }
     try {
       val status = run("read the status of offline pack ${pack.regionId}", start)
       lock.withLock {
