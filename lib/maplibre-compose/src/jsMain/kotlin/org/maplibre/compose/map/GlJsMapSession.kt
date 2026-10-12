@@ -80,7 +80,9 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.positions
 import org.maplibre.compose.util.toBoundingBox
+import org.maplibre.compose.util.toCameraPadding
 import org.maplibre.compose.util.toDpOffset
+import org.maplibre.compose.util.toDpPadding
 import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toLngLat
@@ -759,7 +761,9 @@ internal class GlJsMapSession(
 
   /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
-  private var viewportInsets: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
+  private val insets = ViewportInsets()
+  private val viewportInsets: PaddingOptions
+    get() = insets.applied.toPaddingOptions()
 
   override fun getCameraPosition(): CameraPosition =
     withMap(requestedCamera ?: CameraPosition()) { map -> map.readCameraPosition(viewportInsets) }
@@ -772,13 +776,14 @@ internal class GlJsMapSession(
   }
 
   override fun setViewportInsets(insets: PaddingValues) {
-    val resolved = insets.toPaddingOptions(layoutDirection)
-    if (viewportInsets.sameAs(resolved)) return
-    engineCall { cameraTransitions.cancelAnchor(map) }
-    val camera = getCameraPosition()
-    viewportInsets = resolved
+    if (!this.insets.set(insets.toDpPadding(layoutDirection))) return
+    val padding =
+      this.insets.apply(
+        beforeChange = { engineCall { cameraTransitions.cancelAnchor(map) } },
+        currentCamera = ::getCameraPosition,
+      ) ?: return
     onMap { map ->
-      map.jumpTo(unsafeJso<JumpToOptions> { this.padding = camera.effectivePadding() })
+      map.jumpTo(unsafeJso<JumpToOptions> { this.padding = padding.toPaddingOptions() })
     }
   }
 
@@ -932,14 +937,7 @@ internal class GlJsMapSession(
     val current = readCameraPosition(viewportInsets)
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val persistentPadding = destination.effectivePadding()
-    val transientPadding = fitPadding.toPaddingOptions()
-    val combinedPadding =
-      unsafeJso<PaddingOptions> {
-        top = persistentPadding.top + transientPadding.top
-        right = persistentPadding.right + transientPadding.right
-        bottom = persistentPadding.bottom + transientPadding.bottom
-        left = persistentPadding.left + transientPadding.left
-      }
+    val combinedPadding = (persistentPadding.toCameraPadding() + fitPadding).toPaddingOptions()
     val camera =
       cameraForBounds(
         boundingBox.toLngLatBounds(),
@@ -1472,15 +1470,8 @@ internal class GlJsMapSession(
     update.padding?.let { padding = CameraPosition(padding = it).effectivePadding() }
   }
 
-  private fun CameraPosition.effectivePadding(): PaddingOptions = unsafeJso {
-    top = viewportInsets.top + padding.top.value
-    left = viewportInsets.left + padding.left.value
-    bottom = viewportInsets.bottom + padding.bottom.value
-    right = viewportInsets.right + padding.right.value
-  }
-
-  private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =
-    top == other.top && left == other.left && bottom == other.bottom && right == other.right
+  private fun CameraPosition.effectivePadding(): PaddingOptions =
+    (insets.applied + padding).toPaddingOptions()
 
   internal companion object {
     const val OffscreenContainerStyle =

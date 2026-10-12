@@ -61,8 +61,10 @@ import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.compose.util.renderedQueryOptions
 import org.maplibre.compose.util.toCameraOptions
+import org.maplibre.compose.util.toCameraPadding
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
+import org.maplibre.compose.util.toDpPadding
 import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toLatLng
@@ -719,7 +721,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun setViewportInsets(insets: PaddingValues) {
-    val resolved = insets.toEdgeInsets(layoutDirection)
+    val resolved = insets.toDpPadding(layoutDirection)
     if (!viewport.setInsets(resolved)) return
 
     val map = map ?: return
@@ -804,7 +806,7 @@ internal class MlnFfiMapSession(
         val current = map.getSnapshot().camera.toCameraPosition(insets)
         val destination = current.copy(padding = cameraPadding ?: current.padding)
         val persistent = checkNotNull(destination.toCameraOptions(insets).padding)
-        val total = persistent + fitPadding.toEdgeInsets()
+        val total = (persistent.toCameraPadding() + fitPadding).toEdgeInsets()
         persistent to fit(CameraFitOptions(padding = total, bearing = bearing, pitch = pitch))
       }
     val camera = fitted.await()
@@ -826,14 +828,6 @@ internal class MlnFfiMapSession(
       }
     return camera.copy(center = center, padding = persistent)
   }
-
-  private operator fun EdgeInsets.plus(other: EdgeInsets): EdgeInsets =
-    EdgeInsets(
-      top = top + other.top,
-      left = left + other.left,
-      bottom = bottom + other.bottom,
-      right = right + other.right,
-    )
 
   override suspend fun animateCamera(
     update: CameraUpdate,

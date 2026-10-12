@@ -8,9 +8,9 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
-import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
+import org.maplibre.compose.util.toCameraPadding
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.Position
@@ -38,16 +38,7 @@ internal fun MaplibreMap.readCameraPosition(viewportInsets: PaddingOptions): Cam
     bearing = getBearing(),
     center = getCenter().toPosition(),
     pitch = getPitch(),
-    padding =
-      getPadding().let {
-        DpPadding(
-          // Fractional insets leave floating-point residue, and GL JS rejects negative padding.
-          left = (it.left - viewportInsets.left).coerceAtLeast(0.0).dp,
-          top = (it.top - viewportInsets.top).coerceAtLeast(0.0).dp,
-          right = (it.right - viewportInsets.right).coerceAtLeast(0.0).dp,
-          bottom = (it.bottom - viewportInsets.bottom).coerceAtLeast(0.0).dp,
-        )
-      },
+    padding = getPadding().toCameraPadding().relativeTo(viewportInsets.toCameraPadding()),
     zoom = getZoom(),
   )
 

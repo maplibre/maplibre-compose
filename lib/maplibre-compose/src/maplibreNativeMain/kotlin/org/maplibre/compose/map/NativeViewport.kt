@@ -20,6 +20,7 @@ import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
+import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
@@ -34,14 +35,11 @@ import org.maplibre.spatialk.geojson.Position
 
 /** Main-thread snapshot cache, with a separate projection borrow for presented frames. */
 internal class NativeViewport {
-  private var viewportInsets = EdgeInsets()
-  var appliedViewportInsets = EdgeInsets()
-    private set
+  private val insets = ViewportInsets()
+  val appliedViewportInsets: EdgeInsets
+    get() = insets.applied.toEdgeInsets()
 
   @Volatile private var renderedCameraPadding = EdgeInsets()
-
-  /** Defer camera framing until a render target has attached and queued its resize. */
-  private var pendingCameraPadding: DpPadding? = null
 
   var hasViewport = false
     private set
@@ -162,47 +160,26 @@ internal class NativeViewport {
     renderedCameraPadding = geometry.padding
   }
 
-  fun setInsets(insets: EdgeInsets): Boolean {
-    if (viewportInsets == insets) return false
-    viewportInsets = insets
-    return true
-  }
+  fun setInsets(padding: DpPadding): Boolean = insets.set(padding)
 
   /** Main only. Returns the jump that moves a new map to [requested], if any. */
   fun prepareCamera(requested: CameraPosition?): CameraUpdate? {
     snapshot = null
-    appliedViewportInsets = EdgeInsets()
-    pendingCameraPadding = requested?.padding?.takeUnless { it == DpPadding.Zero }
-    return requested?.let {
-      CameraUpdate(
-        camera = it.copy(padding = DpPadding.Zero).toCameraOptions(appliedViewportInsets)
-      )
+    return insets.prepareCamera(requested)?.let {
+      CameraUpdate(camera = it.toCameraOptions(appliedViewportInsets))
     }
   }
 
-  /** Main only: defer requested camera padding until a real target extent is applied. */
-  fun cameraForAssignment(position: CameraPosition): CameraPosition {
-    if (hasViewport) return position
-    pendingCameraPadding = position.padding.takeUnless { it == DpPadding.Zero }
-    return position.copy(padding = DpPadding.Zero)
-  }
+  fun cameraForAssignment(position: CameraPosition): CameraPosition =
+    insets.cameraForAssignment(position, hasViewport)
 
-  /**
-   * On main, with a usable viewport. Returns the jump that applies the insets, or null when nothing
-   * changed. Reads the camera from the map's snapshot.
-   */
-  fun applyInsets(map: MapHandle, beforeChange: () -> Unit): CameraUpdate? {
-    val padding = viewportInsets
-    val pending = pendingCameraPadding
-    if (padding == appliedViewportInsets && pending == null) return null
-    beforeChange()
-    val current = map.getSnapshot().camera.toCameraPosition(appliedViewportInsets)
-    val effective =
-      current.copy(padding = pending ?: current.padding).toCameraOptions(padding).padding
-    appliedViewportInsets = padding
-    pendingCameraPadding = null
-    return CameraUpdate(camera = CameraOptions(padding = effective))
-  }
+  /** On main, with a usable viewport. Reads the current camera from the map's snapshot. */
+  fun applyInsets(map: MapHandle, beforeChange: () -> Unit): CameraUpdate? =
+    insets
+      .apply(beforeChange) {
+        map.getSnapshot().camera.toCameraPosition(appliedViewportInsets)
+      }
+      ?.let { CameraUpdate(camera = CameraOptions(padding = it.toEdgeInsets())) }
 
   private fun viewportExtents(): MapViewportExtents =
     extents
