@@ -98,7 +98,13 @@ internal class NativePresentation(
     var demandPending = false
     val renderForced = AtomicBoolean(true)
 
-    // Borrowed textures stay host-paced: Compose samples them after releasing the FFI frame.
+    // Borrowed textures stay host-paced: Compose samples them after releasing the FFI frame, so a
+    // parked WAIT_FOR_UPDATE demand could render into a texture Compose is still reading.
+    // TODO: hold each acquired frame until ComposeFrameCompletion.prepare has waited for Compose's
+    //   reads, then release it. The session never renders into an acquired frame's texture, so
+    //   borrowed textures could then use the surface loop, and this split could go. Later, release
+    //   with a GPU consumer sync (mln_acquired_frame_release) instead of the CPU wait, with a
+    //   two-texture ring so rendering overlaps sampling; that needs benchmark evidence first.
     val hostPaced: Boolean
       get() =
         when (target) {
