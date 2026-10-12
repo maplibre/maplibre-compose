@@ -27,6 +27,7 @@ import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.generated.AmbientCacheOperation
 import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
 import org.maplibre.nativeffi.generated.OfflineRegionInfo
+import org.maplibre.nativeffi.generated.OfflineRegionStatus
 import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventPayload
 import org.maplibre.nativeffi.generated.RuntimeEventType
@@ -212,7 +213,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       val existing = lock.withLock { packsById[info.id] }
       if (existing != null) {
         // An operation such as a database merge can change the resources of an existing region.
-        refreshStatus(runtime, info.id)
+        refreshStatus(existing) { runtime.getOfflineRegionStatus(info.id) }
         return@withContext existing
       }
 
@@ -230,7 +231,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       launchOperation("observe offline pack ${info.id}") {
         runtime.setOfflineRegionObserved(info.id, true)
       }
-      refreshStatus(runtime, info.id)
+      refreshStatus(pack) { runtime.getOfflineRegionStatus(info.id) }
       pack
     }
 
@@ -247,16 +248,22 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     }
   }
 
-  private suspend fun refreshStatus(runtime: RuntimeHandle, regionId: Long) {
+  internal suspend fun refreshStatus(
+    pack: OfflinePack,
+    start: () -> Deferred<OfflineRegionStatus>,
+  ) {
+    val revision = pack.progressRevision
     try {
-      val status =
-        run("read the status of offline pack $regionId") {
-          runtime.getOfflineRegionStatus(regionId)
+      val status = run("read the status of offline pack ${pack.regionId}", start)
+      lock.withLock {
+        if (packsById[pack.regionId] === pack && pack.progressRevision == revision) {
+          pack.progressRevision++
+          pack.progressState.value = status.toDownloadProgress()
         }
-      publishProgress(regionId, status.toDownloadProgress())
+      }
     } catch (error: Throwable) {
       if (error is CancellationException) throw error
-      logger?.e(error) { "Failed to read the status of offline pack $regionId" }
+      logger?.e(error) { "Failed to read the status of offline pack ${pack.regionId}" }
     }
   }
 
@@ -307,12 +314,13 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     }
   }
 
-  private fun publishProgress(regionId: Long, progress: DownloadProgress) {
-    val pack = lock.withLock { packsById[regionId] }
+  private fun publishProgress(regionId: Long, progress: DownloadProgress) = lock.withLock {
+    val pack = packsById[regionId]
     if (pack == null) {
       logger?.d { "Ignoring progress for offline region $regionId, which has no pack" }
-      return
+      return@withLock
     }
+    pack.progressRevision++
     pack.progressState.value = progress
   }
 

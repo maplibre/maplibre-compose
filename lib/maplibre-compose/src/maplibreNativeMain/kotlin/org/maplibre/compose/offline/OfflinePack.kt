@@ -21,6 +21,7 @@ internal constructor(
   initialMetadata: ByteArray?,
 ) {
   internal val metadataState = MutableStateFlow(initialMetadata)
+  internal var progressRevision = 0L
   internal val progressState = MutableStateFlow<DownloadProgress>(DownloadProgress.NotReported)
 
   /** Arbitrary data stored alongside the downloaded resources. */
