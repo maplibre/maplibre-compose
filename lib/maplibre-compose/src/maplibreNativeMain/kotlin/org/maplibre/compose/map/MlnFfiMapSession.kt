@@ -169,6 +169,7 @@ internal class MlnFfiMapSession(
       canRender = { !isClosing && presentationActive },
       getLogger = { logger },
       viewport = viewport,
+      postToMain = owner::postToMain,
       onAttached = {
         owner.postToMain {
           val map = map ?: return@postToMain
@@ -522,7 +523,7 @@ internal class MlnFfiMapSession(
     }
     val mapEvent = event.toMapEvent()
     when (event.type) {
-      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> presentation.requestRender()
+      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> presentation.requestUpdate()
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
         val request = styleLoadTracker.requestId

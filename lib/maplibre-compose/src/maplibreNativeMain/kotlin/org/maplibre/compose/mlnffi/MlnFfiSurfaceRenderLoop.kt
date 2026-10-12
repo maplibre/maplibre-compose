@@ -22,10 +22,10 @@ import org.maplibre.compose.util.rethrowIfFatal
 internal const val MaxRenderRecoveryAttempts = 3
 
 /**
- * Renders a map from a dedicated render thread into a surface that the platform presents itself,
- * such as an Android `Surface` or an Apple `CAMetalLayer`.
+ * Drives native frame demands into a surface that the platform presents itself, such as an Android
+ * `Surface` or an Apple `CAMetalLayer`.
  *
- * Subclasses supply the render thread and the render target for their surface type [S]. All render
+ * Subclasses supply the host thread and the render target for their surface type [S]. All render
  * state belongs to the render thread. [requestFrame], [setActive], [setMaximumFps],
  * [withRendererAccess], and [enqueueRenderer] may be called from any thread.
  *
@@ -91,6 +91,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   private val pacer = MapFramePacer()
   private var maximumFps = maximumFps
   private var active = true
+  private var rendererAttached = false
   /** Set by the subclass once its teardown released the surface. */
   @Volatile protected var closed = false
   private var terminalFailure = false
@@ -114,7 +115,22 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
       checkRenderThread()
       if (closed || terminalFailure || this.active == active) return@schedule
       this.active = active
-      if (active) requestFrameOnRenderThread() else cancelFrame()
+      cancelFrame()
+      try {
+        // Retiring the session cancels a parked demand before it can draw while inactive.
+        if (surface != null) {
+          if (active) {
+            rendererAttached = true
+            renderer.onSurfaceAvailable(this)
+          } else if (rendererAttached) {
+            renderer.onSurfaceLost(this)
+            rendererAttached = false
+          }
+        }
+        if (active) requestFrameOnRenderThread()
+      } catch (error: Throwable) {
+        fail("Failed to change the $platformName map surface activity", error)
+      }
     }
   }
 
@@ -147,7 +163,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
       surface = create()
       this.extent = extent
       generation++
-      renderer.onSurfaceAvailable(this)
+      if (active) {
+        rendererAttached = true
+        renderer.onSurfaceAvailable(this)
+      }
       renderer.onSurfaceChanged(extent)
       requestFrameOnRenderThread()
     } catch (error: Throwable) {
@@ -183,7 +202,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     cancelFrame()
     val current = surface ?: return
     // The render session names this surface, so it must be closed before the surface is freed.
-    renderer.onSurfaceLost(this)
+    if (rendererAttached) {
+      renderer.onSurfaceLost(this)
+      rendererAttached = false
+    }
     releaseSurface(current)
     surface = null
     extent = MapExtent.Empty
@@ -272,7 +294,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     val start = TimeSource.Monotonic.markNow()
     try {
       when (renderer.render(this, frame)) {
-        is MlnFfiFrameResult.Rendered -> pacer.rendered(start)
+        is MlnFfiFrameResult.Rendered -> {
+          pacer.rendered(start)
+          requestFrameOnRenderThread()
+        }
         MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()
         MlnFfiFrameResult.AwaitUpdate -> Unit
       }

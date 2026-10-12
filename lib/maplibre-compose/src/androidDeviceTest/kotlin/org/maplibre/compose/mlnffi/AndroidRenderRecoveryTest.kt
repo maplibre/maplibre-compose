@@ -211,6 +211,7 @@ class AndroidRenderRecoveryTest {
     var losses = 0
     var alwaysFail = false
     var result: MlnFfiFrameResult = MlnFfiFrameResult.Rendered()
+    private var completedDemand = false
     var frames = 0
     var attachments = 0
     var resizes = 0
@@ -228,6 +229,7 @@ class AndroidRenderRecoveryTest {
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       attachments++
+      completedDemand = false
     }
 
     override fun onSurfaceLost(session: MlnFfiMapHostSession) {
@@ -244,11 +246,13 @@ class AndroidRenderRecoveryTest {
       frame: MlnFfiMapFrame,
       captureProjection: Boolean,
     ): MlnFfiFrameResult {
+      if (completedDemand && nextError == null && !alwaysFail) return MlnFfiFrameResult.AwaitUpdate
       frames++
       val error = nextError
       nextError = null
       if (error != null) throw error
       if (alwaysFail) throw MlnFfiRecoverableFrameException("Test frame failure", null)
+      completedDemand = true
       completed.add(Unit)
       return result
     }

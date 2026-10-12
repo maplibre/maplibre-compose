@@ -6,12 +6,8 @@ import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -35,7 +31,6 @@ import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
 import org.maplibre.nativeffi.generated.EglContextDescriptor
 import org.maplibre.nativeffi.generated.FrameDemand
@@ -72,11 +67,9 @@ import org.maplibre.nativeffi.render.NativePointer
 /**
  * One host attachment owns its render session and every borrow of its GPU target.
  *
- * Frames are rendered synchronously inside [render] on the host's renderer thread: it demands one
- * frame and waits for that demand's result. A Metal session renders on its native core worker
- * meanwhile. An OpenGL or Vulkan session renders on the renderer thread itself, which services the
- * session's driver work while it waits, and again whenever the session wakes it outside a frame,
- * such as for a feature query.
+ * Borrowed textures are driven inside the host's producer-access interval. Surface targets present
+ * on the native driver and keep a demand parked until the map changes; their host only drains
+ * results and schedules the next demand, including its frame-rate limit.
  */
 internal class NativePresentation(
   var backend: MapRenderBackend,
@@ -85,11 +78,13 @@ internal class NativePresentation(
   private val getLogger: () -> MapLog?,
   private val viewport: NativeViewport,
   private val onAttached: () -> Unit,
+  private val postToMain: (() -> Unit) -> Unit,
 ) {
   private val logger
     get() = getLogger()
 
   private val stateLock = MlnFfiLock()
+  private val pendingCloses = mutableListOf<Deferred<Result<Unit>>>()
 
   /** A host and every native borrow of its targets retire together on its renderer thread. */
   private inner class RendererAttachment(val host: MlnFfiMapHostSession) {
@@ -98,8 +93,21 @@ internal class NativePresentation(
     var driver: RenderDriverKind = RenderDriverKind.CORE_WORKER
     var acquiresFrames = false
     @Volatile var ready = false
-    var target: MlnFfiRenderTarget? = null
+    @Volatile var target: MlnFfiRenderTarget? = null
     var nextToken = 0uL
+    var demandPending = false
+    val renderForced = AtomicBoolean(true)
+
+    // Borrowed textures stay host-paced: Compose samples them after releasing the FFI frame.
+    val hostPaced: Boolean
+      get() =
+        when (target) {
+          is MetalTextureTarget,
+          is OpenGlTextureTarget,
+          is VulkanImageTarget -> true
+          else -> false
+        }
+
     @Volatile var releaseRequested = false
     val released = CompletableDeferred<Result<Unit>>()
 
@@ -115,27 +123,28 @@ internal class NativePresentation(
     fun attachOptions(driver: RenderDriverKind) =
       RenderSessionAttachOptions(
         driver = driver,
-        frameWake = Wake { work.signal() },
+        frameWake =
+          Wake {
+            work.signal()
+            if (!hostPaced && !releaseRequested) host.requestFrame()
+          },
         driverWorkWake =
           if (driver != RenderDriverKind.CALLER_GRAPHICS_THREAD) Wake()
           else
             Wake {
               work.signal()
-              // Work that arrives between frames, such as a query, needs the renderer thread.
-              // Native can wake from inside a MapLibre mailbox push that holds the mailbox lock,
-              // and a host may run a renderer task inline, so the service starts on another stack.
               if (serviceQueued.compareAndSet(false, true)) {
-                driverWakeScope.launch {
-                  try {
-                    host.enqueueRenderer {
+                try {
+                  if (
+                    !host.enqueueRenderer {
                       serviceQueued.store(false)
                       service()
                     }
-                  } catch (error: Exception) {
-                    // A host that cannot queue work is going away; teardown services the rest.
+                  )
                     serviceQueued.store(false)
-                    logger?.d(error) { "Could not queue render session driver work" }
-                  }
+                } catch (error: Exception) {
+                  serviceQueued.store(false)
+                  logger?.d(error) { "Could not queue render session driver work" }
                 }
               }
             },
@@ -195,6 +204,7 @@ internal class NativePresentation(
       session = null
       ready = false
       target = null
+      demandPending = false
       var failure: Throwable? = null
       val retired =
         try {
@@ -210,18 +220,10 @@ internal class NativePresentation(
         failure?.let { throw it }
         return
       }
-      // A query that is being submitted holds the handle for that call, so a close can race it.
-      while (true) {
-        try {
-          closing.close()
-          break
-        } catch (error: MaplibreException) {
-          if (error.status != MaplibreStatus.INVALID_STATE || closing.isClosed) {
-            failure?.addSuppressed(error) ?: run { failure = error }
-            break
-          }
-        }
-      }
+      val closed = CompletableDeferred<Result<Unit>>()
+      stateLock.withLock { pendingCloses.add(closed) }
+      // Queries submit on main too, so destruction cannot race a handle borrowed by a query.
+      postToMain { closed.complete(runCatching { closing.close() }) }
       failure?.let { throw it }
     }
 
@@ -239,7 +241,13 @@ internal class NativePresentation(
 
     suspend fun releaseAndAwait() {
       requestRelease()
-      released.await().getOrThrow()
+      var failure = released.await().exceptionOrNull()
+      runCatching { awaitPendingCloses() }
+        .exceptionOrNull()
+        ?.let { error ->
+          failure?.addSuppressed(error) ?: run { failure = error }
+        }
+      failure?.let { throw it }
     }
 
     /** Host handoff runs on the incoming host's renderer thread, never on the outgoing one. */
@@ -264,11 +272,6 @@ internal class NativePresentation(
   @Volatile
   internal var retargetCount: Int = 0
     private set
-
-  private val renderRequested = AtomicBoolean(true)
-
-  /** Set when the next frame renders even without a newer map update. */
-  private val renderForced = AtomicBoolean(true)
 
   /** Renderer-thread state, read by tests. */
   @Volatile
@@ -322,7 +325,11 @@ internal class NativePresentation(
   }
 
   suspend fun release(keepHost: Boolean = true) {
-    val attachment = rendererAttachment ?: return
+    val attachment = rendererAttachment
+    if (attachment == null) {
+      awaitPendingCloses()
+      return
+    }
     attachment.releaseAndAwait()
     if (!keepHost)
       stateLock.withLock {
@@ -330,15 +337,30 @@ internal class NativePresentation(
       }
   }
 
-  /** Asks for a frame of the map's next update. Callable from any thread. */
-  fun requestRender() {
-    renderRequested.store(true)
-    rendererAttachment?.host?.requestFrame()
+  private suspend fun awaitPendingCloses() {
+    val closing = stateLock.withLock { pendingCloses.toList().also { pendingCloses.clear() } }
+    var failure: Throwable? = null
+    for (work in closing) {
+      work.await().exceptionOrNull()?.let { error ->
+        failure?.addSuppressed(error) ?: run { failure = error }
+      }
+    }
+    failure?.let { throw it }
   }
 
-  /** Asks for a frame even when the map has no newer update. Callable from any thread. */
-  fun requestRepaint() {
-    renderForced.store(true)
+  /** Host and extent changes schedule work on either kind of target. */
+  fun requestRender() {
+    val attachment = rendererAttachment ?: return
+    attachment.host.requestFrame()
+  }
+
+  /** Map updates only schedule borrowed-texture frames; surfaces already have a waiting demand. */
+  fun requestUpdate() {
+    if (rendererAttachment?.hostPaced == true) requestRender()
+  }
+
+  private fun requestRepaint() {
+    rendererAttachment?.renderForced?.store(true)
     requestRender()
   }
 
@@ -365,35 +387,57 @@ internal class NativePresentation(
 
     viewport.captureRenderPadding()
     if (!ensureAttached(attachment, map, frame)) return MlnFfiFrameResult.AwaitUpdate
-    // Consumed before rendering, so an update published during the render below is not discarded.
-    val forced = renderForced.exchange(false)
-    if (!renderRequested.exchange(false) && !forced) return MlnFfiFrameResult.AwaitUpdate
     val session = attachment.session ?: return MlnFfiFrameResult.AwaitUpdate
     val result =
       try {
-        val token = ++attachment.nextToken
-        session.requestFrame(
-          FrameDemand(
-            flags =
-              if (forced) FrameDemandFlag.PRESENT
-              else FrameDemandFlag.IF_NEEDED or FrameDemandFlag.PRESENT,
-            token = token,
+        if (attachment.hostPaced) {
+          val forced = attachment.renderForced.exchange(false)
+          val token = ++attachment.nextToken
+          session.requestFrame(
+            FrameDemand(
+              flags =
+                if (forced) FrameDemandFlag.PRESENT
+                else FrameDemandFlag.IF_NEEDED or FrameDemandFlag.PRESENT,
+              token = token,
+            )
           )
-        )
-        attachment.awaitResult(session, token)
+          attachment.awaitResult(session, token).also { if (it.needsRepaint) requestRepaint() }
+        } else {
+          val completed = session.drainFrameResults()?.use { it.get().results.lastOrNull() }
+          if (completed != null) {
+            attachment.demandPending = false
+            completed
+          } else {
+            if (!attachment.demandPending) {
+              attachment.demandPending = true
+              session.requestFrame(
+                FrameDemand(
+                  flags =
+                    FrameDemandFlag.IF_NEEDED or
+                      FrameDemandFlag.WAIT_FOR_UPDATE or
+                      FrameDemandFlag.PRESENT,
+                  token = ++attachment.nextToken,
+                )
+              )
+            }
+            return MlnFfiFrameResult.AwaitUpdate
+          }
+        }
       } catch (error: MaplibreException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
-    if (result.needsRepaint) requestRepaint()
     when (result.disposition) {
       RenderResult.RENDERED -> Unit
       RenderResult.TARGET_NOT_READY -> {
         // A target that is not ready publishes no map update, so the retry renders regardless.
-        renderForced.store(true)
-        renderRequested.store(true)
+        if (attachment.hostPaced) {
+          attachment.renderForced.store(true)
+        }
         return MlnFfiFrameResult.RetryNextFrame
       }
-      else -> return MlnFfiFrameResult.AwaitUpdate
+      else ->
+        return if (attachment.hostPaced) MlnFfiFrameResult.AwaitUpdate
+        else MlnFfiFrameResult.RetryNextFrame
     }
     try {
       if (attachment.acquiresFrames) releaseRenderedFrames(session)
@@ -475,7 +519,7 @@ internal class NativePresentation(
     attachment.target = frame.target
     onAttached()
     // A new target needs a frame even when the map is idle.
-    renderForced.store(true)
+    if (attachment.hostPaced) attachment.renderForced.store(true)
     return true
   }
 
@@ -496,6 +540,7 @@ internal class NativePresentation(
     extent: MapExtent,
   ) {
     val driver = driverFor(target)
+    attachment.target = target
     val options = attachment.attachOptions(driver)
     val started: RenderSessionAttachment =
       when (target) {
@@ -683,6 +728,3 @@ internal fun WglContextHandles.toFfi(): OpenglContextDescriptor =
         )
       ),
   )
-
-/** Hops driver wakes off the native stack that raised them. */
-private val driverWakeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
