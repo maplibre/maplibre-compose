@@ -201,7 +201,7 @@ class SnapshotCompositionTest {
                 try {
                   awaitCancellation()
                 } finally {
-                  withContext(NonCancellable) {
+                  withContext(NonCancellable + runtime.mainDispatcher) {
                     cleanup.complete(
                       runCatching {
                         withTimeout(5_000) {

@@ -378,7 +378,7 @@ internal class MapSnapshotterImplementation(
         val cancellation = active?.let { abandonActiveLocked(it, snapshotterClosedCancellation()) }
         (active == null && worker == null) to cancellation
       }
-    if (finishNow) runtime.physicalScope.launch { finishClose() }
+    if (finishNow) runtime.physicalScope.launch(runtime.mainDispatcher) { finishClose() }
     cancellation?.let(::startActiveCancellation)
   }
 
@@ -514,7 +514,7 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun startActiveCancellation(cancellation: CompletableDeferred<Result<Unit>>) {
-    runtime.physicalScope.launch {
+    runtime.physicalScope.launch(runtime.mainDispatcher) {
       val result = runCatching {
         adapter?.cancelActiveCapture()
         settleStyleAfterCancellation()
@@ -566,6 +566,7 @@ internal class MapSnapshotterImplementation(
   }
 
   override fun setBaseStyle(value: BaseStyle) {
+    runtime.mainThread.requireMain()
     lock.withLock {
       check(!closed) { "The map snapshotter is closed" }
       if (style.baseStyle == value) return
@@ -589,6 +590,7 @@ internal class MapSnapshotterImplementation(
   }
 
   override fun requireOpen() {
+    runtime.mainThread.requireMain()
     lock.withLock { check(!closed) { "The map snapshotter is closed" } }
   }
 

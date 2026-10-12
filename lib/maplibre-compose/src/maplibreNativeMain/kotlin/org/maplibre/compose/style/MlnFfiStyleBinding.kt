@@ -914,7 +914,7 @@ internal open class MlnFfiStyleBinding(
 
   override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
     when (name) {
-      "id" -> JsonPrimitive(layerId)
+      "id" -> query { it.getStyleLayer(layerId) }?.id?.let(::JsonPrimitive)
       "type" -> query { it.getStyleLayer(layerId) }?.type?.let(::JsonPrimitive)
       "source" ->
         query { it.getStyleLayer(layerId) }

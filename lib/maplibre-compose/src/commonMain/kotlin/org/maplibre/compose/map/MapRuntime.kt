@@ -371,6 +371,8 @@ internal interface MapStyleStateOwner {
 /**
  * Desired and applied style state for one logical map or snapshotter.
  *
+ * Call style commands and suspending reads on the runtime's main dispatcher.
+ *
  * Once the map state or snapshotter has closed, starting a style command, write, or read throws
  * [IllegalStateException]. A close while a call runs is treated like a style change: the command or
  * write does nothing and logs a warning, and the read returns null.

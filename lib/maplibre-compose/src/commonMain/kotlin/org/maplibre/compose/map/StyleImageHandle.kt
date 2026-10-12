@@ -20,7 +20,7 @@ public sealed interface MutableStyleImageHandle : StyleImageHandle {
    * Enqueues removal. An expired handle does nothing and logs a warning; native refusals are
    * logged.
    *
-   * @throws IllegalStateException if a removal through this handle has already removed the image.
+   * @throws IllegalStateException if removal was already submitted through this handle.
    */
   public fun remove()
 }
@@ -31,8 +31,7 @@ internal class StyleImageHandleImpl(
   private val binding: StyleBinding,
 ) : StyleImageHandle {
   private val identity = binding.identity.images.get(id)
-  // Set once a removal through this handle has run; using the handle after that is misuse. A
-  // removal that a later write supersedes leaves it unset.
+  // Set when this handle submits its removal; using it afterward is misuse.
   @Volatile private var removed = false
 
   override val asMutable: MutableStyleImageHandle?
