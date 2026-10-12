@@ -768,8 +768,9 @@ internal class MlnFfiMapSession(
     fitPadding: DpPadding,
   ): CameraPosition {
     val map = checkNotNull(map) { "The map became unavailable during the bounds query" }
-    return cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
-      .toCameraPosition(viewport.appliedViewportInsets)
+    val insets = viewport.appliedViewportInsets
+    return cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding, insets)
+      .toCameraPosition(insets)
   }
 
   override suspend fun cameraForGeometry(
@@ -781,10 +782,11 @@ internal class MlnFfiMapSession(
   ): CameraPosition {
     val map = checkNotNull(map) { "The map became unavailable during the geometry query" }
     val geoJson = geometry.toJson().encodeToByteArray()
-    return fitCamera(map, bearing, pitch, cameraPadding, fitPadding) {
+    val insets = viewport.appliedViewportInsets
+    return fitCamera(map, bearing, pitch, cameraPadding, fitPadding, insets) {
         map.cameraForGeometry(geoJson, it)
       }
-      .toCameraPosition(viewport.appliedViewportInsets)
+      .toCameraPosition(insets)
   }
 
   override suspend fun fitCameraToBounds(
@@ -815,22 +817,23 @@ internal class MlnFfiMapSession(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
+    insets: EdgeInsets = viewport.appliedViewportInsets,
   ): CameraOptions =
-    fitCamera(map, bearing, pitch, cameraPadding, fitPadding) {
+    fitCamera(map, bearing, pitch, cameraPadding, fitPadding, insets) {
       map.cameraForLatLngBounds(bounds = boundingBox.toLatLngBounds(), fitOptions = it)
     }
 
-  private suspend fun fitCamera(
+  internal suspend fun fitCamera(
     map: MapHandle,
     bearing: Double,
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
+    insets: EdgeInsets = viewport.appliedViewportInsets,
     fit: (CameraFitOptions) -> Deferred<CameraOptions>,
   ): CameraOptions {
     val (persistent, fitted) =
       run {
-        val insets = viewport.appliedViewportInsets
         val current = map.getSnapshot().camera.toCameraPosition(insets)
         val destination = current.copy(padding = cameraPadding ?: current.padding)
         val persistent = checkNotNull(destination.toCameraOptions(insets).padding)
@@ -838,6 +841,8 @@ internal class MlnFfiMapSession(
         persistent to fit(CameraFitOptions(padding = total, bearing = bearing, pitch = pitch))
       }
     val camera = fitted.await()
+    if (this.map !== map || isClosing)
+      throw CancellationException("The fitted map is no longer current")
 
     // Native returns the fit padding as persistent camera state. Preserve the fitted transform
     // while retaining only the viewport insets and destination camera padding.
