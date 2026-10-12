@@ -11,11 +11,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
+import kotlin.js.Promise
 import kotlin.math.log2
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.asPromise
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
@@ -38,6 +39,7 @@ import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.FlyToOptions
 import org.maplibre.compose.gljs.GlJsFrameTarget
+import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.GlJsMapRenderer
 import org.maplibre.compose.gljs.GlJsRenderTarget
 import org.maplibre.compose.gljs.GlJsRuntime
@@ -64,7 +66,6 @@ import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
@@ -99,9 +100,9 @@ import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
 /**
- * Creates the engine when a host supplies its first render target and extent. Calls before then are
- * queued and reads answer from what was last asked for. A DOM host supplies [mapContainer]; Compose
- * hosts use an offscreen container and borrow Compose's WebGL context.
+ * Creates the engine when a host supplies its first render target and extent, replaying the desired
+ * state. Reads before then answer from what was last asked for. A DOM host supplies [mapContainer];
+ * Compose hosts use an offscreen container and borrow Compose's WebGL context.
  */
 internal class GlJsMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
@@ -110,49 +111,38 @@ internal class GlJsMapSession(
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
   internal var mapContainer: HTMLElement? = null,
-) : MapAdapter, SessionStamps, GlJsMapRenderer, CameraInputTarget {
+) : MapAdapter, GlJsMapRenderer, CameraInputTarget {
 
   init {
     createdCount += 1
   }
 
   internal var callbacks: MapAdapter.Callbacks = callbacks
-  private val events =
-    MapSessionEvents(map = this, stamps = this, postToMain = lifecycleAuthority::postToMain) {
-      this.callbacks
-    }
-
-  /**
-   * GL JS creates and destroys maps without suspending, so the lifecycle is three main-thread
-   * fields. [start] sets the lease and engine, surface loss replaces the engine under the same
-   * lease, and [close] clears both.
-   */
   private var closing = false
-  private var renderLease: RenderLease? = null
-  private var engineIdentity: EngineMapIdentity? = null
-  private var lastIdentity = 0L
-  private val closure = CompletableDeferred<Result<Unit>>()
+  private var presenting = false
+  private var closeResult: Result<Unit> = Result.success(Unit)
 
   /** The pending base-style load, then the loaded style's data listeners. */
   private val styleSubscriptions = mutableListOf<GlJsSubscription>()
 
-  private var map: MaplibreMap? = null
+  private data class EngineState(val map: MaplibreMap? = null, val ended: Boolean = false)
+
+  private val engineState = MutableStateFlow(EngineState())
+  private var map: MaplibreMap?
+    get() = engineState.value.map
+    set(value) {
+      engineState.value = engineState.value.copy(map = value)
+    }
+
+  private val mapSubscriptions = mutableListOf<GlJsSubscription>()
+  private val listenerCalls = ArrayDeque<() -> Unit>()
+  private var engineCallDepth = 0
+  private var deliveringListeners = false
 
   /** MapLibre sizes its viewport from a container even when it renders nowhere near one. */
   private var container: HTMLElement? = null
 
   private var surface: GlJsSurfaceSession? = null
-
-  private class PendingMapAction(
-    val run: (MaplibreMap) -> Unit,
-    val abandon: () -> Unit,
-  )
-
-  /** Actions accepted before the host supplies the first render target. */
-  private val pendingMapActions = mutableListOf<PendingMapAction>()
-
-  /** Platform-access callbacks waiting for this render lease's engine map. */
-  private val pendingPlatformMapAccess = mutableListOf<PendingMapAction>()
 
   private val cameraTransitions = GlJsCameraTransitions()
 
@@ -163,12 +153,9 @@ internal class GlJsMapSession(
   internal var hasUsableViewport by mutableStateOf(false)
     private set
 
-  private var hasReplayedPresentationState by mutableStateOf(false)
-
   /** Whether the current engine map may be shown by its host. */
   internal val canPresentFrames: Boolean
-    get() =
-      styleLoadTracker.presentation != StylePresentation.Hidden && hasReplayedPresentationState
+    get() = styleLoadTracker.presentation != StylePresentation.Hidden
 
   private var requestedStyle: BaseStyle? = null
   private val styleLoadTracker = StyleLoadTracker()
@@ -189,6 +176,7 @@ internal class GlJsMapSession(
     private set
 
   private var cameraConstraints: CameraConstraints? = null
+  private var renderSettings = RenderOptions.Standard
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var renderedProjection by mutableStateOf<RenderedProjection?>(null)
 
@@ -221,7 +209,7 @@ internal class GlJsMapSession(
   override fun onSurfaceLost(surface: GlJsSurfaceSession) {
     if (this.surface !== surface) return
     // The map's context belongs to the surface, so it cannot outlive it.
-    if (engineIdentity != null && renderLease != null) {
+    if (map != null) {
       // The replacement keeps the presentation, and the destroyed map emits no `moveend`. A
       // gesture that ends while the replacement is attaching cannot report, so its fact is
       // withdrawn here; a gesture that continues re-reports on its next camera command.
@@ -230,17 +218,17 @@ internal class GlJsMapSession(
       lifecycleAuthority.endCurrentPresentationCameraChange(this)
       this.surface = null
       invalidateStyleBinding()
-      // Events and queued access from the destroyed map carry its identity and are dropped.
-      engineIdentity = null
-      abandonPending(pendingPlatformMapAccess)
       destroyMap()
-      engineIdentity = EngineMapIdentity(++lastIdentity)
     } else {
       this.surface = null
     }
   }
 
-  override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
+  override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean = engineCall {
+    renderFrame(target, extent)
+  }
+
+  private fun renderFrame(target: GlJsFrameTarget, extent: MapExtent): Boolean {
     if (closing || extent.isEmpty) return false
     if (target is GlJsFrameTarget.UnsupportedSize) return false
     if (target is GlJsFrameTarget.Composited && map != null && lentContext !== target.target.gl) {
@@ -303,8 +291,8 @@ internal class GlJsMapSession(
     if (lentContext != null) null else map?.getCanvas()
 
   /**
-   * Rejects new work, reports the closure to [lifecycleAuthority], then destroys the map and
-   * abandons queued work. Each cleanup step runs even when an earlier one fails.
+   * Destroys the map, releases camera transitions, and reports closure to [lifecycleAuthority].
+   * Each cleanup step runs even when an earlier one fails.
    */
   override fun close() {
     if (closing) return
@@ -313,46 +301,26 @@ internal class GlJsMapSession(
     fun attempt(cleanup: () -> Unit) {
       runCatching(cleanup).exceptionOrNull()?.let(failures::add)
     }
-    attempt { lifecycleAuthority.sessionClosing(this) }
-    renderLease = null
-    if (engineIdentity != null) {
-      engineIdentity = null
-      attempt {
-        abandonPending(pendingPlatformMapAccess)
-        destroyMap()
-      }
-    }
+    presenting = false
+    attempt { destroyMap() }
     attempt {
       activeGestureToken = null
-      abandonPending(pendingMapActions)
-      abandonPending(pendingPlatformMapAccess)
       surface = null
     }
     attempt { cameraTransitions.releaseAll() }
-    closure.complete(failures.cleanupResult("Map"))
+    closeResult = failures.cleanupResult("Map")
+    engineState.value = EngineState(ended = true)
+    lifecycleAuthority.sessionClosing(this)
   }
 
   override suspend fun awaitClosed() {
-    closure.await().getOrThrow()
+    closeResult.getOrThrow()
   }
-
-  override fun isCurrentEngine(engine: EngineMapIdentity): Boolean =
-    !closing && engine == engineIdentity
-
-  override fun isCurrentPresentation(engine: EngineMapIdentity, lease: RenderLease): Boolean =
-    !closing && engine == engineIdentity && lease == renderLease
-
-  override fun isCurrentStyleRequest(request: StyleRequestId): Boolean =
-    !closing && request === styleLoadTracker.requestId
-
-  override fun isCurrentStyle(style: StyleIdentity): Boolean =
-    !closing && styleLoadTracker.isCurrent(style)
 
   /** Releases the presentation's context while keeping the logical adapter. */
   override suspend fun detachPresentation() {
-    renderLease = null
-    engineIdentity = null
-    abandonPending(pendingPlatformMapAccess)
+    presenting = false
+    engineState.value = engineState.value.copy(ended = true)
     destroyMap()
     cameraTransitions.releaseAll()
     activeGestureToken = null
@@ -362,9 +330,9 @@ internal class GlJsMapSession(
 
   /** Adopts this session and begins its presentation. The map itself waits for the first frame. */
   fun start() {
-    if (!lifecycleAuthority.adopt(this) || renderLease != null) return
-    engineIdentity = EngineMapIdentity(++lastIdentity)
-    renderLease = RenderLease(++lastIdentity)
+    if (!lifecycleAuthority.adopt(this) || presenting) return
+    presenting = true
+    engineState.value = EngineState()
     surface?.requestFrame()
   }
 
@@ -379,8 +347,7 @@ internal class GlJsMapSession(
     }
     if (closing) return null
     if (!lifecycleAuthority.selectAdapterForPresentation(this)) return null
-    val engine = engineIdentity ?: return null
-    val lease = renderLease ?: return null
+    if (!presenting) return null
 
     val host =
       mapContainer
@@ -420,23 +387,26 @@ internal class GlJsMapSession(
       GlJsRuntime.redirectDefaultFramebuffer(created.painter.context) { framebuffer }
     }
     GlJsRuntime.interceptRepaintRequests(created) { surface?.requestFrame() }
-    wireEvents(created, engine, lease)
+    wireEvents(created)
 
-    map = created
     hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
     cameraConstraints?.let { applyCameraConstraints(created, it) }
-    runPending(pendingMapActions, created)
-    runPending(pendingPlatformMapAccess, created)
+    requestedCamera?.let { created.jumpTo(it.toJumpToOptions()) }
+    applyRenderSettings(created)
+    applyRequestedStyle(created)
+    map = created
     return created.takeIf { !closing && map === created }
   }
 
   private fun destroyMap() {
     hasLoadedInitialStyle = false
     val current = map ?: return
+    requestedCamera = current.readCameraPosition(viewportInsets)
+    mapSubscriptions.forEach { it.cancel() }
+    mapSubscriptions.clear()
     map = null
     hasUsableViewport = false
-    hasReplayedPresentationState = false
     invalidateStyleBinding()
     current.setMissingStyleImageResolver(null)
     cancelStyleSubscriptions()
@@ -471,7 +441,7 @@ internal class GlJsMapSession(
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {
     if (extent == appliedExtent) return
     if (appliedExtent.width != extent.width || appliedExtent.height != extent.height)
-      cameraTransitions.cancelAnchor(map)
+      engineCall { cameraTransitions.cancelAnchor(map) }
     appliedExtent = extent
     container?.let { host ->
       host.style.width = "${extent.width}px"
@@ -480,20 +450,10 @@ internal class GlJsMapSession(
     map.setPixelRatio(extent.scaleFactor)
     map.resize()
     hasUsableViewport = true
-    // resize() may also fire `move`; this report is how overlays learn the viewport changed when
-    // the camera position did not. Seed here too: the first resize can land before the lease is
-    // Attached, and acceptPresentationEvent then drops that callback.
+    // Tell overlays about viewport changes even when resize() did not move the camera.
+    // The first resize can precede presentation publication, so seed its viewport here too.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
-    withLifecyclePresentation { engine, lease -> events.viewportChanged(engine, lease) }
-  }
-
-  /** Records that the current engine map has applied the logical map's desired state. */
-  internal fun markPresentationStateReplayed() {
-    if (hasReplayedPresentationState) return
-    val map = map ?: return
-    hasReplayedPresentationState = true
-    applyRequestedStyle(map)
-    surface?.requestFrame()
+    if (presenting) callbacks.onViewportChanged(this)
   }
 
   /** The current GL JS engine-map instance, exposed only to browser boundary tests. */
@@ -501,28 +461,15 @@ internal class GlJsMapSession(
 
   @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
   internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
-    val changed = "The Web platform map changed before access could begin"
-    val engine = engineIdentity
-    val lease = renderLease
-    if (closing || engine == null || lease == null) throw CancellationException(changed)
-    return suspendCancellableCoroutine { continuation ->
-      val action =
-        PendingMapAction(
-          run = { map ->
-            if (continuation.isActive) {
-              continuation.resumeWith(runCatching { PlatformMapScope(map).block() })
-            }
-          },
-          abandon = {
-            if (continuation.isActive)
-              continuation.resumeWith(Result.failure(CancellationException(changed)))
-          },
-        )
-      continuation.invokeOnCancellation { pendingPlatformMapAccess.remove(action) }
-      val current = map
-      if (current != null) action.run(current)
-      else if (continuation.isActive) pendingPlatformMapAccess += action
-    }
+    val current =
+      engineState
+        .first {
+          if (closing || !presenting || it.ended)
+            throw CancellationException("The Web platform map changed before access could begin")
+          it.map != null
+        }
+        .map!!
+    return engineCall { PlatformMapScope(current).block() }
   }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
@@ -534,63 +481,89 @@ internal class GlJsMapSession(
 
   // region events
 
-  private fun wireEvents(map: MaplibreMap, engine: EngineMapIdentity, lease: RenderLease) {
+  private fun wireEvents(map: MaplibreMap) {
     // Terrain's samplers retain mutable DEM data. Once data or terrain changes, only locations
     // already sampled for the retained image are safe to use until another frame is rendered.
     for (event in listOf("data", "terrain")) {
-      map.subscribe(event) {
-        renderedProjection?.takeIf { it.terrain != null }?.terrainChanged = true
-      }
+      mapSubscriptions +=
+        listen(map, event) {
+          renderedProjection?.takeIf { it.terrain != null }?.terrainChanged = true
+        }
     }
-    map.subscribe("error") { event ->
-      val reason = event.error?.message ?: "MapLibre failed to load the map"
-      if (!styleLoadPending) {
-        // Tile and sprite failures land here too, and are not the map failing to load. Listening
-        // is what silences the browser's own console.error fallback, so the record reaches the
-        // logger only through this listener.
-        logger?.log(
-          MapLogLevel.Error,
-          throwable = null,
-          message = { reason },
-          source = MapLogSource.WebEngine,
-          category = event.sourceId ?: event.asDynamic().layer?.id as? String,
-        )
+    mapSubscriptions +=
+      listen(map, "error") { event ->
+        val reason = event.error?.message ?: "MapLibre failed to load the map"
+        if (!styleLoadPending) {
+          // Tile and sprite failures land here too, and are not the map failing to load. Listening
+          // is what silences the browser's own console.error fallback, so the record reaches the
+          // logger only through this listener.
+          logger?.log(
+            MapLogLevel.Error,
+            throwable = null,
+            message = { reason },
+            source = MapLogSource.WebEngine,
+            category = event.sourceId ?: event.asDynamic().layer?.id as? String,
+          )
+        }
       }
-    }
 
     // MapLibre awaits this before it treats the image as missing, so a resolved image satisfies
     // the request that asked for it rather than only later ones.
     map.setMissingStyleImageResolver { imageId ->
-      // The style is whichever one is loaded when MapLibre asks, so the identity is read here
-      // rather than captured with the resolver. GL JS needs null at once for a replaced style.
-      val style = styleBinding?.identity?.takeIf(::isCurrentStyle)
-      style?.let { events.resolveMissingImage(it, imageId).asPromise() }
+      val binding = styleBinding?.takeIf { it.isLoaded }
+      binding?.let {
+        Promise<Unit> { resolve, _ ->
+          deliverListener {
+            val resolution =
+              if (styleBinding === binding && binding.isLoaded)
+                callbacks.resolveMissingImage(this, imageId)
+              else null
+            if (resolution == null) resolve(Unit)
+            else resolution.invokeOnCompletion { resolve(Unit) }
+          }
+        }
+      }
     }
 
-    subscribeTranslated(map, EngineGlJsEvents) { events.engineEvent(engine, it) }
-    subscribeTranslated(map, PresentationGlJsEvents) { event ->
-      val accepted = isCurrentPresentation(engine, lease)
-      if (accepted && event is MapEvent.CameraMoveEnded) {
-        cameraTransitions.movementEnded { events.presentationEvent(engine, lease, event) }
-      } else events.presentationEvent(engine, lease, event)
-    }
+    subscribeTranslated(map, EngineGlJsEvents)
+    subscribeTranslated(map, PresentationGlJsEvents)
   }
 
   private fun subscribeTranslated(
     map: MaplibreMap,
     translations: Map<String, GlJsEventTranslation>,
-    deliver: (MapEvent) -> Unit,
   ) {
     for ((type, translate) in translations) {
-      map.subscribe(type) { event -> deliver(translate(event)) }
+      var active = true
+      val subscription =
+        map.subscribe(type) { raw ->
+          val event = translate(raw)
+          // Capture the ended movement before another engine call registers a waiter.
+          val deliver =
+            if (event is MapEvent.CameraMoveEnded) {
+              cameraTransitions.movementEnded { callbacks.onEvent(this, event) }
+            } else {
+              { callbacks.onEvent(this, event) }
+            }
+          deliverListener {
+            if (active) {
+              requestedCamera = map.readCameraPosition(viewportInsets)
+              deliver()
+            }
+          }
+        }
+      mapSubscriptions += GlJsSubscription {
+        active = false
+        subscription.cancel()
+      }
     }
   }
 
   private fun reportBaseStyleReady(binding: GlJsStyleBinding) {
     if (map?.isStyleLoaded() == true && styleLoadTracker.baseStyleReady(binding.identity)) {
       try {
-        events.styleSourcesChanged(binding.identity)
-        events.styleReady(binding.identity)
+        callbacks.onStyleSourcesChanged(this)
+        callbacks.onStyleReady(this)
       } catch (error: Throwable) {
         styleLoadTracker.failed(binding.identity)
         throw error
@@ -602,32 +575,54 @@ internal class GlJsMapSession(
 
   // region dispatch
 
-  private fun onMap(action: (MaplibreMap) -> Unit) {
-    postWhenMapExists(PendingMapAction(action, abandon = {}))
-  }
-
-  private fun postWhenMapExists(action: PendingMapAction) {
-    if (closing) {
-      action.abandon()
-      return
+  /** Delivers listeners after the outermost engine call, including calls made by a listener. */
+  private inline fun <T> engineCall(action: () -> T): T {
+    engineCallDepth++
+    try {
+      return action()
+    } finally {
+      engineCallDepth--
+      drainListeners()
     }
-    val current = map
-    if (current == null) pendingMapActions += action else action.run(current)
   }
 
-  private fun runPending(actions: MutableList<PendingMapAction>, map: MaplibreMap) {
-    val running = actions.toList()
-    actions.clear()
-    running.forEach { it.run(map) }
+  private fun deliverListener(action: () -> Unit) {
+    listenerCalls.addLast(action)
+    drainListeners()
   }
 
-  private fun abandonPending(actions: MutableList<PendingMapAction>) {
-    val abandoned = actions.toList()
-    actions.clear()
-    abandoned.forEach { it.abandon() }
+  private fun drainListeners() {
+    if (engineCallDepth != 0 || deliveringListeners) return
+    deliveringListeners = true
+    try {
+      while (listenerCalls.isNotEmpty()) listenerCalls.removeFirst()()
+    } finally {
+      deliveringListeners = false
+    }
   }
 
-  private fun <T> withMap(fallback: T, action: (MaplibreMap) -> T): T = map?.let(action) ?: fallback
+  private fun listen(
+    map: MaplibreMap,
+    type: String,
+    action: (GlJsMapEvent) -> Unit,
+  ): GlJsSubscription {
+    var active = true
+    val subscription =
+      map.subscribe(type) { event ->
+        deliverListener { if (active) action(event) }
+      }
+    return GlJsSubscription {
+      active = false
+      subscription.cancel()
+    }
+  }
+
+  private fun onMap(action: (MaplibreMap) -> Unit) {
+    if (!closing) map?.let { engineCall { action(it) } }
+  }
+
+  private fun <T> withMap(fallback: T, action: (MaplibreMap) -> T): T =
+    map?.let { engineCall { action(it) } } ?: fallback
 
   // endregion
 
@@ -639,10 +634,10 @@ internal class GlJsMapSession(
     // against base layers being replaced.
     styleBinding?.invalidate()
     requestedStyle = style
-    val request = styleLoadTracker.request()
-    if (engineIdentity != null) events.styleRequested(request)
-    if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
-    else if (map == null) lifecycleAuthority.mapUnavailable()
+    styleLoadTracker.request()
+    callbacks.onStyleChanged(this, null)
+    onMap(::applyRequestedStyle)
+    if (map == null) lifecycleAuthority.mapUnavailable()
   }
 
   override suspend fun <T> reconcileStyleRevision(
@@ -651,10 +646,10 @@ internal class GlJsMapSession(
   ): T {
     val binding = checkNotNull(styleBinding)
     try {
-      styleReconciler.apply(binding, revision)
+      engineCall { styleReconciler.apply(binding, revision) }
       val resources = capture(binding)
       if (styleLoadTracker.reconciled(binding.identity)) {
-        events.styleReady(binding.identity)
+        callbacks.onStyleReady(this)
       }
       surface?.requestFrame()
       return resources
@@ -678,25 +673,36 @@ internal class GlJsMapSession(
       styleSubscriptions +=
         map.loadBaseStyle(
           style,
-          onLoaded = onLoaded@{
+          onLoaded = {
+            deliverListener onLoaded@{
+              if (this.map !== map) return@onLoaded
               styleLoadPending = false
-              val binding = GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
-              if (!styleLoadTracker.loaded(trackerRequest, binding.identity, map.isStyleLoaded())) {
+              val binding =
+                GlJsStyleBinding(map, logger, callEngine = { engineCall(it) }) {
+                  appliedExtent.scaleFactor.toFloat()
+                }
+              if (
+                !styleLoadTracker.loaded(
+                  trackerRequest,
+                  binding.identity,
+                  map.isStyleLoaded(),
+                )
+              ) {
                 binding.invalidate()
                 applyRequestedStyle(map)
                 return@onLoaded
               }
               if (!closing) {
-                events.styleLoaded(binding)
                 styleBinding?.invalidate()
                 styleBinding = binding
-                events.styleEvent(binding.identity, MapEvent.StyleLoaded)
-                styleSubscriptions += map.subscribe("styledata") { reportBaseStyleReady(binding) }
+                callbacks.onStyleChanged(this, binding)
+                callbacks.onEvent(this, MapEvent.StyleLoaded)
+                styleSubscriptions += listen(map, "styledata") { reportBaseStyleReady(binding) }
                 styleSubscriptions +=
-                  map.subscribe("sourcedata") { event ->
+                  listen(map, "sourcedata") { event ->
                     if (event.sourceDataType == "metadata") {
                       applyTileLod(map)
-                      if (styleLoadTracker.isReady) events.styleSourcesChanged(binding.identity)
+                      if (styleLoadTracker.isReady) callbacks.onStyleSourcesChanged(this)
                     }
                     reportBaseStyleReady(binding)
                   }
@@ -708,20 +714,24 @@ internal class GlJsMapSession(
               } else {
                 binding.invalidate()
               }
-            },
+            }
+          },
           onFailed = { message ->
-            val reason = message ?: "MapLibre failed to load the map"
-            styleLoadPending = false
-            val accepted = styleLoadTracker.failed(trackerRequest)
-            if (accepted) {
-              if (!closing) {
-                events.styleFailed(trackerRequest, reason)
-                logger?.e { "Map loading failed: $reason" }
-                if (!hasLoadedInitialStyle) cameraTransitions.releasePending()
-                events.styleRequestEvent(trackerRequest, MapEvent.StyleLoadFailed(reason))
+            deliverListener {
+              if (this.map !== map) return@deliverListener
+              val reason = message ?: "MapLibre failed to load the map"
+              styleLoadPending = false
+              val accepted = styleLoadTracker.failed(trackerRequest)
+              if (accepted) {
+                if (!closing) {
+                  callbacks.onStyleFailed(this, reason)
+                  logger?.e { "Map loading failed: $reason" }
+                  if (!hasLoadedInitialStyle) cameraTransitions.releasePending()
+                  callbacks.onEvent(this, MapEvent.StyleLoadFailed(reason))
+                }
+              } else {
+                applyRequestedStyle(map)
               }
-            } else {
-              applyRequestedStyle(map)
             }
           },
         )
@@ -730,8 +740,8 @@ internal class GlJsMapSession(
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
       if (styleLoadTracker.failed(trackerRequest)) {
-        events.styleFailed(trackerRequest, reason)
-        events.styleRequestEvent(trackerRequest, MapEvent.StyleLoadFailed(reason))
+        callbacks.onStyleFailed(this, reason)
+        callbacks.onEvent(this, MapEvent.StyleLoadFailed(reason))
       }
       if (!hasLoadedInitialStyle) cameraTransitions.releasePending()
     }
@@ -764,7 +774,7 @@ internal class GlJsMapSession(
   override fun setViewportInsets(insets: PaddingValues) {
     val resolved = insets.toPaddingOptions(layoutDirection)
     if (viewportInsets.sameAs(resolved)) return
-    cameraTransitions.cancelAnchor(map)
+    engineCall { cameraTransitions.cancelAnchor(map) }
     val camera = getCameraPosition()
     viewportInsets = resolved
     onMap { map ->
@@ -1008,7 +1018,7 @@ internal class GlJsMapSession(
   override fun setCameraConstraints(value: CameraConstraints) {
     if (value == cameraConstraints) return
     cameraConstraints = value
-    map?.let { applyCameraConstraints(it, value) }
+    onMap { applyCameraConstraints(it, value) }
   }
 
   override fun getCameraConstraints(): CameraConstraints =
@@ -1056,16 +1066,19 @@ internal class GlJsMapSession(
     }
 
   override fun setRenderSettings(value: RenderOptions) {
+    renderSettings = value
     if (maximumFps != value.maximumFps) {
       maximumFps = value.maximumFps
       surface?.requestFrame()
     }
-    onMap { map ->
-      map.showTileBoundaries = value.debug.tileBorders
-      map.showCollisionBoxes = value.debug.collisionBoxes
-      map.showPadding = value.debug.padding
-      map.showOverdrawInspector = value.debug.overdrawInspector
-    }
+    onMap(::applyRenderSettings)
+  }
+
+  private fun applyRenderSettings(map: MaplibreMap) {
+    map.showTileBoundaries = renderSettings.debug.tileBorders
+    map.showCollisionBoxes = renderSettings.debug.collisionBoxes
+    map.showPadding = renderSettings.debug.padding
+    map.showOverdrawInspector = renderSettings.debug.overdrawInspector
   }
 
   override fun setTileLodSettings(value: TileLodOptions) {
@@ -1219,7 +1232,7 @@ internal class GlJsMapSession(
           activate = { activateGesture(gestureToken) },
         ) {
           if (!continuation.isActive) return@command false
-          start(current)
+          engineCall { start(current) }
         }
       }
     }
@@ -1266,7 +1279,7 @@ internal class GlJsMapSession(
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       if (activeGestureToken === token) {
-        if (cancelled) map?.stop()
+        if (cancelled) onMap { it.stop() }
         if (activeGestureToken === token) {
           activeGestureToken = null
           reportGestureActive(false)
@@ -1280,7 +1293,7 @@ internal class GlJsMapSession(
   private fun activateGesture(token: CameraInputToken?) {
     if (token == null) return
     if (activeGestureToken !== token) {
-      map?.stop()
+      onMap { it.stop() }
       if (!token.acceptsCommands) return
       activeGestureToken = token
     }
@@ -1296,7 +1309,7 @@ internal class GlJsMapSession(
   }
 
   private fun reportGestureActive(active: Boolean) {
-    withLifecyclePresentation { engine, lease -> events.gestureActive(engine, lease, active) }
+    if (presenting) callbacks.onGestureActive(this, active)
   }
 
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
@@ -1429,12 +1442,6 @@ internal class GlJsMapSession(
 
   private fun animation(duration: Duration): EaseToOptions = unsafeJso {
     this.duration = duration.inWholeMilliseconds.toDouble()
-  }
-
-  private inline fun withLifecyclePresentation(action: (EngineMapIdentity, RenderLease) -> Unit) {
-    val engine = engineIdentity ?: return
-    val lease = renderLease ?: return
-    action(engine, lease)
   }
 
   // endregion

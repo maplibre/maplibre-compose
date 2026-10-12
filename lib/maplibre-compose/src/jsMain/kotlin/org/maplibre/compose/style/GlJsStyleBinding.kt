@@ -82,6 +82,7 @@ internal class GlJsStyleBinding(
   override val logger: MapLog?,
   /** Receives the exception of a failed custom source provider call. */
   private val customTileFailed: (Throwable) -> Unit = {},
+  private val callEngine: (() -> Unit) -> Unit,
   private val getScale: () -> Float,
 ) : StyleBinding {
 
@@ -718,7 +719,7 @@ internal class GlJsStyleBinding(
     sourceLayerId: String?,
     featureId: String,
     stateKey: String?,
-  ) {
+  ) = callEngine {
     requireCurrent()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       if (stateKey == null) map.removeFeatureState(ident)
@@ -726,7 +727,7 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
+  override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) = callEngine {
     requireCurrent()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId = null)) {
       map.removeFeatureState(ident)
@@ -795,14 +796,14 @@ internal class GlJsStyleBinding(
     return JsonObject(layer + ("source-layer" to JsonPrimitive(attachment.sourceLayerName)))
   }
 
-  override fun removeLayer(layerId: String) {
+  override fun removeLayer(layerId: String) = callEngine {
     requireCurrent()
     map.removeLayer(layerId)
     indicators.remove(layerId)?.close()
     layerOrder = map.getLayersOrder().toList()
   }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) {
+  override fun moveLayer(layerId: String, beforeLayerId: String) = callEngine {
     requireCurrent()
     if (beforeLayerId.isEmpty()) map.moveLayer(layerId) else map.moveLayer(layerId, beforeLayerId)
     layerOrder = map.getLayersOrder().toList()
@@ -841,7 +842,7 @@ internal class GlJsStyleBinding(
     }
     val minZoom = if (name == "minzoom") number else layer.minzoom ?: 0.0
     val maxZoom = if (name == "maxzoom") number else layer.maxzoom ?: 24.0
-    map.setLayerZoomRange(layerId, minZoom, maxZoom)
+    callEngine { map.setLayerZoomRange(layerId, minZoom, maxZoom) }
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
@@ -985,7 +986,7 @@ internal class GlJsStyleBinding(
     what: String,
     current: Any?,
     next: JsonObject,
-    set: (T, StyleSetterOptions) -> Unit,
+    crossinline set: (T, StyleSetterOptions) -> Unit,
   ) {
     mutate(what) { set(next.toJsValue(), unsafeJso { validate = true }) }
     val stale = current?.unsafeCast<JsRecord<*>>()?.keys()?.filter { it !in next }.orEmpty()
@@ -995,15 +996,17 @@ internal class GlJsStyleBinding(
     mutate(what) { set(cleared, unsafeJso { validate = false }) }
   }
 
-  private inline fun mutate(what: String, action: () -> Unit) {
-    val before = errorCount
-    try {
-      action()
-    } catch (error: Throwable) {
-      throw StyleMutationException("MapLibre could not $what: ${error.message}", error)
-    }
-    if (errorCount != before) {
-      throw StyleMutationException("MapLibre could not $what: ${lastError ?: "unknown"}", null)
+  private inline fun mutate(what: String, crossinline action: () -> Unit) {
+    callEngine {
+      val before = errorCount
+      try {
+        action()
+      } catch (error: Throwable) {
+        throw StyleMutationException("MapLibre could not $what: ${error.message}", error)
+      }
+      if (errorCount != before) {
+        throw StyleMutationException("MapLibre could not $what: ${lastError ?: "unknown"}", null)
+      }
     }
   }
 }

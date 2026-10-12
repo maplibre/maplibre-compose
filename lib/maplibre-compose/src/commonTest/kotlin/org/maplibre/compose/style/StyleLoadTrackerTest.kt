@@ -3,7 +3,6 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 
 class StyleLoadTrackerTest {
@@ -54,53 +53,6 @@ class StyleLoadTrackerTest {
   }
 
   @Test
-  fun stale_completions_cannot_release_or_hide_the_current_presentation() {
-    val tracker = StyleLoadTracker()
-    val firstRequest = tracker.requestId
-    val first = StyleIdentity.create()
-    assertTrue(tracker.loaded(firstRequest, first))
-    assertTrue(tracker.reconciled(first))
-    val secondRequest = tracker.request()
-    assertNotSame(firstRequest, secondRequest)
-    assertFalse(tracker.loaded(firstRequest, StyleIdentity.create()))
-    assertFalse(tracker.failed(firstRequest))
-    assertFalse(tracker.reconciled(first))
-    assertFalse(tracker.baseStyleReady(first))
-    tracker.failed(first)
-    assertEquals(StylePresentation.Retained, tracker.presentation)
-
-    assertTrue(tracker.failed(secondRequest))
-    assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertFalse(
-      tracker.loaded(secondRequest, StyleIdentity.create()),
-      "failure is terminal for the request",
-    )
-    val third = StyleIdentity.create()
-    assertTrue(tracker.loaded(tracker.request(), third))
-    assertTrue(tracker.reconciled(third))
-    assertEquals(StylePresentation.Live, tracker.presentation)
-  }
-
-  @Test
-  fun a_load_for_a_superseded_request_claims_nothing() {
-    val tracker = StyleLoadTracker()
-    val superseded = tracker.requestId
-    // The engine loads the first request while main has already requested another style.
-    val current = tracker.request()
-    val stale = StyleIdentity.create()
-    assertFalse(tracker.loaded(superseded, stale))
-    assertFalse(tracker.isCurrent(stale))
-
-    val loaded = StyleIdentity.create()
-    assertTrue(tracker.loaded(current, loaded))
-    assertTrue(tracker.isCurrent(loaded))
-    assertTrue(tracker.failed(current))
-    assertTrue(tracker.isCurrent(loaded), "a failure keeps the loaded style until a new request")
-    tracker.request()
-    assertFalse(tracker.isCurrent(loaded))
-  }
-
-  @Test
   fun failed_reconciliation_can_recover_with_a_new_revision() {
     val tracker = StyleLoadTracker()
     val identity = StyleIdentity.create()
@@ -114,11 +66,10 @@ class StyleLoadTrackerTest {
   }
 
   @Test
-  fun new_presentations_wait_for_current_content_and_destroyed_engines_reject_old_results() {
+  fun a_new_presentation_or_engine_waits_for_current_content() {
     val tracker = StyleLoadTracker()
-    val request = tracker.requestId
     val identity = StyleIdentity.create()
-    assertTrue(tracker.loaded(request, identity))
+    assertTrue(tracker.loaded(tracker.requestId, identity))
     assertTrue(tracker.reconciled(identity))
     tracker.resetPresentation()
     assertEquals(StylePresentation.Hidden, tracker.presentation)
@@ -131,10 +82,6 @@ class StyleLoadTrackerTest {
     assertEquals(StylePresentation.Live, tracker.presentation)
 
     tracker.engineBecameUnavailable()
-    assertNotSame(request, tracker.requestId)
     assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertFalse(tracker.loaded(request, identity))
-    assertFalse(tracker.reconciled(identity))
-    assertFalse(tracker.failed(request))
   }
 }

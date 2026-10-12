@@ -85,8 +85,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
   private fun frame(): Boolean {
     frameRequested = false
     val rendered = glJsSession.render(GlJsFrameTarget.OwnCanvas, extent)
-    // Design step 7 removes the pending-action replay queues behind this host acknowledgement.
-    glJsSession.markPresentationStateReplayed()
     return rendered.also { if (it) hasRendered = true }
   }
 
@@ -107,7 +105,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
   }
 
   internal fun fireStyleError(message: String) {
-    // Design step 7 replaces listener delivery; MapState has no command to inject engine errors.
     glJsSession.fireStyleErrorForTest(message)
   }
 

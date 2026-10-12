@@ -16,13 +16,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 
 /**
  * Tracks the current [MapAttachment] of one [MapState], hands out attachments and viewports to
- * callers that wait for them, and replays the durable camera onto each attachment. The lifecycle
- * authority drives it through the commit and invalidate calls.
+ * callers that wait for them. The lifecycle authority drives it through the commit and invalidate
+ * calls.
  */
 internal class MapAttachmentAuthority(
   internal val lifecycle: MapLifecycleAuthority,
@@ -30,7 +29,6 @@ internal class MapAttachmentAuthority(
   private val styleAuthority: MapStyleAuthority,
   cameraPosition: CameraPosition,
 ) {
-  private var cameraCommandRevision = 0L
   private val eventsFlow =
     MutableSharedFlow<MapEvent>(
       extraBufferCapacity = 64,
@@ -60,12 +58,8 @@ internal class MapAttachmentAuthority(
     requireOpen()
     if (!guard.isValid()) return
     cameraPositionState = position
-    cameraCommandRevision++
     val attachment = current ?: return
-    applyAttachmentCameraCommand(
-      attachment,
-      CameraCommand(attachment.adapter, position, cameraCommandRevision, guard),
-    )
+    attachment.adapter.setCameraPosition(position, guard)
   }
 
   suspend fun awaitViewport(): Viewport {
@@ -202,7 +196,7 @@ internal class MapAttachmentAuthority(
   internal fun configurePresentationAdapter(adapter: MapAdapter) {
     lifecycle.requireMain()
     if (!lifecycle.isPendingPublication(adapter)) return
-    applyCameraCommand(CameraCommand(adapter, cameraPositionState, cameraCommandRevision))
+    adapter.setCameraPosition(cameraPositionState)
     styleAuthority.configurePendingAdapter(adapter)
   }
 
@@ -216,39 +210,6 @@ internal class MapAttachmentAuthority(
     cameraPositionState = viewport.cameraPosition
     current.updateViewport(viewport)
     styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
-  }
-
-  private fun applyCameraCommand(initial: CameraCommand) {
-    var command = initial
-    while (true) {
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      command.adapter.setCameraPosition(command.value, command.guard)
-      // GL JS fires camera events inside jumpTo, even before this camera applies when it stops an
-      // ease. Code they resume inline can set a newer camera, which this replays.
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      if (cameraCommandRevision == command.revision) return
-      command =
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
-    }
-  }
-
-  private fun applyAttachmentCameraCommand(
-    attachment: MapAttachment,
-    initial: CameraCommand,
-  ) {
-    val guard = CameraCommandGuard {
-      isCurrent(attachment) && initial.guard?.isValid() != false
-    }
-    var command = initial
-    while (true) {
-      if (!isCurrent(attachment)) return
-      command.adapter.setCameraPosition(command.value, guard)
-      // Replays a newer camera set during the call, as in applyCameraCommand.
-      if (!isCurrent(attachment)) return
-      if (cameraCommandRevision == command.revision) return
-      command =
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
-    }
   }
 
   internal fun commitPresentation(
@@ -281,12 +242,5 @@ internal class MapAttachmentAuthority(
     val attachment: MapAttachment? = null,
     val viewport: Viewport? = null,
     val closed: Boolean = false,
-  )
-
-  private data class CameraCommand(
-    val adapter: MapAdapter,
-    val value: CameraPosition,
-    val revision: Long,
-    val guard: CameraCommandGuard? = null,
   )
 }

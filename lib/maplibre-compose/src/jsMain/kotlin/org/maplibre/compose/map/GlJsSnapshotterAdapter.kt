@@ -105,6 +105,7 @@ internal class GlJsSnapshotterAdapter(
                 currentMap,
                 logger,
                 customTileFailed = { recordLoadFailure(it.asProviderFailure()) },
+                callEngine = { it() },
               ) {
                 currentDensity
               }

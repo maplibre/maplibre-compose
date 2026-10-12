@@ -48,7 +48,6 @@ internal fun <T> GlJsMapPresentation(
       SideEffect {
         if (session.hasUsableViewport) {
           binding.update(session)
-          session.markPresentationStateReplayed()
         }
       }
     }
