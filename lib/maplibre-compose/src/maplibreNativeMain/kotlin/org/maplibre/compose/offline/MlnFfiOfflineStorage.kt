@@ -7,9 +7,12 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,16 +67,30 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       scope.launch {
         try {
           val runtime = owner.awaitRuntime()
-          options.maximumCacheSizeBytes?.let { size ->
-            run("set the initial maximum ambient cache size to $size bytes") {
-              runtime.setMaximumAmbientCacheSize(size.toULong())
-            }
-            logger?.d { "Ambient cache size set to $size bytes" }
-          }
-          val regions = run("list the offline packs") { runtime.listOfflineRegions() }
-          regions.forEach { info ->
-            runCatching { registerRegion(runtime, info) }
-              .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
+          coroutineScope {
+            val cacheSize =
+              async(start = CoroutineStart.UNDISPATCHED) {
+                initialCacheSize?.let { size ->
+                  run("set the initial maximum ambient cache size to $size bytes") {
+                    runtime.setMaximumAmbientCacheSize(size.toULong())
+                  }
+                  logger?.d { "Ambient cache size set to $size bytes" }
+                }
+              }
+            val regions =
+              async(start = CoroutineStart.UNDISPATCHED) {
+                run("list the offline packs") { runtime.listOfflineRegions() }
+              }
+            cacheSize.await()
+            regions
+              .await()
+              .map { info ->
+                async(start = CoroutineStart.UNDISPATCHED) {
+                  runCatching { registerRegion(runtime, info) }
+                    .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
+                }
+              }
+              .forEach { it.await() }
           }
           lock.withLock {
             storageState.compareAndSet(
@@ -153,7 +170,16 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       run("merge offline database $sourceFile") {
         runtime.mergeOfflineRegions(sourceFile.toString())
       }
-    return merged.mapNotNull { registerRegion(runtime, it) }.toSet()
+    return withContext(owner.mainDispatcher) {
+      coroutineScope {
+        merged
+          .map { info ->
+            async(start = CoroutineStart.UNDISPATCHED) { registerRegion(runtime, info) }
+          }
+          .mapNotNull { it.await() }
+          .toSet()
+      }
+    }
   }
 
   override suspend fun invalidateAmbientCache() {
@@ -362,7 +388,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   private fun launchOperation(description: String, start: () -> Deferred<Unit>) =
     if (!open) null
     else
-      scope.launch {
+      scope.launch(start = CoroutineStart.UNDISPATCHED) {
         try {
           run(description, start)
         } catch (error: Throwable) {
