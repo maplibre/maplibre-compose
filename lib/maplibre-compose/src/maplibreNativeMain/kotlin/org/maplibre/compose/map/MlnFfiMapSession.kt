@@ -114,6 +114,7 @@ private val HandledMapEvents: RuntimeEventMask =
   RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE or
     RuntimeEventMask.MAP_STYLE_LOADED or
     RuntimeEventMask.MAP_IDLE or
+    RuntimeEventMask.MAP_SOURCE_CHANGED or
     RuntimeEventMask.MAP_LOADING_FAILED or
     RuntimeEventMask.MAP_CAMERA_WILL_CHANGE or
     RuntimeEventMask.MAP_CAMERA_IS_CHANGING or
@@ -211,33 +212,6 @@ internal class MlnFfiMapSession(
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
 
-  /**
-   * URL sources whose TileJSON attribution has already been reported, so each is reported exactly
-   * once rather than on every idle.
-   */
-  private val reportedUrlAttribution = mutableSetOf<String>()
-
-  /**
-   * Main only. Checks for attribution received through a URL source's TileJSON after addSource
-   * returns. The C API has no TileJSON arrival event, so check on idle with one listing query.
-   */
-  private suspend fun reportNewlyArrivedAttribution(map: MapHandle) {
-    val binding = styleBinding ?: return
-    val sources = map.listStyleSources().await()
-    if (styleBinding !== binding || !binding.isLoaded) return
-    var changed = false
-    for (info in sources) {
-      if (
-        !info.url.isNullOrEmpty() &&
-          !info.attribution.isNullOrEmpty() &&
-          reportedUrlAttribution.add(info.id)
-      ) {
-        changed = true
-      }
-    }
-    if (changed) callbacks.onStyleSourcesChanged(this)
-  }
-
   private suspend fun createStyleBinding(map: MapHandle): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = map,
@@ -252,9 +226,6 @@ internal class MlnFfiMapSession(
       loggerProvider = { logger },
       sessionOpen = { !isClosing },
       renderSessions = this,
-      sourceChanged = { sourceId ->
-        owner.postToMain { reportedUrlAttribution.remove(sourceId) }
-      },
       sourceDataFailed = { bindingIdentity, sourceId, error ->
         owner.postToMain {
           if (styleBinding?.identity === bindingIdentity) {
@@ -543,18 +514,15 @@ internal class MlnFfiMapSession(
           }
           styleBinding?.invalidate()
           styleBinding = binding
-          reportedUrlAttribution.clear()
           callbacks.onStyleChanged(this, binding)
           mapEvent?.let { callbacks.onEvent(this, it) }
         }
       }
 
-      RuntimeEventType.MAP_IDLE -> {
-        if (styleLoadTracker.isReady && styleBinding != null) {
-          owner.launchOnMain { reportNewlyArrivedAttribution(map) }
-        }
-        mapEvent?.let { callbacks.onEvent(this, it) }
-      }
+      RuntimeEventType.MAP_IDLE -> mapEvent?.let { callbacks.onEvent(this, it) }
+
+      RuntimeEventType.MAP_SOURCE_CHANGED ->
+        if (styleBinding?.isLoaded == true) callbacks.onStyleSourcesChanged(this)
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         val request = styleLoadTracker.requestId

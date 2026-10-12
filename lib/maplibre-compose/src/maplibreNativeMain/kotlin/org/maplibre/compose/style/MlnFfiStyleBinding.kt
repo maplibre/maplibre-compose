@@ -126,7 +126,6 @@ internal open class MlnFfiStyleBinding(
   private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
   private val renderSessions: MlnFfiRenderSessions = MlnFfiRenderSessions.None,
-  private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
   private val styleFailed: (StyleIdentity, Throwable) -> Unit = { _, _ -> },
@@ -382,7 +381,6 @@ internal open class MlnFfiStyleBinding(
    */
   fun addSourceWith(sourceId: String, add: (MapHandle) -> Deferred<CommandCompletion>): Boolean {
     write(onFailure = structuralFailure(), start = add)
-    sourceChanged(sourceId)
     return true
   }
 
@@ -390,7 +388,6 @@ internal open class MlnFfiStyleBinding(
     write { it.removeStyleSource(sourceId) }
     identity.sources.remove(sourceId)
     geoJsonCoordinators.remove(sourceId)?.close()
-    sourceChanged(sourceId)
     removeTileCoordinator(sourceId)
   }
 
