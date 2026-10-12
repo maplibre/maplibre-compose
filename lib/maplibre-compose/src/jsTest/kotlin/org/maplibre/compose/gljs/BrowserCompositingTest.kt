@@ -299,6 +299,43 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun a_webgl_context_swap_replays_the_camera_and_options() = gpuTest { gpu ->
+    ComposeGlJsCompositor(logger = null).use { compositor ->
+      CompositedMap(BaseStyle.Empty).use { map ->
+        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
+        val first = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+        map.drawUntil(first, "the initial style") { map.loadedBinding?.isLoaded == true }
+        val camera =
+          CameraPosition(
+            center = Position(-30.0, 10.0),
+            zoom = 3.0,
+            bearing = 20.0,
+            pitch = 30.0,
+          )
+        map.state.setCameraPosition(camera)
+        map.setOverdrawInspector(true)
+        val firstEngine = assertNotNull(map.session.engineMapForTest())
+        withNewWebGlContext { next ->
+          assertTrue(gpu.gl !== next.gl)
+          val second = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          assertFalse(map.drawOnce(second))
+          map.drawUntil(second, "the replacement style") {
+            map.loadedBinding?.isLoaded == true
+          }
+          val replacement = assertNotNull(map.session.engineMapForTest())
+          assertTrue(firstEngine !== replacement)
+          assertTrue(
+            map.session.getCameraPosition().isNear(camera),
+            "context replacement must preserve the desired camera",
+          )
+          assertTrue(replacement.showOverdrawInspector)
+          compositor.close()
+        }
+      }
+    }
+  }
+
+  @Test
   fun an_unsupported_extent_does_not_allocate_and_a_valid_extent_can_render_again() =
     gpuTest { gpu ->
       val gl = gpu.gl.asDynamic()
