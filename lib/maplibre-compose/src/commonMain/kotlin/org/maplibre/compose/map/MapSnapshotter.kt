@@ -332,7 +332,7 @@ internal class MapSnapshotterImplementation(
   override val resourceCommands by lazy {
     StyleResourceCommands(
       style,
-      runtime.physicalScope,
+      runtime.mainScope,
       commitSources = { binding -> commitSourcesAfterCommand(binding) },
     )
   }
@@ -357,7 +357,9 @@ internal class MapSnapshotterImplementation(
         if (closed) return@withLock false
         queue.addLast(capture)
         continuation.invokeOnCancellation { cancel(capture) }
-        if (worker == null) worker = runtime.physicalScope.launch { runQueue() }
+        if (worker == null)
+          worker =
+            runtime.physicalScope.launch { withContext(runtime.mainDispatcher) { runQueue() } }
         true
       }
       if (!accepted) {
@@ -438,7 +440,7 @@ internal class MapSnapshotterImplementation(
         val result =
           try {
             // Drain accepted commands before a load enters Loading, which rejects further writes.
-            // User composition and platform callbacks must run outside the command mutex.
+            // Evaluate the complete declaration before submitting its writes.
             val currentClaim = run { claimStyle() }
             claim = currentClaim
             val prepared =
@@ -579,11 +581,7 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  /**
-   * Runs [mutate] on the map owner and reads the sources it leaves behind in the same task.
-   *
-   * @return false, with nothing published, when the loaded style changed first.
-   */
+  /** Publishes ordered source metadata while the loaded style remains current. */
   private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
     if (!isCurrent(binding)) return false
     val resources = style.readResources(binding)
@@ -670,9 +668,8 @@ internal class MapSnapshotterImplementation(
 
   /**
    * Publishes [binding] with the handles of the resources it holds after [revision]. The engine
-   * read runs as an owner task between two locked steps, so a UI-thread lookup never waits on the
-   * map owner while this snapshotter's lock is held. A loading style stays Loading until the
-   * handles are in place.
+   * ordered queries suspend without holding this snapshotter's lock. A loading style stays Loading
+   * until the handles are in place.
    */
   private suspend fun publishStyle(
     capture: Capture,

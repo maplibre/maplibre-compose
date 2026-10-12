@@ -7,7 +7,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
 
 /**
  * Proves a map that has finished its work stops asking to be drawn. FFI frames are requested rather
@@ -40,8 +39,8 @@ class MlnFfiMapIdleTest {
 
       requireNotNull(fixture.style).also { style ->
         runBlocking {
-          style.onOwner {
-            style.sourceIds().mapNotNull(style::getSource)
+          style.run {
+            style.sourceIds().mapNotNull { style.getSource(it) }
             style.layerIds()
             style.getSource("missing")
             style.getLayer("missing")

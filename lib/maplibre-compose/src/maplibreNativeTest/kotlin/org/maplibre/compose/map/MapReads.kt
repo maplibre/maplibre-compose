@@ -1,6 +1,6 @@
 package org.maplibre.compose.map
 
-import org.maplibre.compose.mlnffi.awaitBlocking
+import kotlinx.coroutines.runBlocking
 import org.maplibre.nativeffi.generated.BoundOptions
 import org.maplibre.nativeffi.generated.CameraOptions
 import org.maplibre.nativeffi.generated.ImageStretch
@@ -20,12 +20,12 @@ import org.maplibre.nativeffi.generated.StyleSourceInfo
 
 /** The camera after every command submitted before this read. */
 internal val MapHandle.camera: CameraOptions
-  get() = getCamera().awaitBlocking().camera
+  get() = getCamera().let { completion -> runBlocking { completion.await() } }.camera
 
 /** The snapshot published once every command submitted before this read has run. */
 internal fun MapHandle.snapshotAfterCommands(): MapSnapshot {
   // An ordered query runs after every earlier command, each of which publishes a snapshot.
-  getCamera().awaitBlocking()
+  getCamera().let { completion -> runBlocking { completion.await() } }
   return getSnapshot()
 }
 
@@ -46,18 +46,18 @@ internal val MapHandle.isFullyLoaded: Boolean
   get() = getSnapshot().fullyLoaded
 
 internal fun MapHandle.styleLayerIds(): List<String> =
-  listStyleLayers().awaitBlocking().map { it.id }
+  listStyleLayers().let { completion -> runBlocking { completion.await() } }.map { it.id }
 
 internal fun MapHandle.styleLayer(layerId: String): StyleLayerInfo? =
-  getStyleLayer(layerId).awaitBlocking()
+  getStyleLayer(layerId).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.styleLayerExists(layerId: String): Boolean = styleLayer(layerId) != null
 
 internal fun MapHandle.layerProperty(layerId: String, name: String): ByteArray? =
-  getStyleLayerProperty(layerId, name).awaitBlocking()
+  getStyleLayerProperty(layerId, name).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.layerFilter(layerId: String): ByteArray? =
-  getStyleLayerFilter(layerId).awaitBlocking()
+  getStyleLayerFilter(layerId).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.layerMinZoom(layerId: String): Double =
   checkNotNull(styleLayer(layerId)).minZoom
@@ -75,13 +75,13 @@ internal fun MapHandle.layerVisibility(layerId: String): StyleLayerVisibility =
   checkNotNull(styleLayer(layerId)).visibility
 
 internal fun MapHandle.styleSourceIds(): List<String> =
-  listStyleSources().awaitBlocking().map { it.id }
+  listStyleSources().let { completion -> runBlocking { completion.await() } }.map { it.id }
 
 internal fun MapHandle.styleSourceInfo(sourceId: String): StyleSourceInfo? =
-  getStyleSource(sourceId).awaitBlocking()
+  getStyleSource(sourceId).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.styleImageInfo(imageId: String): StyleImageInfo? =
-  getStyleImage(imageId).awaitBlocking()
+  getStyleImage(imageId).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.styleImageStretches(
   imageId: String
@@ -89,9 +89,10 @@ internal fun MapHandle.styleImageStretches(
   styleImageInfo(imageId)?.let { it.stretchX to it.stretchY }
 
 internal fun MapHandle.imageSourceCoordinates(sourceId: String): List<LatLng> =
-  getImageSourceCoordinates(sourceId).awaitBlocking()
+  getImageSourceCoordinates(sourceId).let { completion -> runBlocking { completion.await() } }
 
-internal fun MapHandle.loadedStyleJson(): ByteArray = getLoadedStyleJson().awaitBlocking()
+internal fun MapHandle.loadedStyleJson(): ByteArray =
+  getLoadedStyleJson().let { completion -> runBlocking { completion.await() } }
 
 /**
  * Runs [action] with this session's map, or returns null when the map does not exist. Tests only;

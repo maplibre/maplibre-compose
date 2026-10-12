@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -24,7 +25,7 @@ import org.maplibre.spatialk.geojson.Position
 class StyleReconcilerTest {
 
   @Test
-  fun duplicate_resource_ids_fail_a_complete_revision() {
+  fun duplicate_resource_ids_fail_a_complete_revision() = runTest {
     val source = source("duplicate").definition()
 
     val error =
@@ -40,7 +41,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() {
+  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() = runTest {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
@@ -58,7 +59,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun unchanged_layers_skip_preparation_but_duration_scale_changes_still_apply() {
+  fun unchanged_layers_skip_preparation_but_duration_scale_changes_still_apply() = runTest {
     val delegate = RecordingStyleBinding()
     var propertyChecks = 0
     val style =
@@ -98,7 +99,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun construction_changes_replace_layers_but_live_properties_do_not() {
+  fun construction_changes_replace_layers_but_live_properties_do_not() = runTest {
     val delegate = RecordingStyleBinding()
     val recording = RecordingOperations(delegate)
     val reconciler = StyleReconciler()
@@ -134,7 +135,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_later_complete_revision_removes_resources_left_by_a_partial_failure() {
+  fun a_later_complete_revision_removes_resources_left_by_a_partial_failure() = runTest {
     var fail = true
     val delegate = RecordingStyleBinding()
     val style =
@@ -166,7 +167,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() {
+  fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() = runTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     fun revisionWith(vararg images: StyleImageDefinition) =
@@ -187,7 +188,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_failed_replacement_is_replaced_again_by_the_next_revision() {
+  fun a_failed_replacement_is_replaced_again_by_the_next_revision() = runTest {
     val refused = mutableSetOf("icon")
     val style = RecordingStyleBinding(refusedImageReplacements = refused)
     val reconciler = StyleReconciler()
@@ -209,7 +210,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() {
+  fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() = runTest {
     val style = RecordingStyleBinding(refusedImageReplacements = setOf("icon"))
     val reconciler = StyleReconciler()
     fun revisionWith(vararg images: StyleImageDefinition) =
@@ -228,7 +229,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun an_image_source_uploads_only_changed_pixels_after_its_corners() {
+  fun an_image_source_uploads_only_changed_pixels_after_its_corners() = runTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     fun revisionWith(position: PositionQuad, image: PreparedImage) =
@@ -259,7 +260,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun preparing_resolves_anchors_without_installing_or_replaying_application_callbacks() {
+  fun preparing_resolves_anchors_without_installing_or_replaying_application_callbacks() = runTest {
     val base = TestLayer("base", "background")
     val style = RecordingStyleBinding(layers = listOf(base))
     val reconciler = StyleReconciler()

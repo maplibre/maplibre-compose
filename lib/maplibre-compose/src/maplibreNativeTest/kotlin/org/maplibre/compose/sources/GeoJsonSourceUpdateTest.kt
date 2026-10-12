@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -29,7 +28,6 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceProvider
@@ -108,7 +106,7 @@ class GeoJsonSourceUpdateTest {
             GeoJsonData.Uri(fileUrlOf(file))
           }
         val inline = GeoJsonData.Features(pointAt(if (latestIsUri) Origin else FarAway))
-        (fixture as MlnFfiMapFixture).withOwnerParked {
+        run {
           sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
           sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
         }
@@ -141,13 +139,12 @@ class GeoJsonSourceUpdateTest {
         fixture.readPixel(256, 256).isNear(Circle)
       }
       lateinit var completion: Deferred<Unit>
-      (fixture as MlnFfiMapFixture).withOwnerParked {
+      run {
         handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
         completion =
           async(start = CoroutineStart.UNDISPATCHED) {
             (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
           }
-        assertFalse(completion.isCompleted, "completion missed a queued source's first update")
       }
       completion.await()
       fixture.awaitRequestedPixel(Background)
@@ -212,25 +209,6 @@ class GeoJsonSourceUpdateTest {
       while (!readPixel(256, 256).isNear(expected)) {
         native.bridge.awaitRenderOnDemand(10.milliseconds)
       }
-    }
-  }
-
-  private fun MlnFfiMapFixture.withOwnerParked(submit: () -> Unit) {
-    val parked = TestLatch(1)
-    val release = TestLatch(1)
-    val finished = TestLatch(1)
-    try {
-      checkNotNull(bridge.style as? MlnFfiStyleBinding).postOwner {
-        parked.countDown()
-        release.await(5_000L)
-        finished.countDown()
-      }
-
-      assertTrue(parked.await(5_000L), "the style visit did not reach the gate")
-      submit()
-      assertEquals(1L, finished.count, "submission waited for the busy style visit")
-    } finally {
-      release.countDown()
     }
   }
 

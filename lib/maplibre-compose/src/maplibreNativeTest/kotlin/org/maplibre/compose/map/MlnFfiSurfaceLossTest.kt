@@ -32,7 +32,6 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.featureStateSelector
@@ -40,7 +39,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
@@ -207,7 +205,7 @@ class MlnFfiSurfaceLossTest {
       runBlocking { style.install(layer) }
 
       runBlocking {
-        style.onOwner {
+        style.run {
           style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
         }
       }
@@ -217,7 +215,7 @@ class MlnFfiSurfaceLossTest {
       it.loseSurface()
       assertEquals(null, it.tryReadPixel(Center, Center))
       runBlocking {
-        style.onOwner {
+        style.run {
           style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
         }
       }
@@ -233,7 +231,7 @@ class MlnFfiSurfaceLossTest {
 
       it.loseSurface()
       assertEquals(null, it.tryReadPixel(Center, Center))
-      style.postOwner { style.resetFeatureStates(source.id, null) }
+      style.run { style.resetFeatureStates(source.id, null) }
       assertEquals(
         JsonObject(emptyMap()),
         style.featureStateOnOwnerThread(source.id, "1"),
@@ -292,10 +290,12 @@ private fun StyleBinding.featureStateOnOwnerThread(
   featureId: String,
 ): JsonObject {
   val bytes = runBlocking {
-    onOwner {
+    run {
       checkNotNull(
         (this@featureStateOnOwnerThread as MlnFfiStyleBinding).readMap { map ->
-          map.getFeatureState(featureStateSelector(sourceId, null, featureId)).awaitBlocking()
+          map.getFeatureState(featureStateSelector(sourceId, null, featureId)).let { completion ->
+            runBlocking { completion.await() }
+          }
         }
       )
     }

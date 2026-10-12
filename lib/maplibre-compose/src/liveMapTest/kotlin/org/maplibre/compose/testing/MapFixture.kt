@@ -153,7 +153,6 @@ internal suspend fun MapFixture.declare(
       LayoutDirection.Ltr,
       ownership,
     )
-  // Design step 5 replaces revision submission; MapState has no command to replace content.
   state.styleAuthority.applyStyleRevision(session, checkNotNull(style), revision)
 }
 

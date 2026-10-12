@@ -57,7 +57,9 @@ class StyleGlobalStateTest {
       state.setProperty("runtimeOnly", JsonPrimitive(true))
       fixture.loadStyle(EmptyStyle)
       assertEquals(JsonObject(emptyMap()), state.get())
-      oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
+      fixture.state.style.operationGuard(oldBinding).post("Global state", { true }) {
+        oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true))
+      }
       fixture.loadStyle(Style)
       assertEquals(defaults, state.get())
       fixture.closeSession()

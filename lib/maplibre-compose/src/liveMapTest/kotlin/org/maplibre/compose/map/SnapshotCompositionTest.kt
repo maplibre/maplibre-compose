@@ -196,7 +196,12 @@ class SnapshotCompositionTest {
                 } finally {
                   withContext(NonCancellable) {
                     cleanup.complete(
-                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } }
+                      runCatching {
+                        withTimeout(5_000) {
+                          snapshotter.style.globalState.get()
+                          Unit
+                        }
+                      }
                     )
                   }
                 }

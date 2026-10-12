@@ -105,7 +105,7 @@ class SymbolLayerCompositionTest {
 
     fun checkOffsets() {
       for (unit in offsets.keys) {
-        val layout = binding.getLayer(unit)!!.value["layout"] as JsonObject
+        val layout = binding.layers[unit]!!["layout"] as JsonObject
         val renderedSize = layout.getValue("text-size").numberValue(binding.globalStateValues)
         assertEquals(textSize.value.value * fontScale.value.toDouble(), renderedSize, 0.0001)
         val offset = layout.getValue("text-offset").jsonArray
@@ -286,7 +286,7 @@ class SymbolLayerCompositionTest {
         style = binding,
         graphicsContext = graphics,
         thenChange = {
-          assertEquals(ids.value, binding.layerIds())
+          assertEquals(ids.value, binding.layers.keys.toList())
           assertEquals(imageCount, binding.imageIds.size)
           initialImageIds = binding.imageIds.toSet()
           ids.value = remaining

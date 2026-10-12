@@ -14,7 +14,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MissingIconId
 import org.maplibre.compose.testing.RecordingList
@@ -67,7 +66,6 @@ class MissingImageResolverTest {
       val image =
         ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
       fixture.state.style.images.set(MissingIconId, image)
-      fixture.state.style.awaitCommands()
       fixture.pumpUntilPixel(
         "the late registered icon to be drawn",
         256,
@@ -95,7 +93,6 @@ class MissingImageResolverTest {
 
       assertEquals(listOf(MissingIconId), requests.toList(), "the resolver ran more than once")
       fixture.state.style.images[MissingIconId]!!.asMutable!!.remove()
-      fixture.state.style.awaitCommands()
     }
   }
 
@@ -116,7 +113,7 @@ class MissingImageResolverTest {
 
       // Bypass Compose's ownership records, as Native does when evicting unused images.
       val style = checkNotNull(fixture.style)
-      style.onOwner { style.removeImage(MissingIconId) }
+      style.run { style.removeImage(MissingIconId) }
       fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 4.0))
       fixture.pumpUntil("the removed image to be requested and restored") {
         requests.size >= 2 && fixture.state.style.images.get(MissingIconId) != null
@@ -152,7 +149,6 @@ class MissingImageResolverTest {
 
       assertEquals(listOf(MissingIconId, MissingIconId), requests.toList())
       fixture.state.style.images[MissingIconId]!!.asMutable!!.remove()
-      fixture.state.style.awaitCommands()
     }
   }
 
@@ -195,7 +191,6 @@ class MissingImageResolverTest {
       assertEquals(listOf(MissingIconId), supplied.toList())
       assertEquals(listOf(MissingIconId), declined.toList(), "the replaced resolver ran again")
       fixture.state.style.images[MissingIconId]!!.asMutable!!.remove()
-      fixture.state.style.awaitCommands()
     }
   }
 }

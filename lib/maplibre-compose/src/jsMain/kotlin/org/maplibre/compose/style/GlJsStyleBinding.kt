@@ -234,11 +234,15 @@ internal class GlJsStyleBinding(
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
-  override val baseLayers: List<LayerSummary> = map.getLayersOrder().mapNotNull { id ->
-    map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
-  }
+  override val baseLayers: List<LayerSummary> =
+    map.getLayersOrder().mapNotNull { id ->
+      map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
+    }
   override val baseSources: Map<String, Source> =
-    map.style.tileManagers.keys().mapNotNull { id -> reconstructSource(id)?.let { id to it } }.toMap()
+    map.style.tileManagers
+      .keys()
+      .mapNotNull { id -> reconstructSource(id)?.let { id to it } }
+      .toMap()
 
   // GL JS runs the remove and add in one task, so no frame renders between them.
   override fun setImage(definition: StyleImageDefinition) {
@@ -506,8 +510,6 @@ internal class GlJsStyleBinding(
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
     reloadCustomSource(sourceId)
   }
-
-
 
   /**
    * Adds the source without a URL and gives it the pixels in the same task, so no frame renders it
@@ -992,8 +994,6 @@ internal class GlJsStyleBinding(
     for (key in stale) cleared.asDynamic()[key] = null
     mutate(what) { set(cleared, unsafeJso { validate = false }) }
   }
-
-
 
   private inline fun mutate(what: String, action: () -> Unit) {
     val before = errorCount

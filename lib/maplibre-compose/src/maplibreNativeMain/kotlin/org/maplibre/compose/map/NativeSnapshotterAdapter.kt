@@ -15,7 +15,6 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.use
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
@@ -378,7 +377,6 @@ private constructor(
 ) : MlnFfiRuntime.MapChild {
   lateinit var session: RenderSessionHandle
     private set
-
 
   /** Signalled by the session's frame wake. */
   val frameResults = Channel<Unit>(Channel.CONFLATED)

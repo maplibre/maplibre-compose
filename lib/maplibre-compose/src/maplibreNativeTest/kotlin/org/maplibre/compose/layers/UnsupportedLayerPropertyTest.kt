@@ -30,7 +30,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
@@ -119,7 +118,7 @@ class UnsupportedLayerPropertyTest {
         "icon-overlap",
         (const("never").compile(ExpressionContext.None)).asLayerProperty(),
       )
-      runBlocking { style.onOwner { handle.update(layer.definition()) } }
+      runBlocking { style.run { handle.update(layer.definition()) } }
       style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
@@ -155,7 +154,7 @@ class UnsupportedLayerPropertyTest {
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
       for (value in listOf("cooperative", "never")) {
         layer.layout("icon-overlap", const(value).compile(ExpressionContext.None).asLayerProperty())
-        runBlocking { style.onOwner { installation.update(layer.definition()) } }
+        runBlocking { style.run { installation.update(layer.definition()) } }
       }
       assertEquals(
         1,
@@ -189,7 +188,7 @@ class UnsupportedLayerPropertyTest {
       )
       layer.paint("text-opacity", JsonPrimitive(0.75))
       runBlocking {
-        style.onOwner {
+        style.run {
           handle.update(layer.definition())
           assertEquals(JsonPrimitive(0.75), style.layerProperty("labels", "text-opacity"))
         }
@@ -201,6 +200,9 @@ class UnsupportedLayerPropertyTest {
           map.layerProperty("labels", "text-rotation-alignment")?.toJsonElement(),
           "the layer should have kept the value MapLibre accepted",
         )
+      }
+      fixture.pumpUntil("the rejected property warning") {
+        warnings().any { "labels" in it && "text-rotation-alignment" in it }
       }
       assertTrue(warnings().any { "labels" in it && "text-rotation-alignment" in it })
       assertEquals(emptyList(), it.errors, "the map should report nothing")

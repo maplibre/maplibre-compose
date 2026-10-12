@@ -44,7 +44,6 @@ import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.failureMessage
 import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.use
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
@@ -208,7 +207,6 @@ internal class MlnFfiMapSession(
       postToMain = owner::postToMain,
       drain = owner::drain,
     )
-
 
   internal val canPresentFrames: Boolean
     get() = styleLoadTracker.presentation != StylePresentation.Hidden
@@ -666,9 +664,17 @@ internal class MlnFfiMapSession(
       val prepared = styleReconciler.prepare(binding, revision)
       binding.commandGroup { styleReconciler.apply(binding, prepared) }
       val resources = capture(binding)
-      if (styleBinding === binding && !styleLoadTracker.contentReady &&
-        styleLoadTracker.reconciled(binding.identity)) {
-        events.styleReady(binding.identity)
+      if (!binding.revisionFailed) {
+        owner.postToMain {
+          if (
+            styleBinding === binding &&
+              !binding.revisionFailed &&
+              !styleLoadTracker.contentReady &&
+              styleLoadTracker.reconciled(binding.identity)
+          ) {
+            events.styleReady(binding.identity)
+          }
+        }
       }
       return resources
     } catch (error: CancellationException) {

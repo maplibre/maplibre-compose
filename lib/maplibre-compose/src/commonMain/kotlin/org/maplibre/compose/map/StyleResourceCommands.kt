@@ -40,12 +40,16 @@ internal class StyleResourceCommands(
   fun isExplicitImage(id: String): Boolean = images[id] == false
 
   fun requireNoConflicts(snapshot: StyleSnapshot) {
-    snapshot.sources.firstOrNull { currentSource(it.id) != null }?.let {
-      error("Source ID '${it.id}' is owned by an imperative addition")
-    }
-    snapshot.images.firstOrNull { images[it.id] == false }?.let {
-      error("Image ID '${it.id}' is owned by an imperative addition")
-    }
+    snapshot.sources
+      .firstOrNull { currentSource(it.id) != null }
+      ?.let {
+        error("Source ID '${it.id}' is owned by an imperative addition")
+      }
+    snapshot.images
+      .firstOrNull { images[it.id] == false }
+      ?.let {
+        error("Image ID '${it.id}' is owned by an imperative addition")
+      }
   }
 
   /** Submits the addition, then reads ordered metadata before returning its handle. */
@@ -59,14 +63,15 @@ internal class StyleResourceCommands(
       throw StyleHandleException("Could not add source '${source.id}': ${error.message}", error)
     }
     sources[source.id] = OwnedSource(binding, definition)
-    val committed = try {
-      commitSources(binding)
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Exception) {
-      if (style.owner.isCurrent(binding)) throw error
-      return null
-    }
+    val committed =
+      try {
+        commitSources(binding)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Exception) {
+        if (style.owner.isCurrent(binding)) throw error
+        return null
+      }
     if (!committed) return null
     return style.sourceHandle(source.id)?.asMutable
   }
@@ -117,14 +122,23 @@ internal class StyleResourceCommands(
 
   /** Missing images can be supplied before the style is ready. */
   fun supply(binding: StyleBinding, id: String, image: ResolvedStyleImage) {
-    if (!style.isCurrentLoadedStyle(binding) || !binding.isLoaded ||
-      !style.isImageWritable(id) || isExplicitImage(id)) return
+    if (
+      !style.isCurrentLoadedStyle(binding) ||
+        !binding.isLoaded ||
+        !style.isImageWritable(id) ||
+        isExplicitImage(id)
+    )
+      return
     binding.setImage(StyleImageDefinition(id, image.image, image.sdf, image.stretch))
     images[id] = true
     binding.identity.images.remove(id)
   }
 
-  private fun writeImage(binding: StyleBinding, id: String, definition: StyleImageDefinition?): Boolean {
+  private fun writeImage(
+    binding: StyleBinding,
+    id: String,
+    definition: StyleImageDefinition?,
+  ): Boolean {
     try {
       if (definition == null) binding.removeImage(id) else binding.setImage(definition)
     } catch (error: StyleMutationException) {
@@ -139,7 +153,8 @@ internal class StyleResourceCommands(
   private fun readyBinding(target: String): StyleBinding? {
     style.owner.requireOpen()
     val binding = style.readyLoadedStyle()
-    if (binding == null) style.owner.logger?.w { "Skipped the command to $target: no style is ready" }
+    if (binding == null)
+      style.owner.logger?.w { "Skipped the command to $target: no style is ready" }
     return binding
   }
 

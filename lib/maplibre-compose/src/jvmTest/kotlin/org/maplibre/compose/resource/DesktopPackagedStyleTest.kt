@@ -8,7 +8,6 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
 
 /** A style loaded by a real map from the URI shapes an application ships one in. */
 class DesktopPackagedStyleTest {
@@ -49,7 +48,7 @@ class DesktopPackagedStyleTest {
 
       assertEquals(emptyList(), fixture.errors, "the map reported errors loading $url")
       val style = assertNotNull(fixture.style, "the style should have reached the callbacks")
-      val layerIds = runBlocking { style.onOwner { style.layerIds() } }
+      val layerIds = runBlocking { style.run { style.layerIds() } }
       assertTrue(layerId in layerIds, "Expected the packaged style's own layer. Got $layerIds")
     }
   }

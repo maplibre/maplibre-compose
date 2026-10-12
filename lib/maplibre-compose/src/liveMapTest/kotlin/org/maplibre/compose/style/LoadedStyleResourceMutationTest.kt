@@ -38,9 +38,7 @@ class LoadedStyleResourceMutationTest {
       fixture.settle()
 
       fixture.state.style.images["imperative"]!!.asMutable!!.remove()
-      fixture.state.style.awaitCommands()
       fixture.state.style.sources["imperative"]!!.asMutable!!.remove()
-      fixture.state.style.awaitCommands()
       assertNull(fixture.state.style.sources["imperative"])
     }
   }

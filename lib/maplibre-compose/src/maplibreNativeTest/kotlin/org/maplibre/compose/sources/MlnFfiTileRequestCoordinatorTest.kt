@@ -20,7 +20,6 @@ import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.MlnFfiStyleVisits
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.generated.CanonicalTileId
 import org.maplibre.nativeffi.generated.GeneratedApi
@@ -200,7 +199,7 @@ class MlnFfiTileRequestCoordinatorTest {
           owner.awaitRuntime().createMap(GeneratedApi.mapOptionsDefault()).await()
         }
       try {
-        action(DroppingBinding(map))
+        action(DroppingBinding(map, owner.mainScope))
       } finally {
         map.release().await()
       }
@@ -211,10 +210,10 @@ class MlnFfiTileRequestCoordinatorTest {
     }
   }
 
-  private class DroppingBinding(map: MapHandle) :
+  private class DroppingBinding(map: MapHandle, scope: kotlinx.coroutines.CoroutineScope) :
     MlnFfiStyleBinding(
       map,
-      MlnFfiStyleVisits(),
+      scope,
       LoadedStyleContents(emptyList(), emptyList(), null),
       sessionOpen = { true },
     ) {

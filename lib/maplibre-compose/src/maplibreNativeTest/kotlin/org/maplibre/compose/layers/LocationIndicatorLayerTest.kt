@@ -31,7 +31,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.Position
@@ -202,7 +201,7 @@ class LocationIndicatorLayerTest {
           Position(longitude = -122.0, latitude = 37.0, altitude = 10.0)
         ),
       )
-      runBlocking { style.onOwner { handle.update(layer.definition()) } }
+      runBlocking { style.run { handle.update(layer.definition()) } }
       style.onMap { map ->
         assertEquals(
           JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),

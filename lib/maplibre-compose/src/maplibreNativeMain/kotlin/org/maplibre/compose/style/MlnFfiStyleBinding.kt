@@ -7,8 +7,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -182,25 +182,28 @@ internal open class MlnFfiStyleBinding(
     onFailure: ((StyleMutationException) -> Unit)? = null,
     start: (MapHandle) -> Deferred<CommandCompletion>,
   ) {
-    requireCurrent()
+    if (!isLoaded) return
     fun rejected(error: StyleMutationException) {
       if (!isLoaded) return
       if (onFailure != null) onFailure(error) else reportRejectedWrite(target, value, error)
     }
-    val completion = try {
-      start(map)
-    } catch (error: MaplibreException) {
-      rejected(StyleMutationException(error.message, error))
-      return
-    }
-    mainScope.launch {
+    val completion =
       try {
-        val result = completion.await()
-        if (result.failed) rejected(StyleMutationException(result.failureMessage(), null))
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
+        start(map)
+      } catch (error: MaplibreException) {
         rejected(StyleMutationException(error.message, error))
+        return
+      }
+    completion.invokeOnCompletion {
+      mainScope.launch {
+        try {
+          val result = completion.await()
+          if (result.failed) rejected(StyleMutationException(result.failureMessage(), null))
+        } catch (error: CancellationException) {
+          throw error
+        } catch (error: Exception) {
+          rejected(StyleMutationException(error.message, error))
+        }
       }
     }
   }
@@ -211,9 +214,25 @@ internal open class MlnFfiStyleBinding(
     return start(map).await()
   }
 
+  private var revision = 0L
+  private var failedRevision: Long? = null
+  val revisionFailed: Boolean
+    get() = failedRevision == revision
+
+  private fun structuralFailure(): (StyleMutationException) -> Unit {
+    val submittedRevision = revision
+    return { error ->
+      if (submittedRevision == revision) {
+        failedRevision = submittedRevision
+        styleFailed(identity, error)
+      }
+    }
+  }
+
   /** Holds render updates while a synchronous revision submits its writes. */
   fun commandGroup(action: () -> Unit) {
     requireCurrent()
+    revision++
     map.beginCommandGroup().reportFailure(logger, "begin style command group")
     try {
       action()
@@ -261,7 +280,9 @@ internal open class MlnFfiStyleBinding(
   }
     ?.let { reconstructedSource(id, sourceDefinition(it)) }
 
-  override suspend fun sources(): Map<String, Source> = query { it.listStyleSources() }
+  override suspend fun sources(): Map<String, Source> = query {
+    it.listStyleSources()
+  }
     .associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
   override suspend fun sourceIds(): List<String> = query { it.listStyleSources() }.map { it.id }
@@ -333,7 +354,10 @@ internal open class MlnFfiStyleBinding(
   }
 
   /** Whether the source skips persistent storage writes, or null when it does not exist. */
-  suspend fun sourceVolatile(sourceId: String): Boolean? = query { it.getStyleSource(sourceId) }?.isVolatile
+  suspend fun sourceVolatile(sourceId: String): Boolean? = query {
+    it.getStyleSource(sourceId)
+  }
+    ?.isVolatile
 
   /**
    * MapLibre Native implements no encoding but mapbox and terrarium.
@@ -353,7 +377,7 @@ internal open class MlnFfiStyleBinding(
    * JSON. Wraps a refusal the way [addSource] does.
    */
   fun addSourceWith(sourceId: String, add: (MapHandle) -> Deferred<CommandCompletion>): Boolean {
-    write(onFailure = { styleFailed(identity, it) }, start = add)
+    write(onFailure = structuralFailure(), start = add)
     sourceChanged(sourceId)
     return true
   }
@@ -486,7 +510,6 @@ internal open class MlnFfiStyleBinding(
   private fun removeTileCoordinator(sourceId: String) {
     tileCoordinators.remove(sourceId)?.close()
   }
-
 
   override fun addImageSourceImage(
     sourceId: String,
@@ -807,7 +830,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
-    write(onFailure = { styleFailed(identity, it) }) {
+    write(onFailure = structuralFailure()) {
       it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
     }
     return true
@@ -828,7 +851,7 @@ internal open class MlnFfiStyleBinding(
     kind: LayerPropertyKind,
   ) {
     val start = layerPropertyCommand(layerId, name, value, kind)
-    write(start = start)
+    write("Layer '$layerId' property '$name'", value, start = start)
   }
 
   /**
@@ -838,8 +861,10 @@ internal open class MlnFfiStyleBinding(
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     writes.forEach { change ->
       try {
-        write(onFailure = { reportRejectedWrite(change, it) },
-          start = layerPropertyCommand(change.layerId, change.name, change.value, change.kind))
+        write(
+          onFailure = { reportRejectedWrite(change, it) },
+          start = layerPropertyCommand(change.layerId, change.name, change.value, change.kind),
+        )
       } catch (error: StyleMutationException) {
         reportRejectedWrite(change, error)
       }
@@ -881,7 +906,9 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    write { it.setStyleLayerFilter(layerId, filter.toJsonBytes()) }
+    write("Layer '$layerId' filter", filter) {
+      it.setStyleLayerFilter(layerId, filter.toJsonBytes())
+    }
   }
 
   override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
@@ -915,17 +942,23 @@ internal open class MlnFfiStyleBinding(
     )
   }
 
-  private var transitionOptions = org.maplibre.nativeffi.generated.StyleTransitionOptions(
-    durationMs = ((contents.document?.get("transition") as? JsonObject)?.get("duration") as? JsonPrimitive)?.doubleOrNull,
-    delayMs = ((contents.document?.get("transition") as? JsonObject)?.get("delay") as? JsonPrimitive)?.doubleOrNull,
-    enablePlacementTransitions = true,
-  )
+  private var transitionOptions =
+    org.maplibre.nativeffi.generated.StyleTransitionOptions(
+      durationMs =
+        ((contents.document?.get("transition") as? JsonObject)?.get("duration") as? JsonPrimitive)
+          ?.doubleOrNull,
+      delayMs =
+        ((contents.document?.get("transition") as? JsonObject)?.get("delay") as? JsonPrimitive)
+          ?.doubleOrNull,
+      enablePlacementTransitions = true,
+    )
 
   override fun setTransition(options: TransitionOptions) {
-    val next = transitionOptions.copy(
-      durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS),
-      delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS),
-    )
+    val next =
+      transitionOptions.copy(
+        durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS),
+        delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS),
+      )
     write("The style transition") { it.setStyleTransitionOptions(next) }
     transitionOptions = next
   }
@@ -946,7 +979,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     val bytes = value.toJsonBytes()
-    write { it.setGlobalStateProperty(name, bytes) }
+    write("Global state '$name'", value) { it.setGlobalStateProperty(name, bytes) }
   }
 
   override suspend fun lightProperty(name: String): JsonElement? = query {
@@ -956,7 +989,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun setLight(light: JsonObject) {
     val bytes = light.toJsonBytes()
-    write { it.setStyleLightJson(bytes) }
+    write("The light", light) { it.setStyleLightJson(bytes) }
   }
 
   override val supportsSky: Boolean = false
@@ -984,7 +1017,6 @@ internal open class MlnFfiStyleBinding(
       logger?.w { "MapLibre Native supports only the Mercator projection" }
     }
   }
-
 
   // A property's transition travels the same write path, and native refuses it as hard as the
   // property itself.

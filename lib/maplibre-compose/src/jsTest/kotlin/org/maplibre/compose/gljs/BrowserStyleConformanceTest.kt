@@ -68,7 +68,7 @@ class BrowserStyleConformanceTest {
     var style by mutableStateOf<StyleBinding?>(null)
     val failures = mutableListOf<String>()
 
-    fun liveSourceLayer(): String? =
+    suspend fun liveSourceLayer(): String? =
       (style?.getLayer("switching-source-layer")?.value?.get("source-layer"))
         ?.jsonPrimitive
         ?.content

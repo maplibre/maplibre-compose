@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
-import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
@@ -389,7 +388,9 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal var declaredRevision: StyleSnapshot
     get() = declarations.revision
-    set(value) { declarations = StyleDeclarations(value) }
+    set(value) {
+      declarations = StyleDeclarations(value)
+    }
 
   internal fun desiredSourceDefinition(id: String): SourceDefinition? =
     declarations.sources[id] ?: owner.resourceCommands.sourceDefinition(id)
@@ -707,14 +708,15 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       ): T? {
         fun live() = isReady() && style.isLoaded && isResourceCurrent()
         if (!live()) return null
-        val result = try {
-          action()
-        } catch (error: CancellationException) {
-          throw error
-        } catch (error: Exception) {
-          if (live()) throw error
-          return null
-        }
+        val result =
+          try {
+            action()
+          } catch (error: CancellationException) {
+            throw error
+          } catch (error: Exception) {
+            if (live()) throw error
+            return null
+          }
         return result.takeIf { live() }
       }
 

@@ -11,7 +11,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.readMap
 import org.maplibre.compose.style.uninstall
 
 class BaseSourceRestoreTest {
@@ -27,11 +26,11 @@ class BaseSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VectorStyle))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val source = assertIs<VectorTileSource>(style.readMap { style.getSource(SourceId) })
+      val source = assertIs<VectorTileSource>(runBlocking { style.getSource(SourceId) })
       runBlocking { style.uninstall(source) }
       runBlocking { style.install(source) }
 
-      val restored = assertIs<VectorTileSource>(style.readMap { style.getSource(SourceId) })
+      val restored = assertIs<VectorTileSource>(runBlocking { style.getSource(SourceId) })
       assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
@@ -51,8 +50,7 @@ class BaseSourceRestoreTest {
 
       assertEquals(
         mapOf(SourceId to "vector", RasterSourceId to "raster"),
-        checkNotNull(style.readMap { style.sourceIds().mapNotNull(style::getSource) }).associate {
-          source ->
+        checkNotNull(runBlocking { style.sources().values.toList() }).associate { source ->
           source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
         },
       )

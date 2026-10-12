@@ -86,15 +86,19 @@ internal interface StyleBinding {
   suspend fun sourceIds(): List<String>
 
   /** Captures source metadata with one ordered query on native. */
-  suspend fun sources(): Map<String, Source> = sourceIds().mapNotNull { id ->
-    getSource(id)?.let { id to it }
-  }.toMap()
+  suspend fun sources(): Map<String, Source> =
+    sourceIds()
+      .mapNotNull { id ->
+        getSource(id)?.let { id to it }
+      }
+      .toMap()
 
   suspend fun getLayer(id: String): LayerDefinition?
 
   suspend fun layerIds(): List<String>
 
-  suspend fun layerSummaries(): List<LayerSummary> = layerIds().mapNotNull { getLayer(it)?.summary() }
+  suspend fun layerSummaries(): List<LayerSummary> =
+    layerIds().mapNotNull { getLayer(it)?.summary() }
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -416,8 +420,8 @@ internal interface StyleBinding {
 
   /**
    * Captures [state] on the caller; the returned command merges it into one feature's state. A null
-   * value drops that key. Run it on main after checking the source installation
-   * identity. Preparation does not call the engine.
+   * value drops that key. Run it on main after checking the source installation identity.
+   * Preparation does not call the engine.
    */
   fun prepareFeatureStateUpdate(
     sourceId: String,

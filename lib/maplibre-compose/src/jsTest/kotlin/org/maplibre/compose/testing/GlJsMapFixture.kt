@@ -99,7 +99,6 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         events.count { it == MapFixture.StyleLoaded } > styleLoadsBefore
       }
     }
-    // Design step 5 replaces reconciliation; this frame-driven host has no style composition.
     glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
     // Fixture loads wait for parsed style resources, independently of tile loading.
     MapStateCallbacks(state).onStyleReady(glJsSession)

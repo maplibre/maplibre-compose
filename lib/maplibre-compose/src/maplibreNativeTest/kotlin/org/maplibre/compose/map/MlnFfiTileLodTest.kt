@@ -7,10 +7,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.sources.CustomVectorTileSource
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.TileCoordinate
@@ -32,7 +32,9 @@ class MlnFfiTileLodTest {
       fixture.loadStyle(BaseStyle.Empty)
 
       fixture.session.readMap { map ->
-        map.setTileOptions(MapTileOptions(prefetchZoomDelta = Prefetch)).awaitBlocking()
+        map.setTileOptions(MapTileOptions(prefetchZoomDelta = Prefetch)).let { completion ->
+          runBlocking { completion.await() }
+        }
       }
       fixture.session.setTileLodSettings(TileLodOptions.Performance)
       val applied = assertNotNull(fixture.session.readMap { it.tileOptions })

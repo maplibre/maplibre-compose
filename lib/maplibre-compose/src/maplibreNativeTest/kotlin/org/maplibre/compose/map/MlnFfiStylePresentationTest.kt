@@ -4,15 +4,9 @@ import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
@@ -21,76 +15,11 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
-import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.RgbaPixel
 
 class MlnFfiStylePresentationTest {
-
-  @Test
-  fun reconciling_a_style_suspends_the_caller_while_native_work_is_queued() = runBlocking {
-    BridgeMapFixture.create().use { fixture ->
-      fixture.loadStyle(InitialStyle)
-      val session = fixture.session
-      val updated =
-        ApplicationRevision.copy(
-          layers =
-            listOf(
-              StyleSnapshot.Layer(
-                TestLayer("application", "background")
-                  .apply { paint("background-opacity", JsonPrimitive(0.25)) }
-                  .definition(),
-                Anchor.Above { it.id == "initial" },
-                null,
-                null,
-              )
-            )
-        )
-      val parked = TestLatch(1)
-      val release = TestLatch(1)
-      val ownerReleased = CompletableDeferred<Boolean>()
-      try {
-        assertNotNull(fixture.style).postOwner {
-          parked.countDown()
-          ownerReleased.complete(release.await(5_000L))
-        }
-
-        assertTrue(parked.await(5_000L), "the style visit did not reach the gate")
-        val node = StyleNode(assertNotNull(fixture.style), this)
-        try {
-          assertEquals("points", assertNotNull(node.getBaseSource("points")).id)
-        } finally {
-          node.close()
-        }
-        val commit =
-          try {
-            async(start = CoroutineStart.UNDISPATCHED) {
-                session.reconcileStyleRevision(updated) {}
-              }
-              .also {
-                assertFalse(
-                  it.isCompleted,
-                  "caller must regain control before native work can finish",
-                )
-              }
-          } finally {
-            release.countDown()
-          }
-        commit.await()
-        assertTrue(ownerReleased.await(), "composition or reconciliation blocked its caller")
-        assertEquals(
-          JsonPrimitive(0.25),
-          assertNotNull(fixture.style).let {
-            it.awaitOwner { it.layerProperty("application", "background-opacity") }
-          },
-        )
-      } finally {
-        release.countDown()
-      }
-    }
-  }
 
   @Test
   fun property_updates_render_without_repeating_style_readiness() = runBlocking {

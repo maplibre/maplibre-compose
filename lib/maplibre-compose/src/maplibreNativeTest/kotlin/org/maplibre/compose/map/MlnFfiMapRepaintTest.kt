@@ -16,7 +16,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.RgbaPixel
 
@@ -54,7 +53,7 @@ class MlnFfiMapRepaintTest {
       fixture.settle()
       val style = checkNotNull(fixture.style)
       runBlocking {
-        style.onOwner {
+        style.run {
           style.setLayerProperty(
             "background",
             "background-color",
@@ -77,7 +76,7 @@ class MlnFfiMapRepaintTest {
       fixture.settle()
       val style = checkNotNull(fixture.style)
       runBlocking {
-        style.onOwner {
+        style.run {
           style.setLayerProperty(
             "background",
             "background-color",

@@ -35,7 +35,6 @@ class SourceHandleReconstructionTest {
       assertIs<VectorTileSourceHandle>(state.style.sources["tiles"])
 
       assertNotNull(clip.asMutable).remove()
-      state.style.awaitCommands()
       assertNull(state.style.sources["clip"])
       val added = checkNotNull(state.style.sources.add(reconstructedSource("clip", clipJson)))
       assertEquals("clip", added.id)

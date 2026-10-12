@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
@@ -26,7 +27,7 @@ class StyleBeforePresentationTest {
         object : PresentationTestAdapter() {
           override suspend fun <T> reconcileStyleRevision(
             revision: StyleSnapshot,
-            capture: (StyleBinding) -> T,
+            capture: suspend (StyleBinding) -> T,
           ): T {
             reconciler.apply(style, revision)
             return capture(style)
@@ -53,10 +54,10 @@ class StyleBeforePresentationTest {
       waitForIdle()
       runOnIdle {
         assertNull(state.currentMapAttachment)
-        assertEquals(listOf("content"), style.layerIds())
+        assertEquals(listOf("content"), runBlocking { style.layerIds() })
         presentation.update(adapter)
       }
       waitForIdle()
-      runOnIdle { assertEquals(listOf("content"), style.layerIds()) }
+      runOnIdle { assertEquals(listOf("content"), runBlocking { style.layerIds() }) }
     }
 }

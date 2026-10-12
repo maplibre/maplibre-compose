@@ -81,14 +81,14 @@ public class StyleSources internal constructor(private val style: MapStyleState)
 
   /**
    * Adds [source] to the loaded style and returns its handle once the map has installed it. The
-   * command runs after the resource commands enqueued before this call, and this call suspends only
-   * until the engine has run it, not until a frame has rendered.
+   * engine orders it after earlier commands. This call awaits source and layer metadata, without
+   * waiting for a frame.
    *
    * @return the handle, or null if no style is ready or the loaded style changes before the source
-   *   is added. Nothing is added to the new style, and a warning is logged.
-   * @throws IllegalStateException if the style content declares [source]'s ID, the ID is already in
-   *   the style, or the map state is closed.
-   * @throws StyleHandleException if the engine rejects the definition.
+   *   is added. Nothing is added to the new style, and a warning is logged. Native reports a
+   *   rejected addition asynchronously and marks the style failed. The browser reports an engine
+   *   rejection with [StyleHandleException].
+   * @throws IllegalStateException if the style content declares [source]'s ID or the map is closed.
    */
   public suspend fun add(source: Source): MutableSourceHandle? =
     style.owner.resourceCommands.add(source)
@@ -147,19 +147,19 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
   /**
    * Enqueues [image], replacing [id] in place. Preparation owns the pixels before submission. A
    * successful replacement expires old handles; a rejected write keeps the previous image. Native
-   * rejections are logged. Images declared by style content cannot be overwritten. A newer command
-   * for [id] supersedes this one if it is still pending.
+   * rejections are logged. Images declared by style content cannot be overwritten. Writes are
+   * submitted inline and the engine applies them in submission order.
    */
   public fun set(id: String, image: ResolvedStyleImage) {
     setAll(mapOf(id to image))
   }
 
-  /** Enqueues one ordered batch. Each image succeeds or fails independently. */
+  /** Submits an ordered batch. Each image succeeds or fails independently. */
   public fun setAll(images: Map<String, ResolvedStyleImage>) {
     style.owner.resourceCommands.set(images)
   }
 
-  /** Enqueues removal of [id] in the current loaded style, if it exists. */
+  /** Submits removal of [id] in the current loaded style. Engine rejections are logged. */
   public fun remove(id: String) {
     style.owner.resourceCommands.removeImage(id)
   }

@@ -7,13 +7,13 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.awaitBlocking
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.style.BaseStyle
@@ -38,7 +38,12 @@ class DesktopGroundScalePresentationTest {
           ) {}
         fun groundScale(): Float? =
           (state.currentMapAttachment?.adapter as? MlnFfiMapSession)
-            ?.readMap { it.getGlobalState().awaitBlocking().decodeToString() }
+            ?.readMap {
+              it
+                .getGlobalState()
+                .let { completion -> runBlocking { completion.await() } }
+                .decodeToString()
+            }
             ?.let { Json.parseToJsonElement(it).jsonObject[GroundScaleGlobalState] }
             ?.jsonPrimitive
             ?.float

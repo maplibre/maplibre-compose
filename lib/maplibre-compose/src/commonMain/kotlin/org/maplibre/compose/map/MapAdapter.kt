@@ -85,9 +85,12 @@ internal interface MapAdapter {
 
   /**
    * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
-   * [capture] runs immediately after mutation in the same engine-owner visit.
+   * writes run inline on main, then [capture] reads ordered metadata.
    */
-  suspend fun <T> reconcileStyleRevision(revision: StyleSnapshot, capture: suspend (StyleBinding) -> T): T
+  suspend fun <T> reconcileStyleRevision(
+    revision: StyleSnapshot,
+    capture: suspend (StyleBinding) -> T,
+  ): T
 
   fun getCameraPosition(): CameraPosition
 
@@ -273,8 +276,8 @@ internal class MapStateCallbacks(
 
   /**
    * Starts undispatched so the read captures its binding inside the engine callback, then finishes
-   * on the runtime's main scope rather than a composition's, which the engine read's owner task
-   * resumes on. A read that fails while its style is current marks the style failed.
+   * on the runtime's main scope rather than the composition's. A read that fails while its style is
+   * current marks the style failed.
    */
   private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
     owner.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {

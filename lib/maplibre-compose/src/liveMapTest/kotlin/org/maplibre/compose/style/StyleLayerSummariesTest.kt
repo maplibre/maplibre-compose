@@ -45,7 +45,7 @@ class StyleLayerSummariesTest {
         val binding = assertNotNull(fixture.style)
         val unchanged = assertNotNull(fixture.state.style.sources["points"])
         val layer = assertNotNull(fixture.state.style.layers["pins"])
-        binding.awaitOwner {
+        binding.run {
           binding.addSource(
             GeoJsonSource(
                 "external",

@@ -70,7 +70,8 @@ internal class MapStyleAuthority(
   internal suspend fun refreshStyleResources(adapter: MapAdapter, ready: Boolean = false): Boolean {
     lifecycle.requireMain()
     val binding = style.currentLoadedStyle() ?: return false
-    if (!acceptsResources(adapter, binding) || style.loadState is StyleLoadState.Failed) return false
+    if (!acceptsResources(adapter, binding) || style.loadState is StyleLoadState.Failed)
+      return false
     if (ready && style.hasResources(binding)) {
       style.loadState = StyleLoadState.Ready
       writeGroundScale()
@@ -161,7 +162,9 @@ internal class MapStyleAuthority(
     try {
       withContext(NonCancellable) {
         val resources = adapter.reconcileStyleRevision(revision) { style.readResources(it) }
-        if (acceptedRevision == this@MapStyleAuthority.revision && acceptsResources(adapter, binding)) {
+        if (
+          acceptedRevision == this@MapStyleAuthority.revision && acceptsResources(adapter, binding)
+        ) {
           publishResources(resources)
         }
       }
@@ -250,6 +253,7 @@ internal class MapStyleAuthority(
   ) {
     var rememberFailure = false
     try {
+      if (binding.imageExists(imageId) == true) return
       val resolved =
         try {
           resolver.resolve(MissingImageRequest(imageId))
@@ -333,5 +337,4 @@ internal class MapStyleAuthority(
     lifecycle.requireMain()
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
-
 }
