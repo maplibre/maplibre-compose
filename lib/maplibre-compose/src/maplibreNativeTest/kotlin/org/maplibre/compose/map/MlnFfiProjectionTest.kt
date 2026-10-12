@@ -24,11 +24,11 @@ class MlnFfiProjectionTest {
   fun presented_projection_keeps_the_rendered_camera_and_tracks_texture_geometry() {
     BridgeMapFixture.create(initialExtent = MapExtent.fromLogical(200, 200, 1.0)).use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
+      fixture.hasRendered = false
       fixture.session.setCameraPosition(RotatedCamera)
       fixture.pumpUntil("the rotated camera to apply") {
         abs(fixture.session.getCameraPosition().bearing - RotatedCamera.bearing) < 0.01
       }
-      fixture.hasRendered = false
       fixture.pumpUntil("the rotated camera to render") { fixture.hasRendered }
       val oldSnapshot =
         fixture.renderFrameProjection().use { projection ->

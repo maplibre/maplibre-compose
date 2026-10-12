@@ -174,8 +174,12 @@ private constructor(
   var hasRendered: Boolean = false
     internal set
 
+  private var surfaceTarget = false
+  private var frameExtent: MapExtent? = null
+
   /**
-   * Renders one frame, with the same producer-access contract as the desktop `MlnFfiMapSurface`.
+   * Visits the renderer once. Textures render synchronously; surfaces submit a demand and wait for
+   * [MlnFfiMapHostSession.requestFrame] before draining its result on another visit.
    */
   fun frame(
     extent: MapExtent = initialExtent,
@@ -185,6 +189,10 @@ private constructor(
       ?: renderFrame(extent, captureProjection)
 
   private fun renderFrame(extent: MapExtent, captureProjection: Boolean): MlnFfiFrameResult {
+    driver.withRendererAccess {}
+    if (surfaceTarget && frameExtent == extent && !frameRequested.load()) {
+      return MlnFfiFrameResult.AwaitUpdate
+    }
     frameRequested.store(false)
     val frame =
       when (val acquisition = driver.acquireFrame(extent)) {
@@ -192,16 +200,34 @@ private constructor(
         MlnFfiMapFrameAcquisition.NotReady ->
           error("The production ${driver.backends} bridge had no test GPU context")
       }
+    frameExtent = extent
+    surfaceTarget =
+      when (frame.target) {
+        is OpenGlSurfaceTarget,
+        is MetalSurfaceTarget,
+        is VulkanSurfaceTarget -> true
+        else -> false
+      }
     return try {
       driver
         .withProducerAccess(frame) { session.render(hostSession, frame, captureProjection) }
         .also {
-          if (it is MlnFfiFrameResult.Rendered) {
-            driver.completeProducerAccess(frame)
-            check(driver.present(frame.target)) {
-              "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"
+          when (it) {
+            is MlnFfiFrameResult.Rendered -> {
+              if (surfaceTarget) {
+                // The FFI already presented. Re-arm just as a production surface host does,
+                // leaving the next demand parked at idle until a map update wakes it.
+                hostSession.requestFrame()
+              } else {
+                driver.completeProducerAccess(frame)
+                check(driver.present(frame.target)) {
+                  "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"
+                }
+              }
+              hasRendered = true
             }
-            hasRendered = true
+            MlnFfiFrameResult.RetryNextFrame -> hostSession.requestFrame()
+            MlnFfiFrameResult.AwaitUpdate -> Unit
           }
         }
     } finally {
@@ -211,9 +237,15 @@ private constructor(
 
   fun renderFrameProjection(extent: MapExtent = initialExtent): MlnFfiMapFrameProjection {
     session.onSurfaceChanged(extent)
-    return checkNotNull(
-      (frame(extent, captureProjection = true) as MlnFfiFrameResult.Rendered).projection
-    )
+    // A surface demand needs an update even when the last frame already shows this camera.
+    checkNotNull(session.mapForTest).requestRepaint()
+    val deadline = TimeSource.Monotonic.markNow() + 30.seconds
+    while (true) {
+      val result = frame(extent, captureProjection = true)
+      if (result is MlnFfiFrameResult.Rendered) return checkNotNull(result.projection)
+      check(deadline.hasNotPassedNow()) { "Timed out waiting for a rendered frame projection" }
+      pause()
+    }
   }
 
   /** Reads one rendered RGBA pixel back from the platform/backend target. */
@@ -275,6 +307,7 @@ private constructor(
     val deadline = TimeSource.Monotonic.markNow() + duration
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
+      hostSession.withRendererAccess {}
       if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
       pause()
     }
@@ -360,6 +393,7 @@ private constructor(
     val deadline = TimeSource.Monotonic.markNow() + duration
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
+      hostSession.withRendererAccess {}
       if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
       delay(PollIntervalMillis)
       testMain.drain()
