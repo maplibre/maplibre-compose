@@ -106,11 +106,6 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
-private const val MinPitchDegrees = 0.0
-
-/** MapLibre rejects a pitch beyond this, so an animated pitch is clamped rather than refused. */
-private const val MaxPitchDegrees = 60.0
-
 /** The events [MlnFfiMapSession.handleEvent] consumes. */
 private val HandledMapEvents: RuntimeEventMask =
   RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE or
@@ -951,7 +946,6 @@ internal class MlnFfiMapSession(
     guard: CameraCommandGuard? = null,
     anchored: Boolean = false,
     fields: Set<TransitionField> = TransitionField.entries.toSet(),
-    shouldStart: (MapHandle) -> Boolean = { true },
     start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
@@ -976,9 +970,7 @@ internal class MlnFfiMapSession(
               }
             },
           ) {
-            if (shouldStart(map)) {
-              cameraTransitions.start(map, animation, continuation, anchored, fields, start)
-            } else release()
+            cameraTransitions.start(map, animation, continuation, anchored, fields, start)
           }
       if (!started) release()
     }
@@ -1393,18 +1385,14 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    var bearing = 0.0
+    val map = map ?: return
+    // Snapshot reads can precede queued rotation. The ordered query observes every earlier delta.
+    val current = map.getCamera().await().camera.bearing ?: 0.0
+    val bearing = current + (snapping.delta(current) ?: return)
     startTransitionAwaitingRelease(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Bearing),
-      shouldStart = { map ->
-        val current = map.getSnapshot().camera.bearing ?: 0.0
-        snapping.delta(current)?.let {
-          bearing = current + it
-          true
-        } ?: false
-      },
     ) { map, animation ->
       map.updateCamera(
         FfiCameraUpdate(
@@ -1429,17 +1417,11 @@ internal class MlnFfiMapSession(
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Bearing, TransitionField.Pitch),
     ) { map, animation ->
-      val camera = map.getSnapshot().camera
-      map.updateCamera(
-        FfiCameraUpdate(
-          mode = CameraUpdateMode.EASE,
-          camera =
-            CameraOptions(
-              anchor = anchor?.toScreenPoint(),
-              bearing = (camera.bearing ?: 0.0) + bearingDelta,
-              pitch =
-                ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MinPitchDegrees, MaxPitchDegrees),
-            ),
+      map.applyCameraDelta(
+        CameraDelta(
+          bearing = bearingDelta.takeIf { it != 0.0 },
+          pitch = pitchDelta.takeIf { it != 0.0 },
+          anchor = anchor?.toScreenPoint(),
           animation = animation,
         )
       )
