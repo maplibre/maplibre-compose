@@ -24,12 +24,7 @@ private fun taoComposeMapPresentationHost(
     is TaoMetalRenderContext ->
       ComposeMapPresentationHost.macosMetal(
         description = "the Nucleus Tao Metal host",
-        gpuContext = {
-          MetalComposeGpuContext(
-            renderContext.skiaContext,
-            NativeHandle(renderContext.metalDevicePtr),
-          )
-        },
+        gpuContext = renderContext.metalGpuContext(),
         runOnGpuThread = runOnGpuThread,
       )
     is TaoOpenGlRenderContext if isWindows ->
@@ -47,6 +42,11 @@ private fun taoComposeMapPresentationHost(
     // Tao has a private intermediate type; public callers receive the two leaves above.
     else -> error("Unsupported Tao GPU context: ${renderContext::class.simpleName}")
   }
+}
+
+@OptIn(ExperimentalMaplibreComposeApi::class)
+private fun TaoMetalRenderContext.metalGpuContext(): () -> MetalComposeGpuContext = {
+  MetalComposeGpuContext(skiaContext, NativeHandle(metalDevicePtr))
 }
 
 @OptIn(ExperimentalMaplibreComposeApi::class)
