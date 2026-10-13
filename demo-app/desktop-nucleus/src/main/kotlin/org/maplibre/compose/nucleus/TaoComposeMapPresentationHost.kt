@@ -24,37 +24,47 @@ private fun taoComposeMapPresentationHost(
     is TaoMetalRenderContext ->
       ComposeMapPresentationHost.macosMetal(
         description = "the Nucleus Tao Metal host",
-        gpuContext = {
-          MetalComposeGpuContext(
-            renderContext.skiaContext,
-            NativeHandle(renderContext.metalDevicePtr),
-          )
-        },
+        gpuContext = renderContext.metalGpuContext(),
         runOnGpuThread = runOnGpuThread,
       )
-    is TaoOpenGlRenderContext -> {
-      val description = "the Nucleus Tao OpenGL host"
-      val gpuContext = {
-        OpenGlComposeGpuContext(
-          skiaContext = renderContext.skiaContext,
-          // Tao restores the previous context and invalidates Skia's GL cache after the action.
-          withContextCurrent = { action ->
-            checkNotNull(renderContext.withContextCurrent { action.run() }) {
-              "$description could not make the GL context current"
-            }
-          },
-        )
-      }
-      if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-        ComposeMapPresentationHost.windowsAngle(description, gpuContext, runOnGpuThread)
-      } else {
-        ComposeMapPresentationHost.linuxOpenGl(description, gpuContext, runOnGpuThread)
-      }
-    }
+    is TaoOpenGlRenderContext if isWindows ->
+      ComposeMapPresentationHost.windowsAngle(
+        description = OPEN_GL_DESCRIPTION,
+        gpuContext = renderContext.openGlGpuContext(),
+        runOnGpuThread = runOnGpuThread,
+      )
+    is TaoOpenGlRenderContext ->
+      ComposeMapPresentationHost.linuxOpenGl(
+        description = OPEN_GL_DESCRIPTION,
+        gpuContext = renderContext.openGlGpuContext(),
+        runOnGpuThread = runOnGpuThread,
+      )
     // Tao has a private intermediate type; public callers receive the two leaves above.
     else -> error("Unsupported Tao GPU context: ${renderContext::class.simpleName}")
   }
 }
+
+@OptIn(ExperimentalMaplibreComposeApi::class)
+private fun TaoMetalRenderContext.metalGpuContext(): () -> MetalComposeGpuContext = {
+  MetalComposeGpuContext(skiaContext, NativeHandle(metalDevicePtr))
+}
+
+@OptIn(ExperimentalMaplibreComposeApi::class)
+private fun TaoOpenGlRenderContext.openGlGpuContext(): () -> OpenGlComposeGpuContext = {
+  OpenGlComposeGpuContext(
+    skiaContext = skiaContext,
+    // Tao restores the previous context and invalidates Skia's GL cache after the action.
+    withContextCurrent = { action ->
+      checkNotNull(withContextCurrent { action.run() }) {
+        "$OPEN_GL_DESCRIPTION could not make the GL context current"
+      }
+    },
+  )
+}
+
+private const val OPEN_GL_DESCRIPTION = "the Nucleus Tao OpenGL host"
+
+private val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
 
 /**
  * The [ComposeMapPresentationHost] for the current Nucleus Tao surface, or null until it has a GPU
