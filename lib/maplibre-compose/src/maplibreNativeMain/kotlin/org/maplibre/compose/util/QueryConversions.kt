@@ -12,6 +12,7 @@ import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.ClusterIdProperty
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -24,7 +25,7 @@ internal fun renderedQueryOptions(
   if (layerIds == null && predicate == null) return null
   return RenderedFeatureQueryOptions().also {
     it.layerIds = layerIds?.toList()
-    it.filter = predicate?.toStyleJson()?.toJsonBytes()
+    it.filter = predicate?.let { StyleValue.Expression(it).encoded.toJsonBytes() }
   }
 }
 

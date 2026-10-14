@@ -57,7 +57,7 @@ class GenericLayerCompositionTest {
     val binding =
       object : StyleBinding by recording {
         override fun addLayer(
-          layer: JsonObject,
+          layer: org.maplibre.compose.style.internal.StyleValue,
           beforeLayerId: String,
         ): Boolean {
           additions++

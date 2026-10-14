@@ -9,6 +9,7 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.RasterTileSource
+import org.maplibre.compose.style.internal.StyleValue
 
 class StyleCompositionOrderTest {
 
@@ -205,7 +206,7 @@ class StyleCompositionOrderTest {
     val mutations = mutableListOf<String>()
     val style =
       object : StyleBinding by backing {
-        override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
+        override fun addLayer(layer: StyleValue, beforeLayerId: String): Boolean {
           mutations += "add"
           return backing.addLayer(layer, beforeLayerId)
         }

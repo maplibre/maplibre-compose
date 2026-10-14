@@ -17,6 +17,7 @@ import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.RasterTileSource
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.spatialk.geojson.Position
@@ -122,7 +123,9 @@ class StyleReconcilerTest {
               .single()
               .copy(
                 definition =
-                  definition.copy(value = JsonObject(definition.value + ("metadata" to JsonNull)))
+                  definition.copy(
+                    properties = definition.properties + ("metadata" to StyleValue.Json(JsonNull))
+                  )
               )
           )
       )
@@ -329,9 +332,9 @@ class StyleReconcilerTest {
     override fun addSource(definition: SourceDefinition): Boolean =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+    override fun addLayer(layer: StyleValue, beforeLayerId: String): Boolean =
       delegate.addLayer(layer, beforeLayerId).also {
-        additions += "layer:${(layer["id"] as JsonPrimitive).content}"
+        additions += "layer:${((layer.json as JsonObject)["id"] as JsonPrimitive).content}"
       }
   }
 }
