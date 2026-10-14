@@ -18,7 +18,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -165,7 +164,7 @@ private fun Modifier.pointerGestures(
   scrollConverter: ScrollConverter,
   onHaptic: (HapticEmphasis) -> Unit,
 ): Modifier =
-  pointerInput(target, options.settings, density, scrollConverter, onHaptic) {
+  mapPointerInput(target, options.settings, density, scrollConverter, onHaptic) {
     val scope = CoroutineScope(currentCoroutineContext())
     val scroll =
       ScrollGesture(
