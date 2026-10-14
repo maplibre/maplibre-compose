@@ -21,6 +21,10 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
     pan.apply(block)
   }
 
+  /**
+   * Configures zoom input. Release momentum applies to touch pinches and platform scale gestures.
+   * Scroll input uses the momentum supplied by the host.
+   */
   public fun zoom(block: VelocityCameraBuilder.() -> Unit) {
     zoom.apply(block)
   }

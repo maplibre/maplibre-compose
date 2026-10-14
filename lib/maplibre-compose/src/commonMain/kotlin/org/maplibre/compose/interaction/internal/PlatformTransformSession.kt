@@ -1,15 +1,19 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.DpOffset
+import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
-/** Host-recognized components share one camera session and append no library momentum. */
+/** Host pans keep their supplied inertia; host scales use the configured zoom release momentum. */
 internal class PlatformTransformSession(
   private val target: CameraInputTarget,
   private val options: InputConfiguration,
@@ -19,6 +23,13 @@ internal class PlatformTransformSession(
 ) {
   private val components = mutableSetOf<Kind>()
   private val burst = InputBurst(scope, target) { cancel() }
+  private val scaleVelocity = GestureVelocityTracker()
+  private var zoomLevels = 0.0
+  private var scaleChanges = 0
+  private var lastScaleTime = 0L
+  private var scaleAnchor: DpOffset? = null
+  private var scaleMomentum: Job? = null
+  private var continuationSession: GestureInputSession? = null
   val isActive: Boolean
     get() = components.isNotEmpty()
 
@@ -59,6 +70,7 @@ internal class PlatformTransformSession(
     if (end) {
       routing.suppressed.remove(kind)
       if (!components.remove(kind)) return false
+      if (kind == Kind.Scale) finishScale(sample)
       finishIfIdle()
       return true
     }
@@ -82,12 +94,13 @@ internal class PlatformTransformSession(
     if (!eligible) {
       routing.suppressed += kind
       components.remove(kind)
+      if (kind == Kind.Scale) resetScale()
       finishIfIdle()
       return false
     }
 
     if (kind !in components) {
-      startComponent(kind)
+      startComponent(kind, sample)
       if (!retainAuthority()) return true
     }
     if (!delta) return true
@@ -97,12 +110,18 @@ internal class PlatformTransformSession(
     when (kind) {
       Kind.Scale -> {
         val scale = scaleFactor.pow(settings.zoom.zoomScale)
-        if (scale.isFinite() && scale > 0.0)
+        if (scale.isFinite() && scale > 0.0) {
+          if (scale != 1.0) scaleChanges++
+          zoomLevels += ln(scale) / ln(2.0)
+          scaleAnchor = settings.zoom.anchor.location(sample)
+          lastScaleTime = sample.uptimeMillis
+          scaleVelocity.addPosition(sample.uptimeMillis, Offset(zoomLevels.toFloat(), 0f))
           target.inputScaleBy(
             scale,
-            settings.zoom.anchor.location(sample),
+            scaleAnchor,
             gestureToken = token,
           )
+        }
       }
       Kind.Pan ->
         target.inputPanBy(
@@ -116,17 +135,58 @@ internal class PlatformTransformSession(
     return true
   }
 
-  private fun startComponent(kind: Kind) {
+  private fun startComponent(kind: Kind, sample: GesturePointerSample) {
     val session =
       burst.session
         ?: run {
+          continuationSession?.cancel()
+          continuationSession = null
           onAccepted()
           target.observeInput()
           burst.start()
         }
 
     session.token.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
+    if (kind == Kind.Scale) {
+      resetScale()
+      scaleVelocity.addPosition(sample.uptimeMillis, Offset.Zero)
+    }
     components += kind
+  }
+
+  private fun resetScale() {
+    scaleMomentum?.cancel()
+    scaleMomentum = null
+    scaleVelocity.resetTracking()
+    zoomLevels = 0.0
+    scaleChanges = 0
+    scaleAnchor = null
+  }
+
+  private fun finishScale(sample: GesturePointerSample) {
+    // A discrete scale step (including smart magnify) supplies no release velocity.
+    if (scaleChanges < 2) return
+    // Compose's pointer velocity tracker treats a release more than 40 ms after movement as
+    // stopped. Do not insert an artificial stationary sample into the scale velocity fit.
+    if (sample.uptimeMillis < lastScaleTime || sample.uptimeMillis - lastScaleTime > 40L) return
+    val momentum =
+      GestureMath.scaleVelocity(
+        scaleVelocity.calculateVelocity(pointerInput = false).x.toDouble(),
+        options.camera.settings.zoom.momentum,
+      ) ?: return
+    val session = checkNotNull(burst.session)
+    val anchor = scaleAnchor
+    continuationSession = session
+    scaleMomentum =
+      session.scope.launch {
+        animateDecelerating(momentum.duration) { fraction ->
+          target.inputScaleBy(
+            zoomLevelsToScale(momentum.zoomDelta * fraction),
+            anchor,
+            gestureToken = session.token,
+          )
+        }
+      }
   }
 
   private fun retainAuthority(): Boolean {
@@ -144,5 +204,8 @@ internal class PlatformTransformSession(
     routing.suppressed += components
     components.clear()
     burst.cancel()
+    continuationSession?.cancel()
+    continuationSession = null
+    resetScale()
   }
 }
