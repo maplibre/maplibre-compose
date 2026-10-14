@@ -10,7 +10,7 @@ public actual data class MapUiOptions
 private constructor(
   public actual val loadColor: Color,
   internal actual val bindings: InteractionBindings,
-  /** Which Android view draws the map. */
+  /** How Android presents the map. See [AndroidRenderMode]. */
   public val renderMode: AndroidRenderMode,
 ) {
   public actual constructor(
