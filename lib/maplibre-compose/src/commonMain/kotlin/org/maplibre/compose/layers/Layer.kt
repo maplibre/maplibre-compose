@@ -116,7 +116,7 @@ private fun LayerNode(
   hitPadding: Dp,
 ) {
   val anchor = LocalAnchor.current
-  key(definition.id, definition.type, definition.sourceId, definition.value["source-layer"]) {
+  key(definition.id, definition.type, definition.sourceId, definition.properties["source-layer"]) {
     ComposeNode<LayerNode, MapNodeApplier>(
       factory = { LayerNode(definition, anchor) },
       update = {
@@ -142,14 +142,13 @@ private fun validateLayer(id: String, type: String, hitPadding: Dp) {
 }
 
 internal fun layerSourceId(
-  properties: Map<String, JsonElement>,
+  declaredSource: JsonElement?,
   managedSourceId: String?,
 ): String? {
-  val declared =
-    properties["source"]?.let {
-      require(it is JsonPrimitive && it.isString) { "Layer source must be a string, was $it" }
-      it.content
-    }
+  val declared = declaredSource?.let {
+    require(it is JsonPrimitive && it.isString) { "Layer source must be a string, was $it" }
+    it.content
+  }
   require(managedSourceId == null || declared == null || managedSourceId == declared) {
     "Layer source '$declared' conflicts with its managed source '$managedSourceId'"
   }

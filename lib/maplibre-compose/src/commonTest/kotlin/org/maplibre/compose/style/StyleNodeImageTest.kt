@@ -34,6 +34,7 @@ import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PreparedImage
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -224,7 +225,9 @@ class StyleNodeImageTest {
   private fun imageProperty(request: StyleImageRequest) =
     mapOf(
       StyleProperty("paint", "fill-pattern") to
-        LayerProperty<ImageValue>(setOf(request)) { JsonPrimitive(it.getValue(request)) }
+        LayerProperty<ImageValue>(setOf(request)) {
+          StyleValue.Json(JsonPrimitive(it.getValue(request)))
+        }
     )
 
   private fun data(value: Int) =
