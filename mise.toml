@@ -73,10 +73,15 @@ zig_version = "0.16.0"
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
 # nothing formats Swift on Windows anyway.
-swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = ["macos", "linux"] }
+swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = [
+  "macos",
+  "linux",
+] }
 
 # The CLI only. Xcode itself comes from `mise run install-xcode`.
-"aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
+"aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = [
+  "macos",
+] }
 
 # Linux-only. Packs the jpackage application directory into a .AppImage.
 
@@ -191,7 +196,10 @@ run = ".mise/bin/capture-android-emulator-diagnostics"
 description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
 depends = [
-  { task = "android-emulator:boot", args = ["{{usage.api_level}}", "--headless"] },
+  { task = "android-emulator:boot", args = [
+    "{{usage.api_level}}",
+    "--headless",
+  ] },
 ]
 # One task name per Android plugin; see test:android.
 run = '.mise/bin/run-android-device-tests "$usage_api_level"'
@@ -480,7 +488,7 @@ arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
-run = '.mise/bin/run-ios-demo'
+run = ".mise/bin/run-ios-demo"
 
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."

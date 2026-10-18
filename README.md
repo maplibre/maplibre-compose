@@ -1,8 +1,18 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-dark-bg.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg">
-    <img alt="MapLibre Logo" src="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg" width="200">
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-dark-bg.svg"
+    >
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg"
+    >
+    <img
+      alt="MapLibre Logo"
+      src="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg"
+      width="200"
+    >
   </picture>
 </p>
 
@@ -23,8 +33,16 @@ MapLibre Compose is a [Compose Multiplatform][compose] wrapper around the
 maps to your Compose UIs across Android, iOS, Desktop, and Web.
 
 <p float="left">
-  <img src="https://github.com/user-attachments/assets/08233dcb-1237-4a70-93df-ee24d25c4be1" height="450" alt="iOS Screenshot"/>
-  <img src="https://github.com/user-attachments/assets/d9fdf1ee-eb78-490d-880d-054106cb29dc" height="450" alt="Android Screenshot"/>
+  <img
+    src="https://github.com/user-attachments/assets/08233dcb-1237-4a70-93df-ee24d25c4be1"
+    height="450"
+    alt="iOS Screenshot"
+  />
+  <img
+    src="https://github.com/user-attachments/assets/d9fdf1ee-eb78-490d-880d-054106cb29dc"
+    height="450"
+    alt="Android Screenshot"
+  />
 </p>
 
 ## Usage

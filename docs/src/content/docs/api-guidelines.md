@@ -204,8 +204,8 @@ shape later is a breaking change.
   `else` branch.
 - Group named values on a companion object or a sealed interface, not a plain
   `object`. When a value belongs to several sealed types, nest it in one and
-  implement the others:
-  `sealed interface CameraAction { data object Pan : CameraAction, DragAction }`.
+  implement the others: `sealed interface CameraAction { data object Pan :
+  CameraAction, DragAction }`.
 
 ```kotlin
 // Open identity: can hold values with no named constant in this version
