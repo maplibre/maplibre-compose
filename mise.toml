@@ -1,7 +1,7 @@
 # https://mise.jdx.dev
 
 monorepo_root = true
-min_version = "2026.7.15"
+min_version = "2026.10.12"
 
 [settings]
 lockfile = true
