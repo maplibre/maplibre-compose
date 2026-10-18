@@ -1,10 +1,12 @@
 // Drives pre-commit, `mise run check`, and `mise run fix`.
 
-amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.7.0/hk@2.7.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.7.0/hk@2.7.0#/Builtins.pkl"
 
-local lintSteps = new Mapping<String, Step> {
+// Shared by the implicit check, fix, and pre-commit hooks. hk 2 no longer
+// stages `hk fix` / `mise run fix` results; pre-commit still stages its own.
+steps {
   // Unbatched: dprint parallelizes itself, and batching oversubscribes the
   // machine badly enough that its ktfmt children hit dprint's timeout.
   ["dprint"] = (Builtins.dprint) {
@@ -52,19 +54,5 @@ hooks {
   ["pre-commit"] {
     fix = true
     stash = "git"
-    steps {
-      ...lintSteps
-    }
-  }
-  ["check"] {
-    steps {
-      ...lintSteps
-    }
-  }
-  ["fix"] {
-    fix = true
-    steps {
-      ...lintSteps
-    }
   }
 }
