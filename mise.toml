@@ -48,7 +48,7 @@ shellcheck_version = "0.11.0"
 swiftformat_version = "0.64.0"
 wrangler_version = "4.125.0"
 xcodes_version = "2.0.3"
-zig_version = "0.16.0"
+zig_version = "0.17.0"
 
 [tools]
 "aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
