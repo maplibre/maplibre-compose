@@ -2,11 +2,10 @@
 
 import shutil
 import tempfile
+import tomllib
 import urllib.request
 import zipfile
 from pathlib import Path
-
-import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 
