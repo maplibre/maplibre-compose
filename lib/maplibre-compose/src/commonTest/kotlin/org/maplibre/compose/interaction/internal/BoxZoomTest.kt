@@ -40,7 +40,7 @@ class BoxZoomTest {
           DpRect(10.dp, 20.dp, 18.dp, 28.dp),
           CameraPosition(bearing = 25.0, pitch = 40.0),
           positions::get,
-        )
+        ),
       )
     assertEquals(-4.0, fit.bounds.west)
     assertEquals(8.0, fit.bounds.east)
@@ -62,11 +62,11 @@ class BoxZoomTest {
       assertNull(
         boxZoomFit(DpRect(0.dp, 0.dp, 10.dp, 10.dp), CameraPosition()) {
           if (it == missing) null else Position(0.0, 0.0)
-        }
+        },
       )
     }
     assertNull(
-      boxZoomFit(DpRect(0.dp, 0.dp, 10.dp, 10.dp), CameraPosition()) { Position(Double.NaN, 0.0) }
+      boxZoomFit(DpRect(0.dp, 0.dp, 10.dp, 10.dp), CameraPosition()) { Position(Double.NaN, 0.0) },
     )
   }
 
@@ -79,7 +79,7 @@ class BoxZoomTest {
           CameraPosition(center = Position(540.0, 0.0)),
         ) {
           Position(if (it.x == 0.dp) 179.0 else -179.0, 0.0)
-        }
+        },
       )
     assertEquals(539.0, fit.bounds.west)
     assertEquals(541.0, fit.bounds.east)

@@ -112,7 +112,7 @@ class MapPresentationTest {
             binding.awaitOwner {
               reconciler.apply(binding, revision)
               capture(binding)
-            }
+            },
           )
 
         override suspend fun detachPresentation() = Unit
@@ -134,7 +134,7 @@ class MapPresentationTest {
               Anchor.Top,
               null,
               null,
-            )
+            ),
           ),
           emptyList(),
         )
@@ -256,7 +256,7 @@ class MapPresentationTest {
           GeoJsonSource(
             source.id,
             GeoJsonData.JsonString(
-              """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}"""
+              """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}""",
             ),
           )
         val definition =
@@ -268,8 +268,8 @@ class MapPresentationTest {
                     ("paint" to
                       buildJsonObject {
                         put("background-opacity", opacity)
-                      })
-                )
+                      }),
+                ),
             )
           }
         val revision =
@@ -347,7 +347,7 @@ class MapPresentationTest {
                   ) {
                     cluster = true
                   }
-                  .definition()
+                  .definition(),
               )
             else original.sources,
             listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
@@ -374,7 +374,7 @@ class MapPresentationTest {
             listOf(
               attributedVectorSource("first", "initial"),
               attributedVectorSource("second", "unchanged"),
-            )
+            ),
         )
       val binding = backing
       fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
@@ -531,7 +531,7 @@ class MapPresentationTest {
     val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertTrue(
       generateSequence(failure as Throwable) { it.cause }
-        .any { it.message.orEmpty().contains("bound session cleanup failed") }
+        .any { it.message.orEmpty().contains("bound session cleanup failed") },
     )
     runtime.close()
   }
@@ -642,7 +642,7 @@ class MapPresentationTest {
     first.finishDetach.complete(Unit)
     val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertTrue(
-      generateSequence(failure as Throwable) { it.cause }.any { it.message == "detach failed" }
+      generateSequence(failure as Throwable) { it.cause }.any { it.message == "detach failed" },
     )
     runtime.close()
   }
@@ -897,8 +897,8 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            )
-          )
+            ),
+          ),
       )
 
     assertNull(fixture.state.style.sources["points"])
@@ -923,8 +923,8 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            )
-          )
+            ),
+          ),
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1024,8 +1024,8 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            )
-          )
+            ),
+          ),
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1056,8 +1056,8 @@ class MapPresentationTest {
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
             ) {
               cluster = true
-            }
-          )
+            },
+          ),
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1089,8 +1089,8 @@ class MapPresentationTest {
             GeoJsonSource(
               id = "points",
               data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-            )
-          )
+            ),
+          ),
       )
     state.durableStyleCallbacks().onStyleChanged(first, firstStyle)
     state.durableStyleCallbacks().onStyleReady(first)
@@ -1791,7 +1791,7 @@ class MapPresentationTest {
     val added = fixture.state.style.setImage("marker", image)
     val prepared = ResolvedStyleImage(PreparedImage.fromBitmap(image))
     fixture.state.style.images.setAll(
-      mapOf("before" to prepared, "marker" to prepared, "after" to prepared)
+      mapOf("before" to prepared, "marker" to prepared, "after" to prepared),
     )
     fixture.state.style.awaitCommands()
     assertEquals(setOf("before", "marker", "after"), binding.imageIds)
@@ -2007,7 +2007,7 @@ class MapPresentationTest {
     var rejectImage = true
     val binding =
       RecordingStyleBinding(
-        beforeAddImage = { if (rejectImage) throw StyleMutationException("refused", null) }
+        beforeAddImage = { if (rejectImage) throw StyleMutationException("refused", null) },
       )
     val started = CompletableDeferred<Unit>()
     val release = CompletableDeferred<Unit>()
@@ -2237,7 +2237,7 @@ class MapPresentationTest {
               PreparedImage.fromBitmap(image),
               sdf = false,
               stretch = null,
-            )
+            ),
           ),
       )
     val binding = RecordingStyleBinding()
@@ -2257,7 +2257,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val binding =
       QueuedOwnerStyleBinding(
-        RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
+        RecordingStyleBinding(layers = listOf(TestLayer("background", "background"))),
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -2281,7 +2281,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val binding =
       QueuedOwnerStyleBinding(
-        RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
+        RecordingStyleBinding(layers = listOf(TestLayer("background", "background"))),
       )
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -2356,7 +2356,7 @@ class MapPresentationTest {
               PreparedImage.fromBitmap(FakeImageBitmap(2, 2)),
               sdf = false,
               stretch = null,
-            )
+            ),
           ),
       ),
     )
@@ -2403,7 +2403,7 @@ class MapPresentationTest {
                 PreparedImage.fromBitmap(image),
                 sdf = false,
                 stretch = null,
-              )
+              ),
             ),
         ),
       )
@@ -3107,7 +3107,7 @@ private suspend fun PresentationFixture.applyRevision(
 }
 
 private fun presentationFixture(
-  adapter: PresentationTestAdapter = PresentationTestAdapter()
+  adapter: PresentationTestAdapter = PresentationTestAdapter(),
 ): PresentationFixture {
   val runtime = mapRuntimeForTest()
   val state = runtime.createMapState(BaseStyle.Demo)
@@ -3235,7 +3235,7 @@ private class ReleasingCameraAdapter(private val release: (MapAdapter) -> Unit) 
 }
 
 internal open class PresentationTestAdapter(
-  private val currentAttachment: () -> MapAttachment? = { null }
+  private val currentAttachment: () -> MapAttachment? = { null },
 ) : MapAdapter {
   var lastCameraPosition = CameraPosition()
   var presentationWasVisibleWhileConfiguring = false
@@ -3307,7 +3307,7 @@ internal open class PresentationTestAdapter(
       styleBinding.awaitOwner {
         styleReconciler.apply(styleBinding, revision)
         capture(styleBinding)
-      }
+      },
     )
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition

@@ -208,7 +208,7 @@ private fun MarkerEditor(
               .background(markerColorScheme(marker.color).primary, CircleShape)
               .semantics {
                 contentDescription = "Change pin color"
-              }
+              },
           )
         }
         IconButton(onClick = ::closeEditor) {

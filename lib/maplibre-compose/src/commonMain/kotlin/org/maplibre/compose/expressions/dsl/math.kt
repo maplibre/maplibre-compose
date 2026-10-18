@@ -17,29 +17,29 @@ public fun e(): Expression<FloatValue> = call("e")
 
 /** Returns the sum of this number expression with [other]. */
 public operator fun <U, V : NumberValue<U>> Expression<V>.plus(
-  other: Expression<V>
+  other: Expression<V>,
 ): Expression<V> = call("+", this, other)
 
 /** Returns the product of this number expression with [other]. */
 @JvmName("timesUnitLeft")
 public operator fun <U, V : NumberValue<U>> Expression<V>.times(
-  other: Expression<FloatValue>
+  other: Expression<FloatValue>,
 ): Expression<V> = call("*", this, other)
 
 /** Returns the product of this number expression with [other]. */
 @JvmName("timesUnitRight")
 public operator fun <U, V : NumberValue<U>> Expression<FloatValue>.times(
-  other: Expression<V>
+  other: Expression<V>,
 ): Expression<V> = call("*", this, other)
 
 /** Returns the product of this number expression with [other]. */
 public operator fun Expression<FloatValue>.times(
-  other: Expression<FloatValue>
+  other: Expression<FloatValue>,
 ): Expression<FloatValue> = call("*", this, other)
 
 /** Returns the result of subtracting [other] from this number expression. */
 public operator fun <U, V : NumberValue<U>> Expression<V>.minus(
-  other: Expression<NumberValue<U>>
+  other: Expression<NumberValue<U>>,
 ): Expression<V> = call("-", this, other)
 
 /** Negates this number expression. */
@@ -49,23 +49,23 @@ public operator fun <U, V : NumberValue<U>> Expression<V>.unaryMinus(): Expressi
 /** Returns the result of floating point division of this number expression by [divisor]. */
 @JvmName("divUnitBoth")
 public operator fun <U, V : NumberValue<U>> Expression<V>.div(
-  divisor: Expression<V>
+  divisor: Expression<V>,
 ): Expression<FloatValue> = call("/", this, divisor)
 
 /** Returns the result of floating point division of this number expression by [divisor]. */
 @JvmName("divUnitLeftOnly")
 public operator fun <U, V : NumberValue<U>> Expression<V>.div(
-  divisor: Expression<FloatValue>
+  divisor: Expression<FloatValue>,
 ): Expression<V> = call("/", this, divisor)
 
 /** Returns the result of floating point division of this number expression by [divisor]. */
 public operator fun Expression<FloatValue>.div(
-  divisor: Expression<FloatValue>
+  divisor: Expression<FloatValue>,
 ): Expression<FloatValue> = call("/", this, divisor)
 
 /** Returns the remainder after integer division of this number expression by [divisor]. */
 public operator fun <U, V : NumberValue<U>> Expression<V>.rem(
-  divisor: Expression<IntValue>
+  divisor: Expression<IntValue>,
 ): Expression<V> = call("%", this, divisor)
 
 /** Returns the result of raising this number expression to the power of [exponent]. */

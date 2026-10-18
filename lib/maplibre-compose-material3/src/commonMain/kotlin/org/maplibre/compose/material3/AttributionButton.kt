@@ -148,6 +148,6 @@ public object AttributionButtonDefaults {
         SpanStyle(
           color = MaterialTheme.colorScheme.primary,
           textDecoration = TextDecoration.Underline,
-        )
+        ),
     )
 }

@@ -156,7 +156,7 @@ private constructor(
   private val clusterMaxZoomOverride: Int?,
 ) {
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.minZoom,
     builder.maxZoom,

@@ -343,7 +343,7 @@ class BrowserMapSnapshotterTest {
           GeoJsonData.Features(
             buildFeatureCollection<Geometry, JsonObject?> {
               addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
-            }
+            },
           ),
       )
     SymbolLayer(
@@ -384,7 +384,7 @@ class BrowserMapSnapshotterTest {
           {"id":"base-background","type":"background","paint":{"background-color":"#336699"}}
         ]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
     val PointStyle: @Composable @MaplibreComposable () -> Unit = {
       val points =
@@ -394,7 +394,7 @@ class BrowserMapSnapshotterTest {
             GeoJsonData.Features(
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
-              }
+              },
             ),
         )
       CircleLayer(

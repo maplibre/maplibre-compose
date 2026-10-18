@@ -125,7 +125,7 @@ public fun const(list: List<Number>): Expression<VectorValue<Number>> =
  * size. Anchors may repeat, and their order determines the placement preference.
  */
 public fun textVariableAnchorOffset(
-  vararg pairs: Pair<SymbolAnchor, Expression<TextUnitOffsetValue>>
+  vararg pairs: Pair<SymbolAnchor, Expression<TextUnitOffsetValue>>,
 ): Expression<TextVariableAnchorOffsetValue> =
   list(pairs.flatMap { (anchor, offset) -> listOf(const(anchor), offset) }).cast()
 

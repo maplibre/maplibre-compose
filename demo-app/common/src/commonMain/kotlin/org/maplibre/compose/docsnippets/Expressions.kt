@@ -31,7 +31,7 @@ fun Expressions() {
     // #region constants
     val earthquakes =
       rememberGeoJsonSource(
-        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson"),
       )
 
     CircleLayer(

@@ -273,7 +273,7 @@ class LayerPropertyRoundTripTest {
                   object : ExpressionContext by ExpressionContext.None {
                     override val spScale = const(0.0625f)
                     override val emScale = const(1f)
-                  }
+                  },
                 ))
               .asLayerProperty(),
           )

@@ -254,7 +254,7 @@ class AndroidLocationProviderTest {
           accuracy = 3f
           time = System.currentTimeMillis()
           elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
-        }
+        },
       )
   }
 }

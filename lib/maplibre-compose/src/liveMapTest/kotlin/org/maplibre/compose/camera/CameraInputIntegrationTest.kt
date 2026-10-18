@@ -81,7 +81,7 @@ class CameraInputIntegrationTest {
                   haptics { notch(BearingTargets.at(0.0)) }
                 }
               }
-              .build()
+              .build(),
           )
           fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 355.0))
           fixture.settle()
@@ -119,7 +119,7 @@ class CameraInputIntegrationTest {
             .apply {
               rotate { snapping { targets = BearingTargets.evenlySpaced(4, 32.0) } }
             }
-            .build()
+            .build(),
         )
         for (momentum in listOf(false, true)) {
           val before =
@@ -164,7 +164,7 @@ class CameraInputIntegrationTest {
             .apply {
               rotate { snapping() }
             }
-            .build()
+            .build(),
         )
         fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 3.0))
         fixture.settle()
@@ -287,7 +287,7 @@ class CameraInputIntegrationTest {
       fixture.awaitMapReady()
       fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
       fixture.state.setCameraPosition(
-        CameraPosition(center = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0)
+        CameraPosition(center = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0),
       )
       fixture.settle()
       val before = fixture.state.cameraPosition
@@ -319,7 +319,7 @@ class CameraInputIntegrationTest {
           fixture.awaitMapReady()
           fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
           fixture.state.setCameraPosition(
-            CameraPosition(center = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0)
+            CameraPosition(center = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, pitch = 30.0),
           )
           fixture.settle()
           val before = fixture.state.cameraPosition
@@ -328,7 +328,7 @@ class CameraInputIntegrationTest {
               .apply {
                 pan { enabled = false }
               }
-              .build()
+              .build(),
           )
           fixture.awaitWhileRendering("centered scope zoom") {
             val input = GestureInputSession(this, fixture.gestures)

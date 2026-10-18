@@ -34,9 +34,9 @@ internal class MapTemplate(
               .setTitle(carContext.getString(R.string.map_credits))
               .setIcon(icon(R.drawable.info_24px))
               .setOnClickListener(ParkedOnlyOnClickListener.create { onCredits() })
-              .build()
+              .build(),
           )
-          .build()
+          .build(),
       )
       .setMapActionStrip(
         ActionStrip.Builder()
@@ -44,7 +44,7 @@ internal class MapTemplate(
           .addAction(mapAction(R.drawable.add_24px) { onZoom(1) })
           .addAction(mapAction(R.drawable.remove_24px) { onZoom(-1) })
           .addAction(mapAction(R.drawable.filter_center_focus_24px, onRecenter))
-          .build()
+          .build(),
       )
       // Required with Action.PAN; the host forwards gestures to the SurfaceCallback.
       .setPanModeListener {}

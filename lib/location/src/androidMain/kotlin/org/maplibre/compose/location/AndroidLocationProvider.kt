@@ -205,7 +205,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
   @RequiresApi(Build.VERSION_CODES.S)
   @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
+    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION],
   )
   private fun startApi31(
     manager: LocationManager,
@@ -222,7 +222,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
             LocationAccuracy.Balanced -> AndroidLocationRequest.QUALITY_BALANCED_POWER_ACCURACY
             LocationAccuracy.Low -> AndroidLocationRequest.QUALITY_LOW_POWER
             LocationAccuracy.Lowest -> AndroidLocationRequest.QUALITY_LOW_POWER
-          }
+          },
         )
         .setMinUpdateDistanceMeters(request.minimumDistance.inMeters.toFloat())
         .build(),

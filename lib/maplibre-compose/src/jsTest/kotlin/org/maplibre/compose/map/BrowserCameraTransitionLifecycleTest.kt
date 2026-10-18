@@ -54,7 +54,7 @@ class BrowserCameraTransitionLifecycleTest {
                 record(options);
                 return original.call(this, options);
               };
-            })"""
+            })""",
         )
       map.asDynamic().flyTo = wrapFlyTo(originalFlyTo) { options: dynamic -> received = options }
       try {

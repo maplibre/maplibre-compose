@@ -106,7 +106,7 @@ private fun PlaceRow(
         Modifier.fillMaxSize()
           .background(
             if (dismiss.dismissDirection == SwipeToDismissBoxValue.Settled) Color.Transparent
-            else MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.errorContainer,
           )
           .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.End,

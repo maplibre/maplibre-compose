@@ -366,7 +366,7 @@ internal class GlJsLocationIndicator(
             }
           }
           applyGlobeMatrix = true
-        }
+        },
       )
     val center = local(x, y)
     val sine = sin(frame.bearingRadians)
@@ -383,7 +383,7 @@ internal class GlJsLocationIndicator(
           unsafeJso {
             x = screen.x - 1
             y = screen.y
-          }
+          },
         )
       val longitudeDelta = ((left.lng - location.lng + 180) % 360 + 360) % 360 - 180
       val mapPixelsPerScreenPixel =
@@ -398,14 +398,14 @@ internal class GlJsLocationIndicator(
           unsafeJso {
             x = screen.x
             y = frame.height - 1
-          }
+          },
         )
       val above =
         map.unproject(
           unsafeJso {
             x = screen.x
             y = frame.height - 2
-          }
+          },
         )
       val shiftX = (above.lng - bottom.lng) / 360
       val shiftY = mercatorY(above.lat) - mercatorY(bottom.lat)
@@ -622,7 +622,7 @@ internal class GlJsLocationIndicator(
         val distance = angularRadius * r
         val p =
           asin(
-            (sin(phi) * cos(distance) + cos(phi) * sin(distance) * cos(angle)).coerceIn(-1.0, 1.0)
+            (sin(phi) * cos(distance) + cos(phi) * sin(distance) * cos(angle)).coerceIn(-1.0, 1.0),
           )
         val dl = atan2(sin(angle) * sin(distance) * cos(phi), cos(distance) - sin(phi) * sin(p))
         vertices[index++] = dl / (2 * PI)

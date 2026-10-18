@@ -10,7 +10,7 @@ plugins {
 val desktopHostPlatform = DesktopHostPlatform.current()
 val desktopRenderBackend =
   desktopHostPlatform.selectedRenderBackend(
-    providers.gradleProperty("maplibre.desktop.backend").orNull
+    providers.gradleProperty("maplibre.desktop.backend").orNull,
   )
 
 kotlin {

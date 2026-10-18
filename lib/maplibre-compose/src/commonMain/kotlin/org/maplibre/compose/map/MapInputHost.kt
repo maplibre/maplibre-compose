@@ -59,7 +59,7 @@ internal fun MapInputHost(
         presentation.surface(
           Modifier.fillMaxSize()
             .drawBoxZoom(boxZoom)
-            .indication(focus.indicationInteractions, environment.indication)
+            .indication(focus.indicationInteractions, environment.indication),
         )
       }
     overlay()

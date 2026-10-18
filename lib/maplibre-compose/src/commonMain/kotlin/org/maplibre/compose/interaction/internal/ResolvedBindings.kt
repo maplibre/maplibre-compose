@@ -171,7 +171,7 @@ internal data class InteractionBindings(
                   )
                   on(button = PointerButton.Primary, action = CameraAction.Pan)
                 }
-                .build()
+                .build(),
           ),
         scroll =
           ScrollBinding(
@@ -180,7 +180,7 @@ internal data class InteractionBindings(
                 .apply {
                   otherwise(CameraAction.Zoom)
                 }
-                .build()
+                .build(),
           ),
         doubleTap =
           TapBinding(
@@ -194,7 +194,7 @@ internal data class InteractionBindings(
                   )
                   otherwise(CameraAction.ZoomIn)
                 }
-                .build()
+                .build(),
           ),
         secondaryClick = TapBinding(pointerTypes = mouse),
         // Modifier drags (box zoom, rotate/pitch) keep priority over a paired mouse press.
@@ -202,7 +202,7 @@ internal data class InteractionBindings(
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
           TapBinding(
-            mappings = TapMappingsBuilder().apply { otherwise(CameraAction.ZoomOut) }.build()
+            mappings = TapMappingsBuilder().apply { otherwise(CameraAction.ZoomOut) }.build(),
           ),
         keys =
           KeyBinding(
@@ -244,7 +244,7 @@ internal data class InteractionBindings(
                   on(Key.Escape, action = FocusAction.Disengage)
                   on(Key.Back, action = FocusAction.Back)
                 }
-                .build()
+                .build(),
           ),
       )
     }

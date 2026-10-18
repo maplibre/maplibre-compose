@@ -15,7 +15,7 @@ import org.maplibre.compose.style.BaseStyle
 class SurfaceMapHost(context: Context, lifecycle: Lifecycle) : AutoCloseable {
   val state =
     DefaultMapRuntime.instance.createMapState(
-      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
     ) {
       // Sources and layers, as in rememberMapState
     }

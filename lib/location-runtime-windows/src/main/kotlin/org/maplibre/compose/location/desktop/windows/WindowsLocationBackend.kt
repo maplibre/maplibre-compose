@@ -88,7 +88,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
                 LocationEvent.Update(
                   measurement = location,
                   measurementMark = TimeSource.Monotonic.markNow(),
-                )
+                ),
               )
             }
           }

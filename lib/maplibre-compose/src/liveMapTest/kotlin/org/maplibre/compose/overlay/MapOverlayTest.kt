@@ -172,7 +172,7 @@ class MapOverlayTest {
       var rtl by mutableStateOf(false)
       setUnitDensityContent {
         CompositionLocalProvider(
-          LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+          LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
         ) {
           MapOverlayHost(
             mapState = map,
@@ -224,7 +224,7 @@ class MapOverlayTest {
           overlay = {
             DefaultControls(
               contentWindowInsets =
-                WindowInsets(left = 60.dp, top = 60.dp, right = 60.dp, bottom = 60.dp)
+                WindowInsets(left = 60.dp, top = 60.dp, right = 60.dp, bottom = 60.dp),
             ) {
               Box(Modifier.size(10.dp).testTag("camera"))
             }
@@ -266,13 +266,13 @@ class MapOverlayTest {
         modifier = Modifier.size(300.dp).testTag("map"),
         overlay = {
           GeographicLayout(
-            Modifier.absoluteOffset(x = offset, y = offset).size(200.dp).padding(10.dp)
+            Modifier.absoluteOffset(x = offset, y = offset).size(200.dp).padding(10.dp),
           ) {
             Box(Modifier.placedAt(Position(100.0, 100.0)).size(10.dp).testTag("at"))
             Box(
               Modifier.placedTowards(Position(1000.0, 100.0), state = towards)
                 .size(10.dp)
-                .testTag("towards")
+                .testTag("towards"),
             )
           }
         },
@@ -393,7 +393,7 @@ class MapOverlayTest {
           Box(
             (if (placed) Modifier.placedTowards(target, state) else Modifier)
               .size(10.dp)
-              .testTag("pin")
+              .testTag("pin"),
           )
         },
       )

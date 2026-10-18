@@ -186,13 +186,13 @@ public fun LocationIndicatorLayer(
   hitPadding: Dp = 0.dp,
 ) {
   require(
-    accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0)
+    accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0),
   ) {
     "accuracyRadius must be finite and nonnegative, was $accuracyRadius"
   }
   require(
     bearingAccuracy == null ||
-      (bearingAccuracy.inDegrees.isFinite() && bearingAccuracy.inDegrees >= 0)
+      (bearingAccuracy.inDegrees.isFinite() && bearingAccuracy.inDegrees >= 0),
   ) {
     "bearingAccuracy must be finite and nonnegative, was $bearingAccuracy"
   }
@@ -231,7 +231,7 @@ public fun LocationIndicatorLayer(
         onLongClick = onLongClick,
         onDoubleClick = onDoubleClick,
         hitPadding = hitPadding,
-      )
+      ),
     )
   }
 }

@@ -133,7 +133,7 @@ class SnapshotLoadFailureTest {
           "layers": [{"id": "points", "type": "circle", "source": "tiles", "source-layer": "points"}]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }

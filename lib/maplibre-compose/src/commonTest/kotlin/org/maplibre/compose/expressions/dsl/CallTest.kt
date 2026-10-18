@@ -39,7 +39,7 @@ class CallTest {
     assertEquals(
       """["custom-op",["get","kind"],["park","forest"],{"locale":"fr"}]""",
       styleJson(
-        call<FloatValue>("custom-op", feature["kind"], verbatim(labels), verbatim(options))
+        call<FloatValue>("custom-op", feature["kind"], verbatim(labels), verbatim(options)),
       ),
     )
   }

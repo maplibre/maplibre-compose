@@ -24,7 +24,7 @@ private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
       MetalOwnedTextureDescriptor(
         RenderTargetExtent(extent.width, extent.height, extent.scaleFactor),
         MetalContextDescriptor(NativePointer.ofAddress(current.rawAddress())),
-      )
+      ),
     )
   }
 
@@ -39,7 +39,7 @@ private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
       if (MapRenderBackend.Metal in backends) {
         NativeSnapshotRenderTargetPlan {
           NativeSnapshotRenderTarget(
-            checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" }
+            checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" },
           )
         }
       } else {

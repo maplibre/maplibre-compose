@@ -61,7 +61,7 @@ abstract class GenerateBenchmarkBuildInfo : DefaultTask() {
           "dirty" to git("status", "--porcelain", "--untracked-files=normal").isNotEmpty(),
           "fixtures" to fixturesId(),
           "dependency_versions" to dependencyVersions.get().toSortedMap(),
-        )
+        ),
       )
     val literal = JsonOutput.toJson(metadata).replace("$", "\\$")
     val source =

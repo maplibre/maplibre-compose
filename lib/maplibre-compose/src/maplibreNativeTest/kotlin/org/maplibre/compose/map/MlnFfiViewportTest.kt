@@ -48,7 +48,7 @@ class MlnFfiViewportTest {
               listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
-          }
+          },
         )
       assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtCenter)
       assertEquals(
@@ -224,7 +224,7 @@ class MlnFfiViewportTest {
             ScreenPoint(width, 0.0),
             ScreenPoint(0.0, height),
             ScreenPoint(width, height),
-          )
+          ),
         )
         .map { it.toPosition() }
     return VisibleRegion(corners[0], corners[1], corners[2], corners[3])

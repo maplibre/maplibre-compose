@@ -110,7 +110,7 @@ internal class AppleMlnFfiSurfaceController(
         QueuedAction(uptimeSeconds()) {
           detachSurface()
           closed = true
-        }
+        },
       )
       queueClosed = true
       queueCondition.signal()
@@ -143,7 +143,7 @@ internal class AppleMlnFfiSurfaceController(
       post {
         result = runCatching(action)
         gate.open()
-      }
+      },
     ) {
       "The Apple map render thread is shutting down"
     }

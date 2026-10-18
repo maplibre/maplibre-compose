@@ -28,8 +28,8 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
                   headerUrls += request.url
                   emptyMap()
                 },
-              )
-          )
+              ),
+          ),
       )
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Uri("custom://style.json"))

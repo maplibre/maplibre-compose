@@ -150,7 +150,7 @@ internal fun <T> MapPresentationContent(
       },
       callbacks = adapterCallbacks,
       clicks = clickDispatcher,
-    )
+    ),
   )
 }
 

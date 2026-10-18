@@ -23,7 +23,7 @@ class SemiliteralTest {
           feature["x"].asNumber(),
           const(listOf("get", "literal-key")),
           list(feature["y"].asNumber(), const(2)),
-        )
+        ),
       ),
     )
     assertEquals(

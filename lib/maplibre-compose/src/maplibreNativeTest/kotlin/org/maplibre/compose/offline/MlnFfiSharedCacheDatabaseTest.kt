@@ -94,7 +94,7 @@ class MlnFfiSharedCacheDatabaseTest {
   }
 
   private fun RuntimeHandle.completionFor(
-    operation: OfflineOperationHandle<*>
+    operation: OfflineOperationHandle<*>,
   ): Pair<RuntimeEventType, RuntimeEventPayload.OfflineOperationCompleted>? =
     drainEvents().events.firstNotNullOfOrNull { event ->
       val completion = event.payload as? RuntimeEventPayload.OfflineOperationCompleted

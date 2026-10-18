@@ -105,7 +105,7 @@ internal constructor(
               LocationEvent.Update(
                 measurement = current.asLocationMeasurement(),
                 measurementMark = TimeSource.Monotonic.markNow(),
-              )
+              ),
             )
           }
         }
@@ -215,7 +215,7 @@ internal constructor(
         when (
           val result =
             boundary.requestPosition(
-              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout)
+              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout),
             )
         ) {
           is BrowserResult.Position ->
@@ -306,7 +306,7 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
     val permissionStatus =
       try {
         navigator.permissions.query(
-          unsafeJso<PermissionDescriptor> { name = PermissionName.geolocation }
+          unsafeJso<PermissionDescriptor> { name = PermissionName.geolocation },
         )
       } catch (_: Throwable) {
         trySend(BrowserPermission.Unknown)
@@ -353,7 +353,7 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
 private fun LocationRequest.asBrowserOptions(): BrowserOptions =
   BrowserOptions(
     highAccuracy =
-      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High
+      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High,
   )
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {

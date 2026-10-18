@@ -57,7 +57,7 @@ class LocationIndicatorCompositionTest {
                 {
                   viewportReads++
                   null
-                }
+                },
             ) {
               LocationIndicatorLayer(
                 id = "user",

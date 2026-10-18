@@ -29,7 +29,7 @@ fun CompositionBasePlusContent() {
     rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
       val earthquakes =
         rememberGeoJsonSource(
-          GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+          GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson"),
         )
       CircleLayer(id = "earthquakes", source = earthquakes, color = const(Color.Red))
     }
@@ -44,7 +44,7 @@ fun EarthquakeMap(showStrongOnly: Boolean, dotColor: Color) {
     rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
       val earthquakes =
         rememberGeoJsonSource(
-          GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+          GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson"),
         )
       CircleLayer(id = "earthquakes", source = earthquakes, color = const(dotColor))
       if (showStrongOnly) {
@@ -68,7 +68,7 @@ fun EarthquakeMap(showStrongOnly: Boolean, dotColor: Color) {
 fun EarthquakeLayers() {
   val earthquakes =
     rememberGeoJsonSource(
-      GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+      GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson"),
     )
   CircleLayer(id = "earthquakes", source = earthquakes, color = const(Color.Red))
 }

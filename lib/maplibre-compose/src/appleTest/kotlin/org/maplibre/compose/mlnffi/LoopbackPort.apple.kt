@@ -36,7 +36,7 @@ internal actual fun unusedLoopbackPort(): Int = memScoped {
     address.sin_addr.s_addr = 0x0100007Fu
     address.sin_port = 0u
     check(
-      bind(descriptor, address.ptr.reinterpret<sockaddr>(), sizeOf<sockaddr_in>().convert()) == 0
+      bind(descriptor, address.ptr.reinterpret<sockaddr>(), sizeOf<sockaddr_in>().convert()) == 0,
     ) {
       "Could not bind a loopback port (errno $errno)"
     }

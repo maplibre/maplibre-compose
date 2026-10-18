@@ -129,7 +129,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       finish = { nativeRuntime, handle ->
         registerRegion(nativeRuntime.takeCreateOfflineRegionResult(handle))
           ?: throw OfflineStorageException(
-            "MapLibre created an offline region that this build cannot represent"
+            "MapLibre created an offline region that this build cannot represent",
           )
       },
     )
@@ -421,7 +421,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
         )
       if (!accepted) {
         continuation.resumeWithException(
-          OfflineStorageException("Cannot $description: the offline storage has been disposed")
+          OfflineStorageException("Cannot $description: the offline storage has been disposed"),
         )
       }
     }

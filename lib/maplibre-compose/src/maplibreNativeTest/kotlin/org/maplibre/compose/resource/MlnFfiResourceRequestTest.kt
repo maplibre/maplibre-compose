@@ -183,8 +183,8 @@ class MlnFfiResourceRequestTest {
         BaseStyle.Json(
           """{"version":8,"sources":{"tiles":{"type":"raster",
           "tiles":["app://pending-tile/{z}/{x}/{y}"],"tileSize":256}},
-          "layers":[{"id":"raster","type":"raster","source":"tiles"}]}"""
-        )
+          "layers":[{"id":"raster","type":"raster","source":"tiles"}]}""",
+        ),
       )
       it.pumpUntil("the native request to start provider.load") { loading.load() }
       it.session.setBaseStyle(BaseStyle.Empty)

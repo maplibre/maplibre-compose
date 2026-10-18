@@ -49,8 +49,8 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(
         BaseStyle.Json(
-          """{"version":8,"transition":{"duration":0,"delay":0},"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"#0000ff"}}]}"""
-        )
+          """{"version":8,"transition":{"duration":0,"delay":0},"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"#0000ff"}}]}""",
+        ),
       )
       fixture.pumpUntilRendered()
       fixture.settle()
@@ -132,6 +132,6 @@ class MlnFfiMapRepaintTest {
 
   private fun background(color: String) =
     BaseStyle.Json(
-      """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"$color"}}]}"""
+      """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"$color"}}]}""",
     )
 }

@@ -102,7 +102,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
               executeCompletion(
                 onFailure = {
                   if (!closed.get()) onCompleted(WindowsAccessStatus.Unknown)
-                }
+                },
               ) {
                 try {
                   if (status == AsyncCompleted) {

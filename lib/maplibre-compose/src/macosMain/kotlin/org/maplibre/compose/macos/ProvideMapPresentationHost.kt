@@ -48,7 +48,7 @@ public fun ProvideMapPresentationHost(window: NSWindow, content: @Composable () 
 internal val LocalAppKitMapHost =
   staticCompositionLocalOf<AppKitMapHost> {
     error(
-      "Wrap this window's content in org.maplibre.compose.macos.ProvideMapPresentationHost(window)"
+      "Wrap this window's content in org.maplibre.compose.macos.ProvideMapPresentationHost(window)",
     )
   }
 
@@ -78,7 +78,7 @@ internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
     // otherMouseDragged. Its existing handler forwards movement using the current button state.
     dragMonitor =
       NSEvent.addLocalMonitorForEventsMatchingMask(
-        NSEventMaskRightMouseDragged or NSEventMaskOtherMouseDragged
+        NSEventMaskRightMouseDragged or NSEventMaskOtherMouseDragged,
       ) { event ->
         event?.let(::forwardDrag)
       }
@@ -146,7 +146,7 @@ internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
           height - visible.bottom / scale,
           visible.width.coerceAtLeast(0f) / scale.toDouble(),
           visible.height.coerceAtLeast(0f) / scale.toDouble(),
-        )
+        ),
       )
       entry.view.setFrame(
         NSMakeRect(
@@ -154,7 +154,7 @@ internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
           (visible.bottom - bounds.bottom) / scale.toDouble(),
           bounds.width / scale.toDouble(),
           bounds.height / scale.toDouble(),
-        )
+        ),
       )
       entry.resized(bounds, scale, !visible.isEmpty)
     } finally {

@@ -52,7 +52,7 @@ internal fun BenchmarkReturn(fixture: BenchmarkFixture, onStatus: (String, Boole
     Box(
       Modifier.fillMaxSize()
         .graphicsLayer { translationX = size.width * cover.toFloat() }
-        .background(Color(0xff303030))
+        .background(Color(0xff303030)),
     )
   }
 }

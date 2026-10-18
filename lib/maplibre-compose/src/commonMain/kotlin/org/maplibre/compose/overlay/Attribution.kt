@@ -134,13 +134,13 @@ public fun ExpandingAttributionButton(
     modifier
       .shadow(shadowElevation, attributionStyle.shape, clip = false)
       .then(
-        attributionStyle.border?.let { Modifier.border(it, attributionStyle.shape) } ?: Modifier
+        attributionStyle.border?.let { Modifier.border(it, attributionStyle.shape) } ?: Modifier,
       )
       .background(containerColor, attributionStyle.shape)
       .clip(attributionStyle.shape)
       // Without this, a drag across the attribution pans the map underneath it.
       .pointerInput(Unit) {}
-      .semantics { isTraversalGroup = true }
+      .semantics { isTraversalGroup = true },
   ) {
     val layoutDir = LocalLayoutDirection.current
 
@@ -153,7 +153,7 @@ public fun ExpandingAttributionButton(
 
     CompositionLocalProvider(
       LocalLayoutDirection provides
-        if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir
+        if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir,
     ) {
       Row(horizontalArrangement = rowArrangement, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.align(contentAlignment.vertical)) { toggleButton { expanded = !expanded } }

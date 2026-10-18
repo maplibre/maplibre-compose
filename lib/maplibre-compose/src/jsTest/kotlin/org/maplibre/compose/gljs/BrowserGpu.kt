@@ -47,7 +47,7 @@ internal fun createGpu(): BrowserGpu {
       "({alpha:1,depth:1,stencil:8,antialias:0,premultipliedAlpha:1,preserveDrawingBuffer:0," +
         "preferLowPowerToHighPerformance:0,failIfMajorPerformanceCaveat:0," +
         "enableExtensionsByDefault:1,explicitSwapControl:0,renderViaOffscreenBackBuffer:0," +
-        "majorVersion:2})"
+        "majorVersion:2})",
     )
   val handle = registry.createContext(canvas, attributes)
   check(handle != null && handle != undefined && handle != 0) {

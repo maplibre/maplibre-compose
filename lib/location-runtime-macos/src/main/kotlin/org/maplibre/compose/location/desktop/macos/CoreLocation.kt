@@ -101,7 +101,7 @@ internal fun LocationAccuracy.toDesiredAccuracy(): Double =
   }
 
 internal fun CoreLocationError.asUnavailableReason(
-  locationServicesEnabled: Boolean
+  locationServicesEnabled: Boolean,
 ): LocationUnavailableReason? =
   when {
     domain != kCLErrorDomain -> null
@@ -145,7 +145,7 @@ internal fun readPermission(
           LocationAccuracyAuthorization.Precise
         } else {
           LocationAccuracyAuthorization.Approximate
-        }
+        },
       )
     kCLAuthorizationStatusNotDetermined -> LocationPermission.NotGranted(canRequest = true)
     kCLAuthorizationStatusDenied,

@@ -22,7 +22,7 @@ class AnimatorDurationScaleTest {
     val paint =
       Json.parseToJsonElement(
           """{"fill-color":"red","fill-color-transition":{"duration":300.0,"delay":50.0},""" +
-            """"fill-opacity-transition":{},"fill-opacity":0.5}"""
+            """"fill-opacity-transition":{},"fill-opacity":0.5}""",
         )
         .jsonObject
     val scaled = paint.withScaledTransitions(0.5f)

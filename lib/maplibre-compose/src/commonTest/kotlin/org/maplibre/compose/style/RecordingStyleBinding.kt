@@ -390,7 +390,7 @@ internal class RecordingStyleBinding(
       featureStates[key] =
         JsonObject(
           (previous - removed) +
-            captured.filterValues { it !is kotlinx.serialization.json.JsonNull }
+            captured.filterValues { it !is kotlinx.serialization.json.JsonNull },
         )
     }
   }

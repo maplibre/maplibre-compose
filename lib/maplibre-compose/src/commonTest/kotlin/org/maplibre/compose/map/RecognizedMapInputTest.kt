@@ -118,7 +118,7 @@ class RecognizedMapInputTest {
           pan { enabled = false }
           zoom { onStart { starts++ } }
         }
-      }
+      },
     )
     val input = input(backgroundScope)
     input.pan(DpOffset(12.dp, 0.dp))

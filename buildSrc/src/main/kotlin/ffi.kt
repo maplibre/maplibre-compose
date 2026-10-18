@@ -107,7 +107,7 @@ enum class DesktopHostPlatform(
       return entries.firstOrNull { it.os == os && it.arch == arch }
         ?: error(
           "No MapLibre Native FFI runtime for $os-$arch. Published platforms: " +
-            entries.joinToString { "${it.os}-${it.arch}" }
+            entries.joinToString { "${it.os}-${it.arch}" },
         )
     }
   }
@@ -121,7 +121,7 @@ enum class DesktopHostPlatform(
  * by its artifact infix, as in `-Pmaplibre.desktop.backend=opengl`.
  */
 fun DesktopHostPlatform.selectedRenderBackend(
-  requested: String?
+  requested: String?,
 ): DesktopHostPlatform.RenderBackend {
   if (requested.isNullOrBlank()) return defaultRenderBackend
   val backend =

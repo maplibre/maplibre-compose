@@ -33,11 +33,12 @@ class SourceInstallationFailureTest {
           val changedBounds = bounds.copy(topLeft = Position(-2.0, 1.0))
           val initial =
             assertIs<SourceDefinition.Image>(
-              ImageSource("image", bounds, PreparedImage.fromBitmap(ImageBitmap(1, 1))).definition()
+              ImageSource("image", bounds, PreparedImage.fromBitmap(ImageBitmap(1, 1)))
+                .definition(),
             )
           val next =
             assertIs<SourceDefinition.Image>(
-              ImageSource("image", changedBounds, "https://example.invalid/image.png").definition()
+              ImageSource("image", changedBounds, "https://example.invalid/image.png").definition(),
             )
           var rejectContent = true
           val acceptedBounds = mutableListOf<List<Position>>()

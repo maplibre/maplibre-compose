@@ -60,7 +60,7 @@ class ClickInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         click(center)
@@ -90,7 +90,7 @@ class ClickInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       mapNode().performMouseInput {
         click(center)
@@ -111,7 +111,7 @@ class ClickInputTest {
         InputConfiguration {
           bindings { doubleTap { mappings {} } }
           bindings { tapDrag { enabled = false } }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       try {
@@ -130,7 +130,7 @@ class ClickInputTest {
       options =
         InputConfiguration {
           callbacks { click { onEvent { ClickResult.Consume } } }
-        }
+        },
     ) { target ->
       mapNode().performMouseInput { doubleClick(center) }
       waitForIdle()
@@ -192,7 +192,7 @@ class ClickInputTest {
               mappings { otherwise(CameraAction.Pan) }
             }
           }
-        }
+        },
       )
     fixture.runRecognitionTest(optionsProvider = { configuration }) { target ->
       mainClock.autoAdvance = false
@@ -231,7 +231,7 @@ class ClickInputTest {
   @Test
   fun a_parent_consuming_unclaimed_motion_in_main_cancels_click_and_long_press() =
     fixture.runRecognitionTest(
-      parentModifier = Modifier.consumePointerEvents(PointerEventPass.Main, PointerEventType.Move)
+      parentModifier = Modifier.consumePointerEvents(PointerEventPass.Main, PointerEventType.Move),
     ) { target ->
       mapNode().performTouchInput {
         down(center)
@@ -253,7 +253,7 @@ class ClickInputTest {
   fun a_consumed_release_does_not_click_or_launch_a_fling() =
     fixture.runRecognitionTest(
       parentModifier =
-        Modifier.consumePointerEvents(PointerEventPass.Initial, PointerEventType.Release)
+        Modifier.consumePointerEvents(PointerEventPass.Initial, PointerEventType.Release),
     ) { target ->
       mapNode().performTouchInput { click(center) }
       mainClock.advanceTimeBy(1_000)
@@ -289,7 +289,7 @@ class ClickInputTest {
   @Test
   fun increasing_drag_slop_does_not_expand_click_tolerance() =
     fixture.runRecognitionTest(
-      options = InputConfiguration { bindings { drag { pan { mouseStartSlop = 100.dp } } } }
+      options = InputConfiguration { bindings { drag { pan { mouseStartSlop = 100.dp } } } },
     ) { target ->
       mapNode().performMouseInput {
         moveTo(center)
@@ -335,7 +335,7 @@ class ClickInputTest {
         InputConfiguration {
           bindings { doubleTap { enabled = false } }
           bindings { tapDrag { enabled = false } }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       try {
@@ -355,7 +355,7 @@ class ClickInputTest {
         InputConfiguration {
           bindings { doubleTap { enabled = false } }
           bindings { tapDrag { enabled = false } }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         down(center)
@@ -463,7 +463,7 @@ class ClickInputTest {
         InputConfiguration(InputConfiguration.NoBindings) {
           camera { zoom { momentum { enabled = false } } }
           bindings { tapDrag { enabled = true } }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         click(center)
@@ -490,7 +490,7 @@ class ClickInputTest {
               direction = QuickZoomDirection.UpZoomsIn
             }
           }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         click(center)
@@ -521,7 +521,7 @@ class ClickInputTest {
             }
             tapDrag { modifiers = null }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performMouseInput { click(center) }

@@ -17,7 +17,7 @@ public data class ScaleBarMeasures(
 @Composable internal expect fun systemDefaultPrimaryMeasure(): ScaleBarMeasure?
 
 internal fun scaleBarMeasureForAppleMeasurementSystem(
-  measurementSystem: String?
+  measurementSystem: String?,
 ): ScaleBarMeasure? =
   when (measurementSystem) {
     "Metric" -> Metric

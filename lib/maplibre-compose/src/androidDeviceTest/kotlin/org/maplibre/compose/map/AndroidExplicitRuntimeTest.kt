@@ -26,7 +26,7 @@ class AndroidExplicitRuntimeTest {
         state.withPlatformMap {
           map.hashCode()
           true
-        }
+        },
       )
     } finally {
       runtime.close()

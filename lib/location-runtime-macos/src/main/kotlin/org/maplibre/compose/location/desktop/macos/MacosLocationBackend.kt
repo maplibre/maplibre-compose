@@ -106,8 +106,8 @@ internal constructor(
               send(
                 LocationEvent.Unavailable(
                   if (enabled) LocationUnavailableReason.PermissionDenied
-                  else LocationUnavailableReason.ServicesDisabled
-                )
+                  else LocationUnavailableReason.ServicesDisabled,
+                ),
               )
             }
             // This provider reports only the permissions above.
@@ -190,7 +190,7 @@ internal constructor(
       if (error.domain == kCLErrorDomain && error.code == kCLErrorDenied) {
         scope.launch(ioDispatcher) {
           channel.trySend(
-            LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))
+            LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled)),
           )
         }
         return
@@ -206,7 +206,7 @@ internal constructor(
         LocationEvent.Update(
           location.asMaplibreLocationMeasurement(),
           TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
-        )
+        ),
       )
     }
   }

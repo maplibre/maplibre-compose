@@ -52,7 +52,7 @@ class LinuxPortalLocationProviderTest {
     assertTrue(
       ServiceLoader.load(DesktopLocationBackend::class.java).any {
         it is LinuxPortalLocationBackend
-      }
+      },
     )
   }
 
@@ -350,7 +350,7 @@ private class FakeLinuxLocationPortal(override val available: Boolean = true) :
           "Longitude" to Variant(13.0),
           "Accuracy" to Variant(8.0),
         )
-        .toLocationEvent()
+        .toLocationEvent(),
     )
 
   override suspend fun requestPermission(): Boolean {

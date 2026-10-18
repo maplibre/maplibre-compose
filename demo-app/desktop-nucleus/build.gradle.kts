@@ -12,7 +12,7 @@ plugins {
 val desktopHostPlatform = DesktopHostPlatform.current()
 val desktopRenderBackend =
   desktopHostPlatform.selectedRenderBackend(
-    providers.gradleProperty("maplibre.desktop.backend").orNull
+    providers.gradleProperty("maplibre.desktop.backend").orNull,
   )
 
 kotlin {
@@ -80,7 +80,9 @@ nucleus.application {
     linux {
       packageName = "maplibre-compose"
       iconFile.set(
-        rootProject.file("demo-app/ios/iosApp/Assets.xcassets/AppIcon.appiconset/app-icon-1024.png")
+        rootProject.file(
+          "demo-app/ios/iosApp/Assets.xcassets/AppIcon.appiconset/app-icon-1024.png",
+        ),
       )
     }
   }

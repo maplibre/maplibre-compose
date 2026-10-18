@@ -179,7 +179,7 @@ class DecisionTypingTest {
           feature["a"].asString(),
           feature["b"].asString(),
           collator(caseSensitive = false, locale = "de"),
-        )
+        ),
       ),
     )
     assertEquals(
@@ -189,7 +189,7 @@ class DecisionTypingTest {
           const("straße"),
           const("STRASSE"),
           collator(caseSensitive = false, diacriticSensitive = false),
-        )
+        ),
       ),
     )
   }

@@ -72,7 +72,7 @@ fun Terrain() {
           position = const(listOf(1.5f, 270f, 60f)),
           color = const(Color(0xFFFFE0B2)),
           intensity = const(0.6f),
-        )
+        ),
       )
     }
   }

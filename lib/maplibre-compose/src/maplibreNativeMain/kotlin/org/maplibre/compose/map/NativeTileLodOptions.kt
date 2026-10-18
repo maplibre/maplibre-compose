@@ -9,7 +9,7 @@ internal constructor(
    * The tile-detail algorithm and its parameters. To retain settings while editing an algorithm,
    * pass the previous value to its constructor.
    */
-  public val algorithm: TileLodAlgorithm
+  public val algorithm: TileLodAlgorithm,
 ) {
   public actual constructor(
     from: TileLodOptions,
@@ -35,7 +35,7 @@ internal constructor(
           scale = 1.5
           pitchThreshold = 45.0
           zoomShift = -1.0
-        }
+        },
       )
 
     public actual val HighDetail: TileLodOptions =
@@ -43,7 +43,7 @@ internal constructor(
         TileLodAlgorithm.ScreenCenter {
           minRadius = 5.0
           pitchThreshold = 85.0
-        }
+        },
       )
   }
 }

@@ -17,7 +17,7 @@ class InputMatchingTest {
   fun modifier_matching_distinguishes_any_exact_and_containing() {
     val ctrlShift = setOf(KeyModifier.Ctrl, KeyModifier.Shift)
     assertTrue(
-      PointerPattern().matches(setOf(PointerType.Unknown), emptySet(), ctrlShift, contact = true)
+      PointerPattern().matches(setOf(PointerType.Unknown), emptySet(), ctrlShift, contact = true),
     )
     assertFalse(ModifierMatch.Exactly(KeyModifier.Ctrl).matches(ctrlShift))
     assertTrue(ModifierMatch.Containing(KeyModifier.Ctrl).matches(ctrlShift))
@@ -37,13 +37,13 @@ class InputMatchingTest {
         emptySet(),
         emptySet(),
         contact = true,
-      )
+      ),
     )
     assertFalse(filter.matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true))
     assertFalse(filter.matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true))
     assertTrue(
       PointerPattern(button = null)
-        .matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true)
+        .matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true),
     )
   }
 
@@ -53,24 +53,24 @@ class InputMatchingTest {
       listOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown)) {
       assertTrue(
         PointerPattern(button = PointerButton.Primary)
-          .matches(setOf(type), emptySet(), emptySet(), contact = true)
+          .matches(setOf(type), emptySet(), emptySet(), contact = true),
       )
       assertFalse(
         PointerPattern(button = PointerButton.Primary)
-          .matches(setOf(type), emptySet(), emptySet(), contact = false)
+          .matches(setOf(type), emptySet(), emptySet(), contact = false),
       )
       assertFalse(
         PointerPattern(button = PointerButton.Secondary)
-          .matches(setOf(type), emptySet(), emptySet(), contact = true)
+          .matches(setOf(type), emptySet(), emptySet(), contact = true),
       )
     }
     assertFalse(
       PointerPattern(button = PointerButton.Primary)
-        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false)
+        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false),
     )
     assertTrue(
       PointerPattern(button = null)
-        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false)
+        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false),
     )
     assertTrue(
       PointerPattern(button = PointerButton.Primary)
@@ -79,7 +79,7 @@ class InputMatchingTest {
           setOf(PointerButton.Primary),
           emptySet(),
           contact = false,
-        )
+        ),
     )
   }
 

@@ -56,7 +56,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
         VulkanOwnedTextureDescriptor(
           RenderTargetExtent(extent.width, extent.height, extent.scaleFactor),
           context.handles.toDescriptor(),
-        )
+        ),
       )
 
     override fun close() = context.close()
@@ -82,7 +82,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
             clientApi = OpenGLClientApi.GLES,
             ownership = OpenGLContextOwnership.SHARED,
           ),
-        )
+        ),
       )
     }
 

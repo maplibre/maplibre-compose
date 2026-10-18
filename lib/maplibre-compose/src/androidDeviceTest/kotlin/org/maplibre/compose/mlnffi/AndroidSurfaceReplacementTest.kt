@@ -282,5 +282,5 @@ private val SolidStyle =
     {"version":8,"sources":{},"layers":[
       {"id":"background","type":"background","paint":{"background-color":"#336699"}}
     ]}
-    """
+    """,
   )

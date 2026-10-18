@@ -216,7 +216,7 @@ internal constructor(
       CoroutineScope(
         SupervisorJob() +
           Dispatchers.Main.immediate +
-          CoroutineExceptionHandler { _, error -> postAppleMain { fail(error) } }
+          CoroutineExceptionHandler { _, error -> postAppleMain { fail(error) } },
       )
     this.scope = scope
     // Only the standalone recomposer uses this clock. Metal drawables pace the renderer itself.

@@ -74,7 +74,7 @@ internal object AndroidLocationBackendResolver {
   fun resolve(availableBackends: List<AndroidLocationBackend>): AndroidBackendResolution {
     val backend =
       availableBackends.minWithOrNull(
-        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id }
+        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id },
       )
     return if (backend == null) AndroidBackendResolution.None
     else AndroidBackendResolution.Discovered(backend)

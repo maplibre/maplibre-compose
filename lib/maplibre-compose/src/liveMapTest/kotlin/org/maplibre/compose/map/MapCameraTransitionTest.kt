@@ -862,7 +862,7 @@ class MapCameraTransitionTest {
         CameraConstraints(TestConstraints) {
           maxZoom = 4.0
           maxPitch = 45.0
-        }
+        },
       )
       fixture.pump(frames = 3)
       val point = DpOffset(190.dp, 300.dp)

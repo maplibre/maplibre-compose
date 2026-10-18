@@ -79,7 +79,7 @@ class AndroidMapPresentationTest {
             val originalConfiguration = fixture.configuration
             fixture.onMain {
               presenter.updateConfiguration(
-                Configuration(originalConfiguration).apply { fontScale = 1.5f }
+                Configuration(originalConfiguration).apply { fontScale = 1.5f },
               )
             }
             second.awaitColor(Yellow)

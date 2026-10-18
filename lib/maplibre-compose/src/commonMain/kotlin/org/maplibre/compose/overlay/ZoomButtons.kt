@@ -92,7 +92,7 @@ public fun ZoomButtons(
   val zoomOutHovered by zoomOutInteractionSource.collectIsHoveredAsState()
   val shadowElevation by
     animateDpAsState(
-      if (zoomInHovered || zoomOutHovered) style.hoveredShadowElevation else style.shadowElevation
+      if (zoomInHovered || zoomOutHovered) style.hoveredShadowElevation else style.shadowElevation,
     )
 
   // Successive presses in one direction step from the target of the animation in flight, so three
@@ -126,7 +126,7 @@ public fun ZoomButtons(
       .requiredWidth(width)
       .shadow(shadowElevation, style.shape, clip = false)
       .background(style.containerColor, style.shape)
-      .clip(style.shape)
+      .clip(style.shape),
   ) {
     ZoomButton(
       onClick = {

@@ -24,7 +24,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
   val scheme: String by lazy { newResourceProtocolScheme() }
   private val scope =
     CoroutineScope(
-      SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource")
+      SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource"),
     )
   private val protocolInstalled = config.provider != null
   private var open = true

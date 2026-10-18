@@ -69,7 +69,7 @@ fun NearbyPlaces(onPlacesFound: (List<String>) -> Unit) {
                     layerIds = setOf("poi_r1", "poi_r7", "poi_r20"),
                   )
                 onPlacesFound(
-                  places.mapNotNull { it.properties?.get("name")?.jsonPrimitive?.contentOrNull }
+                  places.mapNotNull { it.properties?.get("name")?.jsonPrimitive?.contentOrNull },
                 )
               }
               ClickResult.Consume

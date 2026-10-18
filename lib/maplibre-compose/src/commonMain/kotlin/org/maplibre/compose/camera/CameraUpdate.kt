@@ -37,7 +37,7 @@ public data class CameraUpdate(
       padding == null ||
         listOf(padding.left, padding.top, padding.right, padding.bottom).all {
           it.value.isFinite() && it.value >= 0f
-        }
+        },
     ) {
       "Padding must be finite and nonnegative, was $padding"
     }

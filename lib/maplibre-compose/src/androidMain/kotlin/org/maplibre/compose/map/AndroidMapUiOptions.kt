@@ -19,7 +19,7 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(builder.loadColor, builder.bindingsBuilder.build(), builder.renderMode)
 
   @MapOptionsDsl

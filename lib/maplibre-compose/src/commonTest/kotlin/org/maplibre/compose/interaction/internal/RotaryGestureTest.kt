@@ -46,7 +46,7 @@ class MapRotaryGestureTest {
     map.state.gestureAuthority.updateConfiguration(
       CameraBuilder(CameraConfiguration())
         .apply { zoom { onStart { if (++starts == 1) error("observer failed") } } }
-        .build()
+        .build(),
     )
     val input = RotaryGesture(map.target, RotaryBinding(), 24f, backgroundScope)
     assertFailsWith<IllegalStateException> { input.onSample(24f) }

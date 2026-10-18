@@ -273,7 +273,7 @@ class CameraInputTest {
             }
             pitch { onStart { starts += "pitch" } }
           }
-          .build()
+          .build(),
       )
       val input = GestureInputSession(this, target)
       target.inputPanBy(10.0, 20.0, gestureToken = input.token)
@@ -316,7 +316,7 @@ class CameraInputTest {
               }
             }
           }
-          .build()
+          .build(),
       )
       assertTrue(input.token.acceptsCommands)
       input.token.rearm(CameraComponent.Pan)
@@ -336,7 +336,7 @@ class CameraInputTest {
           .apply {
             pan { onStart { state.setCameraPosition(CameraPosition(zoom = 8.0)) } }
           }
-          .build()
+          .build(),
       )
       val input = GestureInputSession(this, target)
       target.inputPanBy(10.0, 0.0, gestureToken = input.token)
@@ -376,7 +376,7 @@ class CameraInputTest {
                 onStart { started(CameraComponent.Zoom) }
               }
             }
-            .build()
+            .build(),
         )
         target.fitCalls.clear()
         val input = GestureInputSession(this, target)

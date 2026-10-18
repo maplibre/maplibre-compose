@@ -31,7 +31,7 @@ fun WorkloadReport.printResult() {
           submissionCount = submissionMs.size,
           completionCount = completionMs.size,
           frameCount = frameIntervalMs.size,
-        )
-      )
+        ),
+      ),
   )
 }

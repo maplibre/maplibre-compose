@@ -171,7 +171,7 @@ expect class MapTestResult
 internal expect fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult
 
 internal class RecordingMapCallbacks(
-  private val beforeStyleChanged: (MapAdapter, StyleBinding?) -> Unit = { _, _ -> }
+  private val beforeStyleChanged: (MapAdapter, StyleBinding?) -> Unit = { _, _ -> },
 ) : MapAdapter.Callbacks {
 
   var attachment: MapAttachment? = null

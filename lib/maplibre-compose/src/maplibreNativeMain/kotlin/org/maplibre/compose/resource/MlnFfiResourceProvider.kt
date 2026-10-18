@@ -79,7 +79,7 @@ internal class MlnFfiResourceProvider(
    */
   private val readScope =
     CoroutineScope(
-      SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader")
+      SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader"),
     )
 
   override fun handle(
@@ -187,7 +187,7 @@ internal class MlnFfiResourceProvider(
             "was requested after the resource provider shut down",
             error = null,
             logger = logger,
-          )
+          ),
         )
       }
     } catch (error: Throwable) {

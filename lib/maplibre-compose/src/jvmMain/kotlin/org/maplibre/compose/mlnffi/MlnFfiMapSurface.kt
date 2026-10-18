@@ -93,7 +93,7 @@ internal class MlnFfiSurfaceController(
               fail(error)
             }
           }
-        }
+        },
       ) {
         "The map host closed before accepting its surface"
       }

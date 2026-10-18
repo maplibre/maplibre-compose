@@ -73,7 +73,7 @@ internal fun JsonObject.withScaledTransitions(scale: Float): JsonObject {
     mapValues { (name, value) ->
       if (name.endsWith(TransitionSuffix) && value is JsonObject) value.scaledTransition(scale)
       else value
-    }
+    },
   )
 }
 
@@ -86,7 +86,7 @@ private fun JsonObject.scaledTransition(scale: Float): JsonObject =
       } else {
         value
       }
-    }
+    },
   )
 
 private fun requireScale(scale: Float) {

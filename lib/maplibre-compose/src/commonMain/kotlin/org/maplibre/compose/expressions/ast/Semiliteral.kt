@@ -16,7 +16,7 @@ internal data class Semiliteral<T : ExpressionValue?>(val elements: List<Express
 }
 
 internal data class CompiledSemiliteral<T : ExpressionValue?>(
-  val elements: List<CompiledExpression<T>>
+  val elements: List<CompiledExpression<T>>,
 ) : CompiledExpression<ListValue<T>> {
   override fun visit(block: (Expression<*>) -> Unit) {
     block(this)

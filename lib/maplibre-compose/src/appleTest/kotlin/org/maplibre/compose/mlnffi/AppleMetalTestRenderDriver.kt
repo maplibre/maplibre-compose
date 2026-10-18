@@ -57,8 +57,8 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
             origin = TextureOrigin.TopLeft,
             extent = extent,
             generation = generation,
-          )
-      )
+          ),
+      ),
     )
   }
 

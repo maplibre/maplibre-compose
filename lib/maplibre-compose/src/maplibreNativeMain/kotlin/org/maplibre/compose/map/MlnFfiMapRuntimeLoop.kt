@@ -103,7 +103,7 @@ internal class MlnFfiMapRuntimeLoop(
               fail(error)
               if (created == null) completion.complete(Result.success(Unit))
             },
-          )
+          ),
         )
       while (beforeStart.isNotEmpty()) {
         val task = beforeStart.removeFirst()

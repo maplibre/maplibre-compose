@@ -27,8 +27,8 @@ class BearingAccuracyRenderingTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(
         BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}"""
-        )
+          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}""",
+        ),
       )
       fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 0.0))
       val layer = TestLayer("sector", "location-indicator")

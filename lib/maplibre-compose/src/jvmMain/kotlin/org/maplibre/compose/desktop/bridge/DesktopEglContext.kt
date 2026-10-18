@@ -112,7 +112,7 @@ private constructor(private val metalDevice: Long?, private val requiredDeviceUu
 
   fun makeCurrent() {
     check(
-      display != EGL_NO_DISPLAY && surface != EGL_NO_SURFACE && shareContext != EGL_NO_CONTEXT
+      display != EGL_NO_DISPLAY && surface != EGL_NO_SURFACE && shareContext != EGL_NO_CONTEXT,
     ) {
       "EGL context is not initialized"
     }
@@ -149,7 +149,7 @@ private constructor(private val metalDevice: Long?, private val requiredDeviceUu
         )
       if (image == NULL) {
         throw MlnFfiHostException(
-          "eglCreateImageKHR(EGL_METAL_TEXTURE_ANGLE) failed with ${eglError()}"
+          "eglCreateImageKHR(EGL_METAL_TEXTURE_ANGLE) failed with ${eglError()}",
         )
       }
       return image
@@ -296,7 +296,7 @@ private constructor(private val metalDevice: Long?, private val requiredDeviceUu
             (registryId ushr 32).toInt(),
             EGL_PLATFORM_ANGLE_DEVICE_ID_LOW_ANGLE,
             registryId.toInt(),
-          )
+          ),
         )
       }
       attributes.add(EGL_NONE)
@@ -491,7 +491,7 @@ private object MacAngleLibraries {
       path.toFile().deleteOnExit()
     }
     for (name in listOf("libGLESv2.dylib", "libEGL.dylib")) System.load(
-      root.resolve(name).toString()
+      root.resolve(name).toString(),
     )
     fun provider(name: String): FunctionProvider {
       val lookup =

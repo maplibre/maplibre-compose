@@ -356,7 +356,7 @@ internal class StyleResourceCommands(
                   completion.completeExceptionally(
                     if (error is StyleMutationException)
                       StyleHandleException("Could not $target: ${error.message}", error)
-                    else error
+                    else error,
                   )
                 } else if (error !is CancellationException && style.isCurrentLoadedStyle(binding)) {
                   rejected(target, error)

@@ -65,7 +65,7 @@ internal object SkikoReflection {
     if (!Class.forName(expectedClass).isAssignableFrom(redrawer.javaClass)) {
       throw MlnFfiHostException(
         "Skiko redrawer was ${redrawer.javaClass.name}, expected $expectedClass. " +
-          "Compose is probably rendering with a different backend than the map host assumed."
+          "Compose is probably rendering with a different backend than the map host assumed.",
       )
     }
     return redrawer
@@ -110,7 +110,7 @@ internal object SkikoReflection {
           device.getField("ptr") as? Long
             ?: device.invokeNoArg("getPtr") as? Long
             ?: throw MlnFfiHostException(
-              "${device.javaClass.name} did not expose the Skiko MetalDevice pointer"
+              "${device.javaClass.name} did not expose the Skiko MetalDevice pointer",
             )
       }
     if (ptr == 0L) return null
@@ -282,7 +282,7 @@ internal object SkikoDirect3DDeviceLayout {
     if (fromBackendContext == 0L && fromDeviceField == 0L) {
       throw MlnFfiHostException(
         "Skiko's DirectXDevice holds no ID3D12Device. The host was probably asked for the " +
-          "Direct3D device before Compose finished creating it."
+          "Direct3D device before Compose finished creating it.",
       )
     }
     if (fromBackendContext != fromDeviceField) {
@@ -291,7 +291,7 @@ internal object SkikoDirect3DDeviceLayout {
           "0x${fromBackendContext.toULong().toString(16)} at $BackendContextDeviceOffset and " +
           "0x${fromDeviceField.toULong().toString(16)} at $DeviceOffset. Skiko has changed the " +
           "layout of DirectXDevice since $VerifiedSkikoVersion; re-read " +
-          "skiko/src/awtMain/cpp/windows/directXRedrawer.cc and update SkikoDirect3DDeviceLayout."
+          "skiko/src/awtMain/cpp/windows/directXRedrawer.cc and update SkikoDirect3DDeviceLayout.",
       )
     }
     return fromBackendContext

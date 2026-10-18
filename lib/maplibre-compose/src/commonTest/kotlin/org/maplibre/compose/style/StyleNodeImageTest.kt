@@ -119,7 +119,7 @@ class StyleNodeImageTest {
       assertTrue(
         ready.layers.all {
           (it.definition.value["paint"] as JsonObject)["fill-pattern"] in imageIds
-        }
+        },
       )
     } finally {
       root.close()
@@ -224,7 +224,7 @@ class StyleNodeImageTest {
   private fun imageProperty(request: StyleImageRequest) =
     mapOf(
       StyleProperty("paint", "fill-pattern") to
-        LayerProperty<ImageValue>(setOf(request)) { JsonPrimitive(it.getValue(request)) }
+        LayerProperty<ImageValue>(setOf(request)) { JsonPrimitive(it.getValue(request)) },
     )
 
   private fun data(value: Int) =

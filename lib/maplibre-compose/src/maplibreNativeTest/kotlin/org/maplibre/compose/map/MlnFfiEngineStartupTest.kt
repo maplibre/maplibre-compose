@@ -115,9 +115,9 @@ class MlnFfiEngineStartupTest {
               entered.complete(Unit)
               release.awaitUntilOpen()
               MlnFfiResourceProvider(logger, config)
-            }
+            },
           )
-        }
+        },
       ) { state, runtime ->
         val session = newSession(state, runtime)
         val attach =
@@ -251,7 +251,7 @@ class MlnFfiEngineStartupTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        configure(MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMainDispatcher()))
+        configure(MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMainDispatcher())),
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {

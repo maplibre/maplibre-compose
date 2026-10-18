@@ -282,7 +282,7 @@ public fun <T : ExpressionValue> coalesce(
  * expression. A value whose type differs from [other] is not equal.
  */
 public infix fun Expression<EquatableValue?>.eq(
-  other: Expression<EquatableValue?>
+  other: Expression<EquatableValue?>,
 ): Expression<BooleanValue> = call("==", this, other)
 
 /**
@@ -304,7 +304,7 @@ public fun eq(
  * expression. A value whose type differs from [other] is not equal.
  */
 public infix fun Expression<EquatableValue?>.neq(
-  other: Expression<EquatableValue?>
+  other: Expression<EquatableValue?>,
 ): Expression<BooleanValue> = call("!=", this, other)
 
 /**
@@ -325,7 +325,7 @@ public fun neq(
  * Strings are compared lexicographically (`"b" > "a"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.gt(
-  other: Expression<ComparableValue<T>>
+  other: Expression<ComparableValue<T>>,
 ): Expression<BooleanValue> = call(">", this, other)
 
 /**
@@ -349,7 +349,7 @@ public fun gt(
  * Strings are compared lexicographically (`"a" < "b"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.lt(
-  other: Expression<ComparableValue<T>>
+  other: Expression<ComparableValue<T>>,
 ): Expression<BooleanValue> = call("<", this, other)
 
 /**
@@ -372,7 +372,7 @@ public fun lt(
  * Strings are compared lexicographically (`"b" ≥ "a"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.gte(
-  other: Expression<ComparableValue<T>>
+  other: Expression<ComparableValue<T>>,
 ): Expression<BooleanValue> = call(">=", this, other)
 
 /**
@@ -396,7 +396,7 @@ public fun gte(
  * Strings are compared lexicographically (`"a" ≤ "b"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.lte(
-  other: Expression<ComparableValue<T>>
+  other: Expression<ComparableValue<T>>,
 ): Expression<BooleanValue> = call("<=", this, other)
 
 /**
@@ -420,7 +420,7 @@ public fun all(vararg expressions: Expression<BooleanValue>): Expression<Boolean
 
 /** Returns whether both this and [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.and(
-  other: Expression<BooleanValue>
+  other: Expression<BooleanValue>,
 ): Expression<BooleanValue> = all(this, other)
 
 /** Returns whether any [expressions] are `true`. */
@@ -429,7 +429,7 @@ public fun any(vararg expressions: Expression<BooleanValue>): Expression<Boolean
 
 /** Returns whether any of this or the [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.or(
-  other: Expression<BooleanValue>
+  other: Expression<BooleanValue>,
 ): Expression<BooleanValue> = any(this, other)
 
 /** Negates this expression. */

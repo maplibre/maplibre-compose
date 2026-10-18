@@ -193,11 +193,11 @@ class BrowserCustomGeometrySourceTest {
                     Position(
                       (tile.bounds.southwest.longitude + tile.bounds.northeast.longitude) / 2,
                       (tile.bounds.southwest.latitude + tile.bounds.northeast.latitude) / 2,
-                    )
+                    ),
                   ),
                 properties = buildJsonObject { put("name", name) },
-              )
-            )
+              ),
+            ),
           )
         }
       val handle = assertIs<CustomGeometrySourceHandle>(fixture.state.style.sources.add(source))
@@ -245,11 +245,11 @@ class BrowserCustomGeometrySourceTest {
               Position(
                 (tile.bounds.southwest.longitude + tile.bounds.northeast.longitude) / 2,
                 (tile.bounds.southwest.latitude + tile.bounds.northeast.latitude) / 2,
-              )
+              ),
             ),
           properties = null,
-        )
-      )
+        ),
+      ),
     )
 
   /** The number of features GL JS holds in the loaded tiles of [source]. */

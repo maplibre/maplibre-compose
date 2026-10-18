@@ -77,7 +77,7 @@ class BrowserImageSourceTest {
       style.install(
         TestLayer("image-layer", "raster", source).apply {
           paint("raster-fade-duration", JsonPrimitive(0))
-        }
+        },
       )
       fixture.pumpUntilPixel("the image before context loss", 256, 256, Red)
 
@@ -239,7 +239,7 @@ class BrowserImageSourceTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

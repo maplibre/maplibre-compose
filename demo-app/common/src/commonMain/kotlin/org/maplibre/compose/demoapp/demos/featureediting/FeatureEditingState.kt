@@ -119,7 +119,7 @@ internal class FeatureEditingState(initial: Shape = Shape.of(Presets.goldenGateP
   fun insertVertex(position: Position) {
     val index = selectedVertex ?: return
     replace(
-      shape.copy(vertices = shape.vertices.toMutableList().also { it.add(index + 1, position) })
+      shape.copy(vertices = shape.vertices.toMutableList().also { it.add(index + 1, position) }),
     )
   }
 

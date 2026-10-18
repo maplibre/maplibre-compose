@@ -116,6 +116,6 @@ class StylePropertyBatchTest {
               }
             },
           )
-        }
+        },
     )
 }

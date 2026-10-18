@@ -33,7 +33,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
  */
 @Immutable
 public data class Projection(
-  val type: Expression<ProjectionValue> = const(ProjectionType.Mercator)
+  val type: Expression<ProjectionValue> = const(ProjectionType.Mercator),
 ) {
   internal fun toJson(): JsonObject = buildJsonObject { putExpression("type", type) }
 }

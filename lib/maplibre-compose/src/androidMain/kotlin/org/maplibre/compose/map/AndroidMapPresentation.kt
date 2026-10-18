@@ -75,7 +75,7 @@ public class AndroidMapPresentation(
       SupervisorJob() +
         Dispatchers.Main.immediate +
         AndroidPresentationFrameClock +
-        CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } }
+        CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } },
     )
   private var options by
     mutableStateOf(
@@ -84,7 +84,7 @@ public class AndroidMapPresentation(
         cameraConstraints = cameraConstraints,
         renderOptions = renderOptions,
         interactions = interactions,
-      )
+      ),
     )
   private var configuration by mutableStateOf(Configuration(configuration))
   private var binding: SurfaceBinding? by mutableStateOf(null)

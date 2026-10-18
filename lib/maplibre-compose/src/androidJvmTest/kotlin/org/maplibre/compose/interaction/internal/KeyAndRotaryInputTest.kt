@@ -145,7 +145,7 @@ class KeyAndRotaryInputTest {
             }
           }
           camera { pan { momentum { enabled = false } } }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performKeyInput { keyDown(Key.CtrlLeft) }
@@ -259,7 +259,7 @@ class KeyAndRotaryInputTest {
               mappings {}
             }
           }
-        }
+        },
     ) { _, _ ->
       onNodeWithTag(BeforeMapTag).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }

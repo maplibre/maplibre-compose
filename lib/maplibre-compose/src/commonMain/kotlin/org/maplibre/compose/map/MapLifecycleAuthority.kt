@@ -391,7 +391,7 @@ internal class MapLifecycleAuthority(
     if (retainedAdapter !== adapter) {
       // A density or backend change during attachment can return to the retained engine.
       owner.styleAuthority.beginStyleLoadForNewAdapter(
-        retainedEngineOwnsStyle = retainedAdapter != null
+        retainedEngineOwnsStyle = retainedAdapter != null,
       )
     }
     return true

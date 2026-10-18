@@ -87,7 +87,7 @@ internal class GlJsProtocolTileAttachment(
                 throw CancellationException("Protocol tile attachment '$name' was detached")
               failed -= tile
               data
-            }
+            },
           )
           .also { requests[tile] = it }
     val work =

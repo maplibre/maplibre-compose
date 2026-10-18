@@ -15,7 +15,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 /** Adapts the current Tao context to the corresponding typed window integration. */
 @OptIn(ExperimentalMaplibreComposeApi::class)
 private fun taoComposeMapPresentationHost(
-  renderContext: TaoGpuRenderContext
+  renderContext: TaoGpuRenderContext,
 ): ComposeMapPresentationHost {
   val runOnGpuThread: (Runnable) -> Unit = { action ->
     renderContext.runOnGpuThread { action.run() }

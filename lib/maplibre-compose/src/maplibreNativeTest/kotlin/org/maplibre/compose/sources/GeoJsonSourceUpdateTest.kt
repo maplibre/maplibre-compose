@@ -67,7 +67,7 @@ class GeoJsonSourceUpdateTest {
         MlnFfiMapFixture(
           BridgeMapFixture.create(
             resourceConfig =
-              MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() })
+              MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() }),
           ),
           MapFixture.DefaultExtent,
         )
@@ -253,7 +253,7 @@ class GeoJsonSourceUpdateTest {
           {"id":"background","type":"background","paint":{"background-color":"#336699"}}
         ]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
     val MinZoomStyle =
       BaseStyle.Json(
@@ -265,7 +265,7 @@ class GeoJsonSourceUpdateTest {
           {"id":"points-layer","type":"circle","source":"points","paint":{
             "circle-radius":16,"circle-color":"#000000"}}]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

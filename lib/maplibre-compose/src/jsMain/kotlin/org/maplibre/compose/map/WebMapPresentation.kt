@@ -60,7 +60,7 @@ public class WebMapPresentation(
         cameraConstraints = cameraConstraints,
         renderOptions = renderOptions,
         interactions = interactions,
-      )
+      ),
     )
   private var direction by mutableStateOf(layoutDirection)
   private var density by mutableStateOf(window.devicePixelRatio.toFloat())
@@ -73,7 +73,7 @@ public class WebMapPresentation(
     CoroutineScope(
       SupervisorJob() +
         Dispatchers.Main.immediate +
-        CoroutineExceptionHandler { _, error -> post { fail(error) } }
+        CoroutineExceptionHandler { _, error -> post { fail(error) } },
     )
 
   /** The error that ended this presentation, if any. Create a new presentation to retry. */

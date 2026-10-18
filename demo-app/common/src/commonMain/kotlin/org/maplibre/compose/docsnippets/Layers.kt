@@ -37,7 +37,7 @@ fun Layers() {
     // #region geojson
     val trail =
       rememberGeoJsonSource(
-        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/hike.geojson")
+        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/hike.geojson"),
       )
 
     LineLayer(

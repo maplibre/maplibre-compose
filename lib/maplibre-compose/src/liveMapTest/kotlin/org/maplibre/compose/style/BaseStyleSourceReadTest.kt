@@ -37,7 +37,7 @@ class BaseStyleSourceReadTest {
           "layers": []
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

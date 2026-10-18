@@ -36,8 +36,8 @@ internal object Presets {
               Position(-122.45481, 37.77465),
               Position(-122.46529, 37.77335),
               Position(-122.51087, 37.77125),
-            )
-          )
+            ),
+          ),
         ),
       properties = buildJsonObject { put("name", "Golden Gate Park") },
       id = JsonPrimitive("golden-gate-park"),

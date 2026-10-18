@@ -115,7 +115,7 @@ internal class PackageIndex(
   private val typePackages: Map<String, String>,
 ) {
   constructor(
-    files: List<FileFacts>
+    files: List<FileFacts>,
   ) : this(
     packages = files.map { it.packageName }.toSet(),
     typePackages =

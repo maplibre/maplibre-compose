@@ -88,7 +88,7 @@ class MacosLocationProviderTest {
   @Test
   fun serviceLoaderFindsMacosBackend() {
     assertTrue(
-      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is MacosLocationBackend }
+      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is MacosLocationBackend },
     )
   }
 
@@ -267,7 +267,7 @@ class MacosLocationProviderTest {
 
     val event =
       assertIs<LocationEvent.Unavailable>(
-        provider.updates(LocationRequest.Standard).toList().single()
+        provider.updates(LocationRequest.Standard).toList().single(),
       )
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
     assertEquals(managersBeforeUpdates, client.managers.size)

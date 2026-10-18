@@ -38,7 +38,7 @@ class MlnFfiIndependentCameraTest {
       val animation =
         try {
           state.setCameraPosition(
-            state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero)
+            state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero),
           )
           async(start = CoroutineStart.UNDISPATCHED) {
             state.animateCamera(

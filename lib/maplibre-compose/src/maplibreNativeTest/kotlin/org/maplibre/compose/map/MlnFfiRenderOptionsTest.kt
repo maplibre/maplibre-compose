@@ -16,7 +16,7 @@ class MlnFfiRenderOptionsTest {
       fixture.loadStyle(BaseStyle.Empty)
       val movedBefore = fixture.events.count { it == "viewportChanged" }
       fixture.session.setRenderSettings(
-        RenderOptions { cameraProjection = CameraProjection.Axonometric() }
+        RenderOptions { cameraProjection = CameraProjection.Axonometric() },
       )
 
       val defaultAxonometric = assertNotNull(fixture.session.readMap { it.projectionMode })
@@ -25,13 +25,15 @@ class MlnFfiRenderOptionsTest {
       assertEquals(1.0, defaultAxonometric.ySkew)
       // viewportChanged is delivered on the map's main thread, which the pump drains.
       fixture.pumpUntil(
-        "a projection change to report viewportChanged so overlays re-read the projection"
+        "a projection change to report viewportChanged so overlays re-read the projection",
       ) {
         fixture.events.count { it == "viewportChanged" } > movedBefore
       }
 
       fixture.session.setRenderSettings(
-        RenderOptions { cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5) }
+        RenderOptions {
+          cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5)
+        },
       )
 
       val axonometric = assertNotNull(fixture.session.readMap { it.projectionMode })

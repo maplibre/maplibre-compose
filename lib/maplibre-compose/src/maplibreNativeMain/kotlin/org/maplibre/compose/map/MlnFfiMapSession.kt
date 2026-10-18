@@ -396,7 +396,7 @@ internal class MlnFfiMapSession(
     checkNotNull(
       loop.await(cancellable = false) {
         if (ownerThreadRenderLease == lease) ownerThreadRenderLease = null
-      }
+      },
     ) {
       "The map owner loop stopped"
     }
@@ -636,7 +636,7 @@ internal class MlnFfiMapSession(
             events.styleReady(binding.identity)
           }
           resources
-        }
+        },
       ) {
         "The map became unavailable during style reconciliation"
       }
@@ -722,7 +722,7 @@ internal class MlnFfiMapSession(
       loop.await { map ->
         cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
           .toCameraPosition(viewport.appliedViewportInsets)
-      }
+      },
     ) {
       "The map became unavailable during the bounds query"
     }
@@ -741,7 +741,7 @@ internal class MlnFfiMapSession(
             map.cameraForGeometry(geoJson, it)
           }
           .toCameraPosition(viewport.appliedViewportInsets)
-      }
+      },
     ) {
       "The map became unavailable during the geometry query"
     }
@@ -799,7 +799,7 @@ internal class MlnFfiMapSession(
           it.padding = total
           it.bearing = bearing
           it.pitch = pitch
-        }
+        },
       )
 
     // Native returns the fit padding as persistent camera state. Preserve the fitted transform
@@ -812,7 +812,7 @@ internal class MlnFfiMapSession(
           ScreenPoint(
             x = (size.width + persistent.left - persistent.right) / 2.0,
             y = (size.height + persistent.top - persistent.bottom) / 2.0,
-          )
+          ),
         )
     }
     fitted.padding = persistent
@@ -1097,7 +1097,7 @@ internal class MlnFfiMapSession(
       ScreenBox(
         min = DpOffset(left, top).toScreenPoint(),
         max = DpOffset(right, bottom).toScreenPoint(),
-      )
+      ),
     )
 
   /** Rendered feature state belongs to the render session, so a query without one is empty. */

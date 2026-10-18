@@ -61,9 +61,9 @@ internal object DesktopLocationBackendResolver {
           LocationBackendAvailability.Misconfigured(
             IllegalStateException(
               "Multiple desktop location backends are available: " +
-                availableBackends.joinToString { it.id }
-            )
-          )
+                availableBackends.joinToString { it.id },
+            ),
+          ),
         )
       else ->
         try {

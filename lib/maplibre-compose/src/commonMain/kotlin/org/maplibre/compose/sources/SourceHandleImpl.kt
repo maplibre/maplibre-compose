@@ -164,7 +164,7 @@ internal constructor(
   }
 
   override suspend fun getClusterChildren(
-    feature: Feature<*, JsonObject?>
+    feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>? = read { style.clusterChildren(id, feature) }
 
   override suspend fun getClusterLeaves(
@@ -436,7 +436,7 @@ private class MutableVectorTileSourceHandleImpl(val source: VectorTileSourceHand
 }
 
 private class MutableCustomVectorTileSourceHandleImpl(
-  val source: CustomVectorTileSourceHandleImpl
+  val source: CustomVectorTileSourceHandleImpl,
 ) : MutableCustomVectorTileSourceHandle, CustomVectorTileSourceHandle by source {
   override fun remove() = source.remove()
 }

@@ -38,7 +38,7 @@ class TransformInputTest {
   fun trackpad_pan_and_scale_work_independently_of_scroll_bindings() {
     assumeTrackpadEventInjectionSupported()
     fixture.runRecognitionTest(
-      options = InputConfiguration { bindings { scroll { enabled = false } } }
+      options = InputConfiguration { bindings { scroll { enabled = false } } },
     ) { target ->
       mapNode().performTrackpadInput {
         moveTo(Offset(80f, 80f))
@@ -95,7 +95,7 @@ class TransformInputTest {
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
           bindings { transform { pan { enabled = true } } }
-        }
+        },
     ) { target ->
       val map = mapNode()
       val animation =
@@ -140,7 +140,7 @@ class TransformInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -167,7 +167,7 @@ class TransformInputTest {
         InputConfiguration {
           camera { pan { momentum { enabled = false } } }
           bindings { drag { pan { startSlop = 50.dp } } }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -215,7 +215,7 @@ class TransformInputTest {
               onStart { order += "pitch" }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -268,7 +268,7 @@ class TransformInputTest {
             zoom { momentum { enabled = false } }
             rotate { momentum { enabled = false } }
           }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         down(0, center - Offset(80f, 0f))
@@ -306,7 +306,7 @@ class TransformInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -478,7 +478,7 @@ class TransformInputTest {
 
   private fun checkDepartingPinchFinger(zoomMomentum: Boolean) {
     fixture.runRecognitionTest(
-      options = InputConfiguration { camera { zoom { momentum { enabled = zoomMomentum } } } }
+      options = InputConfiguration { camera { zoom { momentum { enabled = zoomMomentum } } } },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -531,7 +531,7 @@ class TransformInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -570,7 +570,7 @@ class TransformInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -604,7 +604,7 @@ class TransformInputTest {
         InputConfiguration(InputConfiguration.NoBindings) {
           camera { zoom { onStart { newer = checkNotNull(recorded).onGestureStarted() } } }
           bindings { transform { zoom { enabled = true } } }
-        }
+        },
     ) { target ->
       recorded = target
       mapNode().performTouchInput {
@@ -632,7 +632,7 @@ class TransformInputTest {
           bindings { transform { rotate { enabled = false } } }
           bindings { transform { pitch { enabled = false } } }
           bindings { twoFingerTap { enabled = false } }
-        }
+        },
     ) { target ->
       mapNode().performTouchInput {
         down(0, center + Offset(-70f, 0f))
@@ -670,7 +670,7 @@ class TransformInputTest {
               pitch { enabled = false }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {

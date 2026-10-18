@@ -34,7 +34,7 @@ class BrowserStyleProjectionTest {
             JsonPrimitive("vertical-perspective"),
             JsonPrimitive("mercator"),
             JsonPrimitive(0.5),
-          )
+          ),
         ),
         projection.getProperty("type"),
       )
@@ -47,8 +47,8 @@ class BrowserStyleProjectionTest {
               zoom(),
               10 to const(ProjectionType.VerticalPerspective),
               12 to const(ProjectionType.Mercator),
-            )
-        )
+            ),
+        ),
       )
       assertEquals(
         JsonPrimitive("interpolate"),

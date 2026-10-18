@@ -133,7 +133,7 @@ class MlnFfiMapRuntimeLoopTest {
               readSawRenderUpdate.store(renderUpdateSeen.load())
               readFinished.countDown()
             }
-          }
+          },
         )
         assertTrue(readFinished.await(TimeoutMillis), "the queued read did not run")
         assertTrue(readSawRenderUpdate.load(), "the queued read ran before native render feedback")
@@ -146,7 +146,7 @@ class MlnFfiMapRuntimeLoopTest {
               readSawRenderUpdate.store(renderUpdateSeen.load())
               nextReadFinished.countDown()
             }
-          }
+          },
         )
         assertTrue(nextReadFinished.await(TimeoutMillis))
         assertTrue(readSawRenderUpdate.load(), "the queued read overtook the awaited call's events")
@@ -209,7 +209,7 @@ class MlnFfiMapRuntimeLoopTest {
           var nestedRan = false
           loop.submit { nestedRan = true }
           assertTrue(nestedRan, "nested submit must finish before the owner call returns")
-        }
+        },
       )
       assertFalse(ran.load())
       loop.close()
@@ -263,7 +263,7 @@ class MlnFfiMapRuntimeLoopTest {
             map.requestRepaint()
             queueFromAnotherThread(loop) {
               readSawRenderUpdate.store(
-                RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE.toString() in events.toList()
+                RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE.toString() in events.toList(),
               )
               readFinished.countDown()
             }

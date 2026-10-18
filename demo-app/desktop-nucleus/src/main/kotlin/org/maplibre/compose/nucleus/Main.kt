@@ -52,7 +52,7 @@ fun main(args: Array<String>) {
             WindowAppearanceMode.Dark
           } else {
             WindowAppearanceMode.Light
-          }
+          },
         )
 
         WindowScaffold(

@@ -62,9 +62,9 @@ internal class SourceInstallation(
               coordinates = definition.coordinates,
               value =
                 JsonObject(
-                  previous.value + ("coordinates" to definition.value.getValue("coordinates"))
+                  previous.value + ("coordinates" to definition.value.getValue("coordinates")),
                 ),
-            )
+            ),
           )
         }
         if (
@@ -170,7 +170,7 @@ internal class LayerInstallation(
             name,
             value ?: clearingValue(LayerPropertyKind.Root, name),
             LayerPropertyKind.Root,
-          )
+          ),
         )
       }
     }
@@ -229,7 +229,7 @@ internal class LayerInstallation(
             name,
             newValue ?: clearingValue(kind, name),
             kind,
-          )
+          ),
         )
       }
   }

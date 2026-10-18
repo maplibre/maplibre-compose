@@ -76,9 +76,9 @@ internal class IosHeadingDelegate(private val channel: SendChannel<HeadingMeasur
         accuracy = didUpdateHeading.headingAccuracy.degrees,
         measuredAt =
           Instant.fromEpochMilliseconds(
-            (didUpdateHeading.timestamp.timeIntervalSince1970 * 1_000).toLong()
+            (didUpdateHeading.timestamp.timeIntervalSince1970 * 1_000).toLong(),
           ),
-      )
+      ),
     )
   }
 

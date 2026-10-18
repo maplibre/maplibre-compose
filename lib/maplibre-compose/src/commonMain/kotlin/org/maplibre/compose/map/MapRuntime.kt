@@ -1251,7 +1251,7 @@ internal constructor(
     if (!guard.isValid()) return
     val attachment = currentMapAttachment ?: return
     attachment.adapter.stopCameraMovement(
-      CameraCommandGuard { attachmentAuthority.isCurrent(attachment) && guard.isValid() }
+      CameraCommandGuard { attachmentAuthority.isCurrent(attachment) && guard.isValid() },
     )
   }
 
@@ -1553,7 +1553,7 @@ internal constructor(
   public suspend fun awaitViewport(): Viewport = attachmentAuthority.awaitViewport()
 
   internal fun reservePresentation(
-    owner: MapPresentationOwnerToken = MapPresentationOwnerToken()
+    owner: MapPresentationOwnerToken = MapPresentationOwnerToken(),
   ): MapPresentationToken = lifecycle.reservePresentation(owner)
 
   internal fun publishPresentation(

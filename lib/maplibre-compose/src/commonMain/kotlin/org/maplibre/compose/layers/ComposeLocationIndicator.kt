@@ -78,7 +78,7 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
       "bearing-accuracy",
       const(
         if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
-        else 0f
+        else 0f,
       ),
     )
     paint("bearing-accuracy-radius", properties.bearingAccuracyRadius)
@@ -122,7 +122,7 @@ internal fun locationIndicatorPositionJson(location: Position): JsonArray =
       JsonPrimitive(location.latitude),
       JsonPrimitive(location.longitude),
       JsonPrimitive(location.altitude ?: 0.0),
-    )
+    ),
   )
 
 internal fun LayerProperties.locationIndicatorImage(

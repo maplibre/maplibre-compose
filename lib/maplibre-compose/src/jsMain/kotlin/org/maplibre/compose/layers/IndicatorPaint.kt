@@ -76,7 +76,7 @@ internal class IndicatorPaint(
           unsafeJso<dynamic> {
             this.zoom = zoom
             this.globalState = globalState
-          }
+          },
         )
       // Style-spec Color components are premultiplied, as required by the custom layer's blend
       // mode.

@@ -65,7 +65,7 @@ private val SplitStyle =
       ]
     }
     """
-      .trimIndent()
+      .trimIndent(),
   )
 
 private val HeatmapStyle =
@@ -104,7 +104,7 @@ private val HeatmapStyle =
       ]
     }
     """
-      .trimIndent()
+      .trimIndent(),
   )
 
 class BrowserCompositingTest {
@@ -233,7 +233,7 @@ class BrowserCompositingTest {
       try {
         val first =
           assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0))
+              compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0)),
             )
             .target
         map.drawTheWholeStyle(first)
@@ -241,7 +241,7 @@ class BrowserCompositingTest {
         gpu.withRecreatedSkiaContext { nextSkia ->
           val second =
             assertIs<GlJsFrameTarget.Composited>(
-                compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0))
+                compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0)),
               )
               .target
           assertNotEquals(
@@ -314,7 +314,7 @@ class BrowserCompositingTest {
             )
           assertEquals(0, gl.getError().unsafeCast<Int>(), "the initial frame must leave GL valid")
           assertIs<GlJsFrameTarget.UnsupportedSize>(
-            compositor.acquire(MapExtent.fromPhysical(limit + 1, Full, 1.0))
+            compositor.acquire(MapExtent.fromPhysical(limit + 1, Full, 1.0)),
           )
           assertEquals(
             0,
@@ -371,14 +371,14 @@ class BrowserCompositingTest {
       CompositedMap(SplitStyle).use { map ->
         val first =
           assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0))
+              compositor.acquire(MapExtent.fromPhysical(Full, Full, 1.0)),
             )
             .target
         map.drawTheWholeStyle(first)
 
         val second =
           assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(Small, Small, 1.0))
+              compositor.acquire(MapExtent.fromPhysical(Small, Small, 1.0)),
             )
             .target
         assertNotEquals(first.generation, second.generation, "a resize should mint a new target")
@@ -403,7 +403,7 @@ class BrowserCompositingTest {
         SplitStyle.json.replace(
           "\"version\": 8,",
           "\"version\": 8, \"projection\": {\"type\": \"globe\"},",
-        )
+        ),
       )
     for (style in listOf(SplitStyle, globeStyle)) {
       browserRenderTarget(Full, Full, generation = 1).use { target ->
@@ -414,7 +414,7 @@ class BrowserCompositingTest {
           val pixels = readFramebuffer(gl, target.framebuffer, Full, Full)
           map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
           map.session.setCameraPosition(
-            CameraPosition(center = Position(20.0, 10.0), zoom = 1.0, bearing = 30.0, pitch = 45.0)
+            CameraPosition(center = Position(20.0, 10.0), zoom = 1.0, bearing = 30.0, pitch = 45.0),
           )
           assertNotEquals(original, map.session.screenLocationFromPosition(position))
           assertFalse(map.drawOnce(target))
@@ -450,7 +450,7 @@ class BrowserCompositingTest {
               "\"shape\": {",
               "\"dem\": {\"type\": \"raster-dem\", \"tiles\": [\"$firstDem\"], \"tileSize\": 256, \"maxzoom\": 0}, \"shape\": {",
             )
-            .replace("\"layers\": [", "\"terrain\": {\"source\": \"dem\"}, \"layers\": [")
+            .replace("\"layers\": [", "\"terrain\": {\"source\": \"dem\"}, \"layers\": ["),
         )
       browserRenderTarget(Full, Full, generation = 1).use { target ->
         CompositedMap(style).use { map ->
@@ -472,7 +472,7 @@ class BrowserCompositingTest {
             yieldToBrowser()
           }
           map.session.setCameraPosition(
-            CameraPosition(center = Position(0.0, 0.0), zoom = 4.0, pitch = 60.0)
+            CameraPosition(center = Position(0.0, 0.0), zoom = 4.0, pitch = 60.0),
           )
           assertTrue(map.drawOnce(target))
           val original = assertNotNull(map.session.overlayScreenLocationFromPosition(position))
@@ -498,8 +498,8 @@ class BrowserCompositingTest {
           assertEquals(null, map.session.overlayScreenLocationFromPosition(newlyPlaced))
           assertTrue(
             pixels.contentEquals(
-              readFramebuffer(gpu.gl.asDynamic(), target.framebuffer, Full, Full)
-            )
+              readFramebuffer(gpu.gl.asDynamic(), target.framebuffer, Full, Full),
+            ),
           )
           map.session.setRenderSettings(RenderOptions {})
           assertTrue(map.drawOnce(target))

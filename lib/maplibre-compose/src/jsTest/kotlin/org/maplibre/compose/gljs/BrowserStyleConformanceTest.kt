@@ -58,7 +58,7 @@ class BrowserStyleConformanceTest {
         ]
       }
       """
-        .trimIndent()
+        .trimIndent(),
     )
 
   @Test

@@ -75,7 +75,7 @@ class MlnFfiRenderSessionTeardownTest {
         {"version":8,"sources":{},"layers":[
           {"id":"bg","type":"background","paint":{"background-color":"#eee"}}
         ]}
-        """
+        """,
       )
   }
 }

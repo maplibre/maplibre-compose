@@ -130,7 +130,7 @@ internal object ObjectiveC {
     if (!ObjCRuntime.class_respondsToSelector(objectClass, selector)) {
       throw MlnFfiHostException(
         "Objective-C class ${ObjCRuntime.class_getName(objectClass)} does not respond to " +
-          "'${ObjCRuntime.sel_getName(selector)}'"
+          "'${ObjCRuntime.sel_getName(selector)}'",
       )
     }
     val implementation = ObjCRuntime.class_getMethodImplementation(objectClass, selector)

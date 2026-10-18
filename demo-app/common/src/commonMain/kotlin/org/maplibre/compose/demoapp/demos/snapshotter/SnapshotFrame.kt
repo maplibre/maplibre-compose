@@ -251,7 +251,7 @@ private fun FrameHandle(
         }
         .shadow(3.dp, CircleShape)
         .background(MaterialTheme.colorScheme.primary, CircleShape)
-        .border(2.dp, Color.White, CircleShape)
+        .border(2.dp, Color.White, CircleShape),
     )
   }
 }

@@ -18,7 +18,7 @@ internal actual fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit)
     // A satisfiable path can connect on demand; allow the request to establish it.
     onStatus(
       if (nw_path_get_status(path) == nw_path_status_unsatisfied) NetworkStatus.OFFLINE
-      else NetworkStatus.ONLINE
+      else NetworkStatus.ONLINE,
     )
   }
   nw_path_monitor_start(monitor)

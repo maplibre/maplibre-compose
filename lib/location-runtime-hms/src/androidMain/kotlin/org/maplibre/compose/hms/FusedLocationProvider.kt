@@ -68,7 +68,7 @@ internal constructor(
    */
   @MainThread
   public constructor(
-    context: Context
+    context: Context,
   ) : this(
     LocationServices.getFusedLocationProviderClient(context),
     AndroidLocationProvider(context),
@@ -168,7 +168,7 @@ internal fun LocationRequest.asHmsLocationRequest(): HmsLocationRequest =
         LocationAccuracy.Balanced -> HmsLocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
         LocationAccuracy.Low -> HmsLocationRequest.PRIORITY_LOW_POWER
         LocationAccuracy.Lowest -> HmsLocationRequest.PRIORITY_NO_POWER
-      }
+      },
     )
     .setInterval(minimumInterval.inWholeMilliseconds)
     .setFastestInterval(minimumInterval.inWholeMilliseconds)

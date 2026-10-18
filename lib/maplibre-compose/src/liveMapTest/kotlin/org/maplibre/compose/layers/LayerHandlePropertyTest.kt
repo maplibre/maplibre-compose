@@ -116,7 +116,7 @@ class LayerHandlePropertyTest {
   private companion object {
     val Style =
       BaseStyle.Json(
-        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}"""
+        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}""",
       )
   }
 }

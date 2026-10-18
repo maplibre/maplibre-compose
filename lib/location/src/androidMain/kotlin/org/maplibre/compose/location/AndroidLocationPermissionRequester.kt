@@ -55,7 +55,7 @@ internal constructor(
    *   launch a request.
    */
   public constructor(
-    context: Context
+    context: Context,
   ) : this(
     lifecycle = (context.findActivityOrNull() as? LifecycleOwner)?.lifecycle,
     registry = (context.findActivityOrNull() as? ComponentActivity)?.activityResultRegistry,
@@ -179,7 +179,7 @@ internal constructor(
         arrayOf(
           Manifest.permission.ACCESS_FINE_LOCATION,
           Manifest.permission.ACCESS_COARSE_LOCATION,
-        )
+        ),
       )
     } catch (error: Throwable) {
       pendingLauncher = null

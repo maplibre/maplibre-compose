@@ -102,7 +102,7 @@ class StyleCompositionLifecycleTest {
               id = "toggled",
               source =
                 rememberGeoJsonSource(
-                  data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+                  data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
                 ),
               color = const(Color.Red),
             )

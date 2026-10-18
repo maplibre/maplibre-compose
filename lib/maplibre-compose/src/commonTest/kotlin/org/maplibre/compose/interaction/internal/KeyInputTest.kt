@@ -32,8 +32,7 @@ class MapKeyInputTest {
     options: () -> InputConfiguration = { InputConfiguration.Standard },
     target: CameraInputTarget = map.target,
   ): KeyInput {
-    val focus =
-      InputFocus {}
+    val focus = InputFocus {}
       .also {
         it.hasKeyBindings = true
         it.onFocusChanged(true)

@@ -10,7 +10,7 @@ class HmsLocationBackendTest {
   @Test
   fun serviceLoaderFindsHmsBackend() {
     assertTrue(
-      ServiceLoader.load(AndroidLocationBackend::class.java).any { it is HmsLocationBackend }
+      ServiceLoader.load(AndroidLocationBackend::class.java).any { it is HmsLocationBackend },
     )
   }
 }

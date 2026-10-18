@@ -76,7 +76,7 @@ public fun MapOverlayScope.include(overlay: MapOverlay) {
  */
 @Immutable
 public class MapOverlay(
-  internal val content: @Composable @UiComposable MapOverlayScope.() -> Unit
+  internal val content: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
   public companion object {
     /** Gap between aligned overlay controls and the edge of the unobstructed map region. */

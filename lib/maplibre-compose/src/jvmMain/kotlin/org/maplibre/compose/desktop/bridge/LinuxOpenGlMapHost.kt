@@ -83,8 +83,8 @@ internal class LinuxOpenGlMapHost(
         MlnFfiMapFrame(
           target =
             requireNotNull(textures.current) { "Map texture is not initialized" }
-              .target(textures.generation)
-        )
+              .target(textures.generation),
+        ),
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
@@ -142,7 +142,7 @@ internal class LinuxOpenGlMapHost(
         presentationHost.withContext {
           textures.releaseAll()
           presenter.closeAll()
-        }
+        },
       )
     }
       .onFailure {
