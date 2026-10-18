@@ -106,8 +106,7 @@ launcher reads `route`, `camera`, and `extent`:
 `--route`, `--camera`, and `--extent` flags. Without the tasks: desktop and
 macOS binaries take `--route=<route>` and friends on the command line, Android
 reads string extras
-(`adb shell am start -n
-org.maplibre.compose.demoapp/.MainActivity --es route demo/castello-plan`),
+(`adb shell am start -n org.maplibre.compose.demoapp/.MainActivity --es route demo/castello-plan`),
 iOS takes the same command-line form through `xcrun simctl launch`, and the
 browser reads the query string (`/?route=settings/input`).
 
