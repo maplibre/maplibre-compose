@@ -18,6 +18,8 @@
     "docs/public/metrics-data",
     "docs/src/generated",
     "pnpm-lock.yaml",
+    // mise hashes these graphs; formatting them would fail install --locked.
+    ".mise/locks/**",
     "kotlin-js-store",
     "**/*.api",
     // Vendored: third-party sources committed as-is.

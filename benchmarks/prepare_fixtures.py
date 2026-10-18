@@ -189,9 +189,7 @@ def publish(bucket, root=ROOT, manifest_path=MANIFEST):
 def refresh(bucket, version=None, root=ROOT, manifest_path=MANIFEST):
     """Snapshot the current VersaTiles data, upload it, and pin it in the manifest."""
     manifest = read_manifest(manifest_path)
-    version = (
-        version or datetime.datetime.now(tz=datetime.timezone.utc).date().isoformat()
-    )
+    version = version or datetime.datetime.now(tz=datetime.UTC).date().isoformat()
     if version == manifest["version"]:
         raise SystemExit(f"Version {version} is already pinned; pass --version")
     root.mkdir(parents=True, exist_ok=True)
