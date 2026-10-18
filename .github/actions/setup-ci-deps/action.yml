@@ -159,7 +159,7 @@ runs:
         # through.
         MISE_NO_HOOKS: "1"
       with:
-        version: 2026.8.3
+        version: 2026.10.12
         cache: false
 
     - name: Save toolchains
