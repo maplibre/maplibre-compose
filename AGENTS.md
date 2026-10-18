@@ -35,7 +35,9 @@ setup outside mise and the demo checks CI cannot run. For work that mise does
 not cover, run one named Gradle task per invocation. `./gradlew build` builds
 every target, including iOS release frameworks, and can exhaust memory.
 
-- Static checks: `mise run check`; automatic fixes: `mise run fix`.
+- Static checks: `mise run check`; automatic fixes: `mise run fix`. `hk fix`
+  rewrites the working tree and does not stage; add `--stage` to stage the
+  fixes. The pre-commit hook still stages its own.
 - Android Lint: `mise run lint:android`.
 - Tests: `mise run test:android`, `test:android:device`, `test:ios`, `test:js`,
   `test:macos`, or `test:desktop`.
