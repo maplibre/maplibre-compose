@@ -13,8 +13,8 @@ mise run benchmark:run -- android --device SERIAL --case paint-points \
 mise run benchmark:compare -- build/benchmarks/before build/benchmarks/after
 ```
 
-Add `--implementation classic-android` or `classic-ios` to compare SDKs.
-`mise run benchmark:run -- list` prints the presets in [cases.json](cases.json);
+Add `--implementation classic-android` or `classic-ios` to compare SDKs. `mise
+run benchmark:run -- list` prints the presets in [cases.json](cases.json);
 `--config '{"rateHz":2}'` overrides a setting.
 
 | Target        | Build task                        | Run task                                         |

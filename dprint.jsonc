@@ -28,11 +28,7 @@
     "demo-app/ios/**/*.xcassets/**",
   ],
   "json": { "preferSingleLine": true },
-  "markdown": {
-    "textWrap": "always",
-    "wrapCodeSpans": false,
-    "html.skipFormat": true,
-  },
+  "markdown": { "textWrap": "always" },
   "ruff": { "indentWidth": 4, "lineLength": 88 },
   "exec": {
     "commands": [

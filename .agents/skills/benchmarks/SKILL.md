@@ -40,10 +40,10 @@ stop being comparable, and the published history needs a new backfill.
 ## Published data
 
 The benchmarks page reads the R2 bucket `maplibre-compose-metrics`, served at
-`https://mlc-data.sargunv.dev/`. Wrangler writes and deletes objects
-(`wrangler r2 object put|delete maplibre-compose-metrics/<key> --remote`) but
-cannot list them. Every key follows from the indexes below. Read objects through
-the public URL with a unique query string, which skips Cloudflare's cache.
+`https://mlc-data.sargunv.dev/`. Wrangler writes and deletes objects (`wrangler
+r2 object put|delete maplibre-compose-metrics/<key> --remote`) but cannot list
+them. Every key follows from the indexes below. Read objects through the public
+URL with a unique query string, which skips Cloudflare's cache.
 
 - `benchmarks/index.json`: the measured commits in date order with their release
   tags, the device scopes (`id`, `label`, `platform`, `backend`), and case
@@ -71,8 +71,8 @@ for every scope; the next publish creates a new index.
 ## Backfilling releases
 
 A backfill measures past releases with today's harness, so the history uses the
-same workloads as new measurements. Only Android is backfilled.
-`mise run benchmark:backfill -- <action> --help` documents each step:
+same workloads as new measurements. Only Android is backfilled. `mise run
+benchmark:backfill -- <action> --help` documents each step:
 
 1. `prepare <tag> --classic <version>` checks out the release under
    `build/benchmarks/backfill/<tag>` and overlays the harness and a small
@@ -82,8 +82,8 @@ same workloads as new measurements. Only Android is backfilled.
 2. `build <tag>`. When the harness does not compile against the release, port
    the harness in the checkout. Never change the release's `lib/`.
 3. `archive <tags...> --skip <case>[@<tag>]` writes manifests, and `--upload`
-   replaces the archive in the bucket. Before uploading, run
-   `run --local --smoke --release <tag>` on a device to catch runtime failures.
+   replaces the archive in the bucket. Before uploading, run `run --local
+   --smoke --release <tag>` on a device to catch runtime failures.
 4. `run --device <serial> --scope <id> --label <name>` measures every archived
    release on one device. Restarting it reuses finished runs.
 5. `publish --scope <id> --label <name>`, one device at a time.

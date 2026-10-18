@@ -30,8 +30,8 @@ Some tools stay outside `mise install`:
   run `mise run android-sdk-packages`. Without one, `mise -E android install`
   installs the pinned SDK in a separate environment, because installing SDK
   packages accepts their licenses; run Android tasks with `MISE_ENV=android`.
-- **Xcode:** `mise run install-xcode`. It is several gigabytes, so
-  `mise install` only fetches the `xcodes` CLI that manages it.
+- **Xcode:** `mise run install-xcode`. It is several gigabytes, so `mise
+  install` only fetches the `xcodes` CLI that manages it.
 - **Vulkan:** the desktop tests drive a real GPU through a headless Vulkan
   device and fail on a host without one. macOS gets MoltenVK through LWJGL.
 
@@ -91,8 +91,8 @@ of the next patch; `mise run version` prints what this checkout builds as.
 ## Make CI happy
 
 `mise run check` reports problems and `mise run fix` rewrites what it can; the
-pre-commit hook that mise installs runs them on staged files.
-`mise run lint:android` runs Android Lint, which CI runs in the same job.
+pre-commit hook that mise installs runs them on staged files. `mise run
+lint:android` runs Android Lint, which CI runs in the same job.
 
 Public API changes follow the
 [API guidelines](docs/src/content/docs/api-guidelines.md).
