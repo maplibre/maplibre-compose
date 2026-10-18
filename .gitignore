@@ -33,3 +33,4 @@ docs/src/generated/
 __pycache__/
 mise.local.toml
 mise.*.local.toml
+.mise/locks/
