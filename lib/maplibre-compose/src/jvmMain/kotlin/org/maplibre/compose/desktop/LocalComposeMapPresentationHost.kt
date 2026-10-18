@@ -25,7 +25,7 @@ public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMa
   compositionLocalOf(referentialEqualityPolicy()) {
     error(
       "No ComposeMapPresentationHost is installed. Wrap this window's content in " +
-        "ProvideMapPresentationHost(...)."
+        "ProvideMapPresentationHost(...).",
     )
   }
 

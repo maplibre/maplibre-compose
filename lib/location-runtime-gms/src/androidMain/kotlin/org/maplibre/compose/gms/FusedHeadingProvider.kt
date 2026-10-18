@@ -44,7 +44,7 @@ internal constructor(
   private val executor: Executor = dispatcher.executor,
 ) : HeadingProvider {
   public constructor(
-    orientationClient: FusedOrientationProviderClient
+    orientationClient: FusedOrientationProviderClient,
   ) : this(orientationClient, SystemClock::elapsedRealtimeNanos)
 
   override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = callbackFlow {
@@ -59,7 +59,7 @@ internal constructor(
           measuredAt =
             Clock.System.now() -
               (elapsedRealtimeNanos() - orientation.elapsedRealtimeNs).coerceAtLeast(0).nanoseconds,
-        )
+        ),
       )
     }
 

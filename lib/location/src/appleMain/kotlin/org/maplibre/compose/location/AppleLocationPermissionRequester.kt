@@ -97,7 +97,7 @@ private fun readAppleLocationPermission(manager: CLLocationManager): LocationPer
           LocationAccuracyAuthorization.Precise
         } else {
           LocationAccuracyAuthorization.Approximate
-        }
+        },
       )
     kCLAuthorizationStatusNotDetermined -> LocationPermission.NotGranted(canRequest = true)
     kCLAuthorizationStatusDenied,

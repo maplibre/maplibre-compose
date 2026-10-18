@@ -44,7 +44,7 @@ internal object AngleSymbols {
     }
     error(
       "eglGetProcAddress is not in this process. Load ANGLE's libEGL before " +
-        "creating a MapLibre OpenGL host on Windows."
+        "creating a MapLibre OpenGL host on Windows.",
     )
   }
 }

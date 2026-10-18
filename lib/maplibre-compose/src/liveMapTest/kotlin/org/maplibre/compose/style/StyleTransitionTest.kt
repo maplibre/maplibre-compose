@@ -32,7 +32,7 @@ class StyleTransitionTest {
     val EmptyStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
     val TimedStyle =
       BaseStyle.Json(
-        """{"version":8,"transition":{"duration":500,"delay":100},"sources":{},"layers":[]}"""
+        """{"version":8,"transition":{"duration":500,"delay":100},"sources":{},"layers":[]}""",
       )
   }
 }

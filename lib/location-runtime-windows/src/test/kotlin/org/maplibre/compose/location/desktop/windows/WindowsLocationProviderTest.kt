@@ -33,7 +33,7 @@ class WindowsLocationProviderTest {
   @Test
   fun serviceLoaderFindsWindowsBackend() {
     assertTrue(
-      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is WindowsLocationBackend }
+      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is WindowsLocationBackend },
     )
   }
 
@@ -78,13 +78,13 @@ class WindowsLocationProviderTest {
     assertEquals(
       LocationUnavailableReason.ServicesDisabled,
       WindowsPositionStatus.Disabled.asUnavailableReason(
-        LocationPermission.Granted(accuracy = null)
+        LocationPermission.Granted(accuracy = null),
       ),
     )
     assertEquals(
       LocationUnavailableReason.PermissionDenied,
       WindowsPositionStatus.Disabled.asUnavailableReason(
-        LocationPermission.NotGranted(canRequest = false)
+        LocationPermission.NotGranted(canRequest = false),
       ),
     )
   }
@@ -113,7 +113,7 @@ class WindowsLocationProviderTest {
     assertNull(sampleMeasurement(longitude = -181.0).asMaplibreLocationMeasurement())
     assertNull(sampleMeasurement(horizontalAccuracyMeters = -1.0).asMaplibreLocationMeasurement())
     assertNull(
-      sampleMeasurement(windowsTimestampTicks = Long.MIN_VALUE).asMaplibreLocationMeasurement()
+      sampleMeasurement(windowsTimestampTicks = Long.MIN_VALUE).asMaplibreLocationMeasurement(),
     )
 
     val location =
@@ -124,7 +124,7 @@ class WindowsLocationProviderTest {
             headingDegrees = Double.POSITIVE_INFINITY,
             speedMetersPerSecond = -1.0,
           )
-          .asMaplibreLocationMeasurement()
+          .asMaplibreLocationMeasurement(),
       )
     assertNull(location.position.altitude)
     assertNull(location.altitudeAccuracy)
@@ -140,18 +140,18 @@ class WindowsLocationProviderTest {
     assertTrue(filter.shouldDeliver(first))
     assertFalse(
       filter.shouldDeliver(
-        first.copy(longitude = 1.0, windowsTimestampTicks = 500 * TicksPerMillisecond)
-      )
+        first.copy(longitude = 1.0, windowsTimestampTicks = 500 * TicksPerMillisecond),
+      ),
     )
     assertFalse(
       filter.shouldDeliver(
-        first.copy(longitude = 13.00001, windowsTimestampTicks = 2_000 * TicksPerMillisecond)
-      )
+        first.copy(longitude = 13.00001, windowsTimestampTicks = 2_000 * TicksPerMillisecond),
+      ),
     )
     assertTrue(
       filter.shouldDeliver(
-        first.copy(longitude = 13.01, windowsTimestampTicks = 2_500 * TicksPerMillisecond)
-      )
+        first.copy(longitude = 13.01, windowsTimestampTicks = 2_500 * TicksPerMillisecond),
+      ),
     )
   }
 
@@ -168,7 +168,7 @@ class WindowsLocationProviderTest {
               accuracy = LocationAccuracy.Low
               minimumInterval = 2.seconds
               minimumDistance = 20.meters
-            }
+            },
           )
           .collect { events += it }
       }
@@ -294,7 +294,7 @@ class WindowsLocationProviderTest {
     val cause = IllegalStateException("activation failed")
     val client =
       FakeWindowsLocationClient(
-        backendAvailability = LocationBackendAvailability.Misconfigured(cause)
+        backendAvailability = LocationBackendAvailability.Misconfigured(cause),
       )
     val provider = WindowsLocationProvider(client)
 

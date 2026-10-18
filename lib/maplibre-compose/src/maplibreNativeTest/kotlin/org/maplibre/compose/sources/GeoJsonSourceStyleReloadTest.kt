@@ -35,7 +35,7 @@ class GeoJsonSourceStyleReloadTest {
   private companion object {
     val ReplacementStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}""",
       )
   }
 }

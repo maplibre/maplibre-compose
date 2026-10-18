@@ -103,7 +103,7 @@ class MainConfinementTest {
       state.lifecycle.acceptEnginePlatformAccess(retained) {
         state.publishPresentation(state.reservePresentation(), replacement)
         assertFalse(retained.closeCalled)
-      }
+      },
     )
 
     assertTrue(retained.closeCalled)

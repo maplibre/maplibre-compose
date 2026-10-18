@@ -233,7 +233,8 @@ internal class NativePresentation(
       }
     }
     return MlnFfiFrameResult.Rendered(
-      if (captureProjection) viewport.captureFrameProjection(session, frame.target.extent) else null
+      if (captureProjection) viewport.captureFrameProjection(session, frame.target.extent)
+      else null,
     )
   }
 

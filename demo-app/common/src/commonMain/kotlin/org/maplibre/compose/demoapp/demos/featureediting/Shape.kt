@@ -36,7 +36,7 @@ internal data class Shape(val kind: ShapeKind, val vertices: List<Position>) {
   fun simplified(tolerance: Double): Shape {
     val line =
       LineString(
-        if (kind == ShapeKind.Polygon) vertices.plusElement(vertices.first()) else vertices
+        if (kind == ShapeKind.Polygon) vertices.plusElement(vertices.first()) else vertices,
       )
     val result = line.simplify(tolerance, highestQuality = true).coordinates
     return copy(vertices = if (kind == ShapeKind.Polygon) result.dropLast(1) else result)
@@ -46,7 +46,7 @@ internal data class Shape(val kind: ShapeKind, val vertices: List<Position>) {
     val center = checkNotNull(geometry).computeBbox().center().coordinates
     return copy(
       vertices =
-        vertices.map { center.offset(distance(center, it), center.bearingTo(it) + 15.degrees) }
+        vertices.map { center.offset(distance(center, it), center.bearingTo(it) + 15.degrees) },
     )
   }
 

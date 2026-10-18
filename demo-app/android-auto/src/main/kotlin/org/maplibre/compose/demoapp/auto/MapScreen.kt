@@ -42,7 +42,7 @@ internal class MapScreen(carContext: CarContext, runtime: MapRuntime) : Screen(c
           demo.close()
           owner.lifecycle.removeObserver(this)
         }
-      }
+      },
     )
     lifecycleScope.launch {
       snapshotFlow {
@@ -55,7 +55,7 @@ internal class MapScreen(carContext: CarContext, runtime: MapRuntime) : Screen(c
   override fun onGetTemplate(): Template =
     template.build(
       error =
-        map.presentation.failure != null || demo.state.style.loadState is StyleLoadState.Failed
+        map.presentation.failure != null || demo.state.style.loadState is StyleLoadState.Failed,
     )
 
   fun updateConfiguration(configuration: Configuration) {

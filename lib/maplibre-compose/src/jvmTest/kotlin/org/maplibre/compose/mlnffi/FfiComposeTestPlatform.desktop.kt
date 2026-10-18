@@ -52,7 +52,7 @@ private fun startHangWatchdog(): Thread {
       return@Thread
     }
     System.err.println(
-      "An FFI Compose test has run for ${HangDumpDelayMillis} ms; dumping all threads:"
+      "An FFI Compose test has run for ${HangDumpDelayMillis} ms; dumping all threads:",
     )
     for ((thread, stack) in Thread.getAllStackTraces()) {
       System.err.println(thread)
@@ -106,7 +106,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
         RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.Vulkan, composeBackend())
         RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OpenGl, composeBackend())
         else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
-      }
+      },
     )
 
   override val description: String = "production ${bridges.single()} test bridge"
@@ -115,7 +115,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
     val driver =
       preparedDrivers.removeFirstOrNull()
         ?: return MlnFfiMapHostResult.Failed(
-          "The Desktop test used more presentation hosts than it prepared"
+          "The Desktop test used more presentation hosts than it prepared",
         )
     return MlnFfiMapHostResult.Created(driver)
   }
@@ -146,7 +146,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
       }
       require(presentationCount > 0) { "A map test must prepare at least one presentation host" }
       return CurrentRuntimeTestMapHostFactory(
-        ArrayDeque(List(presentationCount) { FfiTestPlatform.createRenderDriver() })
+        ArrayDeque(List(presentationCount) { FfiTestPlatform.createRenderDriver() }),
       )
     }
   }

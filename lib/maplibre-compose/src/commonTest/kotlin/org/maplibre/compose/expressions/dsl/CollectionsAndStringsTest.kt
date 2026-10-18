@@ -165,8 +165,8 @@ class CollectionsAndStringsTest {
           listOf(
             ListLiteral.of(listOf(FloatLiteral.of(1f), FloatLiteral.of(2f))),
             ListLiteral.of(listOf(FloatLiteral.of(3f), FloatLiteral.of(4f))),
-          )
-        )
+          ),
+        ),
       ),
     )
   }

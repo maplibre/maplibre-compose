@@ -92,7 +92,7 @@ public class LayerProperties internal constructor(private val cache: LayerProper
     check(open) { "LayerProperties is only valid during its properties block" }
     require(name.isNotBlank()) { "Property name must not be blank" }
     require(
-      section != null || name != "id" && name != "type" && name != "layout" && name != "paint"
+      section != null || name != "id" && name != "type" && name != "layout" && name != "paint",
     ) {
       "'$name' is not a root property; use the layer identity or property section API"
     }

@@ -21,7 +21,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
         config.interceptor.headersOrNone(mapRequest, config.logger).map {
           HttpHeader(it.key, it.value)
         }
-      }
+      },
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)
@@ -35,7 +35,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
       val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
       val url = config.interceptor.rewrittenUrl(mapRequest, config.logger)
       if (url == request.url) null else url
-    }
+    },
   )
 }
 

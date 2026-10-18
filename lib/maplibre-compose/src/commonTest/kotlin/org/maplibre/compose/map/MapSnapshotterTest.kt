@@ -91,7 +91,7 @@ class MapSnapshotterTest {
           started.send(request)
           finish.receive()
           if (captureIndex++ == 0) firstImage else secondImage
-        }
+        },
       )
     val runtime =
       mapRuntimeForTest(
@@ -127,7 +127,7 @@ class MapSnapshotterTest {
         capture = { request, _ ->
           captureContext = currentCoroutineContext()[CoroutineName]?.name
           FakeImageBitmap(request.extent().width, request.extent().height)
-        }
+        },
       )
     val runtime =
       mapRuntimeForTest(
@@ -544,7 +544,7 @@ class MapSnapshotterTest {
             error("stale load failed")
           }
           RecordingStyleBinding()
-        }
+        },
       )
     val runtime = runtimeWith(adapter)
     val initialStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")

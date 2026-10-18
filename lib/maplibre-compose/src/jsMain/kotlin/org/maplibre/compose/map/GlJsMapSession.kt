@@ -782,7 +782,7 @@ internal class GlJsMapSession(
     fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
-      map?.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+      map?.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding),
     ) {
       "The map could not calculate a camera for the bounds"
     }
@@ -862,7 +862,7 @@ internal class GlJsMapSession(
           pitch?.let { this.pitch = it }
           duration = animation.duration.inWholeMilliseconds.toDouble()
           easing = animation.easing.toEasingFunction()
-        }
+        },
       )
     }
   }
@@ -891,7 +891,7 @@ internal class GlJsMapSession(
             applyUpdate(update)
             duration = animation.duration.inWholeMilliseconds.toDouble()
             easing = animation.easing.toEasingFunction()
-          }
+          },
         )
       is CameraAnimation.Fly ->
         flyTo(
@@ -904,7 +904,7 @@ internal class GlJsMapSession(
             curve = animation.curve
             animation.maxDuration?.let { maxDuration = it.inWholeMilliseconds.toDouble() }
             easing = animation.easing.toEasingFunction()
-          }
+          },
         )
     }
   }
@@ -1043,7 +1043,7 @@ internal class GlJsMapSession(
 
   override fun getVisibleRegion(): VisibleRegion =
     withMap(
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
+      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
     ) { map ->
       map.readVisibleRegion(appliedExtent.width.toDouble(), appliedExtent.height.toDouble())
     }
@@ -1402,7 +1402,7 @@ internal class GlJsMapSession(
           unsafeJso<EaseToOptions> {
             bearing = current + delta
             this.duration = duration.inWholeMilliseconds.toDouble()
-          }
+          },
         )
       }
     }

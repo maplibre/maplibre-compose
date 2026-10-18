@@ -90,7 +90,7 @@ object MapSnapshotterDemo : Demo {
       if (state.status is CaptureStatus.Capturing || mapState.cameraPosition.pitch != 0.0) return
       val center =
         mapState.positionFromScreenLocation(
-          with(density) { DpOffset(rect.center.x.toDp(), rect.center.y.toDp()) }
+          with(density) { DpOffset(rect.center.x.toDp(), rect.center.y.toDp()) },
         ) ?: return
       val width = (rect.width / density.density).roundToInt().coerceAtLeast(1)
       val height = (rect.height / density.density).roundToInt().coerceAtLeast(1)

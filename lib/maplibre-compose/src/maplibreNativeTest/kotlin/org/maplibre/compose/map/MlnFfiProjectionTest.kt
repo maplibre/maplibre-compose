@@ -51,14 +51,16 @@ class MlnFfiProjectionTest {
             fixture.session.overlayScreenLocationFromPosition(RotatedCamera.center),
           )
           assertTrue(
-            !fixture.session.screenLocationFromPosition(RotatedCamera.center).isNear(initial)
+            !fixture.session.screenLocationFromPosition(RotatedCamera.center).isNear(initial),
           )
 
           // A retained 200px texture centered in a 300px surface at density 2.
           fixture.session.presentFrame(projection, MlnFfiMapDestination(50, 50, 200, 200), 2.0)
           val expected = DpOffset(75.dp, 75.dp)
           assertTrue(
-            fixture.session.overlayScreenLocationFromPosition(RotatedCamera.center).isNear(expected)
+            fixture.session
+              .overlayScreenLocationFromPosition(RotatedCamera.center)
+              .isNear(expected),
           )
           assertTrue(fixture.session.screenLocationFromPosition(movedCamera.center).isNear(initial))
           Snapshot.takeSnapshot().also {
@@ -100,7 +102,7 @@ class MlnFfiProjectionTest {
 
       val roundTrip =
         fixture.session.screenLocationFromPosition(
-          assertNotNull(fixture.session.positionFromScreenLocation(ScreenCenter))
+          assertNotNull(fixture.session.positionFromScreenLocation(ScreenCenter)),
         )
       assertTrue(
         roundTrip.isNear(ScreenCenter),

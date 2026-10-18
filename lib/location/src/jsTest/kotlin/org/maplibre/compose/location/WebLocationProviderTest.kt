@@ -109,7 +109,7 @@ class WebLocationProviderTest {
 
     boundary.send(position(milliseconds = 0, longitude = 0.0, heading = Double.NaN))
     boundary.send(
-      position(milliseconds = 2_000, longitude = 0.0, heading = Double.POSITIVE_INFINITY)
+      position(milliseconds = 2_000, longitude = 0.0, heading = Double.POSITIVE_INFINITY),
     )
     runCurrent()
 
@@ -387,7 +387,7 @@ class WebLocationProviderTest {
         speedMetersPerSecond = 3.0,
         headingDegrees = heading,
         capturedAt = Instant.fromEpochMilliseconds(1_700_000_000_000 + milliseconds),
-      )
+      ),
     )
 }
 

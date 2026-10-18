@@ -37,7 +37,7 @@ dokka {
         create("maplibre-native") {
           url("https://maplibre.org/maplibre-native/android/api/")
           packageListUrl(
-            "https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/package-list"
+            "https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/package-list",
           )
         }
       }

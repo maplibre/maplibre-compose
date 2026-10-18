@@ -36,7 +36,7 @@ class PointerDragVelocityTest {
           .copy(
             pressure = 1f,
             historical = listOf(HistoricalChange(96, Offset(-1000f, 0f))),
-          )
+          ),
       )
       clean.addPosition(time, Offset(position, 0f))
     }

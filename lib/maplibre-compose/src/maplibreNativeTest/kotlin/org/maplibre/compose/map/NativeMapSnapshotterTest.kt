@@ -73,7 +73,7 @@ class NativeMapSnapshotterTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
       )
     try {
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
@@ -128,7 +128,7 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
         )
       val request =
         MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
@@ -171,7 +171,7 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
         )
       try {
         val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
@@ -205,7 +205,7 @@ class NativeMapSnapshotterTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
       )
     try {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
@@ -237,7 +237,7 @@ class NativeMapSnapshotterTest {
       val cacheFile = FfiTestPlatform.createCacheFile()
       val runtime =
         createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
         )
       val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
       try {
@@ -272,7 +272,7 @@ class NativeMapSnapshotterTest {
     }
 
   private fun pointComposition(
-    data: () -> GeoJsonData = { PointData }
+    data: () -> GeoJsonData = { PointData },
   ): @Composable @MaplibreComposable () -> Unit {
     return {
       val points =
@@ -317,7 +317,7 @@ class NativeMapSnapshotterTest {
       GeoJsonData.Features(
         buildFeatureCollection<Geometry, JsonObject?> {
           addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
-        }
+        },
       )
     val BackgroundStyle =
       BaseStyle.Json(
@@ -326,11 +326,11 @@ class NativeMapSnapshotterTest {
           {"id":"base-background","type":"background","paint":{"background-color":"#336699"}}
         ]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
     val AlternateStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"alternate","type":"background"}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"alternate","type":"background"}]}""",
       )
   }
 }

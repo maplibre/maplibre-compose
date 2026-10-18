@@ -499,7 +499,7 @@ private class FiniteLocationProvider(private vararg val locations: LocationMeasu
         LocationEvent.Update(
           measurement = location,
           measurementMark = TimeSource.Monotonic.markNow(),
-        )
+        ),
       )
     }
   }
@@ -520,7 +520,7 @@ private class ActiveLocationProvider(
         LocationEvent.Update(
           measurement = location,
           measurementMark = TimeSource.Monotonic.markNow(),
-        )
+        ),
       )
       awaitCancellation()
     } finally {
@@ -590,7 +590,7 @@ private class RetryableLocationProvider(private val location: LocationMeasuremen
       LocationEvent.Update(
         measurement = location,
         measurementMark = TimeSource.Monotonic.markNow(),
-      )
+      ),
     )
     awaitCancellation()
   }

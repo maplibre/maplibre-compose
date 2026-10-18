@@ -12,7 +12,7 @@ internal sealed interface ExpressionNode<out T : ExpressionValue?> : Expression<
 
 /** Transform this expression into the equivalent [CompiledExpression]. */
 internal fun <T : ExpressionValue?> Expression<T>.compile(
-  context: ExpressionContext
+  context: ExpressionContext,
 ): CompiledExpression<T> = (this as ExpressionNode<T>).compile(context)
 
 internal fun Expression<*>.visit(block: (Expression<*>) -> Unit) =

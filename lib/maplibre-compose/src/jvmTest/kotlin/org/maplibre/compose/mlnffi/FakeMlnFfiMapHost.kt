@@ -10,7 +10,7 @@ import org.maplibre.compose.map.MapExtent
  */
 internal class FakeMlnFfiMapHost(
   override val backends: RenderBackendPair =
-    RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl)
+    RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.OpenGl),
 ) : MlnFfiMapHost {
 
   data class DrawRecord(
@@ -139,7 +139,7 @@ internal class FakeMlnFfiMapHost(
             finalLayout = 1,
             extent = extent,
             generation = generation,
-          )
+          ),
       )
     liveFrames += frame
     return MlnFfiMapFrameAcquisition.Acquired(frame)

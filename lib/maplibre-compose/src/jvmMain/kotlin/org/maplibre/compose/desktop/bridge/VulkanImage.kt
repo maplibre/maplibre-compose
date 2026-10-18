@@ -120,7 +120,7 @@ private constructor(
             VkExtent3D.calloc(stack)
               .width(extent.physicalWidth)
               .height(extent.physicalHeight)
-              .depth(1)
+              .depth(1),
           )
           .mipLevels(1)
           .arrayLayers(1)
@@ -147,7 +147,7 @@ private constructor(
               .baseMipLevel(0)
               .levelCount(1)
               .baseArrayLayer(0)
-              .layerCount(1)
+              .layerCount(1),
           )
       val viewOut = stack.mallocLong(1)
       checkVulkan(vkCreateImageView(vulkan.device, viewInfo, null, viewOut), "vkCreateImageView")
@@ -209,7 +209,7 @@ private constructor(
         .pNext(allocateNext)
         .allocationSize(requirements.size())
         .memoryTypeIndex(
-          findVulkanDeviceLocalMemoryType(vulkan.physicalDevice, memoryTypeBits, noMemoryType)
+          findVulkanDeviceLocalMemoryType(vulkan.physicalDevice, memoryTypeBits, noMemoryType),
         )
     val memoryOut = stack.mallocLong(1)
     checkVulkan(vkAllocateMemory(vulkan.device, allocateInfo, null, memoryOut), "vkAllocateMemory")

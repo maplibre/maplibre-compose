@@ -104,7 +104,7 @@ class MapPlatformTransformTest {
       )
       assertFalse(fixture.input.onInput(PointerEventType.ScaleStart, sample(20)))
       assertFalse(
-        fixture.input.onInput(PointerEventType.ScaleChange, sample(30), scaleFactor = 2.0)
+        fixture.input.onInput(PointerEventType.ScaleChange, sample(30), scaleFactor = 2.0),
       )
       fixture.input.onInput(PointerEventType.ScaleEnd, sample(40))
       assertTrue(
@@ -112,7 +112,7 @@ class MapPlatformTransformTest {
           PointerEventType.PanMove,
           sample(50),
           panDelta = DpOffset(20.dp, 0.dp),
-        )
+        ),
       )
       assertEquals(listOf(Offset(10f, 0f), Offset(20f, 0f)), fixture.target.moveCalls)
       assertTrue(fixture.target.scaleCalls.isEmpty())
@@ -133,7 +133,7 @@ class MapPlatformTransformTest {
     try {
       for (value in listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
         assertFalse(
-          fixture.input.onInput(PointerEventType.ScaleChange, sample(0), scaleFactor = value)
+          fixture.input.onInput(PointerEventType.ScaleChange, sample(0), scaleFactor = value),
         )
       }
       assertEquals(0, fixture.target.startedCount)
@@ -158,10 +158,10 @@ class MapPlatformTransformTest {
           sample(10),
           scaleFactor = 2.0,
           consumed = true,
-        )
+        ),
       )
       assertFalse(
-        fixture.input.onInput(PointerEventType.ScaleChange, sample(20), scaleFactor = 2.0)
+        fixture.input.onInput(PointerEventType.ScaleChange, sample(20), scaleFactor = 2.0),
       )
       fixture.input.onInput(PointerEventType.ScaleEnd, sample(30))
       fixture.input.onInput(PointerEventType.ScaleStart, sample(40))
@@ -196,7 +196,7 @@ class MapPlatformTransformTest {
           PointerEventType.PanMove,
           sample(20),
           panDelta = DpOffset(10.dp, 0.dp),
-        )
+        ),
       )
     } finally {
       fixture.input.cancel()
@@ -211,14 +211,14 @@ class MapPlatformTransformTest {
       fixture.input.onInput(PointerEventType.PanStart, sample(0))
       val shifted = sample(10).copy(modifierKeys = setOf(KeyModifier.Shift))
       assertTrue(
-        fixture.input.onInput(PointerEventType.PanMove, shifted, panDelta = DpOffset(10.dp, 0.dp))
+        fixture.input.onInput(PointerEventType.PanMove, shifted, panDelta = DpOffset(10.dp, 0.dp)),
       )
       assertTrue(
         fixture.input.onInput(
           PointerEventType.PanMove,
           sample(20),
           panDelta = DpOffset(10.dp, 0.dp),
-        )
+        ),
       )
       fixture.input.onInput(PointerEventType.PanEnd, sample(30))
       assertEquals(1, fixture.target.endedCount)
@@ -286,14 +286,14 @@ class MapPlatformTransformTest {
         PointerEventType.ScaleStart,
         true,
         listOf(change(1, true, true), change(2, true, false)),
-      )
+      ),
     )
     assertTrue(
       routing.route(
         PointerEventType.ScaleEnd,
         true,
         listOf(change(1, true, true), change(2, false, true)),
-      )
+      ),
     )
     assertTrue(routing.route(PointerEventType.Move, false, listOf(change(1, true, true))))
     assertTrue(routing.blocked)

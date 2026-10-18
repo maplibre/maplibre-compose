@@ -262,7 +262,7 @@ private fun DemoThemeToggleButton(settings: DemoSettings) {
             MapStyleMode.System -> Res.drawable.brightness_auto_24px
             MapStyleMode.Light -> Res.drawable.light_mode_24px
             MapStyleMode.Dark -> Res.drawable.dark_mode_24px
-          }
+          },
         ),
       contentDescription = null,
       tint = contentColor,

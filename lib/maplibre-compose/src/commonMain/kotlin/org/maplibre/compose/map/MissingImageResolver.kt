@@ -47,7 +47,7 @@ public fun interface MissingImageResolver {
 public class MissingImageRequest
 internal constructor(
   /** The image ID that the style references, such as the value of a symbol layer's `icon-image`. */
-  public val id: String
+  public val id: String,
 ) {
   override fun toString(): String = "MissingImageRequest(id=$id)"
 }
@@ -133,7 +133,7 @@ public class ResolvedStyleImage(
               drawAsSdf,
               alpha,
               colorFilter,
-            )
+            ),
           ),
         sdf = drawAsSdf,
         stretch = stretch,

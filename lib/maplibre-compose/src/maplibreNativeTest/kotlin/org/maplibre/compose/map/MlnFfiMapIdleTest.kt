@@ -67,7 +67,7 @@ class MlnFfiMapIdleTest {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.pumpUntilRendered()
       fixture.session.setCameraPosition(
-        fixture.session.getCameraPosition().copy(zoom = 4.0, bearing = 30.0)
+        fixture.session.getCameraPosition().copy(zoom = 4.0, bearing = 30.0),
       )
       fixture.settle()
 

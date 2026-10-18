@@ -122,7 +122,7 @@ private constructor(
         Maplibre.supportedRenderBackends().singleOrNull()
           ?: error(
             "Desktop bridge tests require exactly one packaged runtime backend; found " +
-              Maplibre.supportedRenderBackends().joinToString().ifEmpty { "none" }
+              Maplibre.supportedRenderBackends().joinToString().ifEmpty { "none" },
           )
       val producer =
         when (runtimeBackend) {
@@ -250,7 +250,7 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
           OpenGlTestGpuEnvironment.create()
         else ->
           error(
-            "No production Desktop bridge test environment for ${System.getProperty("os.name")}"
+            "No production Desktop bridge test environment for ${System.getProperty("os.name")}",
           )
       }
   }

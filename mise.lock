@@ -73,33 +73,33 @@ url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-x86_64-p
 url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041355"
 
 [[tools."aqua:facebook/ktfmt"]]
-version = "0.64"
+version = "0.65"
 backend = "aqua:facebook/ktfmt"
 
 [tools."aqua:facebook/ktfmt"."platforms.linux-arm64"]
-checksum = "sha256:b8fbb814808d8da33f74a7bbacb6d1748cef81c0202a7f829b87139520b51273"
-url = "https://github.com/Kotlin/ktfmt/releases/download/v0.64/ktfmt-0.64-with-dependencies.jar"
-url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/456171177"
+checksum = "sha256:aba9753b6ab387926179ab7318ba8e0c33dad483ebc72f633e79522265b15214"
+url = "https://github.com/Kotlin/ktfmt/releases/download/v0.65/ktfmt-0.65-with-dependencies.jar"
+url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/618673765"
 
 [tools."aqua:facebook/ktfmt"."platforms.linux-x64"]
-checksum = "sha256:b8fbb814808d8da33f74a7bbacb6d1748cef81c0202a7f829b87139520b51273"
-url = "https://github.com/Kotlin/ktfmt/releases/download/v0.64/ktfmt-0.64-with-dependencies.jar"
-url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/456171177"
+checksum = "sha256:aba9753b6ab387926179ab7318ba8e0c33dad483ebc72f633e79522265b15214"
+url = "https://github.com/Kotlin/ktfmt/releases/download/v0.65/ktfmt-0.65-with-dependencies.jar"
+url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/618673765"
 
 [tools."aqua:facebook/ktfmt"."platforms.macos-arm64"]
-checksum = "sha256:b8fbb814808d8da33f74a7bbacb6d1748cef81c0202a7f829b87139520b51273"
-url = "https://github.com/Kotlin/ktfmt/releases/download/v0.64/ktfmt-0.64-with-dependencies.jar"
-url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/456171177"
+checksum = "sha256:aba9753b6ab387926179ab7318ba8e0c33dad483ebc72f633e79522265b15214"
+url = "https://github.com/Kotlin/ktfmt/releases/download/v0.65/ktfmt-0.65-with-dependencies.jar"
+url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/618673765"
 
 [tools."aqua:facebook/ktfmt"."platforms.windows-arm64"]
-checksum = "sha256:b8fbb814808d8da33f74a7bbacb6d1748cef81c0202a7f829b87139520b51273"
-url = "https://github.com/Kotlin/ktfmt/releases/download/v0.64/ktfmt-0.64-with-dependencies.jar"
-url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/456171177"
+checksum = "sha256:aba9753b6ab387926179ab7318ba8e0c33dad483ebc72f633e79522265b15214"
+url = "https://github.com/Kotlin/ktfmt/releases/download/v0.65/ktfmt-0.65-with-dependencies.jar"
+url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/618673765"
 
 [tools."aqua:facebook/ktfmt"."platforms.windows-x64"]
-checksum = "sha256:b8fbb814808d8da33f74a7bbacb6d1748cef81c0202a7f829b87139520b51273"
-url = "https://github.com/Kotlin/ktfmt/releases/download/v0.64/ktfmt-0.64-with-dependencies.jar"
-url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/456171177"
+checksum = "sha256:aba9753b6ab387926179ab7318ba8e0c33dad483ebc72f633e79522265b15214"
+url = "https://github.com/Kotlin/ktfmt/releases/download/v0.65/ktfmt-0.65-with-dependencies.jar"
+url_api = "https://api.github.com/repos/Kotlin/ktfmt/releases/assets/618673765"
 
 [[tools."aqua:jdx/hk"]]
 version = "2.7.0"

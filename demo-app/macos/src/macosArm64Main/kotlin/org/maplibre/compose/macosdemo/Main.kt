@@ -24,7 +24,7 @@ import platform.Foundation.NSProcessInfo
 fun main() {
   val application = NSApplication.sharedApplication()
   application.setActivationPolicy(
-    NSApplicationActivationPolicy.NSApplicationActivationPolicyRegular
+    NSApplicationActivationPolicy.NSApplicationActivationPolicyRegular,
   )
   val launch = DemoLaunch.parse(NSProcessInfo.processInfo.arguments.drop(1).map { it as String })
   var open by mutableStateOf(true)

@@ -130,6 +130,6 @@ public fun cubicBezier(x1: Float, y1: Float, x2: Float, y2: Float): Interpolatio
     "Cubic bezier control points must be between 0 and 1, were $points"
   }
   return Interpolation(
-    JsonArray(listOf(JsonPrimitive("cubic-bezier")) + points.map(::JsonPrimitive))
+    JsonArray(listOf(JsonPrimitive("cubic-bezier")) + points.map(::JsonPrimitive)),
   )
 }

@@ -25,7 +25,7 @@ abstract class PackageAngle : DefaultTask() {
     val archive = temporaryDir.resolve("angle-macos-arm64.tar.gz")
     val url =
       URI(
-        "https://github.com/kivy/angle-builder/releases/download/${angleVersion.get()}/angle-macos-arm64.tar.gz"
+        "https://github.com/kivy/angle-builder/releases/download/${angleVersion.get()}/angle-macos-arm64.tar.gz",
       )
     url.toURL().openStream().use { input -> archive.outputStream().use(input::copyTo) }
     val digest = MessageDigest.getInstance("SHA-256")
@@ -57,7 +57,7 @@ abstract class PackageAngle : DefaultTask() {
           .file("META-INF/maplibre-compose/angle/macos-arm64/$name")
           .get()
           .asFile
-          .isFile
+          .isFile,
       ) {
         "ANGLE archive is missing $name"
       }

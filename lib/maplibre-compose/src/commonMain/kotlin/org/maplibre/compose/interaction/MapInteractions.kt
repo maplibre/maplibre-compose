@@ -34,7 +34,7 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.animationDuration,
     builder.cameraBuilder.build(),

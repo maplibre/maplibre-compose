@@ -131,7 +131,7 @@ class DeclaredStyleOwnershipTest {
           repeat(3) { index ->
             addFeature(geometry = Point(Position(index * 0.001, 0.0))) { setId(index.toLong()) }
           }
-        }
+        },
       )
   }
 }

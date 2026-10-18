@@ -65,7 +65,7 @@ class SnapshotCompositionTest {
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
-        }
+        },
       )
     val source =
       GeoJsonSource(
@@ -124,7 +124,7 @@ class SnapshotCompositionTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
-        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) }
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
       )
     try {
       val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) {}
@@ -155,7 +155,7 @@ class SnapshotCompositionTest {
               FakeImageBitmap(request.extent().width, request.extent().height)
             },
           )
-        }
+        },
       )
     try {
       val snapshotter =
@@ -196,7 +196,7 @@ class SnapshotCompositionTest {
                 } finally {
                   withContext(NonCancellable) {
                     cleanup.complete(
-                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } }
+                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } },
                     )
                   }
                 }
@@ -224,7 +224,7 @@ class SnapshotCompositionTest {
             layout["icon-image"],
           )
           captured.image.toImageBitmap()
-        }
+        },
       )
     val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
     val source =
@@ -270,7 +270,7 @@ class SnapshotCompositionTest {
         createSnapshotterAdapter = {
           adapterCreations++
           FakeSnapshotterAdapter()
-        }
+        },
       )
     try {
       val snapshotter =

@@ -800,7 +800,7 @@ internal open class MlnFfiStyleBinding(
     Json.parseToJsonElement(
         map
           .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
-          .decodeToString()
+          .decodeToString(),
       )
       .jsonObject
   }
@@ -910,7 +910,7 @@ internal open class MlnFfiStyleBinding(
         map.styleTransitionOptions().copy {
           durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS)
           delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS)
-        }
+        },
       )
     }
   }
@@ -924,7 +924,7 @@ internal open class MlnFfiStyleBinding(
   override fun setPlacementTransitions(enabled: Boolean) {
     mutateMap { map ->
       map.setStyleTransitionOptions(
-        map.styleTransitionOptions().copy { enablePlacementTransitions = enabled }
+        map.styleTransitionOptions().copy { enablePlacementTransitions = enabled },
       )
     }
   }

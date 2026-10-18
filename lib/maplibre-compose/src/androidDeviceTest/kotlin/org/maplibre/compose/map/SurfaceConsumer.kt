@@ -43,7 +43,7 @@ internal class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
                 bytes.get(offset).toInt() and 0xff,
                 bytes.get(offset + 1).toInt() and 0xff,
                 bytes.get(offset + 2).toInt() and 0xff,
-              )
+              ),
             )
             frames.incrementAndGet()
           }

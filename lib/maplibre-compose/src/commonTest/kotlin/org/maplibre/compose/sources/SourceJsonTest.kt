@@ -41,7 +41,7 @@ class SourceJsonTest {
           scheme = TileScheme.Tms
           boundingBox = BoundingBox(Position(-10.0, -20.0), Position(30.0, 40.0))
           attributionHtml = "© someone"
-        }
+        },
       )
     }
 
@@ -143,9 +143,9 @@ class SourceJsonTest {
                 GeoJsonOptions.ClusterPropertyAggregator(
                   mapper = org.maplibre.compose.expressions.dsl.const(1),
                   reducer = org.maplibre.compose.expressions.dsl.const(2),
-                )
+                ),
             )
-        }
+        },
       )
     }
 

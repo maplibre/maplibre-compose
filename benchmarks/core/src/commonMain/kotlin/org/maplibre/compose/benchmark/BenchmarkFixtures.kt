@@ -136,7 +136,7 @@ suspend fun loadBenchmarkFixture(
               putJsonArray("tiles") {
                 add(
                   uri("basemap/tiles/14/2620/6332.pbf")
-                    .replace("14/2620/6332.pbf", "{z}/{x}/{y}.pbf")
+                    .replace("14/2620/6332.pbf", "{z}/{x}/{y}.pbf"),
                 )
               }
               put("attribution", "© OpenStreetMap contributors")
@@ -150,7 +150,7 @@ suspend fun loadBenchmarkFixture(
               putJsonObject("paint") {
                 put("background-color", if (variant == 0) "#202020" else "#303030")
               }
-            }
+            },
           )
           if (config.scene == BenchmarkScene.Basemap) basemapLayers().forEach { add(it) }
           if (hasData && !dynamicContent)
@@ -162,7 +162,7 @@ suspend fun loadBenchmarkFixture(
                   config.scenario in
                     setOf(BenchmarkScenario.Images, BenchmarkScenario.ImagePreparation),
                   if (partitioned) index to config.layers else null,
-                )
+                ),
               )
             }
         }
@@ -262,13 +262,13 @@ private fun basemapLayers(): List<JsonObject> {
               buildJsonArray {
                 add("get")
                 add("name_en")
-              }
+              },
             )
             add(
               buildJsonArray {
                 add("get")
                 add("name")
-              }
+              },
             )
           },
         )

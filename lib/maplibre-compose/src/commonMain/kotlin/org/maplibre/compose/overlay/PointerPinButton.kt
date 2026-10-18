@@ -86,7 +86,7 @@ public fun MapOverlayScope.PointerPinButton(
           this.shadowElevation = shadowElevation.toPx()
           shape = PointerPinShape.Upright
         }
-        .background(style.containerColor, PointerPinShape.Upright)
+        .background(style.containerColor, PointerPinShape.Upright),
     )
     // Older Android versions clip the children of a rotated layer to the unrotated outline, so the
     // content clips to a rotated outline in a layer that isn't rotated. The clip bounds the ripple.
@@ -155,7 +155,7 @@ private data class PointerPinShape(val angleDegrees: Float) : Shape {
     val Path =
       PathParser()
         .parsePathString(
-          "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z"
+          "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z",
         )
         .toNodes()
   }

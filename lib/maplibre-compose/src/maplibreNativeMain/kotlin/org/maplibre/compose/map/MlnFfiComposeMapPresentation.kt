@@ -54,7 +54,7 @@ internal fun MlnFfiMapSurfaceContent(
       Box(
         Modifier.matchParentSize()
           .background(options.uiOptions.loadColor)
-          .testTag(MapLoadPlaceholderTag)
+          .testTag(MapLoadPlaceholderTag),
       )
     }
   }
@@ -75,7 +75,7 @@ internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
   try {
     Maplibre.loadNativeLibrary()
     Result.success(
-      Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
+      Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() },
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)

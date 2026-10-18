@@ -695,7 +695,7 @@ object MaterialStyleDemo : Demo {
           Modifier.size(24.dp)
             .clip(CircleShape)
             .background(use.color)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         )
       },
       headlineContent = { Text(use.role) },

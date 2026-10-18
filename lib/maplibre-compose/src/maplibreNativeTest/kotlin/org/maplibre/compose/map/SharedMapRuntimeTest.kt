@@ -78,7 +78,7 @@ class SharedMapRuntimeTest {
                 BoundingBox(-1.0, -1.0, 1.0, 1.0),
                 1f,
                 maxZoom = 0.0,
-              )
+              ),
             )
           }
         cancelled.cancelAndJoin()
@@ -126,9 +126,9 @@ class SharedMapRuntimeTest {
           cacheFile,
           mainDispatcher =
             TestMainDispatcher(
-              loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+              loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
             ),
-        )
+        ),
       )
     val owner = runtime.nativeOwner
     owner.awaitReady()
@@ -154,7 +154,7 @@ class SharedMapRuntimeTest {
         MlnFfiRuntime.Task(
           run = { operation = it.startOfflineRegions() },
           reject = { throw it },
-        )
+        ),
       )
       withTimeout(5_000) {
         assertSame(expected, firstFailure.await())
@@ -195,7 +195,7 @@ class SharedMapRuntimeTest {
           cacheFile,
           maximumCacheSizeBytes = 1_000_000,
           mainDispatcher = TestMainDispatcher(),
-        )
+        ),
       )
     try {
       BridgeMapFixture.create(runtime = runtime).use { first ->
@@ -231,7 +231,7 @@ class SharedMapRuntimeTest {
                       BoundingBox(-1.0, -1.0, 1.0, 1.0),
                       1f,
                       maxZoom = 0.0,
-                    )
+                    ),
                   )
                 runtime.offlineStorage.resume(pack)
                 val download = async {

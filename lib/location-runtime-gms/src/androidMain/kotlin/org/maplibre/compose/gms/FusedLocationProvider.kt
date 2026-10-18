@@ -74,7 +74,7 @@ internal constructor(
    */
   @MainThread
   public constructor(
-    context: Context
+    context: Context,
   ) : this(
     LocationServices.getFusedLocationProviderClient(context),
     AndroidLocationProvider(context),
@@ -135,7 +135,7 @@ internal constructor(
         .getLastLocation(
           LastLocationRequest.Builder()
             .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-            .build()
+            .build(),
         )
         .await()
         ?.let { location ->

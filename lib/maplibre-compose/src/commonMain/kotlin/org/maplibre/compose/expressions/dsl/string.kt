@@ -11,7 +11,7 @@ import org.maplibre.compose.expressions.value.StringValue
 /** Returns whether this string contains the [substring]. */
 @JvmName("containsString")
 public fun Expression<StringValue>.contains(
-  substring: Expression<StringValue>
+  substring: Expression<StringValue>,
 ): Expression<BooleanValue> = call("in", substring, this)
 
 /** Returns whether this string contains the [substring]. */
@@ -115,7 +115,7 @@ public fun Expression<StringValue>.lowercase(): Expression<StringValue> = call("
 /** Concatenates this string expression with [other]. */
 @JvmName("concat")
 public operator fun Expression<StringValue>.plus(
-  other: Expression<StringValue>
+  other: Expression<StringValue>,
 ): Expression<StringValue> = call("concat", this, other)
 
 /**
@@ -126,7 +126,7 @@ public operator fun Expression<StringValue>.plus(
  * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun Expression<StringValue>.split(
-  separator: Expression<StringValue>
+  separator: Expression<StringValue>,
 ): Expression<ListValue<StringValue>> = call("split", this, separator)
 
 /**

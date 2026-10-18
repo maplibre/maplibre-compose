@@ -66,6 +66,6 @@ internal fun MaplibreMap.unprojectAt(x: Double, y: Double): Position =
       unsafeJso<Point> {
         this.x = x
         this.y = y
-      }
+      },
     )
     .toPosition()

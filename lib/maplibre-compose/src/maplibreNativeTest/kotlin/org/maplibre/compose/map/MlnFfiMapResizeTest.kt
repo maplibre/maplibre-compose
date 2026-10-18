@@ -48,7 +48,7 @@ class MlnFfiMapResizeTest {
       fixture.pumpUntilRendered(BridgeMapFixture.RetinaExtent)
 
       fixture.session.setViewportInsets(
-        PaddingValues(start = 120.dp, top = 40.dp, end = 20.dp, bottom = 8.dp)
+        PaddingValues(start = 120.dp, top = 40.dp, end = 20.dp, bottom = 8.dp),
       )
 
       val expected = MlnFfiMapPresentationAnchor(x = 612, y = 544)

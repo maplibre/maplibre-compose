@@ -94,7 +94,7 @@ internal class VulkanDevice private constructor() : AutoCloseable {
           VkExportMetalObjectCreateInfoEXT.calloc(stack)
             .sType(VK_STRUCTURE_TYPE_EXPORT_METAL_OBJECT_CREATE_INFO_EXT)
             .exportObjectType(VK_EXPORT_METAL_OBJECT_TYPE_METAL_DEVICE_BIT_EXT)
-            .address()
+            .address(),
         )
       }
       val out = stack.mallocPointer(1)

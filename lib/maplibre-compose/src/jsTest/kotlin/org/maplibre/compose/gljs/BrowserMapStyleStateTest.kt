@@ -53,7 +53,7 @@ class BrowserMapStyleStateTest {
         "layers": [{"id": "bg", "type": "background", "paint": {"background-color": "#000000"}}]
       }
       """
-        .trimIndent()
+        .trimIndent(),
     )
 
   private val tileJsonStyle =
@@ -66,7 +66,7 @@ class BrowserMapStyleStateTest {
         "layers": [{"id": "bg", "type": "background", "paint": {"background-color": "#000000"}}]
       }
       """
-        .trimIndent()
+        .trimIndent(),
     )
 
   private fun installDeferredTileJson(): DeferredTileJson {
@@ -153,7 +153,7 @@ class BrowserMapStyleStateTest {
     val initialSession = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
     assertTrue(
       initialSession.engineMapForTest()?.getStyle()?.layers?.any { it.id == "initial-overlay" } ==
-        true
+        true,
     )
 
     runOnIdle { presented.value = false }
@@ -176,7 +176,7 @@ class BrowserMapStyleStateTest {
               record(layer.id);
               return original.call(this, layer, before);
             };
-          })"""
+          })""",
       )
     mapPrototype.addLayer = wrapAddLayer(originalAddLayer) { id: String -> layerAdditions += id }
     try {
@@ -195,7 +195,7 @@ class BrowserMapStyleStateTest {
       assertFalse(
         requireNotNull(session.engineMapForTest()).getStyle().layers.any {
           it.id == "initial-overlay"
-        }
+        },
       )
     } finally {
       mapPrototype.addLayer = originalAddLayer
@@ -274,7 +274,7 @@ class BrowserMapStyleStateTest {
               record(this.getStyle().layers.map(function(layer) { return layer.id; }).join(','));
               return original.call(this);
             };
-          })"""
+          })""",
       )
     mapPrototype.redraw =
       wrapRedraw(originalRedraw) { ids: String ->
@@ -441,11 +441,11 @@ class BrowserMapStyleStateTest {
   private companion object {
     val StyleA =
       BaseStyle.Json(
-        """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}"""
+        """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}""",
       )
     val StyleB =
       BaseStyle.Json(
-        """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
+        """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}""",
       )
     val InvalidStyle = BaseStyle.Json("""{"version":7,"sources":{},"layers":[]}""")
     const val DeferredStyleUrl = "https://deferred-style.test/style.json"

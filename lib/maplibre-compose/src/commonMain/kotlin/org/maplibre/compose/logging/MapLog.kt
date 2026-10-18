@@ -65,7 +65,7 @@ internal object MapLog {
           "MapLogging.logger threw an exception, so its record was dropped. " +
             "Later failures are not reported.",
           error,
-        )
+        ),
       )
     } catch (_: Exception) {}
   }

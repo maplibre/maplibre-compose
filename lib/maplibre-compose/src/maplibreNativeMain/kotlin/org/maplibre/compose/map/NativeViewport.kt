@@ -234,7 +234,7 @@ internal class NativeViewport(private val isClosing: () -> Boolean) {
           if (geometry.camera.center.longitude !in -180.0..<180.0) {
             map.createWrappedProjection()
           } else null,
-      )
+      ),
     )
     // A failed read leaves this stale so the next event drain retries it.
     snapshotStale = false
@@ -385,7 +385,7 @@ private fun MapProjectionHandle.normalizeWrappedCenter(): MapProjectionHandle {
       setCamera(
         CameraOptions().also {
           it.center = Position(longitude, center.latitude).toLatLng()
-        }
+        },
       )
     }
     return this

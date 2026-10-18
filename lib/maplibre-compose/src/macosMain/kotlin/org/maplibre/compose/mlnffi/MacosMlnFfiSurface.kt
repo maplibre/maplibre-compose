@@ -107,6 +107,6 @@ internal fun MacosMlnFfiSurface(
           )
         host.layout(entry, bounds, coordinates.boundsInRoot(), scale)
       }
-      .drawBehind { drawRect(Color.Transparent, blendMode = BlendMode.Clear) }
+      .drawBehind { drawRect(Color.Transparent, blendMode = BlendMode.Clear) },
   )
 }

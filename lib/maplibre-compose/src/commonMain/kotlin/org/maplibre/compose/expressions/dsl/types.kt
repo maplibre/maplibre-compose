@@ -45,7 +45,7 @@ public fun Expression<*>.asList(
     type == null ||
       type == ExpressionType.String ||
       type == ExpressionType.Number ||
-      type == ExpressionType.Boolean
+      type == ExpressionType.Boolean,
   ) {
     "The item type of a list assertion must be String, Number, or Boolean, was $type"
   }

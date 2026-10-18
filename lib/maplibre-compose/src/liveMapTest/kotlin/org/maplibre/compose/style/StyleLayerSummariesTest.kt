@@ -49,7 +49,7 @@ class StyleLayerSummariesTest {
                 "external",
                 GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
               )
-              .definition()
+              .definition(),
           )
           binding.addLayer(TestLayer("external", "background").definition(), "pins")
           binding.moveLayer("pins", "backdrop")
@@ -93,7 +93,7 @@ class StyleLayerSummariesTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

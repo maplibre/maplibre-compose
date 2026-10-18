@@ -42,7 +42,7 @@ object EditableMarkersDemo : Demo {
   override fun interactions(mapState: MapState, settings: MapInteractions) =
     with(markersState) {
       MapInteractions(
-        if (pressedId != null || draggingId != null) MapInteractions.None else settings
+        if (pressedId != null || draggingId != null) MapInteractions.None else settings,
       ) {
         callbacks {
           click {
@@ -71,7 +71,7 @@ object EditableMarkersDemo : Demo {
     with(markersState) {
       // Override only these layers: the slider represents an absolute accessibility scale.
       CompositionLocalProvider(
-        LocalDensity provides Density(LocalDensity.current.density, textScale)
+        LocalDensity provides Density(LocalDensity.current.density, textScale),
       ) {
         for (marker in markers) key(marker.id) {
           val motion =
@@ -132,7 +132,7 @@ object EditableMarkersDemo : Demo {
           scope.launch {
             state.mapState.flyTo(
               DemoDestination.ExactCamera(
-                state.mapState.cameraPosition.copy(center = marker.position)
+                state.mapState.cameraPosition.copy(center = marker.position),
               ),
               state.settings.flightAnimation,
             )

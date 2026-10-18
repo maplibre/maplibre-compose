@@ -17,7 +17,7 @@ fun scopedReports(files: List<FileFacts>, top: Int): List<ScopeReport> = buildLi
         sections.packageGraph,
         sections.distributions,
         sections.largest,
-      )
+      ),
     )
   }
   report("all", null, files)

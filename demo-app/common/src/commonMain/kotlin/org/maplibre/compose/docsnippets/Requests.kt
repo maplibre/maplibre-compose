@@ -28,7 +28,7 @@ fun authHeaders(token: StateFlow<String?>): MapRequestInterceptor {
         } else {
           emptyMap()
         }
-      }
+      },
     )
   // #endregion headers
   return interceptor
@@ -45,7 +45,7 @@ fun apiKeyRewrite(apiKey: String): MapRequestInterceptor {
         } else {
           null
         }
-      }
+      },
     )
   // #endregion rewrite
   return interceptor

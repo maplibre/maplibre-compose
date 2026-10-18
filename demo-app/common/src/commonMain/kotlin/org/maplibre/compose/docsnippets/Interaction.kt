@@ -30,7 +30,7 @@ fun Interaction() {
           rotate { enabled = false }
           pitch { enabled = false }
         }
-      }
+      },
   )
   // #endregion camera-movement
 
@@ -46,7 +46,7 @@ fun Interaction() {
             }
           }
         }
-      }
+      },
   )
   // #endregion bearing-snapping
 
@@ -63,7 +63,7 @@ fun Interaction() {
             }
           }
         }
-      }
+      },
   )
   // #endregion bearing-haptics
 
@@ -79,7 +79,7 @@ fun Interaction() {
             }
           }
         }
-      }
+      },
   )
   // #endregion scroll-mappings
 }
@@ -98,7 +98,7 @@ fun ClickableMap(onLocationSelected: (Position) -> Unit) {
             }
           }
         }
-      }
+      },
   )
 }
 
@@ -118,7 +118,7 @@ fun SelectableEarthquakes(onEarthquakeSelected: (JsonObject?) -> Unit) {
   val state = rememberMapState {
     val earthquakes =
       rememberGeoJsonSource(
-        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
+        GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson"),
       )
     CircleLayer(
       id = "earthquakes",

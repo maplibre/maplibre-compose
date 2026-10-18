@@ -54,7 +54,7 @@ internal fun createNativeSnapshotterAdapter(
     NativeSnapshotRenderTarget.select(available)
       ?: throw MapSnapshotException(
         "No compatible offscreen snapshot backend is available from " +
-          available.joinToString().ifEmpty { "none" }
+          available.joinToString().ifEmpty { "none" },
       )
   return NativeSnapshotterAdapter(owner, targetPlan)
 }
@@ -112,7 +112,7 @@ private class NativeSnapshotterAdapter(
       engine?.loop?.await {
         providerFailure = null
         reconciler.apply(binding, prepared)
-      }
+      },
     ) {
       "The snapshotter engine map stopped during style reconciliation"
     }
@@ -231,8 +231,8 @@ private class NativeSnapshotterAdapter(
               session.resize(extent.width, extent.height, extent.scaleFactor)
             }
             map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
-          }
-        )
+          },
+        ),
       ) {
         "The snapshotter engine map stopped during request configuration"
       }
@@ -241,7 +241,7 @@ private class NativeSnapshotterAdapter(
         val settled = runCatching { currentLoop.awaitEventsDrained() }
         resized.completion.complete(
           if (settled.isSuccess) settled
-          else Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
+          else Result.failure(currentLoop.failure ?: snapshotterClosedCancellation()),
         )
       }
     } catch (error: Throwable) {
@@ -272,19 +272,19 @@ private class NativeSnapshotterAdapter(
                 geometry,
                 MapViewportExtents(unprojectedCorners(projection, geometry.size)),
                 projection.metersPerPixelAtLatitude(
-                  geometry.camera.center.latitude.coerceIn(-90.0, 90.0)
+                  geometry.camera.center.latitude.coerceIn(-90.0, 90.0),
                 ),
               )
             }
-          }
-        )
+          },
+        ),
       ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
     val (applied, extents, metersPerDpAtCenter) = read
     check(
       applied.size.width.value.toInt() == extent.width &&
-        applied.size.height.value.toInt() == extent.height
+        applied.size.height.value.toInt() == extent.height,
     ) {
       "The snapshot map reported a ${applied.size} viewport, expected " +
         "${extent.width}x${extent.height} logical pixels"
@@ -333,7 +333,7 @@ private class NativeSnapshotterAdapter(
         if (operation?.awaits != NativeSnapshotOperation.Awaits.StillImage) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
         operation.completion.complete(
-          Result.failure(providerFailure ?: IllegalStateException(message))
+          Result.failure(providerFailure ?: IllegalStateException(message)),
         )
       }
       // A still image progresses only inside renderUpdate, and NO_UPDATE and SIZE_PENDING wait for
@@ -405,7 +405,7 @@ private class NativeSnapshotterAdapter(
               Triple(copied, buffer.toByteArray(), request.transparent)
             }
           }
-        }
+        },
       ) ?: error("The snapshotter engine map is closed")
     val (info, bytes, transparent) = rgba
     check(info.width == expected.physicalWidth && info.height == expected.physicalHeight) {
@@ -455,9 +455,9 @@ private class NativeSnapshotterAdapter(
     currentLoop.submit(
       onDropped = {
         operation.completion.complete(
-          Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
+          Result.failure(currentLoop.failure ?: snapshotterClosedCancellation()),
         )
-      }
+      },
     ) { map ->
       runCatching { action(map) }.onFailure { operation.completion.complete(Result.failure(it)) }
     }

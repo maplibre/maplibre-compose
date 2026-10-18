@@ -60,7 +60,7 @@ enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
 
   override val base =
     BaseStyle.Uri(
-      "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=$ProtomapsApiKey"
+      "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=$ProtomapsApiKey",
     )
 }
 

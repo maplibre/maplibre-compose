@@ -72,7 +72,7 @@ internal class Direct3D12MapHost(
   private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
   private val deviceChange =
     DeviceChangeRecovery<NativeHandle>(
-      "Compose changed Direct3D devices; recreating the map renderer"
+      "Compose changed Direct3D devices; recreating the map renderer",
     )
   private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
@@ -90,7 +90,7 @@ internal class Direct3D12MapHost(
     }
     val texture = checkNotNull(textures.current) { "Windows map texture is not initialized" }
     return MlnFfiMapFrameAcquisition.Acquired(
-      MlnFfiMapFrame(target = texture.target(textures.generation))
+      MlnFfiMapFrame(target = texture.target(textures.generation)),
     )
   }
 

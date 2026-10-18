@@ -70,7 +70,7 @@ class GenericLayerCompositionTest {
     val reconciler = StyleReconciler()
     val original =
       Json.parseToJsonElement(
-          """{"type":"plugin-mesh","metadata":{"custom":true},"custom":null,"paint":{"mesh-opacity":0.5,"mesh-opacity-transition":{"duration":400,"delay":20}},"minzoom":4}"""
+          """{"type":"plugin-mesh","metadata":{"custom":true},"custom":null,"paint":{"mesh-opacity":0.5,"mesh-opacity-transition":{"duration":400,"delay":20}},"minzoom":4}""",
         )
         .jsonObject
     var json by mutableStateOf(original)
@@ -100,8 +100,8 @@ class GenericLayerCompositionTest {
             JsonObject(
               original.getValue("paint").jsonObject +
                 ("mesh-opacity-transition" to
-                  Json.parseToJsonElement("""{"duration":200.0,"delay":10.0}"""))
-            ))
+                  Json.parseToJsonElement("""{"duration":200.0,"delay":10.0}""")),
+            )),
       ),
       recording.layers.getValue("mesh"),
     )
@@ -135,7 +135,7 @@ class GenericLayerCompositionTest {
             if (shown) {
               val source =
                 rememberGeoJsonSource(
-                  GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+                  GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
                 )
               PluginLayer("plugin", source, opacity)
             }

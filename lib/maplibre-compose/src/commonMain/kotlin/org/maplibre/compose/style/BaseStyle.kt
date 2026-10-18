@@ -35,7 +35,7 @@ public sealed interface BaseStyle {
     public constructor(json: JsonObject) : this(json.toString())
 
     public constructor(
-      builderAction: JsonObjectBuilder.() -> Unit
+      builderAction: JsonObjectBuilder.() -> Unit,
     ) : this(buildJsonObject(builderAction))
   }
 

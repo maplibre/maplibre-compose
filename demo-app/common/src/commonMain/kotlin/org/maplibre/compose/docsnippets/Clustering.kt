@@ -36,8 +36,8 @@ fun Clustering() {
       val earthquakes =
         rememberGeoJsonSource(
           GeoJsonData.Uri(
-            "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson"
-          )
+            "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson",
+          ),
         ) {
           cluster = true
           clusterRadius = 40

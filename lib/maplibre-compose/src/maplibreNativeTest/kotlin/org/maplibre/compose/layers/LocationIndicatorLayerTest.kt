@@ -172,7 +172,7 @@ class LocationIndicatorLayerTest {
         assertEquals(
           JsonPrimitive("top-icon"),
           (map.layerProperty("indicator", "top-image")?.toJsonElement() as? JsonObject)?.get(
-            "name"
+            "name",
           ),
           "the image should be written as a plain name, which the renderer reads as a constant",
         )
@@ -197,7 +197,7 @@ class LocationIndicatorLayerTest {
       layer.paint(
         "location",
         locationIndicatorPositionJson(
-          Position(longitude = -122.0, latitude = 37.0, altitude = 10.0)
+          Position(longitude = -122.0, latitude = 37.0, altitude = 10.0),
         ),
       )
       runBlocking { style.onOwner { handle.update(layer.definition()) } }

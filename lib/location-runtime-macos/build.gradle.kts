@@ -26,7 +26,7 @@ dependencies {
   // Lets macOS test runs call Core Location through LWJGL's Objective-C bindings.
   testRuntimeOnly(
     "org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:" +
-      DesktopHostPlatform.MacosArm64.lwjglNativesClassifier
+      DesktopHostPlatform.MacosArm64.lwjglNativesClassifier,
   )
 }
 

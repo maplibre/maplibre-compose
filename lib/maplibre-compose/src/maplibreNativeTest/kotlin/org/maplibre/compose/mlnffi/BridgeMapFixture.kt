@@ -80,7 +80,7 @@ private constructor(
           requestInterceptor = resourceConfig.interceptor,
           resourceProvider = resourceConfig.provider,
           logger = MapLog,
-        )
+        ),
       )
   val state = runtime.createMapState(BaseStyle.Empty)
 
@@ -201,7 +201,7 @@ private constructor(
   fun renderFrameProjection(extent: MapExtent = initialExtent): MlnFfiMapFrameProjection {
     session.onSurfaceChanged(extent)
     return checkNotNull(
-      (frame(extent, captureProjection = true) as MlnFfiFrameResult.Rendered).projection
+      (frame(extent, captureProjection = true) as MlnFfiFrameResult.Rendered).projection,
     )
   }
 

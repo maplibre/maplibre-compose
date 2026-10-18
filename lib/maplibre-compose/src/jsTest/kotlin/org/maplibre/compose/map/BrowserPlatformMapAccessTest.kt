@@ -65,14 +65,14 @@ class BrowserPlatformMapAccessTest {
             onAdd = { _, _ -> }
             onRemove = { _, _ -> }
             render = { _, _ -> }
-          }
+          },
         )
       }
       fixture.state.style.sources.add(
         GeoJsonSource(
           "points",
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        )
+        ),
       )
       fixture.declare { BackgroundLayer("above", visible = true) }
       fixture.state.styleAuthority.refreshStyleResources(fixture.session)

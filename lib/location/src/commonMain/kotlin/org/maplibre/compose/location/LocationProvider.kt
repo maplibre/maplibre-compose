@@ -138,7 +138,7 @@ internal constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(builder.accuracy, builder.minimumInterval, builder.minimumDistance)
 
   init {
@@ -356,7 +356,7 @@ public object UnsupportedLocationProvider :
 
 /** A provider that reports [backendAvailability] and fails every update collection. */
 internal class UnavailableLocationProvider(
-  override val backendAvailability: LocationBackendAvailability
+  override val backendAvailability: LocationBackendAvailability,
 ) : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     check(backendAvailability == LocationBackendAvailability.Available) {

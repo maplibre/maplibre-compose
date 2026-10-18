@@ -39,8 +39,8 @@ class SemiliteralRenderingTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(
           BaseStyle.Json(
-            """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}"""
-          )
+            """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}""",
+          ),
         )
         fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 1.0))
         val source =
@@ -49,7 +49,7 @@ class SemiliteralRenderingTest {
             GeoJsonData.Features(
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
-              }
+              },
             ),
           )
         fixture.state.style.sources.add(source)

@@ -146,11 +146,11 @@ internal fun testLayerPropertyCache(): LayerPropertyCache =
           override fun releaseGraphicsLayer(layer: GraphicsLayer) = Unit
         }
       },
-    )
+    ),
   )
 
 internal fun LayerPropertyCache.snapshot(
-  properties: LayerProperties.() -> Unit
+  properties: LayerProperties.() -> Unit,
 ): LayerPropertySnapshot {
   begin()
   val builder = LayerProperties(this)

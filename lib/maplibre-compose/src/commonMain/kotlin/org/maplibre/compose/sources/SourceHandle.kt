@@ -84,7 +84,7 @@ public sealed interface GeoJsonSourceHandle : SourceHandle {
    * @throws StyleHandleException if the engine fails the query.
    */
   public suspend fun getClusterChildren(
-    feature: Feature<*, JsonObject?>
+    feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>?
 
   /**

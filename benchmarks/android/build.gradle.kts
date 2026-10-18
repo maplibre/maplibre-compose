@@ -44,6 +44,6 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.androidx.activity)
   implementation(
-    if (androidBackend == "vulkan") libs.maplibre.androidVulkan else libs.maplibre.androidOpenGl
+    if (androidBackend == "vulkan") libs.maplibre.androidVulkan else libs.maplibre.androidOpenGl,
   )
 }

@@ -74,7 +74,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         override fun requestFrame() {
           frameRequested = true
         }
-      }
+      },
     )
     state.publishPresentation(token, glJsSession)
     recorder.attachment = requireNotNull(state.currentMapAttachment)

@@ -224,7 +224,7 @@ data class BenchmarkConfig(
             BenchmarkScene.Points1000,
             BenchmarkScene.Points10000,
             BenchmarkScene.Route,
-          )
+          ),
       ) {
         "${scenario.id} requires a points or route scene"
       }
@@ -243,7 +243,7 @@ data class BenchmarkConfig(
     )
       require(
         scene in
-          setOf(BenchmarkScene.Points100, BenchmarkScene.Points1000, BenchmarkScene.Points10000)
+          setOf(BenchmarkScene.Points100, BenchmarkScene.Points1000, BenchmarkScene.Points10000),
       )
     if (scenario == BenchmarkScenario.RuntimeStartup) require(scene == BenchmarkScene.Minimal)
     if (scenario == BenchmarkScenario.SourceLatency)

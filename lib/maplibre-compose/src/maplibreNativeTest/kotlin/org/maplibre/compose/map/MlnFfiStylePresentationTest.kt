@@ -45,8 +45,8 @@ class MlnFfiStylePresentationTest {
                 Anchor.Above { it.id == "initial" },
                 null,
                 null,
-              )
-            )
+              ),
+            ),
         )
       val parked = TestLatch(1)
       val release = TestLatch(1)
@@ -126,7 +126,7 @@ class MlnFfiStylePresentationTest {
               Anchor.Top,
               null,
               null,
-            )
+            ),
           ),
           emptyList(),
         )
@@ -227,19 +227,19 @@ class MlnFfiStylePresentationTest {
               anchor = Anchor.Top,
               onClick = null,
               onLongClick = null,
-            )
+            ),
           ),
         images = emptyList(),
       )
 
     val InitialStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{"points":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}"""
+        """{"version":8,"sources":{"points":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}},"layers":[{"id":"initial","type":"background","paint":{"background-color":"#ff0000"}}]}""",
       )
 
     val ReplacementStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"replacement","type":"background","paint":{"background-color":"#00ff00"}}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"replacement","type":"background","paint":{"background-color":"#00ff00"}}]}""",
       )
 
     const val ApplicationColorArgb = 0xff336699

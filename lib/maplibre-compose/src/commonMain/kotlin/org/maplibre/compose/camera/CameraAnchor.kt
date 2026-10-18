@@ -57,7 +57,7 @@ internal fun CameraAnchor.resolveScreenPoint(
       point.x >= 0.dp &&
       point.y >= 0.dp &&
       point.x <= size.width &&
-      point.y <= size.height
+      point.y <= size.height,
   ) {
     "The anchor must be inside the map viewport of size $size, was $point"
   }
@@ -72,7 +72,8 @@ internal fun CameraAnchor.resolveScreenPoint(
   if (abs(location.longitude - centerLongitude) <= 180.0) {
     val roundTrip = project(location)
     require(
-      abs(roundTrip.x.value - point.x.value) < 0.5f && abs(roundTrip.y.value - point.y.value) < 0.5f
+      abs(roundTrip.x.value - point.x.value) < 0.5f &&
+        abs(roundTrip.y.value - point.y.value) < 0.5f,
     ) {
       "The anchor must project onto the map"
     }

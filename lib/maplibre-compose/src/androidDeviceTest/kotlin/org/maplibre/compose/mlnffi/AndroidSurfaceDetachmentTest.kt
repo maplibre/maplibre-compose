@@ -82,8 +82,8 @@ class AndroidSurfaceDetachmentTest {
       runBlocking(Dispatchers.Main.immediate) {
         nativeSession.setBaseStyle(
           BaseStyle.Json(
-            """{"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#336699"}}]}"""
-          )
+            """{"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#336699"}}]}""",
+          ),
         )
         nativeSession.start()
       }

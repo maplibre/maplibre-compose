@@ -64,7 +64,7 @@ object FeatureEditingDemo : Demo {
     val geometry = shown.geometry ?: shown.vertices.takeIf { it.size >= 2 }?.let(::LineString)
     val source =
       rememberGeoJsonSource(
-        GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) })))
+        GeoJsonData.Features(FeatureCollection(listOfNotNull(geometry?.let { Feature(it, null) }))),
       ) {
         synchronousTiling = true
       }
@@ -73,8 +73,8 @@ object FeatureEditingDemo : Demo {
         val original =
           rememberGeoJsonSource(
             GeoJsonData.Features(
-              FeatureCollection(listOf(Feature(checkNotNull(editor.shape.geometry), null)))
-            )
+              FeatureCollection(listOf(Feature(checkNotNull(editor.shape.geometry), null))),
+            ),
           )
         LineLayer(
           id = "editing-original",
@@ -95,9 +95,9 @@ object FeatureEditingDemo : Demo {
             FeatureCollection(
               shown.vertices.mapIndexed { index, position ->
                 Feature(Point(position), null, id = JsonPrimitive(index))
-              }
-            )
-          )
+              },
+            ),
+          ),
         ) {
           synchronousTiling = true
         }
@@ -113,8 +113,8 @@ object FeatureEditingDemo : Demo {
       val active =
         rememberGeoJsonSource(
           GeoJsonData.Features(
-            FeatureCollection(listOfNotNull(selected?.let { Feature(Point(it), null) }))
-          )
+            FeatureCollection(listOfNotNull(selected?.let { Feature(Point(it), null) })),
+          ),
         )
       CircleLayer(
         id = "editing-active",

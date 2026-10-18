@@ -60,7 +60,7 @@ internal fun MarkerLayers(
   val colors = markerColorScheme(marker.color)
   val source =
     rememberGeoJsonSource(
-      GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null))
+      GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null)),
     ) {
       synchronousTiling = true
     }

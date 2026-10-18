@@ -45,7 +45,7 @@ internal class MlnFfiOfflineOperations(
       MlnFfiRuntime.Task(
         run = { finishClose(OfflineStorageException("The offline storage is closed")) },
         reject = {},
-      )
+      ),
     )
     // A failed owner calls finishClose as part of its teardown.
   }
@@ -79,7 +79,7 @@ internal class MlnFfiOfflineOperations(
           }
         },
         reject = reject,
-      )
+      ),
     )
   }
 

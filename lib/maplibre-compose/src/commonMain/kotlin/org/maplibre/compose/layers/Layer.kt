@@ -80,7 +80,7 @@ internal fun Layer(
     remember(density, direction, fontScale, locals) {
       // Headless style compositions need a graphics context only if a property contains a painter.
       LayerPropertyCache(
-        LayerPropertyCompiler(density, direction, fontScale) { locals[LocalGraphicsContext] }
+        LayerPropertyCompiler(density, direction, fontScale) { locals[LocalGraphicsContext] },
       )
     }
   cache.begin()

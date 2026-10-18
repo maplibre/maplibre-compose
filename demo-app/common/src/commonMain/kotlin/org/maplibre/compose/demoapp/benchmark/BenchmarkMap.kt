@@ -40,7 +40,7 @@ internal fun BenchmarkRun(
     try {
       require(
         config.implementation in
-          setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.Declarative)
+          setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.Declarative),
       ) {
         "Classic benchmarks run in their own app; use benchmark:run"
       }

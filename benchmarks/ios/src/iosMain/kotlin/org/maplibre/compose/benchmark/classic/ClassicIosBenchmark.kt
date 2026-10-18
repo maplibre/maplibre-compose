@@ -40,7 +40,9 @@ private class BenchmarkController : UIViewController(nibName = null, bundle = nu
       try {
         val config =
           checkNotNull(
-            BenchmarkConfig.parse(NSProcessInfo.processInfo.environment["MAP_BENCHMARK"] as? String)
+            BenchmarkConfig.parse(
+              NSProcessInfo.processInfo.environment["MAP_BENCHMARK"] as? String,
+            ),
           ) {
             "Missing benchmark configuration"
           }
@@ -206,7 +208,7 @@ private class IosDriver(
         try {
           color.setFill()
           UIRectFill(
-            CGRectMake(0.0, 0.0, fixture.imageSize.toDouble(), fixture.imageSize.toDouble())
+            CGRectMake(0.0, 0.0, fixture.imageSize.toDouble(), fixture.imageSize.toDouble()),
           )
           checkNotNull(UIGraphicsGetImageFromCurrentImageContext())
         } finally {
@@ -245,7 +247,7 @@ private class IosDriver(
             drawCalls = renderingStats.numDrawCalls.toLong(),
             frameCount = renderingStats.numFrames.toLong(),
             mode = if (fullyRendered) "full" else "partial",
-          )
+          ),
         )
       }
     }
@@ -337,7 +339,7 @@ private class IosDriver(
             MLNCircleStyleLayer(id, source).apply {
               predicate =
                 NSPredicate.predicateWithMLNJSONObject(
-                  jsonObject(benchmarkLayerFilter(index, config.layers))
+                  jsonObject(benchmarkLayerFilter(index, config.layers)),
                 )
               circleColor = NSExpression.expressionForConstantValue(colors[0])
               circleRadius =
@@ -393,7 +395,7 @@ private class IosDriver(
   override fun height(fraction: Double) {
     container.bounds.useContents {
       map.setFrame(
-        CGRectMake(0.0, size.height * (1 - fraction) / 2, size.width, size.height * fraction)
+        CGRectMake(0.0, size.height * (1 - fraction) / 2, size.width, size.height * fraction),
       )
     }
   }

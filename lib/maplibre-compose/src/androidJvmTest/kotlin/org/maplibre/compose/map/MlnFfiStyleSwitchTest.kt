@@ -272,7 +272,7 @@ class MlnFfiStyleSwitchTest {
 
     val InitialStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"base-initial","type":"background"}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"base-initial","type":"background"}]}""",
       )
 
     /** Enough rounds that a fault which needs a second or third switch still shows up. */
@@ -299,7 +299,7 @@ class MlnFfiStyleSwitchTest {
             {"id":"bg-a","type":"background","paint":{"background-color":"#eee"}},
             {"id":"base-slot","type":"background","paint":{"background-color":"#e0e0e0"}}
           ]}
-          """
+          """,
         ),
         BaseStyle.Json(
           """
@@ -307,7 +307,7 @@ class MlnFfiStyleSwitchTest {
             {"id":"bg-b","type":"background","paint":{"background-color":"#ddd"}},
             {"id":"base-slot","type":"background","paint":{"background-color":"#cccccc"}}
           ]}
-          """
+          """,
         ),
       )
 
@@ -325,7 +325,7 @@ class MlnFfiStyleSwitchTest {
                 {"id":"bg-a","type":"background","paint":{"background-color":"#eee"}},
                 {"id":"labels-a","type":"symbol","source":"empty"}
               ]}
-              """
+              """,
             ),
           anchor = Anchor.Below("labels-a"),
           baseLayerIds = listOf("bg-a", "labels-a"),
@@ -338,7 +338,7 @@ class MlnFfiStyleSwitchTest {
                 {"id":"bg-b","type":"background","paint":{"background-color":"#ddd"}},
                 {"id":"labels-b","type":"symbol","source":"empty"}
               ]}
-              """
+              """,
             ),
           anchor = Anchor.Below("labels-b"),
           baseLayerIds = listOf("bg-b", "labels-b"),

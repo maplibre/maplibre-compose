@@ -41,6 +41,6 @@ class DesktopGpuBridgeTest {
 
   private fun background(color: String) =
     BaseStyle.Json(
-      """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"$color"}}]}"""
+      """{"version":8,"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"$color"}}]}""",
     )
 }

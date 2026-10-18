@@ -108,7 +108,7 @@ internal fun FerryBoard() {
         boundingBox = it.bounds,
         fit =
           CameraFit(
-            fitPadding = DpPadding(left = 80.dp, top = 48.dp, right = 80.dp, bottom = 48.dp)
+            fitPadding = DpPadding(left = 80.dp, top = 48.dp, right = 80.dp, bottom = 48.dp),
           ),
         animation = animation(),
       )
@@ -123,20 +123,26 @@ internal fun FerryBoard() {
       }
       A(href = "?", attrs = { classes("demo-link") }) { Text("Map demos") }
     }
-    Main({
-      classes("ferry-layout")
-      if (!showMap) classes("without-map")
-    }) {
-      Section({
-        classes("ferry-board")
-        attr("aria-label", "Ferry departures")
-      }) {
+    Main(
+      {
+        classes("ferry-layout")
+        if (!showMap) classes("without-map")
+      },
+    ) {
+      Section(
+        {
+          classes("ferry-board")
+          attr("aria-label", "Ferry departures")
+        },
+      ) {
         Label(forId = "ferry-route") { Text("Route") }
-        Select({
-          id("ferry-route")
-          if (network == null) attr("disabled", "")
-          onChange { selectedId = it.value }
-        }) {
+        Select(
+          {
+            id("ferry-route")
+            if (network == null) attr("disabled", "")
+            onChange { selectedId = it.value }
+          },
+        ) {
           if (network == null) Option("") { Text("Loading routes…") }
           network?.routes?.forEach { route ->
             Option(route.id, { if (route.id == selectedId) attr("selected", "") }) {
@@ -146,10 +152,12 @@ internal fun FerryBoard() {
         }
         Div({ classes("board-heading") }) {
           H2 { Text("Next departures") }
-          Button({
-            onClick { showMap = !showMap }
-            attr("aria-pressed", showMap.toString())
-          }) {
+          Button(
+            {
+              onClick { showMap = !showMap }
+              attr("aria-pressed", showMap.toString())
+            },
+          ) {
             Text(if (showMap) "Hide map" else "Show map")
           }
         }
@@ -177,7 +185,7 @@ internal fun FerryBoard() {
                     P {
                       Text(
                         if (times == null) "Checking departures…"
-                        else "No scheduled sailing through tomorrow"
+                        else "No scheduled sailing through tomorrow",
                       )
                     }
                   }
@@ -192,7 +200,7 @@ internal fun FerryBoard() {
                         P({ classes("sailing-day") }) {
                           Text(
                             if (local.date == now.toLocalDateTime(data.timeZone).date) "Today"
-                            else "Tomorrow"
+                            else "Tomorrow",
                           )
                         }
                       }
@@ -209,18 +217,22 @@ internal fun FerryBoard() {
         }
       }
       if (showMap)
-        Section({
-          classes("ferry-map-panel")
-          attr("aria-label", "Route map")
-        }) {
-          Div({
-            classes("ferry-map")
-            ref { element ->
-              val presentation = WebMapPresentation(map)
-              presentation.attachContainer(element.unsafeCast<HTMLElement>())
-              onDispose { presentation.close() }
-            }
-          })
+        Section(
+          {
+            classes("ferry-map-panel")
+            attr("aria-label", "Route map")
+          },
+        ) {
+          Div(
+            {
+              classes("ferry-map")
+              ref { element ->
+                val presentation = WebMapPresentation(map)
+                presentation.attachContainer(element.unsafeCast<HTMLElement>())
+                onDispose { presentation.close() }
+              }
+            },
+          )
           Div({ classes("map-attribution") }) {
             A("https://protomaps.com") { Text("Protomaps") }
             Text(" · ")

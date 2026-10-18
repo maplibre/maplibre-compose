@@ -97,8 +97,8 @@ class MlnFfiRuntimeTest {
         task("blocking", endsBatch = true) {
           entered.countDown()
           check(release.await(TimeoutMillis)) { "the test did not release the owner" }
-        }
-      )
+        },
+      ),
     )
     assertTrue(entered.await(TimeoutMillis))
     assertTrue(thread.post(task("queued one")))

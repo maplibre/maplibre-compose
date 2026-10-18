@@ -54,7 +54,7 @@ fun ShareMapButton(
           onError(error)
         }
       }
-    }
+    },
   ) {
     Text("Share map")
   }

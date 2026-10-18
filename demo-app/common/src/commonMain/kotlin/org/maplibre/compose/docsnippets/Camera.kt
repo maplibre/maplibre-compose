@@ -30,7 +30,7 @@ fun Camera() {
   val mapState =
     rememberMapState(
       initialCameraPosition =
-        CameraPosition(center = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
+        CameraPosition(center = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0),
     )
   MaplibreMap(state = mapState)
   // #endregion first-position
@@ -45,7 +45,7 @@ fun ZoomInButton(mapState: MapState) {
       scope.launch {
         mapState.animateCamera(CameraUpdate(zoom = mapState.cameraPosition.zoom + 1.0))
       }
-    }
+    },
   ) {
     Text("Zoom in")
   }

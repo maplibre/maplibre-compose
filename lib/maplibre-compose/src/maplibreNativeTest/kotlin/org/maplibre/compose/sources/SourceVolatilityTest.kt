@@ -66,14 +66,14 @@ class SourceVolatilityTest {
                   Json.parseToJsonElement(
                     it
                       .getFeatureState(featureStateSelector(source.id, "layer", "1"))
-                      .decodeToString()
+                      .decodeToString(),
                   )
                 },
               )
               binding.removeSource(source.id)
               binding.addSource(source.definition())
               Unit
-            }
+            },
           )
         }
 
@@ -183,7 +183,7 @@ class SourceVolatilityTest {
           },
           operations = ImmediateOperations(this),
         )
-      }
+      },
     )
   }
 

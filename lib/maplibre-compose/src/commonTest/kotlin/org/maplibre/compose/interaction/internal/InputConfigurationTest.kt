@@ -177,7 +177,7 @@ class MapInteractionsTest {
       none.camera.settings.pan.enabled &&
         none.camera.settings.zoom.enabled &&
         none.camera.settings.rotate.enabled &&
-        none.camera.settings.pitch.enabled
+        none.camera.settings.pitch.enabled,
     )
     val appOnly =
       InputConfiguration(from = none) {
@@ -229,7 +229,7 @@ class MapInteractionsTest {
         Key.DirectionLeft,
         setOf(KeyModifier.Alt),
         InputConfiguration.Standard.camera.settings,
-      )
+      ),
     )
   }
 
@@ -244,7 +244,7 @@ class MapInteractionsTest {
     val modified = sample(type = PointerType.Touch, modifiers = setOf(KeyModifier.Alt))
     assertFalse(base.bindings.transform.pan.matches(modified))
     assertNull(
-      base.bindings.keys.select(Key.DirectionLeft, modified.modifierKeys, base.camera.settings)
+      base.bindings.keys.select(Key.DirectionLeft, modified.modifierKeys, base.camera.settings),
     )
     val wildcard =
       InputConfiguration(from = base) {

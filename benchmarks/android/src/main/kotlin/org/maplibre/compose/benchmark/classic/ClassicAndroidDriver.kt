@@ -47,7 +47,7 @@ class ClassicAndroidDriver(
           encodingMs = encoding * 1e3,
           renderingMs = rendering * 1e3,
           mode = if (full) "full" else "partial",
-        )
+        ),
       )
     }
   private val idleListener = MapView.OnDidBecomeIdleListener {
@@ -163,7 +163,7 @@ class ClassicAndroidDriver(
               .withProperties(
                 lineColor(BenchmarkColorStrings[0]),
                 lineWidth(3f),
-              )
+              ),
           )
         else if (fixture.partitioned)
           style.addLayer(
@@ -172,7 +172,7 @@ class ClassicAndroidDriver(
               .withProperties(
                 circleColor(BenchmarkColorStrings[0]),
                 circleRadius(Expression.raw(BenchmarkRadiusExpression)),
-              )
+              ),
           )
         else
           style.addLayer(
@@ -180,7 +180,7 @@ class ClassicAndroidDriver(
               .withProperties(
                 circleColor(BenchmarkColorStrings[0]),
                 circleRadius(5f),
-              )
+              ),
           )
       }
     }
@@ -210,7 +210,7 @@ class ClassicAndroidDriver(
       checkNotNull(style.getLayer("workload-$layer"))
         .setProperties(
           if (fixture.line) lineColor(BenchmarkColorStrings[index])
-          else circleColor(BenchmarkColorStrings[index])
+          else circleColor(BenchmarkColorStrings[index]),
         )
     }
   }

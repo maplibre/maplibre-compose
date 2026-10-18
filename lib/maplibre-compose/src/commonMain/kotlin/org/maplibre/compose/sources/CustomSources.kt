@@ -194,7 +194,7 @@ internal constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.minZoom,
     builder.maxZoom,
@@ -252,7 +252,7 @@ internal constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.minZoom,
     builder.maxZoom,

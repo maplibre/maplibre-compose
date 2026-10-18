@@ -71,7 +71,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
         MetalOwnedTextureDescriptor(
           extent.toSnapshotRenderTargetExtent(),
           MetalContextDescriptor(NativePointer.ofAddress(device)),
-        )
+        ),
       )
     }
 
@@ -113,7 +113,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
         VulkanOwnedTextureDescriptor(
           extent.toSnapshotRenderTargetExtent(),
           context.handles.toSnapshotVulkanContextDescriptor(),
-        )
+        ),
       )
 
     override fun close() = context.close()
@@ -122,7 +122,7 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   private class OpenGlDelegate(private val context: DesktopOpenGlSnapshotContext) : Delegate {
     override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
       map.attachOpenGLOwnedTexture(
-        OpenGLOwnedTextureDescriptor(extent.toSnapshotRenderTargetExtent(), context.descriptor)
+        OpenGLOwnedTextureDescriptor(extent.toSnapshotRenderTargetExtent(), context.descriptor),
       )
 
     override fun close() = context.close()

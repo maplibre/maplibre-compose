@@ -16,7 +16,7 @@ internal actual fun rememberBearingHapticFeedback(): (HapticEmphasis) -> Unit = 
             HapticEmphasis.Subtle -> UIImpactFeedbackStyle.UIImpactFeedbackStyleLight
             HapticEmphasis.Standard -> UIImpactFeedbackStyle.UIImpactFeedbackStyleMedium
             HapticEmphasis.Emphasized -> UIImpactFeedbackStyle.UIImpactFeedbackStyleHeavy
-          }
+          },
       )
     }
   return@remember { emphasis: HapticEmphasis -> generators.getValue(emphasis).impactOccurred() }

@@ -240,7 +240,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
     state.style.images.setAll(
       (0 until config.imageCount).associate { index ->
         "burst-$index" to resources.images[index % resources.images.size]
-      }
+      },
     )
   }
 

@@ -49,7 +49,7 @@ class StyleCompositionOrderTest {
               TestLayer("park", "background"),
               TestLayer("roads", "background"),
               symbolLayer("road-labels"),
-            )
+            ),
         )
       val reconciler = StyleReconciler()
 

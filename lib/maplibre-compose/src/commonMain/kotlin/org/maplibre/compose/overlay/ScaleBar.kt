@@ -139,7 +139,7 @@ public fun ScaleBar(
             Offset(0f, barEndsHeightPx),
             Offset(barLengthPx.toFloat(), 0f),
             Offset(0f, -barEndsHeightPx),
-          )
+          ),
         )
       }
 
@@ -158,7 +158,7 @@ public fun ScaleBar(
             Offset(0f, -barEndsHeightPx),
             Offset(barLengthPx.toFloat(), 0f),
             Offset(0f, barEndsHeightPx),
-          )
+          ),
         )
       }
 

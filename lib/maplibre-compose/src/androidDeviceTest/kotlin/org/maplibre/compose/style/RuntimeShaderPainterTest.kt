@@ -69,7 +69,7 @@ class RuntimeShaderPainterTest {
               layout["icon-image"],
             )
             captured.image.toImageBitmap()
-          }
+          },
         )
       val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
       val source =

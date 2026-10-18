@@ -167,8 +167,8 @@ class MlnFfiOfflinePackTest {
                   Position(0.25, 0.0),
                   Position(0.25, 0.25),
                   Position(0.0, 0.0),
-                )
-              )
+                ),
+              ),
             ),
           pixelRatio = 1f,
           minZoom = 5.5,
@@ -203,8 +203,8 @@ class MlnFfiOfflinePackTest {
                 Position(0.25, 0.0),
                 Position(0.25, 0.25),
                 Position(0.0, 0.0),
-              )
-            )
+              ),
+            ),
           ),
         pixelRatio = 2f,
         minZoom = 2.0,
@@ -295,9 +295,11 @@ class MlnFfiOfflinePackTest {
 
     // A paused pack issues no requests at all, so an error arriving is itself the evidence that
     // resuming reached MapLibre.
-    await({
-      "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress.value}"
-    }) {
+    await(
+      {
+        "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress.value}"
+      },
+    ) {
       pack.downloadProgress.value is DownloadProgress.Error
     }
     assertEquals(

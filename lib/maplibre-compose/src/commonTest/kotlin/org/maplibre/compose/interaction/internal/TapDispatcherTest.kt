@@ -27,7 +27,7 @@ class MapTapDispatcherTest {
           CoroutineScope(
             backgroundScope.coroutineContext +
               work +
-              CoroutineExceptionHandler { _, error -> errors += error }
+              CoroutineExceptionHandler { _, error -> errors += error },
           )
         try {
           val options = InputConfiguration {

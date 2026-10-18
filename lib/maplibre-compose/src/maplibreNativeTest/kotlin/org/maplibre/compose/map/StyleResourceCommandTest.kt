@@ -49,8 +49,8 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(
         BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
-        )
+          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}""",
+        ),
       )
       val layer = assertNotNull(fixture.state.style.layers["background"])
       val mutable = assertNotNull(layer.asMutable)
@@ -132,7 +132,7 @@ class StyleResourceCommandTest {
                 GeoJsonSource(
                   "points",
                   GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-                )
+                ),
               )
             }
           val queried = async(start = CoroutineStart.UNDISPATCHED) { style.images["replaced"] }
@@ -162,7 +162,7 @@ class StyleResourceCommandTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val parked = TestLatch(1)
@@ -302,15 +302,15 @@ class StyleResourceCommandTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(
         BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
-        )
+          """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}""",
+        ),
       )
       val actual = fixture.style as MlnFfiStyleBinding
       val binding =
         checkNotNull(
           actual.readMap { map ->
             MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { false })
-          }
+          },
         )
       assertEquals(listOf("background"), binding.baseLayers.map { it.id })
       assertFalse(binding.isLoaded)
@@ -345,7 +345,7 @@ class StyleResourceCommandTest {
           checkNotNull(
             actual.readMap { map ->
               MlnFfiStyleBinding(map = map, loop = actual.loop, sessionOpen = { true })
-            }
+            },
           )
         binding.invalidate()
         assertFailsWith<IllegalStateException> {

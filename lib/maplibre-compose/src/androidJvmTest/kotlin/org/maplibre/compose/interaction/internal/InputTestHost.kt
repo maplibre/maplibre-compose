@@ -72,7 +72,7 @@ internal fun GestureTestFixture.runFocusTest(
       Modifier.fillMaxSize().onKeyEvent {
         unconsumed += it.key
         false
-      }
+      },
     ) {
       Box(Modifier.size(40.dp).testTag(BeforeMapTag).focusable())
       Box(Modifier.size(200.dp)) {
@@ -101,7 +101,7 @@ internal fun GestureTestFixture.runRecognitionTest(
         Box(
           parentModifier
             .fillMaxSize()
-            .combinedClickable(onClick = {}, onLongClick = parentOnLongClick)
+            .combinedClickable(onClick = {}, onLongClick = parentOnLongClick),
         ) {
           host()
         }
@@ -179,7 +179,7 @@ internal fun GestureHost(
         environment,
         rotaryNotchPixels,
         boxZoom,
-      )
+      ),
   ) {
     content()
   }

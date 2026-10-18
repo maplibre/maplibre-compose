@@ -57,7 +57,7 @@ class PointerPairGestureTest {
               }
             }
           }
-        }
+        },
       )
     input.move(0, Offset(-80f, 0f), Offset(80f, 0f))
     assertEquals(0, starts)
@@ -76,7 +76,7 @@ class PointerPairGestureTest {
               }
             }
           }
-        }
+        },
       )
     input.move(0, Offset(-100f, 0f), Offset(100f, 0f))
     val scale = input.target.scaleCalls.single().scale
@@ -98,7 +98,7 @@ class PointerPairGestureTest {
               }
             }
           }
-        }
+        },
       )
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
     assertEquals(listOf(Offset(20f, 0f)), input.target.moveCalls)
@@ -123,7 +123,7 @@ class PointerPairGestureTest {
               }
             }
           }
-        }
+        },
       )
     input.move(20, Offset(0f, -80f), Offset(0f, 80f))
     assertEquals(-90.0, input.target.rotateCalls.single().bearingDelta, 1e-9)
@@ -224,7 +224,7 @@ class PointerPairGestureTest {
       PairInput(
         InputConfiguration {
           bindings { drag { pointerTypes = setOf(PointerType.Mouse) } }
-        }
+        },
       )
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
     input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
@@ -245,7 +245,7 @@ class PointerPairGestureTest {
                 }
               }
             }
-          }
+          },
         )
       repeat(6) { index ->
         val step = index + 1
@@ -382,7 +382,7 @@ class PointerPairGestureTest {
       PairInput(
         InputConfiguration(InputConfiguration.NoBindings) {
           bindings { transform { rotate { enabled = true } } }
-        }
+        },
       )
     for ((index, degrees) in listOf(1.0, 2.0, 20.0).withIndex()) {
       val angle = degrees * PI / 180.0
@@ -472,7 +472,7 @@ class PointerPairGestureTest {
             isInitiallyConsumed = false,
             type = if (index == 0) PointerType.Touch else secondType,
           )
-        }
+        },
       )
   }
 }

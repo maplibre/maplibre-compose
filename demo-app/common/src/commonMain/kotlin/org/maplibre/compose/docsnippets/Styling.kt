@@ -22,7 +22,7 @@ fun Styling() {
   val themed =
     rememberMapState(
       baseStyle =
-        BaseStyle.Uri("https://api.protomaps.com/styles/v5/$flavor/en.json?key=MY_API_KEY")
+        BaseStyle.Uri("https://api.protomaps.com/styles/v5/$flavor/en.json?key=MY_API_KEY"),
     )
   MaplibreMap(state = themed)
   // #endregion dynamic

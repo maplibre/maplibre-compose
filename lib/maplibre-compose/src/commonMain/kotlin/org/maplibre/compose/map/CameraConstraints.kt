@@ -31,7 +31,7 @@ private constructor(
   public val boundingBox: BoundingBox?,
 ) {
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.minZoom,
     builder.maxZoom,

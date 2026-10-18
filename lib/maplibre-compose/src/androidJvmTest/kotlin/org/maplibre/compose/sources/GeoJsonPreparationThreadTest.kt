@@ -59,8 +59,8 @@ class GeoJsonPreparationThreadTest {
                 if (initial) data else GeoJsonData.JsonString(Empty),
               ) {
                 synchronousTiling = true
-              }
-            )
+              },
+            ),
           )
         if (!initial) {
           binding.awaitGeoJsonUpdates()

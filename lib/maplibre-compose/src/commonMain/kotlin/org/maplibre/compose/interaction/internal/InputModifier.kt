@@ -66,7 +66,7 @@ internal fun Modifier.mapInput(
       RotaryGesture(
         target,
         options.bindings.rotary.copy(
-          enabled = options.bindings.rotary.enabled && options.camera.settings.zoom.enabled
+          enabled = options.bindings.rotary.enabled && options.camera.settings.zoom.enabled,
         ),
         rotaryNotchPixels,
         inputScope,

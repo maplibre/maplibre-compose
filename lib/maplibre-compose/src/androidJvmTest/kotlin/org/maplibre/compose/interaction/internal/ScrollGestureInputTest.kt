@@ -44,7 +44,7 @@ class ScrollGestureInputTest {
               mappings { otherwise(CameraAction.Zoom) }
             }
           }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       try {
@@ -107,7 +107,7 @@ class ScrollGestureInputTest {
               mappings { otherwise(CameraAction.Pan) }
             }
           }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       val map = mapNode()
@@ -148,7 +148,7 @@ class ScrollGestureInputTest {
               }
             }
           }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       val map = mapNode()
@@ -245,7 +245,7 @@ class ScrollGestureInputTest {
                 event.changes.forEach { it.consume() }
             }
           }
-        }
+        },
     ) { target ->
       mainClock.autoAdvance = false
       try {
@@ -293,7 +293,7 @@ class ScrollGestureInputTest {
   @Test
   fun the_scroll_hold_is_as_long_as_its_option_says() =
     fixture.runRecognitionTest(
-      options = InputConfiguration { bindings { scroll { idleDuration = 600.milliseconds } } }
+      options = InputConfiguration { bindings { scroll { idleDuration = 600.milliseconds } } },
     ) { target ->
       mainClock.autoAdvance = false
       try {

@@ -71,7 +71,7 @@ fun WearDemoApp() {
             attributions = state.style.attributions(),
             textStyle =
               MaterialTheme.typography.bodySmall.copy(
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
               ),
             breakWithinAttribution = true,
           )

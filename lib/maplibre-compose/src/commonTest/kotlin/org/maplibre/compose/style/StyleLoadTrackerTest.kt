@@ -14,13 +14,13 @@ class StyleLoadTrackerTest {
       val identity = StyleIdentity.create()
       assertTrue(tracker.loaded(tracker.requestId, identity, baseStyleReady = false))
       assertFalse(
-        if (contentFirst) tracker.reconciled(identity) else tracker.baseStyleReady(identity)
+        if (contentFirst) tracker.reconciled(identity) else tracker.baseStyleReady(identity),
       )
       assertEquals(StylePresentation.Hidden, tracker.presentation)
       assertFalse(tracker.isReady)
 
       assertTrue(
-        if (contentFirst) tracker.baseStyleReady(identity) else tracker.reconciled(identity)
+        if (contentFirst) tracker.baseStyleReady(identity) else tracker.reconciled(identity),
       )
       assertEquals(StylePresentation.Live, tracker.presentation)
       assertTrue(tracker.isReady)

@@ -145,7 +145,7 @@ fun <T> SegmentedRow(
       Text(label, style = MaterialTheme.typography.bodyLarge)
     }
     SingleChoiceSegmentedButtonRow(
-      Modifier.fillMaxWidth().padding(top = if (label != null) 8.dp else 0.dp)
+      Modifier.fillMaxWidth().padding(top = if (label != null) 8.dp else 0.dp),
     ) {
       options.forEachIndexed { index, option ->
         SegmentedButton(

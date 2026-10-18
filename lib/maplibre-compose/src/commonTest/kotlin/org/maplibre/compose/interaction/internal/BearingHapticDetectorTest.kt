@@ -12,7 +12,7 @@ import org.maplibre.compose.interaction.MapInteractions
 class BearingHapticDetectorTest {
   private fun north() =
     BearingHapticDetector(
-      listOf(BearingHapticNotch(BearingTargets.at(0.0), HapticEmphasis.Standard))
+      listOf(BearingHapticNotch(BearingTargets.at(0.0), HapticEmphasis.Standard)),
     )
 
   @Test
@@ -41,7 +41,7 @@ class BearingHapticDetectorTest {
           BearingHapticNotch(BearingTargets.evenlySpaced(24, 32.0), HapticEmphasis.Subtle),
           BearingHapticNotch(BearingTargets.evenlySpaced(4, 32.0), HapticEmphasis.Standard),
           BearingHapticNotch(BearingTargets.at(32.0), HapticEmphasis.Emphasized),
-        )
+        ),
       )
     assertEquals(HapticEmphasis.Emphasized, detector.update(28.0, 34.0, 0.milliseconds))
     assertEquals(HapticEmphasis.Subtle, detector.update(34.0, 49.0, 100.milliseconds))

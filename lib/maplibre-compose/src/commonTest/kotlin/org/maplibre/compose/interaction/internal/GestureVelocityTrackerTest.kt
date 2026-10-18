@@ -25,7 +25,7 @@ class GestureVelocityTrackerTest {
           previousPressed = true,
           isInitiallyConsumed = false,
         )
-        .copy(pressure = 1f, historical = listOf(HistoricalChange(90, Offset(-100f, 0f))))
+        .copy(pressure = 1f, historical = listOf(HistoricalChange(90, Offset(-100f, 0f)))),
     )
     tracker.addPosition(140, Offset(4f, 0f))
     val clean = GestureVelocityTracker()

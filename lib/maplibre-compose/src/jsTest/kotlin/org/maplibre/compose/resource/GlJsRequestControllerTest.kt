@@ -32,8 +32,8 @@ class GlJsRequestControllerTest {
             MapRequestInterceptor(
               rewriteUrl = { request -> request.url.replace("http://", "https://") },
               headers = { mapOf("Authorization" to "Bearer x") },
-            )
-        )
+            ),
+        ),
       )
     val result = controller.transformRequest("http://tiles.example.com/style.json", "Style")
     val dynamic = result.asDynamic()
@@ -57,8 +57,8 @@ class GlJsRequestControllerTest {
                   emptyMap()
                 }
               },
-            )
-        )
+            ),
+        ),
       )
     val result = controller.transformRequest("custom://style.json", "Style")
     val dynamic = result.asDynamic()
@@ -82,7 +82,7 @@ class GlJsRequestControllerTest {
               },
               load = { MapResourceLoad.Bytes(ByteArray(0)) },
             ),
-        )
+        ),
       )
 
     val result = controller.transformRequest("custom://style.json", "Style")
@@ -96,7 +96,7 @@ class GlJsRequestControllerTest {
   fun an_accepted_provider_rewrites_to_the_runtime_protocol() {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     val result = controller.transformRequest("app://style.json", "Style")
     val url = result.asDynamic().url as String
@@ -111,7 +111,7 @@ class GlJsRequestControllerTest {
   fun a_protocol_url_round_trips_sprite_json() {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     val result = controller.transformRequest("app://sprite.json", "SpriteJSON")
     val url = result.asDynamic().url as String
@@ -126,7 +126,7 @@ class GlJsRequestControllerTest {
   fun a_protocol_url_keeps_a_resource_type_with_no_name() {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     val result = controller.transformRequest("app://model.glb", "Model")
     val parsed = controller.parseProtocolUrl(result.asDynamic().url as String)
@@ -144,8 +144,8 @@ class GlJsRequestControllerTest {
             MapResourceProvider(
               accepts = { error("classifier exploded") },
               load = { error("unused") },
-            )
-        )
+            ),
+        ),
       )
     assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Style"))
     controller.close()
@@ -155,11 +155,11 @@ class GlJsRequestControllerTest {
   fun each_runtime_rejects_another_runtimes_protocol_url() {
     val first =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     val second =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     assertNotEquals(first.scheme, second.scheme)
     val foreign = first.protocolUrl("app://style.json", MapResourceKind.Style)
@@ -172,7 +172,7 @@ class GlJsRequestControllerTest {
   fun a_rejected_https_url_is_not_rewritten_to_the_protocol() {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) }),
       )
     assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Tile"))
     controller.close()
@@ -238,7 +238,7 @@ class GlJsRequestControllerTest {
   ): Promise<ProtocolResponse> {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result() }))
+        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result() })),
       )
     val protocolUrl = controller.protocolUrl("app://tile", MapResourceKind.Tile)
     val request = js("({})").unsafeCast<RequestParameters>()

@@ -41,7 +41,7 @@ class StyleFontScaleTest {
             GeoJsonData.Features(
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(0.0, 0.0)))
-              }
+              },
             ),
           )
         suspend fun declare(scale: Float) {
@@ -88,7 +88,7 @@ class StyleFontScaleTest {
 
         fixture.loadStyle(BaseStyle.Empty)
         assertNull(
-          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FontScaleGlobalState)
+          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FontScaleGlobalState),
         )
         fixture.loadStyle(BlackStyle)
         declare(2f)
@@ -104,7 +104,7 @@ class StyleFontScaleTest {
       BaseStyle.Json(
         """{"version":8,"transition":{"duration":0},"sources":{},"layers":[
         {"id":"background","type":"background","paint":{"background-color":"black"}}
-      ]}"""
+      ]}""",
       )
   }
 }

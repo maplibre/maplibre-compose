@@ -18,7 +18,7 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.maximumFps,
     builder.tileLod,
@@ -74,7 +74,7 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
   ) : this(
     builder.tileBorders,
     builder.collisionBoxes,
