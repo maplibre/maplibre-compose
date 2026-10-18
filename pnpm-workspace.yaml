@@ -4,3 +4,6 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+  # wrangler-action runs `pnpm add wrangler`, whose workerd dependency
+  # ships a postinstall. pnpm 12 fails the add unless that script is allowed.
+  workerd: true
