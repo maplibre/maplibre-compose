@@ -10,67 +10,72 @@ url = "https://github.com/XcodesOrg/xcodes/releases/download/2.0.3/xcodes.zip"
 url_api = "https://api.github.com/repos/XcodesOrg/xcodes/releases/assets/469874299"
 
 [[tools."aqua:astral-sh/ruff"]]
-version = "0.16.2"
+version = "0.17.1"
 backend = "aqua:astral-sh/ruff"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-arm64"]
-checksum = "sha256:b2a2a2573455cc33af98f8a8fb49294c02d4e2e4a7f9e81844411f0a57f30318"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.2/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/505191620"
+checksum = "sha256:d3ead1f0ed779e777a034ccd9286be6bd9bd3cdaba732ff9797f8288a283e9e2"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283344"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64"]
-checksum = "sha256:3d2c355e641ceb5b608a158c603768fcc908c5009c56c6e78da7487da033b92a"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.2/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/505191728"
+checksum = "sha256:a293ac937715ae6fb6b64da86761598379e6149f40fbc00fde9ba8a2a562ac65"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283613"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.macos-arm64"]
-checksum = "sha256:fbf6cbc23d254b0bc03a6fb2b1b04efb917fe5ce068d027e735ce7ed65b9bed6"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.2/ruff-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/505191610"
+checksum = "sha256:1c8e6e36538eaa0b996378a20c226403c4ca6369ac24884751b024d3a9530b86"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283324"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.windows-arm64"]
-checksum = "sha256:c709bbb65f5e9a730aa341842836f3c5fd619c305fd0ae8509846edca39e73b0"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.2/ruff-aarch64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/505191613"
+checksum = "sha256:2f8ba07c7b2b8d1f011056968360e99e9ac7f0815e2d02eaab958255e110b1df"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-aarch64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283315"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.windows-x64"]
-checksum = "sha256:84d2c6761bef8a299156bd24559aa1499024041b378dcb5e70ee85f7df12b1af"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.2/ruff-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/505191722"
+checksum = "sha256:a841fb7e59680508b9394bfea32e369b3907cc6620a491c65d8d1f479498db82"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283579"
 provenance = "github-attestations"
 
 [[tools."aqua:dprint/dprint"]]
-version = "0.55.2"
+version = "0.63.0"
 backend = "aqua:dprint/dprint"
 
 [tools."aqua:dprint/dprint"."platforms.linux-arm64"]
-checksum = "sha256:299923f2b56d66756ad2c7c220650c72f26437fd3f48b3fb6c0df664073eb1d1"
-url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-aarch64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041360"
+checksum = "sha256:8dfbf17fc4be97020e51bd47e1370acdb019301295ed539840016671cab33e89"
+url = "https://github.com/dprint/dprint/releases/download/0.63.0/dprint-aarch64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/632125300"
+provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.linux-x64"]
-checksum = "sha256:d7ccde62d789dfb048717252d259e21253e32feffe4cbf2dab9954eeab492219"
-url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-x86_64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041352"
+checksum = "sha256:f58b5d7c13ccd613cfa264f1ae82d4e5db1373f8fe20462bc1126051d111b0ce"
+url = "https://github.com/dprint/dprint/releases/download/0.63.0/dprint-x86_64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/632125303"
+provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.macos-arm64"]
-checksum = "sha256:e9ba8ed7988f3350501a8cf8af92da616cdec8d9d5c831c069293c587311b49d"
-url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-aarch64-apple-darwin.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041350"
+checksum = "sha256:5c0a4a695f9a17754eec0039f28435aedb61e1e1a6b5f448eb098a64e039c857"
+url = "https://github.com/dprint/dprint/releases/download/0.63.0/dprint-aarch64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/632125306"
+provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.windows-arm64"]
-checksum = "sha256:12e8c26abc8c436223e70f5a30a2864001c92fa356a859eb93e06b97ab7dbd12"
-url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041355"
+checksum = "sha256:a9f6d1146bd2a01585f845086df248297d0e958ede700557c13a5b49ec11f552"
+url = "https://github.com/dprint/dprint/releases/download/0.63.0/dprint-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/632125309"
+provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.windows-x64"]
-checksum = "sha256:12e8c26abc8c436223e70f5a30a2864001c92fa356a859eb93e06b97ab7dbd12"
-url = "https://github.com/dprint/dprint/releases/download/0.55.2/dprint-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/477041355"
+checksum = "sha256:a9f6d1146bd2a01585f845086df248297d0e958ede700557c13a5b49ec11f552"
+url = "https://github.com/dprint/dprint/releases/download/0.63.0/dprint-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/632125309"
+provenance = "github-attestations"
 
 [[tools."aqua:facebook/ktfmt"]]
 version = "0.65"
@@ -257,28 +262,28 @@ url = "https://github.com/sargunv/jvl/releases/download/v2026.05.03/jvl-x86_64-p
 url_api = "https://api.github.com/repos/sargunv/jvl/releases/assets/411400578"
 
 [[tools.java]]
-version = "zulu-25.36.15.0"
+version = "zulu-25.36.205.0"
 backend = "core:java"
 
 [tools.java."platforms.linux-arm64"]
-checksum = "sha256:ae04e25b16116ddd0f72cb387742d5122bb29c4b94f0fed08ff2bccc395f9daa"
-url = "https://cdn.azul.com/zulu/bin/zulu25.36.15-ca-jdk25.0.4-linux_aarch64.tar.gz"
+checksum = "sha256:794526507a8f4792bd3dbe010fedb71e8540103b8e6773bf09d1f5e9360d38f8"
+url = "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-linux_aarch64.tar.gz"
 
 [tools.java."platforms.linux-x64"]
-checksum = "sha256:e476f5c98952cb365ca77a814dbe3c74341e71ae76d1a87d1c0a69c7d2b1b2d0"
-url = "https://cdn.azul.com/zulu/bin/zulu25.36.15-ca-jdk25.0.4-linux_x64.tar.gz"
+checksum = "sha256:e11d92589de8fd55616a843e0298ba72348848bd49b675088e930b67538497cb"
+url = "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-linux_x64.tar.gz"
 
 [tools.java."platforms.macos-arm64"]
-checksum = "sha256:c422f22713510992c764a7d577ae4f5add223529ab356993f38f8df2d4b247bd"
-url = "https://cdn.azul.com/zulu/bin/zulu25.36.15-ca-jdk25.0.4-macosx_aarch64.tar.gz"
+checksum = "sha256:c2e610d1689ead4bbd860d1ee8634ffb0b61f3bd62b5573df315ce8fc00bc068"
+url = "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-macosx_aarch64.tar.gz"
 
 [tools.java."platforms.windows-arm64"]
-checksum = "sha256:2e8468229aea447152343fff87dbebe5c339e1fbab143a8f227f6b2f388c0a8c"
-url = "https://cdn.azul.com/zulu/bin/zulu25.36.15-ca-jdk25.0.4-win_aarch64.zip"
+checksum = "sha256:654b92047fcc4e5106f7b73a2f93d9c5fcb399f4658ce4d693228c7acb52e4ad"
+url = "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-win_aarch64.zip"
 
 [tools.java."platforms.windows-x64"]
-checksum = "sha256:a91265f0f0fb40155befe8f1cae7d1a0ae2ab4b7760f52733160d206637b50d1"
-url = "https://cdn.azul.com/zulu/bin/zulu25.36.15-ca-jdk25.0.4-win_x64.zip"
+checksum = "sha256:5e91bc55aaa08750370d60b7030bb79193901ce1e93aba31becbf78c3ade5826"
+url = "https://cdn.azul.com/zulu/bin/zulu25.36.205-ca-jdk25.0.4.1-win_x64.zip"
 
 [[tools.node]]
 version = "26.12.0"
@@ -305,7 +310,8 @@ checksum = "sha256:50efaf01a08c520b4bbe499c09a8c5a5c370002c419c0d9da2c6815d3066a
 url = "https://nodejs.org/dist/v26.12.0/node-v26.12.0-win-x64.zip"
 
 [[tools."npm:playwright"]]
-version = "1.62.1"
+version = "1.64.1"
+aube = { path = ".mise/locks/npm-playwright/1.64.1", digest = "sha256:b8bb6c2f562b2387bdbb9eab0dc940745237adb2e6d7a8b6ff6cd54508cac123" }
 backend = "npm:playwright"
 
 [[tools."npm:wrangler"]]
@@ -342,36 +348,36 @@ url = "https://github.com/astral-sh/python-build-standalone/releases/download/20
 provenance = "github-attestations"
 
 [[tools.swiftformat]]
-version = "0.62.1"
+version = "0.64.0"
 backend = "github:nicklockwood/SwiftFormat"
 
 [tools.swiftformat.options]
 no_app = "true"
 
 [tools.swiftformat."platforms.linux-arm64"]
-checksum = "sha256:374b1975082970ac17c9b307639dbc0a148656434cd612cff06957e279020f34"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat_linux_aarch64.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280453"
+checksum = "sha256:6b53c985b3849be0c9544bf93a378c12aaa761a7225f05f0b9948f827dd7db52"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat_linux_aarch64.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/648824031"
 
 [tools.swiftformat."platforms.linux-x64"]
-checksum = "sha256:61ff55f3581e2144a4ad114831167102c38be853df75c1477d20b40a8e8120aa"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat_linux.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280423"
+checksum = "sha256:599eb5d2d8cf43e1128e79cd72f3bc2fec1b3189c3ac7593fbe732f2568fed36"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat_linux.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/648824032"
 
 [tools.swiftformat."platforms.macos-arm64"]
-checksum = "sha256:7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280411"
+checksum = "sha256:95ea62625d0b898a7af870293311ae6f09e4a3147ecd900593687e4b9ab2fd98"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/648824039"
 
 [tools.swiftformat."platforms.windows-arm64"]
-checksum = "sha256:7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280411"
+checksum = "sha256:95ea62625d0b898a7af870293311ae6f09e4a3147ecd900593687e4b9ab2fd98"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/648824039"
 
 [tools.swiftformat."platforms.windows-x64"]
-checksum = "sha256:7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/469280411"
+checksum = "sha256:95ea62625d0b898a7af870293311ae6f09e4a3147ecd900593687e4b9ab2fd98"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/648824039"
 
 [[tools.zig]]
 version = "0.16.0"

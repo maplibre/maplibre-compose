@@ -622,7 +622,7 @@ def measure(args):
                     key: device("shell", "getprop", key)
                     for key in ("ro.product.model", "ro.build.fingerprint")
                 },
-                "measuredAt": datetime.datetime.now(datetime.timezone.utc).isoformat(
+                "measuredAt": datetime.datetime.now(datetime.UTC).isoformat(
                     timespec="seconds"
                 ),
                 "backfill": manifest["build"]["backfill"] | {"archive": archive_id},

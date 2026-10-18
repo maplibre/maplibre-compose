@@ -355,7 +355,7 @@ def main():
     head, dirty, on_main = checkout()
     # Only the bucket needs a clean commit on main; a directory holds local page data.
     gated = bool(args.bucket)
-    stamp = datetime.datetime.now(datetime.timezone.utc)
+    stamp = datetime.datetime.now(datetime.UTC)
     output = args.output or (
         ROOT
         / "build/benchmarks/publish"
