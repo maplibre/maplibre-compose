@@ -433,6 +433,7 @@ internal class MlnFfiMapSession(
     styleLoadTracker.engineBecameUnavailable()
     // A frame queued behind this release sees the session closing in ensureAttached.
     presentation.release(keepHost = keepHost)
+    viewport.retire()
     val stopping = map.also { map = null }
     try {
       if (stopping != null) {
@@ -573,7 +574,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun applyViewportInsets(map: MapHandle) {
-    val update = viewport.applyInsets(map) { cameraTransitions.cancelAnchor() } ?: return
+    val update = viewport.applyInsets { cameraTransitions.cancelAnchor() } ?: return
     val submitted = map.updateCamera(update).report("apply insets")
     owner.launchOnMain {
       submitted.await()

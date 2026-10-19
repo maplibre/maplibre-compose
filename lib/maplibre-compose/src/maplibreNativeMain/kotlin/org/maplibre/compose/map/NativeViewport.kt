@@ -18,7 +18,6 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
-import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toLatLng
@@ -46,8 +45,21 @@ internal class NativeViewport {
 
   private var snapshot: MapSnapshot? = null
   @Volatile private var geometry = MapViewportGeometry(CameraPosition(), EdgeInsets(), DpSize.Zero)
-  private var projection: MapProjectionHandle? = null
-  private var wrappedProjection: MapProjectionHandle? = null
+  private var map: MapHandle? = null
+  private var cachedProjection: MapProjectionHandle? = null
+  private var cachedWrappedProjection: MapProjectionHandle? = null
+  private val projection: MapProjectionHandle?
+    get() = cachedProjection ?: map?.createProjection()?.also { cachedProjection = it }
+
+  private val wrappedProjection: MapProjectionHandle?
+    get() =
+      if (camera.center.longitude in -180.0..<180.0) null
+      else
+        cachedWrappedProjection
+          ?: map?.createWrappedProjection()?.also {
+            cachedWrappedProjection = it
+          }
+
   private var extents: MapViewportExtents? = null
 
   val generation: ULong
@@ -129,13 +141,13 @@ internal class NativeViewport {
   fun refresh(map: MapHandle) {
     val next = map.getSnapshot()
     if (next.generation == snapshot?.generation) return
-    projection?.close()
-    wrappedProjection?.close()
+    cachedProjection?.close()
+    cachedProjection = null
+    cachedWrappedProjection?.close()
+    cachedWrappedProjection = null
+    this.map = map
     snapshot = next
     geometry = next.viewportGeometry(appliedViewportInsets)
-    projection = map.createProjection()
-    wrappedProjection =
-      if (camera.center.longitude !in -180.0..<180.0) map.createWrappedProjection() else null
     extents = null
   }
 
@@ -150,10 +162,11 @@ internal class NativeViewport {
 
   fun retire() {
     viewportExtents()
-    projection?.close()
-    projection = null
-    wrappedProjection?.close()
-    wrappedProjection = null
+    cachedProjection?.close()
+    cachedProjection = null
+    cachedWrappedProjection?.close()
+    cachedWrappedProjection = null
+    map = null
   }
 
   fun captureRenderPadding() {
@@ -173,12 +186,10 @@ internal class NativeViewport {
   fun cameraForAssignment(position: CameraPosition): CameraPosition =
     insets.cameraForAssignment(position, hasViewport)
 
-  /** On main, with a usable viewport. Reads the current camera from the map's snapshot. */
-  fun applyInsets(map: MapHandle, beforeChange: () -> Unit): CameraUpdate? =
+  /** On main, with a usable viewport. Uses the camera cached by the event drain. */
+  fun applyInsets(beforeChange: () -> Unit): CameraUpdate? =
     insets
-      .apply(beforeChange) {
-        map.getSnapshot().camera.toCameraPosition(appliedViewportInsets)
-      }
+      .apply(beforeChange) { camera }
       ?.let { CameraUpdate(camera = CameraOptions(padding = it.toEdgeInsets())) }
 
   private fun viewportExtents(): MapViewportExtents =
