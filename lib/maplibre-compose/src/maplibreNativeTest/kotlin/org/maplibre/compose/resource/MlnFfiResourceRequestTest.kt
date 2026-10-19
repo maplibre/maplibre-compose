@@ -31,7 +31,7 @@ import org.maplibre.nativeffi.generated.ResourceKind
 import org.maplibre.nativeffi.generated.ResourceLoadingMethod
 import org.maplibre.nativeffi.generated.ResourcePriority
 import org.maplibre.nativeffi.generated.ResourceRange
-import org.maplibre.nativeffi.generated.ResourceRequest
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
 import org.maplibre.nativeffi.generated.ResourceResponse
 import org.maplibre.nativeffi.generated.ResourceResponseStatus
 import org.maplibre.nativeffi.generated.ResourceStoragePolicy
@@ -313,7 +313,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_ffi_request_copies_into_the_load_request() {
     val ffi =
-      ResourceRequest(
+      ResourceRequestInfo(
         requestedUrl = "maplibre://tiles/1/2/3",
         resolvedUrl = "https://tiles.example.com/1/2/3.pbf",
         kind = ResourceKind.TILE,
@@ -345,7 +345,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_load_request_names_the_default_ffi_values() {
     val load =
-      ResourceRequest(
+      ResourceRequestInfo(
           requestedUrl = Url,
           resolvedUrl = Url,
           kind = ResourceKind.STYLE,
@@ -369,7 +369,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_load_request_keeps_unnamed_values_as_their_number() {
     val load =
-      ResourceRequest(
+      ResourceRequestInfo(
           requestedUrl = Url,
           resolvedUrl = Url,
           kind = ResourceKind.STYLE,

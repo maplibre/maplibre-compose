@@ -4,7 +4,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
@@ -13,13 +12,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.mlnffi.MlnFfiLock
-import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.generated.CanonicalTileId
 import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.runtime.CommandCompletion
 
 /**
  * Runs cancellable tile requests for one custom source of one loaded style, and delivers only the
@@ -29,8 +26,8 @@ internal class MlnFfiTileRequestCoordinator<T>(
   name: String,
   private val binding: MlnFfiStyleBinding,
   private val load: suspend (TileCoordinate) -> T,
-  private val deliver: (MapHandle, CanonicalTileId, T) -> Deferred<CommandCompletion>,
-  private val fail: (MapHandle, CanonicalTileId, Throwable) -> Deferred<CommandCompletion>,
+  private val deliver: (MapHandle, CanonicalTileId, T) -> Unit,
+  private val fail: (MapHandle, CanonicalTileId, Throwable) -> Unit,
 ) : AutoCloseable {
   private class Request(val token: Long, val job: Job)
 
@@ -90,12 +87,10 @@ internal class MlnFfiTileRequestCoordinator<T>(
     // Submitted rather than awaited: the worker has nothing left to do with the answer.
     binding.submit(onDropped = { forget(tileId, token) }) { map ->
       if (!forget(tileId, token)) return@submit
-      result
-        .fold(
-          onSuccess = { deliver(map, tileId, it) },
-          onFailure = { fail(map, tileId, it) },
-        )
-        .reportFailure(binding.logger, "answer tile ${tileId.toTileCoordinate()}")
+      result.fold(
+        onSuccess = { deliver(map, tileId, it) },
+        onFailure = { fail(map, tileId, it) },
+      )
     }
   }
 

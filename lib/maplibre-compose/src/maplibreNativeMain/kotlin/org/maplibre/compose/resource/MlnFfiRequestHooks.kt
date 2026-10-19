@@ -17,23 +17,27 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
   // OpenHarmony and the browser FFI decline header transforms; that failure arrives here and leaves
   // the URL transform in place.
   setHttpHeaderTransform(
-      HttpHeaderTransform { kind, url, response ->
-        val mapRequest = MapResourceRequest(url, kind.toCommon())
-        config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
-          GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
+      HttpHeaderTransform(
+        callback = { kind, url, response ->
+          val mapRequest = MapResourceRequest(url, kind.toCommon())
+          config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
+            GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
+          }
         }
-      }
+      )
     )
     .reportFailure(
       config.logger,
       "install the header transform; request interceptor headers are ignored",
     )
   setResourceTransform(
-      ResourceTransform { kind, url, response ->
-        val mapRequest = MapResourceRequest(url, kind.toCommon())
-        val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
-        if (rewritten != url) GeneratedApi.resourceTransformResponseSetUrl(response, rewritten)
-      }
+      ResourceTransform(
+        callback = { kind, url, response ->
+          val mapRequest = MapResourceRequest(url, kind.toCommon())
+          val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
+          if (rewritten != url) GeneratedApi.resourceTransformResponseSetUrl(response, rewritten)
+        }
+      )
     )
     .reportFailure(config.logger, "install the request interceptor's URL transform")
 }

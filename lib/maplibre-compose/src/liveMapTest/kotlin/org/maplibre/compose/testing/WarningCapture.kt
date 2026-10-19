@@ -11,7 +11,7 @@ import org.maplibre.compose.logging.MapLogging
  */
 internal suspend fun <T> captureWarnings(block: suspend (warnings: List<String>) -> T): T {
   val previous = MapLogging.logger
-  val captured = mutableListOf<String>()
+  val captured = RecordingList<String>()
   MapLogging.logger = MapLogger { record ->
     if (record.level >= MapLogLevel.Warning) captured += record.message
     previous?.log(record)

@@ -108,8 +108,7 @@ import org.maplibre.spatialk.geojson.toJson
 
 /** The events [MlnFfiMapSession.handleEvent] consumes. */
 private val HandledMapEvents: RuntimeEventMask =
-  RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE or
-    RuntimeEventMask.MAP_STYLE_LOADED or
+  RuntimeEventMask.MAP_STYLE_LOADED or
     RuntimeEventMask.MAP_IDLE or
     RuntimeEventMask.MAP_SOURCE_CHANGED or
     RuntimeEventMask.MAP_LOADING_FAILED or
@@ -182,7 +181,6 @@ internal class MlnFfiMapSession(
 
   private val cameraTransitions =
     MlnFfiCameraTransitions(
-      logger = { logger },
       postToMain = owner::postToMain,
       drain = owner::drain,
     )
@@ -297,7 +295,7 @@ internal class MlnFfiMapSession(
         ?.let(failures::addCleanupFailure)
       runCatching { detachPresentation() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       runCatching { stopMap() }.exceptionOrNull()?.let(failures::addCleanupFailure)
-      runCatching { map?.cancelTransitions()?.report("cancel camera transitions") }
+      runCatching { map?.discarding?.cancelTransitions() }
         .exceptionOrNull()
         ?.let(failures::addCleanupFailure)
       runCatching { retireOwnerState() }.exceptionOrNull()?.let(failures::addCleanupFailure)
@@ -382,7 +380,7 @@ internal class MlnFfiMapSession(
         runCatching {
           previous?.await()?.getOrThrow()
           pendingAttach?.await()
-          map?.cancelTransitions()?.report("cancel camera transitions")?.await()
+          map?.cancelTransitions()?.await()
           owner.drain()
           viewport.detach()
           presentationActive = false
@@ -839,7 +837,7 @@ internal class MlnFfiMapSession(
       guard = guard,
       fields = update.fields(),
     ) { map, options ->
-      map.updateCamera(
+      map.discarding.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
           camera = update.toCameraOptions(viewport.appliedViewportInsets),
@@ -878,7 +876,7 @@ internal class MlnFfiMapSession(
             unproject = { projection.latLngForPixelUnwrapped(it.toScreenPoint()).toPosition() },
           )
         }
-      map.updateCamera(
+      map.discarding.updateCamera(
         FfiCameraUpdate(
           mode = CameraUpdateMode.EASE,
           camera =
@@ -951,7 +949,7 @@ internal class MlnFfiMapSession(
     guard: CameraCommandGuard? = null,
     anchored: Boolean = false,
     fields: Set<TransitionField> = TransitionField.entries.toSet(),
-    start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
+    start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
     val map = map
@@ -968,9 +966,7 @@ internal class MlnFfiMapSession(
                 // A transition carries no gesture phase of its own, so a gesture that begins
                 // with one marks itself with an empty update first.
                 if (activateGesture(map, it) == GesturePhase.BEGIN) {
-                  map
-                    .updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
-                    .report("begin a gesture")
+                  map.discarding.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
                 }
               }
             },
@@ -1025,7 +1021,7 @@ internal class MlnFfiMapSession(
     if (value.debug.tileTimestamps) options = options or MapDebugOption.TIMESTAMPS
     if (value.debug.collisionBoxes) options = options or MapDebugOption.COLLISION
     if (value.debug.tileParseStatus) options = options or MapDebugOption.PARSE_STATUS
-    setDebugOptions(options).report("set the debug options")
+    discarding.setDebugOptions(options)
     if (projectionChanged) {
       val mode = setProjectionMode(value.cameraProjection.toFfi()).report("set the projection mode")
       // The projection reshapes the viewport without a camera event.
@@ -1202,7 +1198,9 @@ internal class MlnFfiMapSession(
   override fun onGestureStarted(): CameraInputToken =
     lifecycleAuthority.gestureCamera.acquire(this).also { token ->
       // Recognition takes over an existing transition even before the first movement.
-      submitCameraInput(token) { phase -> updateCamera(FfiCameraUpdate(gesturePhase = phase)) }
+      submitCameraInput(token) { phase ->
+        discarding.updateCamera(FfiCameraUpdate(gesturePhase = phase))
+      }
     }
 
   override fun onGestureEnded(token: CameraInputToken) = lifecycleAuthority.postToMain {
@@ -1226,7 +1224,7 @@ internal class MlnFfiMapSession(
       }
       activeGestureToken = null
       gestureBearing = null
-      if (cancelled) map.cancelTransitions().report("cancel camera transitions")
+      if (cancelled) map.discarding.cancelTransitions()
       val last =
         map.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.END)).report("end a gesture")
       gestureEnd = last
@@ -1251,7 +1249,7 @@ internal class MlnFfiMapSession(
   private fun activateGesture(map: MapHandle, token: CameraInputToken): GesturePhase {
     val phase =
       if (activeGestureToken !== token) {
-        map.cancelTransitions().report("cancel camera transitions")
+        map.discarding.cancelTransitions()
         activeGestureToken = token
         gestureBearing = null
         GesturePhase.BEGIN
@@ -1278,7 +1276,7 @@ internal class MlnFfiMapSession(
 
   private fun submitCameraInput(
     gestureToken: CameraInputToken?,
-    command: MapHandle.(GesturePhase) -> Deferred<CommandCompletion>?,
+    command: MapHandle.(GesturePhase) -> Unit,
   ) {
     if (!acceptsGestures) return
     val map = map ?: return
@@ -1287,13 +1285,15 @@ internal class MlnFfiMapSession(
       gestureToken,
       activate = { gestureToken?.let { phase = activateGesture(map, it) } },
     ) {
-      map.command(phase)?.report("move the camera")
+      map.command(phase)
     }
   }
 
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
     submitCameraInput(gestureToken) { phase ->
-      applyCameraDelta(CameraDelta(offset = ScreenPoint(deltaX, deltaY), gesturePhase = phase))
+      discarding.applyCameraDelta(
+        CameraDelta(offset = ScreenPoint(deltaX, deltaY), gesturePhase = phase)
+      )
     }
   }
 
@@ -1309,13 +1309,15 @@ internal class MlnFfiMapSession(
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center),
     ) { map, animation ->
-      map.applyCameraDelta(CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation))
+      map.discarding.applyCameraDelta(
+        CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation)
+      )
     }
   }
 
   override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) {
     submitCameraInput(gestureToken) { phase ->
-      applyCameraDelta(
+      discarding.applyCameraDelta(
         CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), gesturePhase = phase)
       )
     }
@@ -1333,7 +1335,7 @@ internal class MlnFfiMapSession(
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Zoom),
     ) { map, animation ->
-      map.applyCameraDelta(
+      map.discarding.applyCameraDelta(
         CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation)
       )
     }
@@ -1369,10 +1371,10 @@ internal class MlnFfiMapSession(
       val pitch = pitchDelta.takeIf { it != 0.0 }
       if (bearing == null && pitch == null) {
         // Nothing moves, but a gesture boundary still reaches the map.
-        if (phase == GesturePhase.NONE) null
-        else updateCamera(FfiCameraUpdate(gesturePhase = phase))
+        if (phase != GesturePhase.NONE)
+          discarding.updateCamera(FfiCameraUpdate(gesturePhase = phase))
       } else {
-        applyCameraDelta(
+        discarding.applyCameraDelta(
           CameraDelta(
             bearing = bearing,
             pitch = pitch,
@@ -1399,7 +1401,7 @@ internal class MlnFfiMapSession(
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Bearing),
     ) { map, animation ->
-      map.updateCamera(
+      map.discarding.updateCamera(
         FfiCameraUpdate(
           mode = CameraUpdateMode.EASE,
           camera = CameraOptions(bearing = bearing),
@@ -1422,7 +1424,7 @@ internal class MlnFfiMapSession(
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Bearing, TransitionField.Pitch),
     ) { map, animation ->
-      map.applyCameraDelta(
+      map.discarding.applyCameraDelta(
         CameraDelta(
           bearing = bearingDelta.takeIf { it != 0.0 },
           pitch = pitchDelta.takeIf { it != 0.0 },
@@ -1439,7 +1441,7 @@ internal class MlnFfiMapSession(
 
   override fun stopCameraMovement(guard: CameraCommandGuard) {
     if (!guard.isValid()) return
-    map?.cancelTransitions()?.report("cancel camera transitions")
+    map?.discarding?.cancelTransitions()
   }
 
   private fun <T> Deferred<T>.report(what: String): Deferred<T> = reportFailure(logger, what)

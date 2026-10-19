@@ -22,11 +22,11 @@ dependencyResolutionManagement {
   repositories {
     exclusiveContent {
       forRepository {
-        maven {
-          url =
-            uri(
-              "/Users/sargunv/orca/workspaces/maplibre-native-ffi/move-execution-into-the-native-core-and-generate/build/packages/kotlin/maven-local"
-            )
+        val localRepository = providers.gradleProperty("maplibre.ffi.repository")
+        if (localRepository.isPresent) {
+          maven { url = uri(localRepository.get()) }
+        } else {
+          mavenLocal()
         }
       }
       filter { includeGroup("org.maplibre.nativeffi") }

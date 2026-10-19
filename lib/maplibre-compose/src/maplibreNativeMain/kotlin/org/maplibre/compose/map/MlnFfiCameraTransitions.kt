@@ -6,15 +6,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Deferred
-import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.nativeffi.generated.AnimationOptions
 import org.maplibre.nativeffi.generated.CameraTransitionEnd
 import org.maplibre.nativeffi.generated.CameraTransitionHandler
 import org.maplibre.nativeffi.generated.CameraTransitionOutcome
 import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.runtime.CommandCompletion
 
 /**
  * Starts camera transitions that resume their caller when native reports their end, and keeps the
@@ -25,7 +21,6 @@ import org.maplibre.nativeffi.runtime.CommandCompletion
  * resumes, so camera state shows where the transition ended.
  */
 internal class MlnFfiCameraTransitions(
-  private val logger: () -> MapLog?,
   private val postToMain: (action: () -> Unit) -> Unit,
   private val drain: () -> Unit,
 ) {
@@ -65,7 +60,7 @@ internal class MlnFfiCameraTransitions(
      * so a later transition of any of them stops the anchored one.
      */
     fields: Set<Field> = Field.entries.toSet(),
-    start: (MapHandle, AnimationOptions) -> Deferred<CommandCompletion>,
+    start: (MapHandle, AnimationOptions) -> Unit,
   ) {
     // Cancellation while this waits for the map must not start a native transition.
     if (!continuation.isActive) return
@@ -76,16 +71,15 @@ internal class MlnFfiCameraTransitions(
     val transition = Transition(++nextId, map, continuation)
     try {
       start(
-          map,
-          animation.copy(
-            transitionId = transition.id,
-            endHandler =
-              CameraTransitionHandler { end ->
-                postToMain { transition.transitionEnded(end) }
-              },
-          ),
-        )
-        .reportFailure(logger(), "start a camera transition")
+        map,
+        animation.copy(
+          transitionId = transition.id,
+          endHandler =
+            CameraTransitionHandler { end ->
+              postToMain { transition.transitionEnded(end) }
+            },
+        ),
+      )
     } catch (error: Throwable) {
       // A rejected command never runs its end handler.
       if (continuation.isActive) continuation.resumeWithException(error)
@@ -105,8 +99,6 @@ internal class MlnFfiCameraTransitions(
   fun cancelAnchor() {
     val current = anchor.also { anchor = null } ?: return
     current.transition.continuation.cancel(CancellationException("The anchor viewport changed"))
-    current.transition.map
-      .cancelCameraTransition(current.transition.id)
-      .reportFailure(logger(), "cancel the anchored camera transition")
+    current.transition.map.discarding.cancelCameraTransition(current.transition.id)
   }
 }

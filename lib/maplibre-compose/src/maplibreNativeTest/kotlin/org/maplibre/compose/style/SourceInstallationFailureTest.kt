@@ -66,8 +66,10 @@ class SourceInstallationFailureTest {
         val corners = native.mapForTest.getImageSourceCoordinates("image").await()
         assertEquals(changedBounds.topLeft.latitude, corners.first().latitude)
         assertEquals(changedBounds.topLeft.longitude, corners.first().longitude)
-        fixture.pumpUntil("the rejected URL warning") { warnings.any { "rejected" in it } }
-        assertTrue(warnings.any { "rejected" in it })
+        fixture.pumpUntil("the rejected URL warning") {
+          warnings.any { "discarded command failed" in it }
+        }
+        assertTrue(warnings.any { "discarded command failed" in it })
         val beforePixels = warnings.size
         installation.update(initial)
         val restored = native.mapForTest.getImageSourceCoordinates("image").await()
@@ -104,9 +106,9 @@ class SourceInstallationFailureTest {
           installation.update(next)
           assertNull(binding.getSource(initial.id))
           fixture.pumpUntil("the rejected GeoJSON URL warning") {
-            warnings.any { "rejected" in it }
+            warnings.any { "discarded command failed" in it }
           }
-          assertTrue(warnings.any { "rejected" in it })
+          assertTrue(warnings.any { "discarded command failed" in it })
           assertEquals(next, installation.definition)
           binding.addSource(initial)
           installation.update(initial)

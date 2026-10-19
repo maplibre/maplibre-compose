@@ -13,7 +13,6 @@ import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.failed
-import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.use
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
@@ -205,9 +204,7 @@ private class NativeSnapshotterAdapter(
     // after it observes the new size when it completes.
     if (current.extent != extent) {
       current.extent = extent
-      current.session
-        .resize(extent.toFfiExtent())
-        .reportFailure(owner.options.logger, "resize the snapshot target")
+      current.session.discarding.resize(extent.toFfiExtent())
     }
     val moved =
       current.map

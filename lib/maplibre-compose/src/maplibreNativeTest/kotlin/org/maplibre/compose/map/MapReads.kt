@@ -57,7 +57,7 @@ internal fun MapHandle.layerProperty(layerId: String, name: String): ByteArray? 
   getStyleLayerProperty(layerId, name).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.layerFilter(layerId: String): ByteArray? =
-  getStyleLayerFilter(layerId).let { completion -> runBlocking { completion.await() } }
+  getStyleLayerProperty(layerId, "filter").let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.layerMinZoom(layerId: String): Double =
   checkNotNull(styleLayer(layerId)).minZoom

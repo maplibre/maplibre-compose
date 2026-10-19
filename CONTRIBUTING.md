@@ -39,6 +39,12 @@ JS that Gradle builds automatically; see the
 [patch workflow](patches/maplibre-gl-js/README.md) to change it. The
 [benchmark guide](benchmarks/README.md) covers performance measurements.
 
+For a local FFI build, publish its Kotlin artifacts to a Maven repository and
+pass `-Pmaplibre.ffi.repository=<repository>` to Gradle. For mise tasks, set
+`ORG_GRADLE_PROJECT_maplibre.ffi.repository` in the environment with `env`. The
+FFI dependencies resolve from `mavenLocal()` when the property is unset. Match
+`maplibre-nativeFfi` in `gradle/libs.versions.toml` to the published version.
+
 ## Check changes by hand
 
 CI tests the AWT desktop host. For desktop bridge changes, also run

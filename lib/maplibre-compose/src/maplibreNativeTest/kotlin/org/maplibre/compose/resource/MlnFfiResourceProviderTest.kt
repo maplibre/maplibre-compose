@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 import org.maplibre.nativeffi.generated.ResourceKind
 import org.maplibre.nativeffi.generated.ResourceLoadingMethod
 import org.maplibre.nativeffi.generated.ResourcePriority
-import org.maplibre.nativeffi.generated.ResourceRequest
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
 import org.maplibre.nativeffi.generated.ResourceStoragePolicy
 import org.maplibre.nativeffi.generated.ResourceUsage
 
@@ -116,8 +116,8 @@ class MlnFfiResourceProviderTest {
     )
   }
 
-  private fun request(url: String): ResourceRequest =
-    ResourceRequest(
+  private fun request(url: String): ResourceRequestInfo =
+    ResourceRequestInfo(
       requestedUrl = url,
       resolvedUrl = url,
       kind = ResourceKind.STYLE,

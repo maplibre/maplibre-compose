@@ -32,8 +32,7 @@ internal actual suspend fun MapFixture.readLayerProperty(
     else ->
       state
         .withPlatformMap {
-          if (name == "filter") map.getStyleLayerFilter(layerId)
-          else map.getStyleLayerProperty(layerId, name)
+          map.getStyleLayerProperty(layerId, name)
         }
         .await()
         ?.let { Json.parseToJsonElement(it.decodeToString()) }

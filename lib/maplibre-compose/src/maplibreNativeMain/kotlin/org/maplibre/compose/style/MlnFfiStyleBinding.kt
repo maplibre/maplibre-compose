@@ -29,7 +29,6 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.failureMessage
-import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -65,6 +64,7 @@ import org.maplibre.nativeffi.generated.GeojsonSourceDataHandle
 import org.maplibre.nativeffi.generated.GeojsonSourceOptions
 import org.maplibre.nativeffi.generated.ImageContent
 import org.maplibre.nativeffi.generated.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.generated.MapDiscarding
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.RenderSessionHandle
 import org.maplibre.nativeffi.generated.SourceFeatureQueryOptions
@@ -115,8 +115,8 @@ internal class LoadedStyleContents(
 /**
  * [StyleBinding] for one loaded style in a MapLibre Native map.
  *
- * Commands and ordered queries are submitted on main. Commands report completion failures on main;
- * GeoJSON and custom tile preparation stay on workers.
+ * Commands and ordered queries are submitted on main. Structural failures are delivered on main;
+ * native logs discarded writes. GeoJSON and custom tile preparation stay on workers.
  */
 internal open class MlnFfiStyleBinding(
   private val map: MapHandle,
@@ -176,16 +176,11 @@ internal open class MlnFfiStyleBinding(
 
   /** Submits inline on main; failures are delivered on main through the completion. */
   @OptIn(ExperimentalCoroutinesApi::class)
-  private fun write(
-    target: String = "The style",
-    value: JsonElement? = null,
-    onFailure: ((StyleMutationException) -> Unit)? = null,
-    start: (MapHandle) -> Deferred<CommandCompletion>,
-  ) {
+  private fun structuralWrite(start: (MapHandle) -> Deferred<CommandCompletion>) {
     if (!isLoaded) return
+    val onFailure = structuralFailure()
     fun rejected(error: StyleMutationException) {
-      if (!isLoaded) return
-      if (onFailure != null) onFailure(error) else reportRejectedWrite(target, value, error)
+      if (isLoaded) onFailure(error)
     }
     val completion =
       try {
@@ -208,6 +203,19 @@ internal open class MlnFfiStyleBinding(
               }
         }
       }
+    }
+  }
+
+  private inline fun write(
+    target: String = "The style",
+    value: JsonElement? = null,
+    start: (MapDiscarding) -> Unit,
+  ) {
+    if (!isLoaded) return
+    try {
+      start(map.discarding)
+    } catch (error: MaplibreException) {
+      reportRejectedWrite(target, value, StyleMutationException(error.message, error))
     }
   }
 
@@ -236,11 +244,11 @@ internal open class MlnFfiStyleBinding(
   fun commandGroup(action: () -> Unit) {
     requireCurrent()
     revision++
-    map.beginCommandGroup().reportFailure(logger, "begin style command group")
+    map.discarding.beginCommandGroup()
     try {
       action()
     } finally {
-      map.endCommandGroup().reportFailure(logger, "end style command group")
+      map.discarding.endCommandGroup()
     }
   }
 
@@ -380,7 +388,7 @@ internal open class MlnFfiStyleBinding(
    * JSON. Wraps a refusal the way [addSource] does.
    */
   fun addSourceWith(sourceId: String, add: (MapHandle) -> Deferred<CommandCompletion>): Boolean {
-    write(onFailure = structuralFailure(), start = add)
+    structuralWrite(add)
     return true
   }
 
@@ -401,13 +409,15 @@ internal open class MlnFfiStyleBinding(
         name = "maplibre-custom-geometry-$sourceId",
         binding = this,
         load = { tile -> provider.loadTile(tile).toJson().encodeToByteArray() },
-        deliver = { map, tile, data -> map.setCustomGeometrySourceTileData(sourceId, tile, data) },
+        deliver = { map, tile, data ->
+          map.discarding.setCustomGeometrySourceTileData(sourceId, tile, data)
+        },
         fail = { map, tile, error ->
           logger?.e(error) {
             "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
           }
           customTileFailed(error)
-          map.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
+          map.discarding.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
         },
       )
     return installCoordinator(sourceId, coordinator) { map ->
@@ -459,10 +469,12 @@ internal open class MlnFfiStyleBinding(
             throw error
           }
         },
-        deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
+        deliver = { map, tile, data ->
+          map.discarding.setCustomMvtVectorSourceTileData(sourceId, tile, data)
+        },
         fail = { map, tile, error ->
           customTileFailed(error)
-          map.setCustomMvtVectorSourceTileError(
+          map.discarding.setCustomMvtVectorSourceTileError(
             sourceId,
             tile,
             error.message ?: "Tile loading failed",
@@ -831,7 +843,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
-    write(onFailure = structuralFailure()) {
+    structuralWrite {
       it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
     }
     return true
@@ -851,86 +863,25 @@ internal open class MlnFfiStyleBinding(
     value: JsonElement,
     kind: LayerPropertyKind,
   ) {
-    val start = layerPropertyCommand(layerId, name, value, kind)
-    write("Layer '$layerId' property '$name'", value, start = start)
+    write("Layer '$layerId' property '$name'", value) {
+      it.setStyleLayerProperty(layerId, name, value.toJsonBytes())
+    }
   }
 
-  /**
-   * Submits every write without waiting between them, so a revision costs one round trip rather
-   * than one per write. A rejection is reported when it arrives, which the batch contract allows.
-   */
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     writes.forEach { change ->
-      try {
-        write(
-          onFailure = { reportRejectedWrite(change, it) },
-          start = layerPropertyCommand(change.layerId, change.name, change.value, change.kind),
-        )
-      } catch (error: StyleMutationException) {
-        reportRejectedWrite(change, error)
-      }
+      setLayerProperty(change.layerId, change.name, change.value, change.kind)
     }
-  }
-
-  private fun layerPropertyCommand(
-    layerId: String,
-    name: String,
-    value: JsonElement,
-    kind: LayerPropertyKind,
-  ): (MapHandle) -> Deferred<CommandCompletion> {
-    if (kind == LayerPropertyKind.Root && name == "filter") {
-      val filter = value.toJsonBytes()
-      return { map -> map.setStyleLayerFilter(layerId, filter) }
-    }
-    if (kind == LayerPropertyKind.Root) {
-      when (name) {
-        "source" -> {
-          val sourceId = value.requireRootString(layerId, name)
-          return { map -> map.setStyleLayerSourceId(layerId, sourceId) }
-        }
-        "source-layer" -> {
-          val sourceLayer = value.requireRootString(layerId, name)
-          return { map -> map.setStyleLayerSourceLayer(layerId, sourceLayer) }
-        }
-        "minzoom" -> {
-          val zoom = value.requireRootNumber(layerId, name)
-          return { map -> map.setStyleLayerMinZoom(layerId, zoom) }
-        }
-        "maxzoom" -> {
-          val zoom = value.requireRootNumber(layerId, name)
-          return { map -> map.setStyleLayerMaxZoom(layerId, zoom) }
-        }
-      }
-    }
-    val bytes = value.toJsonBytes()
-    return { map -> map.setStyleLayerProperty(layerId, name, bytes) }
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    write("Layer '$layerId' filter", filter) {
-      it.setStyleLayerFilter(layerId, filter.toJsonBytes())
-    }
+    setLayerProperty(layerId, "filter", filter, LayerPropertyKind.Root)
   }
 
   override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
     when (name) {
       "id" -> query { it.getStyleLayer(layerId) }?.id?.let(::JsonPrimitive)
       "type" -> query { it.getStyleLayer(layerId) }?.type?.let(::JsonPrimitive)
-      "source" ->
-        query { it.getStyleLayer(layerId) }
-          ?.sourceId
-          ?.takeIf(String::isNotEmpty)
-          ?.let(::JsonPrimitive)
-      "source-layer" ->
-        query { it.getStyleLayer(layerId) }
-          ?.sourceLayer
-          ?.takeIf(String::isNotEmpty)
-          ?.let(::JsonPrimitive)
-      "minzoom" ->
-        query { it.getStyleLayer(layerId) }?.minZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "maxzoom" ->
-        query { it.getStyleLayer(layerId) }?.maxZoom?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "filter" -> query { it.getStyleLayerFilter(layerId) }?.toJsonElement()
       else -> query { it.getStyleLayerProperty(layerId, name) }?.toJsonElement()
     }
 
@@ -1058,14 +1009,6 @@ internal open class MlnFfiStyleBinding(
       )
   }
 }
-
-private fun JsonElement.requireRootString(layerId: String, name: String): String =
-  (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a string", null)
-
-private fun JsonElement.requireRootNumber(layerId: String, name: String): Double =
-  (this as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
-    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a number", null)
 
 /** The same options that the definition writes into source JSON, as the typed adder takes them. */
 private fun GeoJsonOptions.toFfiOptions(): GeojsonSourceOptions =

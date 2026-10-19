@@ -202,9 +202,9 @@ class UnsupportedLayerPropertyTest {
         )
       }
       fixture.pumpUntil("the rejected property warning") {
-        warnings().any { "labels" in it && "text-rotation-alignment" in it }
+        warnings().any { "discarded command failed" in it }
       }
-      assertTrue(warnings().any { "labels" in it && "text-rotation-alignment" in it })
+      assertTrue(warnings().any { "discarded command failed" in it })
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
@@ -246,7 +246,9 @@ class UnsupportedLayerPropertyTest {
     }
   }
 
-  private fun warnings(): List<String> = Captured.filter { it.startsWith("Layer ") }
+  private fun warnings(): List<String> = Captured.filter {
+    it.startsWith("Layer ") || it.startsWith("discarded command failed")
+  }
 
   private fun addSource(style: MlnFfiStyleBinding): GeoJsonSource =
     GeoJsonSource(

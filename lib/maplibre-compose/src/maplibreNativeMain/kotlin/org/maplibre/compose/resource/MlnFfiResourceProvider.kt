@@ -22,9 +22,9 @@ import org.maplibre.nativeffi.generated.ResourceErrorReason
 import org.maplibre.nativeffi.generated.ResourceLoadingMethod
 import org.maplibre.nativeffi.generated.ResourcePriority
 import org.maplibre.nativeffi.generated.ResourceProviderDecision
-import org.maplibre.nativeffi.generated.ResourceRequest
 import org.maplibre.nativeffi.generated.ResourceRequestCancelHandler
 import org.maplibre.nativeffi.generated.ResourceRequestHandle
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
 import org.maplibre.nativeffi.generated.ResourceResponse
 import org.maplibre.nativeffi.generated.ResourceResponseStatus
 import org.maplibre.nativeffi.generated.ResourceStoragePolicy
@@ -83,7 +83,10 @@ internal class MlnFfiResourceProvider(
     )
 
   /** The runtime's resource provider callback. Runs on MapLibre's network threads. */
-  fun handle(request: ResourceRequest, handle: ResourceRequestHandle): ResourceProviderDecision {
+  fun handle(
+    request: ResourceRequestInfo,
+    handle: ResourceRequestHandle,
+  ): ResourceProviderDecision {
     return when (val route = config.nativeRoute(request)) {
       is NativeResourceRoute.Load -> {
         takeUser(FfiResourceRequest(handle), route.request, route.provider)
@@ -320,7 +323,7 @@ internal sealed interface NativeResourceRoute {
 }
 
 /** Chooses the loader for [request]. */
-internal fun MapResourceConfig.nativeRoute(request: ResourceRequest): NativeResourceRoute {
+internal fun MapResourceConfig.nativeRoute(request: ResourceRequestInfo): NativeResourceRoute {
   val incoming = MapResourceRequest(request.resolvedUrl.orEmpty(), request.kind.toCommon())
   return when (val route = route(incoming)) {
     is MapResourceRoute.Load ->
@@ -365,7 +368,7 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 
 /** Copies the FFI request into the request a [MapResourceProvider] loads, field for field. */
-internal fun ResourceRequest.toLoadRequest(
+internal fun ResourceRequestInfo.toLoadRequest(
   url: String = resolvedUrl.orEmpty()
 ): MapResourceLoadRequest =
   MapResourceLoadRequest(

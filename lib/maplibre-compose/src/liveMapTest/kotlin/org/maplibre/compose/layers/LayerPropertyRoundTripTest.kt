@@ -141,12 +141,7 @@ class LayerPropertyRoundTripTest {
       layer.root("filter", JsonNull)
       style.run { installation.update(layer.definition()) }
       val cleared = fixture.readLayerProperty(layer.id, "filter")
-      // Native represents the default as an always-true filter; GL JS removes the expression.
-      if (mapLibreFlavor == MapLibreFlavor.GlJs) {
-        assertTrue(cleared == null || cleared == JsonNull, "cleared filter: $cleared")
-      } else {
-        assertEquals(JsonPrimitive(true), cleared)
-      }
+      assertTrue(cleared == null || cleared == JsonNull, "cleared filter: $cleared")
       assertEquals(emptyList(), fixture.errors)
     }
   }
