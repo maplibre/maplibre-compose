@@ -30,6 +30,7 @@ import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.error.InvalidArgumentException
+import org.maplibre.nativeffi.error.InvalidStateException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
 import org.maplibre.nativeffi.generated.EglContextDescriptor
@@ -55,6 +56,7 @@ import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
 import org.maplibre.nativeffi.generated.RenderSessionAttachment
 import org.maplibre.nativeffi.generated.RenderSessionCapabilityFlag
 import org.maplibre.nativeffi.generated.RenderSessionHandle
+import org.maplibre.nativeffi.generated.RenderSessionState
 import org.maplibre.nativeffi.generated.VulkanBorrowedTexture
 import org.maplibre.nativeffi.generated.VulkanBorrowedTextureDescriptor
 import org.maplibre.nativeffi.generated.VulkanContextDescriptor
@@ -185,8 +187,15 @@ internal class NativePresentation(
           await(closing, closing.detach())
           true
         } catch (error: Throwable) {
-          failure = error
-          runCatching { closing.abandon() }.onFailure(error::addSuppressed).isSuccess
+          val targetLost =
+            error is InvalidStateException &&
+              closing.getSnapshot().state == RenderSessionState.TARGET_LOST
+          if (!targetLost) failure = error
+          runCatching { closing.abandon() }
+            .onFailure { abandoned ->
+              failure?.addSuppressed(abandoned) ?: run { failure = abandoned }
+            }
+            .isSuccess
         }
       if (!retired) {
         // Neither detach nor abandon took, so native retires the session once it can.
