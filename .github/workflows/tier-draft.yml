@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 25
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: useblacksmith/checkout@v1 # v7.0.1
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           persist-credentials: false
           # The docs versions file is generated from the release tags.
@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 20
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: useblacksmith/checkout@v1 # v7.0.1
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
@@ -130,7 +130,7 @@ jobs:
           && github.event.inputs.secrets != 'false')
         }}
     steps:
-      - uses: useblacksmith/checkout@v1 # v7.0.1
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           fetch-depth: 0
           persist-credentials: false
