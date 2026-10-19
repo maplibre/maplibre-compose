@@ -188,7 +188,8 @@ internal class NativePresentation(
       var failure: Throwable? = null
       val retired =
         try {
-          await(closing, closing.detach())
+          if (closing.getSnapshot().state != RenderSessionState.ABANDONED)
+            await(closing, closing.detach())
           true
         } catch (error: Throwable) {
           val targetLost =
@@ -223,9 +224,12 @@ internal class NativePresentation(
     private fun requestRelease() {
       if (released.isCompleted) return
       releaseRequested = true
-      host.completeConsumerAccess()
-      // Rejection means the host is shutting down. Its onSurfaceLost still owns this release.
-      host.enqueueRenderer { release() }
+      try {
+        host.completeConsumerAccess()
+      } finally {
+        // Rejection means the host is shutting down. Its onSurfaceLost still owns this release.
+        host.enqueueRenderer { release() }
+      }
     }
 
     suspend fun releaseAndAwait() {
@@ -294,9 +298,15 @@ internal class NativePresentation(
       val current = rendererAttachment?.takeIf { it.host === session } ?: return
       current
     }
-    attachment.host.completeConsumerAccess()
-    attachment.host.withRendererAccess { attachment.release().getOrThrow() }
-    stateLock.withLock { if (rendererAttachment === attachment) rendererAttachment = null }
+    try {
+      attachment.host.completeConsumerAccess()
+    } finally {
+      try {
+        attachment.host.withRendererAccess { attachment.release().getOrThrow() }
+      } finally {
+        stateLock.withLock { if (rendererAttachment === attachment) rendererAttachment = null }
+      }
+    }
   }
 
   suspend fun resume() {
@@ -412,7 +422,13 @@ internal class NativePresentation(
           acquired.release()
           throw error
         }
-        frame.releaseAfterReads = { acquired.release() }
+        frame.releaseAfterReads = { consumerCompleted ->
+          if (!consumerCompleted)
+            attachment.host.withRendererAccess {
+              if (attachment.session === session) session.abandon()
+            }
+          acquired.release()
+        }
         attachment.host.requestFrame()
       }
     } catch (error: MaplibreException) {

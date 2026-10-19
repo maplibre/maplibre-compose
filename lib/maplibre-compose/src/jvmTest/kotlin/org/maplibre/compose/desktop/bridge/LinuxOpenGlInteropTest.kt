@@ -10,6 +10,7 @@ import java.lang.invoke.MethodHandles
 import java.nio.file.Files
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -79,15 +80,88 @@ import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
+import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiSurfaceController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 
 class LinuxOpenGlInteropTest {
+
+  @Test
+  fun `losing the consumer context during surface loss or release closes the renderer`() =
+    onLinux("the OpenGL consumer bridge exists only on Linux") {
+      for (releasePresentation in listOf(false, true)) {
+        EglTestContext.create().use { egl ->
+          val presentationHost = EglPresentationHost(egl)
+          val host = LinuxOpenGlMapHost(presentationHost.host, packagedProducer())
+          val rendererThread = host.withRendererAccess { Thread.currentThread() }
+          try {
+            InteropMap(host).use { map ->
+              val frame = egl.withCurrent { map.renderStyle(FirstStyle, FirstExtent) }
+              assertNear(
+                FirstPixel,
+                egl.withCurrent { egl.drawAndRead(host, frame) },
+                "frame before context loss",
+              )
+              presentationHost.contextAvailable = false
+              if (releasePresentation) map.releasePresentation()
+              // close loses the surface while the adapter can no longer make its context current.
+            }
+          } finally {
+            host.close()
+          }
+          assertFalse(host.enqueueRenderer { error("The renderer is closed") })
+          rendererThread.join(TestTimeout.inWholeMilliseconds)
+          assertFalse(rendererThread.isAlive, "The map renderer thread survived surface loss")
+        }
+      }
+    }
+
+  @Test
+  fun `a consumer completion exception still closes the host and renderer thread`() =
+    onLinux("the OpenGL consumer bridge exists only on Linux") {
+      var completions = 0
+      val presentationHost =
+        OpenGlPresentationHost(
+          "a failed context acquisition",
+          {
+            completions++
+            error("consumer completion failed")
+          },
+          { it.run() },
+        )
+      val host = LinuxOpenGlMapHost(presentationHost, packagedProducer())
+      val rendererThread = host.withRendererAccess { Thread.currentThread() }
+      val renderer =
+        object : MlnFfiMapRenderer {
+          override val backend = host.backends.producer
+
+          override fun render(
+            host: MlnFfiMapHostSession,
+            frame: MlnFfiMapFrame,
+            captureProjection: Boolean,
+          ): MlnFfiFrameResult = error("This surface never renders")
+
+          override fun onSurfaceLost(session: MlnFfiMapHostSession) =
+            session.completeConsumerAccess()
+
+          override fun close() = Unit
+        }
+      val controller = MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(host), null)
+      controller.attach {}
+      controller.close()
+      assertTrue(completions >= 2, "Both surface loss and host close must try completion")
+      assertFalse(host.enqueueRenderer { error("The renderer is closed") })
+      rendererThread.join(TestTimeout.inWholeMilliseconds)
+      assertFalse(rendererThread.isAlive, "The renderer thread survived a completion failure")
+    }
 
   @Test
   fun `an inherited GL error does not poison the first memory import`() =
@@ -216,6 +290,7 @@ class LinuxOpenGlInteropTest {
   private class EglPresentationHost(egl: EglTestContext) {
     private val ownerThread = Thread.currentThread()
     private var context = egl.asComposeContext()
+    var contextAvailable = true
 
     val host = OpenGlPresentationHost("the test EGL OpenGL context", { context }, ::runOnGpuThread)
 
@@ -232,7 +307,7 @@ class LinuxOpenGlInteropTest {
 
     private fun EglTestContext.asComposeContext() =
       OpenGlComposeGpuContext(directContext) { action ->
-        withCurrent { action.run() }
+        if (contextAvailable) withCurrent { action.run() }
       }
   }
 
@@ -363,6 +438,8 @@ class LinuxOpenGlInteropTest {
         host.releaseFrame(frame)
       }
     }
+
+    fun releasePresentation() = runBlocking { renderer.presentation.release() }
 
     override fun close() {
       renderer.onSurfaceLost(hostSession)

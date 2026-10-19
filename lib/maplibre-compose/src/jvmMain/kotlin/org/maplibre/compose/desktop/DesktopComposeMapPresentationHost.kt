@@ -117,7 +117,7 @@ internal class OpenGlPresentationHost(
 
   override fun <T> withContext(action: (OpenGlComposeGpuContext) -> T): T? =
     super.withContext { context ->
-      context.withCurrent(description) {
+      context.withCurrent {
         ensureCapabilities()
         action(context)
       }
@@ -142,17 +142,17 @@ internal class AngleD3D11PresentationHost(
 
   override fun <T> withContext(action: (OpenGlComposeGpuContext) -> T): T? =
     super.withContext { context ->
-      context.withCurrent(description) {
+      context.withCurrent {
         check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
         action(context)
       }
     }
 }
 
-private fun <T> OpenGlComposeGpuContext.withCurrent(description: String, action: () -> T): T {
+private fun <T> OpenGlComposeGpuContext.withCurrent(action: () -> T): T? {
   var result: Result<T>? = null
   withContextCurrent { result = runCatching(action) }
-  return checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()
+  return result?.getOrThrow()
 }
 
 /** Rejects a call to [factory] on an operating system other than [required]. */

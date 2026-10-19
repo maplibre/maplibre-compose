@@ -43,7 +43,8 @@ public class OpenGlComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
   override val skiaContext: DirectContext,
   /**
-   * Runs [Runnable] with this context current on the calling thread.
+   * Runs [Runnable] with this context current on the calling thread, or skips it when the context
+   * is unavailable during surface loss.
    *
    * Scoped rather than a bare `makeCurrent`, because a host may have to hold a lock on its drawing
    * surface for as long as the context is current. Must run synchronously, be safe to nest, and

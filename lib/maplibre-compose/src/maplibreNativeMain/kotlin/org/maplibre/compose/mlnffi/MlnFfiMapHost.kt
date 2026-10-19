@@ -25,8 +25,11 @@ internal data class MlnFfiMapDestination(
  * is drawn or the host closes, including across resize.
  */
 internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget) {
-  /** Native ownership, transferred to the host after rendering and released after its GPU reads. */
-  var releaseAfterReads: (() -> Unit)? = null
+  /**
+   * Native ownership, transferred to the host after rendering. The argument reports whether the
+   * consumer finished its GPU reads; false abandons the session before releasing the frame.
+   */
+  var releaseAfterReads: ((consumerCompleted: Boolean) -> Unit)? = null
 }
 
 /** The explicit outcome of asking a host for a frame. */
@@ -107,7 +110,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
 
   /** Releases ownership that was not transferred to the consumer, including on failure. */
   fun releaseFrame(frame: MlnFfiMapFrame) {
-    frame.releaseAfterReads?.invoke()
+    frame.releaseAfterReads?.invoke(true)
     frame.releaseAfterReads = null
   }
 

@@ -88,7 +88,12 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
   }
 
   final override fun completeConsumerAccess() {
-    withPreparedContext {} ?: presentationHost.onGpuThread { frameCompletion.abandon() }
+    var completed = false
+    try {
+      completed = withPreparedContext {} != null
+    } finally {
+      if (!completed) presentationHost.onGpuThread { frameCompletion.abandon() }
+    }
   }
 
   final override fun draw(
@@ -107,9 +112,15 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
 
   final override fun close() {
     try {
-      completeConsumerAccess()
-      frameCompletion.abandon()
-      closeTextures()
+      try {
+        completeConsumerAccess()
+      } finally {
+        try {
+          presentationHost.onGpuThread { frameCompletion.abandon() }
+        } finally {
+          closeTextures()
+        }
+      }
     } finally {
       try {
         rendererThread.run(::closeProducers)

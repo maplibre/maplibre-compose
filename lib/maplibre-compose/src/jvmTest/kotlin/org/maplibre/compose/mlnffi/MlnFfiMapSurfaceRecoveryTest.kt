@@ -95,14 +95,14 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun failed_renderer_release_retains_the_host_target() {
+  fun failed_renderer_release_still_closes_the_host() {
     val renderer = RecordingRenderer(failingSurfaceLosses = 1)
     val host = FakeMlnFfiMapHost()
     val controller = MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(host), null)
     controller.attach {}
     controller.close()
     assertEquals(1, renderer.surfaceLostCount)
-    assertFalse(host.closed)
+    assertTrue(host.closed)
   }
 
   @Test

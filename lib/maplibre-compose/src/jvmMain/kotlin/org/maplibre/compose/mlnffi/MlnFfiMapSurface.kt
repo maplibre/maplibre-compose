@@ -246,9 +246,15 @@ internal class MlnFfiSurfaceController(
     clearPresentation()
     val host = host ?: return
     runCatching {
-      session?.let(renderer::onSurfaceLost)
-      host.close()
-      session = null
+      try {
+        session?.let(renderer::onSurfaceLost)
+      } finally {
+        try {
+          host.close()
+        } finally {
+          session = null
+        }
+      }
     }
       .onFailure { logger?.e(it) { "Map surface failed to close" } }
   }

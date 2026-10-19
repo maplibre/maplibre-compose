@@ -14,7 +14,10 @@ class ComposeFrameCompletionTest {
         val completion = ComposeFrameCompletion()
         val order = mutableListOf<String>()
         completion.prepare(context.skiaContext) { error("The context did not change") }
-        completion.holdFrame { order += "release" }
+        completion.holdFrame { completed ->
+          assertTrue(completed)
+          order += "release"
+        }
         completion.frameRecorded { order += "preserve" }
         assertTrue(completion.hasFrame)
         assertTrue(order.isEmpty())
@@ -37,7 +40,10 @@ class ComposeFrameCompletionTest {
             val completion = ComposeFrameCompletion()
             val order = mutableListOf<String>()
             completion.prepare(previous.skiaContext) { error("There is no previous context") }
-            completion.holdFrame { order += "release" }
+            completion.holdFrame { completed ->
+              assertTrue(completed)
+              order += "release"
+            }
             completion.frameRecorded { error("The lost context cannot replay its frame") }
             completion.prepare(next.skiaContext) { order += "replace" }
             assertEquals(listOf("replace", "release"), order)
@@ -54,7 +60,10 @@ class ComposeFrameCompletionTest {
   fun context_loss_releases_held_ownership_once_without_replaying_lost_work() {
     val completion = ComposeFrameCompletion()
     var releases = 0
-    completion.holdFrame { releases++ }
+    completion.holdFrame { completed ->
+      assertFalse(completed)
+      releases++
+    }
     completion.abandon()
     completion.abandon()
     assertFalse(completion.hasFrame)

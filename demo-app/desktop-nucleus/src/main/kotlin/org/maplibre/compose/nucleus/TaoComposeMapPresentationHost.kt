@@ -39,9 +39,7 @@ private fun taoComposeMapPresentationHost(
           skiaContext = renderContext.skiaContext,
           // Tao restores the previous context and invalidates Skia's GL cache after the action.
           withContextCurrent = { action ->
-            checkNotNull(renderContext.withContextCurrent { action.run() }) {
-              "$description could not make the GL context current"
-            }
+            renderContext.withContextCurrent { action.run() }
           },
         )
       }

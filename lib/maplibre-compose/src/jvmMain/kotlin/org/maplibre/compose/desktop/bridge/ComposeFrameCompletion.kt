@@ -6,12 +6,12 @@ import org.jetbrains.skia.DirectContext
 internal class ComposeFrameCompletion {
   private var currentContext: DirectContext? = null
   private var preserveFrame: (() -> Unit)? = null
-  private var releaseFrame: (() -> Unit)? = null
+  private var releaseFrame: ((Boolean) -> Unit)? = null
 
   val hasFrame: Boolean
     get() = releaseFrame != null
 
-  fun holdFrame(release: () -> Unit) {
+  fun holdFrame(release: (Boolean) -> Unit) {
     check(releaseFrame == null) { "The previous frame is still acquired" }
     releaseFrame = release
   }
@@ -29,7 +29,7 @@ internal class ComposeFrameCompletion {
       context.submit(syncCpu = true)
       preserveFrame = null
     }
-    releaseFrame?.invoke()
+    releaseFrame?.invoke(true)
     releaseFrame = null
     currentContext = context
   }
@@ -44,7 +44,7 @@ internal class ComposeFrameCompletion {
   fun abandon() {
     preserveFrame = null
     currentContext = null
-    releaseFrame?.invoke()
+    releaseFrame?.invoke(false)
     releaseFrame = null
   }
 }

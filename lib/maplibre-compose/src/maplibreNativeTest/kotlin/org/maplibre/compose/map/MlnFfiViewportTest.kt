@@ -37,6 +37,7 @@ class MlnFfiViewportTest {
   fun viewport_reads_reuse_the_snapshot_until_the_camera_changes() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
       val session = fixture.session
       val previous = assertNotNull(session.getViewport())
       assertSame(previous, session.getViewport())
