@@ -155,8 +155,11 @@ class MlnFfiStylePresentationTest {
         renderSession.getSnapshot().pendingDemandCount == 1u
       }
       val previousFrame = renderSession.getSnapshot().frameGeneration
+      // Leave a result queued before replacing the style. Retained presentation consumes its
+      // host wake, so reconciliation must wake the host again to drain that result.
+      assertNotNull(fixture.session.mapForTest).requestRepaint().await()
       fixture.loadStyleBeforeRendering(ReplacementStyle)
-      fixture.pumpUntil("the replacement frame result while presentation is retained") {
+      fixture.pumpUntil("the queued frame result while presentation is retained") {
         val snapshot = renderSession.getSnapshot()
         snapshot.pendingDemandCount == 0u && snapshot.frameGeneration > previousFrame
       }
@@ -173,6 +176,27 @@ class MlnFfiStylePresentationTest {
       fixture.pumpUntil("the replacement style with application content to be presented") {
         "application" in fixture.session.currentStyleLayerIds() &&
           fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
+      }
+    }
+  }
+
+  @Test
+  fun a_failed_style_replacement_releases_its_command_group() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(InitialStyle)
+      fixture.session.reconcileStyleRevision(ApplicationRevision) {}
+      fixture.pumpUntil("the application background to be presented") {
+        fixture.tryReadPixel(32, 32)?.isNear(ApplicationColor) == true
+      }
+
+      fixture.session.setBaseStyle(BaseStyle.Json("invalid"))
+      fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
+      fixture.loadStyleBeforeRendering(ReplacementStyle)
+      fixture.session.reconcileStyleRevision(
+        StyleSnapshot(emptyList(), emptyList(), emptyList())
+      ) {}
+      fixture.pumpUntil("the next style to render after the refusal") {
+        fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 255, 0, 255)) == true
       }
     }
   }

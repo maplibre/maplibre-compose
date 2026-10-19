@@ -195,6 +195,7 @@ internal class MlnFfiMapSession(
 
   /** The current request and the completion carrying its native generation. Main only. */
   private var styleCompletion: Deferred<CommandCompletion>? = null
+  private var styleCommandGroupOpen = false
   private var activeGestureToken: CameraInputToken? = null
   private var gestureBearing: Double? = null
   private var gestureEndGeneration = 0uL
@@ -214,6 +215,7 @@ internal class MlnFfiMapSession(
       styleFailed = { identity, error ->
         if (styleBinding?.identity === identity) {
           styleLoadTracker.failed(identity)
+          finishStyleCommandGroup()
           callbacks.onStyleFailed(this, error.message)
         }
       },
@@ -435,6 +437,7 @@ internal class MlnFfiMapSession(
     presentation.release(keepHost = keepHost)
     viewport.retire()
     val stopping = map.also { map = null }
+    styleCommandGroupOpen = false
     try {
       if (stopping != null) {
         owner.unregister(stopping)
@@ -533,6 +536,7 @@ internal class MlnFfiMapSession(
             return@launchOnMain
           val reason = event.styleLoadFailureReason()
           if (styleLoadTracker.failed(request)) {
+            finishStyleCommandGroup()
             callbacks.onStyleFailed(this, reason)
             logger?.e { "Map loading failed (code ${event.code}): $reason" }
             mapEvent?.let { callbacks.onEvent(this, it) }
@@ -599,6 +603,11 @@ internal class MlnFfiMapSession(
     if (style == requestedStyle) return
     requestedStyle = style
     val request = styleLoadTracker.request()
+    // Native surfaces present from parked demands, independently of the host's render gate.
+    if (styleLoadTracker.presentation == StylePresentation.Retained && !styleCommandGroupOpen) {
+      map?.discarding?.beginCommandGroup()
+      styleCommandGroupOpen = map != null
+    }
     styleBinding?.invalidate()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // be validated against the base layers being replaced.
@@ -624,8 +633,9 @@ internal class MlnFfiMapSession(
           ) {
             val previousPresentation = styleLoadTracker.presentation
             val ready = styleLoadTracker.reconciled(binding.identity)
+            finishStyleCommandGroup()
             if (
-              previousPresentation == StylePresentation.Retained &&
+              previousPresentation != StylePresentation.Live &&
                 styleLoadTracker.presentation == StylePresentation.Live
             ) {
               presentation.requestRender()
@@ -639,6 +649,7 @@ internal class MlnFfiMapSession(
       throw error
     } catch (error: Throwable) {
       styleLoadTracker.failed(binding.identity)
+      if (styleBinding === binding) finishStyleCommandGroup()
       throw error
     }
   }
@@ -689,10 +700,17 @@ internal class MlnFfiMapSession(
     error: Throwable?,
   ) {
     if (styleLoadTracker.failed(request) && !isClosing) {
+      finishStyleCommandGroup()
       callbacks.onStyleFailed(this, reason)
       logger?.e(error) { "Failed to apply style $style: $reason" }
       callbacks.onEvent(this, MapEvent.StyleLoadFailed(reason))
     }
+  }
+
+  private fun finishStyleCommandGroup() {
+    if (!styleCommandGroupOpen) return
+    styleCommandGroupOpen = false
+    map?.discarding?.endCommandGroup()
   }
 
   /** Applied when a map is created. Getters read [viewport] after native applies it. */
