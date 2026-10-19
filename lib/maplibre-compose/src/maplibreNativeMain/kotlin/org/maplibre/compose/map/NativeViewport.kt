@@ -61,6 +61,7 @@ internal class NativeViewport {
           }
 
   private var extents: MapViewportExtents? = null
+  private var cachedViewport: Viewport? = null
 
   val generation: ULong
     get() = snapshot?.generation ?: 0uL
@@ -149,6 +150,7 @@ internal class NativeViewport {
     snapshot = next
     geometry = next.viewportGeometry(appliedViewportInsets)
     extents = null
+    cachedViewport = null
   }
 
   fun attach(map: MapHandle) {
@@ -204,14 +206,18 @@ internal class NativeViewport {
 
   fun getViewport(): Viewport? {
     if (!hasViewport || size == DpSize.Zero) return null
+    cachedViewport?.let {
+      return it
+    }
     val extents = viewportExtents()
     return Viewport(
-      cameraPosition = camera,
-      size = size,
-      visibleBounds = extents.bounds,
-      visibleRegion = extents.region,
-      metersPerDpAtCenter = metersPerDpAtLatitude(camera.center.latitude),
-    )
+        cameraPosition = camera,
+        size = size,
+        visibleBounds = extents.bounds,
+        visibleRegion = extents.region,
+        metersPerDpAtCenter = metersPerDpAtLatitude(camera.center.latitude),
+      )
+      .also { cachedViewport = it }
   }
 
   fun positionFromScreenLocation(offset: DpOffset): Position? =

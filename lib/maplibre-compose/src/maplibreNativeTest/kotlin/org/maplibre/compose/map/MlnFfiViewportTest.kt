@@ -7,6 +7,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -31,6 +33,25 @@ import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiViewportTest {
+  @Test
+  fun viewport_reads_reuse_the_snapshot_until_the_camera_changes() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val session = fixture.session
+      val previous = assertNotNull(session.getViewport())
+      assertSame(previous, session.getViewport())
+      val nextCamera = previous.cameraPosition.copy(zoom = previous.cameraPosition.zoom + 1.0)
+      session.setCameraPosition(nextCamera)
+      fixture.pumpUntil("the changed viewport") {
+        session.getViewport()?.cameraPosition == nextCamera
+      }
+      val next = assertNotNull(session.getViewport())
+      assertNotSame(previous, next)
+      assertSame(next, session.getViewport())
+      assertEquals(nextCamera, next.cameraPosition)
+    }
+  }
+
   @Test
   fun ground_scale_uses_the_native_projection_in_logical_pixels() {
     BridgeMapFixture.create(initialExtent = BridgeMapFixture.RetinaExtent).use { fixture ->

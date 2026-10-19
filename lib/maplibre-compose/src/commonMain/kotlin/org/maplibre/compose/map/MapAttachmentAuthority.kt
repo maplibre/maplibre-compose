@@ -103,8 +103,10 @@ internal class MapAttachmentAuthority(
     val current = current ?: return null
     if (viewport != null) {
       cameraPositionState = viewport.cameraPosition
-      current.updateViewport(viewport)
-      styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
+      if (current.viewport !== viewport) {
+        current.updateViewport(viewport)
+        styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
+      }
     }
     return current
   }
