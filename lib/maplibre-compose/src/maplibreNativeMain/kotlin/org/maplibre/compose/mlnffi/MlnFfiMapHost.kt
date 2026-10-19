@@ -44,6 +44,10 @@ internal interface MlnFfiMapHostSession {
 
   val backends: RenderBackendPair
 
+  /** Whether this host services caller-driver work in its display-paced frame passes. */
+  val servicesDriverWorkOnFrame: Boolean
+    get() = false
+
   /** Asks the host to schedule another frame. Safe to call from any thread; requests coalesce. */
   fun requestFrame()
 

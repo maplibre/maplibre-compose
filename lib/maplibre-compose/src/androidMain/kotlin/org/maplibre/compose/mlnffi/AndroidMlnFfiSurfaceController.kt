@@ -3,6 +3,7 @@ package org.maplibre.compose.mlnffi
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.view.Choreographer
 import android.view.Surface
 import java.util.concurrent.FutureTask
 import kotlin.time.Duration
@@ -12,15 +13,11 @@ import org.maplibre.compose.map.MapExtent
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
  *
- * The thread draws, then the backend presents: `eglSwapBuffers` for OpenGL, the render update for
- * Vulkan. SurfaceView waits on the buffer queue there, matching MapLibre Android's GLSurfaceView
- * loop. TextureView returns from swap without waiting; the next frame is posted when the map
- * requests one, matching MapLibre's TextureView thread.
+ * Choreographer paces frame demands and their native driver work on the render thread. Teardown
+ * runs independently of vsync. A frame result can wake the thread immediately, but the next demand
+ * waits for the next display frame, so consecutive updates can share that frame.
  *
- * When [maximumFps] is set, the next post is delayed to that interval. Display refresh stays with
- * the window; Compose and the map do not share a SurfaceFlinger vote. `Choreographer.getInstance()`
- * is not the wait; it follows vsync-app, which adaptive refresh holds at 60 Hz for a Surface that
- * is not drawn as a View.
+ * [maximumFps] can further limit the display cadence.
  */
 internal class AndroidMlnFfiSurfaceController(
   renderer: MlnFfiMapRenderer,
@@ -29,12 +26,19 @@ internal class AndroidMlnFfiSurfaceController(
   maximumFps: Int? = null,
   private val onFailure: (Throwable) -> Unit = {},
 ) :
-  MlnFfiSurfaceRenderLoop<AndroidMapGraphicsContext>(renderer, logger, "Android", maximumFps),
+  MlnFfiSurfaceRenderLoop<AndroidMapGraphicsContext>(
+    renderer,
+    logger,
+    "Android",
+    maximumFps,
+    followsFrameClock = true,
+  ),
   AutoCloseable {
   override val isClosed: Boolean
     get() = closed
 
   override val backends = RenderBackendPair(backend, ComposeRenderBackend.OpenGl)
+  override val servicesDriverWorkOnFrame = true
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
@@ -92,6 +96,18 @@ internal class AndroidMlnFfiSurfaceController(
         renderHandler.postDelayed(runnable, (delay.inWholeNanoseconds + 999_999) / 1_000_000)
       } else renderHandler.post(runnable)
     return if (posted) ScheduledAction { renderHandler.removeCallbacks(runnable) } else null
+  }
+
+  override fun scheduleFrame(delay: Duration, action: () -> Unit): ScheduledAction? {
+    checkRenderThread()
+    if (closed) return null
+    val choreographer = Choreographer.getInstance()
+    val callback = Choreographer.FrameCallback { action() }
+    choreographer.postFrameCallbackDelayed(
+      callback,
+      (delay.inWholeNanoseconds + 999_999) / 1_000_000,
+    )
+    return ScheduledAction { choreographer.removeFrameCallback(callback) }
   }
 
   override fun <T> runAndWait(action: () -> T): T = postToRenderThread(action).get()

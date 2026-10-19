@@ -39,6 +39,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   /** Names the platform in log and failure messages. */
   private val platformName: String,
   maximumFps: Int?,
+  followsFrameClock: Boolean = false,
 ) : MlnFfiMapHostSession {
   /** A queued render-thread action that can be removed before it starts. */
   fun interface ScheduledAction {
@@ -54,6 +55,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
    * accepts no more work. Safe to call from any thread.
    */
   protected abstract fun schedule(delay: Duration, action: () -> Unit): ScheduledAction?
+
+  /** Schedules a frame pass after the host's frame boundary and [delay]. */
+  protected open fun scheduleFrame(delay: Duration, action: () -> Unit): ScheduledAction? =
+    schedule(delay, action)
 
   /** Runs [action] on the render thread and waits for its result. Not called on that thread. */
   protected abstract fun <T> runAndWait(action: () -> T): T
@@ -88,7 +93,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   private var scheduledFrame: ScheduledAction? = null
   /** Teardowns queued from other threads; frames that run before them draw nothing. */
   private val queuedTeardowns = AtomicInt(0)
-  private val pacer = MapFramePacer()
+  private val pacer = MapFramePacer(followsFrameClock = followsFrameClock)
   private var maximumFps = maximumFps
   private var active = true
   private var rendererAttached = false
@@ -263,7 +268,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     ) {
       return
     }
-    scheduledFrame = schedule(pacer.remaining(maximumFps)) { renderFrame() }
+    scheduledFrame = scheduleFrame(pacer.remaining(maximumFps)) { renderFrame() }
   }
 
   private fun renderFrame() {

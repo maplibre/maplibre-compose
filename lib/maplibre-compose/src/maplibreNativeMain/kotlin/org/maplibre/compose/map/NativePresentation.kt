@@ -122,7 +122,11 @@ internal class NativePresentation(
           else
             Wake {
               work.signal()
-              if (serviceQueued.compareAndSet(false, true)) {
+              if (host.servicesDriverWorkOnFrame) {
+                // Surface driver work includes parked demands. Service it at the display boundary
+                // too, so a wake during a UI write burst cannot draw a partial update immediately.
+                if (!releaseRequested) host.requestFrame()
+              } else if (serviceQueued.compareAndSet(false, true)) {
                 try {
                   if (
                     !host.enqueueRenderer {
@@ -364,27 +368,26 @@ internal class NativePresentation(
     viewport.captureRenderPadding()
     if (!ensureAttached(attachment, map, frame)) return MlnFfiFrameResult.AwaitUpdate
     val session = attachment.session ?: return MlnFfiFrameResult.AwaitUpdate
+    if (host.servicesDriverWorkOnFrame) attachment.service()
     val result =
       try {
         val completed = session.drainFrameResults()?.use { it.get().results.lastOrNull() }
-        if (completed != null) {
-          attachment.demandPending = false
-          completed
-        } else {
-          if (!attachment.demandPending) {
-            attachment.demandPending = true
-            session.requestFrame(
-              FrameDemand(
-                flags =
-                  FrameDemandFlag.IF_NEEDED or
-                    FrameDemandFlag.WAIT_FOR_UPDATE or
-                    FrameDemandFlag.PRESENT,
-                token = ++attachment.nextToken,
-              )
+        if (completed != null) attachment.demandPending = false
+        // A display-paced driver drains and re-arms in one pass, using one callback per demand.
+        // Other hosts re-arm on their next pass, after any consumer has released its frame.
+        if (!attachment.demandPending && (completed == null || host.servicesDriverWorkOnFrame)) {
+          attachment.demandPending = true
+          session.requestFrame(
+            FrameDemand(
+              flags =
+                FrameDemandFlag.IF_NEEDED or
+                  FrameDemandFlag.WAIT_FOR_UPDATE or
+                  FrameDemandFlag.PRESENT,
+              token = ++attachment.nextToken,
             )
-          }
-          return MlnFfiFrameResult.AwaitUpdate
+          )
         }
+        completed ?: return MlnFfiFrameResult.AwaitUpdate
       } catch (error: MaplibreException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
