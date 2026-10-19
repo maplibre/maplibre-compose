@@ -10,7 +10,7 @@ permissions:
 jobs:
   publish-maven:
     timeout-minutes: 60
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
     environment:
       name: maven-central-maplibre
       url: https://central.sonatype.com/namespace/org.maplibre.compose
@@ -35,7 +35,7 @@ jobs:
     needs:
       - publish-maven
     timeout-minutes: 30
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       # A job-level block replaces the workflow-level one, so checkout needs this.
       contents: read
@@ -45,7 +45,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0

@@ -22,9 +22,9 @@ on:
 jobs:
   hygiene:
     timeout-minutes: 25
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
           # The docs versions file is generated from the release tags.
@@ -46,7 +46,7 @@ jobs:
       - run: mise run style-spec:parity -- --check
   abi:
     timeout-minutes: 20
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -63,7 +63,7 @@ jobs:
     secrets: inherit
   ios-device:
     timeout-minutes: 45
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,9 +75,9 @@ jobs:
       - run: mise run build:ios:device
   js:
     timeout-minutes: 20
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
@@ -116,7 +116,7 @@ jobs:
     secrets: inherit
   docs:
     timeout-minutes: 30
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     environment:
       name: cloudflare-pages
       url: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
@@ -130,7 +130,7 @@ jobs:
           && github.event.inputs.secrets != 'false')
         }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false

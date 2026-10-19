@@ -20,7 +20,7 @@ concurrency:
 jobs:
   retry:
     name: Retry one failed or timed-out job
-    runs-on: ubuntu-slim
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     if: >-
       (github.event.workflow_run.conclusion == 'failure'
