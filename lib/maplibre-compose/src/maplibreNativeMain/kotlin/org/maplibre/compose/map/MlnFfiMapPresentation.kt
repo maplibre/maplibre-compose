@@ -23,6 +23,7 @@ internal fun <T> MlnFfiMapPresentation(
   options: MapViewOptions,
   content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
 ): T? {
+  if (state.isClosed) return null
   val compatibility = renderBackend to LocalDensity.current.density.toDouble()
   return key(compatibility) {
     MapPresentationContent(state, presentationOwner, options) { binding ->

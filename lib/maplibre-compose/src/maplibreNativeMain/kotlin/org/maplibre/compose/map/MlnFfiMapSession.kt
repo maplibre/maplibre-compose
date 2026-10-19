@@ -621,12 +621,17 @@ internal class MlnFfiMapSession(
       if (!binding.revisionFailed) {
         owner.postToMain {
           if (
-            styleBinding === binding &&
-              !binding.revisionFailed &&
-              !styleLoadTracker.contentReady &&
-              styleLoadTracker.reconciled(binding.identity)
+            styleBinding === binding && !binding.revisionFailed && !styleLoadTracker.contentReady
           ) {
-            callbacks.onStyleReady(this)
+            val previousPresentation = styleLoadTracker.presentation
+            val ready = styleLoadTracker.reconciled(binding.identity)
+            if (
+              previousPresentation == StylePresentation.Retained &&
+                styleLoadTracker.presentation == StylePresentation.Live
+            ) {
+              presentation.requestRender()
+            }
+            if (ready) callbacks.onStyleReady(this)
           }
         }
       }

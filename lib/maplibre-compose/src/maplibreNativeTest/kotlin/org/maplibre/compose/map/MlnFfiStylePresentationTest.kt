@@ -150,7 +150,16 @@ class MlnFfiStylePresentationTest {
         fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
 
+      val renderSession = assertNotNull(fixture.session.readySession())
+      fixture.pumpUntil("a render demand to wait for an update") {
+        renderSession.getSnapshot().pendingDemandCount == 1u
+      }
+      val previousFrame = renderSession.getSnapshot().frameGeneration
       fixture.loadStyleBeforeRendering(ReplacementStyle)
+      fixture.pumpUntil("the replacement frame result while presentation is retained") {
+        val snapshot = renderSession.getSnapshot()
+        snapshot.pendingDemandCount == 0u && snapshot.frameGeneration > previousFrame
+      }
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue("application" !in fixture.session.currentStyleLayerIds())
 
