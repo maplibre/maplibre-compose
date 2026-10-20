@@ -15,6 +15,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
@@ -30,6 +31,22 @@ import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
 
 class WindowsLocationProviderTest {
+  @Test
+  fun unsupportedBackendEmitsUnavailableWithoutStartingUpdates() = runTest {
+    val client =
+      FakeWindowsLocationClient(backendAvailability = LocationBackendAvailability.Unsupported)
+    val provider = WindowsLocationProvider(client)
+
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      provider.updates().toList(),
+    )
+    assertTrue(client.sessions.isEmpty())
+    provider.close()
+    assertFailsWith<IllegalStateException> { provider.updates().toList() }
+    assertTrue(client.sessions.isEmpty())
+  }
+
   @Test
   fun serviceLoaderFindsWindowsBackend() {
     assertTrue(

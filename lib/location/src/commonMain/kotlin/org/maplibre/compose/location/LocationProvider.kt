@@ -52,8 +52,9 @@ public interface LocationProvider : AutoCloseable {
   /**
    * Returns a cold stream of foreground location updates.
    *
-   * Collecting this stream requires [backendAvailability] to be
-   * [LocationBackendAvailability.Available]. An unavailable provider fails collection with an
+   * When [backendAvailability] is [LocationBackendAvailability.Unsupported], collection emits
+   * [LocationEvent.Unavailable] with [LocationUnavailableReason.Unsupported] and completes. A
+   * [LocationBackendAvailability.Misconfigured] provider fails collection with an
    * [IllegalStateException].
    *
    * Each collector starts an independent platform location request. Cancelling collection stops
@@ -261,7 +262,7 @@ public sealed interface LocationUnavailableReason {
   public data object TemporarilyUnavailable : LocationUnavailableReason
 
   /**
-   * An active request discovered that the target or host cannot provide location.
+   * The target or host cannot provide location.
    *
    * For example, an initialized Windows provider may report that location is not available on the
    * device.
@@ -354,13 +355,20 @@ internal data object UnspecifiedLocationPermission : LocationPermission
 public object UnsupportedLocationProvider :
   LocationProvider by UnavailableLocationProvider(LocationBackendAvailability.Unsupported)
 
-/** A provider that reports [backendAvailability] and fails every update collection. */
+/** A provider that reports an unsupported host or rejects invalid backend setup. */
 internal class UnavailableLocationProvider(
   override val backendAvailability: LocationBackendAvailability,
 ) : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      return@flow
+    }
+    if (backendAvailability != LocationBackendAvailability.Available) {
+      throw IllegalStateException(
+        "Location updates require an available backend: $backendAvailability",
+        (backendAvailability as? LocationBackendAvailability.Misconfigured)?.cause,
+      )
     }
   }
 }

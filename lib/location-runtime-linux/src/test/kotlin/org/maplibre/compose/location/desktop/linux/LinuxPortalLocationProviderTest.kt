@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
@@ -108,10 +109,16 @@ class LinuxPortalLocationProviderTest {
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      provider.updates(LocationRequest.Standard).toList(),
+    )
     provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)
+    provider.close()
+    assertFailsWith<IllegalStateException> { provider.updates().toList() }
+    assertEquals(0, portal.updateCollections)
   }
 
   @Test
