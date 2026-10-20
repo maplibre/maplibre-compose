@@ -19,8 +19,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
-import org.maplibre.compose.location.internal.withBackendAvailability
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -72,8 +70,15 @@ internal constructor(
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
-  @OptIn(InternalMaplibreComposeApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
     val collection = launch {
       permission.collectLatest { status ->
         when (status) {
@@ -91,7 +96,6 @@ internal constructor(
     }
     awaitClose { collection.cancel() }
   }
-    .withBackendAvailability(backendAvailability)
 
   private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     var previous: BrowserPosition? = null

@@ -400,10 +400,3 @@ public final class org/maplibre/compose/location/UnsupportedLocationProvider : o
 	public fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
 }
 
-public abstract interface annotation class org/maplibre/compose/location/internal/InternalMaplibreComposeApi : java/lang/annotation/Annotation {
-}
-
-public final class org/maplibre/compose/location/internal/LocationUpdatesKt {
-	public static final fun withBackendAvailability (Lkotlinx/coroutines/flow/Flow;Lorg/maplibre/compose/location/LocationBackendAvailability;)Lkotlinx/coroutines/flow/Flow;
-}
-

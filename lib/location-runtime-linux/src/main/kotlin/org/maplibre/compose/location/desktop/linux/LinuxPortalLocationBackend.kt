@@ -27,8 +27,6 @@ import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
-import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
-import org.maplibre.compose.location.internal.withBackendAvailability
 
 /** Linux desktop location backend backed by the XDG Location portal. */
 public class LinuxPortalLocationBackend : DesktopLocationBackend {
@@ -111,8 +109,15 @@ internal constructor(
     requester.requestForegroundPermission()
   }
 
-  @OptIn(InternalMaplibreComposeApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
     check(job.isActive) { "The Linux location provider is closed" }
     val collection =
       scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -130,7 +135,6 @@ internal constructor(
       withContext(NonCancellable) { collection.cancelAndJoin() }
     }
   }
-    .withBackendAvailability(backendAvailability)
 
   override fun close() {
     job.cancel()

@@ -7,9 +7,7 @@ import kotlin.time.TimeMark
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
-import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
-import org.maplibre.compose.location.internal.withBackendAvailability
+import kotlinx.coroutines.flow.flow
 import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
@@ -54,9 +52,10 @@ public interface LocationProvider : AutoCloseable {
   /**
    * Returns a cold stream of foreground location updates.
    *
-   * An unsupported provider emits [LocationEvent.Unavailable] with
-   * [LocationUnavailableReason.Unsupported] and completes without starting a platform request. A
-   * misconfigured provider fails collection with [IllegalStateException] and its setup cause.
+   * When [backendAvailability] is [LocationBackendAvailability.Unsupported], collection emits
+   * [LocationEvent.Unavailable] with [LocationUnavailableReason.Unsupported] and completes. A
+   * [LocationBackendAvailability.Misconfigured] provider fails collection with an
+   * [IllegalStateException].
    *
    * Each collector starts an independent platform location request. Cancelling collection stops
    * that request and unregisters its callbacks.
@@ -263,7 +262,7 @@ public sealed interface LocationUnavailableReason {
   public data object TemporarilyUnavailable : LocationUnavailableReason
 
   /**
-   * An active request discovered that the target or host cannot provide location.
+   * The target or host cannot provide location.
    *
    * For example, an initialized Windows provider may report that location is not available on the
    * device.
@@ -356,11 +355,17 @@ internal data object UnspecifiedLocationPermission : LocationPermission
 public object UnsupportedLocationProvider :
   LocationProvider by UnavailableLocationProvider(LocationBackendAvailability.Unsupported)
 
-/** A provider that reports a fixed unsupported or misconfigured backend. */
+/** A provider that reports an unsupported host or rejects invalid backend setup. */
 internal class UnavailableLocationProvider(
   override val backendAvailability: LocationBackendAvailability,
 ) : LocationProvider {
-  @OptIn(InternalMaplibreComposeApi::class)
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    emptyFlow<LocationEvent>().withBackendAvailability(backendAvailability)
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      return@flow
+    }
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
+  }
 }

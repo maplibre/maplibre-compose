@@ -34,8 +34,6 @@ import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
-import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
-import org.maplibre.compose.location.internal.withBackendAvailability
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /** macOS desktop location backend backed by Core Location. */
@@ -86,12 +84,19 @@ internal constructor(
     requester.requestForegroundPermission()
   }
 
-  @OptIn(InternalMaplibreComposeApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(job.isActive) { "The macOS location provider is closed" }
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
     val collection = scope.launch {
       try {
         currentCoroutineContext().ensureActive()
+        check(backendAvailability == LocationBackendAvailability.Available) {
+          "Location updates require an available backend: $backendAvailability"
+        }
         refreshPermission().collect { send(it) }
         permission.collectLatest { status ->
           when (status) {
@@ -125,7 +130,6 @@ internal constructor(
       withContext(NonCancellable) { collection.cancelAndJoin() }
     }
   }
-    .withBackendAvailability(backendAvailability)
 
   private fun refreshPermission(): Flow<LocationEvent> =
     flow<LocationEvent> { requester.refreshPermission() }

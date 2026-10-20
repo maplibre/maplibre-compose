@@ -8,10 +8,6 @@
 // - Show declarations: true
 
 // Library unique name: <org.maplibre.compose:location>
-open annotation class org.maplibre.compose.location.internal/InternalMaplibreComposeApi : kotlin/Annotation { // org.maplibre.compose.location.internal/InternalMaplibreComposeApi|null[0]
-    constructor <init>() // org.maplibre.compose.location.internal/InternalMaplibreComposeApi.<init>|<init>(){}[0]
-}
-
 final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
     enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
     enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]
@@ -370,8 +366,6 @@ final object org.maplibre.compose.location/UnsupportedLocationProvider : org.map
     final fun requestPermission() // org.maplibre.compose.location/UnsupportedLocationProvider.requestPermission|requestPermission(){}[0]
     final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/UnsupportedLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
 }
-
-final fun (kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent>).org.maplibre.compose.location.internal/withBackendAvailability(org.maplibre.compose.location/LocationBackendAvailability): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location.internal/withBackendAvailability|withBackendAvailability@kotlinx.coroutines.flow.Flow<org.maplibre.compose.location.LocationEvent>(org.maplibre.compose.location.LocationBackendAvailability){}[0]
 
 // Targets: [apple]
 final class org.maplibre.compose.location/AppleLocationPermissionRequester : kotlin/AutoCloseable { // org.maplibre.compose.location/AppleLocationPermissionRequester|null[0]
