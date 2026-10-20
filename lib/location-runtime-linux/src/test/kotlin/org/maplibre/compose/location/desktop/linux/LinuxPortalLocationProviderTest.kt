@@ -116,6 +116,9 @@ class LinuxPortalLocationProviderTest {
     provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)
+    provider.close()
+    assertFailsWith<IllegalStateException> { provider.updates().toList() }
+    assertEquals(0, portal.updateCollections)
   }
 
   @Test

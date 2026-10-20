@@ -110,6 +110,7 @@ internal constructor(
   }
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    check(job.isActive) { "The Linux location provider is closed" }
     if (backendAvailability == LocationBackendAvailability.Unsupported) {
       send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
       close()
@@ -118,7 +119,6 @@ internal constructor(
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
-    check(job.isActive) { "The Linux location provider is closed" }
     val collection =
       scope.launch(start = CoroutineStart.UNDISPATCHED) {
         try {

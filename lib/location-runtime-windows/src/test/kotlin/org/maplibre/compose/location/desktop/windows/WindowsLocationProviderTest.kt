@@ -43,6 +43,8 @@ class WindowsLocationProviderTest {
     )
     assertTrue(client.sessions.isEmpty())
     provider.close()
+    assertFailsWith<IllegalStateException> { provider.updates().toList() }
+    assertTrue(client.sessions.isEmpty())
   }
 
   @Test

@@ -74,6 +74,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      synchronized(lifecycleLock) { check(!closed) { "The Windows location provider is closed" } }
       send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
       close()
       return@callbackFlow
