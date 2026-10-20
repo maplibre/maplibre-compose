@@ -1,5 +1,5 @@
-public abstract interface class org/maplibre/compose/location/DesktopLocationBackend {
-	public abstract fun createProvider (Lorg/maplibre/compose/location/XdgPortalWindow;)Lorg/maplibre/compose/location/LocationProvider;
+public abstract interface class org/maplibre/compose/location/DesktopLocationBackendFactory {
+	public abstract fun createBackend (Lorg/maplibre/compose/location/XdgPortalWindow;)Lorg/maplibre/compose/location/LocationBackend;
 	public abstract fun getId ()Ljava/lang/String;
 	public abstract fun isAvailable ()Z
 }
@@ -127,6 +127,23 @@ public final class org/maplibre/compose/location/LocationAccuracyAuthorization$P
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/maplibre/compose/location/LocationBackend : java/lang/AutoCloseable {
+	public fun close ()V
+	public fun getAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public fun getId ()Ljava/lang/String;
+	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public fun requestPermission ()V
+	public abstract fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/LocationBackend$DefaultImpls {
+	public static fun close (Lorg/maplibre/compose/location/LocationBackend;)V
+	public static fun getAvailability (Lorg/maplibre/compose/location/LocationBackend;)Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public static fun getId (Lorg/maplibre/compose/location/LocationBackend;)Ljava/lang/String;
+	public static fun getPermission (Lorg/maplibre/compose/location/LocationBackend;)Lkotlinx/coroutines/flow/StateFlow;
+	public static fun requestPermission (Lorg/maplibre/compose/location/LocationBackend;)V
 }
 
 public abstract interface class org/maplibre/compose/location/LocationBackendAvailability {
@@ -266,23 +283,19 @@ public final class org/maplibre/compose/location/LocationPermission$NotGranted :
 	public fun toString ()Ljava/lang/String;
 }
 
-public abstract interface class org/maplibre/compose/location/LocationProvider : java/lang/AutoCloseable {
+public final class org/maplibre/compose/location/LocationProvider : java/lang/AutoCloseable {
+	public fun <init> (Lorg/maplibre/compose/location/LocationBackend;)V
 	public fun close ()V
-	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
-	public fun getBackendId ()Ljava/lang/String;
-	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
-	public fun requestPermission ()V
-	public abstract fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
+	public final fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
+	public final fun getBackendId ()Ljava/lang/String;
+	public final fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun requestPermission ()V
+	public final fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
 	public static synthetic fun updates$default (Lorg/maplibre/compose/location/LocationProvider;Lorg/maplibre/compose/location/LocationRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
 }
 
-public final class org/maplibre/compose/location/LocationProvider$DefaultImpls {
-	public static fun close (Lorg/maplibre/compose/location/LocationProvider;)V
-	public static fun getBackendAvailability (Lorg/maplibre/compose/location/LocationProvider;)Lorg/maplibre/compose/location/LocationBackendAvailability;
-	public static fun getBackendId (Lorg/maplibre/compose/location/LocationProvider;)Ljava/lang/String;
-	public static fun getPermission (Lorg/maplibre/compose/location/LocationProvider;)Lkotlinx/coroutines/flow/StateFlow;
-	public static fun requestPermission (Lorg/maplibre/compose/location/LocationProvider;)V
-	public static synthetic fun updates$default (Lorg/maplibre/compose/location/LocationProvider;Lorg/maplibre/compose/location/LocationRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+public final class org/maplibre/compose/location/LocationProviderKt {
+	public static final fun getUnsupportedLocationProvider ()Lorg/maplibre/compose/location/LocationProvider;
 }
 
 public final class org/maplibre/compose/location/LocationRequest {
@@ -350,16 +363,6 @@ public final class org/maplibre/compose/location/SystemSettingsLauncher {
 	public final fun getCanOpenLocationServicesSettings ()Z
 	public final fun openApplicationSettings ()Z
 	public final fun openLocationServicesSettings ()Z
-}
-
-public final class org/maplibre/compose/location/UnsupportedLocationProvider : org/maplibre/compose/location/LocationProvider {
-	public static final field INSTANCE Lorg/maplibre/compose/location/UnsupportedLocationProvider;
-	public fun close ()V
-	public fun getBackendAvailability ()Lorg/maplibre/compose/location/LocationBackendAvailability;
-	public fun getBackendId ()Ljava/lang/String;
-	public fun getPermission ()Lkotlinx/coroutines/flow/StateFlow;
-	public fun requestPermission ()V
-	public fun updates (Lorg/maplibre/compose/location/LocationRequest;)Lkotlinx/coroutines/flow/Flow;
 }
 
 public abstract interface class org/maplibre/compose/location/XdgPortalWindow {

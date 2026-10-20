@@ -6,7 +6,7 @@ import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 
 /**
- * An Android location implementation discovered through [ServiceLoader].
+ * A factory for Android location and heading implementations, discovered through [ServiceLoader].
  *
  * An installed and available backend supplies the providers that [createDefaultLocationProvider]
  * and [createDefaultHeadingProvider] create; the framework providers remain the default otherwise.
@@ -16,7 +16,7 @@ import java.util.ServiceLoader
  * [LocationBackendAvailability.Misconfigured]. The installed backend documents its own availability
  * conditions.
  */
-public interface AndroidLocationBackend {
+public interface AndroidLocationBackendFactory {
   /** A stable name used in diagnostics and to break priority ties. */
   public val id: String
 
@@ -31,8 +31,8 @@ public interface AndroidLocationBackend {
   /** Whether this backend can run on the current device. */
   public fun isAvailable(context: Context): Boolean
 
-  /** Creates this backend's location provider. */
-  @MainThread public fun createLocationProvider(context: Context): LocationProvider
+  /** Creates the location backend. */
+  @MainThread public fun createLocationBackend(context: Context): LocationBackend
 
   /**
    * Creates this backend's heading provider.
@@ -43,7 +43,7 @@ public interface AndroidLocationBackend {
 }
 
 internal sealed interface AndroidBackendResolution {
-  data class Discovered(val backend: AndroidLocationBackend) : AndroidBackendResolution
+  data class Discovered(val backend: AndroidLocationBackendFactory) : AndroidBackendResolution
 
   data class Misconfigured(val cause: Throwable) : AndroidBackendResolution
 
@@ -53,8 +53,8 @@ internal sealed interface AndroidBackendResolution {
 internal object AndroidLocationBackendResolver {
   fun discover(
     context: Context,
-    loadBackends: () -> List<AndroidLocationBackend> = {
-      ServiceLoader.load(AndroidLocationBackend::class.java).toList()
+    loadBackends: () -> List<AndroidLocationBackendFactory> = {
+      ServiceLoader.load(AndroidLocationBackendFactory::class.java).toList()
     },
   ): AndroidBackendResolution {
     val availableBackends =
@@ -71,10 +71,10 @@ internal object AndroidLocationBackendResolver {
     return resolve(availableBackends)
   }
 
-  fun resolve(availableBackends: List<AndroidLocationBackend>): AndroidBackendResolution {
+  fun resolve(availableBackends: List<AndroidLocationBackendFactory>): AndroidBackendResolution {
     val backend =
       availableBackends.minWithOrNull(
-        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id },
+        compareByDescending<AndroidLocationBackendFactory> { it.priority }.thenBy { it.id },
       )
     return if (backend == null) AndroidBackendResolution.None
     else AndroidBackendResolution.Discovered(backend)

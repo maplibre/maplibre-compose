@@ -8,8 +8,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationBackendFactory
 import org.maplibre.compose.location.LocationAccuracy
+import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -20,13 +21,13 @@ import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /** Windows desktop location backend backed by Windows Runtime geolocation. */
-public class WindowsLocationBackend : DesktopLocationBackend {
+public class WindowsLocationBackendFactory : DesktopLocationBackendFactory {
   override val id: String = "windows-geolocation"
 
   override fun isAvailable(): Boolean = isWindows(System.getProperty("os.name"))
 
-  override fun createProvider(window: XdgPortalWindow?): LocationProvider =
-    WindowsLocationProvider()
+  override fun createBackend(window: XdgPortalWindow?): LocationBackend =
+    WindowsLocationBackend(SystemWindowsLocationClient())
 }
 
 /**
@@ -43,9 +44,11 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  * [LocationUnavailableReason.Unsupported]. Other failures report a `null` reason with the failure
  * as the cause, when one is available.
  */
-public class WindowsLocationProvider
-internal constructor(private val client: WindowsLocationClient) : LocationProvider {
-  public constructor() : this(SystemWindowsLocationClient())
+public fun createWindowsLocationProvider(): LocationProvider =
+  LocationProvider(WindowsLocationBackend(SystemWindowsLocationClient()))
+
+internal class WindowsLocationBackend
+internal constructor(private val client: WindowsLocationClient) : LocationBackend {
 
   private val requester = WindowsLocationPermissionRequester(client, ownsClient = false)
   private val lifecycleLock = Any()
@@ -55,7 +58,7 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
   private var activeOperations = 0
   private var clientClosed = false
 
-  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  override val availability: LocationBackendAvailability = client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
@@ -73,16 +76,6 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
   }
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (backendAvailability == LocationBackendAvailability.Unsupported) {
-      synchronized(lifecycleLock) { check(!closed) { "The Windows location provider is closed" } }
-      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      close()
-      return@callbackFlow
-    }
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
-
     val filter = WindowsLocationFilter(request.minimumInterval, request.minimumDistance.inMeters)
     val listener =
       object : WindowsLocationListener {
@@ -199,8 +192,8 @@ internal constructor(private val client: WindowsLocationClient) : LocationProvid
 /**
  * Foreground Windows location permission holder.
  *
- * [WindowsLocationProvider] delegates [LocationProvider.permission] and
- * [LocationProvider.requestPermission] to this class. Custom providers can use it directly.
+ * The provider returned by [createWindowsLocationProvider] delegates [LocationProvider.permission]
+ * and [LocationProvider.requestPermission] to this class. Custom providers can use it directly.
  * `AppCapability.Create("location").CheckAccess()` maps `Allowed` to [LocationPermission.Granted]
  * with a `null` accuracy authorization, `UserPromptRequired` to a requestable
  * [LocationPermission.NotGranted], user or system denial and a missing packaged capability to a

@@ -18,11 +18,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationBackendFactory
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.units.Bearing
@@ -35,7 +36,7 @@ class WindowsLocationProviderTest {
   fun unsupportedBackendEmitsUnavailableWithoutStartingUpdates() = runTest {
     val client =
       FakeWindowsLocationClient(backendAvailability = LocationBackendAvailability.Unsupported)
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
 
     assertEquals(
       listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
@@ -48,7 +49,9 @@ class WindowsLocationProviderTest {
   @Test
   fun serviceLoaderFindsWindowsBackend() {
     assertTrue(
-      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is WindowsLocationBackend },
+      ServiceLoader.load(DesktopLocationBackendFactory::class.java).any {
+        it is WindowsLocationBackendFactory
+      },
     )
   }
 
@@ -173,7 +176,7 @@ class WindowsLocationProviderTest {
   @Test
   fun providerAppliesRequestAndForwardsFixesAndStatuses() = runTest {
     val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
     val events = mutableListOf<LocationEvent>()
     val job =
       backgroundScope.launch(Dispatchers.Unconfined) {
@@ -217,7 +220,7 @@ class WindowsLocationProviderTest {
   @Test
   fun collectorsOwnIndependentSessionsAndProviderClosesEachExactlyOnce() = runTest {
     val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
     val first =
       backgroundScope.launch(Dispatchers.Unconfined) {
         provider.updates(LocationRequest.Standard).collect {}
@@ -251,7 +254,7 @@ class WindowsLocationProviderTest {
       creationStarted.countDown()
       check(finishCreation.await(5, TimeUnit.SECONDS))
     }
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
     val collector =
       backgroundScope.launch(Dispatchers.Default) {
         provider.updates(LocationRequest.Standard).collect {}
@@ -275,7 +278,7 @@ class WindowsLocationProviderTest {
   @Test
   fun sessionCreationCanCloseProviderReentrantly() = runTest {
     val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
     client.onCreateSession = {
       provider.close()
       assertEquals(0, client.closeCount)
@@ -294,7 +297,7 @@ class WindowsLocationProviderTest {
   @Test
   fun closedProviderRejectsNewWork() = runTest {
     val client = FakeWindowsLocationClient()
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
     provider.close()
 
     assertFailsWith<IllegalStateException> { provider.requestPermission() }
@@ -311,7 +314,7 @@ class WindowsLocationProviderTest {
       FakeWindowsLocationClient(
         backendAvailability = LocationBackendAvailability.Misconfigured(cause),
       )
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
 
     assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
     assertTrue(client.sessions.isEmpty())
@@ -321,7 +324,7 @@ class WindowsLocationProviderTest {
   fun sessionCreationFailureIsUnexpected() = runTest {
     val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
     client.sessionFailure = IllegalStateException("native failure")
-    val provider = WindowsLocationProvider(client)
+    val provider = LocationProvider(WindowsLocationBackend(client))
 
     val event =
       assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest.Standard).first())

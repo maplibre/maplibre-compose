@@ -4,12 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import org.maplibre.compose.gms.GmsLocationBackend
-import org.maplibre.compose.hms.HmsLocationBackend
+import org.maplibre.compose.gms.GmsLocationBackendFactory
 import org.maplibre.compose.location.AndroidHeadingProvider
-import org.maplibre.compose.location.AndroidLocationProvider
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.createAndroidLocationProvider
 
 /** The Google Play Services fused providers, regardless of backend discovery. */
 private object GmsLocationEngine : DemoLocationEngine {
@@ -18,7 +17,8 @@ private object GmsLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    val provider = remember(context) { GmsLocationBackend().createLocationProvider(context) }
+    val provider =
+      remember(context) { org.maplibre.compose.gms.createFusedLocationProvider(context) }
     DisposableEffect(provider) { onDispose { provider.close() } }
     return provider
   }
@@ -26,7 +26,7 @@ private object GmsLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberHeadingProvider(): HeadingProvider {
     val context = LocalContext.current
-    return remember(context) { GmsLocationBackend().createHeadingProvider(context) }
+    return remember(context) { GmsLocationBackendFactory().createHeadingProvider(context) }
   }
 }
 
@@ -37,7 +37,8 @@ private object HmsLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    val provider = remember(context) { HmsLocationBackend().createLocationProvider(context) }
+    val provider =
+      remember(context) { org.maplibre.compose.hms.createFusedLocationProvider(context) }
     DisposableEffect(provider) { onDispose { provider.close() } }
     return provider
   }
@@ -56,7 +57,7 @@ private object FrameworkLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    val provider = remember(context) { AndroidLocationProvider(context) }
+    val provider = remember(context) { createAndroidLocationProvider(context) }
     DisposableEffect(provider) { onDispose { provider.close() } }
     return provider
   }

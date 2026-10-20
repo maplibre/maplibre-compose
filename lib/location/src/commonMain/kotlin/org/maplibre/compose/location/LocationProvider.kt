@@ -5,75 +5,63 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
 
 /**
- * Supplies foreground location updates and permission status.
+ * Supplies foreground location updates and permission status from [backend].
  *
- * Implement this interface for custom location sources. Sources without permission handling can use
- * the default [permission] and [requestPermission] implementations.
+ * Platform factories create providers with the appropriate backend. For a custom location source,
+ * implement [LocationBackend] and pass it to this constructor.
  */
-public interface LocationProvider : AutoCloseable {
-  /** A stable implementation name for diagnostics, when the provider declares one. */
+public class LocationProvider(private val backend: LocationBackend) : AutoCloseable {
+  /** A stable implementation name for diagnostics, when the backend declares one. */
   public val backendId: String?
-    get() = null
+    get() = backend.id
 
   /** Whether this provider has a usable platform implementation, stable for its lifetime. */
   public val backendAvailability: LocationBackendAvailability
-    get() = LocationBackendAvailability.Available
+    get() = backend.availability
 
-  /**
-   * Current foreground location permission.
-   *
-   * This value also reflects changes made outside the application when the platform reports them.
-   *
-   * The default is always [LocationPermission.Granted] with a `null` accuracy authorization. A
-   * source where permission is not a concept, such as an external receiver or a network feed, keeps
-   * the default and needs no permission handling.
-   */
+  /** Current foreground location permission. See [LocationBackend.permission]. */
   public val permission: StateFlow<LocationPermission>
-    get() = AlwaysGrantedLocationPermission
+    get() = backend.permission
 
-  /**
-   * Starts a foreground permission request and returns immediately.
-   *
-   * The result is published to [permission]. Calls made while a request is active must not start
-   * another platform request.
-   *
-   * The default does nothing, to match the default [permission] that is always granted.
-   */
-  public fun requestPermission(): Unit = Unit
+  /** Starts a foreground permission request. See [LocationBackend.requestPermission]. */
+  public fun requestPermission(): Unit = backend.requestPermission()
 
   /**
    * Returns a cold stream of foreground location updates.
    *
-   * When [backendAvailability] is [LocationBackendAvailability.Unsupported], collection emits
-   * [LocationEvent.Unavailable] with [LocationUnavailableReason.Unsupported] and completes. A
-   * [LocationBackendAvailability.Misconfigured] provider fails collection with an
-   * [IllegalStateException].
-   *
-   * Each collector starts an independent platform location request. Cancelling collection stops
-   * that request and unregisters its callbacks.
+   * An unsupported backend emits [LocationEvent.Unavailable] with
+   * [LocationUnavailableReason.Unsupported] and completes without starting a platform request. A
+   * misconfigured backend fails collection with [IllegalStateException] and its setup cause. An
+   * available backend starts an independent request for each collector; cancellation stops it.
    */
-  public fun updates(request: LocationRequest = LocationRequest.Standard): Flow<LocationEvent>
+  public fun updates(request: LocationRequest = LocationRequest.Standard): Flow<LocationEvent> =
+    flow {
+      when (val availability = backend.availability) {
+        LocationBackendAvailability.Available -> emitAll(backend.updates(request))
+        LocationBackendAvailability.Unsupported ->
+          emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+        is LocationBackendAvailability.Misconfigured ->
+          throw IllegalStateException("Location backend is misconfigured", availability.cause)
+        else -> error("Unknown location backend availability: $availability")
+      }
+    }
 
   /**
-   * Releases resources owned by this provider. Repeated calls have no effect.
+   * Releases the backend's resources. Repeated calls have no effect.
    *
-   * Cancel update collectors when disposing the provider. Implementations that own permission
-   * observers or platform clients release them here. Android, iOS, and macOS providers require the
-   * main thread. The default does nothing.
+   * Cancel collectors before closing. Android, iOS, and macOS backends require the main thread.
+   * Unsupported providers can still report their fixed unavailable result after closing.
    */
-  override fun close(): Unit = Unit
+  override fun close(): Unit = backend.close()
 }
-
-private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
-  MutableStateFlow(LocationPermission.Granted(accuracy = null))
 
 /**
  * Whether a location implementation has a usable platform backend.
@@ -352,20 +340,12 @@ public sealed interface LocationPermission {
 internal data object UnspecifiedLocationPermission : LocationPermission
 
 /** A provider for a target or host that has no installed location implementation. */
-public object UnsupportedLocationProvider :
-  LocationProvider by UnavailableLocationProvider(LocationBackendAvailability.Unsupported)
+public val UnsupportedLocationProvider: LocationProvider =
+  LocationProvider(UnavailableLocationBackend(LocationBackendAvailability.Unsupported))
 
-/** A provider that reports an unsupported host or rejects invalid backend setup. */
-internal class UnavailableLocationProvider(
-  override val backendAvailability: LocationBackendAvailability,
-) : LocationProvider {
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
-    if (backendAvailability == LocationBackendAvailability.Unsupported) {
-      emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      return@flow
-    }
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
-  }
+internal class UnavailableLocationBackend(
+  override val availability: LocationBackendAvailability,
+) : LocationBackend {
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    error("Unavailable backends cannot start location requests")
 }

@@ -4,24 +4,24 @@ import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 
 /**
- * A host-specific desktop location implementation discovered through [ServiceLoader].
+ * A factory for host-specific desktop location backends, discovered through [ServiceLoader].
  *
- * A backend installs one provider that carries both location updates and permission. No installed
- * or available backend maps [LocationProvider.backendAvailability] to
+ * Each factory creates a backend that carries both location updates and permission. No installed or
+ * available backend maps [LocationProvider.backendAvailability] to
  * [LocationBackendAvailability.Unsupported]. Multiple available backends, a
  * [ServiceConfigurationError], or an exception while checking or creating a backend maps the
  * property to [LocationBackendAvailability.Misconfigured]. The selected backend documents its
  * location-event and permission mappings.
  */
-public interface DesktopLocationBackend {
+public interface DesktopLocationBackendFactory {
   /** A stable name used in diagnostics. */
   public val id: String
 
   /** Whether this backend can run on the current operating system and architecture. */
   public fun isAvailable(): Boolean
 
-  /** Creates a location provider whose system dialogs are parented to [window]. */
-  public fun createProvider(window: XdgPortalWindow?): LocationProvider
+  /** Creates a location backend whose system dialogs are parented to [window]. */
+  public fun createBackend(window: XdgPortalWindow?): LocationBackend
 }
 
 /**
@@ -29,35 +29,36 @@ public interface DesktopLocationBackend {
  * dialogs are parented to [window], and [LocationProvider.close] releases its process resources.
  */
 public fun createDefaultLocationProvider(window: XdgPortalWindow? = null): LocationProvider =
-  DesktopLocationBackendResolver.discover(window)
+  LocationProvider(DesktopLocationBackendResolver.discover(window))
 
 internal object DesktopLocationBackendResolver {
   fun discover(
     window: XdgPortalWindow? = null,
-    loadBackends: () -> List<DesktopLocationBackend> = {
-      ServiceLoader.load(DesktopLocationBackend::class.java).toList()
+    loadBackends: () -> List<DesktopLocationBackendFactory> = {
+      ServiceLoader.load(DesktopLocationBackendFactory::class.java).toList()
     },
-  ): LocationProvider =
+  ): LocationBackend =
     try {
       resolve(loadBackends(), window)
     } catch (error: ServiceConfigurationError) {
-      UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
+      UnavailableLocationBackend(LocationBackendAvailability.Misconfigured(error))
     }
 
   fun resolve(
-    backends: List<DesktopLocationBackend>,
+    backends: List<DesktopLocationBackendFactory>,
     window: XdgPortalWindow? = null,
-  ): LocationProvider {
+  ): LocationBackend {
     val availableBackends =
       try {
         backends.filter { it.isAvailable() }
       } catch (error: Throwable) {
-        return UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
+        return UnavailableLocationBackend(LocationBackendAvailability.Misconfigured(error))
       }
     return when {
-      availableBackends.isEmpty() -> UnsupportedLocationProvider
+      availableBackends.isEmpty() ->
+        UnavailableLocationBackend(LocationBackendAvailability.Unsupported)
       availableBackends.size > 1 ->
-        UnavailableLocationProvider(
+        UnavailableLocationBackend(
           LocationBackendAvailability.Misconfigured(
             IllegalStateException(
               "Multiple desktop location backends are available: " +
@@ -67,9 +68,9 @@ internal object DesktopLocationBackendResolver {
         )
       else ->
         try {
-          availableBackends.single().createProvider(window)
+          availableBackends.single().createBackend(window)
         } catch (error: Throwable) {
-          UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(error))
+          UnavailableLocationBackend(LocationBackendAvailability.Misconfigured(error))
         }
     }
   }

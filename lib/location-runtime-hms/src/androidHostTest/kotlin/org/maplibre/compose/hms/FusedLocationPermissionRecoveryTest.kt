@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.maplibre.compose.location.LocationAccuracyAuthorization
+import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
@@ -39,7 +40,7 @@ class FusedLocationPermissionRecoveryTest {
   @Test
   fun securityFailureRecoversWithoutPermissionDelegate() = runTest {
     val client = TestClient().apply { denied = true }
-    val provider = FusedLocationProvider(client, null)
+    val provider = LocationProvider(FusedLocationBackend(client, null))
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest.Standard).collect(events::add)
@@ -64,16 +65,18 @@ class FusedLocationPermissionRecoveryTest {
   fun collectorRecoversAfterPermissionChanges() = runTest {
     val permission = MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(false))
     val delegate =
-      object : LocationProvider {
-        override val permission = permission
+      LocationProvider(
+        object : LocationBackend {
+          override val permission = permission
 
-        override fun updates(request: LocationRequest) =
-          error("Permission delegate must not receive locations")
+          override fun updates(request: LocationRequest) =
+            error("Permission delegate must not receive locations")
 
-        override fun requestPermission() = error("Collection must not prompt")
-      }
+          override fun requestPermission() = error("Collection must not prompt")
+        },
+      )
     val client = TestClient()
-    val provider = FusedLocationProvider(client, delegate)
+    val provider = LocationProvider(FusedLocationBackend(client, delegate))
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest.Standard).collect(events::add)

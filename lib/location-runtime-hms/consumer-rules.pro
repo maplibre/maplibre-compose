@@ -1,5 +1,5 @@
 # Only the ServiceLoader registration file references the backend, so R8 would
 # otherwise strip it from the application.
--keep class org.maplibre.compose.hms.HmsLocationBackend {
+-keep class org.maplibre.compose.hms.HmsLocationBackendFactory {
   <init>();
 }

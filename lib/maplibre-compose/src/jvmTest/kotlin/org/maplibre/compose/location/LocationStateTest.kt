@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -38,16 +39,16 @@ class LocationStateTest {
     runComposeUiTest {
       val cause = IllegalStateException("multiple backends")
       val provider =
-        ActiveLocationProvider(
+        ActiveLocationBackend(
           location(13.0),
-          backendAvailability = LocationBackendAvailability.Misconfigured(cause),
+          availability = LocationBackendAvailability.Misconfigured(cause),
         )
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             lifecycleOwner = ResumedLifecycleOwner(),
           )
       }
@@ -63,11 +64,11 @@ class LocationStateTest {
     runComposeUiTest {
       val failure = IllegalStateException("permission initialization failed")
       val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
-      val locationProvider = ActiveLocationProvider(location(13.0))
+      val locationProvider = ActiveLocationBackend(location(13.0))
       var attempts = 0
       var permissionRequests = 0
       val provider =
-        object : LocationProvider {
+        object : LocationBackend {
           override val permission = permissionState
 
           override fun requestPermission() {
@@ -90,7 +91,7 @@ class LocationStateTest {
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             headingProvider = headingProvider,
             lifecycleOwner = lifecycleOwner,
           )
@@ -123,7 +124,7 @@ class LocationStateTest {
       var permissionRequests = 0
       var stopped = false
       val provider =
-        object : LocationProvider {
+        object : LocationBackend {
           override val permission = permissionState
 
           override fun requestPermission() {
@@ -143,7 +144,11 @@ class LocationStateTest {
       val lifecycleOwner = ResumedLifecycleOwner()
       var state: LocationState? = null
       setContent {
-        state = rememberLocationState(provider = provider, lifecycleOwner = lifecycleOwner)
+        state =
+          rememberLocationState(
+            provider = remember(provider) { LocationProvider(provider) },
+            lifecycleOwner = lifecycleOwner,
+          )
       }
       waitUntil { stopped && state?.permission is LocationPermission.NotGranted }
       assertEquals(LocationTrackingStatus.Stopped, state?.status)
@@ -156,14 +161,14 @@ class LocationStateTest {
   fun permissionGrantStartsAndRevocationStopsProviderUpdates() = withMainDispatcher {
     runComposeUiTest {
       val lifecycleOwner = ResumedLifecycleOwner()
-      val locationProvider = ActiveLocationProvider(location(13.0))
-      val provider = MutablePermissionProvider(locationProvider)
+      val locationProvider = ActiveLocationBackend(location(13.0))
+      val provider = MutablePermissionBackend(locationProvider)
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             lifecycleOwner = lifecycleOwner,
           )
       }
@@ -193,14 +198,14 @@ class LocationStateTest {
   @Test
   fun permissionGrantStartsAndRevocationStopsHeadingUpdates() = withMainDispatcher {
     runComposeUiTest {
-      val provider = MutablePermissionProvider(FiniteLocationProvider())
+      val provider = MutablePermissionBackend(FiniteLocationBackend())
       val headingProvider = MutableHeadingProvider()
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             headingProvider = headingProvider,
             lifecycleOwner = ResumedLifecycleOwner(),
           )
@@ -232,7 +237,7 @@ class LocationStateTest {
       setContent {
         state =
           rememberLocationState(
-            provider = FiniteLocationProvider(),
+            provider = remember { LocationProvider(FiniteLocationBackend()) },
             headingProvider = headingProvider,
             lifecycleOwner = lifecycleOwner,
           )
@@ -250,13 +255,13 @@ class LocationStateTest {
   @Test
   fun defaultPermissionProviderCollectsWithoutPermissionWiring() = withMainDispatcher {
     runComposeUiTest {
-      val provider = ActiveLocationProvider(location(13.0))
+      val provider = ActiveLocationBackend(location(13.0))
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             lifecycleOwner = ResumedLifecycleOwner(),
           )
       }
@@ -272,14 +277,14 @@ class LocationStateTest {
   @Test
   fun headingFailureDoesNotStopLocationCollection() = withMainDispatcher {
     runComposeUiTest {
-      val locationProvider = ActiveLocationProvider(location(13.0))
+      val locationProvider = ActiveLocationBackend(location(13.0))
       val failure = IllegalStateException("sensor failed")
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = locationProvider,
+            provider = remember(locationProvider) { LocationProvider(locationProvider) },
             headingProvider = FailingHeadingProvider(failure),
             lifecycleOwner = ResumedLifecycleOwner(),
           )
@@ -306,7 +311,7 @@ class LocationStateTest {
       setContent {
         state =
           rememberLocationState(
-            provider = ActiveLocationProvider(location(13.0)),
+            provider = remember { LocationProvider(ActiveLocationBackend(location(13.0))) },
             headingProvider = headingProvider,
             lifecycleOwner = ResumedLifecycleOwner(),
           )
@@ -326,13 +331,13 @@ class LocationStateTest {
   fun retryRestartsLocationAfterUnavailableSession() = withMainDispatcher {
     runComposeUiTest {
       val expected = location(13.0)
-      val provider = RetryableLocationProvider(expected)
+      val provider = RetryableLocationBackend(expected)
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             lifecycleOwner = ResumedLifecycleOwner(),
           )
       }
@@ -355,7 +360,7 @@ class LocationStateTest {
     runComposeUiTest {
       val expectedLocation = location(13.0)
       val expectedHeading = heading(90.0)
-      val locationProvider = ActiveLocationProvider(expectedLocation)
+      val locationProvider = ActiveLocationBackend(expectedLocation)
       val headingProvider = MutableHeadingProvider()
       var enabled by mutableStateOf(true)
       var state: LocationState? = null
@@ -364,7 +369,7 @@ class LocationStateTest {
         state =
           rememberLocationState(
             enabled = enabled,
-            provider = locationProvider,
+            provider = remember(locationProvider) { LocationProvider(locationProvider) },
             headingProvider = headingProvider,
             lifecycleOwner = ResumedLifecycleOwner(),
           )
@@ -396,7 +401,7 @@ class LocationStateTest {
       setContent {
         state =
           rememberLocationState(
-            provider = FiniteLocationProvider(expected),
+            provider = remember { LocationProvider(FiniteLocationBackend(expected)) },
             lifecycleOwner = lifecycleOwner,
           )
       }
@@ -413,20 +418,20 @@ class LocationStateTest {
     runComposeUiTest {
       val lifecycleOwner = ResumedLifecycleOwner()
       val headingProvider = MutableHeadingProvider()
-      var provider by mutableStateOf<LocationProvider>(FiniteLocationProvider())
+      var provider by mutableStateOf<LocationBackend>(FiniteLocationBackend())
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = remember(provider) { LocationProvider(provider) },
             headingProvider = headingProvider,
             lifecycleOwner = lifecycleOwner,
           )
       }
       val originalState = state
 
-      runOnIdle { provider = FiniteLocationProvider() }
+      runOnIdle { provider = FiniteLocationBackend() }
       waitUntil { state !== originalState }
       val expected =
         HeadingMeasurement(
@@ -491,8 +496,8 @@ private class ResumedLifecycleOwner : LifecycleOwner {
   }
 }
 
-private class FiniteLocationProvider(private vararg val locations: LocationMeasurement) :
-  LocationProvider {
+private class FiniteLocationBackend(private vararg val locations: LocationMeasurement) :
+  LocationBackend {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     for (location in locations) {
       emit(
@@ -505,11 +510,10 @@ private class FiniteLocationProvider(private vararg val locations: LocationMeasu
   }
 }
 
-private class ActiveLocationProvider(
+private class ActiveLocationBackend(
   val location: LocationMeasurement,
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Available,
-) : LocationProvider {
+  override val availability: LocationBackendAvailability = LocationBackendAvailability.Available,
+) : LocationBackend {
   var active = false
   var stopCount = 0
 
@@ -530,12 +534,12 @@ private class ActiveLocationProvider(
   }
 }
 
-private class MutablePermissionProvider(
-  private val delegate: LocationProvider,
+private class MutablePermissionBackend(
+  private val delegate: LocationBackend,
   initialPermission: LocationPermission = LocationPermission.NotGranted(canRequest = true),
-) : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability
-    get() = delegate.backendAvailability
+) : LocationBackend {
+  override val availability: LocationBackendAvailability
+    get() = delegate.availability
 
   override val permission = MutableStateFlow(initialPermission)
   var requestCount = 0
@@ -576,8 +580,8 @@ private class RetryableHeadingProvider(private val heading: HeadingMeasurement) 
   }
 }
 
-private class RetryableLocationProvider(private val location: LocationMeasurement) :
-  LocationProvider {
+private class RetryableLocationBackend(private val location: LocationMeasurement) :
+  LocationBackend {
   var attempts = 0
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {

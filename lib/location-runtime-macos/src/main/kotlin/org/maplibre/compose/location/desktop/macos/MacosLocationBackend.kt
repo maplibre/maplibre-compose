@@ -26,7 +26,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationBackendFactory
+import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -37,13 +38,14 @@ import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /** macOS desktop location backend backed by Core Location. */
-public class MacosLocationBackend : DesktopLocationBackend {
+public class MacosLocationBackendFactory : DesktopLocationBackendFactory {
   override val id: String = "core-location"
 
   override fun isAvailable(): Boolean =
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("mac")
 
-  override fun createProvider(window: XdgPortalWindow?): LocationProvider = MacosLocationProvider()
+  override fun createBackend(window: XdgPortalWindow?): LocationBackend =
+    MacosLocationBackend(SystemCoreLocationClient())
 }
 
 /**
@@ -58,13 +60,15 @@ public class MacosLocationBackend : DesktopLocationBackend {
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
  * report a `null` reason.
  */
-public class MacosLocationProvider
+public fun createMacosLocationProvider(): LocationProvider =
+  LocationProvider(MacosLocationBackend(SystemCoreLocationClient()))
+
+internal class MacosLocationBackend
 internal constructor(
   private val client: CoreLocationClient,
   private val dispatcher: CoroutineContext = Dispatchers.Main,
   private val ioDispatcher: CoroutineContext = Dispatchers.IO,
-) : LocationProvider {
-  public constructor() : this(SystemCoreLocationClient())
+) : LocationBackend {
 
   private val job = SupervisorJob()
   private val scope = CoroutineScope(dispatcher + job)
@@ -74,7 +78,7 @@ internal constructor(
     job.invokeOnCompletion { requester.close() }
   }
 
-  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  override val availability: LocationBackendAvailability = client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
@@ -86,17 +90,9 @@ internal constructor(
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(job.isActive) { "The macOS location provider is closed" }
-    if (backendAvailability == LocationBackendAvailability.Unsupported) {
-      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      close()
-      return@callbackFlow
-    }
     val collection = scope.launch {
       try {
         currentCoroutineContext().ensureActive()
-        check(backendAvailability == LocationBackendAvailability.Available) {
-          "Location updates require an available backend: $backendAvailability"
-        }
         refreshPermission().collect { send(it) }
         permission.collectLatest { status ->
           when (status) {
@@ -220,9 +216,9 @@ internal constructor(
 /**
  * Foreground Core Location permission holder.
  *
- * [MacosLocationProvider] delegates [LocationProvider.permission] and
- * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
- * provider needs the same Core Location permission behavior.
+ * The provider returned by [createMacosLocationProvider] delegates [LocationProvider.permission]
+ * and [LocationProvider.requestPermission] to an instance of this class. Use it directly when a
+ * custom provider needs the same Core Location permission behavior.
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to

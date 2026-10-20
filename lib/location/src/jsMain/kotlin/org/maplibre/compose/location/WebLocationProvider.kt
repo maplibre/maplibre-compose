@@ -44,21 +44,23 @@ import web.permissions.query
  * [LocationRequest.minimumInterval] and ignores [LocationRequest.minimumDistance].
  *
  * A missing Geolocation API reports [LocationBackendAvailability.Unsupported]. Permission denial
- * reports [LocationUnavailableReason.PermissionDenied] and updates [permission]. Timeouts and
- * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
- * location updates reports a `null` reason with the failure as the cause.
+ * reports [LocationUnavailableReason.PermissionDenied] and updates [LocationProvider.permission].
+ * Timeouts and unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable].
+ * Failure to start location updates reports a `null` reason with the failure as the cause.
+ *
+ * @param coroutineScope Scope for observing permission; cancellation stops the observation.
  */
-public class WebLocationProvider
+public fun createWebLocationProvider(coroutineScope: CoroutineScope): LocationProvider =
+  LocationProvider(WebLocationBackend(BrowserGeolocation, coroutineScope))
+
+internal class WebLocationBackend
 internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   coroutineScope: CoroutineScope,
-) : LocationProvider {
-  /** Creates a provider that observes permission in [coroutineScope]. */
-  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
-
+) : LocationBackend {
   private val requester = WebLocationPermissionRequester(boundary, coroutineScope)
 
-  override val backendAvailability: LocationBackendAvailability =
+  override val availability: LocationBackendAvailability =
     if (boundary.supported) {
       LocationBackendAvailability.Available
     } else {
@@ -71,14 +73,6 @@ internal constructor(
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (backendAvailability == LocationBackendAvailability.Unsupported) {
-      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      close()
-      return@callbackFlow
-    }
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
     val collection = launch {
       permission.collectLatest { status ->
         when (status) {
@@ -142,7 +136,7 @@ internal constructor(
 /**
  * Observes and requests browser geolocation permission.
  *
- * [WebLocationProvider] delegates [LocationProvider.permission] and
+ * The provider returned by [createWebLocationProvider] delegates [LocationProvider.permission] and
  * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
  * [CoroutineScope] to back a custom [LocationProvider].
  *

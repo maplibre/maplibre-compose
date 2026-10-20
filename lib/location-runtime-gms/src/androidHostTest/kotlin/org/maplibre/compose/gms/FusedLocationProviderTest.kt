@@ -16,6 +16,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -25,10 +26,12 @@ class FusedLocationProviderTest {
     val registration = TaskCompletionSource<Void>()
     val removed = CompletableDeferred<Unit>()
     val provider =
-      FusedLocationProvider(
-        locationClient = fakeClient(registration, removed),
-        permissionDelegate = null,
-        executor = DirectExecutor,
+      LocationProvider(
+        FusedLocationBackend(
+          locationClient = fakeClient(registration, removed),
+          permissionDelegate = null,
+          executor = DirectExecutor,
+        ),
       )
     val collection = launch { provider.updates(LocationRequest.Standard).collect {} }
 

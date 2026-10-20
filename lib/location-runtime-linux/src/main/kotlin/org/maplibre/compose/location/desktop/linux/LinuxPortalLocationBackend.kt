@@ -18,8 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationBackendFactory
 import org.maplibre.compose.location.LocationAccuracy
+import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -29,14 +30,14 @@ import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
 
 /** Linux desktop location backend backed by the XDG Location portal. */
-public class LinuxPortalLocationBackend : DesktopLocationBackend {
+public class LinuxPortalLocationBackendFactory : DesktopLocationBackendFactory {
   override val id: String = "xdg-location-portal"
 
   override fun isAvailable(): Boolean =
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("linux")
 
-  override fun createProvider(window: XdgPortalWindow?): LocationProvider =
-    LinuxPortalLocationProvider(window)
+  override fun createBackend(window: XdgPortalWindow?): LocationBackend =
+    LinuxLocationBackend(DbusLocationPortal(window))
 }
 
 // TODO: Add a Linux heading backend when an independent heading API is available.
@@ -79,13 +80,14 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
  * [LocationUnavailableReason.TemporarilyUnavailable]. Malformed location data and other unexpected
  * failures report a `null` reason with the failure as the cause.
  */
-public class LinuxPortalLocationProvider
+public fun createLinuxLocationProvider(window: XdgPortalWindow? = null): LocationProvider =
+  LocationProvider(LinuxLocationBackend(DbusLocationPortal(window)))
+
+internal class LinuxLocationBackend
 internal constructor(
   private val portal: LinuxLocationPortal,
   coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-) : LocationProvider {
-  public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
-
+) : LocationBackend {
   private val job = SupervisorJob(coroutineScope.coroutineContext[Job])
   private val scope = CoroutineScope(coroutineScope.coroutineContext + job)
   private val requester = LinuxPortalLocationPermissionRequester(portal, scope, ownsPortal = false)
@@ -94,7 +96,7 @@ internal constructor(
     job.invokeOnCompletion { portal.close() }
   }
 
-  override val backendAvailability: LocationBackendAvailability =
+  override val availability: LocationBackendAvailability =
     if (portal.available) {
       LocationBackendAvailability.Available
     } else {
@@ -111,14 +113,6 @@ internal constructor(
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(job.isActive) { "The Linux location provider is closed" }
-    if (backendAvailability == LocationBackendAvailability.Unsupported) {
-      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      close()
-      return@callbackFlow
-    }
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
     val collection =
       scope.launch(start = CoroutineStart.UNDISPATCHED) {
         try {
@@ -144,9 +138,9 @@ internal constructor(
 /**
  * Observes and requests permission through the XDG Location portal.
  *
- * [LinuxPortalLocationProvider] delegates [LocationProvider.permission] and
- * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
- * provider needs the same portal permission behavior.
+ * The provider returned by [createLinuxLocationProvider] delegates [LocationProvider.permission]
+ * and [LocationProvider.requestPermission] to an instance of this class. Use it directly when a
+ * custom provider needs the same portal permission behavior.
  *
  * The portal has no permission-status query. Permission therefore remains
  * [LocationPermission.NotGranted] with `canRequest = null` until a successful

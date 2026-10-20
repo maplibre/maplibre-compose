@@ -46,18 +46,19 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * Create the provider, request permission, and close it on the main thread.
  *
  * @param context Context used to access location services.
- * @param requester Handles [permission] and [requestPermission].
  */
-public class AndroidLocationProvider
+@MainThread
+public fun createAndroidLocationProvider(context: Context): LocationProvider =
+  LocationProvider(
+    AndroidFrameworkLocationBackend(context, AndroidLocationPermissionRequester(context)),
+  )
+
+internal class AndroidFrameworkLocationBackend
 internal constructor(context: Context, private val requester: AndroidLocationPermissionRequester) :
-  LocationProvider {
+  LocationBackend {
   private val context: Context = context.applicationContext
 
-  override val backendId: String = "android-framework"
-
-  /** Creates a provider with its own [AndroidLocationPermissionRequester]. */
-  @MainThread
-  public constructor(context: Context) : this(context, AndroidLocationPermissionRequester(context))
+  override val id: String = "android-framework"
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
@@ -241,26 +242,28 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 /**
  * Creates the default Android location provider: the discovered backend's provider when one is
  * available, a provider that reports the failure when discovery is misconfigured, and the framework
- * [AndroidLocationProvider] otherwise.
+ * [createAndroidLocationProvider] otherwise.
  */
 @MainThread
 public fun createDefaultLocationProvider(context: Context): LocationProvider =
-  when (val resolution = AndroidLocationBackendResolver.discover(context)) {
-    is AndroidBackendResolution.Discovered ->
-      IdentifiedLocationProvider(
-        backendId = resolution.backend.id,
-        delegate = resolution.backend.createLocationProvider(context),
-      )
-    is AndroidBackendResolution.Misconfigured ->
-      UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(resolution.cause))
-    AndroidBackendResolution.None ->
-      AndroidLocationProvider(context, AndroidLocationPermissionRequester(context))
-  }
+  LocationProvider(
+    when (val resolution = AndroidLocationBackendResolver.discover(context)) {
+      is AndroidBackendResolution.Discovered ->
+        IdentifiedLocationBackend(
+          id = resolution.backend.id,
+          delegate = resolution.backend.createLocationBackend(context),
+        )
+      is AndroidBackendResolution.Misconfigured ->
+        UnavailableLocationBackend(LocationBackendAvailability.Misconfigured(resolution.cause))
+      AndroidBackendResolution.None ->
+        AndroidFrameworkLocationBackend(context, AndroidLocationPermissionRequester(context))
+    },
+  )
 
-private class IdentifiedLocationProvider(
-  override val backendId: String,
-  private val delegate: LocationProvider,
-) : LocationProvider by delegate
+private class IdentifiedLocationBackend(
+  override val id: String,
+  private val delegate: LocationBackend,
+) : LocationBackend by delegate
 
 private fun Context.registerLocationSettingsReceiver(receiver: BroadcastReceiver) {
   val filter =

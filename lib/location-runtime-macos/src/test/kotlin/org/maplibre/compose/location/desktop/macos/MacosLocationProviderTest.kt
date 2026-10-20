@@ -24,12 +24,13 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationBackendFactory
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.units.Bearing
@@ -39,25 +40,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
 @OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
   @Test
-  fun unsupportedBackendEmitsUnavailableWithoutStartingUpdates() = runTest {
-    val client =
-      FakeCoreLocationClient().apply {
-        backendAvailability = LocationBackendAvailability.Unsupported
-      }
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
-
-    assertEquals(
-      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
-      provider.updates().toList(),
-    )
-    assertTrue(client.managers.all { !it.updating })
-    provider.close()
-  }
-
-  @Test
   fun collectorRecoversAfterPermissionChanges() = runTest {
     val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusDenied)
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     val permissionManager = client.managers.single()
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
@@ -104,7 +90,9 @@ class MacosLocationProviderTest {
   @Test
   fun serviceLoaderFindsMacosBackend() {
     assertTrue(
-      ServiceLoader.load(DesktopLocationBackend::class.java).any { it is MacosLocationBackend },
+      ServiceLoader.load(DesktopLocationBackendFactory::class.java).any {
+        it is MacosLocationBackendFactory
+      },
     )
   }
 
@@ -171,7 +159,8 @@ class MacosLocationProviderTest {
   @Test
   fun closeStopsCollectorsAndClosesResourcesOnce() = runTest {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     val first = launch(start = CoroutineStart.UNDISPATCHED) { provider.updates().collect {} }
     val second = launch(start = CoroutineStart.UNDISPATCHED) { provider.updates().collect {} }
     runCurrent()
@@ -257,7 +246,7 @@ class MacosLocationProviderTest {
   @Test
   fun providerForwardsClientUpdatesAndClosesItsManager() = runTest {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
     val measurement = sampleMeasurement()
     client.nextLocation = measurement
 
@@ -278,7 +267,7 @@ class MacosLocationProviderTest {
   @Test
   fun missingLocationServicesReportsAndCompletes() = runTest {
     val client = FakeCoreLocationClient(locationServicesEnabled = false)
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
     val managersBeforeUpdates = client.managers.size
 
     val event =
@@ -293,7 +282,8 @@ class MacosLocationProviderTest {
   @Test
   fun providerDropsFixesWithInvalidHorizontalAccuracy() = runTest {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     client.nextLocation = sampleMeasurement().copy(horizontalAccuracy = -1.0)
 
     val events = mutableListOf<LocationEvent>()
@@ -309,7 +299,8 @@ class MacosLocationProviderTest {
   @Test
   fun transientErrorKeepsCallbackOrderAheadOfLaterFix() = runTest {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     client.nextLocation = sampleMeasurement()
 
     val events = mutableListOf<LocationEvent>()
@@ -333,7 +324,8 @@ class MacosLocationProviderTest {
   @Test
   fun deniedErrorRechecksLocationServices() = runTest {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     client.nextLocation = sampleMeasurement()
 
     val events = mutableListOf<LocationEvent>()
@@ -358,7 +350,7 @@ class MacosLocationProviderTest {
     val client = FakeCoreLocationClient()
     client.createFailure = IllegalStateException("native failed")
 
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
 
     assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     provider.requestPermission()
@@ -372,7 +364,8 @@ class MacosLocationProviderTest {
   fun failedPermissionDelegateSetupClosesManagerAndCanRetry() = runTest {
     val failure = IllegalStateException("delegate failed")
     val client = FakeCoreLocationClient().apply { delegateFailure = failure }
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val provider =
+      LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined, Dispatchers.Unconfined))
     assertEquals(LocationPermission.NotDetermined, provider.permission.value)
     assertEquals(1, client.managers.single().closeCount)
 
@@ -394,7 +387,7 @@ class MacosLocationProviderTest {
     val createFailure = IllegalStateException("native failed")
     val client = FakeCoreLocationClient().apply { this.createFailure = createFailure }
     val dispatcher = StandardTestDispatcher(testScheduler)
-    val provider = MacosLocationProvider(client, dispatcher, dispatcher)
+    val provider = LocationProvider(MacosLocationBackend(client, dispatcher, dispatcher))
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch { provider.updates().collect(events::add) }
     runCurrent()
@@ -447,7 +440,7 @@ class MacosLocationProviderTest {
   @Test
   fun overlappingPermissionRequestsStartOneAuthorizationRequest() {
     val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
     val manager = client.managers.single()
 
     assertEquals(LocationPermission.NotGranted(canRequest = true), provider.permission.value)
@@ -476,7 +469,7 @@ class MacosLocationProviderTest {
   @Test
   fun permissionFailureClearsPendingRequest() {
     val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusNotDetermined)
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
     val manager = client.managers.single()
 
     provider.requestPermission()
@@ -494,7 +487,7 @@ class MacosLocationProviderTest {
   @Test
   fun missingUsageDescriptionMarksProviderMisconfigured() = runTest {
     val client = FakeCoreLocationClient(hasUsageDescription = false)
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
 
     assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
     assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
@@ -505,7 +498,7 @@ class MacosLocationProviderTest {
   @Test
   fun deniedAuthorizationCannotBeRequestedAgain() {
     val client = FakeCoreLocationClient()
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+    val provider = LocationProvider(MacosLocationBackend(client, Dispatchers.Unconfined))
     val manager = client.managers.single()
 
     manager.authorizationStatus = kCLAuthorizationStatusDenied
@@ -536,7 +529,7 @@ private class FakeCoreLocationClient(
   hasUsageDescription: Boolean = true,
   val authorizationStatus: Long = kCLAuthorizationStatusAuthorizedWhenInUse,
 ) : CoreLocationClient {
-  override var backendAvailability: LocationBackendAvailability =
+  override val backendAvailability: LocationBackendAvailability =
     if (hasUsageDescription) {
       LocationBackendAvailability.Available
     } else {

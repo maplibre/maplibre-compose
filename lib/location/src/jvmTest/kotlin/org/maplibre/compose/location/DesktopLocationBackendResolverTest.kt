@@ -18,7 +18,7 @@ class DesktopLocationBackendResolverTest {
       )
 
     providers.forEach {
-      assertEquals(LocationBackendAvailability.Unsupported, it.backendAvailability)
+      assertEquals(LocationBackendAvailability.Unsupported, it.availability)
     }
     assertEquals(0, unavailableBackend.createCalls)
   }
@@ -28,7 +28,7 @@ class DesktopLocationBackendResolverTest {
     val backends = listOf(FakeBackend("first"), FakeBackend("second"))
     val provider = DesktopLocationBackendResolver.resolve(backends)
 
-    assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
+    assertIs<LocationBackendAvailability.Misconfigured>(provider.availability)
   }
 
   @Test
@@ -51,8 +51,7 @@ class DesktopLocationBackendResolverTest {
 
     val provider = DesktopLocationBackendResolver.resolve(listOf(backend))
 
-    val availability =
-      assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
+    val availability = assertIs<LocationBackendAvailability.Misconfigured>(provider.availability)
     assertSame(failure, availability.cause)
     assertEquals(1, backend.createCalls)
   }
@@ -64,7 +63,7 @@ class DesktopLocationBackendResolverTest {
 
     assertSame(
       failure,
-      assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability).cause,
+      assertIs<LocationBackendAvailability.Misconfigured>(provider.availability).cause,
     )
   }
 }
@@ -72,21 +71,21 @@ class DesktopLocationBackendResolverTest {
 private class FakeBackend(
   override val id: String,
   private val available: Boolean = true,
-  private val provider: LocationProvider = FakeProvider(),
+  private val provider: LocationBackend = FakeProvider(),
   private val failure: Throwable? = null,
-) : DesktopLocationBackend {
+) : DesktopLocationBackendFactory {
   var createCalls = 0
 
   override fun isAvailable(): Boolean = available
 
-  override fun createProvider(window: XdgPortalWindow?): LocationProvider {
+  override fun createBackend(window: XdgPortalWindow?): LocationBackend {
     createCalls += 1
     failure?.let { throw it }
     return provider
   }
 }
 
-private class FakeProvider : LocationProvider {
+private class FakeProvider : LocationBackend {
   override fun updates(request: LocationRequest) = emptyFlow<LocationEvent>()
 
   override fun close() = Unit
