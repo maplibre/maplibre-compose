@@ -2,7 +2,6 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -32,7 +32,10 @@ class WebLocationProviderTest {
     val provider = WebLocationProvider(boundary, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      provider.updates(LocationRequest.Standard).toList(),
+    )
     provider.requestPermission()
     runCurrent()
     assertEquals(emptyList(), boundary.requestedOptions)

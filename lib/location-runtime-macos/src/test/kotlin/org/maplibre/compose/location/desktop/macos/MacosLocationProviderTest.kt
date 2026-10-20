@@ -39,6 +39,22 @@ import org.maplibre.spatialk.units.extensions.inMeters
 @OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
   @Test
+  fun unsupportedBackendEmitsUnavailableWithoutStartingUpdates() = runTest {
+    val client =
+      FakeCoreLocationClient().apply {
+        backendAvailability = LocationBackendAvailability.Unsupported
+      }
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      provider.updates().toList(),
+    )
+    assertTrue(client.managers.all { !it.updating })
+    provider.close()
+  }
+
+  @Test
   fun collectorRecoversAfterPermissionChanges() = runTest {
     val client = FakeCoreLocationClient(authorizationStatus = kCLAuthorizationStatusDenied)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
@@ -520,7 +536,7 @@ private class FakeCoreLocationClient(
   hasUsageDescription: Boolean = true,
   val authorizationStatus: Long = kCLAuthorizationStatusAuthorizedWhenInUse,
 ) : CoreLocationClient {
-  override val backendAvailability: LocationBackendAvailability =
+  override var backendAvailability: LocationBackendAvailability =
     if (hasUsageDescription) {
       LocationBackendAvailability.Available
     } else {

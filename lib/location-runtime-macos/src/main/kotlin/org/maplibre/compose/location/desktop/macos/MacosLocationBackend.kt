@@ -86,6 +86,11 @@ internal constructor(
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(job.isActive) { "The macOS location provider is closed" }
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
     val collection = scope.launch {
       try {
         currentCoroutineContext().ensureActive()
