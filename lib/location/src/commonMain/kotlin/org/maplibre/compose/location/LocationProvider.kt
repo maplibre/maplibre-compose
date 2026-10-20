@@ -364,8 +364,11 @@ internal class UnavailableLocationProvider(
       emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
       return@flow
     }
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
+    if (backendAvailability != LocationBackendAvailability.Available) {
+      throw IllegalStateException(
+        "Location updates require an available backend: $backendAvailability",
+        (backendAvailability as? LocationBackendAvailability.Misconfigured)?.cause,
+      )
     }
   }
 }
