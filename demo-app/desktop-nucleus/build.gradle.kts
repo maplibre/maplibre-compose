@@ -78,6 +78,8 @@ nucleus.application {
     }
 
     linux {
+      // D-Bus authentication for the XDG Location portal.
+      modules("jdk.security.auth")
       packageName = "maplibre-compose"
       iconFile.set(
         rootProject.file(

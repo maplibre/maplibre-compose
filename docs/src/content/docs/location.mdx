@@ -161,3 +161,7 @@ entitlement is required.
 Location uses the
 [XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
 Without the portal, `availability` is `Unsupported`.
+
+For JVM apps packaged with Compose Desktop or Nucleus, include
+`modules("jdk.security.auth")` in `nativeDistributions` so the bundled Java
+runtime supports D-Bus authentication.
