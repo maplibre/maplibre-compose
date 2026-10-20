@@ -64,7 +64,7 @@ class AndroidLocationProviderTest {
   @Test
   fun applicationContextRecoversAcrossDenialAndRevocationWithoutRestartingCollectors() =
     runTest(dispatcher) {
-      val provider = createAndroidLocationProvider(application)
+      val provider = AndroidLocationProvider(application)
       val events = mutableListOf<LocationEvent>()
       val collection = backgroundScope.launch {
         provider.updates(LocationRequest.Standard).collect(events::add)
@@ -102,7 +102,7 @@ class AndroidLocationProviderTest {
   @Test
   fun collectionRefreshesStalePermissionBeforeEmittingFromAnotherDispatcher() =
     runTest(dispatcher) {
-      val provider = createAndroidLocationProvider(application)
+      val provider = AndroidLocationProvider(application)
       grant()
       val events = mutableListOf<LocationEvent>()
       val collection =
@@ -124,7 +124,7 @@ class AndroidLocationProviderTest {
   fun invalidRegistrationReportsFailureAndCompletes() =
     runTest(dispatcher) {
       grant()
-      val provider = createAndroidLocationProvider(application)
+      val provider = AndroidLocationProvider(application)
       try {
         val events = mutableListOf<LocationEvent>()
         val collection = backgroundScope.launch { provider.updates().collect(events::add) }
@@ -142,7 +142,7 @@ class AndroidLocationProviderTest {
   fun activityResumeRefreshesPermissionBeforeTheNextPoll() =
     runTest(dispatcher) {
       val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-      val provider = createAndroidLocationProvider(activity.get())
+      val provider = AndroidLocationProvider(activity.get())
       val events = mutableListOf<LocationEvent>()
       val collection = backgroundScope.launch {
         provider.updates(LocationRequest.Standard).collect(events::add)
@@ -166,7 +166,7 @@ class AndroidLocationProviderTest {
   @Test
   fun collectorsOwnIndependentRegistrationsAndCancellationWhileDeniedCannotRestart() =
     runTest(dispatcher) {
-      val provider = createAndroidLocationProvider(application)
+      val provider = AndroidLocationProvider(application)
       val first = backgroundScope.launch { provider.updates(LocationRequest.Standard).collect {} }
       val second = backgroundScope.launch { provider.updates(LocationRequest.Standard).collect {} }
       runCurrent()

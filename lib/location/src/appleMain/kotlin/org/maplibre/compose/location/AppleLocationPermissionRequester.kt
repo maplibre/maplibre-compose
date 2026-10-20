@@ -16,9 +16,9 @@ import platform.darwin.NSObject
 /**
  * Foreground Core Location permission holder.
  *
- * The provider returned by [createAppleLocationProvider] delegates [LocationProvider.permission]
- * and [LocationProvider.requestPermission] to an instance of this class. Use it directly when a
- * custom provider needs the same Core Location permission behavior.
+ * [AppleLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
+ * provider needs the same Core Location permission behavior.
  *
  * Construct, request permission, and [close] on the main thread. Closing detaches the permission
  * observer and releases the manager.

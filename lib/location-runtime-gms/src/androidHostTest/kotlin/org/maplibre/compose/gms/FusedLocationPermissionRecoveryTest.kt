@@ -21,7 +21,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
@@ -37,8 +36,7 @@ class FusedLocationPermissionRecoveryTest {
   @Test
   fun securityFailureRecoversWithoutPermissionDelegate() = runTest {
     val client = TestClient().apply { denied = true }
-    val provider =
-      LocationProvider(FusedLocationBackend(client.delegate, null, Executor { it.run() }))
+    val provider = FusedLocationProvider(client.delegate, null, Executor { it.run() })
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest.Standard).collect(events::add)
@@ -61,19 +59,16 @@ class FusedLocationPermissionRecoveryTest {
   fun collectorRecoversAfterPermissionChanges() = runTest {
     val permission = MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(false))
     val delegate =
-      LocationProvider(
-        object : LocationBackend {
-          override val permission = permission
+      object : LocationProvider {
+        override val permission = permission
 
-          override fun updates(request: LocationRequest) =
-            error("Permission delegate must not receive locations")
+        override fun updates(request: LocationRequest) =
+          error("Permission delegate must not receive locations")
 
-          override fun requestPermission() = error("Collection must not prompt")
-        },
-      )
+        override fun requestPermission() = error("Collection must not prompt")
+      }
     val client = TestClient()
-    val provider =
-      LocationProvider(FusedLocationBackend(client.delegate, delegate, Executor { it.run() }))
+    val provider = FusedLocationProvider(client.delegate, delegate, Executor { it.run() })
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest.Standard).collect(events::add)

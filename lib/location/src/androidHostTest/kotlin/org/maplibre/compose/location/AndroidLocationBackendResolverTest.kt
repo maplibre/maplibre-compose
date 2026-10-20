@@ -51,9 +51,9 @@ class AndroidLocationBackendResolverTest {
 }
 
 private class FakeBackend(override val id: String, override val priority: Int = 0) :
-  AndroidLocationBackendFactory {
+  AndroidLocationBackend {
   override fun isAvailable(context: Context) = true
 
-  override fun createLocationBackend(context: Context): LocationBackend =
+  override fun createLocationProvider(context: Context): LocationProvider =
     error("this test never creates a provider")
 }

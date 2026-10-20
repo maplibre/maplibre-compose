@@ -249,7 +249,7 @@ changing the shape.
   object, so that callers write `createMapRuntime { … }`. Keep the object as a
   parameter when the function takes several settings objects, such as
   `MaplibreMap`, already ends with another lambda, or is an interface member
-  that other code implements, such as `LocationBackend.updates`.
+  that other code implements, such as `LocationProvider.updates`.
 - Within a major version, don't start rejecting a value that an earlier release
   accepted.
 - Make every option that all platforms support settable from common code, with

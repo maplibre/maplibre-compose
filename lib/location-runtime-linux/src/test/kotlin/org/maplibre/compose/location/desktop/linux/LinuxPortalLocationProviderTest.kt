@@ -33,12 +33,11 @@ import org.freedesktop.dbus.exceptions.DBusExecutionException
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
-import org.maplibre.compose.location.DesktopLocationBackendFactory
+import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
@@ -52,8 +51,8 @@ class LinuxPortalLocationProviderTest {
   @Test
   fun serviceLoaderFindsLinuxBackend() {
     assertTrue(
-      ServiceLoader.load(DesktopLocationBackendFactory::class.java).any {
-        it is LinuxPortalLocationBackendFactory
+      ServiceLoader.load(DesktopLocationBackend::class.java).any {
+        it is LinuxPortalLocationBackend
       },
     )
   }
@@ -98,7 +97,7 @@ class LinuxPortalLocationProviderTest {
   @Test
   fun providerForwardsPortalUpdates() = runTest {
     val portal = FakeLinuxLocationPortal()
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertIs<LocationEvent.Update>(provider.updates(LocationRequest.Standard).first())
     assertEquals(1, portal.updateCollections)
@@ -107,7 +106,7 @@ class LinuxPortalLocationProviderTest {
   @Test
   fun missingPortalMarksProviderUnsupported() = runTest {
     val portal = FakeLinuxLocationPortal(available = false)
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
     assertEquals(
@@ -124,7 +123,7 @@ class LinuxPortalLocationProviderTest {
     val portal = FakeLinuxLocationPortal()
     val pendingResult = CompletableDeferred<Boolean>()
     portal.permissionResult = { pendingResult.await() }
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     provider.requestPermission()
     provider.requestPermission()
@@ -146,7 +145,7 @@ class LinuxPortalLocationProviderTest {
   fun deniedPermissionRequestStaysNotGrantedAndCanBeRetried() = runTest {
     val portal = FakeLinuxLocationPortal()
     portal.permissionResult = { false }
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     provider.requestPermission()
     runCurrent()
@@ -258,7 +257,7 @@ class LinuxPortalLocationProviderTest {
         cleanedUp = true
       }
     }
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
     val collection = launch { provider.updates().collect {} }
     runCurrent()
 
@@ -297,7 +296,7 @@ class LinuxPortalLocationProviderTest {
       }
     }
     portal.onClose = { events += "portal closed" }
-    val provider = LocationProvider(LinuxLocationBackend(portal, backgroundScope))
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
     val collection = launch { provider.updates().collect {} }
     provider.requestPermission()
     runCurrent()

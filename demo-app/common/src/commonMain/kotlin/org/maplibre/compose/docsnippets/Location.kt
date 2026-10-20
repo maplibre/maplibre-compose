@@ -6,16 +6,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.flow.Flow
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.HeadingRequest
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationBackendAvailability
-import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
@@ -125,12 +121,3 @@ private fun LocationRequests() {
     )
   // #endregion requests
 }
-
-// #region custom-source
-fun customLocationProvider(events: Flow<LocationEvent>): LocationProvider =
-  LocationProvider(
-    object : LocationBackend {
-      override fun updates(request: LocationRequest): Flow<LocationEvent> = events
-    },
-  )
-// #endregion custom-source

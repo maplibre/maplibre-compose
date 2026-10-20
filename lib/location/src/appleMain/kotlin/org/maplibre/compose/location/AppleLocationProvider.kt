@@ -37,23 +37,23 @@ import platform.darwin.NSObject
  * ignored. See [AppleLocationPermissionRequester] for permission behavior. The application must
  * declare its location usage description in its `Info.plist`.
  *
- * Create the provider, request permission, and close it on the main thread. Cancel
- * [LocationProvider.updates] collectors before closing.
+ * Create the provider, request permission, and close it on the main thread. Cancel [updates]
+ * collectors before closing.
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
  * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
  * report a `null` reason.
  */
-public fun createAppleLocationProvider(): LocationProvider =
-  LocationProvider(AppleLocationBackend(AppleLocationPermissionRequester()))
-
-internal class AppleLocationBackend
+public class AppleLocationProvider
 internal constructor(
   private val requester: AppleLocationPermissionRequester,
   private val servicesEnabled: suspend () -> Boolean = ::locationServicesEnabled,
   private val createManager: () -> CLLocationManager = { CLLocationManager() },
-) : LocationBackend {
+) : LocationProvider {
+  /** Creates a provider with its own permission requester. */
+  public constructor() : this(AppleLocationPermissionRequester())
+
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 

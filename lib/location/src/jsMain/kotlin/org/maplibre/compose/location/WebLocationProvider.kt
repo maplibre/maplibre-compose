@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
+import org.maplibre.compose.location.internal.withBackendAvailability
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -44,23 +46,21 @@ import web.permissions.query
  * [LocationRequest.minimumInterval] and ignores [LocationRequest.minimumDistance].
  *
  * A missing Geolocation API reports [LocationBackendAvailability.Unsupported]. Permission denial
- * reports [LocationUnavailableReason.PermissionDenied] and updates [LocationProvider.permission].
- * Timeouts and unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable].
- * Failure to start location updates reports a `null` reason with the failure as the cause.
- *
- * @param coroutineScope Scope for observing permission; cancellation stops the observation.
+ * reports [LocationUnavailableReason.PermissionDenied] and updates [permission]. Timeouts and
+ * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
+ * location updates reports a `null` reason with the failure as the cause.
  */
-public fun createWebLocationProvider(coroutineScope: CoroutineScope): LocationProvider =
-  LocationProvider(WebLocationBackend(BrowserGeolocation, coroutineScope))
-
-internal class WebLocationBackend
+public class WebLocationProvider
 internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   coroutineScope: CoroutineScope,
-) : LocationBackend {
+) : LocationProvider {
+  /** Creates a provider that observes permission in [coroutineScope]. */
+  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
+
   private val requester = WebLocationPermissionRequester(boundary, coroutineScope)
 
-  override val availability: LocationBackendAvailability =
+  override val backendAvailability: LocationBackendAvailability =
     if (boundary.supported) {
       LocationBackendAvailability.Available
     } else {
@@ -72,6 +72,7 @@ internal constructor(
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
+  @OptIn(InternalMaplibreComposeApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     val collection = launch {
       permission.collectLatest { status ->
@@ -90,6 +91,7 @@ internal constructor(
     }
     awaitClose { collection.cancel() }
   }
+    .withBackendAvailability(backendAvailability)
 
   private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     var previous: BrowserPosition? = null
@@ -136,7 +138,7 @@ internal constructor(
 /**
  * Observes and requests browser geolocation permission.
  *
- * The provider returned by [createWebLocationProvider] delegates [LocationProvider.permission] and
+ * [WebLocationProvider] delegates [LocationProvider.permission] and
  * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
  * [CoroutineScope] to back a custom [LocationProvider].
  *

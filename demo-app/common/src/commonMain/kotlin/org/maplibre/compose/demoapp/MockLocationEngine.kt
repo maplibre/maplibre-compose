@@ -17,7 +17,6 @@ import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
-import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationProvider
@@ -50,30 +49,25 @@ internal class MockLocationEngine : DemoLocationEngine {
     remember(this, sample.headingAvailable) { createLocationProvider() }
 
   fun createLocationProvider(): LocationProvider =
-    LocationProvider(
-      object : LocationBackend {
-        override val id = "demo-mock"
+    object : LocationProvider {
+      override val backendId = "demo-mock"
 
-        override fun updates(request: LocationRequest): Flow<LocationEvent> = snapshotFlow {
-          sample
+      override fun updates(request: LocationRequest): Flow<LocationEvent> = snapshotFlow {
+        sample
+      }
+        .map {
+          LocationEvent.Update(
+            measurement =
+              LocationMeasurement(
+                position = it.position,
+                horizontalAccuracy =
+                  it.positionAccuracy.takeIf { _ -> it.positionAccuracyKnown }?.toDouble()?.meters,
+                measuredAt = Clock.System.now(),
+              ),
+            measurementMark = TimeSource.Monotonic.markNow(),
+          )
         }
-          .map {
-            LocationEvent.Update(
-              measurement =
-                LocationMeasurement(
-                  position = it.position,
-                  horizontalAccuracy =
-                    it.positionAccuracy
-                      .takeIf { _ -> it.positionAccuracyKnown }
-                      ?.toDouble()
-                      ?.meters,
-                  measuredAt = Clock.System.now(),
-                ),
-              measurementMark = TimeSource.Monotonic.markNow(),
-            )
-          }
-      },
-    )
+    }
 
   @Composable
   override fun rememberHeadingProvider(): HeadingProvider =

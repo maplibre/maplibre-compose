@@ -48,9 +48,7 @@ class AppleLocationProviderTest {
         LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
       }
     val provider =
-      LocationProvider(
-        AppleLocationBackend(requester, servicesEnabled = { true }, createManager = { manager }),
-      )
+      AppleLocationProvider(requester, servicesEnabled = { true }, createManager = { manager })
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch { provider.updates().collect { events += it } }
     try {
@@ -83,11 +81,9 @@ class AppleLocationProviderTest {
     val requester = AppleLocationPermissionRequester(permissionManager)
     val managers = mutableListOf<TestLocationManager>()
     val provider =
-      LocationProvider(
-        AppleLocationBackend(requester, servicesEnabled = { true }) {
-          TestLocationManager().also { managers += it }
-        },
-      )
+      AppleLocationProvider(requester, servicesEnabled = { true }) {
+        TestLocationManager().also { managers += it }
+      }
     val events = Channel<LocationEvent>(Channel.UNLIMITED)
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest.Standard).collect { events.send(it) }
@@ -131,12 +127,10 @@ class AppleLocationProviderTest {
   fun deniedAuthorizationReportsGloballyDisabledServices() = runTest {
     val manager = TestLocationManager()
     val provider =
-      LocationProvider(
-        AppleLocationBackend(
-          AppleLocationPermissionRequester(manager),
-          servicesEnabled = { false },
-          createManager = { error("Disabled services must not start location updates") },
-        ),
+      AppleLocationProvider(
+        AppleLocationPermissionRequester(manager),
+        servicesEnabled = { false },
+        createManager = { error("Disabled services must not start location updates") },
       )
     try {
       val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
@@ -151,7 +145,7 @@ class AppleLocationProviderTest {
   fun closeDetachesPermissionObserverAndRejectsRequests() {
     val manager = CLLocationManager()
     val requester = AppleLocationPermissionRequester(manager)
-    val provider = LocationProvider(AppleLocationBackend(requester))
+    val provider = AppleLocationProvider(requester)
     assertNotNull(manager.delegate)
 
     provider.close()

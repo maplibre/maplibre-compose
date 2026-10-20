@@ -26,8 +26,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.maplibre.compose.location.DesktopLocationBackendFactory
-import org.maplibre.compose.location.LocationBackend
+import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -35,17 +34,18 @@ import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
+import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
+import org.maplibre.compose.location.internal.withBackendAvailability
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /** macOS desktop location backend backed by Core Location. */
-public class MacosLocationBackendFactory : DesktopLocationBackendFactory {
+public class MacosLocationBackend : DesktopLocationBackend {
   override val id: String = "core-location"
 
   override fun isAvailable(): Boolean =
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("mac")
 
-  override fun createBackend(window: XdgPortalWindow?): LocationBackend =
-    MacosLocationBackend(SystemCoreLocationClient())
+  override fun createProvider(window: XdgPortalWindow?): LocationProvider = MacosLocationProvider()
 }
 
 /**
@@ -60,15 +60,13 @@ public class MacosLocationBackendFactory : DesktopLocationBackendFactory {
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
  * report a `null` reason.
  */
-public fun createMacosLocationProvider(): LocationProvider =
-  LocationProvider(MacosLocationBackend(SystemCoreLocationClient()))
-
-internal class MacosLocationBackend
+public class MacosLocationProvider
 internal constructor(
   private val client: CoreLocationClient,
   private val dispatcher: CoroutineContext = Dispatchers.Main,
   private val ioDispatcher: CoroutineContext = Dispatchers.IO,
-) : LocationBackend {
+) : LocationProvider {
+  public constructor() : this(SystemCoreLocationClient())
 
   private val job = SupervisorJob()
   private val scope = CoroutineScope(dispatcher + job)
@@ -78,7 +76,7 @@ internal constructor(
     job.invokeOnCompletion { requester.close() }
   }
 
-  override val availability: LocationBackendAvailability = client.backendAvailability
+  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
@@ -88,6 +86,7 @@ internal constructor(
     requester.requestForegroundPermission()
   }
 
+  @OptIn(InternalMaplibreComposeApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(job.isActive) { "The macOS location provider is closed" }
     val collection = scope.launch {
@@ -126,6 +125,7 @@ internal constructor(
       withContext(NonCancellable) { collection.cancelAndJoin() }
     }
   }
+    .withBackendAvailability(backendAvailability)
 
   private fun refreshPermission(): Flow<LocationEvent> =
     flow<LocationEvent> { requester.refreshPermission() }
@@ -216,9 +216,9 @@ internal constructor(
 /**
  * Foreground Core Location permission holder.
  *
- * The provider returned by [createMacosLocationProvider] delegates [LocationProvider.permission]
- * and [LocationProvider.requestPermission] to an instance of this class. Use it directly when a
- * custom provider needs the same Core Location permission behavior.
+ * [MacosLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
+ * provider needs the same Core Location permission behavior.
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to

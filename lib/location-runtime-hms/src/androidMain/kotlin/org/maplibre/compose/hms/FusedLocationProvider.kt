@@ -21,15 +21,14 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.retryWhen
+import org.maplibre.compose.location.AndroidLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
-import org.maplibre.compose.location.LocationBackend
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.asMaplibreLocationUpdate
-import org.maplibre.compose.location.createAndroidLocationProvider
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -42,46 +41,37 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * permission reports [LocationUnavailableReason.PermissionDenied]. Other exceptions propagate to
  * the collector.
  *
- * The [Context] overload handles permission requests. The [FusedLocationProviderClient] overload
- * reports permission as granted and requires the caller to manage authorization.
+ * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
+ * constructor reports permission as granted and requires the caller to manage authorization.
  *
  * Create the provider, request permission, and close it on the main thread.
  */
-@MainThread
-public fun createFusedLocationProvider(context: Context): LocationProvider =
-  LocationProvider(FusedLocationBackend(context))
-
-/** Creates a fused provider whose caller manages permission. */
-@MainThread
-public fun createFusedLocationProvider(
-  locationClient: FusedLocationProviderClient,
-): LocationProvider = LocationProvider(FusedLocationBackend(locationClient))
-
-internal class FusedLocationBackend
+public class FusedLocationProvider
 internal constructor(
   private val locationClient: FusedLocationProviderClient,
   private val permissionDelegate: LocationProvider?,
-) : LocationBackend {
+) : LocationProvider {
 
-  override val id: String = HmsLocationBackendId
+  override val backendId: String = HmsLocationBackendId
 
   /**
    * Creates a provider backed by [locationClient].
    *
-   * Permission keeps the [LocationBackend.permission] default, which is always granted.
+   * Permission keeps the [LocationProvider.permission] default, which is always granted.
    */
-  @MainThread constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
+  @MainThread
+  public constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
 
   /**
-   * Creates a backend with its own fused client and a framework provider as its permission
+   * Creates a provider with its own fused client and an [AndroidLocationProvider] as its permission
    * delegate.
    */
   @MainThread
-  constructor(
+  public constructor(
     context: Context,
   ) : this(
     LocationServices.getFusedLocationProviderClient(context),
-    createAndroidLocationProvider(context),
+    AndroidLocationProvider(context),
   )
 
   override val permission: StateFlow<LocationPermission>

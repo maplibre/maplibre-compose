@@ -8,6 +8,10 @@
 // - Show declarations: true
 
 // Library unique name: <org.maplibre.compose:location>
+open annotation class org.maplibre.compose.location.internal/InternalMaplibreComposeApi : kotlin/Annotation { // org.maplibre.compose.location.internal/InternalMaplibreComposeApi|null[0]
+    constructor <init>() // org.maplibre.compose.location.internal/InternalMaplibreComposeApi.<init>|<init>(){}[0]
+}
+
 final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<org.maplibre.compose.location/LocationAccuracy> { // org.maplibre.compose.location/LocationAccuracy|null[0]
     enum entry Balanced // org.maplibre.compose.location/LocationAccuracy.Balanced|null[0]
     enum entry BestForNavigation // org.maplibre.compose.location/LocationAccuracy.BestForNavigation|null[0]
@@ -26,17 +30,17 @@ abstract interface org.maplibre.compose.location/HeadingProvider { // org.maplib
     abstract fun updates(org.maplibre.compose.location/HeadingRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/HeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
 }
 
-abstract interface org.maplibre.compose.location/LocationBackend : kotlin/AutoCloseable { // org.maplibre.compose.location/LocationBackend|null[0]
-    open val availability // org.maplibre.compose.location/LocationBackend.availability|{}availability[0]
-        open fun <get-availability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/LocationBackend.availability.<get-availability>|<get-availability>(){}[0]
-    open val id // org.maplibre.compose.location/LocationBackend.id|{}id[0]
-        open fun <get-id>(): kotlin/String? // org.maplibre.compose.location/LocationBackend.id.<get-id>|<get-id>(){}[0]
-    open val permission // org.maplibre.compose.location/LocationBackend.permission|{}permission[0]
-        open fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/LocationBackend.permission.<get-permission>|<get-permission>(){}[0]
+abstract interface org.maplibre.compose.location/LocationProvider : kotlin/AutoCloseable { // org.maplibre.compose.location/LocationProvider|null[0]
+    open val backendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability|{}backendAvailability[0]
+        open fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    open val backendId // org.maplibre.compose.location/LocationProvider.backendId|{}backendId[0]
+        open fun <get-backendId>(): kotlin/String? // org.maplibre.compose.location/LocationProvider.backendId.<get-backendId>|<get-backendId>(){}[0]
+    open val permission // org.maplibre.compose.location/LocationProvider.permission|{}permission[0]
+        open fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/LocationProvider.permission.<get-permission>|<get-permission>(){}[0]
 
-    abstract fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/LocationBackend.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
-    open fun close() // org.maplibre.compose.location/LocationBackend.close|close(){}[0]
-    open fun requestPermission() // org.maplibre.compose.location/LocationBackend.requestPermission|requestPermission(){}[0]
+    abstract fun updates(org.maplibre.compose.location/LocationRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/LocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+    open fun close() // org.maplibre.compose.location/LocationProvider.close|close(){}[0]
+    open fun requestPermission() // org.maplibre.compose.location/LocationProvider.requestPermission|requestPermission(){}[0]
 }
 
 sealed interface org.maplibre.compose.location/HeadingReference { // org.maplibre.compose.location/HeadingReference|null[0]
@@ -307,21 +311,6 @@ final class org.maplibre.compose.location/LocationMeasurement { // org.maplibre.
     }
 }
 
-final class org.maplibre.compose.location/LocationProvider : kotlin/AutoCloseable { // org.maplibre.compose.location/LocationProvider|null[0]
-    constructor <init>(org.maplibre.compose.location/LocationBackend) // org.maplibre.compose.location/LocationProvider.<init>|<init>(org.maplibre.compose.location.LocationBackend){}[0]
-
-    final val backendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability|{}backendAvailability[0]
-        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/LocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
-    final val backendId // org.maplibre.compose.location/LocationProvider.backendId|{}backendId[0]
-        final fun <get-backendId>(): kotlin/String? // org.maplibre.compose.location/LocationProvider.backendId.<get-backendId>|<get-backendId>(){}[0]
-    final val permission // org.maplibre.compose.location/LocationProvider.permission|{}permission[0]
-        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/LocationProvider.permission.<get-permission>|<get-permission>(){}[0]
-
-    final fun close() // org.maplibre.compose.location/LocationProvider.close|close(){}[0]
-    final fun requestPermission() // org.maplibre.compose.location/LocationProvider.requestPermission|requestPermission(){}[0]
-    final fun updates(org.maplibre.compose.location/LocationRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/LocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
-}
-
 final class org.maplibre.compose.location/LocationRequest { // org.maplibre.compose.location/LocationRequest|null[0]
     constructor <init>(org.maplibre.compose.location/LocationRequest = ..., kotlin/Function1<org.maplibre.compose.location/LocationRequest.Builder, kotlin/Unit>) // org.maplibre.compose.location/LocationRequest.<init>|<init>(org.maplibre.compose.location.LocationRequest;kotlin.Function1<org.maplibre.compose.location.LocationRequest.Builder,kotlin.Unit>){}[0]
 
@@ -369,8 +358,20 @@ final class org.maplibre.compose.location/SystemSettingsLauncher { // org.maplib
     final fun openLocationServicesSettings(): kotlin/Boolean // org.maplibre.compose.location/SystemSettingsLauncher.openLocationServicesSettings|openLocationServicesSettings(){}[0]
 }
 
-final val org.maplibre.compose.location/UnsupportedLocationProvider // org.maplibre.compose.location/UnsupportedLocationProvider|{}UnsupportedLocationProvider[0]
-    final fun <get-UnsupportedLocationProvider>(): org.maplibre.compose.location/LocationProvider // org.maplibre.compose.location/UnsupportedLocationProvider.<get-UnsupportedLocationProvider>|<get-UnsupportedLocationProvider>(){}[0]
+final object org.maplibre.compose.location/UnsupportedLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/UnsupportedLocationProvider|null[0]
+    final val backendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/UnsupportedLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val backendId // org.maplibre.compose.location/UnsupportedLocationProvider.backendId|{}backendId[0]
+        final fun <get-backendId>(): kotlin/String? // org.maplibre.compose.location/UnsupportedLocationProvider.backendId.<get-backendId>|<get-backendId>(){}[0]
+    final val permission // org.maplibre.compose.location/UnsupportedLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/UnsupportedLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun close() // org.maplibre.compose.location/UnsupportedLocationProvider.close|close(){}[0]
+    final fun requestPermission() // org.maplibre.compose.location/UnsupportedLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/UnsupportedLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}
+
+final fun (kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent>).org.maplibre.compose.location.internal/withBackendAvailability(org.maplibre.compose.location/LocationBackendAvailability): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location.internal/withBackendAvailability|withBackendAvailability@kotlinx.coroutines.flow.Flow<org.maplibre.compose.location.LocationEvent>(org.maplibre.compose.location.LocationBackendAvailability){}[0]
 
 // Targets: [apple]
 final class org.maplibre.compose.location/AppleLocationPermissionRequester : kotlin/AutoCloseable { // org.maplibre.compose.location/AppleLocationPermissionRequester|null[0]
@@ -384,10 +385,19 @@ final class org.maplibre.compose.location/AppleLocationPermissionRequester : kot
 }
 
 // Targets: [apple]
-final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMaplibreLocationMeasurement(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/asMaplibreLocationMeasurement|asMaplibreLocationMeasurement@platform.CoreLocation.CLLocation(){}[0]
+final class org.maplibre.compose.location/AppleLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/AppleLocationProvider|null[0]
+    constructor <init>() // org.maplibre.compose.location/AppleLocationProvider.<init>|<init>(){}[0]
+
+    final val permission // org.maplibre.compose.location/AppleLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/AppleLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun close() // org.maplibre.compose.location/AppleLocationProvider.close|close(){}[0]
+    final fun requestPermission() // org.maplibre.compose.location/AppleLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/AppleLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}
 
 // Targets: [apple]
-final fun org.maplibre.compose.location/createAppleLocationProvider(): org.maplibre.compose.location/LocationProvider // org.maplibre.compose.location/createAppleLocationProvider|createAppleLocationProvider(){}[0]
+final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMaplibreLocationMeasurement(): org.maplibre.compose.location/LocationMeasurement // org.maplibre.compose.location/asMaplibreLocationMeasurement|asMaplibreLocationMeasurement@platform.CoreLocation.CLLocation(){}[0]
 
 // Targets: [ios]
 final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/IosHeadingProvider|null[0]
@@ -409,4 +419,14 @@ final class org.maplibre.compose.location/WebLocationPermissionRequester { // or
 }
 
 // Targets: [js]
-final fun org.maplibre.compose.location/createWebLocationProvider(kotlinx.coroutines/CoroutineScope): org.maplibre.compose.location/LocationProvider // org.maplibre.compose.location/createWebLocationProvider|createWebLocationProvider(kotlinx.coroutines.CoroutineScope){}[0]
+final class org.maplibre.compose.location/WebLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/WebLocationProvider|null[0]
+    constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/WebLocationProvider.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
+
+    final val backendAvailability // org.maplibre.compose.location/WebLocationProvider.backendAvailability|{}backendAvailability[0]
+        final fun <get-backendAvailability>(): org.maplibre.compose.location/LocationBackendAvailability // org.maplibre.compose.location/WebLocationProvider.backendAvailability.<get-backendAvailability>|<get-backendAvailability>(){}[0]
+    final val permission // org.maplibre.compose.location/WebLocationProvider.permission|{}permission[0]
+        final fun <get-permission>(): kotlinx.coroutines.flow/StateFlow<org.maplibre.compose.location/LocationPermission> // org.maplibre.compose.location/WebLocationProvider.permission.<get-permission>|<get-permission>(){}[0]
+
+    final fun requestPermission() // org.maplibre.compose.location/WebLocationProvider.requestPermission|requestPermission(){}[0]
+    final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/WebLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
+}

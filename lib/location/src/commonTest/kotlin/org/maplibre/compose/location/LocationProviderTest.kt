@@ -4,93 +4,68 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.location.internal.InternalMaplibreComposeApi
+import org.maplibre.compose.location.internal.withBackendAvailability
 
+@OptIn(InternalMaplibreComposeApi::class)
 class LocationProviderTest {
   @Test
-  fun unsupportedBackendEmitsUnavailableWithoutStartingRequestsEvenAfterClose() = runTest {
-    val backend = TestBackend(LocationBackendAvailability.Unsupported)
-    val provider = LocationProvider(backend)
-    val expected = listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-
-    assertEquals(expected, provider.updates().toList())
-    provider.close()
-    assertEquals(expected, provider.updates().toList())
-    assertEquals(0, backend.requests.size)
-    assertEquals(1, backend.closeCalls)
-    assertEquals(expected, UnsupportedLocationProvider.updates().toList())
+  fun unsupportedProviderEmitsUnavailableAndCompletes() = runTest {
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      UnsupportedLocationProvider.updates(LocationRequest.Standard).toList(),
+    )
   }
 
   @Test
-  fun misconfiguredBackendThrowsWithCauseWithoutStartingRequests() = runTest {
+  fun misconfiguredProviderRejectsUpdateCollection() = runTest {
     val cause = IllegalStateException("missing configuration")
-    val backend = TestBackend(LocationBackendAvailability.Misconfigured(cause))
-    val provider = LocationProvider(backend)
-    val updates = provider.updates()
-
-    val failure = assertFailsWith<IllegalStateException> { updates.toList() }
+    val provider = UnavailableLocationProvider(LocationBackendAvailability.Misconfigured(cause))
+    val failure = assertFailsWith<IllegalStateException> { provider.updates().toList() }
     assertSame(cause, failure.cause)
-    assertEquals(0, backend.requests.size)
   }
 
   @Test
-  fun availableBackendStartsColdRequestsAndReceivesCancellation() = runTest {
-    val backend = TestBackend()
-    val provider = LocationProvider(backend)
-    val request = LocationRequest { accuracy = LocationAccuracy.Low }
-    val updates = provider.updates(request)
-    assertEquals(0, backend.requests.size)
-
-    repeat(2) { assertEquals(backend.event, updates.first()) }
-    assertEquals(listOf(request, request), backend.requests)
-    assertEquals(2, backend.stoppedRequests)
-  }
-
-  @Test
-  fun providerDelegatesIdentityPermissionAndDisposal() {
-    val backend = TestBackend()
-    val provider = LocationProvider(backend)
-    assertEquals("test", provider.backendId)
-    assertSame(backend.availability, provider.backendAvailability)
-    assertSame(backend.permission, provider.permission)
-    provider.requestPermission()
-    assertEquals(1, backend.permissionRequests)
-    provider.close()
-    assertEquals(1, backend.closeCalls)
-  }
-}
-
-private class TestBackend(
-  override val availability: LocationBackendAvailability = LocationBackendAvailability.Available,
-) : LocationBackend {
-  override val id = "test"
-  override val permission = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
-  val event = LocationEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable)
-  val requests = mutableListOf<LocationRequest>()
-  var stoppedRequests = 0
-  var permissionRequests = 0
-  var closeCalls = 0
-
-  override fun updates(request: LocationRequest) = flow {
-    requests += request
-    try {
-      emit(event)
-      awaitCancellation()
-    } finally {
-      stoppedRequests++
+  fun unavailableBackendsNeverStartPlatformRequests() = runTest {
+    for (availability in
+      listOf(
+        LocationBackendAvailability.Unsupported,
+        LocationBackendAvailability.Misconfigured(),
+      )) {
+      var started = false
+      val updates =
+        callbackFlow<LocationEvent> { started = true }.withBackendAvailability(availability)
+      if (availability == LocationBackendAvailability.Unsupported) {
+        assertEquals(
+          listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+          updates.toList(),
+        )
+      } else {
+        assertFailsWith<IllegalStateException> { updates.toList() }
+      }
+      assertEquals(false, started)
     }
   }
 
-  override fun requestPermission() {
-    permissionRequests++
-  }
-
-  override fun close() {
-    closeCalls++
+  @Test
+  fun availableRequestsAreColdAndCleanUpEachCollection() = runTest {
+    var starts = 0
+    var stops = 0
+    val event = LocationEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable)
+    val updates = callbackFlow {
+      starts++
+      send(event)
+      awaitClose { stops++ }
+    }
+      .withBackendAvailability(LocationBackendAvailability.Available)
+    assertEquals(0, starts)
+    repeat(2) { assertEquals(event, updates.first()) }
+    assertEquals(2, starts)
+    assertEquals(2, stops)
   }
 }

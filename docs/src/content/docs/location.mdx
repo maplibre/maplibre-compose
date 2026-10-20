@@ -56,16 +56,6 @@ less frequent updates with <Api of="LocationRequest" />.
 
 Omitted parameters use their default values.
 
-## Use a custom location source
-
-Implement <Api of="LocationBackend" /> and wrap it in a <Api of="LocationProvider" />
-to use an external receiver or another location source. The backend supplies
-updates and any permission handling. The provider handles backend availability:
-unsupported backends emit an unavailable event, and misconfigured backends throw
-when collected.
-
-<Code code={region(location, "custom-source")} lang="kotlin" title="CustomLocation.kt" />
-
 ## Request location permission
 
 The library does not request location permission automatically. Call
