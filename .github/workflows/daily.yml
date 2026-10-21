@@ -11,7 +11,7 @@ permissions:
 jobs:
   check-last-run:
     timeout-minutes: 5
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     # The workflow-runs API rejects a token without this, and the top-level
     # block above grants only `contents: read`.
     permissions:
@@ -31,7 +31,7 @@ jobs:
     needs: [check-last-run]
     if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
     timeout-minutes: 60
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
     environment:
       name: maven-central-maplibre
       url: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/

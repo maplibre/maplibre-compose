@@ -68,6 +68,19 @@ changes.
 Desktop and Web are Alpha because their platform integrations depend on
 implementation details in Compose and Skia.
 
+## Sponsors
+
+CI is provided by [Blacksmith](https://www.blacksmith.sh/) under its open source
+program.
+
+<a href="https://www.blacksmith.sh/">
+  <img
+    alt="CI powered by Blacksmith"
+    src="https://github.com/user-attachments/assets/7d8455df-0b86-4676-9df8-fefe1f69ae4b"
+    width="240"
+  >
+</a>
+
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/
 [stability]: https://kotlinlang.org/docs/components-stability.html
