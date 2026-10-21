@@ -147,10 +147,13 @@ region for each Kotlin example.
 
 ## Issue and PR organization
 
-Label work issues and PRs with exactly one kind (`bug`, `feature`, `perf`,
-`chore`, or `research`) and at least one `area:*` label. Add engine, platform,
-and modifier labels when they explain the work. Leave native issue types unset.
-Usage questions go to Discussions.
+[Rubberstamp](https://github.com/apps/rubberstamp-bot) labels each new issue and
+PR from `.config/rubberstamp.yml`: one kind, at least one `area:*` label, and
+`engine:`, `platform:`, `breaking`, `upstream`, and `dependencies` labels when
+they apply. Don't label by hand; correct a wrong label instead. Leave native
+issue types unset. Usage questions go to Discussions.
+
+`ci:full` is CI state, not a label for the work.
 
 ## Pull requests
 
