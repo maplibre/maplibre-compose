@@ -26,14 +26,17 @@ internal fun rememberMlnFfiComposeMapPresentation(
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ): ComposeMapPresentation? {
-  return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks
-    ->
+  return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) {
+    session,
+    clicks,
+    canPresentFrames ->
     ComposeMapPresentation(
       session,
       clicks,
       { state.attachmentAuthority.setEngaged(session, it) },
     ) { modifier ->
-      MlnFfiMapSurfaceContent(session, options, modifier) { surfaceModifier, revealSurface ->
+      MlnFfiMapSurfaceContent(canPresentFrames, options, modifier) { surfaceModifier, revealSurface
+        ->
         surface(session, surfaceModifier, state.runtime.logger, revealSurface)
       }
     }
@@ -43,12 +46,12 @@ internal fun rememberMlnFfiComposeMapPresentation(
 /** Draws the surface and its loading placeholder. Input belongs to their common parent. */
 @Composable
 internal fun MlnFfiMapSurfaceContent(
-  session: MlnFfiMapSession,
+  canPresentFrames: Boolean,
   options: MapViewOptions,
   modifier: Modifier,
   surface: @Composable (Modifier, Boolean) -> Unit,
 ) {
-  val revealSurface = session.canPresentFrames
+  val revealSurface = canPresentFrames
   Box(modifier) {
     surface(Modifier.fillMaxSize(), revealSurface)
     if (!revealSurface) {

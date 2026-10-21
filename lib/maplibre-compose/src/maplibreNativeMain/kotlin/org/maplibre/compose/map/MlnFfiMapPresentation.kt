@@ -5,6 +5,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.platform.LocalDensity
@@ -20,14 +22,16 @@ internal fun <T> MlnFfiMapPresentation(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
+  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher, Boolean) -> T,
 ): T? {
   if (state.isClosed) return null
   val compatibility = renderBackend to LocalDensity.current.density.toDouble()
-  return key(compatibility) {
+  return key(compatibility, presentationOwner) {
     MapPresentationContent(state, presentationOwner, options) { binding ->
-      val session = rememberMlnFfiMapSession(compatibility, state, binding)
-      content(session, binding.clicks)
+      val prepared = remember { mutableStateOf(false) }
+      val session =
+        rememberMlnFfiMapSession(compatibility, state, binding) { prepared.value = true }
+      content(session, binding.clicks, prepared.value && session.canPresentFrames)
     }
   }
 }
@@ -37,6 +41,7 @@ private fun rememberMlnFfiMapSession(
   compatibility: Pair<MapRenderBackend, Double>,
   state: MapState,
   binding: MapPresentationBinding,
+  onPrepared: () -> Unit,
 ): MlnFfiMapSession {
   val layoutDirection = LocalLayoutDirection.current
   val renderBackend = compatibility.first
@@ -67,9 +72,8 @@ private fun rememberMlnFfiMapSession(
 
   DisposableEffect(session) {
     session.preparePresentation()
-    onDispose {
-      currentOnReset.value()
-    }
+    onPrepared()
+    onDispose { currentOnReset.value() }
   }
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content

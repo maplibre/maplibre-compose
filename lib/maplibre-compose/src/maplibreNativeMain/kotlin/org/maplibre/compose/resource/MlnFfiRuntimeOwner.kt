@@ -65,9 +65,14 @@ private constructor(
         GeneratedApi.runtimeCreate(
           GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString())
         )
+      try {
+        eventHandler?.let { runtime.setEventHandler(it).await() }
+      } catch (error: Throwable) {
+        runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
+        throw error
+      }
       val networkMonitor =
         try {
-          eventHandler?.let { runtime.setEventHandler(it).await() }
           MapConnectivity.acquireMonitor()
         } catch (error: Throwable) {
           runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)

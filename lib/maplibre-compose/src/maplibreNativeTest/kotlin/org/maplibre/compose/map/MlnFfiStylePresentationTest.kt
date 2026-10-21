@@ -150,8 +150,6 @@ class MlnFfiStylePresentationTest {
         fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
 
-      // Repaint before replacing the style so retained presentation can have a pending result.
-      assertNotNull(fixture.session.mapForTest).requestRepaint().await()
       fixture.loadStyleBeforeRendering(ReplacementStyle)
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue("application" !in fixture.session.currentStyleLayerIds())

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -735,6 +736,51 @@ class MlnFfiMapCompositionTest {
         val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
         assertTrue("application-layer" in session.currentStyleLayerIds())
         assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
+      }
+    }
+
+  @Test
+  fun a_retained_adapter_stays_hidden_during_a_new_presentations_first_composition() =
+    runFfiComposeUiTest {
+      withTestRuntime(runtimeOptions) { runtime ->
+        val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+        val backend = loadRuntimeBackends(null).single()
+        val firstReveals = RecordingList<Boolean>()
+        val canPresent = AtomicBoolean(false)
+        var scale by mutableStateOf(1f)
+        var generation by mutableIntStateOf(0)
+        setContent {
+          CompositionLocalProvider(LocalDensity provides Density(scale)) {
+            key(generation) {
+              val owner = remember { MapPresentationOwnerToken() }
+              MlnFfiMapPresentation(backend, state, owner, MapViewOptions()) {
+                _,
+                _,
+                canPresentFrames ->
+                val firstReveal = remember { canPresentFrames }
+                DisposableEffect(Unit) {
+                  firstReveals += firstReveal
+                  onDispose {}
+                }
+                SideEffect { canPresent.store(canPresentFrames) }
+              }
+            }
+          }
+        }
+        waitUntil(timeoutMillis = RenderTimeoutMillis) { canPresent.load() }
+        val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
+        val originalMap = session.mapForTest
+
+        runOnUiThread { scale = 2f }
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
+          firstReveals.size == 2 && session.mapForTest !== originalMap && canPresent.load()
+        }
+        runOnUiThread { generation++ }
+        waitUntil(timeoutMillis = RenderTimeoutMillis) {
+          firstReveals.size == 3 && canPresent.load()
+        }
+        assertEquals(listOf(false, false, false), firstReveals.toList())
+        assertSame(session, requireNotNull(state.currentMapAttachment).adapter)
       }
     }
 

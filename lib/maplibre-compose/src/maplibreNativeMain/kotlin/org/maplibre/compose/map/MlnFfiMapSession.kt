@@ -777,8 +777,8 @@ internal class MlnFfiMapSession(
     if (guard?.isValid() == false) return
     val completion = map.updateCamera(FfiCameraUpdate(camera = camera)).await()
     if (completion.failed) throw CommandFailedException(completion)
-    // Give already-posted camera events a turn when await completes inline.
-    yield()
+    // Deliver already-posted camera events on the runtime dispatcher before returning.
+    withContext(owner.mainDispatcher) { yield() }
   }
 
   private suspend fun cameraForBounds(

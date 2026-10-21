@@ -35,7 +35,8 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
         callback = { kind, url, request ->
           request.use {
             val mapRequest = MapResourceRequest(url, kind.toCommon())
-            it.complete(config.interceptor.rewrittenUrl(mapRequest, config.logger))
+            val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
+            if (rewritten != url) it.complete(rewritten)
           }
         }
       )
