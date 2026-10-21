@@ -1,0 +1,144 @@
+# Rubberstamp (https://github.com/sargunv/rubberstamp) labels each new issue and
+# pull request from these groups. A label's meaning is its GitHub description
+# unless `describe` gives a longer one, and a group that already has a label
+# when the item opens keeps it.
+context: >-
+  This repository is MapLibre Compose, a Kotlin Multiplatform library that
+  shows MapLibre maps in Compose UI on Android, iOS, JVM desktop, native macOS,
+  and the browser. Android, iOS, desktop, and macOS render with MapLibre Native
+  through maplibre-native-ffi; the browser renders with MapLibre GL JS through
+  hand-written Kotlin bindings. The published libraries live in `lib/`, a demo
+  app in `demo-app/`, benchmarks in `benchmarks/`, and the documentation site in
+  `docs/`. Pull request titles usually follow Conventional Commits, and `!`
+  after the type marks a breaking change.
+
+labels:
+  context: >-
+    Maintainers label every issue and pull request so that they can find related
+    work later. Labels describe the subject of the work: what it changes, fixes,
+    or asks for. A file that a change touches only in passing, such as a docs
+    page, a demo screen, or a test updated alongside the real change, does not
+    make its area the subject.
+  groups:
+    kind:
+      labels: [bug, feature, perf, chore, research]
+      min: 1
+      max: 1
+    area:
+      labels: ["area:*"]
+      min: 1
+    engine:
+      labels: ["engine:*"]
+      rule: >-
+        Applies only when the work is specific to this rendering engine: it
+        concerns this engine's backend and not the other, or this engine
+        differently from the other. Work that applies to both engines alike does
+        not qualify.
+    platform:
+      labels: ["platform:*"]
+      rule: >-
+        Applies only when the work is specific to this platform: it concerns
+        behavior, code, builds, or packaging that differ on this platform. Work
+        that applies to every platform alike does not qualify.
+    breaking:
+      labels: [breaking]
+    upstream:
+      labels: [upstream]
+    dependencies:
+      labels: [dependencies]
+  describe:
+    bug: >-
+      Fixes or reports broken behavior: a crash, a wrong result, a failing build
+      or CI job, a violated API contract, or a regression.
+    feature: >-
+      Adds or changes a capability that library users, demo users, or
+      maintainers can use, including new API surface, new platforms or render
+      backends, and new demo screens or tooling.
+    perf: >-
+      Improves runtime speed, frame time, memory or resource use, or build and
+      CI time, without changing what the software does.
+    chore: >-
+      Maintenance that adds no capability and fixes nothing broken: refactoring,
+      cleanup, tests, documentation, formatting, routine dependency updates, and
+      process changes.
+    research: >-
+      Investigates a question, evaluates a design, or builds a deliberate
+      prototype, where the outcome is knowledge or a decision rather than
+      shipped code.
+    "area:map": >-
+      The map itself: the map composable and its state, map options, the camera
+      and camera animations, rendering and presentation of map frames, map
+      snapshots, Compose content placed at geographic positions on the map,
+      feature and projection queries, logging, and resource request hooks.
+    "area:style": >-
+      Map styles and their content: style loading, sources, layers, images,
+      fonts, and the properties that the MapLibre style spec defines for them.
+    "area:expressions": >-
+      The Kotlin expression DSL: its types and operators, and how expressions
+      are converted to MapLibre style-spec JSON for each engine.
+    "area:interaction": >-
+      How users interact with the map: gestures, clicks, input bindings and
+      callbacks, and the map controls such as the compass, zoom buttons, scale
+      bar, attribution, and logo, including the Material 3 versions.
+    "area:location": >-
+      Device location and heading: location providers and their platform
+      runtimes, permissions, camera tracking of the user's location, and the
+      location indicator.
+    "area:offline": >-
+      Offline maps: offline regions and downloads, and the APIs that manage the
+      tile and resource cache.
+    "area:integration": >-
+      What an app needs to depend on and ship the library: published artifacts
+      and their metadata, the per-platform and per-backend runtime modules,
+      native library loading and linking, and minimum supported OS, SDK, JDK,
+      Kotlin, and Compose versions.
+    "area:demo": >-
+      The demo apps in `demo-app/`: their screens, settings, and the launchers
+      for each platform.
+    "area:benchmarks": >-
+      The benchmarks in `benchmarks/`: the harness, scenarios, published
+      results, and the code metrics tool.
+    "area:docs": >-
+      The documentation as the subject: the documentation site and its examples,
+      KDoc when the change is to the documentation itself, README, CONTRIBUTING,
+      and repository guidance such as AGENTS.md.
+    "area:tooling": >-
+      Build and development infrastructure: Gradle builds, mise tasks and tools,
+      CI workflows, releases and publishing, formatters and linters, and
+      maintainer scripts.
+    "engine:native": >-
+      The MapLibre Native backend, used through maplibre-native-ffi on Android,
+      iOS, JVM desktop, and native macOS.
+    "engine:gl-js": >-
+      The MapLibre GL JS backend used in the browser, including its Kotlin
+      bindings.
+    "platform:android": >-
+      Android-specific behavior, builds, packaging, or reproduction, including
+      Android Auto and Wear OS.
+    "platform:ios": >-
+      iOS-specific behavior, builds, packaging, or reproduction, including
+      CarPlay.
+    "platform:desktop": >-
+      The JVM desktop target on any operating system, such as AWT and Nucleus
+      apps.
+    "platform:linux": >-
+      Linux-specific behavior, builds, packaging, or reproduction.
+    "platform:macos": >-
+      macOS-specific behavior, builds, packaging, or reproduction, on the JVM
+      desktop target or the native macOS target.
+    "platform:windows": >-
+      Windows-specific behavior, builds, packaging, or reproduction.
+    "platform:web": >-
+      Browser-specific behavior, builds, packaging, or reproduction.
+    breaking: >-
+      Library users must change their code or build to upgrade: a published API
+      is removed, renamed, or changes behavior, or a minimum supported version
+      rises. Changes to the demo, benchmarks, docs, or tooling alone do not
+      qualify.
+    upstream: >-
+      The cause of the bug, or the missing capability, is in a project this
+      library builds on, such as MapLibre Native, maplibre-native-ffi, MapLibre
+      GL JS, Compose Multiplatform, or Kotlin, rather than in this repository.
+    dependencies: >-
+      Upgrading, adding, removing, or managing a dependency is the substantive
+      subject, such as a library, toolchain, or submodule version change.

@@ -23,7 +23,9 @@ updates:
       interval: weekly
     cooldown:
       default-days: 3
-    labels: [chore, "area:tooling", dependencies]
+    # Gradle dependencies span the library, demo, and build, so Rubberstamp
+    # picks the area.
+    labels: [chore, dependencies]
     ignore:
       # Follow the Kotlin compatibility matrix, not independent latest releases.
       - dependency-name: gradle-wrapper
