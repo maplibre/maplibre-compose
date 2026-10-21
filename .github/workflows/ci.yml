@@ -11,12 +11,24 @@ permissions:
 
 concurrency:
   group: windows-probe-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  windows:
-    uses: ./.github/workflows/job-desktop.yml
-    with:
-      secrets-available: false
-      matrix: >-
-        {"variant":["blacksmith-default","blacksmith-awt","github-2025"],"include":[{"variant":"blacksmith-default","runner":"blacksmith-4vcpu-windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-blacksmith-default","test_variant":"windows-probe-blacksmith-default","java_tool_options":""},{"variant":"blacksmith-awt","runner":"blacksmith-4vcpu-windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-blacksmith-awt","test_variant":"windows-probe-blacksmith-awt","java_tool_options":"-Djava.awt.headless=false"},{"variant":"github-2025","runner":"windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-github-2025","test_variant":"windows-probe-github-2025","java_tool_options":""}]}
+  graphics:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [blacksmith-4vcpu-windows-2025, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          gradle: "false"
+      - uses: ./.github/actions/setup-desktop-vulkan
+      - name: Probe native graphics APIs without a window
+        shell: pwsh
+        run: ./ci/probe-windows-graphics.ps1
