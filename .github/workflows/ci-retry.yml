@@ -4,8 +4,6 @@ on:
   workflow_run:
     workflows:
       - CI
-      - CI ready
-      - CI full
     types:
       - completed
 
@@ -64,7 +62,6 @@ jobs:
               "${run}/attempts/${CI_RUN_ATTEMPT}/jobs?per_page=100"
           )"
           # A primary failure or job timeout also fails all-good and can skip dependent jobs.
-          # Each tier's required check is named 'all-good (<tier>)'.
           primary_failures="$(
             jq '[
               .jobs[]
