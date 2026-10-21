@@ -87,8 +87,9 @@ internal fun linuxSystemDefaultPrimaryMeasure(localeName: String = ""): ScaleBar
   .getOrNull()
 
 /**
- * Reads the Windows measurement system for [localeName], such as `en-US`. The null name selects the
- * user's regional format, including the measurement system they chose for it.
+ * Reads the Windows measurement system for [localeName], such as `en-US`, without the user's
+ * changes. The null name selects the user's regional format, including the measurement system they
+ * chose for it.
  */
 internal fun windowsSystemDefaultPrimaryMeasure(localeName: String? = null): ScaleBarMeasure? =
   runCatching {
@@ -99,7 +100,9 @@ internal fun windowsSystemDefaultPrimaryMeasure(localeName: String? = null): Sca
       val written =
         getLocaleInfoEx.invokeWithArguments(
           name,
-          LocaleIMeasure or LocaleReturnNumber,
+          LocaleIMeasure or
+            LocaleReturnNumber or
+            (if (localeName == null) 0 else LocaleNoUserOverride),
           measurement,
           Int.SIZE_BYTES / Char.SIZE_BYTES,
         ) as Int
@@ -132,3 +135,4 @@ private const val LcMeasurementMask = 1 shl LcMeasurement
 private const val NlMeasurementMeasurement = LcMeasurement shl 16
 private const val LocaleIMeasure = 0x0D
 private const val LocaleReturnNumber = 0x20000000
+private const val LocaleNoUserOverride = 0x80000000.toInt()
