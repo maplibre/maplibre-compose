@@ -5,7 +5,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.platform.LocalDensity
@@ -57,7 +56,6 @@ private fun rememberMlnFfiMapSession(
         owner = state.runtime.nativeOwner,
       )
     } as MlnFfiMapSession
-  remember(session) { session.preparePresentation() }
 
   session.durableCallbacks = state.durableStyleCallbacks()
   session.callbacks = callbacks
@@ -66,6 +64,13 @@ private fun rememberMlnFfiMapSession(
   val currentCallbacks = rememberUpdatedState(callbacks)
   val currentUpdate = rememberUpdatedState(binding.update)
   val currentOnReset = rememberUpdatedState(binding.onReset)
+
+  DisposableEffect(session) {
+    session.preparePresentation()
+    onDispose {
+      currentOnReset.value()
+    }
+  }
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch inserts them against the base style being
@@ -97,12 +102,6 @@ private fun rememberMlnFfiMapSession(
       throw error
     } catch (error: Throwable) {
       callbacks.onStyleFailed(session, error.message)
-    }
-  }
-
-  DisposableEffect(session) {
-    onDispose {
-      currentOnReset.value()
     }
   }
 
