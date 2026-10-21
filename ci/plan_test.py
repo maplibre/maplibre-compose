@@ -8,6 +8,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 from ci.plan import catalog, job_name, outputs, secrets_available, selected
@@ -198,7 +199,37 @@ class WorkflowTest(unittest.TestCase):
             set(re.findall(r"^      - ([a-z-]+)$", needs, re.MULTILINE)),
             {"plan", *(row["job"] for row in catalog())},
         )
-        self.assertIn('test "$PLAN" = success', required)
+
+    def verdict(self, plan: str, **results: str) -> int:
+        """Run the required check's script as GitHub would for these results."""
+        script = textwrap.dedent(self.job("all-good").split("        run: |\n", 1)[1])
+        needs = {"plan": {"result": plan}} | {
+            job: {"result": result} for job, result in results.items()
+        }
+        return subprocess.run(
+            ["bash", "-e", "-c", script],
+            env={
+                "PATH": os.environ["PATH"],
+                "PLAN": plan,
+                "RESULTS": json.dumps(needs),
+            },
+            capture_output=True,
+            check=False,
+        ).returncode
+
+    def test_required_check_passes_only_planned_successful_or_skipped_jobs(
+        self,
+    ) -> None:
+        self.assertEqual(self.verdict("success", hygiene="success"), 0)
+        self.assertEqual(self.verdict("success", hygiene="success", abi="skipped"), 0)
+        for result in ("failure", "cancelled"):
+            with self.subTest(result=result):
+                self.assertNotEqual(
+                    self.verdict("success", hygiene="success", abi=result), 0
+                )
+        for plan in ("failure", "cancelled", "skipped"):
+            with self.subTest(plan=plan):
+                self.assertNotEqual(self.verdict(plan, hygiene="success"), 0)
 
     def test_retry_follows_the_ci_workflow(self) -> None:
         retry = (WORKFLOWS / "ci-retry.yml").read_text()
