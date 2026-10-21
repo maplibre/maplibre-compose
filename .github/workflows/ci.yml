@@ -1,79 +1,22 @@
-name: CI
+name: Windows Blacksmith probe
 
-# The draft tier: every pull request commit, main, and manual runs. Readiness
-# and label changes are handled by CI ready and CI full, so a commit's draft
-# results stand once they exist.
+# Temporary investigation: restore the normal tier workflows before merging.
 on:
-  push:
-    branches: [main]
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
-    inputs:
-      secrets:
-        type: boolean
-        default: true
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
+concurrency:
+  group: windows-probe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  plan:
-    permissions:
-      checks: read
-      contents: read
-    timeout-minutes: 5
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    outputs:
-      selected: ${{ steps.plan.outputs.selected }}
-      restate: ${{ steps.plan.outputs.restate }}
-      check: ${{ steps.plan.outputs.check }}
-      secrets: ${{ steps.plan.outputs.secrets }}
-      android: ${{ steps.plan.outputs.android }}
-      desktop: ${{ steps.plan.outputs.desktop }}
-    steps:
-      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
-        with:
-          persist-credentials: false
-      - id: plan
-        # State events verify existing platform coverage through the Checks API.
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_TIER: draft
-        run: bash .mise/tasks/ci/plan
-
-  draft:
-    needs: plan
-    if: needs.plan.outputs.selected == 'true'
-    uses: ./.github/workflows/tier-draft.yml
+  windows:
+    uses: ./.github/workflows/job-desktop.yml
     with:
-      secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
-      android: ${{ needs.plan.outputs.android }}
-      desktop: ${{ needs.plan.outputs.desktop }}
-    secrets: inherit
-
-  all-good:
-    name: all-good (draft)
-    if: ${{ always() }}
-    needs:
-      - plan
-      - draft
-    timeout-minutes: 5
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    steps:
-      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
-        with:
-          persist-credentials: false
-      - env:
-          PLAN_RESULT: ${{ needs.plan.result }}
-          SELECTED: ${{ needs.plan.outputs.selected }}
-          RESTATE: ${{ needs.plan.outputs.restate }}
-          RESULT: ${{ needs.draft.result }}
-        run: bash .mise/tasks/ci/verdict
+      secrets-available: false
+      matrix: >-
+        {"variant":["blacksmith-default","blacksmith-awt","github-2025"],"include":[{"variant":"blacksmith-default","runner":"blacksmith-4vcpu-windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-blacksmith-default","test_variant":"windows-probe-blacksmith-default","java_tool_options":""},{"variant":"blacksmith-awt","runner":"blacksmith-4vcpu-windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-blacksmith-awt","test_variant":"windows-probe-blacksmith-awt","java_tool_options":"-Djava.awt.headless=false"},{"variant":"github-2025","runner":"windows-2025","save_toolchains":"true","artifact_type":"nsis","artifact_glob":"*.exe","artifact_name":"windows-probe-github-2025","test_variant":"windows-probe-github-2025","java_tool_options":""}]}
