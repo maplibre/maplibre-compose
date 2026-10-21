@@ -29,52 +29,56 @@ internal fun macosSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching 
 }
   .getOrNull()
 
-/** Reads glibc's `LC_MEASUREMENT` category, which glibc resolves from the environment. */
-internal fun linuxSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
-  val linker = Linker.nativeLinker()
-  fun function(name: String, descriptor: FunctionDescriptor) =
-    linker.downcallHandle(linker.defaultLookup().find(name).orElseThrow(), descriptor)
+/**
+ * Reads glibc's `LC_MEASUREMENT` category for [localeName]. The empty name selects the locale glibc
+ * resolves from the environment.
+ */
+internal fun linuxSystemDefaultPrimaryMeasure(localeName: String = ""): ScaleBarMeasure? =
+  runCatching {
+    val linker = Linker.nativeLinker()
+    fun function(name: String, descriptor: FunctionDescriptor) =
+      linker.downcallHandle(linker.defaultLookup().find(name).orElseThrow(), descriptor)
 
-  val newlocale =
-    function(
-      "newlocale",
-      FunctionDescriptor.of(
-        ValueLayout.ADDRESS,
-        ValueLayout.JAVA_INT,
-        ValueLayout.ADDRESS,
-        ValueLayout.ADDRESS,
-      ),
-    )
-  val nlLanginfoL =
-    function(
-      "nl_langinfo_l",
-      FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
-    )
-  val freelocale = function("freelocale", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS))
+    val newlocale =
+      function(
+        "newlocale",
+        FunctionDescriptor.of(
+          ValueLayout.ADDRESS,
+          ValueLayout.JAVA_INT,
+          ValueLayout.ADDRESS,
+          ValueLayout.ADDRESS,
+        ),
+      )
+    val nlLanginfoL =
+      function(
+        "nl_langinfo_l",
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
+      )
+    val freelocale = function("freelocale", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS))
 
-  val locale =
-    Arena.ofConfined().use { arena ->
-      newlocale.invokeWithArguments(
-        LcMeasurementMask,
-        arena.allocateFrom(""),
-        MemorySegment.NULL,
-      ) as MemorySegment
+    val locale =
+      Arena.ofConfined().use { arena ->
+        newlocale.invokeWithArguments(
+          LcMeasurementMask,
+          arena.allocateFrom(localeName),
+          MemorySegment.NULL,
+        ) as MemorySegment
+      }
+    if (locale.address() == 0L) return@runCatching null
+    try {
+      val measurement =
+        (nlLanginfoL.invokeWithArguments(NlMeasurementMeasurement, locale) as MemorySegment)
+          .reinterpret(1)
+          .get(ValueLayout.JAVA_BYTE, 0)
+      when (measurement.toInt()) {
+        1 -> ScaleBarMeasure.Metric
+        2 -> ScaleBarMeasure.FeetAndMiles
+        else -> null
+      }
+    } finally {
+      freelocale.invokeWithArguments(locale)
     }
-  if (locale.address() == 0L) return@runCatching null
-  try {
-    val measurement =
-      (nlLanginfoL.invokeWithArguments(NlMeasurementMeasurement, locale) as MemorySegment)
-        .reinterpret(1)
-        .get(ValueLayout.JAVA_BYTE, 0)
-    when (measurement.toInt()) {
-      1 -> ScaleBarMeasure.Metric
-      2 -> ScaleBarMeasure.FeetAndMiles
-      else -> null
-    }
-  } finally {
-    freelocale.invokeWithArguments(locale)
   }
-}
   .getOrNull()
 
 private const val LcMeasurement = 11
