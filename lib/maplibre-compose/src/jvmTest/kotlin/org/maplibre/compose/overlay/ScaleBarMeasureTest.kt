@@ -13,4 +13,13 @@ class ScaleBarMeasureTest {
     )
     assertNotNull(macosSystemDefaultPrimaryMeasure())
   }
+
+  @Test
+  fun linuxReadsTheGlibcMeasurementCategory() {
+    assumeTrue(
+      "Requires Linux glibc",
+      System.getProperty("os.name").orEmpty().startsWith("Linux", ignoreCase = true),
+    )
+    assertNotNull(linuxSystemDefaultPrimaryMeasure())
+  }
 }

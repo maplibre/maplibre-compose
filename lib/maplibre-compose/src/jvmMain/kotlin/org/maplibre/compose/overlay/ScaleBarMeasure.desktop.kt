@@ -1,21 +1,82 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import java.lang.foreign.Arena
+import java.lang.foreign.FunctionDescriptor
+import java.lang.foreign.Linker
+import java.lang.foreign.MemorySegment
+import java.lang.foreign.ValueLayout
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
 @Composable
-internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? =
-  macosSystemDefaultPrimaryMeasure()
-
-internal fun macosSystemDefaultPrimaryMeasure(): ScaleBarMeasure? {
-  if (!System.getProperty("os.name").orEmpty().startsWith("Mac", ignoreCase = true)) return null
-  return runCatching {
-    ObjectiveC.runInAutoreleasePool {
-      val locale = ObjectiveC.sendClassPointer("NSLocale", "currentLocale")
-      val key = ObjectiveC.nsString("kCFLocaleMeasurementSystemKey")
-      val value = ObjectiveC.sendPointer(locale, "objectForKey:", key)
-      scaleBarMeasureForAppleMeasurementSystem(ObjectiveC.utf8String(value))
-    }
+internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? = remember {
+  val osName = System.getProperty("os.name").orEmpty()
+  when {
+    osName.startsWith("Mac", ignoreCase = true) -> macosSystemDefaultPrimaryMeasure()
+    osName.startsWith("Linux", ignoreCase = true) -> linuxSystemDefaultPrimaryMeasure()
+    else -> null
   }
-    .getOrNull()
 }
+
+internal fun macosSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
+  ObjectiveC.runInAutoreleasePool {
+    val locale = ObjectiveC.sendClassPointer("NSLocale", "currentLocale")
+    val key = ObjectiveC.nsString("kCFLocaleMeasurementSystemKey")
+    val value = ObjectiveC.sendPointer(locale, "objectForKey:", key)
+    scaleBarMeasureForAppleMeasurementSystem(ObjectiveC.utf8String(value))
+  }
+}
+  .getOrNull()
+
+/** Reads glibc's `LC_MEASUREMENT` category, which glibc resolves from the environment. */
+internal fun linuxSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
+  val linker = Linker.nativeLinker()
+  fun function(name: String, descriptor: FunctionDescriptor) =
+    linker.downcallHandle(linker.defaultLookup().find(name).orElseThrow(), descriptor)
+
+  val newlocale =
+    function(
+      "newlocale",
+      FunctionDescriptor.of(
+        ValueLayout.ADDRESS,
+        ValueLayout.JAVA_INT,
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+      ),
+    )
+  val nlLanginfoL =
+    function(
+      "nl_langinfo_l",
+      FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
+    )
+  val freelocale = function("freelocale", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS))
+
+  val locale =
+    Arena.ofConfined().use { arena ->
+      newlocale.invokeWithArguments(
+        LcMeasurementMask,
+        arena.allocateFrom(""),
+        MemorySegment.NULL,
+      ) as MemorySegment
+    }
+  if (locale.address() == 0L) return@runCatching null
+  try {
+    val measurement =
+      (nlLanginfoL.invokeWithArguments(NlMeasurementMeasurement, locale) as MemorySegment)
+        .reinterpret(1)
+        .get(ValueLayout.JAVA_BYTE, 0)
+    when (measurement.toInt()) {
+      1 -> ScaleBarMeasure.Metric
+      2 -> ScaleBarMeasure.FeetAndMiles
+      else -> null
+    }
+  } finally {
+    freelocale.invokeWithArguments(locale)
+  }
+}
+  .getOrNull()
+
+private const val LcMeasurement = 11
+private const val LcMeasurementMask = 1 shl LcMeasurement
+private const val NlMeasurementMeasurement = LcMeasurement shl 16
