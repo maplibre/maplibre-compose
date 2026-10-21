@@ -70,6 +70,7 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.DesktopComposeMapPresentationHost
+import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.Direct3D12PresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
@@ -245,7 +246,11 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
         System.getProperty("os.name").startsWith("Mac", ignoreCase = true) ->
           MetalTestGpuEnvironment.create()
         System.getProperty("os.name").startsWith("Windows", ignoreCase = true) ->
-          Direct3D12TestGpuEnvironment.create()
+          if (java.lang.Boolean.getBoolean("org.maplibre.compose.test.offscreen")) {
+            OffscreenDirect3D12TestGpuEnvironment.create()
+          } else {
+            Direct3D12TestGpuEnvironment.create()
+          }
         System.getProperty("os.name").startsWith("Linux", ignoreCase = true) ->
           OpenGlTestGpuEnvironment.create()
         else ->
@@ -379,6 +384,48 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
         throw error
       }
     }
+  }
+}
+
+private class OffscreenDirect3D12TestGpuEnvironment
+private constructor(
+  private val gpuThread: MapRendererThread,
+  private val native: WindowsOffscreenTestContext,
+) : DesktopTestGpuEnvironment() {
+  private val composeContext =
+    Direct3D12ComposeGpuContext(native.context, NativeHandle(native.device.address()))
+
+  override val presentationHost =
+    ComposeMapPresentationHost.windowsDirect3d12(
+      description = "the offscreen test WARP context",
+      gpuContext = { composeContext },
+      runOnGpuThread = { action -> gpuThread.run { action.run() } },
+    ) as Direct3D12PresentationHost
+
+  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = gpuThread.run {
+    action(composeContext)
+  }
+
+  override fun discardPresentedFrame() {}
+
+  // Match the existing Windows fixture: the test worker owns its shared consumer.
+  override fun close() {}
+
+  companion object {
+    private val shared by lazy {
+      val thread = MapRendererThread("maplibre-warp-test-consumer")
+      try {
+        OffscreenDirect3D12TestGpuEnvironment(
+          thread,
+          thread.run(WindowsOffscreenTestContext::create),
+        )
+      } catch (error: Throwable) {
+        thread.close()
+        throw error
+      }
+    }
+
+    fun create(): OffscreenDirect3D12TestGpuEnvironment = shared
   }
 }
 

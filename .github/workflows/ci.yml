@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: windows-probe-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   graphics:
@@ -19,16 +19,34 @@ jobs:
       fail-fast: false
       matrix:
         runner: [blacksmith-4vcpu-windows-2025, windows-2025]
+        backend: [vulkan, opengl]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      JAVA_TOOL_OPTIONS: -Dorg.maplibre.compose.test.offscreen=true
+      DZN_DEBUG: d3d12,warp
+      MESA_LOG_LEVEL: debug
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
-        with:
-          gradle: "false"
       - uses: ./.github/actions/setup-desktop-vulkan
       - name: Probe native graphics APIs without a window
         shell: pwsh
         run: ./ci/probe-windows-graphics.ps1
+      - name: Test offscreen production bridge and snapshots
+        shell: bash
+        run: >-
+          ./gradlew :lib:maplibre-compose:jvmTest
+          -Pmaplibre.desktop.backend=${{ matrix.backend }}
+          --tests '*DesktopGpuBridgeTest'
+          --tests '*NativeMapSnapshotterTest'
+      - name: Upload probe test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offscreen-${{ matrix.runner }}-${{ matrix.backend }}
+          path: |
+            lib/maplibre-compose/build/test-results/jvmTest
+            lib/maplibre-compose/build/reports/tests/jvmTest
