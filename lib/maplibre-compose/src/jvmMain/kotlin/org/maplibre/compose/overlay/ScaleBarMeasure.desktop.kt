@@ -5,6 +5,7 @@ import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
+import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
@@ -14,6 +15,7 @@ internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? {
   return when {
     osName.startsWith("Mac", ignoreCase = true) -> macosSystemDefaultPrimaryMeasure()
     osName.startsWith("Linux", ignoreCase = true) -> linuxEnvironmentMeasure
+    osName.startsWith("Windows", ignoreCase = true) -> windowsSystemDefaultPrimaryMeasure()
     else -> null
   }
 }
@@ -83,6 +85,43 @@ internal fun linuxSystemDefaultPrimaryMeasure(localeName: String = ""): ScaleBar
   }
   .getOrNull()
 
+/** Reads the measurement system of the user's Windows regional format. */
+internal fun windowsSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
+  Arena.ofConfined().use { arena ->
+    val measurement = arena.allocate(ValueLayout.JAVA_INT)
+    val written =
+      getLocaleInfoEx.invokeWithArguments(
+        MemorySegment.NULL,
+        LocaleIMeasure or LocaleReturnNumber,
+        measurement,
+        Int.SIZE_BYTES / Char.SIZE_BYTES,
+      ) as Int
+    if (written == 0) return@runCatching null
+    when (measurement.get(ValueLayout.JAVA_INT, 0)) {
+      0 -> ScaleBarMeasure.Metric
+      1 -> ScaleBarMeasure.FeetAndMiles
+      else -> null
+    }
+  }
+}
+  .getOrNull()
+
+private val getLocaleInfoEx by lazy {
+  Linker.nativeLinker()
+    .downcallHandle(
+      SymbolLookup.libraryLookup("kernel32", Arena.global()).findOrThrow("GetLocaleInfoEx"),
+      FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,
+        ValueLayout.ADDRESS,
+        ValueLayout.JAVA_INT,
+        ValueLayout.ADDRESS,
+        ValueLayout.JAVA_INT,
+      ),
+    )
+}
+
 private const val LcMeasurement = 11
 private const val LcMeasurementMask = 1 shl LcMeasurement
 private const val NlMeasurementMeasurement = LcMeasurement shl 16
+private const val LocaleIMeasure = 0x0D
+private const val LocaleReturnNumber = 0x20000000
