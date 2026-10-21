@@ -397,7 +397,7 @@ private constructor(
 
   override fun discardPresentedFrame() {}
 
-  // Match the existing Windows fixture: the test worker owns its shared consumer.
+  // The test worker owns its shared consumer; it exits without waiting for GPU teardown.
   override fun close() {}
 
   companion object {

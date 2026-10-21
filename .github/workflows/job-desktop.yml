@@ -26,8 +26,6 @@ jobs:
       matrix: ${{ fromJSON(inputs.matrix) }}
     timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
-    env:
-      JAVA_TOOL_OPTIONS: ${{ matrix.java_tool_options }}
     steps:
       # Blacksmith's checkout caches the repository only on its Linux runners,
       # and on macOS it ignores `fetch-tags`.
@@ -44,41 +42,6 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
-      - name: Inspect the Windows graphics environment
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Process -Id $PID | Select-Object ProcessName, SessionId
-          Get-CimInstance Win32_VideoController |
-            Select-Object Name, DriverVersion, Status, VideoModeDescription
-          Write-Output "SESSIONNAME=$env:SESSIONNAME"
-          Write-Output "JAVA_TOOL_OPTIONS=$env:JAVA_TOOL_OPTIONS"
-          @'
-          import java.awt.*;
-          class WindowsGraphicsProbe {
-            public static void main(String[] args) throws Exception {
-              System.out.println("java.awt.headless=" + System.getProperty("java.awt.headless"));
-              System.out.println("GraphicsEnvironment.isHeadless=" + GraphicsEnvironment.isHeadless());
-              try {
-                System.out.println("screens=" + GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices().length);
-                EventQueue.invokeAndWait(() -> {
-                  Frame frame = new Frame("CI graphics probe");
-                  try {
-                    frame.setSize(128, 128);
-                    frame.setVisible(true);
-                    System.out.println("AWT window created: " + frame.isDisplayable());
-                  } finally {
-                    frame.dispose();
-                  }
-                });
-              } catch (Throwable error) {
-                error.printStackTrace();
-              }
-              System.exit(0);
-            }
-          }
-          '@ | Set-Content "$env:RUNNER_TEMP/WindowsGraphicsProbe.java"
-          java "$env:RUNNER_TEMP/WindowsGraphicsProbe.java"
       - uses: ./.github/actions/setup-desktop-vulkan
       - id: desktop-tests
         run: mise run test:desktop:all
@@ -106,8 +69,7 @@ jobs:
             **/build/reports/tests
             **/build/test-results
             build/desktop-backends
-      - if: ${{ !cancelled() }}
-        run: mise run build:desktop-app
+      - run: mise run build:desktop-app
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           retention-days: 7

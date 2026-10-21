@@ -1,58 +1,79 @@
-name: Windows Blacksmith probe
+name: CI
 
-# Temporary investigation: restore the normal tier workflows before merging.
+# The draft tier: every pull request commit, main, and manual runs. Readiness
+# and label changes are handled by CI ready and CI full, so a commit's draft
+# results stand once they exist.
 on:
+  push:
+    branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
   workflow_dispatch:
+    inputs:
+      secrets:
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
-concurrency:
-  group: windows-probe-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  graphics:
-    name: ${{ matrix.id }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - id: blacksmith-system-software-wsi
-            runner: blacksmith-4vcpu-windows-2025
-            agility: false
-          - id: blacksmith-agility-software-wsi
-            runner: blacksmith-4vcpu-windows-2025
-            agility: true
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    env:
-      DZN_DEBUG: warp
-      MESA_VK_WSI_DEBUG: sw
-      MESA_LOG_LEVEL: debug
+  plan:
+    permissions:
+      checks: read
+      contents: read
+    timeout-minutes: 5
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    outputs:
+      selected: ${{ steps.plan.outputs.selected }}
+      restate: ${{ steps.plan.outputs.restate }}
+      check: ${{ steps.plan.outputs.check }}
+      secrets: ${{ steps.plan.outputs.secrets }}
+      android: ${{ steps.plan.outputs.android }}
+      desktop: ${{ steps.plan.outputs.desktop }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-ci-deps
-      - uses: ./.github/actions/setup-desktop-vulkan
-      - name: Give dzn the Agility SDK
-        if: matrix.agility
-        shell: pwsh
-        run: ./ci/install-probe-agility.ps1
-      - name: Probe native graphics APIs without a window
-        shell: pwsh
-        run: ./ci/probe-windows-graphics.ps1
-      - name: Run the full desktop suite for both backends
-        run: mise run test:desktop:all
-      - name: Upload probe test reports
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - id: plan
+        # State events verify existing platform coverage through the Checks API.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_TIER: draft
+        run: bash .mise/tasks/ci/plan
+
+  draft:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true'
+    uses: ./.github/workflows/tier-draft.yml
+    with:
+      secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
+      android: ${{ needs.plan.outputs.android }}
+      desktop: ${{ needs.plan.outputs.desktop }}
+    secrets: inherit
+
+  all-good:
+    name: all-good (draft)
+    if: ${{ always() }}
+    needs:
+      - plan
+      - draft
+    timeout-minutes: 5
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
-          name: offscreen-${{ matrix.id }}
-          path: |
-            build/desktop-backends
-            **/build/test-results
-            **/build/reports/tests
+          persist-credentials: false
+      - env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SELECTED: ${{ needs.plan.outputs.selected }}
+          RESTATE: ${{ needs.plan.outputs.restate }}
+          RESULT: ${{ needs.draft.result }}
+        run: bash .mise/tasks/ci/verdict

@@ -9,7 +9,13 @@ import java.lang.foreign.ValueLayout
 import java.util.UUID
 import org.jetbrains.skia.DirectContext
 
-/** Experimental WARP consumer: creates no AWT window or DXGI swap chain. */
+/**
+ * A software Direct3D 12 consumer for Windows bridge tests, without a window or swap chain.
+ *
+ * The test worker owns its shared context. Initialization failures release the acquired COM
+ * objects; successful initialization leaves them alive until the worker exits, like its Skia
+ * context.
+ */
 internal class WindowsOffscreenTestContext
 private constructor(
   private val adapter: MemorySegment,
@@ -25,6 +31,11 @@ private constructor(
   }
 
   companion object {
+    private const val FactoryEnumWarpAdapterIndex = 27
+    private const val DeviceCreateCommandQueueIndex = 8
+    private const val UnknownReleaseIndex = 2
+    private const val FeatureLevel11 = 0xb000
+    private val PointerSize = ValueLayout.ADDRESS.byteSize()
     private val linker = Linker.nativeLinker()
 
     fun create(): WindowsOffscreenTestContext =
@@ -35,7 +46,7 @@ private constructor(
         checkResult(
           invoke(
             dxgi.findOrThrow("CreateDXGIFactory1"),
-            guid(arena, "1bc6ea02-ef36-464f-bf0c-21ca39e5168a"),
+            guid(arena, "1bc6ea02-ef36-464f-bf0c-21ca39e5168a"), // IDXGIFactory4
             factoryOut,
           ),
           "CreateDXGIFactory1",
@@ -46,9 +57,9 @@ private constructor(
             val out = arena.allocate(ValueLayout.ADDRESS)
             checkResult(
               invoke(
-                method(factory, 27),
+                method(factory, FactoryEnumWarpAdapterIndex),
                 factory,
-                guid(arena, "29038f61-3839-4626-91fd-086879011a05"),
+                guid(arena, "29038f61-3839-4626-91fd-086879011a05"), // IDXGIAdapter1
                 out,
               ),
               "EnumWarpAdapter",
@@ -73,8 +84,8 @@ private constructor(
           checkResult(
             createDevice.invokeWithArguments(
               adapter,
-              0xb000,
-              guid(arena, "189819f1-1db6-4b57-be54-1821339b85f7"),
+              FeatureLevel11,
+              guid(arena, "189819f1-1db6-4b57-be54-1821339b85f7"), // ID3D12Device
               deviceOut,
             ) as Int,
             "D3D12CreateDevice(WARP)",
@@ -84,10 +95,10 @@ private constructor(
             val queueOut = arena.allocate(ValueLayout.ADDRESS)
             checkResult(
               invoke(
-                method(device, 8),
+                method(device, DeviceCreateCommandQueueIndex),
                 device,
                 arena.allocate(16), // D3D12_COMMAND_QUEUE_DESC: DIRECT, normal priority, no flags.
-                guid(arena, "0ec870a6-5d7e-4c22-8cfc-5baae07616ed"),
+                guid(arena, "0ec870a6-5d7e-4c22-8cfc-5baae07616ed"), // ID3D12CommandQueue
                 queueOut,
               ),
               "ID3D12Device.CreateCommandQueue",
@@ -115,8 +126,10 @@ private constructor(
       }
 
     private fun method(instance: MemorySegment, index: Int): MemorySegment {
-      val vtable = instance.reinterpret(8).get(ValueLayout.ADDRESS, 0)
-      return vtable.reinterpret((index + 1L) * 8).get(ValueLayout.ADDRESS, index * 8L)
+      val vtable = instance.reinterpret(PointerSize).get(ValueLayout.ADDRESS, 0)
+      return vtable
+        .reinterpret((index + 1L) * PointerSize)
+        .get(ValueLayout.ADDRESS, index * PointerSize)
     }
 
     private fun invoke(function: MemorySegment, vararg args: MemorySegment): Int =
@@ -128,7 +141,7 @@ private constructor(
         .invokeWithArguments(*args) as Int
 
     private fun release(instance: MemorySegment) {
-      invoke(method(instance, 2), instance)
+      invoke(method(instance, UnknownReleaseIndex), instance)
     }
 
     private fun guid(arena: Arena, text: String): MemorySegment {
