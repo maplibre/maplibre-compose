@@ -805,7 +805,7 @@ internal class MlnFfiMapSession(
   ): CameraOptions {
     val (persistent, fitted) =
       run {
-        val current = map.getSnapshot().camera.toCameraPosition(insets)
+        val current = map.getSnapshot().view.camera.toCameraPosition(insets)
         val destination = current.copy(padding = cameraPadding ?: current.padding)
         val persistent = checkNotNull(destination.toCameraOptions(insets).padding)
         val total = (persistent.toCameraPadding() + fitPadding).toEdgeInsets()
@@ -818,9 +818,9 @@ internal class MlnFfiMapSession(
     // Native returns the fit padding as persistent camera state. Preserve the fitted transform
     // while retaining only the viewport insets and destination camera padding.
     val center =
-      map.createProjection().use { projection ->
+      GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
         projection.setCamera(camera)
-        val size = map.getSnapshot().logicalExtent
+        val size = map.getSnapshot().view.extent
         projection.latLngForPixel(
           ScreenPoint(
             x = (size.width.toDouble() + persistent.left - persistent.right) / 2.0,
@@ -870,9 +870,9 @@ internal class MlnFfiMapSession(
           if (pitch != null) add(TransitionField.Pitch)
         },
     ) { map, options ->
-      val size = map.getSnapshot().logicalExtent
+      val size = map.getSnapshot().view.extent
       val point =
-        map.createWrappedProjection().use { projection ->
+        GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
           anchor.resolveScreenPoint(
             DpSize(size.width.toInt().dp, size.height.toInt().dp),
             centerLongitude = checkNotNull(projection.getCamera().center).longitude,
@@ -1361,7 +1361,7 @@ internal class MlnFfiMapSession(
       if (feedback && bearingDelta != 0.0 && gestureToken != null) {
         val (from, to) =
           run {
-            val from = gestureBearing ?: getSnapshot().camera.bearing ?: 0.0
+            val from = gestureBearing ?: getSnapshot().view.camera.bearing ?: 0.0
             val to = from + bearingDelta
             gestureBearing = to
             from to to

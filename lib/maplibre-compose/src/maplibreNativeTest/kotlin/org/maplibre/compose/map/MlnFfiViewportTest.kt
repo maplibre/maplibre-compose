@@ -27,6 +27,7 @@ import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toPosition
 import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.ProjectionMode
 import org.maplibre.nativeffi.generated.ScreenPoint
@@ -66,7 +67,7 @@ class MlnFfiViewportTest {
       val expected =
         assertNotNull(
           session.readMap { map ->
-            map.createProjection().use { projection ->
+            GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
               listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
@@ -234,7 +235,7 @@ class MlnFfiViewportTest {
     val width = size.width.toDouble()
     val height = size.height.toDouble()
     val corners =
-      createProjection().use { projection ->
+      GeneratedApi.mapProjectionCreate(getSnapshot().view).use { projection ->
         listOf(
             ScreenPoint(0.0, 0.0),
             ScreenPoint(width, 0.0),

@@ -278,7 +278,7 @@ private class NativeSnapshotterAdapter(
     // A snapshot is read once and never republished, so its extents are read with its camera.
     val geometry = current.map.getSnapshot().viewportGeometry(EdgeInsets())
     val (extents, metersPerDpAtCenter) =
-      current.map.createProjection().use { projection ->
+      GeneratedApi.mapProjectionCreate(current.map.getSnapshot().view).use { projection ->
         MapViewportExtents(unprojectedCorners(projection, geometry.size)) to
           projection.metersPerPixelAtLatitude(geometry.camera.center.latitude.coerceIn(-90.0, 90.0))
       }

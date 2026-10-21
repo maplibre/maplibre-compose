@@ -406,10 +406,12 @@ internal class NativePresentation(
       }
       else -> return MlnFfiFrameResult.RetryNextFrame
     }
+    var presentedView = result.view
     try {
       if (attachment.acquiresFrames) {
         val acquired = session.acquireFrame() ?: return MlnFfiFrameResult.RetryNextFrame
         try {
+          presentedView = acquired.getResult().view
           acquired.withProducerSync { sync ->
             check(sync.kind == GpuSyncKind.CPU_COMPLETE) {
               "The host draws only frames whose producer work is complete, not ${sync.kind}"
@@ -441,7 +443,8 @@ internal class NativePresentation(
       }
     }
     return MlnFfiFrameResult.Rendered(
-      if (captureProjection) viewport.captureFrameProjection(session, frame.target.extent) else null
+      if (captureProjection) viewport.captureFrameProjection(presentedView, frame.target.extent)
+      else null
     )
   }
 

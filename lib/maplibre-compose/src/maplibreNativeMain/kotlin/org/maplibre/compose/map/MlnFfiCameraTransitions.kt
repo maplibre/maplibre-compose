@@ -60,7 +60,7 @@ internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Un
     if (!continuation.isActive) return
     val size =
       if (anchored)
-        map.getSnapshot().logicalExtent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
+        map.getSnapshot().view.extent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
       else null
     val transition = Transition(++nextId, map, continuation)
     try {

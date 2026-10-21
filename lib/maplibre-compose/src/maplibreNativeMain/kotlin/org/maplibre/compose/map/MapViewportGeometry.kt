@@ -23,9 +23,9 @@ internal data class MapViewportGeometry(
 /** The camera and size that one published map snapshot describes. */
 internal fun MapSnapshot.viewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry =
   MapViewportGeometry(
-    camera = camera.toCameraPosition(viewportInsets),
-    padding = camera.padding ?: EdgeInsets(),
-    size = DpSize(logicalExtent.width.toInt().dp, logicalExtent.height.toInt().dp),
+    camera = view.camera.toCameraPosition(viewportInsets),
+    padding = view.camera.padding ?: EdgeInsets(),
+    size = DpSize(view.extent.width.toInt().dp, view.extent.height.toInt().dp),
   )
 
 /** The area a frozen transform renders, derived from its corners. */

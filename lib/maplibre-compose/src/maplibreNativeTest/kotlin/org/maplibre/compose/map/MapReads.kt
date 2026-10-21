@@ -31,13 +31,13 @@ internal fun MapHandle.snapshotAfterCommands(): MapSnapshot {
 
 /** The logical size after every command submitted before this read. */
 internal val MapHandle.size: LogicalExtent
-  get() = snapshotAfterCommands().logicalExtent
+  get() = snapshotAfterCommands().view.extent
 
 internal val MapHandle.tileOptions: MapTileOptions
   get() = snapshotAfterCommands().tile
 
 internal val MapHandle.projectionMode: ProjectionMode
-  get() = snapshotAfterCommands().projectionMode
+  get() = snapshotAfterCommands().view.projectionMode
 
 internal val MapHandle.bounds: BoundOptions
   get() = snapshotAfterCommands().bounds

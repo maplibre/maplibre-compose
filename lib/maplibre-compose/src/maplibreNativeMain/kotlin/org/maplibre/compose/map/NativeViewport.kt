@@ -26,10 +26,11 @@ import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.generated.CameraOptions
 import org.maplibre.nativeffi.generated.CameraUpdate
 import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.MapProjectionHandle
 import org.maplibre.nativeffi.generated.MapSnapshot
-import org.maplibre.nativeffi.generated.RenderSessionHandle
+import org.maplibre.nativeffi.generated.MapView
 import org.maplibre.spatialk.geojson.Position
 
 /** Main-thread snapshot cache, with a separate projection borrow for presented frames. */
@@ -45,20 +46,11 @@ internal class NativeViewport {
 
   private var snapshot: MapSnapshot? = null
   @Volatile private var geometry = MapViewportGeometry(CameraPosition(), EdgeInsets(), DpSize.Zero)
-  private var map: MapHandle? = null
   private var cachedProjection: MapProjectionHandle? = null
-  private var cachedWrappedProjection: MapProjectionHandle? = null
   private val projection: MapProjectionHandle?
-    get() = cachedProjection ?: map?.createProjection()?.also { cachedProjection = it }
-
-  private val wrappedProjection: MapProjectionHandle?
     get() =
-      if (camera.center.longitude in -180.0..<180.0) null
-      else
-        cachedWrappedProjection
-          ?: map?.createWrappedProjection()?.also {
-            cachedWrappedProjection = it
-          }
+      cachedProjection
+        ?: snapshot?.view?.let(GeneratedApi::mapProjectionCreate)?.also { cachedProjection = it }
 
   private var extents: MapViewportExtents? = null
   private var cachedViewport: Viewport? = null
@@ -121,10 +113,9 @@ internal class NativeViewport {
   }
 
   fun captureFrameProjection(
-    session: RenderSessionHandle,
+    view: MapView,
     extent: MapExtent,
-  ): MlnFfiMapFrameProjection =
-    FrameProjection(extent, session.createProjection().normalizeWrappedCenter())
+  ): MlnFfiMapFrameProjection = FrameProjection(extent, GeneratedApi.mapProjectionCreate(view))
 
   fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
     val padding = renderedCameraPadding
@@ -144,9 +135,6 @@ internal class NativeViewport {
     if (next.generation == snapshot?.generation) return
     cachedProjection?.close()
     cachedProjection = null
-    cachedWrappedProjection?.close()
-    cachedWrappedProjection = null
-    this.map = map
     snapshot = next
     geometry = next.viewportGeometry(appliedViewportInsets)
     extents = null
@@ -164,11 +152,9 @@ internal class NativeViewport {
 
   fun retire() {
     viewportExtents()
+    snapshot = null
     cachedProjection?.close()
     cachedProjection = null
-    cachedWrappedProjection?.close()
-    cachedWrappedProjection = null
-    map = null
   }
 
   fun captureRenderPadding() {
@@ -231,7 +217,7 @@ internal class NativeViewport {
   }
 
   fun screenLocationFromPosition(position: Position): DpOffset? =
-    (wrappedProjection ?: projection)?.pixelForLatLng(position.toLatLng())?.toDpOffset()
+    projection?.pixelForLatLng(position.toLatLng())?.toDpOffset()
 
   fun overlayScreenLocationFromPosition(position: Position): DpOffset? {
     presentationRevision.longValue
@@ -243,26 +229,4 @@ internal class NativeViewport {
   fun metersPerDpAtLatitude(latitude: Double): Double =
     projection?.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
       ?: metersPerDpAtLatitude(camera.zoom, latitude)
-}
-
-/**
- * Native projects against a wrapped center, but anchored moves can leave the transform in another
- * world. Normalize a standalone projection for geographic-to-screen conversion. Keep the raw
- * snapshot separately so screen-to-geographic conversion still preserves the actual world copy.
- */
-internal fun MapHandle.createWrappedProjection(): MapProjectionHandle =
-  createProjection().normalizeWrappedCenter()
-
-private fun MapProjectionHandle.normalizeWrappedCenter(): MapProjectionHandle {
-  try {
-    val center = getCamera().center
-    if (center != null && center.longitude !in -180.0..<180.0) {
-      val longitude = ((center.longitude + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
-      setCamera(CameraOptions(center = Position(longitude, center.latitude).toLatLng()))
-    }
-    return this
-  } catch (error: Throwable) {
-    close()
-    throw error
-  }
 }
