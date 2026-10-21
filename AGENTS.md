@@ -153,8 +153,6 @@ PR from `.config/rubberstamp.yml`: one kind, at least one `area:*` label, and
 they apply. Don't label by hand; correct a wrong label instead. Leave native
 issue types unset. Usage questions go to Discussions.
 
-`ci:full` is CI state, not a label for the work.
-
 ## Pull requests
 
 Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft
@@ -171,32 +169,32 @@ lets them understand and trust the change; the diff carries the details.
 - If library users must change their code, or the PR knowingly leaves part of
   the problem unsolved, say so.
 
-Validation covers what CI does not show. CI runs the checks and test suites on
-every PR, so passing them needs no mention. Describe how the tests changed and
-what they now catch, and anything checked outside CI: benchmark comparisons for
-performance work, code metrics for refactors, and manual checks in the demo for
-UI changes. Name any affected behavior that went unverified.
+Validation covers what CI does not show. CI runs the checks and the test suites
+that the change puts at risk, so passing them needs no mention. Describe how the
+tests changed and what they now catch, and anything checked outside CI:
+benchmark comparisons for performance work, code metrics for refactors, and
+manual checks in the demo for UI changes. Name any affected behavior that went
+unverified.
 
-### CI tiers
+### CI coverage
 
-`ci/plan.py` selects jobs from `ci/jobs.json` for each event. Each tier has a
-caller workflow with its own required check and a tier workflow containing its
-jobs. Single-run jobs live in the tier workflow; jobs with multiple
-configurations use a reusable workflow. Draft PRs run Android API 36, JS, Linux
-x64 desktop, docs, hygiene, ABI validation, and iOS device compilation. Ready
-PRs add Android API 26, the iOS simulator on the runner's newest runtime, macOS
-desktop, macOS Native ARM64, and Windows x64. Dependabot PRs, main, and manual
-runs include every variant.
+Rubberstamp plans which coverage units each PR commit runs, from the units in
+the `ci` section of `.config/rubberstamp.yml`. A unit runs when Rubberstamp
+judges that the change puts it at risk or when a changed file matches its
+`paths`, and a later push is judged only on what changed since the unit last
+passed. Hygiene always runs, and pushes to `main` and manual runs run every
+unit. The plan job's summary links to the Rubberstamp dashboard with the reason
+for each unit.
 
-The `ci:full` label adds the Linux and Windows ARM64 variants and the iOS 15.5
-simulator. The ARM64 jobs catch architecture-specific failures, so request the
-label for a change that could behave differently there: ABI or pointer layout,
-architecture-specific artifact selection, loading or linking, or toolchain and
-runner configuration. Shared Kotlin, existing FFI calls, and unrelated CI tasks
-are covered by the default tiers. When requesting it (`gh pr edit <number>
---add-label 'ci:full'`), say in the PR which platform could fail and why. The
-label works on drafts, persists across pushes, and runs only the tiers the PR
-has not yet run.
+`ci/jobs.json` assigns each job and variant to a unit, and `ci/plan.py` turns
+the plan into the jobs and matrices of `.github/workflows/ci.yml`. A job with
+multiple configurations is a matrix over the variants the plan selected.
+`all-good` is the required check.
+
+If a plan skips coverage that the change needs, sharpen that unit's `covers`
+text or `paths`, and run every unit with `gh workflow run CI --ref <branch>`.
+Rubberstamp reads the units from `main`, so a unit that a PR adds or renames
+runs only on manual runs until the PR merges.
 
 ## Code review rules
 
