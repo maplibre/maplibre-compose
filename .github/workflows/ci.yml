@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: windows-probe-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   graphics:
@@ -20,30 +20,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - id: blacksmith-system-vulkan
+          - id: blacksmith-system-software-wsi
             runner: blacksmith-4vcpu-windows-2025
-            backend: vulkan
             agility: false
-            full: false
-          - id: blacksmith-agility-vulkan
+          - id: blacksmith-agility-software-wsi
             runner: blacksmith-4vcpu-windows-2025
-            backend: vulkan
             agility: true
-            full: false
-          - id: github-system-vulkan
-            runner: windows-2025
-            backend: vulkan
-            agility: false
-            full: false
-          - id: blacksmith-opengl
-            runner: blacksmith-4vcpu-windows-2025
-            backend: opengl
-            agility: false
-            full: true
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
-      DZN_DEBUG: d3d12,warp
+      DZN_DEBUG: warp
+      MESA_VK_WSI_DEBUG: sw
       MESA_LOG_LEVEL: debug
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,22 +45,14 @@ jobs:
       - name: Probe native graphics APIs without a window
         shell: pwsh
         run: ./ci/probe-windows-graphics.ps1
-      - name: Test offscreen production bridge and snapshots
-        if: ${{ !matrix.full }}
-        shell: bash
-        run: >-
-          ./gradlew :lib:maplibre-compose:jvmTest
-          -Pmaplibre.desktop.backend=${{ matrix.backend }}
-          --tests '*DesktopGpuBridgeTest'
-          --tests '*NativeMapSnapshotterTest'
-      - name: Run the full desktop suite
-        if: matrix.full
-        run: mise run test:desktop --backend ${{ matrix.backend }}
+      - name: Run the full desktop suite for both backends
+        run: mise run test:desktop:all
       - name: Upload probe test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: offscreen-${{ matrix.id }}
           path: |
-            lib/maplibre-compose/build/test-results/jvmTest
-            lib/maplibre-compose/build/reports/tests/jvmTest
+            build/desktop-backends
+            **/build/test-results
+            **/build/reports/tests

@@ -26,6 +26,9 @@ public static class WindowsGraphicsProbe {
     [DllImport("d3d12.dll", ExactSpelling = true)]
     static extern int D3D12GetInterface(ref Guid clsid, ref Guid iid, out IntPtr factory);
 
+    [DllImport("dcomp.dll", ExactSpelling = true)]
+    static extern int DCompositionCreateDevice(IntPtr dxgiDevice, ref Guid iid, out IntPtr device);
+
     [DllImport("d3d11.dll", ExactSpelling = true)]
     static extern int D3D11CreateDevice(IntPtr adapter, int driverType, IntPtr software,
         uint flags, IntPtr featureLevels, uint featureLevelCount, uint sdkVersion,
@@ -103,6 +106,12 @@ public static class WindowsGraphicsProbe {
 
         TryD3D12("default adapter", IntPtr.Zero);
 
+        Guid compositionIid = new Guid("c37ea93a-e7aa-450d-b16f-9746cb0407f3");
+        IntPtr composition;
+        result = DCompositionCreateDevice(IntPtr.Zero, ref compositionIid, out composition);
+        Report("DCompositionCreateDevice", result);
+        Release(composition);
+
         Guid coreIid = new Guid("78ee5945-c36e-4b13-a669-005dd11c0f06");
         IntPtr core;
         result = DXCoreCreateAdapterFactory(ref coreIid, out core);
@@ -123,7 +132,7 @@ public static class WindowsGraphicsProbe {
 [WindowsGraphicsProbe]::Run()
 
 # Log dzn's own adapter/device diagnostics as well as the Vulkan loader's result.
-$env:DZN_DEBUG = "d3d12,warp"
+$env:DZN_DEBUG = "warp"
 $env:MESA_LOG_LEVEL = "debug"
 $vulkanInfo = Join-Path $env:VULKAN_SDK "Bin/vulkaninfo.exe"
 if (Test-Path $vulkanInfo) {
