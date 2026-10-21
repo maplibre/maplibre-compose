@@ -41,7 +41,7 @@
     "job": "desktop",
     "variant": "windows-x64",
     "tier": "ready",
-    "runner": "blacksmith-4vcpu-windows-2025",
+    "runner": "windows-2022",
     "save_toolchains": "true",
     "artifact_type": "nsis",
     "artifact_glob": "*.exe",

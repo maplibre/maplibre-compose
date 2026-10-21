@@ -36,7 +36,7 @@ jobs:
       name: maven-central-maplibre
       url: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0
