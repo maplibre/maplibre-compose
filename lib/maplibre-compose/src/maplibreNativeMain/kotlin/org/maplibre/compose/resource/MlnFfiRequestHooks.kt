@@ -10,8 +10,8 @@ import org.maplibre.nativeffi.generated.RuntimeHandle
 /**
  * Installs the URL and header callbacks, each of which uses the interceptor in [config].
  *
- * Native invokes the two callbacks independently, on its network threads, and passes the header
- * callback the URL that the URL callback returned.
+ * Native invokes the callbacks independently and passes the header callback the URL that completed
+ * the URL transform request.
  */
 internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) {
   // OpenHarmony and the browser FFI decline header transforms; that failure arrives here and leaves
@@ -32,10 +32,11 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
     )
   setResourceTransform(
       ResourceTransform(
-        callback = { kind, url, response ->
-          val mapRequest = MapResourceRequest(url, kind.toCommon())
-          val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
-          if (rewritten != url) GeneratedApi.resourceTransformResponseSetUrl(response, rewritten)
+        callback = { kind, url, request ->
+          request.use {
+            val mapRequest = MapResourceRequest(url, kind.toCommon())
+            it.complete(config.interceptor.rewrittenUrl(mapRequest, config.logger))
+          }
         }
       )
     )

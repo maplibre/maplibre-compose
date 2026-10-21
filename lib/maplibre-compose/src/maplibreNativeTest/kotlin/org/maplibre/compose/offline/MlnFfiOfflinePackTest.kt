@@ -364,6 +364,7 @@ class MlnFfiOfflinePackTest {
     val owner = owners.getValue(storage)
     owner.close()
     owner.awaitClosed()
+    owners.remove(storage)
   }
 
   private suspend fun storage(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineStorage {

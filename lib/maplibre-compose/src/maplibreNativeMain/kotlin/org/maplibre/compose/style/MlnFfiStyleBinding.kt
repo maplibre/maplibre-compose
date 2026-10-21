@@ -56,7 +56,6 @@ import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.generated.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
 import org.maplibre.nativeffi.generated.CustomMvtVectorSourceOptions
 import org.maplibre.nativeffi.generated.GeneratedApi
@@ -68,6 +67,7 @@ import org.maplibre.nativeffi.generated.MapDiscarding
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.RenderSessionHandle
 import org.maplibre.nativeffi.generated.SourceFeatureQueryOptions
+import org.maplibre.nativeffi.generated.Status
 import org.maplibre.nativeffi.generated.StyleImageOptions
 import org.maplibre.nativeffi.generated.StyleSourceInfo
 import org.maplibre.nativeffi.generated.StyleSourceTileInfo
@@ -740,17 +740,12 @@ internal open class MlnFfiStyleBinding(
         .await()
     } catch (error: MaplibreException) {
       // Supercluster's missing-cluster error reaches the C API only as this diagnostic text.
-      if (
-        error.status == MaplibreStatus.NATIVE_ERROR && error.diagnostic == MissingClusterDiagnostic
-      ) {
+      if (error.status == Status.NATIVE_ERROR && error.diagnostic == MissingClusterDiagnostic) {
         logger?.w { "Cluster '$field' query matched no cluster in source '$sourceId'" }
         return null
       }
       // A session that detached during the query has nothing to answer with.
-      if (
-        error.status == MaplibreStatus.INVALID_STATE || error.status == MaplibreStatus.TARGET_LOST
-      )
-        return null
+      if (error.status == Status.INVALID_STATE || error.status == Status.TARGET_LOST) return null
       throw StyleHandleException(
         "Cluster '$field' query failed in source '$sourceId': ${error.message}",
         error,
@@ -836,7 +831,7 @@ internal open class MlnFfiStyleBinding(
         session.querySourceFeatures(sourceId, options).await()
       } catch (error: MaplibreException) {
         // A session that detached during the query has nothing to answer with.
-        if (error.status == MaplibreStatus.INVALID_STATE) return emptyList()
+        if (error.status == Status.INVALID_STATE) return emptyList()
         throw error
       }
     return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }

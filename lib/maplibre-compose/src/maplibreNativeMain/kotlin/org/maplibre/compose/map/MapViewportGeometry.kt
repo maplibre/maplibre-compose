@@ -71,14 +71,11 @@ internal fun unprojectedCorners(
 ): List<Position> {
   val width = size.width.value.toDouble()
   val height = size.height.value.toDouble()
-  return projection
-    .latLngsForPixelsUnwrapped(
-      listOf(
-        ScreenPoint(0.0, 0.0),
-        ScreenPoint(width, 0.0),
-        ScreenPoint(0.0, height),
-        ScreenPoint(width, height),
-      )
+  return listOf(
+      ScreenPoint(0.0, 0.0),
+      ScreenPoint(width, 0.0),
+      ScreenPoint(0.0, height),
+      ScreenPoint(width, height),
     )
-    .map { it.toPosition() }
+    .map { projection.latLngForPixelUnwrapped(it).toPosition() }
 }

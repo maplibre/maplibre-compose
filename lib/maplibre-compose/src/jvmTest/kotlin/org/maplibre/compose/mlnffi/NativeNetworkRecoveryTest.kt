@@ -17,9 +17,9 @@ import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.NetworkStatus
 import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventHandler
 import org.maplibre.nativeffi.generated.RuntimeEventType
 import org.maplibre.nativeffi.generated.RuntimeHandle
-import org.maplibre.nativeffi.generated.Wake
 
 class NativeNetworkRecoveryTest {
   @Test
@@ -61,7 +61,7 @@ class NativeNetworkRecoveryTest {
 
             runtime.withMap { map ->
               map.setStyleUrl("$styleUrl?uncached")
-              // The cached load above has drained the earlier maps' events.
+              // withMap discards the earlier maps' events.
               runtime.awaitEvents(5.seconds) { event ->
                 event.type == RuntimeEventType.MAP_LOADING_STARTED
               }
@@ -139,16 +139,26 @@ class NativeNetworkRecoveryTest {
   }
 }
 
-/** A raw runtime whose event wake lets a test wait for events without polling. */
+/** A raw runtime whose event handler lets a test wait for events without polling. */
 private class TestRuntime(cachePath: String) : AutoCloseable {
-  private val wakes = Channel<Unit>(Channel.CONFLATED)
+  private val events = Channel<RuntimeEvent>(Channel.UNLIMITED)
   val runtime: RuntimeHandle =
-    GeneratedApi.runtimeCreate(
-      GeneratedApi.runtimeOptionsDefault()
-        .copy(cachePath = cachePath, eventWake = Wake { wakes.trySend(Unit) })
-    )
+    GeneratedApi.runtimeCreate(GeneratedApi.runtimeOptionsDefault().copy(cachePath = cachePath))
+
+  init {
+    runBlocking {
+      runtime
+        .setEventHandler(
+          RuntimeEventHandler { batch ->
+            batch.events.forEach { events.trySend(it) }
+          }
+        )
+        .await()
+    }
+  }
 
   fun <T> withMap(block: (MapHandle) -> T): T = runBlocking {
+    while (events.tryReceive().isSuccess) {}
     val map = runtime.createMap(GeneratedApi.mapOptionsDefault()).await()
     try {
       block(map)
@@ -163,9 +173,7 @@ private class TestRuntime(cachePath: String) : AutoCloseable {
       withTimeoutOrNull(timeout) {
         var found = false
         while (!found) {
-          val events = runtime.drainEvents()?.use { it.get().events }.orEmpty()
-          found = events.any(condition)
-          if (!found && events.isEmpty()) wakes.receive()
+          found = condition(events.receive())
         }
         true
       } == true

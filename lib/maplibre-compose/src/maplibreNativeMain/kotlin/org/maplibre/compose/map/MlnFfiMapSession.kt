@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
@@ -72,7 +73,6 @@ import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.generated.AnimationOptions
 import org.maplibre.nativeffi.generated.BoundOptions
 import org.maplibre.nativeffi.generated.CameraDelta
@@ -98,6 +98,7 @@ import org.maplibre.nativeffi.generated.RuntimeEventMask
 import org.maplibre.nativeffi.generated.RuntimeEventType
 import org.maplibre.nativeffi.generated.ScreenBox
 import org.maplibre.nativeffi.generated.ScreenPoint
+import org.maplibre.nativeffi.generated.Status
 import org.maplibre.nativeffi.generated.UnitBezier
 import org.maplibre.nativeffi.runtime.CommandCompletion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -179,11 +180,7 @@ internal class MlnFfiMapSession(
       },
     )
 
-  private val cameraTransitions =
-    MlnFfiCameraTransitions(
-      postToMain = owner::postToMain,
-      drain = owner::drain,
-    )
+  private val cameraTransitions = MlnFfiCameraTransitions(postToMain = owner::postToMain)
 
   internal val canPresentFrames: Boolean
     get() = styleLoadTracker.presentation != StylePresentation.Hidden
@@ -341,7 +338,6 @@ internal class MlnFfiMapSession(
           if (map != null && scaleFactor != density) stopMap(keepHost = true)
           scaleFactor = density
           if (map == null) createMap()
-          owner.drain()
           presentationActive = true
           presentation.resume()
         }
@@ -383,7 +379,6 @@ internal class MlnFfiMapSession(
           previous?.await()?.getOrThrow()
           pendingAttach?.await()
           map?.cancelTransitions()?.await()
-          owner.drain()
           viewport.detach()
           presentationActive = false
           presentation.release()
@@ -447,7 +442,7 @@ internal class MlnFfiMapSession(
           } catch (error: MaplibreException) {
             // A render session that failed to detach keeps the map alive; disposal lets it go
             // once the session retires.
-            if (error.status != MaplibreStatus.INVALID_STATE || stopping.isClosed) throw error
+            if (error.status != Status.INVALID_STATE) throw error
             stopping.dispose()
           }
         }
@@ -457,7 +452,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Only after the map is unregistered, so drains no longer visit this state. */
+  /** Only after the map is unregistered, so events no longer visit this state. */
   private fun retireOwnerState() {
     viewport.retire()
     activeGestureToken?.complete()
@@ -479,9 +474,8 @@ internal class MlnFfiMapSession(
 
   /** Runs on main, as do the callbacks it makes. */
   private fun handleEvent(map: MapHandle, event: RuntimeEvent) {
-    // A wake can drain later commands before the END waiter resumes on main. Native has already
-    // completed END before queuing a newer generation, so its completed result identifies where
-    // gesture camera reporting stops within this batch.
+    // Native completes END before reporting a newer generation. Its completed result identifies
+    // where gesture camera reporting stops, even before the END waiter resumes on main.
     val ending = gestureEnd
     if (ending?.isCompleted == true) {
       @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -545,7 +539,7 @@ internal class MlnFfiMapSession(
       }
 
       // A snapshot read after an event includes its transform change. Older events in the
-      // same drain reuse the projection from that snapshot generation.
+      // same batch reuse the projection from that snapshot generation.
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
@@ -567,7 +561,7 @@ internal class MlnFfiMapSession(
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
       // mbgl re-checks its image set at the next placement after setStyleImage, so a resolution
-      // that finishes after this drain still reaches a later frame.
+      // that finishes after this batch still reaches a later frame.
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
         styleBinding?.let { callbacks.resolveMissingImage(this, event.message) }
 
@@ -579,11 +573,7 @@ internal class MlnFfiMapSession(
 
   private fun applyViewportInsets(map: MapHandle) {
     val update = viewport.applyInsets { cameraTransitions.cancelAnchor() } ?: return
-    val submitted = map.updateCamera(update).report("apply insets")
-    owner.launchOnMain {
-      submitted.await()
-      owner.drain()
-    }
+    map.updateCamera(update).report("apply insets")
   }
 
   /** Publishes newly available or changed viewport geometry. */
@@ -685,7 +675,6 @@ internal class MlnFfiMapSession(
             )
           return@launchOnMain
         }
-      owner.drain()
       if (completion.failed && isCurrentStyleRequest(request)) {
         styleRequestFailed(request, style, completion.failureMessage(), null)
       }
@@ -725,16 +714,11 @@ internal class MlnFfiMapSession(
     val map = map ?: return
     if (guard?.isValid() == false) return
     val applied = viewport.cameraForAssignment(cameraPosition)
-    val submitted =
-      map
-        .updateCamera(
-          FfiCameraUpdate(camera = applied.toCameraOptions(viewport.appliedViewportInsets))
-        )
-        .report("move the camera")
-    owner.launchOnMain {
-      submitted.await()
-      owner.drain()
-    }
+    map
+      .updateCamera(
+        FfiCameraUpdate(camera = applied.toCameraOptions(viewport.appliedViewportInsets))
+      )
+      .report("move the camera")
   }
 
   override fun setViewportInsets(insets: PaddingValues) {
@@ -793,7 +777,8 @@ internal class MlnFfiMapSession(
     if (guard?.isValid() == false) return
     val completion = map.updateCamera(FfiCameraUpdate(camera = camera)).await()
     if (completion.failed) throw CommandFailedException(completion)
-    owner.drain()
+    // Give already-posted camera events a turn when await completes inline.
+    yield()
   }
 
   private suspend fun cameraForBounds(
@@ -1046,7 +1031,6 @@ internal class MlnFfiMapSession(
       // The projection reshapes the viewport without a camera event.
       owner.launchOnMain {
         mode.await()
-        owner.drain()
         if (this@MlnFfiMapSession.map !== this@applyRenderSettings || isClosing) return@launchOnMain
         viewport.refresh(this@applyRenderSettings)
         notifyViewportChanged()
@@ -1066,7 +1050,6 @@ internal class MlnFfiMapSession(
     check(!isClosing) { "The map state is closed" }
     val map = checkNotNull(map) { "The presented map does not exist" }
     val result = PlatformMapScope(map).block()
-    owner.drain()
     if (!isClosing && this.map === map) {
       viewport.refresh(map)
       notifyViewportChanged()
@@ -1162,7 +1145,7 @@ internal class MlnFfiMapSession(
     try {
       session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
     } catch (error: MaplibreException) {
-      if (error.status != MaplibreStatus.INVALID_STATE) throw error
+      if (error.status != Status.INVALID_STATE) throw error
       null
     }
 
@@ -1171,10 +1154,7 @@ internal class MlnFfiMapSession(
     try {
       await()
     } catch (error: MaplibreException) {
-      if (
-        error.status != MaplibreStatus.INVALID_STATE && error.status != MaplibreStatus.TARGET_LOST
-      )
-        throw error
+      if (error.status != Status.INVALID_STATE && error.status != Status.TARGET_LOST) throw error
       emptyList()
     }
 
@@ -1250,7 +1230,9 @@ internal class MlnFfiMapSession(
       owner.launchOnMain {
         try {
           gestureEndGeneration = last.await().generation
-          owner.drain()
+          // Deliver the events already posted to main before completing the gesture.
+          yield()
+
           if (activeGestureToken == null) reportGestureActive(false)
         } finally {
           if (gestureEnd === last) gestureEnd = null
@@ -1280,7 +1262,7 @@ internal class MlnFfiMapSession(
   /**
    * Reports whether a gesture holds the camera. The start is reported before the gesture's first
    * command is submitted, so it precedes that command's camera events; the end waits for the
-   * gesture's last command to drain.
+   * gesture's final camera events.
    */
   private fun reportGestureActive(active: Boolean) {
     if (presentationActive) callbacks.onGestureActive(this, active)

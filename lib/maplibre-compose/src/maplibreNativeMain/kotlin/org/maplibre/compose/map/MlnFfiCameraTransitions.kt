@@ -7,9 +7,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import org.maplibre.nativeffi.generated.AnimationOptions
-import org.maplibre.nativeffi.generated.CameraTransitionEnd
 import org.maplibre.nativeffi.generated.CameraTransitionHandler
-import org.maplibre.nativeffi.generated.CameraTransitionOutcome
 import org.maplibre.nativeffi.generated.MapHandle
 
 /**
@@ -17,13 +15,10 @@ import org.maplibre.nativeffi.generated.MapHandle
  * anchor policy: a viewport resize or padding change cancels the anchored transition. Cancelling a
  * caller only withdraws it; the camera keeps moving, as on every platform.
  *
- * Native callbacks post to main. An inline drain delivers the final camera events before the caller
- * resumes, so camera state shows where the transition ended.
+ * Native callbacks post to main after the final camera events, so camera state shows where the
+ * transition ended before the caller resumes.
  */
-internal class MlnFfiCameraTransitions(
-  private val postToMain: (action: () -> Unit) -> Unit,
-  private val drain: () -> Unit,
-) {
+internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Unit) -> Unit) {
   /** A camera field that a transition animates. */
   enum class Field {
     Center,
@@ -40,9 +35,8 @@ internal class MlnFfiCameraTransitions(
     val map: MapHandle,
     val continuation: CancellableContinuation<Unit>,
   ) {
-    fun transitionEnded(end: CameraTransitionEnd) {
+    fun transitionEnded() {
       if (anchor?.transition === this) anchor = null
-      if (end.outcome != CameraTransitionOutcome.CLOSED) drain()
       if (continuation.isActive) continuation.resume(Unit)
     }
   }
@@ -75,8 +69,8 @@ internal class MlnFfiCameraTransitions(
         animation.copy(
           transitionId = transition.id,
           endHandler =
-            CameraTransitionHandler { end ->
-              postToMain { transition.transitionEnded(end) }
+            CameraTransitionHandler {
+              postToMain { transition.transitionEnded() }
             },
         ),
       )

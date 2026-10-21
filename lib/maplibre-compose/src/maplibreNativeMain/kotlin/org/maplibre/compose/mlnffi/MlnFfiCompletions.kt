@@ -6,10 +6,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.generated.CommandDisposition
 import org.maplibre.nativeffi.generated.MapProjectionHandle
+import org.maplibre.nativeffi.generated.Status
 import org.maplibre.nativeffi.runtime.CommandCompletion
 
 /** Whether the command ended with a terminal failure. Supersession and cancellation are not. */
@@ -23,7 +22,7 @@ internal fun CommandCompletion.failureMessage(): String = diagnostic.ifBlank {
 
 /** Whether the command failed because what it names does not exist. */
 internal val CommandCompletion.notFound: Boolean
-  get() = failed && status == MaplibreStatus.NOT_FOUND
+  get() = failed && status == Status.NOT_FOUND
 
 /**
  * Logs the terminal failure of work nobody waits on. Without this, an asynchronous failure of a
@@ -47,10 +46,6 @@ internal fun <T> Deferred<T>.reportFailure(logger: MapLog?, what: String): Defer
 /** A command that native accepted and then failed. */
 internal class CommandFailedException(val completion: CommandCompletion) :
   RuntimeException(completion.failureMessage())
-
-/** Whether [error] reports that its handle closed, or closed while the call ran. */
-internal fun MaplibreException.isClosedHandle(): Boolean =
-  status == MaplibreStatus.INVALID_STATE && nativeStatusCode == null
 
 /** Runs [block] with this projection and closes it however [block] ends. */
 internal inline fun <T> MapProjectionHandle.use(block: (MapProjectionHandle) -> T): T =

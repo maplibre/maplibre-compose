@@ -22,16 +22,17 @@ import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.compose.util.throwCleanupFailures
 import org.maplibre.nativeffi.generated.MapHandle
 import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventHandler
 import org.maplibre.nativeffi.generated.RuntimeEventSourceType
 import org.maplibre.nativeffi.generated.RuntimeHandle
 
-/** One native runtime whose events and map callbacks are drained synchronously on main. */
+/** One native runtime whose events and map callbacks run on main. */
 internal class MlnFfiRuntime(
   val options: MlnFfiRuntimeOptions,
   private val resourceConfig: MapResourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
 ) {
-  /** A map's event handler, running on main without suspending a drain. */
+  /** A map's event handler, running synchronously on main. */
   interface MapChild {
     fun onEvent(event: RuntimeEvent)
   }
@@ -44,9 +45,6 @@ internal class MlnFfiRuntime(
   private var closed = false
   private val opened = CompletableDeferred<MlnFfiRuntimeOwner>()
   private var opening: Job? = null
-  private var runtime: RuntimeHandle? = null
-  private var draining = false
-  private var drainAgain = false
 
   var onFailure: (Throwable) -> Unit = {}
 
@@ -58,14 +56,14 @@ internal class MlnFfiRuntime(
     mainDispatcher.dispatch(EmptyCoroutineContext, Runnable { if (!closed) action() })
   }
 
-  /** Async event handlers keep the synchronous drain free to deliver the rest of the batch. */
+  /** Starts suspending work from an event handler. */
   fun launchOnMain(action: suspend () -> Unit) = scope.launch { action() }
 
   @Volatile
   var failure: Throwable? = null
     private set
 
-  /** Opens the native runtime off the calling thread, then starts draining its events. */
+  /** Opens the native runtime off the calling thread and delivers its events on main. */
   fun start() {
     opening =
       scope.launch(Dispatchers.IO) {
@@ -77,7 +75,10 @@ internal class MlnFfiRuntime(
               "MapLibre runtime",
               options.resourceProviderFactory,
               resourceConfig,
-              eventWake = { postToMain { drain() } },
+              eventHandler =
+                RuntimeEventHandler { batch ->
+                  postToMain { batch.events.forEach(::dispatch) }
+                },
             )
           } catch (error: Throwable) {
             withContext(mainDispatcher) {
@@ -87,13 +88,9 @@ internal class MlnFfiRuntime(
             return@launch
           }
         withContext(NonCancellable + mainDispatcher) {
-          runtime = owner.runtime
           if (!opened.complete(owner)) {
             // Closed while opening: nothing else will release it.
-            runtime = null
             runCatching { owner.close() }
-          } else {
-            drain()
           }
         }
       }
@@ -102,10 +99,7 @@ internal class MlnFfiRuntime(
   /** The native runtime, once it has opened. */
   suspend fun awaitRuntime(): RuntimeHandle = opened.await().runtime
 
-  /**
-   * Routes the events [map] raises to [child] until [unregister]. Events it raised before this call
-   * are dropped.
-   */
+  /** Routes events from [map] to [child] until [unregister]. */
   fun register(map: MapHandle, child: MapChild): Boolean = lock.withLock {
     if (closed) return@withLock false
     maps[map.id] = child
@@ -115,37 +109,6 @@ internal class MlnFfiRuntime(
   fun unregister(map: MapHandle) {
     val source = map.id
     lock.withLock { maps.remove(source) }
-  }
-
-  /**
-   * Delivers queued events inline on main. A nested call asks the outer drain to keep going. Native
-   * queues a command's events before completing it, so awaiting it on main and then draining
-   * delivers those events before the caller continues.
-   */
-  fun drain() {
-    if (draining) {
-      drainAgain = true
-      return
-    }
-    val runtime = runtime ?: return
-    draining = true
-    try {
-      do {
-        drainAgain = false
-        while (true) {
-          val events =
-            try {
-              runtime.drainEvents()?.use { it.get().events } ?: break
-            } catch (error: Throwable) {
-              options.logger?.e(error) { "Could not drain MapLibre runtime events" }
-              return
-            }
-          for (event in events) dispatch(event)
-        }
-      } while (drainAgain)
-    } finally {
-      draining = false
-    }
   }
 
   private fun dispatch(event: RuntimeEvent) {
@@ -173,9 +136,7 @@ internal class MlnFfiRuntime(
     opened.cancel(CancellationException("The map runtime closed before it opened"))
   }
 
-  /**
-   * Stops draining events and releases the runtime after its maps. Throws what cleanup reported.
-   */
+  /** Releases the runtime after its maps. Throws what cleanup reported. */
   suspend fun awaitClosed() =
     withContext(NonCancellable + mainDispatcher) {
       opening?.join()
@@ -186,7 +147,6 @@ internal class MlnFfiRuntime(
           null
         }
       scope.cancel()
-      runtime = null
       val failures = mutableListOf<Throwable>()
       if (owner != null) runCatching { owner.close() }.exceptionOrNull()?.let(failures::add)
       failures.throwCleanupFailures()

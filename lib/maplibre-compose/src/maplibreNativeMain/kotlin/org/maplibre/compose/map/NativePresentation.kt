@@ -29,10 +29,7 @@ import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
-import org.maplibre.nativeffi.error.InvalidArgumentException
-import org.maplibre.nativeffi.error.InvalidStateException
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.UnsupportedFeatureException
 import org.maplibre.nativeffi.generated.EglContextDescriptor
 import org.maplibre.nativeffi.generated.FrameDemand
 import org.maplibre.nativeffi.generated.FrameDemandFlag
@@ -57,6 +54,7 @@ import org.maplibre.nativeffi.generated.RenderSessionAttachment
 import org.maplibre.nativeffi.generated.RenderSessionCapabilityFlag
 import org.maplibre.nativeffi.generated.RenderSessionHandle
 import org.maplibre.nativeffi.generated.RenderSessionState
+import org.maplibre.nativeffi.generated.Status
 import org.maplibre.nativeffi.generated.VulkanBorrowedTexture
 import org.maplibre.nativeffi.generated.VulkanBorrowedTextureDescriptor
 import org.maplibre.nativeffi.generated.VulkanContextDescriptor
@@ -95,7 +93,6 @@ internal class NativePresentation(
     var acquiresFrames = false
     @Volatile var ready = false
     @Volatile var target: MlnFfiRenderTarget? = null
-    var nextToken = 0uL
     var demandPending = false
     @Volatile var releaseRequested = false
     val released = CompletableDeferred<Result<Unit>>()
@@ -151,7 +148,7 @@ internal class NativePresentation(
       if (!callerDriven) return
       try {
         (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
-        current.serviceDriverWork(0uL)
+        current.serviceDriverWork()
       } catch (error: MaplibreException) {
         // A session closing on this thread has nothing left to service.
         logger?.d(error) { "Render session driver service failed" }
@@ -166,7 +163,7 @@ internal class NativePresentation(
       while (!work.isCompleted) {
         if (callerDriven) {
           (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
-          session.serviceDriverWork(0uL)
+          session.serviceDriverWork()
         }
         if (work.isCompleted) break
         this.work.await()
@@ -193,7 +190,8 @@ internal class NativePresentation(
           true
         } catch (error: Throwable) {
           val targetLost =
-            error is InvalidStateException &&
+            error is MaplibreException &&
+              error.status == Status.INVALID_STATE &&
               closing.getSnapshot().state == RenderSessionState.TARGET_LOST
           if (!targetLost) failure = error
           runCatching { closing.abandon() }
@@ -392,8 +390,7 @@ internal class NativePresentation(
               flags =
                 FrameDemandFlag.IF_NEEDED or
                   FrameDemandFlag.WAIT_FOR_UPDATE or
-                  FrameDemandFlag.PRESENT,
-              token = ++attachment.nextToken,
+                  FrameDemandFlag.PRESENT
             )
           )
         }
@@ -404,7 +401,7 @@ internal class NativePresentation(
     when (result.disposition) {
       RenderResult.RENDERED -> {
         // Replacement retires unacquired textures; a queued result can still describe the old one.
-        if (result.extentGeneration != session.getSnapshot().extentGeneration)
+        if (result.generation != session.getSnapshot().generation)
           return MlnFfiFrameResult.RetryNextFrame
       }
       else -> return MlnFfiFrameResult.RetryNextFrame
@@ -562,11 +559,9 @@ internal class NativePresentation(
           is OpenGlSurfaceTarget -> session.setOpenglSurfaceTarget(target.toDescriptor(extent))
         }
       attachment.await(session, replacement)
-    } catch (error: InvalidArgumentException) {
-      // A replacement belonging to another device.
-      return refusedTarget(error)
-    } catch (error: UnsupportedFeatureException) {
-      // A replacement in another pixel format.
+    } catch (error: MaplibreException) {
+      // A replacement belonging to another device or in another pixel format.
+      if (error.status != Status.INVALID_ARGUMENT && error.status != Status.UNSUPPORTED) throw error
       return refusedTarget(error)
     }
     return true

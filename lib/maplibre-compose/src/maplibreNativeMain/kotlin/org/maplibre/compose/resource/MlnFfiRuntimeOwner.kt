@@ -12,8 +12,8 @@ import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.ResourceProvider
+import org.maplibre.nativeffi.generated.RuntimeEventHandler
 import org.maplibre.nativeffi.generated.RuntimeHandle
-import org.maplibre.nativeffi.generated.Wake
 
 /**
  * A MapLibre runtime together with its resource provider. Provider-owned request handles remain
@@ -52,7 +52,7 @@ private constructor(
       what: String,
       resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
-      eventWake: () -> Unit = {},
+      eventHandler: RuntimeEventHandler? = null,
     ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
@@ -63,11 +63,11 @@ private constructor(
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
         GeneratedApi.runtimeCreate(
-          GeneratedApi.runtimeOptionsDefault()
-            .copy(cachePath = cacheFile.toString(), eventWake = Wake(eventWake))
+          GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString())
         )
       val networkMonitor =
         try {
+          eventHandler?.let { runtime.setEventHandler(it).await() }
           MapConnectivity.acquireMonitor()
         } catch (error: Throwable) {
           runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)

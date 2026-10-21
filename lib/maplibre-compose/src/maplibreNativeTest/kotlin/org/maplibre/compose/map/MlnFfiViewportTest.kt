@@ -235,16 +235,13 @@ class MlnFfiViewportTest {
     val height = size.height.toDouble()
     val corners =
       createProjection().use { projection ->
-        projection
-          .latLngsForPixelsUnwrapped(
-            listOf(
-              ScreenPoint(0.0, 0.0),
-              ScreenPoint(width, 0.0),
-              ScreenPoint(0.0, height),
-              ScreenPoint(width, height),
-            )
+        listOf(
+            ScreenPoint(0.0, 0.0),
+            ScreenPoint(width, 0.0),
+            ScreenPoint(0.0, height),
+            ScreenPoint(width, height),
           )
-          .map { it.toPosition() }
+          .map { projection.latLngForPixelUnwrapped(it).toPosition() }
       }
     return VisibleRegion(corners[0], corners[1], corners[2], corners[3])
   }

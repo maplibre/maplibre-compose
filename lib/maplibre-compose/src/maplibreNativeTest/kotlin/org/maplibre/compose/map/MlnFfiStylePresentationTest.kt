@@ -150,19 +150,9 @@ class MlnFfiStylePresentationTest {
         fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
 
-      val renderSession = assertNotNull(fixture.session.readySession())
-      fixture.pumpUntil("a render demand to wait for an update") {
-        renderSession.getSnapshot().pendingDemandCount == 1u
-      }
-      val previousFrame = renderSession.getSnapshot().frameGeneration
-      // Leave a result queued before replacing the style. Retained presentation consumes its
-      // host wake, so reconciliation must wake the host again to drain that result.
+      // Repaint before replacing the style so retained presentation can have a pending result.
       assertNotNull(fixture.session.mapForTest).requestRepaint().await()
       fixture.loadStyleBeforeRendering(ReplacementStyle)
-      fixture.pumpUntil("the queued frame result while presentation is retained") {
-        val snapshot = renderSession.getSnapshot()
-        snapshot.pendingDemandCount == 0u && snapshot.frameGeneration > previousFrame
-      }
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue("application" !in fixture.session.currentStyleLayerIds())
 
