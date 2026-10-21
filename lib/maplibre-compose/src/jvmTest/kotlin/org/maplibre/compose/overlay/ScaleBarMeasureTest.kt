@@ -28,4 +28,15 @@ class ScaleBarMeasureTest {
     assumeTrue("Requires the en_US.UTF-8 locale", us != null)
     assertEquals(ScaleBarMeasure.FeetAndMiles, us)
   }
+
+  @Test
+  fun windowsReadsTheLocaleMeasurementSystem() {
+    assumeTrue(
+      "Requires Windows",
+      System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true),
+    )
+    assertNotNull(windowsSystemDefaultPrimaryMeasure())
+    assertEquals(ScaleBarMeasure.Metric, windowsSystemDefaultPrimaryMeasure("de-DE"))
+    assertEquals(ScaleBarMeasure.FeetAndMiles, windowsSystemDefaultPrimaryMeasure("en-US"))
+  }
 }
