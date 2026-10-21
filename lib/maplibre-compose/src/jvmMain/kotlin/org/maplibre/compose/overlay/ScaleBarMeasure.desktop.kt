@@ -1,7 +1,6 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
@@ -10,14 +9,17 @@ import java.lang.foreign.ValueLayout
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
 @Composable
-internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? = remember {
+internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? {
   val osName = System.getProperty("os.name").orEmpty()
-  when {
+  return when {
     osName.startsWith("Mac", ignoreCase = true) -> macosSystemDefaultPrimaryMeasure()
-    osName.startsWith("Linux", ignoreCase = true) -> linuxSystemDefaultPrimaryMeasure()
+    osName.startsWith("Linux", ignoreCase = true) -> linuxEnvironmentMeasure
     else -> null
   }
 }
+
+/** The environment that glibc reads is fixed for the life of the process. */
+private val linuxEnvironmentMeasure by lazy { linuxSystemDefaultPrimaryMeasure() }
 
 internal fun macosSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
   ObjectiveC.runInAutoreleasePool {
