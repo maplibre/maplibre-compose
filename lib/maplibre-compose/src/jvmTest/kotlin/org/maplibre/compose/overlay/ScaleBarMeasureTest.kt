@@ -36,7 +36,5 @@ class ScaleBarMeasureTest {
       System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true),
     )
     assertNotNull(windowsSystemDefaultPrimaryMeasure())
-    assertEquals(ScaleBarMeasure.Metric, windowsSystemDefaultPrimaryMeasure("de-DE"))
-    assertEquals(ScaleBarMeasure.FeetAndMiles, windowsSystemDefaultPrimaryMeasure("en-US"))
   }
 }

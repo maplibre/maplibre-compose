@@ -7,7 +7,6 @@ import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
-import java.nio.charset.StandardCharsets
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
 @Composable
@@ -86,34 +85,25 @@ internal fun linuxSystemDefaultPrimaryMeasure(localeName: String = ""): ScaleBar
   }
   .getOrNull()
 
-/**
- * Reads the Windows measurement system for [localeName], such as `en-US`, without the user's
- * changes. The null name selects the user's regional format, including the measurement system they
- * chose for it.
- */
-internal fun windowsSystemDefaultPrimaryMeasure(localeName: String? = null): ScaleBarMeasure? =
-  runCatching {
-    Arena.ofConfined().use { arena ->
-      val name =
-        localeName?.let { arena.allocateFrom(it, StandardCharsets.UTF_16LE) } ?: MemorySegment.NULL
-      val measurement = arena.allocate(ValueLayout.JAVA_INT)
-      val written =
-        getLocaleInfoEx.invokeWithArguments(
-          name,
-          LocaleIMeasure or
-            LocaleReturnNumber or
-            (if (localeName == null) 0 else LocaleNoUserOverride),
-          measurement,
-          Int.SIZE_BYTES / Char.SIZE_BYTES,
-        ) as Int
-      if (written == 0) return@runCatching null
-      when (measurement.get(ValueLayout.JAVA_INT, 0)) {
-        0 -> ScaleBarMeasure.Metric
-        1 -> ScaleBarMeasure.FeetAndMiles
-        else -> null
-      }
+/** Reads the measurement system of the user's Windows regional format. */
+internal fun windowsSystemDefaultPrimaryMeasure(): ScaleBarMeasure? = runCatching {
+  Arena.ofConfined().use { arena ->
+    val measurement = arena.allocate(ValueLayout.JAVA_INT)
+    val written =
+      getLocaleInfoEx.invokeWithArguments(
+        MemorySegment.NULL,
+        LocaleIMeasure or LocaleReturnNumber,
+        measurement,
+        Int.SIZE_BYTES / Char.SIZE_BYTES,
+      ) as Int
+    if (written == 0) return@runCatching null
+    when (measurement.get(ValueLayout.JAVA_INT, 0)) {
+      0 -> ScaleBarMeasure.Metric
+      1 -> ScaleBarMeasure.FeetAndMiles
+      else -> null
     }
   }
+}
   .getOrNull()
 
 private val getLocaleInfoEx by lazy {
@@ -135,4 +125,3 @@ private const val LcMeasurementMask = 1 shl LcMeasurement
 private const val NlMeasurementMeasurement = LcMeasurement shl 16
 private const val LocaleIMeasure = 0x0D
 private const val LocaleReturnNumber = 0x20000000
-private const val LocaleNoUserOverride = 0x80000000.toInt()
