@@ -32,11 +32,9 @@ Some tools stay outside `mise install`:
   packages accepts their licenses; run Android tasks with `MISE_ENV=android`.
 - **Xcode:** `mise run install-xcode`. It is several gigabytes, so `mise
   install` only fetches the `xcodes` CLI that manages it.
-- **Desktop graphics:** the desktop tests use offscreen GPU contexts. Windows
-  uses WARP, with Mesa dzn for Vulkan and Mesa D3D12 for OpenGL. The
-  [CI graphics setup](.github/actions/setup-desktop-vulkan/action.yml) pins the
-  software drivers and their environment variables for Linux and Windows. macOS
-  gets MoltenVK through LWJGL.
+- **Desktop graphics:** use the
+  [CI graphics setup](.github/actions/setup-desktop-vulkan/action.yml) as a
+  reference for drivers and environment variables when running desktop tests.
 
 Desktop uses the published
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
@@ -47,9 +45,9 @@ JS that Gradle builds automatically; see the
 
 ## Check changes by hand
 
-CI tests the AWT desktop host. For desktop bridge changes, also run
-`demo:desktop` and `demo:desktop-nucleus` with each backend and check resize,
-zoom, pan, and window closure.
+For desktop bridge changes, run `mise run demo:desktop` and `mise run
+demo:desktop-nucleus` with each backend and check resize, zoom, pan, and window
+closure.
 
 The browser demo serves a Compose HTML ferry departure board at `/?ferries`.
 
