@@ -18,7 +18,8 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * The visible bounding box must cover the whole viewport, which means covering all four corners of
- * the visible region even when a bearing or pitch moves them off the axis-aligned diagonal.
+ * the visible region even when a bearing or pitch moves them off the axis-aligned diagonal. A kept
+ * viewport projects the frame it describes.
  */
 class MapVisibleAreaTest {
 
@@ -114,6 +115,28 @@ class MapVisibleAreaTest {
     }
   }
 
+  @Test
+  fun a_viewport_keeps_projecting_its_frame_after_the_camera_moves(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      it.state.setCameraPosition(RotatedCamera)
+      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(RotatedCamera) }
+      val viewport = assertNotNull(it.state.viewport)
+      val center = viewport.cameraPosition.center
+      val origin = DpOffset(0.dp, 0.dp)
+      val corner = assertNotNull(viewport.positionFromScreenLocation(origin))
+      val screenCenter = DpOffset(viewport.size.width / 2, viewport.size.height / 2)
+
+      it.state.setCameraPosition(Camera.copy(center = Position(25.0, 40.0)))
+      it.pumpUntil("the camera to move") { it.session.hasNativeCamera(Camera) }
+
+      assertNear(screenCenter, viewport.screenLocationFromPosition(center), "the kept center")
+      assertNear(origin, viewport.screenLocationFromPosition(corner), "the kept pitched corner")
+      assertEquals(null, viewport.copy().positionFromScreenLocation(screenCenter))
+    }
+  }
+
   private companion object {
     val Camera = CameraPosition(center = Position(11.0, 47.0), zoom = 5.0)
     val AntimeridianCamera = CameraPosition(center = Position(179.9, 47.0), zoom = 5.0)
@@ -137,6 +160,15 @@ class MapVisibleAreaTest {
     fun VisibleRegion.corners() = listOf(farLeft, farRight, nearLeft, nearRight)
 
     fun span(a: Position, b: Position) = abs(a.longitude - b.longitude)
+
+    fun assertNear(expected: DpOffset, actual: DpOffset?, what: String) {
+      assertTrue(
+        actual != null &&
+          abs(actual.x.value - expected.x.value) <= 1f &&
+          abs(actual.y.value - expected.y.value) <= 1f,
+        "$what should project to $expected ± 1 dp, was $actual",
+      )
+    }
 
     fun assertContains(box: VisibleBounds, position: Position, what: String) {
       assertTrue(
