@@ -7,6 +7,11 @@ import org.maplibre.compose.map.MapUiOptions
 
 @Composable
 actual fun PlatformRenderSettingsItems(settings: DemoSettings) {
+  RenderModeRow(settings)
+}
+
+@Composable
+actual fun RenderModeRow(settings: DemoSettings) {
   val options = settings.uiOptions
   SegmentedRow(
     label = "Render mode",
