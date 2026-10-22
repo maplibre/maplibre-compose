@@ -30,7 +30,7 @@ androidx-activity = "1.13.0"
 # 1.8.0-rc01 contains the security fix recommended by the Car App release notes.
 androidx-carApp = "1.8.0-rc01"
 androidx-testRunner = "1.7.0"
-bytesize = "2.2.1"
+bytesize = "2.4.0"
 dbusJava = "5.2.2"
 fflate = "0.8.3"
 jsJodaTimezone = "2.22.0"
