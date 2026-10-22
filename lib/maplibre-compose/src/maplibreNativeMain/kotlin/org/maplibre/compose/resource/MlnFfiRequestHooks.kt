@@ -6,6 +6,8 @@ import org.maplibre.nativeffi.generated.HttpHeaderTransform
 import org.maplibre.nativeffi.generated.ResourceKind
 import org.maplibre.nativeffi.generated.ResourceTransform
 import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.httpHeaderTransformResponseSetHeader
+import org.maplibre.nativeffi.generated.setHttpHeaderTransform
 
 /**
  * Installs the URL and header callbacks, each of which uses the interceptor in [config].

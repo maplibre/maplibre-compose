@@ -14,6 +14,7 @@ import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.ResourceProvider
 import org.maplibre.nativeffi.generated.RuntimeEventHandler
 import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.setResourceProvider
 
 /**
  * A MapLibre runtime together with its resource provider. Provider-owned request handles remain

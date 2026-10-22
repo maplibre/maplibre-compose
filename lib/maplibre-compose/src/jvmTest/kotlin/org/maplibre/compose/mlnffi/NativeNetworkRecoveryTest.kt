@@ -142,8 +142,9 @@ class NativeNetworkRecoveryTest {
 /** A raw runtime whose event handler lets a test wait for events without polling. */
 private class TestRuntime(cachePath: String) : AutoCloseable {
   private val events = Channel<RuntimeEvent>(Channel.UNLIMITED)
-  val runtime: RuntimeHandle =
+  val runtime: RuntimeHandle = runBlocking {
     GeneratedApi.runtimeCreate(GeneratedApi.runtimeOptionsDefault().copy(cachePath = cachePath))
+  }
 
   init {
     runBlocking {

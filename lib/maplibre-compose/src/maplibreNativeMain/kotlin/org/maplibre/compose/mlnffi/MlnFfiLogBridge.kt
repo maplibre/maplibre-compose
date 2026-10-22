@@ -8,6 +8,7 @@ import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.LogEvent
 import org.maplibre.nativeffi.generated.LogHandler
 import org.maplibre.nativeffi.generated.LogSeverity
+import org.maplibre.nativeffi.generated.logSetCallback
 
 /**
  * Forwards MapLibre Native's process-global log stream to [MapLogging.logger] through [MapLog].
