@@ -26,7 +26,7 @@ dependencyResolutionManagement {
         if (localRepository.isPresent) {
           maven { url = uri(localRepository.get()) }
         } else {
-          mavenLocal()
+          maven { url = uri("https://central.sonatype.com/repository/maven-snapshots/") }
         }
       }
       filter { includeGroup("org.maplibre.nativeffi") }

@@ -41,9 +41,10 @@ JS that Gradle builds automatically; see the
 
 For a local FFI build, publish its Kotlin artifacts to a Maven repository and
 pass `-Pmaplibre.ffi.repository=<repository>` to Gradle. For mise tasks, set
-`ORG_GRADLE_PROJECT_maplibre.ffi.repository` in the environment with `env`. The
-FFI dependencies resolve from `mavenLocal()` when the property is unset. Match
-`maplibre-nativeFfi` in `gradle/libs.versions.toml` to the published version.
+`ORG_GRADLE_PROJECT_maplibre.ffi.repository` in the environment with `env`, and
+match `maplibre-nativeFfi` in `gradle/libs.versions.toml` to the published
+version. Without the property, the FFI dependencies resolve from the Maven
+Central snapshot repository.
 
 ## Check changes by hand
 
