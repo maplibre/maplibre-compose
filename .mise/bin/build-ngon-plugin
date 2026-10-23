@@ -17,7 +17,7 @@ if [[ -z "$ffi_version" ]]; then
   echo "${0##*/}: maplibre-nativeFfi is not set in gradle/libs.versions.toml" >&2
   exit 1
 fi
-ffi_tag="bindings/kotlin/v${ffi_version}"
+ffi_tag="v${ffi_version}"
 
 # Targets match the maplibre-native-ffi runtime: macOS 14.3 and glibc 2.17.
 # Use the runner's architecture because Git Bash can report x86_64 on Windows ARM64.
