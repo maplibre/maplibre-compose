@@ -196,6 +196,13 @@ internal class MlnFfiMapSession(
 
   private var styleBinding: MlnFfiStyleBinding? = null
 
+  /**
+   * Missing images that the engine reported while the current style request had no binding yet,
+   * with each event's generation. MapLibre reports a missing image once per tile parse, so these
+   * are replayed once the binding is published. Main only.
+   */
+  private val pendingMissingImages = mutableListOf<Pair<String, ULong>>()
+
   private val styleReconciler = StyleReconciler()
 
   internal val loadedStyleIdentity
@@ -416,6 +423,7 @@ internal class MlnFfiMapSession(
     }
     styleBinding?.invalidate()
     styleBinding = null
+    pendingMissingImages.clear()
     styleLoadTracker.engineBecameUnavailable()
     // A frame queued behind this release sees the session closing in ensureAttached.
     presentation.release(keepHost = keepHost)
@@ -492,6 +500,12 @@ internal class MlnFfiMapSession(
           styleBinding = binding
           callbacks.onStyleChanged(this, binding)
           mapEvent?.let { callbacks.onEvent(this, it) }
+          val missing = pendingMissingImages.toList()
+          pendingMissingImages.clear()
+          for ((imageId, generation) in missing) {
+            if (styleBinding !== binding) break
+            if (generation >= completion.generation) callbacks.resolveMissingImage(this, imageId)
+          }
         }
       }
 
@@ -546,7 +560,11 @@ internal class MlnFfiMapSession(
       // mbgl re-checks its image set at the next placement after setStyleImage, so a resolution
       // that finishes after this batch still reaches a later frame.
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
-        styleBinding?.let { callbacks.resolveMissingImage(this, event.message) }
+        when {
+          styleBinding?.isLoaded == true -> callbacks.resolveMissingImage(this, event.message)
+          // The style loaded, but its binding waits for the load's completion.
+          styleCompletion != null -> pendingMissingImages.add(event.message to event.generation)
+        }
 
       // Event types are open value classes, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.
@@ -622,6 +640,7 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle, style: BaseStyle, request: StyleRequestId) {
     if (isClosing) return
     styleCompletion = null
+    pendingMissingImages.clear()
     val submitted =
       try {
         styleBinding?.invalidate()
