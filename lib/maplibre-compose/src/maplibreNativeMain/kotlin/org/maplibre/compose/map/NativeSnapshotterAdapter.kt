@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
@@ -112,11 +113,12 @@ private class NativeSnapshotterAdapter(
     )
   }
 
-  override suspend fun apply(revision: StyleSnapshot) {
+  override suspend fun apply(revision: StyleSnapshot): Boolean {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     val prepared = reconciler.prepare(binding, revision)
     providerFailure = null
     binding.commandGroup { reconciler.apply(binding, prepared) }
+    return reconciler.settle(binding)
   }
 
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap {
@@ -131,7 +133,9 @@ private class NativeSnapshotterAdapter(
       barrier.await()
       current.session.drainFrameResults()?.use { it.get() }
       providerFailure?.let { throw it }
-      return readImage(readback.await(), request)
+      val pixels = readback.await()
+      // Conversion visits every pixel, so it stays off main.
+      return withContext(Dispatchers.Default) { readImage(pixels, request) }
     } catch (error: Throwable) {
       // MapLibre keeps a failed tile or glyph range failed and would not load it again, and a
       // cancelled capture leaves its still image pending, so the next capture needs a new engine.
@@ -302,7 +306,6 @@ private class NativeSnapshotterAdapter(
     MlnFfiStyleBinding(
       map = current.map,
       owner = owner,
-      styleFailed = { _, error -> providerFailure = error },
       contents =
         current.loadedContents ?: error("MapLibre reported a loaded style without contents"),
       loggerProvider = { owner.options.logger },
@@ -356,7 +359,7 @@ private class NativeSnapshotterAdapter(
   }
 }
 
-/** One style load that the event pump finishes with the load or failure it reports. */
+/** One style load that runtime events finish with the load or failure they report. */
 private class StyleLoad {
   val result = CompletableDeferred<Result<Unit>>()
 

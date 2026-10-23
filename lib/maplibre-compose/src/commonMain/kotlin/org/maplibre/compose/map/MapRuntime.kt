@@ -37,7 +37,6 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -335,7 +334,9 @@ public sealed interface StyleLoadState {
   public data object Ready : StyleLoadState
 
   /**
-   * Loading the style or applying its composed content failed. A later revision may recover.
+   * Loading the style failed, or applying its composed content threw. A source or layer that the
+   * engine rejects does not fail the style: it is left out with a warning. A later revision may
+   * recover.
    *
    * @property reason The failure message, or `null` when the failure has none.
    */
@@ -607,42 +608,61 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle
 
-  /** Reads ordered metadata, or returns null if the binding becomes stale while awaiting it. */
-  internal suspend fun readResources(current: StyleBinding): LoadedStyleResources? =
-    try {
-      coroutineScope {
-        // Submit both queries on main before awaiting either, so no style change can split them.
-        val sources = async(start = CoroutineStart.UNDISPATCHED) { current.sources() }
-        val layers = async(start = CoroutineStart.UNDISPATCHED) { current.layerSummaries() }
-        val sourceObjects = sources.await()
-        val summaries = layers.await()
-        if (!isCurrentLoadedStyle(current) || !current.isLoaded) return@coroutineScope null
-        val sourceMetadata = sourceObjects.mapValues { (id, source) ->
-          val definition = desiredSourceDefinition(id)
-          LoadedSourceMetadata(
-            identity = current.identity.sources.get(id),
-            kind = sourceKind(definition, source),
-            attributionHtml = source.attributionHtml.orEmpty(),
-            options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
-            composed = definition != null,
-          )
-        }
-        val layerMetadata = summaries.associate { summary ->
-          summary.id to LoadedLayerMetadata(current.identity.layers.get(summary.id), summary)
-        }
-        LoadedStyleResources(current, sourceMetadata, layerMetadata)
+  /** Builds the resources of [current] from what main submitted to it. */
+  internal fun resources(current: StyleBinding): LoadedStyleResources {
+    val sourceMetadata =
+      current.contents.sources.mapValues { (id, entry) ->
+        val definition = desiredSourceDefinition(id)
+        LoadedSourceMetadata(
+          identity = current.identity.sources.get(id),
+          kind = entry.kind,
+          attributionHtml = entry.attributionHtml,
+          options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
+          composed = definition != null,
+        )
       }
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Exception) {
-      if (isCurrentLoadedStyle(current) && current.isLoaded) throw error
-      null
+    val layerMetadata =
+      current.contents.layers.associate { summary ->
+        summary.id to LoadedLayerMetadata(current.identity.layers.get(summary.id), summary)
+      }
+    return LoadedStyleResources(current, sourceMetadata, layerMetadata)
+  }
+
+  /**
+   * Reads the engine's metadata for source [id], such as attribution from TileJSON that arrived
+   * after the source was added, and publishes it while [current] is still the loaded style.
+   */
+  internal suspend fun refreshSource(current: StyleBinding, id: String) {
+    val entry = current.contents.sources[id] ?: return
+    val source = current.getSource(id) ?: return
+    if (!isCurrentLoadedStyle(current) || !current.isLoaded) return
+    if (current.contents.sources[id] !== entry) return
+    current.contents.updateSource(id, source, desiredSourceDefinition(id))
+    publish(current)
+  }
+
+  /** [refreshSource] for every source, in one ordered read. */
+  internal suspend fun refreshSources(current: StyleBinding) {
+    val entries = current.contents.sources.toMap()
+    val sources = current.sources()
+    if (!isCurrentLoadedStyle(current) || !current.isLoaded) return
+    entries.forEach { (id, entry) ->
+      val source = sources[id] ?: return@forEach
+      if (current.contents.sources[id] === entry) {
+        current.contents.updateSource(id, source, desiredSourceDefinition(id))
+      }
     }
+    publish(current)
+  }
 
   private var publishedResources: LoadedStyleResources? = null
 
-  internal fun hasResources(binding: StyleBinding): Boolean =
-    publishedResources?.binding === binding
+  /** Republishes the handles of [current] after an imperative write, once they are published. */
+  internal fun publish(current: StyleBinding) {
+    if (publishedResources?.binding === current && current.isLoaded) {
+      updateResources(resources(current))
+    }
+  }
 
   /** Builds and publishes handles on the state owner, reusing unchanged resource identities. */
   internal fun updateResources(resources: LoadedStyleResources) {
@@ -934,6 +954,8 @@ internal constructor(
     engagedState = engaged
   }
 
+  // TODO: read whether the camera is still changing from the native map snapshot, and drop this
+  // count, once https://github.com/maplibre/maplibre-native-ffi/issues/958 reports it.
   internal fun cameraChangeStarted() {
     activeCameraChanges++
     if (!gestureActiveState) moveReasonState = CameraMoveReason.Programmatic

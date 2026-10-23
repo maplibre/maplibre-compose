@@ -52,7 +52,7 @@ class BrowserPlatformMapAccessTest {
   }
 
   @Test
-  fun raw_custom_layers_survive_resource_capture_without_serialization() = runBrowserMapTest {
+  fun raw_custom_layers_leave_published_resources_to_the_style_api() = runBrowserMapTest {
     val fixture = GlJsMapFixture(MapExtent.fromLogical(200, 100, 1.0))
     try {
       fixture.loadStyle(BaseStyle.Empty)
@@ -75,11 +75,14 @@ class BrowserPlatformMapAccessTest {
         ),
       )
       fixture.declare { BackgroundLayer("above", visible = true) }
-      fixture.state.styleAuthority.refreshStyleResources(fixture.session)
       assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
-      assertEquals(listOf("custom", "above"), fixture.state.style.layers.map { it.id })
+      // A layer added through the platform map is not reflected in the published layers.
+      assertEquals(listOf("above"), fixture.state.style.layers.map { it.id })
       assertTrue(fixture.state.style.sources["points"]?.asMutable != null)
-      assertEquals("custom", fixture.state.style.layers["custom"]?.type)
+      assertEquals(
+        listOf("custom", "above"),
+        fixture.state.withPlatformMap { (map.getLayersOrder() as Array<String>).toList() },
+      )
     } finally {
       fixture.close()
     }

@@ -54,7 +54,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     bridge.awaitStyle(style, timeout, extent)
-    bridge.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
+    bridge.session.reconcileStyleRevision(StyleSnapshot.Empty)
     MapStateCallbacks(state).onStyleReady(bridge.session)
     pumpUntil("the loaded style to be ready", timeout) {
       state.style.loadState == StyleLoadState.Ready

@@ -4,12 +4,11 @@ import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
@@ -21,42 +20,42 @@ import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.onRejected
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.nativeffi.runtime.CommandCompletion
 
 class MlnFfiStylePresentationTest {
 
   @Test
-  fun an_already_completed_refusal_is_reported_after_the_write_returns() = runBlocking {
+  fun an_already_completed_refusal_completes_on_main_after_the_write_returns() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(InitialStyle)
       val loaded = assertNotNull(fixture.style) as MlnFfiStyleBinding
-      var reported = false
       val binding =
         MlnFfiStyleBinding(
           map = loaded.mapForTest,
           owner = fixture.state.runtime.nativeOwner,
           contents = LoadedStyleContents.read(loaded.mapForTest),
           sessionOpen = { loaded.isLoaded },
-          styleFailed = { _, error ->
-            assertEquals("refused", error.message)
-            reported = true
-          },
         )
       val refusal =
         CompletableDeferred<CommandCompletion>().apply {
           completeExceptionally(IllegalArgumentException("refused"))
         }
-      binding.addSourceWith("refused") { refusal }
-      assertFalse(reported, "a refusal must not call application code during the write")
-      fixture.pumpUntil("the refusal to be delivered on main") { reported }
-      assertTrue(reported)
+      var reported: StyleMutationException? = null
+      val outcome = binding.addSourceWith { refusal }
+      outcome.onRejected { reported = it }
+      assertNull(reported, "a refusal must not call application code during the write")
+      fixture.pumpUntil("the refusal to be delivered on main") { reported != null }
+      assertEquals("refused", reported?.message)
     }
   }
 
   @Test
-  fun property_updates_render_without_repeating_style_readiness() = runBlocking {
+  fun property_updates_render_without_repeating_style_readiness() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(InitialStyle)
       val session = fixture.session
@@ -69,7 +68,7 @@ class MlnFfiStylePresentationTest {
             callbacks.onStyleReady(map)
           }
         }
-      session.reconcileStyleRevision(ApplicationRevision) {}
+      session.reconcileStyleRevision(ApplicationRevision)
       // Readiness publishes on the map's main thread, which the pump drains.
       fixture.pumpUntil("the style readiness to publish") { readyCount == 1 }
       assertEquals(1, readyCount)
@@ -93,7 +92,7 @@ class MlnFfiStylePresentationTest {
           ),
           emptyList(),
         )
-      session.reconcileStyleRevision(updated) {}
+      session.reconcileStyleRevision(updated)
       val extent = BridgeMapFixture.DefaultExtent
       fixture.pumpUntil("the updated paint to render") {
         fixture
@@ -105,7 +104,7 @@ class MlnFfiStylePresentationTest {
   }
 
   @Test
-  fun a_failed_readiness_callback_fails_loudly_on_the_main_thread() = runBlocking {
+  fun a_failed_readiness_callback_fails_loudly_on_the_main_thread() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(InitialStyle)
       val session = fixture.session
@@ -120,7 +119,7 @@ class MlnFfiStylePresentationTest {
       try {
         // Readiness is delivered on the map's main thread, so a failing callback surfaces at
         // the delivery, not at the reconcile call site.
-        session.reconcileStyleRevision(ApplicationRevision) {}
+        session.reconcileStyleRevision(ApplicationRevision)
         assertSame(failure, assertFailsWith<IllegalStateException> { fixture.pump() })
       } finally {
         session.callbacks = callbacks
@@ -138,14 +137,14 @@ class MlnFfiStylePresentationTest {
   }
 
   @Test
-  fun a_replacement_base_style_waits_for_application_content_before_presentation() = runBlocking {
+  fun a_replacement_base_style_waits_for_application_content_before_presentation() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       val extent = BridgeMapFixture.DefaultExtent
       val centerX = extent.physicalWidth / 2
       val centerY = extent.physicalHeight / 2
 
       fixture.loadStyle(InitialStyle)
-      fixture.session.reconcileStyleRevision(ApplicationRevision) {}
+      fixture.session.reconcileStyleRevision(ApplicationRevision)
       fixture.pumpUntil("the application background to be presented") {
         fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
@@ -160,7 +159,7 @@ class MlnFfiStylePresentationTest {
         "the last complete frame must remain presented while application content is absent",
       )
 
-      fixture.session.reconcileStyleRevision(ApplicationRevision) {}
+      fixture.session.reconcileStyleRevision(ApplicationRevision)
       fixture.pumpUntil("the replacement style with application content to be presented") {
         "application" in fixture.session.currentStyleLayerIds() &&
           fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
@@ -169,10 +168,10 @@ class MlnFfiStylePresentationTest {
   }
 
   @Test
-  fun a_failed_style_replacement_releases_its_command_group() = runBlocking {
+  fun a_failed_style_replacement_releases_its_command_group() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(InitialStyle)
-      fixture.session.reconcileStyleRevision(ApplicationRevision) {}
+      fixture.session.reconcileStyleRevision(ApplicationRevision)
       fixture.pumpUntil("the application background to be presented") {
         fixture.tryReadPixel(32, 32)?.isNear(ApplicationColor) == true
       }
@@ -180,9 +179,7 @@ class MlnFfiStylePresentationTest {
       fixture.session.setBaseStyle(BaseStyle.Json("invalid"))
       fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
       fixture.loadStyleBeforeRendering(ReplacementStyle)
-      fixture.session.reconcileStyleRevision(
-        StyleSnapshot(emptyList(), emptyList(), emptyList()),
-      ) {}
+      fixture.session.reconcileStyleRevision(StyleSnapshot(emptyList(), emptyList(), emptyList()))
       fixture.pumpUntil("the next style to render after the refusal") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 255, 0, 255)) == true
       }

@@ -24,6 +24,7 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleCommand
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.rememberStyleComposition
 
@@ -59,7 +60,7 @@ class GenericLayerCompositionTest {
         override fun addLayer(
           layer: JsonObject,
           beforeLayerId: String,
-        ): Boolean {
+        ): StyleCommand {
           additions++
           return recording.addLayer(layer, beforeLayerId)
         }

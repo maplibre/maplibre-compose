@@ -44,9 +44,9 @@ public sealed interface SourceHandle {
  */
 public sealed interface MutableSourceHandle : SourceHandle {
   /**
-   * Enqueues removal of this source. An expired handle does nothing and logs a warning; an engine
-   * rejection, including a layer still referencing the source, is logged and leaves the source
-   * available.
+   * Enqueues removal of this source and expires this handle. An expired handle does nothing and
+   * logs a warning. An engine rejection, including a layer still referencing the source, is logged
+   * and leaves the source available under a new handle.
    */
   public fun remove()
 }

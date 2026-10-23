@@ -65,7 +65,6 @@ import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
@@ -564,7 +563,6 @@ internal class GlJsMapSession(
   private fun reportBaseStyleReady(binding: GlJsStyleBinding) {
     if (map?.isStyleLoaded() == true && styleLoadTracker.baseStyleReady(binding.identity)) {
       try {
-        callbacks.onStyleSourcesChanged(this)
         callbacks.onStyleReady(this)
       } catch (error: Throwable) {
         styleLoadTracker.failed(binding.identity)
@@ -642,19 +640,16 @@ internal class GlJsMapSession(
     if (map == null) lifecycleAuthority.mapUnavailable()
   }
 
-  override suspend fun <T> reconcileStyleRevision(
-    revision: StyleSnapshot,
-    capture: suspend (StyleBinding) -> T,
-  ): T {
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): Boolean {
     val binding = checkNotNull(styleBinding)
     try {
       engineCall { styleReconciler.apply(binding, revision) }
-      val resources = capture(binding)
+      val rejected = styleReconciler.settle(binding)
       if (styleLoadTracker.reconciled(binding.identity)) {
         callbacks.onStyleReady(this)
       }
       surface?.requestFrame()
-      return resources
+      return rejected
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -704,7 +699,7 @@ internal class GlJsMapSession(
                   listen(map, "sourcedata") { event ->
                     if (event.sourceDataType == "metadata") {
                       applyTileLod(map)
-                      if (styleLoadTracker.isReady) callbacks.onStyleSourcesChanged(this)
+                      event.sourceId?.let { callbacks.onStyleSourcesChanged(this, it) }
                     }
                     reportBaseStyleReady(binding)
                   }

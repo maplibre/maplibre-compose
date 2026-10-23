@@ -161,8 +161,14 @@ internal interface SnapshotterAdapter {
     request: MapSnapshotRequest,
   ): SnapshotPreparation
 
-  /** Applies [revision] to the loaded style. Resource commands wait meanwhile, as on a map. */
-  suspend fun apply(revision: StyleSnapshot)
+  /**
+   * Applies [revision] to the loaded style and waits for the outcome of its writes. Resource
+   * commands wait meanwhile, as on a map.
+   *
+   * @return true if the engine rejected a source, layer, or move, so [revision] should be applied
+   *   again.
+   */
+  suspend fun apply(revision: StyleSnapshot): Boolean
 
   /** Renders the loaded style with the revision that [apply] applied. */
   suspend fun capture(request: MapSnapshotRequest): ImageBitmap
@@ -346,13 +352,7 @@ internal class MapSnapshotterImplementation(
   private var ownedBaseStyleRevision: Long? = null
   private val ownedSourceIds = mutableSetOf<String>()
   private val ownedLayerIds = mutableSetOf<String>()
-  override val resourceCommands by lazy {
-    StyleResourceCommands(
-      style,
-      runtime.mainScope,
-      commitSources = { binding -> commitSourcesAfterCommand(binding) },
-    )
-  }
+  override val resourceCommands by lazy { StyleResourceCommands(style) }
 
   override val logger: MapLog?
     get() = runtime.logger
@@ -457,9 +457,11 @@ internal class MapSnapshotterImplementation(
       declareRevision(currentBinding, revision)
       recordStyleOwnership(claim, revision)
       currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
-      platform.apply(revision)
+      // Applied again after a rejection: the rejected definitions stay out, and what they had
+      // blocked goes in.
+      while (platform.apply(revision)) currentCoroutineContext().ensureActive()
       // Publish a reused style's handles before rendering, as a map does.
-      commitSourcesAfterCommand(currentBinding)
+      if (isCurrent(currentBinding)) style.updateResources(style.resources(currentBinding))
       val image = platform.capture(request)
       currentCoroutineContext().ensureActive()
       if (!publishStyle(claim, currentBinding, revision)) currentBinding.invalidate()
@@ -489,15 +491,6 @@ internal class MapSnapshotterImplementation(
     style.setBaseStyleState(value)
     style.invalidateLoadedStyle()
     style.loadState = StyleLoadState.Pending
-  }
-
-  /** Publishes ordered source metadata while the loaded style remains current. */
-  private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
-    if (!isCurrent(binding)) return false
-    val resources = style.readResources(binding) ?: return false
-    if (!isCurrent(binding)) return false
-    style.updateResources(resources)
-    return true
   }
 
   override fun requireOpen() {
@@ -557,26 +550,20 @@ internal class MapSnapshotterImplementation(
     revision.layers.mapTo(ownedLayerIds) { it.definition.id }
   }
 
-  /**
-   * Publishes [binding] with the handles of the resources it holds after [revision]. A loading
-   * style stays Loading until the ordered resource queries finish and the handles are in place.
-   */
-  private suspend fun publishStyle(
+  /** Publishes [binding] with the handles of the resources it holds after [revision]. */
+  private fun publishStyle(
     claim: StyleClaim,
     binding: StyleBinding,
     revision: StyleSnapshot,
   ): Boolean {
-    // The read captures metadata from the desired revision, so that is committed first.
     if (closed || claim.revision != baseStyleRevision) return false
     if (style.currentLoadedStyle() !== binding) {
       resourceCommands.clear()
       style.updateLoadedStyle(binding)
     }
+    // The handles read source options from the desired revision, so that is committed first.
     style.declaredRevision = revision
-    val resources = style.readResources(binding) ?: return false
-    if (closed || claim.revision != baseStyleRevision || style.currentLoadedStyle() !== binding)
-      return false
-    style.updateResources(resources)
+    style.updateResources(style.resources(binding))
     style.loadState = StyleLoadState.Ready
     return true
   }

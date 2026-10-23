@@ -201,19 +201,19 @@ class StyleCompositionOrderTest {
     val mutations = mutableListOf<String>()
     val style =
       object : StyleBinding by backing {
-        override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
+        override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand {
           mutations += "add"
           return backing.addLayer(layer, beforeLayerId)
         }
 
-        override fun removeLayer(layerId: String) {
+        override fun removeLayer(layerId: String): StyleCommand {
           mutations += "remove"
-          backing.removeLayer(layerId)
+          return backing.removeLayer(layerId)
         }
 
-        override fun moveLayer(layerId: String, beforeLayerId: String) {
+        override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand {
           mutations += "move"
-          backing.moveLayer(layerId, beforeLayerId)
+          return backing.moveLayer(layerId, beforeLayerId)
         }
       }
     val reconciler = StyleReconciler()

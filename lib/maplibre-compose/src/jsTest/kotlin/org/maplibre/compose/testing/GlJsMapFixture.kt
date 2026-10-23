@@ -96,7 +96,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         events.count { it == MapFixture.StyleLoaded } > styleLoadsBefore
       }
     }
-    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
+    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty)
     // Fixture loads wait for parsed style resources, independently of tile loading.
     MapStateCallbacks(state).onStyleReady(glJsSession)
     pumpUntil("the loaded style to be ready", timeout) {

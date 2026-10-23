@@ -245,8 +245,10 @@ internal class GlJsStyleBinding(
       .mapNotNull { id -> reconstructSource(id)?.let { id to it } }
       .toMap()
 
+  override val contents: StyleContents = StyleContents(baseSources, baseLayers)
+
   // GL JS runs the remove and add in one task, so no frame renders between them.
-  override fun setImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition): StyleCommand {
     requireCurrent()
     val (id, image, sdf, stretch) = definition
     val scale = getScale()
@@ -270,31 +272,33 @@ internal class GlJsStyleBinding(
           }
         }
       }
-    mutate("add image '$id'") {
-      val previous = map.getImage(id)
-      if (previous != null) map.removeImage(id)
-      val before = errorCount
-      try {
-        map.addImage(id, pixels, metadata)
-      } finally {
-        // A rejected replacement keeps the previous image instead of leaving none.
-        if (previous != null && (errorCount != before || !map.hasImage(id))) {
-          map.addImage(id, previous.data, previous.unsafeCast<StyleImageMetadata>())
+    return inlineStyleCommand {
+      mutate("add image '$id'") {
+        val previous = map.getImage(id)
+        if (previous != null) map.removeImage(id)
+        val before = errorCount
+        try {
+          map.addImage(id, pixels, metadata)
+        } finally {
+          // A rejected replacement keeps the previous image instead of leaving none.
+          if (previous != null && (errorCount != before || !map.hasImage(id))) {
+            map.addImage(id, previous.data, previous.unsafeCast<StyleImageMetadata>())
+          }
         }
-      }
-      if (errorCount == before) {
-        indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
-        indicators.values.forEach { it.resourceChanged() }
+        if (errorCount == before) {
+          indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
+          indicators.values.forEach { it.resourceChanged() }
+        }
       }
     }
   }
 
-  override fun removeImage(id: String) {
+  override fun removeImage(id: String): StyleCommand {
     requireCurrent()
     indicatorImages.remove(id)
     indicators.values.forEach { it.resourceChanged() }
-    if (!map.hasImage(id)) return
-    mutate("remove image '$id'") { map.removeImage(id) }
+    if (!map.hasImage(id)) return acceptedStyleCommand()
+    return inlineStyleCommand { mutate("remove image '$id'") { map.removeImage(id) } }
   }
 
   override suspend fun imageExists(id: String): Boolean {
@@ -376,35 +380,42 @@ internal class GlJsStyleBinding(
     return layerDefinitionFromJson(layer.id, definition)
   }
 
-  override fun addSource(sourceId: String, source: JsonObject): Boolean {
+  override fun addSource(sourceId: String, source: JsonObject): StyleCommand = inlineStyleCommand {
+    addSourceInline(sourceId, source)
+  }
+
+  /** @throws StyleMutationException if GL JS rejects the source. */
+  private fun addSourceInline(sourceId: String, source: JsonObject) {
     requireCurrent()
     mutate("add source '$sourceId'") {
       map.addSource(sourceId, source.toJsValue<SourceSpecification>())
     }
-    return true
   }
 
-  override fun removeSource(sourceId: String) {
+  override fun removeSource(sourceId: String): StyleCommand {
     requireCurrent()
-    mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
-    imageSourceImages.remove(sourceId)
-    pendingImageSourceUrls.remove(sourceId)
-    pendingCustomSourceReloads.remove(sourceId)
-    customVectorAttachments.remove(sourceId)?.close()
-    customGeometryAttachments.remove(sourceId)?.close()
+    return inlineStyleCommand {
+      // A refused removal, such as for a source a layer still uses, keeps the source's providers.
+      mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
+      imageSourceImages.remove(sourceId)
+      pendingImageSourceUrls.remove(sourceId)
+      pendingCustomSourceReloads.remove(sourceId)
+      customVectorAttachments.remove(sourceId)?.close()
+      customGeometryAttachments.remove(sourceId)?.close()
+    }
   }
 
   override fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     requireCurrent()
     val attachment =
       GlJsCustomGeometryAttachment(sourceId, options, provider, logger, customTileFailed)
-    val added =
+    return inlineStyleCommand {
       try {
-        addSource(
+        addSourceInline(
           sourceId,
           buildJsonObject {
             put("type", "vector")
@@ -417,8 +428,8 @@ internal class GlJsStyleBinding(
         attachment.close()
         throw error
       }
-    if (added) customGeometryAttachments[sourceId] = attachment else attachment.close()
-    return added
+      customGeometryAttachments[sourceId] = attachment
+    }
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
@@ -467,7 +478,7 @@ internal class GlJsStyleBinding(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     requireCurrent()
     customVectorAttachments.remove(sourceId)?.close()
     val attachment =
@@ -489,9 +500,9 @@ internal class GlJsStyleBinding(
         },
       )
     customVectorAttachments[sourceId] = attachment
-    val added =
+    return inlineStyleCommand {
       try {
-        addSource(
+        addSourceInline(
           sourceId,
           buildJsonObject {
             put("type", "vector")
@@ -504,8 +515,7 @@ internal class GlJsStyleBinding(
         customVectorAttachments.remove(sourceId)?.close()
         throw error
       }
-    if (!added) customVectorAttachments.remove(sourceId)?.close()
-    return added
+    }
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
@@ -520,8 +530,8 @@ internal class GlJsStyleBinding(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean {
-    addSource(
+  ): StyleCommand = inlineStyleCommand {
+    addSourceInline(
       sourceId,
       buildJsonObject {
         put("type", "image")
@@ -537,7 +547,6 @@ internal class GlJsStyleBinding(
     )
     imageSourceImages[sourceId] = image
     updateImageSource(sourceId, image)
-    return true
   }
 
   /** GL JS shows the pixels at once, cancelling a URL that is still loading. */
@@ -759,8 +768,12 @@ internal class GlJsStyleBinding(
     return action(map)
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand {
     requireCurrent()
+    return inlineStyleCommand { addLayerInline(layer, beforeLayerId) }
+  }
+
+  private fun addLayerInline(layer: JsonObject, beforeLayerId: String) {
     mutate("add layer") {
       val id = layer.getValue("id").jsonPrimitive.content
       val renderer =
@@ -781,7 +794,6 @@ internal class GlJsStyleBinding(
       if (renderer != null) indicators[id] = renderer
       layerOrder = map.getLayersOrder().toList()
     }
-    return true
   }
 
   /**
@@ -796,17 +808,24 @@ internal class GlJsStyleBinding(
     return JsonObject(layer + ("source-layer" to JsonPrimitive(attachment.sourceLayerName)))
   }
 
-  override fun removeLayer(layerId: String) = callEngine {
+  override fun removeLayer(layerId: String): StyleCommand {
     requireCurrent()
-    map.removeLayer(layerId)
-    indicators.remove(layerId)?.close()
-    layerOrder = map.getLayersOrder().toList()
+    return inlineStyleCommand {
+      mutate("remove layer '$layerId'") { map.removeLayer(layerId) }
+      indicators.remove(layerId)?.close()
+      layerOrder = map.getLayersOrder().toList()
+    }
   }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) = callEngine {
+  override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand {
     requireCurrent()
-    if (beforeLayerId.isEmpty()) map.moveLayer(layerId) else map.moveLayer(layerId, beforeLayerId)
-    layerOrder = map.getLayersOrder().toList()
+    return inlineStyleCommand {
+      mutate("move layer '$layerId'") {
+        if (beforeLayerId.isEmpty()) map.moveLayer(layerId)
+        else map.moveLayer(layerId, beforeLayerId)
+      }
+      layerOrder = map.getLayersOrder().toList()
+    }
   }
 
   override fun setLayerProperty(

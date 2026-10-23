@@ -706,38 +706,33 @@ class MlnFfiMapCompositionTest {
     }
 
   @Test
-  fun a_later_revision_supersedes_reconciliation_failure_before_the_surface_is_revealed() =
-    runFfiComposeUiTest {
-      withTestRuntime(runtimeOptions) { runtime ->
-        // The engine rejects an unknown layer type during reconciliation.
-        var unsupportedLayer by mutableStateOf(true)
-        val state =
-          runtime.createMapState(baseStyle = BaseStyle.Empty) {
-            Layer(
-              id = "application-layer",
-              type = if (unsupportedLayer) "unknown-layer-type" else "background",
-            )
-          }
-
-        setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
-        waitUntil(timeoutMillis = RenderTimeoutMillis) {
-          state.style.loadState is StyleLoadState.Failed
+  fun a_rejected_layer_is_left_out_until_a_later_revision_corrects_it() = runFfiComposeUiTest {
+    withTestRuntime(runtimeOptions) { runtime ->
+      // The engine rejects an unknown layer type during reconciliation.
+      var unsupportedLayer by mutableStateOf(true)
+      val state =
+        runtime.createMapState(baseStyle = BaseStyle.Empty) {
+          Layer(
+            id = "application-layer",
+            type = if (unsupportedLayer) "unknown-layer-type" else "background",
+          )
         }
-        assertTrue(
-          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isNotEmpty(),
-          "the failed revision must leave the map surface hidden",
-        )
-        onNodeWithContentDescription("Map").assertExists("a map without a style has no semantics")
 
-        unsupportedLayer = false
-        waitUntil(timeoutMillis = RenderTimeoutMillis) {
-          state.style.loadState == StyleLoadState.Ready
-        }
-        val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-        assertTrue("application-layer" in session.currentStyleLayerIds())
-        assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
+      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
+        state.style.loadState == StyleLoadState.Ready &&
+          onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty()
       }
+      val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
+      assertTrue("application-layer" !in session.currentStyleLayerIds())
+
+      unsupportedLayer = false
+      waitUntil(timeoutMillis = RenderTimeoutMillis) {
+        "application-layer" in session.currentStyleLayerIds()
+      }
+      assertEquals(StyleLoadState.Ready, state.style.loadState)
     }
+  }
 
   @Test
   fun a_retained_adapter_stays_hidden_during_a_new_presentations_first_composition() =

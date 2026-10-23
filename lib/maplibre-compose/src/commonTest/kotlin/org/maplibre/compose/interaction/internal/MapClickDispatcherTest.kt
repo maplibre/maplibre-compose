@@ -422,9 +422,11 @@ class MapClickDispatcherTest {
         )
     }
 
-    /** Publishes the engine's current layer order the way a reconciled revision does. */
+    /** Publishes the engine's current layer order, as a reconciliation that reads it back does. */
     suspend fun publishLayerOrder() {
-      state.styleAuthority.refreshStyleResources(adapter)
+      val binding = checkNotNull(style.value)
+      binding.contents.replaceLayers(binding.layerSummaries())
+      state.style.publish(binding)
     }
 
     fun node(id: String, handler: FeaturesClickHandler) =

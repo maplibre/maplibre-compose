@@ -36,6 +36,8 @@ internal class RecordingStyleBinding(
   private val refusedSourceRemovals: Set<String> = emptySet(),
   private val refusedImageReplacements: Set<String> = emptySet(),
   private val refusedLayerProperties: Set<String> = emptySet(),
+  /** Layer types whose additions this engine rejects. */
+  private val refusedLayerTypes: Set<String> = emptySet(),
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
   private val beforeAddImage: ((String) -> Unit)? = null,
@@ -62,6 +64,7 @@ internal class RecordingStyleBinding(
   override val baseSources = sources.associateBy { it.id }
   private val sourceObjects = baseSources.toMutableMap()
   override val baseLayers = layers.map { it.definition().summary() }
+  override val contents = StyleContents(baseSources, baseLayers)
   private val orderedLayerIds = mutableListOf<String>()
   private val featureStates = mutableMapOf<Triple<String, String?, String>, JsonObject>()
   private var addImageHookInvoked = false
@@ -96,6 +99,9 @@ internal class RecordingStyleBinding(
   var customVectorProvider: VectorTileProvider? = null
     private set
 
+  /** Every [addLayer] that reached this engine, by layer ID, in order. */
+  val layerAdditions: MutableList<String> = mutableListOf()
+
   init {
     sources.forEach { addSource(it.definition()) }
     layers.forEach { addLayer(it.definition(), beforeLayerId = "") }
@@ -109,24 +115,28 @@ internal class RecordingStyleBinding(
 
   override val logger: MapLog? = null
 
-  override fun setImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition): StyleCommand {
     if (!addImageHookInvoked) {
       addImageHookInvoked = true
       beforeAddImage?.invoke(definition.id)
     }
     if (definition.id in images) {
       if (definition.id in refusedImageReplacements) {
-        throw StyleMutationException("Image '${definition.id}' was refused", null)
+        return rejectedStyleCommand(
+          StyleMutationException("Image '${definition.id}' was refused", null),
+        )
       }
       replacedImages += definition.id
     }
     images[definition.id] = definition.image
     imageWrites += "set ${definition.id} ${definition.image.width}"
+    return acceptedStyleCommand()
   }
 
-  override fun removeImage(id: String) {
+  override fun removeImage(id: String): StyleCommand {
     imageWrites += "remove $id"
     images.remove(id)
+    return acceptedStyleCommand()
   }
 
   override suspend fun imageExists(id: String): Boolean = id in images
@@ -141,18 +151,21 @@ internal class RecordingStyleBinding(
 
   override suspend fun layerIds() = orderedLayerIds.toList()
 
-  override fun addSource(sourceId: String, source: JsonObject): Boolean {
+  override fun addSource(sourceId: String, source: JsonObject): StyleCommand {
     check(sourceId !in sources) { "Source ID '$sourceId' already exists in style" }
     sources[sourceId] = source
-    return true
+    return acceptedStyleCommand()
   }
 
-  override fun removeSource(sourceId: String) {
+  override fun removeSource(sourceId: String): StyleCommand {
     if (sourceId in refusedSourceRemovals) {
-      throw StyleMutationException("Source '$sourceId' is still in use", null)
+      return rejectedStyleCommand(
+        StyleMutationException("Source '$sourceId' is still in use", null),
+      )
     }
     sources.remove(sourceId)
     sourceObjects.remove(sourceId)
+    return acceptedStyleCommand()
   }
 
   fun replaceSource(source: Source) {
@@ -165,10 +178,10 @@ internal class RecordingStyleBinding(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean {
+  ): StyleCommand {
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("image")))
     addedImageSourceImages[sourceId] = image
-    return true
+    return acceptedStyleCommand()
   }
 
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
@@ -199,9 +212,9 @@ internal class RecordingStyleBinding(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("custom-geometry")))
-    return true
+    return acceptedStyleCommand()
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) = Unit
@@ -212,10 +225,10 @@ internal class RecordingStyleBinding(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     customVectorProvider = provider
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("vector")))
-    return true
+    return acceptedStyleCommand()
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) = Unit
@@ -239,28 +252,34 @@ internal class RecordingStyleBinding(
     offset: Int,
   ): FeatureCollection<Geometry, JsonObject?>? = null
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand {
     val id = (layer["id"] as JsonPrimitive).content
+    layerAdditions += id
+    if ((layer["type"] as? JsonPrimitive)?.content in refusedLayerTypes) {
+      return rejectedStyleCommand(StyleMutationException("Layer '$id' was refused", null))
+    }
     check(id !in layers) { "Layer ID '$id' already exists in style" }
     val index =
       if (beforeLayerId.isEmpty()) orderedLayerIds.size else orderedLayerIds.indexOf(beforeLayerId)
     require(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
     orderedLayerIds.add(index, id)
     layers[id] = layer
-    return true
+    return acceptedStyleCommand()
   }
 
-  override fun removeLayer(layerId: String) {
+  override fun removeLayer(layerId: String): StyleCommand {
     layers.remove(layerId)
     orderedLayerIds.remove(layerId)
+    return acceptedStyleCommand()
   }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) {
+  override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand {
     check(orderedLayerIds.remove(layerId)) { "Layer ID '$layerId' not found in style" }
     val index =
       if (beforeLayerId.isEmpty()) orderedLayerIds.size else orderedLayerIds.indexOf(beforeLayerId)
     require(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
     orderedLayerIds.add(index, layerId)
+    return acceptedStyleCommand()
   }
 
   override fun setLayerProperty(

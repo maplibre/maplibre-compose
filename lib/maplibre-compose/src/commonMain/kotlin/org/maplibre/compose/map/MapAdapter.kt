@@ -66,13 +66,13 @@ internal interface MapAdapter {
   fun setBaseStyle(style: BaseStyle)
 
   /**
-   * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
-   * writes run inline on main, then [capture] reads ordered metadata.
+   * Applies a style-composition revision: submits its writes on main, then waits for their outcome.
+   * [Callbacks.onStyleReady] reports initial readiness.
+   *
+   * @return true if the engine rejected a source, layer, or move, so the latest revision should be
+   *   applied again.
    */
-  suspend fun <T> reconcileStyleRevision(
-    revision: StyleSnapshot,
-    capture: suspend (StyleBinding) -> T,
-  ): T
+  suspend fun reconcileStyleRevision(revision: StyleSnapshot): Boolean
 
   fun getCameraPosition(): CameraPosition
 
@@ -187,8 +187,8 @@ internal interface MapAdapter {
      */
     fun onStyleFailed(map: MapAdapter, reason: String?)
 
-    /** Reports that the loaded style has new source metadata. */
-    fun onStyleSourcesChanged(map: MapAdapter)
+    /** Reports that the engine changed the metadata of source [sourceId], such as its TileJSON. */
+    fun onStyleSourcesChanged(map: MapAdapter, sourceId: String)
 
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
@@ -218,7 +218,7 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
 
-  override fun onStyleSourcesChanged(map: MapAdapter) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
@@ -245,31 +245,23 @@ internal class MapStateCallbacks(
   }
 
   override fun onStyleReady(map: MapAdapter) {
-    launchStyleRead(map) { owner.styleAuthority.markStyleReady(map) }
+    owner.styleAuthority.markStyleReady(map)
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {
     owner.styleAuthority.markStyleFailed(map, reason)
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter) {
-    launchStyleRead(map) { owner.styleAuthority.refreshStyleResources(map) }
-  }
-
-  /**
-   * Starts undispatched so the read captures its binding inside the engine callback, then finishes
-   * on the runtime's main scope rather than the composition's. A read that fails while its style is
-   * current marks the style failed.
-   */
-  private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) {
+    // Starts undispatched so the read captures its binding inside the engine callback, then
+    // finishes on the runtime's main scope rather than the composition's.
     owner.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
-        read()
+        owner.styleAuthority.refreshStyleSource(map, sourceId)
       } catch (error: CancellationException) {
         throw error
       } catch (error: Throwable) {
-        owner.runtime.logger?.w(error) { "Could not read the loaded style" }
-        owner.styleAuthority.markStyleFailed(map, error.message)
+        owner.runtime.logger?.w(error) { "Could not read source '$sourceId' of the loaded style" }
       }
     }
   }

@@ -1,7 +1,5 @@
 package org.maplibre.compose.map
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.maplibre.compose.sources.MutableSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.SourceDefinition
@@ -10,13 +8,13 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleSnapshot
+import org.maplibre.compose.style.onRejected
 
-/** Main-confined ownership of imperative resources; the engine orders submitted commands. */
-internal class StyleResourceCommands(
-  private val style: MapStyleState,
-  private val scope: CoroutineScope,
-  private val commitSources: suspend (StyleBinding) -> Boolean,
-) {
+/**
+ * Main-confined ownership of imperative resources. The engine runs submitted writes in order; a
+ * write it rejects restores the ownership and contents that the write had changed.
+ */
+internal class StyleResourceCommands(private val style: MapStyleState) {
   private class OwnedSource(val binding: StyleBinding, val definition: SourceDefinition)
 
   private val sources = mutableMapOf<String, OwnedSource>()
@@ -51,35 +49,51 @@ internal class StyleResourceCommands(
       }
   }
 
-  /** Submits the addition, then reads ordered metadata before returning its handle. */
+  /** Submits the addition and returns its handle once the engine has added it. */
   suspend fun add(source: Source): MutableSourceHandle? {
     requireSourceWritable(source.id)
     val binding = readyBinding("add source '${source.id}'") ?: return null
     val definition = source.definition()
+    val owned = OwnedSource(binding, definition)
+    val command = binding.addSource(definition)
+    sources[source.id] = owned
+    binding.contents.addSource(definition)
+    style.publish(binding)
+    command.onRejected {
+      if (sources[source.id] !== owned) return@onRejected
+      sources.remove(source.id)
+      binding.contents.removeSource(source.id)
+      binding.identity.sources.remove(source.id)
+      if (style.isCurrentLoadedStyle(binding)) style.publish(binding)
+    }
     try {
-      binding.addSource(definition)
+      command.await()
     } catch (error: StyleMutationException) {
       throw StyleHandleException("Could not add source '${source.id}': ${error.message}", error)
     }
-    sources[source.id] = OwnedSource(binding, definition)
-    if (!commitSources(binding)) return null
+    if (!style.owner.isCurrent(binding) || sources[source.id] !== owned) return null
     return style.sourceHandle(source.id)?.asMutable
   }
 
   fun removeSource(id: String, binding: StyleBinding, identity: Any, onRemoved: () -> Unit) {
     requireSourceWritable(id)
     if (!style.owner.isCurrent(binding) || !binding.identity.sources.isCurrent(id, identity)) return
-    try {
-      binding.removeSource(id)
-    } catch (error: StyleMutationException) {
-      binding.reportRejectedWrite("Source '$id'", null, error)
-      return
-    }
-    sources.remove(id)
+    val owned = sources.remove(id)
+    val entry = binding.contents.removeSource(id)
     binding.identity.sources.remove(id)
-    style.forgetSourceHandle(id)
+    style.publish(binding)
     onRemoved()
-    scope.launch { commitSources(binding) }
+    binding.removeSource(id).onRejected { error ->
+      binding.reportRejectedWrite("Source '$id'", null, error)
+      // A refused removal, such as for a source a layer still uses, keeps the source. Unless a
+      // later write took the ID, it gets its ownership back and a new handle.
+      if (!style.isCurrentLoadedStyle(binding) || entry == null || id in binding.contents.sources) {
+        return@onRejected
+      }
+      if (owned != null) sources[id] = owned
+      binding.contents.restoreSource(id, entry)
+      style.publish(binding)
+    }
   }
 
   fun set(images: Map<String, ResolvedStyleImage>) {
@@ -99,7 +113,8 @@ internal class StyleResourceCommands(
   fun removeImage(id: String, binding: StyleBinding, identity: Any, onRemoved: () -> Unit) {
     requireImageWritable(id)
     if (!style.owner.isCurrent(binding) || !binding.identity.images.isCurrent(id, identity)) return
-    if (writeImage(binding, id, null)) onRemoved()
+    writeImage(binding, id, null)
+    onRemoved()
   }
 
   suspend fun image(id: String): StyleImageHandle? {
@@ -119,25 +134,27 @@ internal class StyleResourceCommands(
         isExplicitImage(id)
     )
       return
-    binding.setImage(StyleImageDefinition(id, image.image, image.sdf, image.stretch))
+    binding.setImage(StyleImageDefinition(id, image.image, image.sdf, image.stretch)).onRejected {
+      error ->
+      binding.reportRejectedWrite("Image '$id'", null, error)
+    }
     images[id] = true
     binding.identity.images.remove(id)
   }
 
-  private fun writeImage(
-    binding: StyleBinding,
-    id: String,
-    definition: StyleImageDefinition?,
-  ): Boolean {
-    try {
-      if (definition == null) binding.removeImage(id) else binding.setImage(definition)
-    } catch (error: StyleMutationException) {
-      binding.reportRejectedWrite("Image '$id'", null, error)
-      return false
-    }
+  /**
+   * Writes or removes an image. A successful write expires the image's handles; the engine keeps
+   * its previous image, and its handles, when it rejects the write.
+   */
+  private fun writeImage(binding: StyleBinding, id: String, definition: StyleImageDefinition?) {
+    val command = if (definition == null) binding.removeImage(id) else binding.setImage(definition)
     if (definition == null) images.remove(id) else images[id] = false
-    binding.identity.images.remove(id)
-    return true
+    command.invokeOnCompletion { error ->
+      when (error) {
+        null -> binding.identity.images.remove(id)
+        is StyleMutationException -> binding.reportRejectedWrite("Image '$id'", null, error)
+      }
+    }
   }
 
   private fun readyBinding(target: String): StyleBinding? {

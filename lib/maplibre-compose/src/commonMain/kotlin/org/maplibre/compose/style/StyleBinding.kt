@@ -32,9 +32,10 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * Writes submit inline on main without waiting for engine completion. Native reports rejected
- * writes asynchronously; browser writes run inline. Suspending reads observe every command
- * submitted before them. GeoJSON preparation remains asynchronous.
+ * Writes are submitted on main and the engine runs them in submission order. A structural write
+ * returns a [StyleCommand] with the engine's outcome; any other write that the engine rejects keeps
+ * the previous value and is logged. Suspending reads observe every write submitted before them.
+ * GeoJSON preparation remains asynchronous.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -47,6 +48,9 @@ internal interface StyleBinding {
   val baseLayers: List<LayerSummary>
 
   val isLoaded: Boolean
+
+  /** The sources and layers that main has submitted to this style. */
+  val contents: StyleContents
 
   /** Invalidates this loaded style before its base style starts changing. */
   fun invalidate()
@@ -73,10 +77,9 @@ internal interface StyleBinding {
    * without the image, which a remove followed by an add does on an engine that renders between the
    * two.
    */
-  fun setImage(definition: StyleImageDefinition)
+  fun setImage(definition: StyleImageDefinition): StyleCommand
 
-  /** Removes [id]; an engine rejection is logged. */
-  fun removeImage(id: String)
+  fun removeImage(id: String): StyleCommand
 
   /** @return whether [id] exists, or null when the implementation cannot determine the result. */
   suspend fun imageExists(id: String): Boolean?
@@ -100,23 +103,18 @@ internal interface StyleBinding {
   suspend fun layerSummaries(): List<LayerSummary> =
     layerIds().mapNotNull { getLayer(it)?.summary() }
 
-  /**
-   * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
-   */
-  fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
+  /** Adds a complete layer object directly below [beforeLayerId], or on top when that is empty. */
+  fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand
 
-  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
+  fun addLayer(definition: LayerDefinition, beforeLayerId: String): StyleCommand {
     requireCurrent()
     return addLayer(definition.value, beforeLayerId)
   }
 
-  fun removeLayer(layerId: String)
+  fun removeLayer(layerId: String): StyleCommand
 
   /** Moves a layer directly below [beforeLayerId], or to the top when that ID is empty. */
-  fun moveLayer(layerId: String, beforeLayerId: String)
+  fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand
 
   /**
    * Sets one property on a layer that is already in the style.
@@ -265,16 +263,11 @@ internal interface StyleBinding {
    */
   val supportsRasterDemScheme: Boolean
 
-  /**
-   * Adds a source from its style-spec definition.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
-   */
-  fun addSource(sourceId: String, source: JsonObject): Boolean
+  /** Adds a source from its style-spec definition. */
+  fun addSource(sourceId: String, source: JsonObject): StyleCommand
 
   /** Installs an immutable source definition in this loaded style. */
-  fun addSource(definition: SourceDefinition): Boolean {
+  fun addSource(definition: SourceDefinition): StyleCommand {
     requireCurrent()
     return when (definition) {
       is SourceDefinition.Json -> addSource(definition.id, definition.value)
@@ -287,37 +280,43 @@ internal interface StyleBinding {
         addCustomGeometrySource(definition.id, definition.options, definition.provider)
       is SourceDefinition.CustomVector ->
         addCustomVectorSource(definition.id, definition.options, definition.provider)
-      is SourceDefinition.RasterDem ->
-        addSource(
-          definition.id,
-          rasterDemSourceJson(
-            tiles = definition.tiles,
-            options = definition.options,
-            tileSize = definition.tileSize,
-            decoding = definition.decoding,
-            capabilities =
-              RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
-          ),
-        )
+      is SourceDefinition.RasterDem -> {
+        val json =
+          try {
+            rasterDemSourceJson(
+              tiles = definition.tiles,
+              options = definition.options,
+              tileSize = definition.tileSize,
+              decoding = definition.decoding,
+              capabilities =
+                RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
+            )
+          } catch (error: StyleMutationException) {
+            return rejectedStyleCommand(error)
+          }
+        addSource(definition.id, json)
+      }
     }
   }
 
-  /** Removes a source and its feature state. */
-  fun removeSource(sourceId: String)
+  /**
+   * Removes a source and its feature state. The source's data providers stop once the engine has
+   * removed it; an engine that refuses the removal, such as for a source a layer still uses, keeps
+   * them.
+   */
+  fun removeSource(sourceId: String): StyleCommand
 
   /**
    * Adds an image source from prepared pixels, which source JSON cannot carry.
    *
    * @param coordinates the four corners in MapLibre's order: top left, top right, bottom right,
    *   bottom left.
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean
+  ): StyleCommand
 
   /** Replaces an image source's content with prepared pixels. */
   fun setImageSourceImage(sourceId: String, image: PreparedImage)
@@ -331,11 +330,8 @@ internal interface StyleBinding {
   /**
    * Adds a GeoJSON source from its data and options. The default implementation writes style-spec
    * JSON. An engine can override this function to use a typed API.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error for the source or its data.
    */
-  fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): Boolean =
+  fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): StyleCommand =
     addSource(
       sourceId,
       buildJsonObject {
@@ -358,15 +354,12 @@ internal interface StyleBinding {
   /**
    * Adds a custom geometry source that obtains feature tiles from [provider]. Removal or style
    * unload stops the source and releases its resources.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean
+  ): StyleCommand
 
   /** Requests new features for intersecting tiles. GL JS reloads the whole source. */
   fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox)
@@ -377,15 +370,12 @@ internal interface StyleBinding {
   /**
    * Adds a custom vector source that obtains MVT tiles from [provider]. Removal or style unload
    * stops the source and releases its resources.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomVectorSource(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean
+  ): StyleCommand
 
   /** Requests new data for one tile. GL JS reloads the whole source. */
   fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)

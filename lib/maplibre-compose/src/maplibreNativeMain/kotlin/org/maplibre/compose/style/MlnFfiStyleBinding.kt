@@ -4,6 +4,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -115,8 +116,9 @@ internal class LoadedStyleContents(
 /**
  * [StyleBinding] for one loaded style in a MapLibre Native map.
  *
- * Commands and ordered queries are submitted on main. Structural failures are delivered on main;
- * native logs discarded writes. GeoJSON and custom tile preparation stay on workers.
+ * Commands and ordered queries are submitted on main. A structural write's outcome completes on
+ * main; native logs the failure of any other write, which discards its outcome. GeoJSON and custom
+ * tile preparation stay on workers.
  */
 internal open class MlnFfiStyleBinding(
   private val map: MapHandle,
@@ -128,7 +130,6 @@ internal open class MlnFfiStyleBinding(
   private val renderSessions: MlnFfiRenderSessions = MlnFfiRenderSessions.None,
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
-  private val styleFailed: (StyleIdentity, Throwable) -> Unit = { _, _ -> },
   /** Receives the exception of a failed custom source provider call. */
   private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
@@ -161,6 +162,8 @@ internal open class MlnFfiStyleBinding(
   override val baseSources: Map<String, Source> =
     contents.sources.associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
+  override val contents: StyleContents = StyleContents(baseSources, baseLayers)
+
   /** Posts a worker's prepared result to main before submitting it to the native executor. */
   open fun submit(onDropped: () -> Unit = {}, command: (MapHandle) -> Unit) {
     owner.postToMain {
@@ -174,36 +177,42 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  /** Submits inline on main; failures are delivered on main through the completion. */
+  /**
+   * Submits a structural write inline on main; its outcome completes on main.
+   *
+   * TODO: complete the outcome directly once
+   *   https://github.com/maplibre/maplibre-native-ffi/issues/959 delivers completions to main.
+   */
   @OptIn(ExperimentalCoroutinesApi::class)
-  private fun structuralWrite(start: (MapHandle) -> Deferred<CommandCompletion>) {
-    if (!isLoaded) return
-    val onFailure = structuralFailure()
-    fun rejected(error: StyleMutationException) {
-      if (isLoaded) onFailure(error)
+  private fun command(start: (MapHandle) -> Deferred<CommandCompletion>): StyleCommand {
+    if (!isLoaded) {
+      return rejectedStyleCommand(StyleMutationException("The style is no longer loaded", null))
     }
-    val completion =
+    val submitted =
       try {
         start(map)
       } catch (error: MaplibreException) {
-        rejected(StyleMutationException(error.message, error))
-        return
+        return rejectedStyleCommand(StyleMutationException(error.message, error))
       }
-    completion.invokeOnCompletion { error ->
-      owner.postToMain {
+    val outcome = CompletableDeferred<Unit>()
+    submitted.invokeOnCompletion { error ->
+      owner.completeOnMain {
         when {
-          error is CancellationException -> Unit
-          error != null -> rejected(StyleMutationException(error.message, error))
-          else ->
-            completion
-              .getCompleted()
-              .takeIf { it.failed }
-              ?.let {
-                rejected(StyleMutationException(it.failureMessage(), null))
-              }
+          error is CancellationException -> outcome.cancel(error)
+          error != null ->
+            outcome.completeExceptionally(StyleMutationException(error.message, error))
+          else -> {
+            val completion = submitted.getCompleted()
+            if (completion.failed) {
+              outcome.completeExceptionally(
+                StyleMutationException(completion.failureMessage(), null),
+              )
+            } else outcome.complete(Unit)
+          }
         }
       }
     }
+    return outcome
   }
 
   private inline fun write(
@@ -225,25 +234,9 @@ internal open class MlnFfiStyleBinding(
     return start(map).await()
   }
 
-  private var revision = 0L
-  private var failedRevision: Long? = null
-  val revisionFailed: Boolean
-    get() = failedRevision == revision
-
-  private fun structuralFailure(): (StyleMutationException) -> Unit {
-    val submittedRevision = revision
-    return { error ->
-      if (submittedRevision == revision) {
-        failedRevision = submittedRevision
-        styleFailed(identity, error)
-      }
-    }
-  }
-
   /** Holds render updates while a synchronous revision submits its writes. */
   fun commandGroup(action: () -> Unit) {
     requireCurrent()
-    revision++
     map.discarding.beginCommandGroup()
     try {
       action()
@@ -252,7 +245,7 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  override fun setImage(definition: StyleImageDefinition) {
+  override fun setImage(definition: StyleImageDefinition): StyleCommand {
     val (id, image, sdf, stretch) = definition
     val scale = getScale()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
@@ -277,12 +270,10 @@ internal open class MlnFfiStyleBinding(
         content = stretchPx?.content?.let { ImageContent(it.left, it.top, it.right, it.bottom) },
       )
     // The engine replaces an existing image in place, so no existence read is needed.
-    write { it.setStyleImage(id, image.pixels.ffi, options) }
+    return command { it.setStyleImage(id, image.pixels.ffi, options) }
   }
 
-  override fun removeImage(id: String) {
-    write("Image '$id'") { it.removeStyleImage(id) }
-  }
+  override fun removeImage(id: String): StyleCommand = command { it.removeStyleImage(id) }
 
   override suspend fun imageExists(id: String): Boolean? = query { it.getStyleImage(id) } != null
 
@@ -380,30 +371,38 @@ internal open class MlnFfiStyleBinding(
   final override val supportsRasterDemScheme: Boolean
     get() = true
 
-  override fun addSource(sourceId: String, source: JsonObject): Boolean =
-    addSourceWith(sourceId) { map -> map.addStyleSourceJson(sourceId, source.toJsonBytes()) }
+  override fun addSource(sourceId: String, source: JsonObject): StyleCommand =
+    addSourceWith { map ->
+      map.addStyleSourceJson(sourceId, source.toJsonBytes())
+    }
 
   /**
    * Adds a source, for the types MapLibre Native creates from a typed adder rather than from source
-   * JSON. Wraps a refusal the way [addSource] does.
+   * JSON. Reports a refusal the way [addSource] does.
    */
-  fun addSourceWith(sourceId: String, add: (MapHandle) -> Deferred<CommandCompletion>): Boolean {
-    structuralWrite(add)
-    return true
-  }
+  fun addSourceWith(add: (MapHandle) -> Deferred<CommandCompletion>): StyleCommand = command(add)
 
-  override fun removeSource(sourceId: String) {
-    write { it.removeStyleSource(sourceId) }
+  override fun removeSource(sourceId: String): StyleCommand {
     identity.sources.remove(sourceId)
-    geoJsonCoordinators.remove(sourceId)?.close()
-    removeTileCoordinator(sourceId)
+    val geoJson = geoJsonCoordinators[sourceId]
+    val tiles = tileCoordinators[sourceId]
+    val removed = command { it.removeStyleSource(sourceId) }
+    // The data providers keep serving a source whose removal native refuses.
+    removed.invokeOnCompletion { error ->
+      if (error != null) return@invokeOnCompletion
+      if (geoJsonCoordinators[sourceId] === geoJson) geoJsonCoordinators.remove(sourceId)
+      geoJson?.close()
+      if (tileCoordinators[sourceId] === tiles) tileCoordinators.remove(sourceId)
+      tiles?.close()
+    }
+    return removed
   }
 
   override fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-geometry-$sourceId",
@@ -449,7 +448,7 @@ internal open class MlnFfiStyleBinding(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-vector-$sourceId",
@@ -506,31 +505,23 @@ internal open class MlnFfiStyleBinding(
     sourceId: String,
     coordinator: MlnFfiTileRequestCoordinator<*>,
     add: (MapHandle) -> Deferred<CommandCompletion>,
-  ): Boolean {
-    val replaced = if (isLoaded) tileCoordinators.put(sourceId, coordinator) else coordinator
-    replaced?.close()
-    val added =
-      try {
-        addSourceWith(sourceId, add)
-      } catch (error: Throwable) {
-        removeTileCoordinator(sourceId)
-        throw error
-      }
-    if (!added) removeTileCoordinator(sourceId)
+  ): StyleCommand {
+    if (!isLoaded) coordinator.close() else tileCoordinators.put(sourceId, coordinator)?.close()
+    val added = addSourceWith(add)
+    added.onRejected {
+      if (tileCoordinators[sourceId] === coordinator) tileCoordinators.remove(sourceId)
+      coordinator.close()
+    }
     return added
-  }
-
-  private fun removeTileCoordinator(sourceId: String) {
-    tileCoordinators.remove(sourceId)?.close()
   }
 
   override fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean {
+  ): StyleCommand {
     val corners = coordinates.map { it.toLatLng() }
-    return addSourceWith(sourceId) { map ->
+    return addSourceWith { map ->
       map.addImageSourceImage(sourceId, corners, image.pixels.ffi)
     }
   }
@@ -552,9 +543,9 @@ internal open class MlnFfiStyleBinding(
     sourceId: String,
     data: GeoJsonData,
     options: GeoJsonOptions,
-  ): Boolean {
+  ): StyleCommand {
     val ffiOptions = options.toFfiOptions()
-    addSourceWith(sourceId) { map ->
+    val added = addSourceWith { map ->
       if (data is GeoJsonData.Uri) {
         map.addGeojsonSourceUrl(sourceId, data.uri, ffiOptions)
       } else {
@@ -569,7 +560,11 @@ internal open class MlnFfiStyleBinding(
     if (data !is GeoJsonData.Uri) {
       coordinator.submit(data) { error("Expected inline data") }
     }
-    return true
+    added.onRejected {
+      if (geoJsonCoordinators[sourceId] === coordinator) geoJsonCoordinators.remove(sourceId)
+      coordinator.close()
+    }
+    return added
   }
 
   override fun submitGeoJsonData(
@@ -837,19 +832,16 @@ internal open class MlnFfiStyleBinding(
     return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
-    structuralWrite {
-      it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
-    }
-    return true
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand = command {
+    it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
   }
 
-  override fun removeLayer(layerId: String) {
-    write { it.removeStyleLayer(layerId) }
+  override fun removeLayer(layerId: String): StyleCommand = command {
+    it.removeStyleLayer(layerId)
   }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) {
-    write { it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null }) }
+  override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand = command {
+    it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null })
   }
 
   override fun setLayerProperty(

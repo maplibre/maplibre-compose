@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -140,7 +141,7 @@ class StyleReconcilerTest {
     val delegate = RecordingStyleBinding()
     val style =
       object : StyleBinding by delegate {
-        override fun addSource(definition: SourceDefinition): Boolean {
+        override fun addSource(definition: SourceDefinition): StyleCommand {
           if (fail && definition.id == "refused") error("engine refused")
           return delegate.addSource(definition)
         }
@@ -164,6 +165,32 @@ class StyleReconcilerTest {
 
     assertEquals(setOf("second"), delegate.installedSourceIds)
     assertEquals(setOf("second-layer"), delegate.installedLayerIds)
+  }
+
+  @Test
+  fun a_rejected_layer_stays_out_until_its_definition_changes() = runTest {
+    val style = RecordingStyleBinding(refusedLayerTypes = setOf("refused"))
+    val reconciler = StyleReconciler()
+    fun revisionWith(vararg layers: TestLayer) =
+      StyleSnapshot(
+        emptyList(),
+        layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top, null, null) },
+        emptyList(),
+      )
+
+    reconciler.apply(style, revisionWith(TestLayer("a", "refused"), TestLayer("b", "background")))
+    assertTrue(reconciler.settle(style))
+    assertEquals(listOf("b"), style.contents.layerIds())
+
+    // Applying the same revision again leaves the rejected definition out.
+    reconciler.apply(style, revisionWith(TestLayer("a", "refused"), TestLayer("b", "background")))
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("a", "b"), style.layerAdditions)
+
+    reconciler.apply(style, revisionWith(TestLayer("a", "fill"), TestLayer("b", "background")))
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("a", "b"), style.contents.layerIds())
+    assertEquals(setOf("a", "b"), style.installedLayerIds)
   }
 
   @Test
@@ -198,9 +225,9 @@ class StyleReconcilerTest {
       StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
-    assertFailsWith<StyleMutationException> {
-      reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
-    }
+    // The engine keeps its previous image, so the rejection asks for no second pass.
+    reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    assertFalse(reconciler.settle(style))
     refused.clear()
 
     // The engine may hold either image, so reverting is not a no-op and not a plain add.
@@ -219,9 +246,9 @@ class StyleReconcilerTest {
       StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
-    assertFailsWith<StyleMutationException> {
-      reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
-    }
+    // The engine keeps its previous image, so the rejection asks for no second pass.
+    reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    assertFalse(reconciler.settle(style))
 
     // The engine still holds the previous image, so dropping the ID removes it.
     reconciler.apply(style, revisionWith())
@@ -327,10 +354,10 @@ class StyleReconcilerTest {
     StyleBinding by delegate {
     val additions = mutableListOf<String>()
 
-    override fun addSource(definition: SourceDefinition): Boolean =
+    override fun addSource(definition: SourceDefinition): StyleCommand =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+    override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand =
       delegate.addLayer(layer, beforeLayerId).also {
         additions += "layer:${(layer["id"] as JsonPrimitive).content}"
       }

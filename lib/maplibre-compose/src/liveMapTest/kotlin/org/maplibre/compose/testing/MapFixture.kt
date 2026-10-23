@@ -206,8 +206,8 @@ internal class RecordingMapCallbacks(
     errors += "styleFailed: $reason"
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter) {
-    callbacks?.onStyleSourcesChanged(map)
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) {
+    callbacks?.onStyleSourcesChanged(map, sourceId)
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {

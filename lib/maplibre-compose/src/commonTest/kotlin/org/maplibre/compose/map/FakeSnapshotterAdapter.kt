@@ -31,9 +31,10 @@ internal class FakeSnapshotterAdapter(
 
   private var applied = StyleSnapshot.Empty
 
-  override suspend fun apply(revision: StyleSnapshot) {
+  override suspend fun apply(revision: StyleSnapshot): Boolean {
     apply.invoke(revision)
     applied = revision
+    return false
   }
 
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap =

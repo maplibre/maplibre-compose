@@ -22,7 +22,7 @@ internal fun rememberMlnFfiComposeMapPresentation(
 ): ComposeMapPresentation? {
   val density = LocalDensity.current
   val logger = state.runtime.logger
-  // Safe to call off the owner thread: it only inspects what the loaded library was built with.
+  // Safe to call from any thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val scaleFactor = density.density.toDouble()
   val hostSelection =

@@ -26,7 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonElement
@@ -51,7 +50,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerHandle
-import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.logging.MapLog
@@ -73,12 +71,14 @@ import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleCommand
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.rejectedStyleCommand
 import org.maplibre.compose.testing.setImage
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.PositionQuad
@@ -102,7 +102,6 @@ class MapPresentationTest {
   fun a_style_change_during_a_resource_read_does_not_fail_the_new_style() = runTest {
     val finishRead = CompletableDeferred<Unit>()
     val recorded = RecordingStyleBinding(sources = listOf(attributedVectorSource()))
-    var layersRead = false
     val binding =
       object : StyleBinding by recorded {
         override suspend fun sources(): Map<String, Source> {
@@ -110,12 +109,6 @@ class MapPresentationTest {
           val result = recorded.sources()
           finishRead.await()
           return result
-        }
-
-        override suspend fun layerSummaries(): List<LayerSummary> {
-          requireCurrent()
-          layersRead = true
-          return recorded.layerSummaries()
         }
       }
     val records = mutableListOf<MapLogRecord>()
@@ -134,7 +127,8 @@ class MapPresentationTest {
       val callbacks = state.durableStyleCallbacks()
       callbacks.onStyleChanged(adapter, binding)
       callbacks.onStyleReady(adapter)
-      assertTrue(layersRead, "both queries must be submitted before either is awaited")
+      // The ready style's source metadata read waits while its style is replaced.
+      testScheduler.runCurrent()
       state.styleAuthority.setBaseStyle(BaseStyle.Demo)
       val replacement = RecordingStyleBinding()
       callbacks.onStyleChanged(adapter, replacement)
@@ -149,31 +143,6 @@ class MapPresentationTest {
       state.close()
       runtime.close()
       MapLogging.logger = previousLogger
-    }
-  }
-
-  @Test
-  fun a_query_failure_during_a_current_resource_read_marks_the_style_failed() = runTest {
-    val finishRead = CompletableDeferred<Unit>()
-    val binding =
-      object : StyleBinding by RecordingStyleBinding() {
-        override suspend fun sources(): Map<String, Source> {
-          finishRead.await()
-          error("source query failed")
-        }
-      }
-    val fixture = presentationFixture()
-    try {
-      val callbacks = fixture.state.durableStyleCallbacks()
-      callbacks.onStyleChanged(fixture.adapter, binding)
-      callbacks.onStyleReady(fixture.adapter)
-      finishRead.complete(Unit)
-      testScheduler.runCurrent()
-      val failure = assertIs<StyleLoadState.Failed>(fixture.state.style.loadState)
-      assertEquals("source query failed", failure.reason)
-    } finally {
-      finishRead.complete(Unit)
-      fixture.close()
     }
   }
 
@@ -233,135 +202,6 @@ class MapPresentationTest {
     assertEquals("detach failed", failure.cause?.message)
     assertEquals(listOf("cleanup failed"), failure.suppressedExceptions.map { it.message })
     runtime.close()
-  }
-
-  @Test
-  fun replacement_presentation_keeps_handles_from_suspended_publication() = runTest {
-    val queryGate = CompletableDeferred<Unit>()
-    var suspendQueries = false
-    val recorded = RecordingStyleBinding()
-    val binding =
-      object : StyleBinding by recorded {
-        override suspend fun sources(): Map<String, Source> {
-          val result = recorded.sources()
-          if (suspendQueries) queryGate.await()
-          return result
-        }
-
-        override suspend fun globalState(): JsonObject? {
-          if (suspendQueries) queryGate.await()
-          return recorded.globalState()
-        }
-      }
-    val reconciler = StyleReconciler()
-    val adapter =
-      object : PresentationTestAdapter() {
-        override suspend fun <T> reconcileStyleRevision(
-          revision: StyleSnapshot,
-          capture: suspend (StyleBinding) -> T,
-        ): T = run {
-          reconciler.apply(binding, revision)
-          capture(binding)
-        }
-
-        override suspend fun detachPresentation() = Unit
-      }
-    val runtime =
-      mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = testMainDispatcher())
-    val state = runtime.createMapState(BaseStyle.Empty)
-    try {
-      val token = state.reservePresentation()
-      state.publishPresentation(token, adapter)
-      state.styleAuthority.updateLoadedStyle(adapter, binding)
-      state.styleAuthority.markStyleReady(adapter)
-      val revision =
-        StyleSnapshot(
-          listOf(attributedVectorSource("committed-source", "attribution").definition()),
-          listOf(
-            StyleSnapshot.Layer(
-              TestLayer("committed", "background").definition(),
-              Anchor.Top,
-              null,
-              null,
-            ),
-          ),
-          emptyList(),
-        )
-      // The owner is busy, so the publication's source read waits in its queue.
-      suspendQueries = true
-      val old =
-        launch(start = CoroutineStart.UNDISPATCHED) {
-          state.styleAuthority.applyStyleRevision(adapter, binding, revision)
-        }
-      assertEquals(listOf("committed"), binding.layerIds())
-      assertNull(state.style.layers["committed"])
-      // Disposal cancels the old composition, but its accepted publication must finish.
-      old.cancel()
-      suspendQueries = false
-      state.releasePresentation(token, adapter)
-      val replacement = state.reservePresentation()
-      state.publishPresentation(replacement, adapter)
-      state.styleAuthority.updateLoadedStyle(adapter, binding)
-      // The replacement retains the engine and emits no layer delta for the same revision.
-      val next =
-        launch(start = CoroutineStart.UNDISPATCHED) {
-          state.styleAuthority.applyStyleRevision(adapter, binding, revision)
-        }
-      queryGate.complete(Unit)
-      old.join()
-      next.join()
-      assertNotNull(state.style.sources["committed-source"])
-      assertNotNull(state.style.layers["committed"], "the native layer must retain a public handle")
-    } finally {
-      state.close()
-      runtime.close()
-    }
-  }
-
-  @Test
-  fun a_newer_revision_publishes_while_an_older_metadata_read_is_suspended() = runTest {
-    val finishRead = CompletableDeferred<Unit>()
-    val oldReadStarted = CompletableDeferred<Unit>()
-    val recorded = RecordingStyleBinding()
-    var queries = 0
-    val binding =
-      object : StyleBinding by recorded {
-        override suspend fun sources(): Map<String, Source> {
-          val result = recorded.sources()
-          if (++queries == 2) {
-            oldReadStarted.complete(Unit)
-            finishRead.await()
-          }
-          return result
-        }
-      }
-    val fixture = presentationFixture()
-    try {
-      fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
-      fixture.state.styleAuthority.markStyleReady(fixture.adapter)
-      fun revision(id: String) =
-        StyleSnapshot(
-          listOf(attributedVectorSource(id, id).definition()),
-          emptyList(),
-          emptyList(),
-        )
-      val older =
-        launch(start = CoroutineStart.UNDISPATCHED) {
-          fixture.applyRevision(binding, revision("older"))
-        }
-      oldReadStarted.await()
-      fixture.applyRevision(binding, revision("latest"))
-      assertEquals(listOf("latest"), fixture.state.style.sources.map { it.id })
-      finishRead.complete(Unit)
-      older.join()
-      assertEquals(listOf("latest"), fixture.state.style.sources.map { it.id })
-      assertEquals(revision("latest"), fixture.state.style.declaredRevision)
-      val handle = assertIs<VectorTileSourceHandle>(fixture.state.style.sources["latest"])
-      assertEquals(JsonObject(emptyMap()), handle.getFeatureState("layer", "1"))
-    } finally {
-      finishRead.complete(Unit)
-      fixture.close()
-    }
   }
 
   @Test
@@ -519,7 +359,7 @@ class MapPresentationTest {
       fixture.state.styleAuthority.markStyleReady(fixture.adapter)
       val second = fixture.state.style.sources["second"]
       backing.replaceSource(attributedVectorSource("first", "updated"))
-      fixture.state.durableStyleCallbacks().onStyleSourcesChanged(fixture.adapter)
+      fixture.state.durableStyleCallbacks().onStyleSourcesChanged(fixture.adapter, "first")
       assertSame(second, fixture.state.style.sources["second"])
       assertEquals("updated", fixture.state.style.sources["first"]?.attributionHtml)
       assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
@@ -706,28 +546,6 @@ class MapPresentationTest {
     state.durableStyleCallbacks().onStyleFailed(adapter, "style refused")
 
     assertTrue(state.style.loadState is StyleLoadState.Failed)
-    state.close()
-    runtime.close()
-  }
-
-  @Test
-  fun a_durable_source_change_refreshes_sources_after_the_presentation_leaves() = runTest {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val token = state.reservePresentation()
-    val adapter = PresentationTestAdapter()
-    state.publishPresentation(token, adapter)
-    val style = RecordingStyleBinding(sources = listOf(attributedVectorSource()))
-    val callbacks = state.durableStyleCallbacks()
-    callbacks.onStyleChanged(adapter, style)
-    callbacks.onStyleReady(adapter)
-    state.releasePresentation(token, adapter)
-    testScheduler.advanceUntilIdle()
-
-    style.removeSource("tiles")
-    callbacks.onStyleSourcesChanged(adapter)
-
-    assertTrue(state.style.sources.none())
     state.close()
     runtime.close()
   }
@@ -1040,7 +858,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val first = RecordingStyleBinding()
     assertTrue(fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, first))
-    assertTrue(fixture.state.styleAuthority.markStyleReady(fixture.adapter))
+    fixture.state.styleAuthority.markStyleReady(fixture.adapter)
     assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
 
     val replacement = RecordingStyleBinding()
@@ -1048,7 +866,7 @@ class MapPresentationTest {
 
     assertEquals(StyleLoadState.Loading, fixture.state.style.loadState)
     assertNull(fixture.state.style.layers["anything"])
-    assertTrue(fixture.state.styleAuthority.markStyleReady(fixture.adapter))
+    fixture.state.styleAuthority.markStyleReady(fixture.adapter)
     assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
     fixture.close()
   }
@@ -1103,7 +921,8 @@ class MapPresentationTest {
       val recorded = RecordingStyleBinding()
       val binding =
         object : StyleBinding by recorded {
-          override fun addSource(definition: SourceDefinition): Boolean = throw failure
+          override fun addSource(definition: SourceDefinition): StyleCommand =
+            if (failure is StyleMutationException) rejectedStyleCommand(failure) else throw failure
         }
       fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
       fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
@@ -1890,10 +1709,13 @@ class MapPresentationTest {
           return recorded.layerProperty(layerId, name)
         }
 
-        override suspend fun sources(): Map<String, Source> {
-          val result = recorded.sources()
-          if (suspendQueries) queryGate.await()
-          return result
+        override fun addSource(definition: SourceDefinition): StyleCommand {
+          val added = recorded.addSource(definition)
+          if (!suspendQueries) return added
+          // The engine reports the addition only after the gate opens.
+          return CompletableDeferred<Unit>().also { pending ->
+            queryGate.invokeOnCompletion { pending.complete(Unit) }
+          }
         }
       }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
@@ -2546,16 +2368,10 @@ internal open class PresentationTestAdapter(
   var styleBinding: StyleBinding = RecordingStyleBinding()
   private val styleReconciler = StyleReconciler()
 
-  override suspend fun <T> reconcileStyleRevision(
-    revision: StyleSnapshot,
-    capture: suspend (StyleBinding) -> T,
-  ): T =
-    checkNotNull(
-      run {
-        styleReconciler.apply(styleBinding, revision)
-        capture(styleBinding)
-      },
-    )
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): Boolean {
+    styleReconciler.apply(styleBinding, revision)
+    return styleReconciler.settle(styleBinding)
+  }
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 

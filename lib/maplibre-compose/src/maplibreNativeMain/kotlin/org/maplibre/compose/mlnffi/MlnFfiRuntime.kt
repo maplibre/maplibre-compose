@@ -56,6 +56,14 @@ internal class MlnFfiRuntime(
     mainDispatcher.dispatch(EmptyCoroutineContext, Runnable { if (!closed) action() })
   }
 
+  /**
+   * Posts [action] to main even after close. It may only complete Kotlin state, such as a waiter
+   * that must not be left suspended.
+   */
+  fun completeOnMain(action: () -> Unit) {
+    mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(action))
+  }
+
   /** Starts suspending work from an event handler. */
   fun launchOnMain(action: suspend () -> Unit) = scope.launch { action() }
 

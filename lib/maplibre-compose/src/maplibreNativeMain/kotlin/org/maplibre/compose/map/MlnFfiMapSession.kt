@@ -50,7 +50,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
@@ -131,12 +130,12 @@ internal class MlnFfiMapSession(
   @Volatile internal var logger: MapLog?,
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
-  @Volatile internal var layoutDirection: LayoutDirection,
+  internal var layoutDirection: LayoutDirection,
   private val owner: MlnFfiRuntime,
 ) : MapAdapter, MlnFfiMapRenderer, MlnFfiRenderSessions, CameraInputTarget {
 
-  @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
-  @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
+  internal var callbacks: MapAdapter.Callbacks = callbacks
+  internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
   @Volatile private var closing = false
   private val closure = CompletableDeferred<Result<Unit>>()
   private var attaching: CompletableDeferred<Result<Unit>>? = null
@@ -187,7 +186,7 @@ internal class MlnFfiMapSession(
 
   private var failureReported = false
 
-  @Volatile private var requestedStyle: BaseStyle? = null
+  private var requestedStyle: BaseStyle? = null
   private val styleLoadTracker = StyleLoadTracker()
 
   /** The current request and the completion carrying its native generation. Main only. */
@@ -198,7 +197,7 @@ internal class MlnFfiMapSession(
   private var gestureEndGeneration = 0uL
   private var gestureEnd: Deferred<CommandCompletion>? = null
 
-  @Volatile private var styleBinding: MlnFfiStyleBinding? = null
+  private var styleBinding: MlnFfiStyleBinding? = null
 
   private val styleReconciler = StyleReconciler()
 
@@ -209,13 +208,6 @@ internal class MlnFfiMapSession(
     MlnFfiStyleBinding(
       map = map,
       owner = owner,
-      styleFailed = { identity, error ->
-        if (styleBinding?.identity === identity) {
-          styleLoadTracker.failed(identity)
-          finishStyleCommandGroup()
-          callbacks.onStyleFailed(this, error.message)
-        }
-      },
       contents = LoadedStyleContents.read(map),
       loggerProvider = { logger },
       sessionOpen = { !isClosing },
@@ -234,10 +226,10 @@ internal class MlnFfiMapSession(
   override var maximumFps: Int? = null
     private set
 
-  @Volatile private var cameraConstraints: CameraConstraints? = null
-  @Volatile private var renderSettings: RenderOptions? = null
-  @Volatile private var cameraProjection: CameraProjection = CameraProjection.Perspective
-  @Volatile private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
+  private var cameraConstraints: CameraConstraints? = null
+  private var renderSettings: RenderOptions? = null
+  private var cameraProjection: CameraProjection = CameraProjection.Perspective
+  private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
 
   // region host surface lifecycle
 
@@ -472,7 +464,14 @@ internal class MlnFfiMapSession(
       }
     }
 
-  /** Runs on main, as do the callbacks it makes. */
+  /**
+   * Runs on main, as do the callbacks it makes.
+   *
+   * TODO: once https://github.com/maplibre/maplibre-native-ffi/issues/959 delivers events and
+   *   completions to main in native order, handle style-loaded and loading-failed events after the
+   *   style command's completion, and end gesture reporting at the END completion, without the
+   *   generation comparisons here.
+   */
   private fun handleEvent(map: MapHandle, event: RuntimeEvent) {
     // Native completes END before reporting a newer generation. Its completed result identifies
     // where gesture camera reporting stops, even before the END waiter resumes on main.
@@ -515,7 +514,7 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_IDLE -> mapEvent?.let { callbacks.onEvent(this, it) }
 
       RuntimeEventType.MAP_SOURCE_CHANGED ->
-        if (styleBinding?.isLoaded == true) callbacks.onStyleSourcesChanged(this)
+        if (styleBinding?.isLoaded == true) callbacks.onStyleSourcesChanged(this, event.message)
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         val request = styleLoadTracker.requestId
@@ -607,34 +606,26 @@ internal class MlnFfiMapSession(
     map?.let { applyRequestedStyle(it, style, request) }
   }
 
-  override suspend fun <T> reconcileStyleRevision(
-    revision: StyleSnapshot,
-    capture: suspend (StyleBinding) -> T,
-  ): T {
+  override suspend fun reconcileStyleRevision(revision: StyleSnapshot): Boolean {
     val binding = checkNotNull(styleBinding)
     try {
       val prepared = styleReconciler.prepare(binding, revision)
       binding.commandGroup { styleReconciler.apply(binding, prepared) }
-      val resources = capture(binding)
-      if (!binding.revisionFailed) {
-        owner.postToMain {
-          if (
-            styleBinding === binding && !binding.revisionFailed && !styleLoadTracker.contentReady
-          ) {
-            val previousPresentation = styleLoadTracker.presentation
-            val ready = styleLoadTracker.reconciled(binding.identity)
-            finishStyleCommandGroup()
-            if (
-              previousPresentation != StylePresentation.Live &&
-                styleLoadTracker.presentation == StylePresentation.Live
-            ) {
-              presentation.requestRender()
-            }
-            if (ready) callbacks.onStyleReady(this)
-          }
+      val rejected = styleReconciler.settle(binding)
+      if (styleBinding === binding && !styleLoadTracker.contentReady) {
+        val previousPresentation = styleLoadTracker.presentation
+        val ready = styleLoadTracker.reconciled(binding.identity)
+        finishStyleCommandGroup()
+        if (
+          previousPresentation != StylePresentation.Live &&
+            styleLoadTracker.presentation == StylePresentation.Live
+        ) {
+          presentation.requestRender()
         }
+        // Delivered as its own main task, so a failing callback does not fail the reconciliation.
+        if (ready) owner.postToMain { if (styleBinding === binding) callbacks.onStyleReady(this) }
       }
-      return resources
+      return rejected
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -703,7 +694,7 @@ internal class MlnFfiMapSession(
   }
 
   /** Applied when a map is created. Getters read [viewport] after native applies it. */
-  @Volatile private var requestedCamera: CameraPosition? = null
+  private var requestedCamera: CameraPosition? = null
 
   override fun getCameraPosition(): CameraPosition = viewport.camera
 

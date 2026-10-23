@@ -24,6 +24,10 @@ public expect class PlatformMapScope
  * web. Those engine types may change in any minor release, so this function also requires opt-in to
  * [ExperimentalMaplibreComposeApi].
  *
+ * Sources and layers that [block] adds, removes, or moves are not reflected in [MapState.style]'s
+ * sources and layers, and style content may replace them. Use the style API to change content that
+ * the library tracks.
+ *
  * @throws IllegalStateException if the map is already closed. Web also throws this exception if no
  *   surface is attached when the call starts.
  * @throws kotlinx.coroutines.CancellationException if the map, engine, or Web attachment changes

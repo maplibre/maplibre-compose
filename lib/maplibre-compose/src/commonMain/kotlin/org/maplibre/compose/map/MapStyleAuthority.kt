@@ -12,6 +12,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.logging.MapLog
@@ -24,8 +25,8 @@ import org.maplibre.compose.style.groundScale
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
- * [MapState]. State changes run on the main thread; engine mutations and metadata reads run in
- * ordered queries and publish only while their binding and revision are current.
+ * [MapState]. Everything runs on main. Writes are submitted in order, and handles are published
+ * from what main submitted, while their loaded style is current.
  */
 internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
@@ -34,17 +35,11 @@ internal class MapStyleAuthority(
 ) : MapStyleStateOwner {
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
 
-  override val resourceCommands =
-    StyleResourceCommands(
-      style,
-      runtime.mainScope,
-      commitSources = { binding -> commitSourcesAfterCommand(binding) },
-    )
+  override val resourceCommands = StyleResourceCommands(style)
 
   override val logger: MapLog?
     get() = runtime.logger
 
-  private var revision = 0L
   private var groundScale: Float? = null
   /** The style and value of the last ground-scale write. */
   private var writtenGroundScale: Pair<StyleBinding, Float>? = null
@@ -64,43 +59,51 @@ internal class MapStyleAuthority(
       missingImageResolutions.clear()
     }
 
-  internal suspend fun markStyleReady(adapter: MapAdapter): Boolean =
-    refreshStyleResources(adapter, ready = true)
-
-  internal suspend fun refreshStyleResources(adapter: MapAdapter, ready: Boolean = false): Boolean {
+  /**
+   * Publishes the loaded style's handles and marks it ready. Source metadata that the engine
+   * changed while the style loaded, such as TileJSON attribution, is then read once more.
+   */
+  internal fun markStyleReady(adapter: MapAdapter) {
     lifecycle.requireMain()
-    val binding = style.currentLoadedStyle() ?: return false
-    if (!acceptsResources(adapter, binding) || style.loadState is StyleLoadState.Failed)
-      return false
-    if (ready && style.hasResources(binding)) {
-      style.loadState = StyleLoadState.Ready
-      writeGroundScale()
-      return true
+    val binding = style.currentLoadedStyle() ?: return
+    if (!acceptsResources(adapter, binding) || !publishResources(binding)) return
+    style.loadState = StyleLoadState.Ready
+    writeGroundScale()
+    runtime.mainScope.launch {
+      try {
+        style.refreshSources(binding)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        if (acceptsResources(adapter, binding)) {
+          runtime.logger?.w(error) { "Could not read the loaded style's sources" }
+        }
+      }
     }
-    val capturedRevision = revision
-    val resources = style.readResources(binding) ?: return false
-    if (capturedRevision != revision || !publishResources(resources)) return false
-    if (ready) {
-      style.loadState = StyleLoadState.Ready
-      writeGroundScale()
-    }
-    return true
+  }
+
+  /** Publishes new engine metadata for source [id], such as attribution from its TileJSON. */
+  internal suspend fun refreshStyleSource(adapter: MapAdapter, id: String) {
+    lifecycle.requireMain()
+    val binding = style.currentLoadedStyle() ?: return
+    if (!acceptsResources(adapter, binding)) return
+    style.refreshSource(binding, id)
   }
 
   private fun acceptsResources(adapter: MapAdapter, binding: StyleBinding): Boolean =
     lifecycle.acceptsAdapter(adapter) && style.isCurrentLoadedStyle(binding) && binding.isLoaded
 
-  /** Publishes ordered metadata while the loaded style remains current. */
-  private fun publishResources(resources: LoadedStyleResources): Boolean {
+  /** Publishes the handles of [binding] while it remains the loaded style. */
+  private fun publishResources(binding: StyleBinding): Boolean {
     lifecycle.requireMain()
     if (
       lifecycle.isClosed ||
-        !style.isCurrentLoadedStyle(resources.binding) ||
-        !resources.binding.isLoaded ||
+        !style.isCurrentLoadedStyle(binding) ||
+        !binding.isLoaded ||
         style.loadState is StyleLoadState.Failed
     )
       return false
-    style.updateResources(resources)
+    style.updateResources(style.resources(binding))
     return true
   }
 
@@ -150,7 +153,11 @@ internal class MapStyleAuthority(
     if (lifecycle.acceptsAdapter(adapter)) style.loadState = StyleLoadState.Failed(reason)
   }
 
-  /** Accepts a committed snapshot only for the loaded style that evaluated it. */
+  /**
+   * Accepts a committed snapshot only for the loaded style that evaluated it. When the engine
+   * rejects part of it, the latest revision is applied again: the rejected definitions stay out,
+   * and what they had blocked goes in.
+   */
   internal suspend fun applyStyleRevision(
     adapter: MapAdapter,
     binding: StyleBinding,
@@ -158,21 +165,21 @@ internal class MapStyleAuthority(
   ) {
     currentCoroutineContext().ensureActive()
     if (!beginStyleRevision(adapter, revision, binding)) return
-    val acceptedRevision = ++this.revision
     try {
       withContext(NonCancellable) {
-        val resources =
-          adapter.reconcileStyleRevision(revision) { style.readResources(it) } ?: return@withContext
-        if (
-          acceptedRevision == this@MapStyleAuthority.revision && acceptsResources(adapter, binding)
-        ) {
-          publishResources(resources)
+        var next = revision
+        while (acceptsResources(adapter, binding)) {
+          val rejected = adapter.reconcileStyleRevision(next)
+          if (!acceptsResources(adapter, binding)) return@withContext
+          publishResources(binding)
+          if (!rejected) return@withContext
+          next = style.declaredRevision
         }
       }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      if (acceptedRevision == this.revision && acceptsResources(adapter, binding)) {
+      if (acceptsResources(adapter, binding)) {
         runtime.logger?.w(error) { "Could not apply style content" }
         markStyleFailed(adapter, error.message)
       }
@@ -208,11 +215,9 @@ internal class MapStyleAuthority(
     val adapter = lifecycle.currentAdapter()
     if (adapter == null) {
       style.loadState = StyleLoadState.Pending
-      revision++
       return
     }
     style.loadState = StyleLoadState.Loading
-    revision++
     adapter.setBaseStyle(value)
   }
 
@@ -288,14 +293,6 @@ internal class MapStyleAuthority(
   private fun cancelMissingImageResolutions() {
     missingImageResolutions.values.forEach { it.work.cancel() }
     missingImageResolutions.clear()
-  }
-
-  /** @return false, with nothing published, when the loaded style changed first. */
-  private suspend fun commitSourcesAfterCommand(binding: StyleBinding): Boolean {
-    if (!isCurrent(binding) || !binding.isLoaded) return false
-    val capturedRevision = ++revision
-    val resources = style.readResources(binding) ?: return false
-    return capturedRevision == revision && publishResources(resources)
   }
 
   override fun isCurrent(binding: StyleBinding): Boolean =

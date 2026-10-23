@@ -12,7 +12,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -53,14 +52,14 @@ class SharedMapRuntimeTest {
         BridgeMapFixture.create(runtime = runtime).use { second ->
           first.whileRenderingOnRendererThread {
             second.whileRenderingOnRendererThread {
-              runBlocking {
+              runMapTest {
                 for (fixture in listOf(first, second)) {
                   fixture.bindState(fixture.state)
                 }
                 first.loadStyle(BaseStyle.Empty)
                 second.loadStyle(BaseStyle.Empty)
                 for (fixture in listOf(first, second)) {
-                  fixture.session.reconcileStyleRevision(StyleSnapshot.Empty) {}
+                  fixture.session.reconcileStyleRevision(StyleSnapshot.Empty)
                 }
                 assertSame(first.state.runtime, second.state.runtime)
                 val snapshot = runtime.createSnapshotter(BaseStyle.Empty)
