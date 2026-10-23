@@ -1135,7 +1135,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Null when the session closed before it accepted the query. */
+  /** Null when the session closed or lost its target before it accepted the query. */
   private fun submitQuery(
     session: RenderSessionHandle,
     geometry: RenderedQueryGeometry,
@@ -1145,7 +1145,7 @@ internal class MlnFfiMapSession(
     try {
       session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
     } catch (error: MaplibreException) {
-      if (error.status != Status.INVALID_STATE) throw error
+      if (error.status != Status.INVALID_STATE && error.status != Status.TARGET_LOST) throw error
       null
     }
 
