@@ -3,10 +3,15 @@ package org.maplibre.compose.location
 import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.ChannelResult
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.conflate
-import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 
 /**
  * Preferences for device-heading updates.
@@ -98,13 +103,51 @@ public sealed interface HeadingEvent {
 internal data object UnspecifiedHeadingEvent : HeadingEvent
 
 /**
- * Delivers the latest event and waits [interval] after each [HeadingEvent.Update]. Unlike `sample`,
- * this keeps the event that precedes completion, such as a final [HeadingEvent.Unavailable].
+ * Delivers at most one [HeadingEvent.Update] per [interval], keeping the latest one, and delivers
+ * [HeadingEvent.Unavailable] immediately. Unlike `sample`, this delivers the first update without
+ * waiting and keeps the last event before completion.
  */
 internal fun Flow<HeadingEvent>.throttleUpdates(interval: Duration): Flow<HeadingEvent> =
   if (interval == Duration.ZERO) this
   else
-    conflate().transform { event ->
-      emit(event)
-      if (event is HeadingEvent.Update) delay(interval)
+    flow {
+      coroutineScope {
+        val events = this@throttleUpdates.produceIn(this)
+        var cooldown: Job? = null
+        var pending: HeadingEvent.Update? = null
+        while (true) {
+          // A null result means the cooldown ended.
+          val received =
+            select<ChannelResult<HeadingEvent>?> {
+              events.onReceiveCatching { it }
+              cooldown?.onJoin { null }
+            }
+          if (received == null) {
+            cooldown = null
+            pending?.let { update ->
+              pending = null
+              emit(update)
+              cooldown = launch { delay(interval) }
+            }
+            continue
+          }
+          val event = received.getOrNull()
+          when {
+            event == null -> {
+              cooldown?.join()
+              pending?.let { emit(it) }
+              break
+            }
+            event !is HeadingEvent.Update -> {
+              pending = null
+              emit(event)
+            }
+            cooldown == null -> {
+              emit(event)
+              cooldown = launch { delay(interval) }
+            }
+            else -> pending = event
+          }
+        }
+      }
     }

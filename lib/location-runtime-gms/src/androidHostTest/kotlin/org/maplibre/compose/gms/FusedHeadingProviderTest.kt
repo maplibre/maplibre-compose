@@ -75,10 +75,9 @@ class FusedHeadingProviderTest {
         elapsedRealtimeNanos = { 0L },
       )
 
-    assertEquals(
-      listOf(HeadingEvent.Unavailable(reason = null, cause = failure)),
-      provider.updates().toList(),
-    )
+    val event = assertIs<HeadingEvent.Unavailable>(provider.updates().toList().single())
+    assertNull(event.reason)
+    assertEquals(failure.message, event.cause?.message)
   }
 
   @Test
