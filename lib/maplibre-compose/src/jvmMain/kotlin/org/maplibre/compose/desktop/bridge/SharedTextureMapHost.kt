@@ -103,6 +103,7 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
   ): Boolean {
     if (target.backend != producer) return false
     return withComposeContext { context ->
+      frameCompletion.adoptContext(context.skiaContext, ::contextReplaced)
       val texture = textures[target.generation] ?: return@withComposeContext false
       val drew = present(scope, context, texture, target.generation, destination)
       if (drew) textures.releaseRetired(except = target.generation)

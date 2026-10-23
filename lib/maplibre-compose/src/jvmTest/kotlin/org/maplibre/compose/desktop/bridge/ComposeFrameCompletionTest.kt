@@ -63,6 +63,36 @@ class ComposeFrameCompletionTest {
   }
 
   @Test
+  fun drawing_with_a_replaced_context_drops_its_wrappers_and_keeps_the_frame_held() {
+    ProductionBridgeTestRenderDriver.create().use { first ->
+      ProductionBridgeTestRenderDriver.create().use { second ->
+        first.withComposeContext { previous ->
+          second.withComposeContext { next ->
+            if (previous.skiaContext === next.skiaContext) {
+              FfiTestPlatform.skip("This environment has one Compose context to replace")
+            }
+            val completion = ComposeFrameCompletion()
+            val order = mutableListOf<String>()
+            completion.prepare(previous.skiaContext) { error("There is no previous context") }
+            completion.holdFrame { completed ->
+              assertTrue(completed)
+              order += "release"
+            }
+            completion.frameRecorded { error("The lost context cannot replay its frame") }
+            completion.adoptContext(next.skiaContext) { order += "replace" }
+            completion.adoptContext(next.skiaContext) { error("The context was already adopted") }
+            assertEquals(listOf("replace"), order)
+            assertTrue(completion.hasFrame, "Compose still reads the held frame")
+            completion.prepare(next.skiaContext) { error("The context was already adopted") }
+            assertEquals(listOf("replace", "release"), order)
+            completion.abandon()
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   fun context_loss_releases_held_ownership_once_without_replaying_lost_work() {
     val completion = ComposeFrameCompletion()
     var releases = 0

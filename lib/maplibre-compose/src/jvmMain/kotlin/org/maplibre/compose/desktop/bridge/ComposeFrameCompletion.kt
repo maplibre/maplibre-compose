@@ -34,6 +34,19 @@ internal class ComposeFrameCompletion {
     currentContext = context
   }
 
+  /**
+   * Calls [contextReplaced] when Compose draws with a context other than the last prepared one, so
+   * the host drops wrappers built for the old context. The held frame stays acquired: Compose still
+   * reads it, and the next [prepare] releases it.
+   */
+  fun adoptContext(context: DirectContext, contextReplaced: () -> Unit) {
+    val previousContext = currentContext
+    if (previousContext == null || previousContext === context) return
+    preserveFrame = null
+    contextReplaced()
+    currentContext = context
+  }
+
   /** Records that Compose will read the target when it replays the current picture. */
   fun frameRecorded(preserve: () -> Unit) {
     check(currentContext != null) { "The Compose context was not prepared" }
