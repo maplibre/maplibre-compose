@@ -1,7 +1,6 @@
 package org.maplibre.compose.sources
 
 import kotlin.test.Test
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -48,7 +47,8 @@ class CustomVectorTileSourceNativeTest {
       fun isMapFullyLoaded(): Boolean =
         fixture.bridge.session.readMap { map -> map.isFullyLoaded } == true
 
-      assertFalse(isMapFullyLoaded())
+      // The map snapshot reflects the pending tile once a later event refreshes it.
+      fixture.pumpUntil("the pending tile to hold the map's load") { !isMapFullyLoaded() }
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isMapFullyLoaded() }
 
