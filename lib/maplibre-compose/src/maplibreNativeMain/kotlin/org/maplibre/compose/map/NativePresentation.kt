@@ -396,7 +396,14 @@ internal class NativePresentation(
         }
         completed ?: return MlnFfiFrameResult.AwaitUpdate
       } catch (error: MaplibreException) {
-        throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
+        // A session whose target was lost rejects new demands; its state says so.
+        // TODO: report why once https://github.com/maplibre/maplibre-native-ffi/issues/984 keeps
+        // the reason a session lost its target.
+        val state = runCatching { session.getSnapshot().state }.getOrNull()
+        throw MlnFfiRecoverableFrameException(
+          "The MapLibre render session failed in state $state",
+          error,
+        )
       }
     when (result.disposition) {
       RenderResult.RENDERED -> {

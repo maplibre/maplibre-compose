@@ -2,6 +2,7 @@
 
 package org.maplibre.compose.mlnffi
 
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -21,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
+import org.maplibre.compose.map.currentThreadIdentity
 
 /**
  * A one-shot gate for tests, opened once and awaited by any number of threads. A wait parks its
@@ -104,11 +106,20 @@ internal class TestThread(name: String) : AutoCloseable {
   val dispatcher: CoroutineDispatcher = threadContext
   private val scope = CoroutineScope(dispatcher)
 
+  // Set by the thread's first task; until then, no caller is on the thread.
+  @Volatile private var identity: Any? = null
+
+  init {
+    scope.launch { identity = currentThreadIdentity() }
+  }
+
   /**
    * Runs [block] on the thread and parks the caller until it returns, as a host waits for its
-   * renderer thread. Returns its result, throwing whatever it threw.
+   * renderer thread. A call from the thread itself runs [block] directly. Returns its result,
+   * throwing whatever it threw.
    */
   fun <T> submit(block: () -> T): T {
+    if (identity != null && currentThreadIdentity() == identity) return block()
     val done = TestGate()
     var result: Result<T>? = null
     scope.launch {

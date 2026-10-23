@@ -143,6 +143,8 @@ private constructor(
   private var surfaceTarget = false
   // Written on the renderer thread and read on main.
   @Volatile private var renderFailure: Throwable? = null
+  // Recoverable frame failures since the last rendered frame.
+  private var recoveries = 0
 
   /** Counts frame visits, so a wait re-checks its condition after each one. */
   private val visits = MutableStateFlow(0L)
@@ -207,10 +209,29 @@ private constructor(
       if (renderingPaused) return@launch
       try {
         frame()
+      } catch (error: MlnFfiRecoverableFrameException) {
+        recover(error)
       } catch (error: Throwable) {
         renderFailure = renderFailure ?: error
       }
     }
+  }
+
+  /**
+   * Rebuilds the render session after a recoverable frame failure, as a production host does, and
+   * fails the test after the same number of attempts. Logged at info level, so a test that counts
+   * warnings does not count a rebuild.
+   */
+  private fun recover(error: MlnFfiRecoverableFrameException) {
+    if (++recoveries > MaxRenderRecoveryAttempts) {
+      renderFailure = renderFailure ?: error
+      return
+    }
+    MapLog.i(error) {
+      "Test frame failed; rebuilding the render session (attempt $recoveries of $MaxRenderRecoveryAttempts)"
+    }
+    loseSurface()
+    restoreSurface()
   }
 
   /**
@@ -283,6 +304,7 @@ private constructor(
               }
               hasRendered = true
               renderedFrames++
+              recoveries = 0
               // A display-paced host visits again, which drains results and re-arms the demand.
               hostSession.requestFrame()
             }
