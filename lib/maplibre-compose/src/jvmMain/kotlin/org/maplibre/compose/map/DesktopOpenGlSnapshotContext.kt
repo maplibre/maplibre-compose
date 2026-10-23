@@ -14,10 +14,14 @@ internal class DesktopOpenGlSnapshotContext private constructor(metalDevice: Lon
   AutoCloseable {
   private val context = DesktopEglContext.create(metalDevice)
 
+  // The private context uses the API that the config was chosen for: GLES through ANGLE on macOS,
+  // desktop OpenGL on Linux.
+  private val clientApi = if (metalDevice != null) OpenglClientApi.GLES else OpenglClientApi.GL
+
   val descriptor: OpenglContextDescriptor
     get() =
       context.handles
-        .copy(ownership = OpenglContextOwnership.DEDICATED, clientApi = OpenglClientApi.GLES)
+        .copy(ownership = OpenglContextOwnership.DEDICATED, clientApi = clientApi)
         .let(EglContextHandles::toFfi)
 
   override fun close() = context.close()
