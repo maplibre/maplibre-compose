@@ -40,7 +40,7 @@ internal class JsSnapshotSharer : SnapshotSharer {
           { error: dynamic ->
             val aborted = error.name as? String == "AbortError"
             continuation.resume(
-              if (aborted) SnapshotActionResult.Cancelled else SnapshotActionResult.Failed
+              if (aborted) SnapshotActionResult.Cancelled else SnapshotActionResult.Failed,
             )
           },
         )

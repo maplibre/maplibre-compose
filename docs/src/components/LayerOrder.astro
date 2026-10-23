@@ -1,0 +1,102 @@
+---
+import MapDiagram from "./MapDiagram.astro";
+
+const trail = "M26 216L46 163L117 150L144 104L135 42L167 13";
+---
+
+<div class="layer-comparison">
+  <figure
+    class="layer-order not-content"
+    role="group"
+    aria-label="The same trail in two layer positions. By default, the blue trail draws over the map labels. With Anchor.Below, the labels draw over the trail and remain readable."
+  >
+    <div class="example">
+      <div class="heading">Default</div>
+      <MapDiagram
+        label="The hiking trail draws above and covers parts of the labels."
+      >
+        <g class="labels" text-anchor="middle">
+          <text x="49" y="165">Park</text>
+          <text x="131" y="106">Hill Street</text>
+          <text x="261" y="179">Riverside</text>
+        </g>
+        <path d={trail} class="trail" />
+      </MapDiagram>
+      <span class="order">Labels, then trail</span>
+    </div>
+    <div class="example">
+      <div class="heading"><code>Anchor.Below</code></div>
+      <MapDiagram label="Labels draw above the hiking trail.">
+        <path d={trail} class="trail" />
+        <g class="labels" text-anchor="middle">
+          <text x="49" y="165">Park</text>
+          <text x="131" y="106">Hill Street</text>
+          <text x="261" y="179">Riverside</text>
+        </g>
+      </MapDiagram>
+      <span class="order">Trail, then labels</span>
+    </div>
+  </figure>
+</div>
+
+<style>
+.layer-comparison {
+  container-type: inline-size;
+}
+
+.layer-order {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 40rem;
+  margin: 1.5rem auto;
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.heading {
+  font-size: 0.875rem;
+}
+
+.trail {
+  fill: none;
+  stroke: blue;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.labels {
+  fill: #21323d;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  font-family: var(--sl-font);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:global([data-theme="dark"]) .labels {
+  fill: #f1f4f6;
+  stroke: #3e4d59;
+}
+
+.order {
+  color: var(--sl-color-gray-2);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+@container (max-width: 32rem) {
+  .layer-order {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 20rem;
+  }
+}
+</style>

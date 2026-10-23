@@ -10,12 +10,12 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * The camera's center, orientation, zoom, and screen-space framing.
  *
- * @param center Geographic position at the center of the camera's visible area.
- * @param zoom Zoom level at center. A value in the range of `[0 .. 25.5]`
- * @param bearing Direction that the camera is pointing in, in degrees clockwise from north.
- * @param pitch The camera angle, in degrees, from the nadir (directly down). A value in the range
- *   of `[0 .. 60]`
- * @param padding Physical edge insets in dp, added to the presentation's viewport insets. The
+ * @property center Geographic position at the center of the camera's visible area.
+ * @property zoom Zoom level at center. A value in the range of `[0 .. 25.5]`
+ * @property bearing Direction that the camera is pointing in, in degrees clockwise from north.
+ * @property pitch The camera angle, in degrees, from the nadir (directly down). The map keeps it
+ *   within the pitch limits of its [CameraConstraints][org.maplibre.compose.map.CameraConstraints].
+ * @property padding Physical edge insets in dp, added to the presentation's viewport insets. The
  *   center appears at the center of the remaining area.
  */
 @Immutable

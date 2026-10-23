@@ -1,0 +1,54 @@
+---
+interface Props {
+  action: string;
+  guide: string;
+}
+const { action, guide } = Astro.props;
+const swipe = action === "pan" || action === "zoom";
+const modifier = action === "boxZoom" ? "Shift" : action === "orbit" ? "Ctrl" : undefined;
+---
+
+<g>
+  <rect
+    x="208"
+    y="168"
+    width="96"
+    height="62"
+    rx="8"
+    fill="var(--sl-color-bg)"
+    stroke="var(--sl-color-gray-3)"
+    stroke-width="1.5"
+  />
+  <g display={modifier ? undefined : "none"}>
+    <rect
+      x="256"
+      y="145"
+      width="48"
+      height="19"
+      rx="4"
+      fill="var(--sl-color-bg)"
+      stroke="var(--sl-color-gray-3)"
+    />
+    <text
+      x="280"
+      y="159"
+      fill="var(--sl-color-text)"
+      font-family="sans-serif"
+      font-size="11"
+      text-anchor="middle"
+    >
+      {modifier}
+    </text>
+  </g>
+  <g
+    display={swipe ? undefined : "none"}
+    transform="translate(256 199) scale(.35) translate(-160 -120)"
+    fill="none"
+    stroke="#285daa"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d={guide} />
+  </g>
+</g>

@@ -70,8 +70,8 @@ class GeoJsonClusterTest {
 
       handle.asMutable!!.setData(
         GeoJsonData.Features(
-          buildFeatureCollection<Geometry, JsonObject?> { addFeature(Point(Position(0.0, 0.0))) }
-        )
+          buildFeatureCollection<Geometry, JsonObject?> { addFeature(Point(Position(0.0, 0.0))) },
+        ),
       )
       fixture.pumpUntil("the single point to replace the cluster") {
         val features = rendered()

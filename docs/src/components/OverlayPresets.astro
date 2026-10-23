@@ -1,0 +1,108 @@
+---
+import Api from "./Api.astro";
+import OverlayMap from "./OverlayMap.astro";
+---
+
+<div class="overlay-comparison">
+  <div
+    class="overlay-presets"
+    role="group"
+    aria-label="Compare overlay presets"
+  >
+    <figure>
+      <OverlayMap
+        preset="Default"
+        label="Map with a scale bar at the top left, compass at the top right, MapLibre logo at the bottom left, and attribution button at the bottom right."
+      />
+      <figcaption>
+        <Api of="MapOverlay.Default" display="Default" />
+        <p>Scale bar, compass, logo, and attribution.</p>
+      </figcaption>
+    </figure>
+    <figure>
+      <OverlayMap
+        preset="Full"
+        label="The default overlay with additional plus and minus zoom buttons in the middle of the right edge."
+      />
+      <figcaption>
+        <Api of="MapOverlay.Full" display="Full" />
+        <p>Default controls plus zoom buttons.</p>
+      </figcaption>
+    </figure>
+    <figure>
+      <OverlayMap
+        preset="AttributionOnly"
+        label="Map with only the MapLibre logo at the bottom left and attribution button at the bottom right."
+      />
+      <figcaption>
+        <Api of="MapOverlay.AttributionOnly" display="AttributionOnly" />
+        <p>Logo and attribution.</p>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="overlay-note">
+    Scale bars and compasses are shown while active. Attribution is shown
+    collapsed.
+  </p>
+</div>
+
+<style>
+.overlay-comparison {
+  container-type: inline-size;
+}
+
+.overlay-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-block: 1.5rem;
+}
+
+.overlay-presets > figure {
+  min-width: 0;
+  margin: 0;
+}
+
+figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+figcaption p {
+  margin-top: 0.375rem;
+  color: var(--sl-color-gray-2);
+}
+
+.overlay-note {
+  font-size: 0.875rem;
+  color: var(--sl-color-gray-2);
+}
+
+@container (max-width: 38rem) {
+  .overlay-presets {
+    grid-template-columns: 1fr;
+  }
+
+  .overlay-presets > figure {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: 1rem;
+  }
+
+  figcaption {
+    margin-top: 0;
+  }
+}
+
+@container (max-width: 26rem) {
+  .overlay-presets > figure {
+    display: block;
+  }
+
+  figcaption {
+    margin-top: 0.75rem;
+  }
+}
+</style>

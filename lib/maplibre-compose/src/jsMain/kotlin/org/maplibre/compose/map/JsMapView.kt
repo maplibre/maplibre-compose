@@ -27,7 +27,7 @@ internal actual fun rememberComposeMapPresentation(
           renderer = session,
           modifier =
             modifier.background(
-              if (session.canPresentFrames) Color.Transparent else options.uiOptions.loadColor
+              if (session.canPresentFrames) Color.Transparent else options.uiOptions.loadColor,
             ),
           logger = state.runtime.logger,
           presentFrames = session.canPresentFrames,

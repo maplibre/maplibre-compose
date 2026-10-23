@@ -75,6 +75,9 @@ import org.maplibre.compose.util.vertical
  * Info button from which an attribution popup text is expanded. This version retracts when the user
  * interacts with the map.
  *
+ * It shows [attributions] of the enclosing map's style and draws nothing while the style declares
+ * none. The text starts expanded and collapses when a gesture moves the camera.
+ *
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
@@ -131,13 +134,13 @@ public fun ExpandingAttributionButton(
     modifier
       .shadow(shadowElevation, attributionStyle.shape, clip = false)
       .then(
-        attributionStyle.border?.let { Modifier.border(it, attributionStyle.shape) } ?: Modifier
+        attributionStyle.border?.let { Modifier.border(it, attributionStyle.shape) } ?: Modifier,
       )
       .background(containerColor, attributionStyle.shape)
       .clip(attributionStyle.shape)
       // Without this, a drag across the attribution pans the map underneath it.
       .pointerInput(Unit) {}
-      .semantics { isTraversalGroup = true }
+      .semantics { isTraversalGroup = true },
   ) {
     val layoutDir = LocalLayoutDirection.current
 
@@ -150,7 +153,7 @@ public fun ExpandingAttributionButton(
 
     CompositionLocalProvider(
       LocalLayoutDirection provides
-        if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir
+        if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir,
     ) {
       Row(horizontalArrangement = rowArrangement, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.align(contentAlignment.vertical)) { toggleButton { expanded = !expanded } }

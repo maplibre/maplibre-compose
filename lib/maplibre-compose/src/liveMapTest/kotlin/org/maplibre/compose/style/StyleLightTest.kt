@@ -57,7 +57,7 @@ class StyleLightTest {
             Light(
               anchor = const(IlluminationAnchor.Map),
               intensity = const("bright").cast<FloatValue>(),
-            )
+            ),
           )
           light.set(Light(anchor = null, intensity = const("bright").cast<FloatValue>()))
           assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))

@@ -20,7 +20,7 @@ class GestureMathTest {
           Offset(4f, 20f) * direction,
           Offset(2f, 24f) * direction,
           45.0,
-        )
+        ),
       )
     }
     assertFalse(GestureMath.shouldStartShove(Offset(0f, 24f), Offset(0f, 24f), 46.0))
@@ -131,7 +131,7 @@ class GestureMathTest {
           1050.0,
           0.0,
           PanMomentum(baseTime = 100.milliseconds, durationScale = 2.0),
-        )
+        ),
       )
     val unscaled =
       assertNotNull(GestureMath.fling(1050.0, 0.0, PanMomentum(baseTime = 100.milliseconds)))
@@ -159,7 +159,7 @@ class GestureMathTest {
       val full = assertNotNull(calculate(VelocityMomentum(maximumDuration = 1000.milliseconds)))
       val half =
         assertNotNull(
-          calculate(VelocityMomentum(durationScale = 0.5, maximumDuration = 1000.milliseconds))
+          calculate(VelocityMomentum(durationScale = 0.5, maximumDuration = 1000.milliseconds)),
         )
       assertEquals(full / 2.0, half)
       assertNull(calculate(VelocityMomentum(durationScale = 0.0)))

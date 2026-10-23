@@ -208,7 +208,7 @@ internal class GlJsSnapshotterAdapter(
       }
     val cause = event.error as? Throwable
     recordLoadFailure(
-      IllegalStateException("$failed failed to load: ${event.error?.message}", cause)
+      IllegalStateException("$failed failed to load: ${event.error?.message}", cause),
     )
   }
 
@@ -274,7 +274,7 @@ internal class GlJsSnapshotterAdapter(
         bearing = camera.bearing
         pitch = camera.pitch
         padding = camera.padding.toPaddingOptions()
-      }
+      },
     )
   }
 

@@ -78,7 +78,7 @@ class SymbolLayerCompositionTest {
     val layout = assertNotNull(layer.value["layout"] as? JsonObject)
     assertEquals(
       Json.parseToJsonElement(
-          """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]"""
+          """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]""",
         )
         .normalizeNumbers(),
       assertNotNull(layout["text-variable-anchor-offset"]).normalizeNumbers(),

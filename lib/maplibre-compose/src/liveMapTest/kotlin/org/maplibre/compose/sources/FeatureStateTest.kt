@@ -47,7 +47,7 @@ class FeatureStateTest {
             GeoJsonData.Features(
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
-              }
+              },
             ),
         )
       fixture.state.style.sources.add(source)
@@ -105,7 +105,7 @@ class FeatureStateTest {
           {"id":"background","type":"background","paint":{"background-color":"#000000"}}
         ]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

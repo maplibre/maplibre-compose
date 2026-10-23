@@ -4,8 +4,6 @@ on:
   workflow_run:
     workflows:
       - CI
-      - CI ready
-      - CI full
     types:
       - completed
 
@@ -20,7 +18,7 @@ concurrency:
 jobs:
   retry:
     name: Retry one failed or timed-out job
-    runs-on: ubuntu-slim
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     if: >-
       (github.event.workflow_run.conclusion == 'failure'
@@ -64,7 +62,6 @@ jobs:
               "${run}/attempts/${CI_RUN_ATTEMPT}/jobs?per_page=100"
           )"
           # A primary failure or job timeout also fails all-good and can skip dependent jobs.
-          # Each tier's required check is named 'all-good (<tier>)'.
           primary_failures="$(
             jq '[
               .jobs[]

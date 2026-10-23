@@ -146,7 +146,7 @@ class BrowserLocationIndicatorTest {
           val renderer = assertNotNull(style.indicator("indicator"))
           style.addLayer(
             Json.parseToJsonElement(
-                """{"id":"above","type":"background","paint":{"background-opacity":0}}"""
+                """{"id":"above","type":"background","paint":{"background-opacity":0}}""",
               )
               .jsonObject,
             "",
@@ -269,7 +269,7 @@ class BrowserLocationIndicatorTest {
             "layout":{"shadow-image":"shadow","bearing-image":"bearing","top-image":"top"},
             "paint":{"location":[0,0,0],"bearing":90,"perspective-compensation":0,
               "bearing-accuracy":30,"bearing-accuracy-radius":70,"bearing-accuracy-color":"yellow"}
-          }"""
+          }""",
               )
               .jsonObject,
             "",
@@ -329,7 +329,7 @@ class BrowserLocationIndicatorTest {
                 """{
             "id":"indicator","type":"location-indicator","layout":{"top-image":"dot"},
             "paint":{"location":[35,-180.0001,0],"bearing":45,"image-tilt-displacement":12}
-          }"""
+          }""",
               )
               .jsonObject,
             "",
@@ -344,7 +344,7 @@ class BrowserLocationIndicatorTest {
                   this.zoom = zoom
                   pitch = 55.0
                   bearing = 30.0
-                }
+                },
               )
             }
             // The pinned engine's globe default interpolates from zoom 11 to 12.
@@ -395,7 +395,7 @@ class BrowserLocationIndicatorTest {
                 """{
             "id":"indicator","type":"location-indicator","layout":{"top-image":"dot"},
             "paint":{"location":[0,0,0]}
-          }"""
+          }""",
               )
               .jsonObject,
             "",
@@ -469,7 +469,7 @@ class BrowserLocationIndicatorTest {
           "perspective-compensation":0.85,"accuracy-radius":1000000,
           "accuracy-radius-color":"rgba(0,0,255,0.15)","accuracy-radius-border-color":"blue",
           "bearing-accuracy":30,"bearing-accuracy-radius":70,"bearing-accuracy-color":"rgba(0,0,255,0.4)"}
-        }"""
+        }""",
               )
               .jsonObject,
             "",
@@ -492,14 +492,14 @@ class BrowserLocationIndicatorTest {
           style.addSource(
             "query-point",
             Json.parseToJsonElement(
-                """{"type":"geojson","data":{"type":"Feature","properties":{"name":"source"},"geometry":{"type":"Point","coordinates":[0,0]}}}"""
+                """{"type":"geojson","data":{"type":"Feature","properties":{"name":"source"},"geometry":{"type":"Point","coordinates":[0,0]}}}""",
               )
               .jsonObject,
           )
           for (id in listOf("lower", "upper")) {
             style.addLayer(
               Json.parseToJsonElement(
-                  """{"id":"$id","type":"circle","source":"query-point","paint":{"circle-radius":1}}"""
+                  """{"id":"$id","type":"circle","source":"query-point","paint":{"circle-radius":1}}""",
                 )
                 .jsonObject,
               "indicator",
@@ -523,7 +523,7 @@ class BrowserLocationIndicatorTest {
                 pitch = 60.0
                 bearing = 35.0
                 zoom = 3.0
-              }
+              },
             )
           }
           style.setLayerProperty(
@@ -570,7 +570,7 @@ class BrowserLocationIndicatorTest {
                 pitch = 0.0
                 bearing = 0.0
                 zoom = 0.0
-              }
+              },
             )
           }
           style.setLayerProperty(
@@ -640,7 +640,7 @@ class BrowserLocationIndicatorTest {
           assertTrue(
             histogram(readFramebuffer(gl, target.framebuffer, 256, 256)).getOrElse("#0000ff") {
               0
-            } > 400
+            } > 400,
           )
           style.setLayerProperty(
             "indicator",

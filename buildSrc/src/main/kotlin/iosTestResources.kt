@@ -40,8 +40,8 @@ fun Project.stageIosSimulatorTestResources() {
         files(
           bundle.zip(link.flatMap { it.outputFile }) { staged, binary ->
             staged.destinationDir.resolve(binary.name)
-          }
-        )
+          },
+        ),
       )
     }
   }

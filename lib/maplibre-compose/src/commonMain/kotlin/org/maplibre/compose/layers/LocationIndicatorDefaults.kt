@@ -41,7 +41,7 @@ public object LocationIndicatorDefaults {
           stroke = SolidColor(borderColor),
           strokeLineWidth = 2f,
         )
-      }
+      },
     )
 
   /** A north-pointing arrow, centered on the dot and extending beyond its border. */
@@ -65,7 +65,7 @@ public object LocationIndicatorDefaults {
             },
           fill = SolidColor(color),
         )
-      }
+      },
     )
 
   /** A soft 28 dp shadow, offset one dp below the location dot. */
@@ -96,6 +96,6 @@ public object LocationIndicatorDefaults {
               radius = 13f,
             ),
         )
-      }
+      },
     )
 }

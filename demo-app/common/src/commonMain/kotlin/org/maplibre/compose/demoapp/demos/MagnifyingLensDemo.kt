@@ -76,7 +76,7 @@ object MagnifyingLensDemo : Demo {
 
   private val rimBrush =
     Brush.sweepGradient(
-      listOf(Color(0xFF9E9E9E), Color(0xFFF5F5F5), Color(0xFF616161), Color(0xFF9E9E9E))
+      listOf(Color(0xFF9E9E9E), Color(0xFFF5F5F5), Color(0xFF616161), Color(0xFF9E9E9E)),
     )
 
   /** Each zoom level added doubles the scale, hence the 2×/4×/8× labels. */
@@ -111,7 +111,7 @@ object MagnifyingLensDemo : Demo {
         val target =
           currentLensCenter?.let {
             mapState.positionFromScreenLocation(
-              with(density) { DpOffset(it.x.toDp(), it.y.toDp()) }
+              with(density) { DpOffset(it.x.toDp(), it.y.toDp()) },
             )
           } ?: position.center
         position.copy(center = target, zoom = position.zoom + magnification)
@@ -125,7 +125,7 @@ object MagnifyingLensDemo : Demo {
           Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
             controlsCenter =
               overlayCoordinates?.localBoundingBoxOf(coordinates, clipBounds = false)?.center
-          }
+          },
         ) {
           Box(
             modifier =
@@ -141,7 +141,7 @@ object MagnifyingLensDemo : Demo {
                 .shadow(16.dp, lensShape.shape)
                 .border(6.dp, rimBrush, lensShape.shape)
                 .clip(lensShape.shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
           ) {
             MaplibreMap(
               modifier =
@@ -161,8 +161,8 @@ object MagnifyingLensDemo : Demo {
                     0.0f to Color.White.copy(alpha = 0.30f),
                     0.4f to Color.White.copy(alpha = 0.05f),
                     0.6f to Color.Transparent,
-                  )
-                )
+                  ),
+                ),
             )
           }
         }

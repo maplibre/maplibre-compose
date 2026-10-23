@@ -61,7 +61,7 @@ public actual sealed interface CameraAnimation {
     public val maxDuration: Duration?,
   ) : CameraAnimation {
     private constructor(
-      builder: Builder
+      builder: Builder,
     ) : this(
       builder.duration,
       builder.speed,

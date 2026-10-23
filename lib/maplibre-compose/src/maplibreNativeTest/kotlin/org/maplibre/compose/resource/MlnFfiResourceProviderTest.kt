@@ -81,7 +81,8 @@ class MlnFfiResourceProviderTest {
   fun a_rewrite_to_a_network_url_selects_the_native_loader() {
     val config =
       MapResourceConfig(
-        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
+        interceptor =
+          MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" }),
       )
     assertEquals(
       NativeResourceRoute.Fetch,
@@ -108,7 +109,7 @@ class MlnFfiResourceProviderTest {
   fun the_packaged_reader_receives_the_rewritten_url() {
     val config =
       MapResourceConfig(
-        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/rewritten.json" })
+        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/rewritten.json" }),
       )
     assertEquals(
       NativeResourceRoute.Read("file:/styles/rewritten.json"),

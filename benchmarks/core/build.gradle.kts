@@ -17,7 +17,7 @@ val benchmarkBuildInfo =
         "classic_ios" to libs.versions.maplibre.ios.get(),
         "native_ffi" to libs.versions.maplibre.nativeFfi.get(),
         "gl_js" to libs.versions.maplibre.js.get(),
-      )
+      ),
     )
     fixtureSources.from(
       rootProject.layout.projectDirectory.file("benchmarks/fixtures/manifest.json"),

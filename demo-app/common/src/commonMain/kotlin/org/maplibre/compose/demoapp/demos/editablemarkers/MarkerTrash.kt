@@ -54,12 +54,12 @@ internal fun MarkerTrash(
     val targetColor by
       animateColorAsState(
         if (overTrash) MaterialTheme.colorScheme.error
-        else MaterialTheme.colorScheme.surfaceContainerHigh
+        else MaterialTheme.colorScheme.surfaceContainerHigh,
       )
     val targetContent by
       animateColorAsState(
         if (overTrash) MaterialTheme.colorScheme.onError
-        else MaterialTheme.colorScheme.onSurfaceVariant
+        else MaterialTheme.colorScheme.onSurfaceVariant,
       )
     Surface(
       modifier =

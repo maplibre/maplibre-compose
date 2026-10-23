@@ -20,17 +20,6 @@ pluginManagement {
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
-    exclusiveContent {
-      forRepository {
-        val localRepository = providers.gradleProperty("maplibre.ffi.repository")
-        if (localRepository.isPresent) {
-          maven { url = uri(localRepository.get()) }
-        } else {
-          maven { url = uri("https://central.sonatype.com/repository/maven-snapshots/") }
-        }
-      }
-      filter { includeGroup("org.maplibre.nativeffi") }
-    }
     google {
       mavenContent {
         includeGroupAndSubgroups("androidx")

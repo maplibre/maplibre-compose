@@ -71,6 +71,11 @@ internal constructor(
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
@@ -105,7 +110,7 @@ internal constructor(
               LocationEvent.Update(
                 measurement = current.asLocationMeasurement(),
                 measurementMark = TimeSource.Monotonic.markNow(),
-              )
+              ),
             )
           }
         }
@@ -153,8 +158,9 @@ internal constructor(
   private val coroutineScope: CoroutineScope,
 ) {
   /**
-   * Creates a requester whose permission observation runs in [coroutineScope]. Cancelling the scope
-   * stops the observation.
+   * Creates a requester whose permission observation runs in [coroutineScope].
+   *
+   * @param coroutineScope Cancelling the scope stops the observation.
    */
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
 
@@ -214,7 +220,7 @@ internal constructor(
         when (
           val result =
             boundary.requestPosition(
-              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout)
+              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout),
             )
         ) {
           is BrowserResult.Position ->
@@ -305,7 +311,7 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
     val permissionStatus =
       try {
         navigator.permissions.query(
-          unsafeJso<PermissionDescriptor> { name = PermissionName.geolocation }
+          unsafeJso<PermissionDescriptor> { name = PermissionName.geolocation },
         )
       } catch (_: Throwable) {
         trySend(BrowserPermission.Unknown)
@@ -352,7 +358,7 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
 private fun LocationRequest.asBrowserOptions(): BrowserOptions =
   BrowserOptions(
     highAccuracy =
-      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High
+      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High,
   )
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {

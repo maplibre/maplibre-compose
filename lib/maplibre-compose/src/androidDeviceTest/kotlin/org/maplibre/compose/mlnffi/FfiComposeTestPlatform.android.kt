@@ -54,14 +54,14 @@ private fun startHangWatchdog(): Thread {
       return@Thread
     }
     System.err.println(
-      "An FFI Compose test has run for $HangDumpDelayMillis ms; dumping all threads:"
+      "An FFI Compose test has run for $HangDumpDelayMillis ms; dumping all threads:",
     )
     for ((thread, stack) in Thread.getAllStackTraces()) {
       System.err.println(thread)
       for (frame in stack) System.err.println("\tat $frame")
     }
     System.err.println(
-      "Killing the instrumentation process so a blocked frame pump cannot hold the job."
+      "Killing the instrumentation process so a blocked frame pump cannot hold the job.",
     )
     Process.killProcess(Process.myPid())
   }

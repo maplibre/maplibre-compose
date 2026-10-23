@@ -105,7 +105,7 @@ class MapClickDispatcherTest {
             fixture.node("front") {
               handled++
               ClickResult.Consume
-            }
+            },
           ),
           emptyList(),
         )
@@ -119,7 +119,7 @@ class MapClickDispatcherTest {
               }
             }
           }
-        }
+        },
       )
 
       val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
@@ -162,7 +162,7 @@ class MapClickDispatcherTest {
             fixture.node("front") {
               handled++
               ClickResult.Consume
-            }
+            },
           ),
           emptyList(),
         )
@@ -211,7 +211,7 @@ class MapClickDispatcherTest {
               }
             }
           }
-        }
+        },
       )
       assertEquals(
         ClickResult.Pass,
@@ -252,7 +252,7 @@ class MapClickDispatcherTest {
               onClick = {
                 order += "latest front"
                 ClickResult.Pass
-              }
+              },
             ),
           ),
           emptyList(),
@@ -274,7 +274,7 @@ class MapClickDispatcherTest {
             fixture.node("front") {
               calls++
               ClickResult.Pass
-            }
+            },
           ),
           emptyList(),
         )
@@ -305,7 +305,7 @@ class MapClickDispatcherTest {
               }
             }
           }
-        }
+        },
       )
       assertTrue(fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event).consumed)
       assertEquals(1, unhandled)
@@ -319,7 +319,7 @@ class MapClickDispatcherTest {
       fixture.configure(
         MapInteractions {
           callbacks { click { onUnhandled { error("old unhandled") } } }
-        }
+        },
       )
       fixture.revision.value =
         StyleSnapshot(
@@ -338,10 +338,10 @@ class MapClickDispatcherTest {
                       }
                     }
                   }
-                }
+                },
               )
               ClickResult.Pass
-            }
+            },
           ),
           emptyList(),
         )
@@ -392,7 +392,7 @@ class MapClickDispatcherTest {
     val revision = mutableStateOf<StyleSnapshot?>(null)
     val style =
       mutableStateOf<StyleBinding?>(
-        RecordingStyleBinding(layers = listOf(layer("back"), layer("front")))
+        RecordingStyleBinding(layers = listOf(layer("back"), layer("front"))),
       )
     val dispatcher: FeatureClickDispatcher
     val sample =

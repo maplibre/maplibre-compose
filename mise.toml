@@ -1,7 +1,7 @@
 # https://mise.jdx.dev
 
 monorepo_root = true
-min_version = "2026.7.15"
+min_version = "2026.10.12"
 
 [settings]
 lockfile = true
@@ -33,23 +33,22 @@ shell = "bash -e -c"
 android_cmdline_tools_version = "22.0"
 android_api_level = "36"
 actionlint_version = "1.7.12"
-dprint_version = "0.55.2"
-hk_version = "1.54.1"
-java_version = "zulu-25.36.15.0"
+dprint_version = "0.63.0"
+hk_version = "2.7.0"
+java_version = "zulu-25.36.205.0"
 jvl_version = "2026.05.03"
-ktfmt_version = "0.64"
+ktfmt_version = "0.65"
 metrics_bucket = "maplibre-compose-metrics"
-node_version = "24.19.0"
-playwright_version = "1.62.1"
-pnpm_version = "10.33.2"
-python_version = "3.14.7"
-ruff_version = "0.16.2"
+node_version = "26.12.0"
+playwright_version = "1.64.1"
+pnpm_version = "12.14.0"
+python_version = "3.15.0"
+ruff_version = "0.17.1"
 shellcheck_version = "0.11.0"
-swiftformat_version = "0.62.1"
+swiftformat_version = "0.64.0"
 wrangler_version = "4.125.0"
 xcodes_version = "2.0.3"
-zig_version = "0.16.0"
-appimagetool_version = "1.9.1"
+zig_version = "0.17.0"
 
 [tools]
 "aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
@@ -74,16 +73,17 @@ appimagetool_version = "1.9.1"
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
 # nothing formats Swift on Windows anyway.
-swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = ["macos", "linux"] }
+swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = [
+  "macos",
+  "linux",
+] }
 
 # The CLI only. Xcode itself comes from `mise run install-xcode`.
-"aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
+"aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = [
+  "macos",
+] }
 
 # Linux-only. Packs the jpackage application directory into a .AppImage.
-# Upstream ships the tool as an AppImage; the packaging script sets
-# APPIMAGE_EXTRACT_AND_RUN so it does not need FUSE. The tag is `1.9.1`,
-# not `v1.9.1`.
-"github:AppImage/appimagetool" = { version = "{{vars.appimagetool_version}}", os = ["linux"], version_prefix = "", bin = "appimagetool" }
 
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
@@ -196,7 +196,10 @@ run = ".mise/bin/capture-android-emulator-diagnostics"
 description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
 depends = [
-  { task = "android-emulator:boot", args = ["{{usage.api_level}}", "--headless"] },
+  { task = "android-emulator:boot", args = [
+    "{{usage.api_level}}",
+    "--headless",
+  ] },
 ]
 # One task name per Android plugin; see test:android.
 run = '.mise/bin/run-android-device-tests "$usage_api_level"'
@@ -381,16 +384,18 @@ run = '''
 '''
 
 [tasks."build:desktop-app"]
-description = "Package the demo app as an AppImage, DMG, or MSI for this host."
+description = "Package the Nucleus demo as an AppImage, DMG, or NSIS installer for this host."
 depends = ["deps:ngon-plugin"]
-run = '''
-if [ "$(uname -s)" = Linux ]; then
-  ./gradlew :demo-app:desktop:createDistributable
-  .mise/bin/package-desktop-appimage
-else
-  ./gradlew :demo-app:desktop:packageDistributionForCurrentOS
-fi
-'''
+env = { APPIMAGE_EXTRACT_AND_RUN = "1" }
+run = ".mise/bin/gradle-with-version build :demo-app:desktop-nucleus:packageDemo"
+
+[tasks."build:ios-simulator-app"]
+description = "Package the iOS demo for Apple Silicon simulators."
+run = ".mise/bin/package-ios-simulator-demo"
+
+[tasks."package:js-app"]
+description = "Archive the browser demo for static hosting."
+run = "./gradlew :demo-app:common:archiveBrowserDemo"
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
@@ -483,7 +488,7 @@ arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
-run = '.mise/bin/run-ios-demo'
+run = ".mise/bin/run-ios-demo"
 
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."

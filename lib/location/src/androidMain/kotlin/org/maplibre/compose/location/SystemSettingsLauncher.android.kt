@@ -24,7 +24,7 @@ public actual class SystemSettingsLauncher(private val context: Context) {
       Intent(
         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
         Uri.fromParts("package", context.packageName, null),
-      )
+      ),
     )
 
   public actual val canOpenLocationServicesSettings: Boolean = true

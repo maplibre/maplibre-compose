@@ -158,7 +158,7 @@ kotlin {
       implementation(libs.kotlin.wrappers.js)
       api(libs.kotlin.wrappers.browser)
       implementation(
-        npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get())
+        npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get()),
       )
       implementation(npm("@maplibre/geojson-vt", libs.versions.maplibre.geojsonVt.get()))
       implementation(npm("@maplibre/vt-pbf", libs.versions.maplibre.vtPbf.get()))
@@ -240,11 +240,11 @@ configurations.named("jvmTestRuntimeOnly") {
         project.dependencies.project(
           mapOf(
             "path" to
-              ":lib:${platform.runtimeArtifactId(platform.selectedRenderBackend(requestedDesktopBackend.orNull))}"
-          )
-        )
+              ":lib:${platform.runtimeArtifactId(platform.selectedRenderBackend(requestedDesktopBackend.orNull))}",
+          ),
+        ),
       )
-    }
+    },
   )
 }
 
@@ -290,7 +290,7 @@ tasks.named("prepareWebpackBundleForKotlinJsTests") {
         .replace(
           "// KOTLIN_TEST_BROWSER_CONFIG",
           "config.mochaSetupOptions.timeout = 60000;",
-        )
+        ),
     )
     browserTestResources.get().copyRecursively(bundle.resolve("composeResources"), overwrite = true)
   }

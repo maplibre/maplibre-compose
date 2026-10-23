@@ -49,11 +49,11 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
   fun factory_does_not_create_a_bridge_to_a_different_consumer() {
     assertIs<MlnFfiMapHostResult.Failed>(
       MetalPresentationHost("test", { null }, { it.run() })
-        .create(RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Direct3D12))
+        .create(RenderBackendPair(MapRenderBackend.Vulkan, ComposeRenderBackend.Direct3D12)),
     )
     assertIs<MlnFfiMapHostResult.Failed>(
       Direct3D12PresentationHost("test", { null }, { it.run() })
-        .create(RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Direct3D12))
+        .create(RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Direct3D12)),
     )
   }
 

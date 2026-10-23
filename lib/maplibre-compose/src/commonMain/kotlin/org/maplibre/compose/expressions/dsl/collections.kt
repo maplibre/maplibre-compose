@@ -27,7 +27,7 @@ public fun <T : ExpressionValue?> list(vararg elements: Expression<T>): Expressi
 /** Returns the item at [index]. */
 @JvmName("getAt")
 public operator fun <T : ExpressionValue?> Expression<ListValue<T>>.get(
-  index: Expression<IntValue>
+  index: Expression<IntValue>,
 ): Expression<T> = call("at", index, this)
 
 /** Returns the item at [index]. */
@@ -38,12 +38,14 @@ public operator fun <T : ExpressionValue?> Expression<ListValue<T>>.get(index: I
 /** Returns whether this list contains the [item]. */
 @JvmName("containsList")
 public fun <T : ExpressionValue?> Expression<ListValue<T>>.contains(
-  item: Expression<T>
+  item: Expression<T>,
 ): Expression<BooleanValue> = call("in", item, this)
 
 /**
  * Returns the first index at which the [item] is located in this list, or `-1` if it cannot be
- * found. Accepts an optional [startIndex] from where to begin the search.
+ * found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfList")
 public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(
@@ -53,7 +55,9 @@ public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(
 
 /**
  * Returns the first index at which the [item] is located in this list, or `-1` if it cannot be
- * found. Accepts an optional [startIndex] from where to begin the search.
+ * found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfList")
 public fun <T : ExpressionValue?> Expression<ListValue<T>>.indexOf(
@@ -88,7 +92,7 @@ public fun Expression<ListValue<*>>.length(): Expression<IntValue> = call("lengt
  * each item.
  */
 public fun Expression<ListValue<StringValue>>.join(
-  separator: Expression<StringValue>
+  separator: Expression<StringValue>,
 ): Expression<StringValue> = call("join", this, separator)
 
 /**
@@ -100,12 +104,12 @@ public fun Expression<ListValue<StringValue>>.join(separator: String): Expressio
 
 /** Returns the value corresponding the given [key] or `null` if it is not present in this map. */
 public operator fun <T : ExpressionValue?> Expression<MapValue<T>>.get(
-  key: Expression<StringValue>
+  key: Expression<StringValue>,
 ): Expression<T?> = call("get", key, this)
 
 /** Returns the value corresponding the given [key] or `null` if it is not present in this map. */
 public operator fun <T : ExpressionValue?> Expression<MapValue<T>>.get(
-  key: String
+  key: String,
 ): Expression<T?> = get(const(key))
 
 /** Returns whether the given [key] is in this map. */

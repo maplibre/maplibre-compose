@@ -36,7 +36,7 @@ class StyleGroundScaleTest {
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(0.0, 60.0)))
                 addFeature(geometry = Point(Position(0.0, 0.0)))
-              }
+              },
             ),
           )
         suspend fun declare() {
@@ -81,7 +81,7 @@ class StyleGroundScaleTest {
       BaseStyle.Json(
         """{"version":8,"transition":{"duration":0},"sources":{},"layers":[
         {"id":"background","type":"background","paint":{"background-color":"black"}}
-      ]}"""
+      ]}""",
       )
   }
 }

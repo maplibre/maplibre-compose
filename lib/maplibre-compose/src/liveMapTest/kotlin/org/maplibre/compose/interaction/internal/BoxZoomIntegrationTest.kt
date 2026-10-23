@@ -29,7 +29,7 @@ class BoxZoomIntegrationTest {
         createMapFixture().use { fixture ->
           fixture.loadStyle(BaseStyle.Empty)
           fixture.session.setViewportInsets(
-            PaddingValues(start = 50.dp, top = 20.dp, end = 10.dp, bottom = 30.dp)
+            PaddingValues(start = 50.dp, top = 20.dp, end = 10.dp, bottom = 30.dp),
           )
           val initial =
             CameraPosition(center = Position(179.0, 0.0), zoom = 4.0, bearing = 25.0, pitch = 20.0)
@@ -45,8 +45,8 @@ class BoxZoomIntegrationTest {
                   size.height / 2 - 40.dp,
                   size.width / 2 + 40.dp,
                   size.height / 2 + 40.dp,
-                )
-              )
+                ),
+              ),
             )
           val input = GestureInputSession(this, fixture.gestures)
           try {
@@ -85,8 +85,8 @@ class BoxZoomIntegrationTest {
         val fit =
           assertNotNull(
             fixture.gestures.boxZoomFit(
-              DpRect(size.width / 4, size.height / 4, size.width * 3 / 4, size.height * 3 / 4)
-            )
+              DpRect(size.width / 4, size.height / 4, size.width * 3 / 4, size.height * 3 / 4),
+            ),
           )
         val input = GestureInputSession(this, fixture.gestures)
         try {

@@ -1,5 +1,5 @@
 {
   "name": "maplibre-compose",
   "private": true,
-  "devDependencies": { "vite-plus": "^0.2.7" }
+  "devDependencies": { "vite-plus": "^1.3.0" }
 }

@@ -210,6 +210,10 @@
     "title": "Runtime readiness",
     "description": "After priming, reopen an empty local cache and record constructor return, readiness, close return, and cleanup completion.",
     "platforms": ["android", "ios", "desktop"],
-    "config": { "workload": "runtime-startup", "scene": "minimal", "rateHz": 1 }
+    "config": {
+      "workload": "runtime-startup",
+      "scene": "minimal",
+      "rateHz": 1
+    }
   }
 }

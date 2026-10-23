@@ -14,13 +14,13 @@ builds the patched engine and packages it with its worker in the JS artifact.
 - `mise run build:maplibre-gl-js` builds the engine and worker.
 - `mise run test:js` runs the Compose browser tests against the patched engine.
 
-To add a patch, sync first, edit the source, and save
-`git -C third_party/maplibre-gl-js diff --binary` as the next numbered patch.
-Applied patches are staged, so this captures only your new edits. Export edits
-before running `.mise/bin/sync-maplibre-gl-js force`, which discards them and
-reapplies the stack. Keep the submodule pin on an upstream commit. After adding
-or adapting a patch, run the upstream tests it touches, such as
-`npm run test-unit -- src/ui/camera.test.ts` in the submodule.
+To add a patch, sync first, edit the source, and save `git -C
+third_party/maplibre-gl-js diff --binary` as the next numbered patch. Applied
+patches are staged, so this captures only your new edits. Export edits before
+running `.mise/bin/sync-maplibre-gl-js force`, which discards them and reapplies
+the stack. Keep the submodule pin on an upstream commit. After adding or
+adapting a patch, run the upstream tests it touches, such as `npm run
+test-unit -- src/ui/camera.test.ts` in the submodule.
 
 When updating upstream, stage the new submodule pin, update the catalog version,
 drop merged patches, adapt the rest, and force-sync. Follow the

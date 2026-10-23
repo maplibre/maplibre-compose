@@ -125,7 +125,12 @@ runs:
       id: toolchain-key
       shell: bash
       run: |
-        prefix="toolchains-v1-${{ runner.os }}-${{ runner.arch }}-${ImageOS:-unknown}"
+        # Prefix includes the mise-action pin. A newer mise will not restore a
+        # tree extracted by an older one: bin paths and `.mise-bins` layout
+        # differ, and `mise install --locked` then reports the version already
+        # installed without rewriting those files.
+        mise_version="2026.10.12"
+        prefix="toolchains-v1-${{ runner.os }}-${{ runner.arch }}-${ImageOS:-unknown}-mise${mise_version}"
         echo "prefix=${prefix}" >> "$GITHUB_OUTPUT"
         echo "key=${prefix}-${{ hashFiles('mise.toml', 'mise.lock') }}" >> "$GITHUB_OUTPUT"
 
@@ -153,13 +158,14 @@ runs:
         xcodebuild -version
 
     - name: Install toolchains
-      uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
       env:
         # The postinstall hook installs Git hooks, which no CI job commits
         # through.
         MISE_NO_HOOKS: "1"
       with:
-        version: 2026.8.3
+        # Keep in sync with mise_version in "Compute toolchain cache key".
+        version: 2026.10.12
         cache: false
 
     - name: Save toolchains

@@ -60,8 +60,8 @@ class EnumValueTest {
       """["vertical-perspective","mercator",0.5]""",
       styleJson(
         const(
-          ProjectionTransition(ProjectionType.VerticalPerspective, ProjectionType.Mercator, 0.5f)
-        )
+          ProjectionTransition(ProjectionType.VerticalPerspective, ProjectionType.Mercator, 0.5f),
+        ),
       ),
     )
   }

@@ -75,7 +75,7 @@ class CustomGeometrySourceTest {
       val handle = fixture.attachSource()
       fixture.awaitReload {
         handle.invalidateBounds(
-          BoundingBox(southwest = Position(-10.0, -10.0), northeast = Position(10.0, 10.0))
+          BoundingBox(southwest = Position(-10.0, -10.0), northeast = Position(10.0, 10.0)),
         )
       }
     }
@@ -116,7 +116,7 @@ class CustomGeometrySourceTest {
    * renders its first features.
    */
   private suspend fun MapFixture.attachSource(
-    sourceLayer: String? = null
+    sourceLayer: String? = null,
   ): CustomGeometrySourceHandle {
     loadStyle(BlackStyle)
     val source =
@@ -214,7 +214,7 @@ class CustomGeometrySourceTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     val ReplacementStyle =
@@ -227,7 +227,7 @@ class CustomGeometrySourceTest {
           "layers": []
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     /** One named polygon covering the whole tile. */
@@ -249,8 +249,8 @@ class CustomGeometrySourceTest {
           Feature(
             geometry = Polygon(listOf(ring)),
             properties = buildJsonObject { put("name", name) },
-          )
-        )
+          ),
+        ),
       )
     }
   }

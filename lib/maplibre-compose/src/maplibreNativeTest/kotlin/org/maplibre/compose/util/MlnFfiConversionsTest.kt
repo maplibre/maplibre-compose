@@ -36,7 +36,7 @@ class MlnFfiConversionsTest {
   fun unsigned_feature_id_remains_a_json_number() {
     val feature =
       queriedFeature(
-          """{"type":"Feature","id":9223372036854775808,"geometry":{"type":"Point","coordinates":[0.0,0.0]},"properties":{}}"""
+          """{"type":"Feature","id":9223372036854775808,"geometry":{"type":"Point","coordinates":[0.0,0.0]},"properties":{}}""",
         )
         .toGeoJsonFeature()
 

@@ -58,7 +58,7 @@ internal class MetalMapHost(
   private fun allocate(extent: MapExtent, generation: Long): SharedTexture {
     val texture =
       NativeHandle(
-        MetalTexture.create(device.address, 0, extent.physicalWidth, extent.physicalHeight)
+        MetalTexture.create(device.address, 0, extent.physicalWidth, extent.physicalHeight),
       )
     val presentation =
       MetalTextureTarget(

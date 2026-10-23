@@ -75,7 +75,7 @@ public class AndroidMapPresentation(
       SupervisorJob() +
         Dispatchers.Main.immediate +
         AndroidPresentationFrameClock +
-        CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } }
+        CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } },
     )
   private var options by
     mutableStateOf(
@@ -84,7 +84,7 @@ public class AndroidMapPresentation(
         cameraConstraints = cameraConstraints,
         renderOptions = renderOptions,
         interactions = interactions,
-      )
+      ),
     )
   private var configuration by mutableStateOf(Configuration(configuration))
   private var binding: SurfaceBinding? by mutableStateOf(null)
@@ -154,11 +154,13 @@ public class AndroidMapPresentation(
   }
 
   /**
-   * Presents on [surface] until the returned binding closes, replacing the current binding. [width]
-   * and [height] are physical pixels. [density] is physical pixels per logical pixel. A density
-   * change recreates the native map.
+   * Presents on [surface] until the returned binding closes, replacing the current binding.
    *
    * Close the binding before releasing the Surface. Closing waits for rendering to stop using it.
+   *
+   * @param width The width in physical pixels.
+   * @param height The height in physical pixels.
+   * @param density Physical pixels per logical pixel. A density change recreates the native map.
    */
   public fun attachSurface(
     surface: Surface,

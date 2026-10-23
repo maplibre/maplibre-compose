@@ -106,7 +106,7 @@ class AndroidRenderRecoveryTest {
           controller.requestFrame()
           frameQueued.countDown()
           release.await(10, TimeUnit.SECONDS)
-        }
+        },
       )
       assertTrue(frameQueued.await(10, TimeUnit.SECONDS))
       val teardown = Thread { controller.surfaceDestroyed() }.apply { start() }

@@ -1,0 +1,330 @@
+# Rubberstamp (https://github.com/sargunv/rubberstamp) labels each new issue and
+# pull request from these groups. A label's meaning is its GitHub description
+# unless `describe` gives a longer one, and a group that already has a label
+# when the item opens keeps it.
+context: >-
+  This repository is MapLibre Compose, a Kotlin Multiplatform library that
+  shows MapLibre maps in Compose UI on Android, iOS, JVM desktop, native macOS,
+  and the browser. Android, iOS, desktop, and macOS render with MapLibre Native
+  through maplibre-native-ffi; the browser renders with MapLibre GL JS through
+  hand-written Kotlin bindings. The published libraries live in `lib/`, a demo
+  app in `demo-app/`, benchmarks in `benchmarks/`, and the documentation site in
+  `docs/`. Pull request titles usually follow Conventional Commits, and `!`
+  after the type marks a breaking change.
+
+labels:
+  context: >-
+    Maintainers label every issue and pull request so that they can find related
+    work later. Labels describe the subject of the work: what it changes, fixes,
+    or asks for. A file that a change touches only in passing, such as a docs
+    page, a demo screen, or a test updated alongside the real change, does not
+    make its area the subject.
+  groups:
+    kind:
+      labels: [bug, feature, perf, chore, research]
+      min: 1
+      max: 1
+    area:
+      labels: ["area:*"]
+      min: 1
+    engine:
+      labels: ["engine:*"]
+      rule: >-
+        Applies only when the work is specific to this rendering engine: it
+        concerns this engine's backend and not the other, or this engine
+        differently from the other. Work that applies to both engines alike does
+        not qualify.
+    platform:
+      labels: ["platform:*"]
+      rule: >-
+        Applies only when the work is specific to this platform: it concerns
+        behavior, code, builds, or packaging that differ on this platform. Work
+        that applies to every platform alike does not qualify.
+    breaking:
+      labels: [breaking]
+    upstream:
+      labels: [upstream]
+    dependencies:
+      labels: [dependencies]
+  describe:
+    bug: >-
+      Fixes or reports broken behavior: a crash, a wrong result, a failing build
+      or CI job, a violated API contract, or a regression.
+    feature: >-
+      Adds or changes a capability that library users, demo users, or
+      maintainers can use, including new API surface, new platforms or render
+      backends, and new demo screens or tooling.
+    perf: >-
+      Improves runtime speed, frame time, memory or resource use, or build and
+      CI time, without changing what the software does.
+    chore: >-
+      Maintenance that adds no capability and fixes nothing broken: refactoring,
+      cleanup, tests, documentation, formatting, routine dependency updates, and
+      process changes.
+    research: >-
+      Investigates a question, evaluates a design, or builds a deliberate
+      prototype, where the outcome is knowledge or a decision rather than
+      shipped code.
+    "area:map": >-
+      The map itself: the map composable and its state, map options, the camera
+      and camera animations, rendering and presentation of map frames, map
+      snapshots, Compose content placed at geographic positions on the map,
+      feature and projection queries, logging, and resource request hooks.
+    "area:style": >-
+      Map styles and their content: style loading, sources, layers, images,
+      fonts, and the properties that the MapLibre style spec defines for them.
+    "area:expressions": >-
+      The Kotlin expression DSL: its types and operators, and how expressions
+      are converted to MapLibre style-spec JSON for each engine.
+    "area:interaction": >-
+      How users interact with the map: gestures, clicks, input bindings and
+      callbacks, and the map controls such as the compass, zoom buttons, scale
+      bar, attribution, and logo, including the Material 3 versions.
+    "area:location": >-
+      Device location and heading: location providers and their platform
+      runtimes, permissions, camera tracking of the user's location, and the
+      location indicator.
+    "area:offline": >-
+      Offline maps: offline regions and downloads, and the APIs that manage the
+      tile and resource cache.
+    "area:integration": >-
+      What an app needs to depend on and ship the library: published artifacts
+      and their metadata, the per-platform and per-backend runtime modules,
+      native library loading and linking, and minimum supported OS, SDK, JDK,
+      Kotlin, and Compose versions.
+    "area:demo": >-
+      The demo apps in `demo-app/`: their screens, settings, and the launchers
+      for each platform.
+    "area:benchmarks": >-
+      The benchmarks in `benchmarks/`: the harness, scenarios, published
+      results, and the code metrics tool.
+    "area:docs": >-
+      The documentation as the subject: the documentation site and its examples,
+      KDoc when the change is to the documentation itself, README, CONTRIBUTING,
+      and repository guidance such as AGENTS.md.
+    "area:tooling": >-
+      Build and development infrastructure: Gradle builds, mise tasks and tools,
+      CI workflows, releases and publishing, formatters and linters, and
+      maintainer scripts.
+    "engine:native": >-
+      The MapLibre Native backend, used through maplibre-native-ffi on Android,
+      iOS, JVM desktop, and native macOS.
+    "engine:gl-js": >-
+      The MapLibre GL JS backend used in the browser, including its Kotlin
+      bindings.
+    "platform:android": >-
+      Android-specific behavior, builds, packaging, or reproduction, including
+      Android Auto and Wear OS.
+    "platform:ios": >-
+      iOS-specific behavior, builds, packaging, or reproduction, including
+      CarPlay.
+    "platform:desktop": >-
+      The JVM desktop target on any operating system, such as AWT and Nucleus
+      apps.
+    "platform:linux": >-
+      Linux-specific behavior, builds, packaging, or reproduction.
+    "platform:macos": >-
+      macOS-specific behavior, builds, packaging, or reproduction, on the JVM
+      desktop target or the native macOS target.
+    "platform:windows": >-
+      Windows-specific behavior, builds, packaging, or reproduction.
+    "platform:web": >-
+      Browser-specific behavior, builds, packaging, or reproduction.
+    breaking: >-
+      Library users must change their code or build to upgrade: a published API
+      is removed, renamed, or changes behavior, or a minimum supported version
+      rises. Changes to the demo, benchmarks, docs, or tooling alone do not
+      qualify.
+    upstream: >-
+      The cause of the bug, or the missing capability, is in a project this
+      library builds on, such as MapLibre Native, maplibre-native-ffi, MapLibre
+      GL JS, Compose Multiplatform, or Kotlin, rather than in this repository.
+    dependencies: >-
+      Upgrading, adding, removing, or managing a dependency is the substantive
+      subject, such as a library, toolchain, or submodule version change.
+
+# Coverage units that CI selects from each pull request. Jev answers one
+# question per unit; a changed file matching one of a unit's `paths` selects it
+# regardless, and `*` also matches `/` in those patterns. `ci/jobs.json` maps
+# each unit to its jobs.
+ci:
+  # Only this workflow's successful runs count as units passing.
+  workflow: .github/workflows/ci.yml
+  context: >-
+    Every CI job installs the mise toolchain and builds the Kotlin Multiplatform
+    libraries in `lib/` with Gradle for the targets it tests. Kotlin source sets
+    decide which platforms compile a file: `commonMain` builds everywhere;
+    `maplibreNativeMain` on Android, iOS, desktop, and macOS Native;
+    `androidJvmMain` on Android and desktop; `nonAndroidMain` on desktop, iOS,
+    macOS Native, and the browser; `appleMain` on iOS and macOS Native; and
+    `androidMain`, `iosMain`, `macosMain`, `jvmMain` (desktop), and `jsMain`
+    (browser) on one platform each. Test source sets follow the same pattern.
+
+    The Linux x64 desktop unit runs the shared and MapLibre Native tests
+    against real maps, so it catches most problems in shared Kotlin code and in
+    calls to existing maplibre-native-ffi APIs. The other units catch what it
+    cannot: other operating systems and their APIs, other GPU backends,
+    architectures, oldest supported OS versions, native library loading and
+    packaging, and the browser engine. A change's size is not platform risk.
+    Shared code is at risk on another platform only when it touches what that
+    platform builds differently: its source sets, expect/actual declarations
+    that it implements, its runtime modules, or its packaging.
+
+    Upgrading maplibre-native-ffi, Kotlin, Compose Multiplatform, the Android
+    Gradle plugin, or the Gradle wrapper changes how every platform builds and
+    puts every unit that builds with it at risk. Upgrading MapLibre GL JS puts
+    the browser and the docs at risk. Other dependency updates put at risk the
+    units that build the code that uses them.
+
+    Each job's steps live in `.github/workflows/ci.yml` and the reusable
+    `job-*.yml` workflows, and every job runs the shared setup action in
+    `.github/actions/setup-ci-deps`. A change to a job's definition puts that
+    job's units at risk. A shared script, mise task, tool version, or setup
+    step that every job runs the same way is covered by Linux x64, except where
+    an operating system runs it differently, such as Windows shells and paths.
+    Release, publishing, and scheduled workflows do not run in pull request CI.
+
+    Hygiene always runs. It checks formatting, Android Lint, the style spec
+    parity report, and the unit tests for the scripts in `ci/` and
+    `benchmarks/`. Changes that only affect those need no other coverage.
+
+    The main branch runs every unit after merge, so a pull request only needs
+    the coverage that a reviewer would expect its change to put at risk.
+  units:
+    abi:
+      covers: >-
+        Checks the published libraries' Kotlin ABI against the dumps committed
+        in each module's `api/` directory, for every target. Catches
+        unintended changes to public API and dumps that were not updated. Any
+        change to public or protected declarations in a `lib/` main source
+        set, or to which targets a library publishes, needs it. Changes to
+        private or internal code, tests, the demo, or tooling do not.
+      paths: ["lib/*/api/*"]
+    docs:
+      covers: >-
+        Builds the documentation site, an Astro and Starlight project in
+        `docs/`, with its Dokka API reference and Kotlin examples imported from
+        `demo-app/common/src/*/kotlin/org/maplibre/compose/docsnippets/`. Loads
+        the browser demo embedded in the site, measures the code metrics page,
+        and deploys a site preview. Catches broken pages, links, snippets, KDoc
+        rendering, and code metrics tooling. Changes to KDoc, the docs site, its
+        snippets, or `tools/code-metrics/` need it.
+      paths:
+        - docs/*
+        - demo-app/common/src/*/kotlin/org/maplibre/compose/docsnippets/*
+        - tools/code-metrics/*
+    web:
+      covers: >-
+        The browser target with MapLibre GL JS: builds the patched MapLibre GL
+        JS submodule and the hand-written Kotlin bindings, and runs the browser
+        tests with real maps in Chromium, Firefox, and WebKit. Catches binding,
+        Kotlin/JS, and browser rendering problems, and problems in shared code
+        that behaves differently on MapLibre GL JS. Code that only the MapLibre
+        Native platforms build does not need it.
+      paths:
+        - "*/src/jsMain/*"
+        - "*/src/jsTest/*"
+        - third_party/maplibre-gl-js
+        - patches/maplibre-gl-js/*
+        - tools/maplibre-gl-js/*
+        - kotlin-js-store/*
+    android:
+      covers: >-
+        Android API 36 with OpenGL ES and Vulkan: runs the Android host tests
+        and screenshot tests, runs the device tests in the emulator, builds the
+        phone, TV, Android Auto, and Wear OS demo apps, and publishes every
+        library to a local Maven repository. Catches Android API, Android
+        Gradle plugin, JNI and native library loading, emulator, and
+        publication problems. Shared code that Linux x64 already tests does not
+        need it.
+      paths:
+        - "*/src/androidMain/*"
+        - "*/src/androidHostTest/*"
+        - "*/src/androidDeviceTest/*"
+        - lib/*-android/*
+        - lib/location-runtime-gms/*
+        - lib/location-runtime-hms/*
+        - demo-app/android/*
+        - demo-app/android-auto/*
+        - demo-app/wearos/*
+        - mise.android.*
+    android-oldest:
+      covers: >-
+        Android API 26, the oldest emulator image the device tests run on, near
+        the library's minimum SDK of 24. Runs the device tests in the emulator.
+        Catches Android APIs, Java library APIs, and platform behavior that
+        older Android versions lack. Android code that only uses APIs available
+        on every supported version does not need it.
+    ios:
+      covers: >-
+        iOS with Metal: runs the iOS simulator tests on the runner's newest iOS
+        runtime, builds the iOS simulator demo app, and links the demo and
+        benchmark frameworks for iOS devices. Catches Kotlin/Native, UIKit,
+        Apple SDK, Metal, cinterop, and framework linking problems. Shared code
+        that Linux x64 already tests does not need it.
+      paths:
+        - "*/src/appleMain/*"
+        - "*/src/appleTest/*"
+        - "*/src/iosMain/*"
+        - "*/src/iosTest/*"
+        - demo-app/ios/*
+        - benchmarks/ios/*
+    ios-oldest:
+      covers: >-
+        Runs the iOS simulator tests on iOS 15.5, the oldest supported iOS.
+        Catches Apple APIs and behavior that older iOS versions lack and
+        deployment target problems. iOS code that only uses APIs available on
+        every supported version does not need it.
+    macos-native:
+      covers: >-
+        The Kotlin/Native macOS ARM64 target with Metal: runs its tests and
+        builds the native macOS demo app. Catches Kotlin/Native, AppKit, Apple
+        SDK, and cinterop problems. Shared code that Linux x64 already tests
+        does not need it.
+      paths:
+        - "*/src/appleMain/*"
+        - "*/src/appleTest/*"
+        - "*/src/macosMain/*"
+        - "*/src/macosTest/*"
+        - "*/src/macosArm64Main/*"
+        - demo-app/macos/*
+    desktop-linux-x64:
+      covers: >-
+        The JVM desktop target on Linux x64 with OpenGL and Vulkan: runs the
+        shared and desktop tests against real maps in a separate process for
+        each backend, and packages the desktop demo as an AppImage. This is the
+        general correctness check for shared Kotlin code, the map, style, and
+        expression APIs, and calls into maplibre-native-ffi.
+      paths: [lib/*-linux-x64/*, lib/location-runtime-linux/*]
+    desktop-linux-arm64:
+      covers: >-
+        The JVM desktop target on Linux ARM64, on ARM runners. Runs the same
+        tests and packaging as Linux x64. Catches architecture-specific
+        problems: native library selection and loading for the architecture,
+        ABI and pointer layout, and ARM runner toolchain differences.
+        Architecture-neutral changes do not need it.
+      paths: [lib/*-linux-arm64/*]
+    desktop-macos:
+      covers: >-
+        The JVM desktop target on macOS ARM64 with Metal, OpenGL, and Vulkan
+        (MoltenVK): runs the desktop tests for each backend and packages the
+        desktop demo as a DMG. Catches macOS, AWT on macOS, Metal, and macOS
+        packaging problems. Shared code that Linux x64 already tests does not
+        need it.
+      paths: [lib/*-macos-arm64/*, lib/location-runtime-macos/*]
+    desktop-windows-x64:
+      covers: >-
+        The JVM desktop target on Windows x64 with OpenGL and Vulkan: runs the
+        desktop tests for each backend and packages the desktop demo as an NSIS
+        installer. Catches Windows API, path and filesystem, shell, native
+        library loading, and Windows packaging problems. Shared code that Linux
+        x64 already tests does not need it.
+      paths: [lib/*-windows-x64/*, lib/location-runtime-windows/*]
+    desktop-windows-arm64:
+      covers: >-
+        The JVM desktop target on Windows ARM64. Runs the same tests and
+        packaging as Windows x64. Catches architecture-specific problems on
+        Windows: native library selection and loading for the architecture,
+        ABI and pointer layout, and ARM runner toolchain differences.
+        Architecture-neutral changes do not need it.
+      paths: [lib/*-windows-arm64/*]

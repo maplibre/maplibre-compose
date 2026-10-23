@@ -71,7 +71,7 @@ class AppKitMapHostTest {
               1,
               1,
               0f,
-            )
+            ),
           )
         assertNull(host.forwardDrag(event))
         assertEquals(event, received.last())

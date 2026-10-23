@@ -65,7 +65,7 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
                     (SystemClock.elapsedRealtimeNanos() - event.timestamp)
                       .coerceAtLeast(0)
                       .nanoseconds,
-              )
+              ),
             )
           }
         }

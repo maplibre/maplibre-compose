@@ -126,7 +126,7 @@ class FusedHeadingProviderTest {
                 registration
               } else if (failure == null) {
                 (args!![2] as DeviceOrientationListener).onDeviceOrientationChanged(
-                  deviceOrientation
+                  deviceOrientation,
                 )
                 Tasks.forResult(null)
               } else {

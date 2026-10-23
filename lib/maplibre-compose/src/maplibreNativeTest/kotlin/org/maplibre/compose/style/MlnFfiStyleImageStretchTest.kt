@@ -37,7 +37,7 @@ class MlnFfiStyleImageStretchTest {
                 y = listOf(12.5.dp..50.dp),
                 content = DpRect(12.5.dp, 12.5.dp, 57.5.dp, 50.dp),
               ),
-          )
+          ),
         )
       }
 

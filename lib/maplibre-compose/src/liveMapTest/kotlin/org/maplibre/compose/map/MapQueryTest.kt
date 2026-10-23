@@ -107,7 +107,7 @@ class MapQueryTest {
 
       val features =
         it.state.queryRenderedFeatures(
-          rect = DpRect(left = 0.dp, top = 0.dp, right = 512.dp, bottom = 512.dp)
+          rect = DpRect(left = 0.dp, top = 0.dp, right = 512.dp, bottom = 512.dp),
         )
 
       assertTrue(features.isNotEmpty(), "Expected a hit somewhere in the viewport")
@@ -296,7 +296,7 @@ class MapQueryTest {
             .size,
         )
         assertTrue(
-          fixture.state.queryRenderedFeatures(DpOffset(20.dp, 20.dp), setOf("indicator")).isEmpty()
+          fixture.state.queryRenderedFeatures(DpOffset(20.dp, 20.dp), setOf("indicator")).isEmpty(),
         )
         assertTrue(fixture.state.queryRenderedFeatures(Center, emptySet()).isEmpty())
         // Native's dynamic feature index does not apply source-feature predicates to indicators.
@@ -307,7 +307,7 @@ class MapQueryTest {
               predicate = Feature["name"].cast<StringValue>() eq const("missing"),
             )
             .single()
-            .geometry
+            .geometry,
         )
         style.run {
           style.setLayerProperty(

@@ -70,7 +70,7 @@ class RuntimeShaderPainterTest {
               layout["icon-image"],
             )
             captured.image.toImageBitmap()
-          }
+          },
         )
       val runtime =
         mapRuntimeForTest(

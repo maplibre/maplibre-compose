@@ -162,7 +162,7 @@ private fun SidebarLayout(
           .fillMaxHeight()
           .padding(safeInsets.asPaddingValues())
           .consumeWindowInsets(safeInsets.asPaddingValues())
-          .padding(ShellSpacing)
+          .padding(ShellSpacing),
     ) {
       Surface(
         modifier = Modifier.width(panelWidth).fillMaxHeight(),
@@ -229,7 +229,7 @@ private fun SheetLayout(
       },
       sheetContent = {
         CompositionLocalProvider(
-          LocalSheetPeeking provides (sheetState.targetValue == SheetValue.PartiallyExpanded)
+          LocalSheetPeeking provides (sheetState.targetValue == SheetValue.PartiallyExpanded),
         ) {
           panel(
             Modifier.fillMaxWidth()

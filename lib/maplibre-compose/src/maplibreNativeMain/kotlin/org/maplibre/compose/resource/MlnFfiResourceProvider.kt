@@ -79,7 +79,7 @@ internal class MlnFfiResourceProvider(
    */
   private val readScope =
     CoroutineScope(
-      SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader")
+      SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader"),
     )
 
   /** The runtime's resource provider callback. Runs on MapLibre's network threads. */
@@ -188,7 +188,7 @@ internal class MlnFfiResourceProvider(
             "was requested after the resource provider shut down",
             error = null,
             logger = logger,
-          )
+          ),
         )
       }
     } catch (error: Throwable) {
@@ -369,7 +369,7 @@ private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 
 /** Copies the FFI request into the request a [MapResourceProvider] loads, field for field. */
 internal fun ResourceRequestInfo.toLoadRequest(
-  url: String = resolvedUrl.orEmpty()
+  url: String = resolvedUrl.orEmpty(),
 ): MapResourceLoadRequest =
   MapResourceLoadRequest(
     url = url,

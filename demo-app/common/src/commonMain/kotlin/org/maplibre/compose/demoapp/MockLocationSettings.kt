@@ -171,7 +171,7 @@ private fun BearingDial(bearing: Float, accuracy: Float?, onChange: (Float) -> U
                 change.consume()
               } while (change.pressed)
             }
-          }
+          },
       ) {
         val radius = size.minDimension / 2f - 2.dp.toPx()
         drawCircle(

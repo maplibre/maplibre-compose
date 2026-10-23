@@ -72,7 +72,7 @@ class ImageSourceDrawTest {
       style.install(
         TestLayer("image-layer", "raster", source).apply {
           paint("raster-fade-duration", JsonPrimitive(0))
-        }
+        },
       )
 
       fixture.pumpUntilPixel("the half-alpha image over black", 64, Equator, HalfRed)
@@ -157,7 +157,7 @@ class ImageSourceDrawTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     val OtherBlackStyle =
@@ -171,7 +171,7 @@ class ImageSourceDrawTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

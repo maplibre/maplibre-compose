@@ -214,7 +214,7 @@ class MlnFfiMapSurfaceRecoveryTest {
           Modifier.size(64.dp).layout { measurable, constraints ->
             val child =
               measurable.measure(
-                constraints.copy(maxWidth = constraints.maxWidth + measureTick.value)
+                constraints.copy(maxWidth = constraints.maxWidth + measureTick.value),
               )
             layout(child.width, child.height) { child.place(0, 0) }
           },
@@ -274,7 +274,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++created
             return MlnFfiFrameResult.Rendered(
-              RecordingProjection(frame.target.extent, id) { closed += id }
+              RecordingProjection(frame.target.extent, id) { closed += id },
             )
           }
         }
@@ -327,7 +327,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             if (result !is MlnFfiFrameResult.Rendered) return result
             val id = ++nextProjection
             return MlnFfiFrameResult.Rendered(
-              RecordingProjection(frame.target.extent, id) { projectionCloses += id }
+              RecordingProjection(frame.target.extent, id) { projectionCloses += id },
             )
           }
 
@@ -367,7 +367,7 @@ class MlnFfiMapSurfaceRecoveryTest {
                   placedProjection = published.value
                   child.place(0, 0)
                 }
-              }
+              },
             )
           }
       }
@@ -579,7 +579,7 @@ class MlnFfiMapSurfaceRecoveryTest {
             host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.NotReady
           }
           host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.Failure
-        }
+        },
       )
 
     setSurfaceContent(renderer, factory)
@@ -689,7 +689,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
           host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.UnexpectedFailure
-        }
+        },
       )
 
     setSurfaceContent(renderer, factory)

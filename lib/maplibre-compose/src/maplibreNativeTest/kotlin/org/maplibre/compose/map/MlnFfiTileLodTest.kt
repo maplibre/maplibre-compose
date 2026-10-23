@@ -62,7 +62,7 @@ class MlnFfiTileLodTest {
       fixture.session.setTileLodSettings(
         TileLodOptions(TileLodOptions.Performance) {
           algorithm = TileLodAlgorithm.CameraDistance(distance) { pitchThreshold = 30.0 }
-        }
+        },
       )
       val appliedDistance = assertNotNull(fixture.session.readMap { it.tileOptions })
 
@@ -132,7 +132,7 @@ class MlnFfiTileLodTest {
                 pitchThreshold = 0.0
                 zoomShift = shift
               }
-            }
+            },
           )
           fixture.state.setCameraPosition(CameraPosition(zoom = 6.0, pitch = 60.0))
           fixture.pumpUntil("the pitched camera to apply") {

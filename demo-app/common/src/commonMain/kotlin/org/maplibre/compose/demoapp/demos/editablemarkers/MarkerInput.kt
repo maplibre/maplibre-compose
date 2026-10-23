@@ -151,7 +151,7 @@ private fun MarkerInputTarget(
           hover(false)
           gesture.cancel()
         }
-      }
+      },
   )
 }
 

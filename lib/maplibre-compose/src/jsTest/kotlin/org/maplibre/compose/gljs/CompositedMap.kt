@@ -50,7 +50,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
         override fun requestFrame() {
           frameRequests++
         }
-      }
+      },
     )
     // ensureMap constructs the MapLibre map only after this session is the reserved adapter.
     state.publishPresentation(token, session)

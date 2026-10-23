@@ -37,7 +37,7 @@ public fun MaplibreLogo(
     contentDescription = contentDescription,
     modifier =
       modifier.then(
-        onClick?.let { Modifier.clickable(onClick = it, role = Role.Image) } ?: Modifier
+        onClick?.let { Modifier.clickable(onClick = it, role = Role.Image) } ?: Modifier,
       ),
   )
 }

@@ -100,7 +100,7 @@ sealed interface DemoLaunchRoute {
           Benchmark(
             requireNotNull(allBenchmarkScenarios.firstOrNull { it.id == tail }) {
               "Unknown benchmark '$tail'"
-            }
+            },
           )
         head == DemoRoute.Settings && (tail == null || "$head/$tail" in settingsPages) ->
           Settings(tail)

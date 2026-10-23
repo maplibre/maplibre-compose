@@ -4,6 +4,7 @@ import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightCopyButton from "starlight-copy-button";
+import starlightKbd from "starlight-kbd";
 import starlightLinksValidator from "starlight-links-validator";
 
 const base = "/maplibre-compose";
@@ -34,6 +35,10 @@ export default defineConfig({
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
+        starlightKbd({
+          globalPicker: false,
+          types: [{ id: "keys", label: "Keyboard", default: true }],
+        }),
         // Generated static sites own these paths outside Astro's page tree.
         starlightLinksValidator({
           exclude: [`${base}/api/**`, `${base}/demo/app/**`],
@@ -48,16 +53,20 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", link: "/" },
-        { label: "Getting started", slug: "getting-started" },
         { label: "Live demo", slug: "demo" },
         {
           label: "Guides",
           items: [
+            { label: "Getting started", slug: "getting-started" },
+            { label: "Platform setup", slug: "platform-setup" },
             { label: "Style the map", slug: "styling" },
             { label: "Control the camera", slug: "camera" },
             { label: "Add data to the map", slug: "layers" },
             { label: "Add images and icons", slug: "images" },
+            { label: "Cluster points", slug: "clustering" },
+            { label: "Show 3D buildings and relief", slug: "terrain" },
             { label: "Handle gestures and clicks", slug: "interaction" },
+            { label: "Query and highlight features", slug: "features" },
             { label: "Overlay Compose UI", slug: "controls" },
             { label: "Show the user's location", slug: "location" },
             { label: "Capture a map image", slug: "snapshotter" },

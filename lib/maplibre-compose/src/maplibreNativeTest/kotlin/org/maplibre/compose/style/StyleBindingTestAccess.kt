@@ -11,5 +11,5 @@ internal fun <T> MlnFfiStyleBinding.readMap(action: (MapHandle) -> T): T {
 }
 
 internal fun MlnFfiStyleBinding.imageStretches(
-  id: String
+  id: String,
 ): Pair<List<ImageStretch>, List<ImageStretch>>? = readMap { it.styleImageStretches(id) }

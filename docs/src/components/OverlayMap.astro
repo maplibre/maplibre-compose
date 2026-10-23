@@ -1,0 +1,128 @@
+---
+import MapDiagram from "./MapDiagram.astro";
+import compass from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/compass_needle.xml?raw";
+import logo from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/maplibre_logo.xml?raw";
+import info from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/info.xml?raw";
+import add from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/add.xml?raw";
+import remove from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/remove.xml?raw";
+
+// Reuse the controls' vector artwork without loading Compose or a map engine.
+function paths(vector: string, tint?: string): string {
+  const attributes: Record<string, string> = {
+    pathData: "d",
+    fillColor: "fill",
+    fillAlpha: "fill-opacity",
+    fillType: "fill-rule",
+    strokeColor: "stroke",
+    strokeAlpha: "stroke-opacity",
+    strokeWidth: "stroke-width",
+    strokeLineCap: "stroke-linecap",
+    strokeLineJoin: "stroke-linejoin",
+  };
+  return [...vector.matchAll(/<path\b[\s\S]*?\/>/g)]
+    .map(([path]) =>
+      path.replace(/android:(\w+)="([^"]*)"/g, (_, name, value) => {
+        if (name === "fillColor" && tint) value = tint;
+        if (name === "fillType") value = value === "evenOdd" ? "evenodd" : "nonzero";
+        return `${attributes[name]}="${value}"`;
+      }),
+    )
+    .join("\n");
+}
+
+interface Props {
+  preset: "Default" | "Full" | "AttributionOnly";
+  label: string;
+}
+
+const { preset, label } = Astro.props;
+---
+
+<!-- One SVG unit represents one dp, with the default font scale. -->
+<MapDiagram label={label}>
+  <g display={preset === "AttributionOnly" ? "none" : undefined}>
+    <g
+      transform="translate(8 8)"
+      font-family="sans-serif"
+      font-size="11"
+    >
+      <!-- Both measures share the middle line, with end ticks facing their labels. -->
+      <!-- At 1 metre per dp, the default distance stops are 100 m and 200 ft (61 dp). -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path
+          d="M2 7V16H102V7M2 25V16H63V25"
+          stroke="#fff"
+          stroke-opacity=".75"
+          stroke-width="4"
+        />
+        <path
+          d="M2 7V16H102V7M2 25V16H63V25"
+          stroke="#000"
+          stroke-opacity=".75"
+          stroke-width="2"
+        />
+      </g>
+      <g
+        fill="#000"
+        fill-opacity=".75"
+        stroke="#fff"
+        stroke-opacity=".75"
+        stroke-width="2"
+        paint-order="stroke"
+      >
+        <text x="8" y="11">100 m</text>
+        <text x="8" y="29">200 ft</text>
+      </g>
+    </g>
+    <g transform="translate(264 8)">
+      <circle
+        cx="24"
+        cy="24"
+        r="24"
+        fill="#fff"
+        fill-opacity=".9"
+      />
+      <g transform="translate(8 8) scale(1.333333)">
+        <g
+          transform="rotate(-30 12 12)"
+          set:html={paths(compass)}
+        />
+      </g>
+    </g>
+  </g>
+
+  <g
+    transform="translate(264 71.5)"
+    display={preset === "Full" ? undefined : "none"}
+  >
+    <rect
+      width="48"
+      height="97"
+      rx="24"
+      fill="#fff"
+      fill-opacity=".9"
+    />
+    <path
+      d="M0 48.5H48"
+      stroke="#000"
+      stroke-opacity=".2"
+    />
+    <g
+      transform="translate(12 12) scale(.025)"
+      opacity=".75"
+      set:html={paths(add, "#000")}
+    />
+    <g
+      transform="translate(12 61) scale(.025)"
+      opacity=".75"
+      set:html={paths(remove, "#000")}
+    />
+  </g>
+
+  <g transform="translate(8 209)" set:html={paths(logo)} />
+  <g
+    transform="translate(280 200) scale(.025)"
+    opacity=".75"
+    set:html={paths(info, "#000")}
+  />
+</MapDiagram>

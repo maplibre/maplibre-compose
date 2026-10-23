@@ -7,10 +7,11 @@ import kotlin.time.Instant
 /**
  * The kind of resource MapLibre is about to fetch.
  *
- * [value] is the engine's name for the kind, such as `SpriteJSON`. MapLibre Native reports a kind
- * as a number, so a kind that has no name here holds that number as decimal text, such as `8`.
- *
  * Values may be added in minor releases; use an `else` branch when matching.
+ *
+ * @property value The engine's name for the kind, such as `SpriteJSON`. MapLibre Native reports a
+ *   kind as a number, so a kind that has no name here holds that number as decimal text, such as
+ *   `8`.
  */
 @Immutable
 @JvmInline
@@ -32,7 +33,7 @@ public value class MapResourceKind internal constructor(public val value: String
 /**
  * One resource MapLibre is about to fetch.
  *
- * [url] is the URL after the engine resolves tile-server aliases.
+ * @property url The URL after the engine resolves tile-server aliases.
  */
 public data class MapResourceRequest
 internal constructor(
@@ -57,19 +58,20 @@ internal constructor(
  */
 public interface MapRequestInterceptor {
   /**
-   * Returns the URL to fetch instead of [MapResourceRequest.url]. A null or blank result keeps
-   * [MapResourceRequest.url].
+   * Returns the URL to fetch instead of [MapResourceRequest.url].
    *
    * The [MapResourceProvider] loads a rewrite that it accepts. Otherwise the engine HTTP client
    * fetches an HTTP or HTTPS URL, including a rewrite of a custom-scheme URL, and MapLibre Native
    * reads a `file:` URL as a packaged resource.
+   *
+   * @return the URL to fetch. A null or blank result keeps [MapResourceRequest.url].
    */
   public fun rewriteUrl(request: MapResourceRequest): String? = null
 
   /**
    * Returns the HTTP headers for a request that the engine HTTP client fetches.
    *
-   * [MapResourceRequest.url] is the URL after [rewriteUrl].
+   * @param request Its [MapResourceRequest.url] is the URL after [rewriteUrl].
    */
   public fun headers(request: MapResourceRequest): Map<String, String> = emptyMap()
 }
@@ -93,10 +95,13 @@ public fun MapRequestInterceptor(
 /**
  * One resource that a [MapResourceProvider] loads.
  *
- * [url] is the URL after the engine resolves tile-server aliases and [MapRequestInterceptor]
- * rewrites it. [requestedUrl] is the URL in the style; on the browser it equals [url]. The prior
- * fields are the validators and the body of the cached copy. A provider uses them to revalidate.
- * The browser has no ambient cache, so it passes the default for every field after [kind].
+ * The prior fields are the validators and the body of the cached copy. A provider uses them to
+ * revalidate. The browser has no ambient cache, so it passes the default for every field after
+ * [kind].
+ *
+ * @property url The URL after the engine resolves tile-server aliases and [MapRequestInterceptor]
+ *   rewrites it.
+ * @property requestedUrl The URL in the style; on the browser it equals [url].
  */
 public class MapResourceLoadRequest
 internal constructor(
@@ -118,10 +123,10 @@ internal constructor(
   /**
    * Limits the load to the cache or to the network. [All] allows both.
    *
-   * [value] is MapLibre Native's name for the method, such as `CacheOnly`. A method that has no
-   * name here holds the number that MapLibre Native reports, as decimal text.
-   *
    * Values may be added in minor releases; use an `else` branch when matching.
+   *
+   * @property value MapLibre Native's name for the method, such as `CacheOnly`. A method that has
+   *   no name here holds the number that MapLibre Native reports, as decimal text.
    */
   @Immutable
   @JvmInline
@@ -136,10 +141,10 @@ internal constructor(
   /**
    * The priority of the load.
    *
-   * [value] is MapLibre Native's name for the priority, such as `Low`. A priority that has no name
-   * here holds the number that MapLibre Native reports, as decimal text.
-   *
    * Values may be added in minor releases; use an `else` branch when matching.
+   *
+   * @property value MapLibre Native's name for the priority, such as `Low`. A priority that has no
+   *   name here holds the number that MapLibre Native reports, as decimal text.
    */
   @Immutable
   @JvmInline
@@ -153,10 +158,10 @@ internal constructor(
   /**
    * The consumer of the resource: a map, or an offline pack download.
    *
-   * [value] is MapLibre Native's name for the usage, such as `Offline`. A usage that has no name
-   * here holds the number that MapLibre Native reports, as decimal text.
-   *
    * Values may be added in minor releases; use an `else` branch when matching.
+   *
+   * @property value MapLibre Native's name for the usage, such as `Offline`. A usage that has no
+   *   name here holds the number that MapLibre Native reports, as decimal text.
    */
   @Immutable
   @JvmInline
@@ -170,10 +175,10 @@ internal constructor(
   /**
    * The cache retention policy for the resource.
    *
-   * [value] is MapLibre Native's name for the policy, such as `Volatile`. A policy that has no name
-   * here holds the number that MapLibre Native reports, as decimal text.
-   *
    * Values may be added in minor releases; use an `else` branch when matching.
+   *
+   * @property value MapLibre Native's name for the policy, such as `Volatile`. A policy that has no
+   *   name here holds the number that MapLibre Native reports, as decimal text.
    */
   @Immutable
   @JvmInline
@@ -190,11 +195,11 @@ internal constructor(
 /**
  * The cause of a failed resource load. Most reasons correspond to an HTTP status.
  *
- * [value] is MapLibre Native's name for the reason, such as `NotFound`. MapLibre Native reports a
- * reason as a number, so a reason that has no name here holds that number as decimal text, such as
- * `6`.
- *
  * Values may be added in minor releases; use an `else` branch when matching.
+ *
+ * @property value MapLibre Native's name for the reason, such as `NotFound`. MapLibre Native
+ *   reports a reason as a number, so a reason that has no name here holds that number as decimal
+ *   text, such as `6`.
  */
 @Immutable
 @JvmInline
@@ -268,9 +273,10 @@ public sealed interface MapResourceLoad {
   /**
    * A failed load.
    *
-   * [reason] is the HTTP status that the engine handles. MapLibre reports no error for a
-   * [MapResourceError.NotFound] tile and draws no data for it. Return [NoContent] for a tile
-   * outside the data set.
+   * MapLibre reports no error for a [MapResourceError.NotFound] tile and draws no data for it.
+   * Return [NoContent] for a tile outside the data set.
+   *
+   * @property reason The HTTP status that the engine handles.
    */
   public class Failed(
     public val reason: MapResourceError,
@@ -293,12 +299,14 @@ public interface MapResourceProvider {
    * Returns whether this provider loads [request]. Return true only for requests that [load]
    * handles.
    *
-   * [MapResourceRequest.url] is the URL after [MapRequestInterceptor.rewriteUrl]. This function
-   * runs on the same threads as [MapRequestInterceptor.rewriteUrl]. It must return quickly, be safe
-   * to call concurrently, and call no map API.
+   * This function runs on the same threads as [MapRequestInterceptor.rewriteUrl]. It must return
+   * quickly, be safe to call concurrently, and call no map API.
    *
    * If it throws an exception, the library logs a warning and treats the result as false: the
    * request loads as if this provider had not accepted it.
+   *
+   * @param request Its [MapResourceRequest.url] is the URL after
+   *   [MapRequestInterceptor.rewriteUrl].
    */
   public fun accepts(request: MapResourceRequest): Boolean
 
@@ -336,8 +344,9 @@ public fun MapResourceProvider(
 /**
  * Returns a provider that serves URLs whose scheme is [scheme].
  *
- * [scheme] is the scheme name without a trailing colon, such as `app`. [load] runs as
- * [MapResourceProvider.load] does, and an exception from it fails the request the same way.
+ * @param scheme The scheme name without a trailing colon, such as `app`.
+ * @param load Runs as [MapResourceProvider.load] does, and an exception from it fails the request
+ *   the same way.
  */
 public fun MapResourceProvider(
   scheme: String,

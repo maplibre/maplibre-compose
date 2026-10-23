@@ -115,7 +115,7 @@ class StyleGlobalStateTest {
            "features":[{"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[0,0]}}]}}},
          "layers":[{"id":"background","type":"background","paint":{"background-color":"black"}}]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

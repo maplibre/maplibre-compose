@@ -25,7 +25,7 @@ internal actual object FfiTestPlatform {
         withIntermediateDirectories = true,
         attributes = null,
         error = null,
-      )
+      ),
     ) {
       "Could not create FFI test directory $directory"
     }

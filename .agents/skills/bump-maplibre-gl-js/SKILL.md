@@ -59,13 +59,12 @@ and the tile shape passed between them by `GlJsCustomGeometryAttachment`.
 
 Kotlin compilation does not check `external` declarations against upstream
 TypeScript, and runtime tests cover only the members they exercise, so an
-upstream rename compiles here and fails at runtime with
-`undefined is not a function`. Check every declared member against the new
-`.d.ts`: it still exists under the same name, and its type has not widened or
-narrowed (a field became optional, a return gained `| undefined`). The
-declarations deliberately use narrower types than MapLibre's `*Like` unions,
-such as `LngLat` for `LngLatLike` and `Point` for `PointLike`; confirm those
-still hold.
+upstream rename compiles here and fails at runtime with `undefined is not a
+function`. Check every declared member against the new `.d.ts`: it still exists
+under the same name, and its type has not widened or narrowed (a field became
+optional, a return gained `| undefined`). The declarations deliberately use
+narrower types than MapLibre's `*Like` unions, such as `LngLat` for `LngLatLike`
+and `Point` for `PointLike`; confirm those still hold.
 
 ## 4. Look for new capability worth binding
 
@@ -76,9 +75,9 @@ between the two versions for:
 - **Gaps against the other platforms.** Anything `commonMain` declares that the
   browser answers with `NotImplementedError` or `UnsupportedOperationException`.
   A release that closes one is the reason to bind new members.
-- **TODOs waiting on upstream.**
-  `git grep -n TODO lib/maplibre-compose/src/jsMain` finds the ones parked
-  against a MapLibre GL JS limitation.
+- **TODOs waiting on upstream.** `git grep -n TODO
+  lib/maplibre-compose/src/jsMain` finds the ones parked against a MapLibre GL
+  JS limitation.
 - **New APIs.** New `Map` methods, style-spec properties, and source or layer
   types that the common API could expose. Style-spec gaps go through the
   `style-spec-parity` skill.

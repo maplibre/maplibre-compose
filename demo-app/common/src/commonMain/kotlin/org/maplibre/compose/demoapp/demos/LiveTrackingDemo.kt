@@ -159,7 +159,7 @@ object LiveTrackingDemo : Demo {
         }
         if (followVehicle && !mapState.isCameraMoving) {
           mapState.setCameraPosition(
-            mapState.cameraPosition.copy(center = positionAt(crossing.distance))
+            mapState.cameraPosition.copy(center = positionAt(crossing.distance)),
           )
         }
       }
@@ -167,7 +167,7 @@ object LiveTrackingDemo : Demo {
 
     val routeSource =
       rememberGeoJsonSource(
-        GeoJsonData.Features(Feature(geometry = LineString(route), properties = null))
+        GeoJsonData.Features(Feature(geometry = LineString(route), properties = null)),
       )
     LineLayer(
       id = "ferry-route",
@@ -190,8 +190,8 @@ object LiveTrackingDemo : Demo {
             Feature(
               geometry = LineString(listOf(vehiclePosition) + remainingVertices),
               properties = null,
-            )
-          )
+            ),
+          ),
         )
       LineLayer(
         id = "remaining-crossing",

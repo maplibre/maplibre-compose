@@ -82,7 +82,7 @@ internal fun WindowsAccessStatus.asLocationPermission(): LocationPermission =
  * The reason a status other than [WindowsPositionStatus.Ready] reports, or `null` if unclassified.
  */
 internal fun WindowsPositionStatus.asUnavailableReason(
-  permission: LocationPermission
+  permission: LocationPermission,
 ): LocationUnavailableReason? =
   when (this) {
     WindowsPositionStatus.Ready -> null

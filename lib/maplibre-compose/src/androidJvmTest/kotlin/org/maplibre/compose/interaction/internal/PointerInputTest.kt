@@ -56,7 +56,7 @@ class PointerInputTest {
       mutableStateOf(
         InputConfiguration {
           camera { pan { momentum { enabled = false } } }
-        }
+        },
       )
     setContent {
       val platform = LocalViewConfiguration.current
@@ -328,7 +328,7 @@ class PointerInputTest {
               onStart { counts += checkNotNull(recorded).moveCalls.size }
             }
           }
-        }
+        },
     ) { target ->
       recorded = target
       mapNode().performTouchInput {
@@ -354,7 +354,7 @@ class PointerInputTest {
               if (intercept) event.changes.forEach { it.consume() }
             }
           }
-        }
+        },
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -479,7 +479,7 @@ class PointerInputTest {
   fun an_initial_consumed_press_cannot_click_drag_or_engage_the_map() =
     fixture.runRecognitionTest(
       parentModifier =
-        Modifier.consumePointerEvents(PointerEventPass.Initial, PointerEventType.Press)
+        Modifier.consumePointerEvents(PointerEventPass.Initial, PointerEventType.Press),
     ) { target ->
       mapNode().performTouchInput {
         down(center)

@@ -2,7 +2,6 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -32,7 +32,10 @@ class WebLocationProviderTest {
     val provider = WebLocationProvider(boundary, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest.Standard).first() }
+    assertEquals(
+      listOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)),
+      provider.updates(LocationRequest.Standard).toList(),
+    )
     provider.requestPermission()
     runCurrent()
     assertEquals(emptyList(), boundary.requestedOptions)
@@ -109,7 +112,7 @@ class WebLocationProviderTest {
 
     boundary.send(position(milliseconds = 0, longitude = 0.0, heading = Double.NaN))
     boundary.send(
-      position(milliseconds = 2_000, longitude = 0.0, heading = Double.POSITIVE_INFINITY)
+      position(milliseconds = 2_000, longitude = 0.0, heading = Double.POSITIVE_INFINITY),
     )
     runCurrent()
 
@@ -387,7 +390,7 @@ class WebLocationProviderTest {
         speedMetersPerSecond = 3.0,
         headingDegrees = heading,
         capturedAt = Instant.fromEpochMilliseconds(1_700_000_000_000 + milliseconds),
-      )
+      ),
     )
 }
 

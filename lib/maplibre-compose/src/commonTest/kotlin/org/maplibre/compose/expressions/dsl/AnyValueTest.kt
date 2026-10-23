@@ -53,7 +53,7 @@ class AnyValueTest {
           case("park", const("green")),
           case(listOf("road", "path"), const("gray")),
           fallback = const("none"),
-        )
+        ),
       ),
     )
   }

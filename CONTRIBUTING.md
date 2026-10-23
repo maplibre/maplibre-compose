@@ -2,10 +2,13 @@
 
 For a feature or a bug fix without an issue,
 [file one](https://github.com/maplibre/maplibre-compose/issues/new/choose) first
-to discuss the change. New contributors can start with
-[good first issues](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22);
-[help wanted](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)
-issues need MapLibre, Android, iOS, or other expertise.
+to discuss the change. Browse
+[open bugs](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Abug)
+and
+[feature requests](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3Afeature),
+or filter the
+[label catalog](https://github.com/maplibre/maplibre-compose/labels) by the area
+or platform you know.
 
 If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
@@ -27,8 +30,8 @@ Some tools stay outside `mise install`:
   run `mise run android-sdk-packages`. Without one, `mise -E android install`
   installs the pinned SDK in a separate environment, because installing SDK
   packages accepts their licenses; run Android tasks with `MISE_ENV=android`.
-- **Xcode:** `mise run install-xcode`. It is several gigabytes, so
-  `mise install` only fetches the `xcodes` CLI that manages it.
+- **Xcode:** `mise run install-xcode`. It is several gigabytes, so `mise
+  install` only fetches the `xcodes` CLI that manages it.
 - **Vulkan:** the desktop tests drive a real GPU through a headless Vulkan
   device and fail on a host without one. macOS gets MoltenVK through LWJGL.
 
@@ -38,13 +41,6 @@ bindings, so it needs no C++ toolchain. The browser embeds a patched MapLibre GL
 JS that Gradle builds automatically; see the
 [patch workflow](patches/maplibre-gl-js/README.md) to change it. The
 [benchmark guide](benchmarks/README.md) covers performance measurements.
-
-For a local FFI build, publish its Kotlin artifacts to a Maven repository and
-pass `-Pmaplibre.ffi.repository=<repository>` to Gradle. For mise tasks, set
-`ORG_GRADLE_PROJECT_maplibre.ffi.repository` in the environment with `env`, and
-match `maplibre-nativeFfi` in `gradle/libs.versions.toml` to the published
-version. Without the property, the FFI dependencies resolve from the Maven
-Central snapshot repository.
 
 ## Check changes by hand
 
@@ -95,8 +91,8 @@ of the next patch; `mise run version` prints what this checkout builds as.
 ## Make CI happy
 
 `mise run check` reports problems and `mise run fix` rewrites what it can; the
-pre-commit hook that mise installs runs them on staged files.
-`mise run lint:android` runs Android Lint, which CI runs in the same job.
+pre-commit hook that mise installs runs them on staged files. `mise run
+lint:android` runs Android Lint, which CI runs in the same job.
 
 Public API changes follow the
 [API guidelines](docs/src/content/docs/api-guidelines.md).

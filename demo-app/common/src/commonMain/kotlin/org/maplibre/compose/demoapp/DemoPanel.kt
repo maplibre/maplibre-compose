@@ -281,7 +281,7 @@ private fun DemosScreen(
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
       )
-    }
+    },
   ) {
     allDemos.forEach { demo -> SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) } }
   }

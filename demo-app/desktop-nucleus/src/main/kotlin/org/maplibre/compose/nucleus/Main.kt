@@ -1,22 +1,27 @@
 package org.maplibre.compose.nucleus
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.rememberWindowState
-import dev.nucleusframework.application.NucleusBackend
+import dev.nucleusframework.application.DecoratedWindow
 import dev.nucleusframework.application.nucleusApplication
+import dev.nucleusframework.window.LocalWindowChromeInsets
 import dev.nucleusframework.window.TitleBarPlacement
 import dev.nucleusframework.window.WindowAppearance
 import dev.nucleusframework.window.WindowAppearanceMode
 import dev.nucleusframework.window.WindowBackground
+import dev.nucleusframework.window.WindowControls
 import dev.nucleusframework.window.WindowScaffold
-import dev.nucleusframework.window.material.MaterialDecoratedWindow
-import dev.nucleusframework.window.material.MaterialTitleBar
-import dev.nucleusframework.window.material.rememberMaterialTitleBarStyle
+import dev.nucleusframework.window.windowDragArea
 import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.demoapp.DemoAppTheme
 import org.maplibre.compose.demoapp.DemoLaunch
@@ -30,11 +35,11 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
 fun main(args: Array<String>) {
   val launch = DemoLaunch.parse(args.toList())
   nucleusApplication(
-    backend = NucleusBackend.Tao,
+    args = args,
     // A fixture, not a shipped app: allow parallel launches next to other demos.
     enableSingleInstance = false,
   ) {
-    MaterialDecoratedWindow(
+    DecoratedWindow(
       onCloseRequest = ::exitApplication,
       title = "MapLibre Compose on Nucleus Tao",
       state = rememberWindowState(size = launch.windowSize ?: DpSize(960.dp, 640.dp)),
@@ -47,36 +52,28 @@ fun main(args: Array<String>) {
             WindowAppearanceMode.Dark
           } else {
             WindowAppearanceMode.Light
-          }
+          },
         )
 
-        val windowScope = this
-        val materialTitleBarStyle = rememberMaterialTitleBarStyle(MaterialTheme.colorScheme)
-        val transparentTitleBarStyle =
-          remember(materialTitleBarStyle) {
-            materialTitleBarStyle.copy(
-              colors =
-                materialTitleBarStyle.colors.copy(
-                  background = Color.Transparent,
-                  inactiveBackground = Color.Transparent,
-                  border = Color.Transparent,
-                  fullscreenControlButtonsBackground = Color.Transparent,
-                ),
-              metrics =
-                materialTitleBarStyle.metrics.copy(
-                  height = 24.dp,
-                  titlePaneButtonSize = DpSize(24.dp, 24.dp),
-                ),
-            )
-          }
         WindowScaffold(
           titleBar = {
-            windowScope.MaterialTitleBar(style = transparentTitleBarStyle)
+            val controlsInsets = LocalWindowChromeInsets.current.controlsInsets
+            val controlsAlignment =
+              if (controlsInsets.calculateStartPadding(LocalLayoutDirection.current) > 0.dp) {
+                Alignment.CenterStart
+              } else {
+                Alignment.CenterEnd
+              }
+            Box(Modifier.fillMaxWidth().height(32.dp).windowDragArea()) {
+              WindowControls(Modifier.align(controlsAlignment))
+            }
           },
           titleBarPlacement = TitleBarPlacement.Overlay(),
         ) { chromePadding ->
+          // #region host
           val host = rememberTaoComposeMapPresentationHost() ?: return@WindowScaffold
           ProvideMapPresentationHost(host = host) { DemoApp(state, launch, chromePadding) }
+          // #endregion host
         }
       }
     }

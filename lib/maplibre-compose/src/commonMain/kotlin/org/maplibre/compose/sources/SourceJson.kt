@@ -72,7 +72,7 @@ internal fun JsonObjectBuilder.putGeoJsonOptions(options: GeoJsonOptions) {
 
 /** Each aggregator as the style spec's pair: `[reducer, mapper]`. */
 internal fun JsonObjectBuilder.putClusterProperties(
-  properties: Map<String, GeoJsonOptions.ClusterPropertyAggregator<*>>
+  properties: Map<String, GeoJsonOptions.ClusterPropertyAggregator<*>>,
 ) {
   properties.forEach { (name, aggregator) ->
     putJsonArray(name) {

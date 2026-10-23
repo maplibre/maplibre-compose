@@ -127,8 +127,8 @@ private fun readUsageDescriptionAvailability(): LocationBackendAvailability {
     IllegalStateException(
       "The main bundle${ObjectiveC.mainBundlePath()?.let { " at $it" } ?: ""} " +
         "does not declare NSLocationWhenInUseUsageDescription. " +
-        "Core Location reads that key from the process's app Info.plist."
-    )
+        "Core Location reads that key from the process's app Info.plist.",
+    ),
   )
 }
 
@@ -213,7 +213,7 @@ internal object CoreLocationDelegateClass {
         )
     val stub = linker.upcallStub(handle, descriptor, stubs)
     check(
-      ObjCRuntime.class_addMethod(cls, ObjectiveC.selector(selectorName), stub.address(), types)
+      ObjCRuntime.class_addMethod(cls, ObjectiveC.selector(selectorName), stub.address(), types),
     ) {
       "Failed to add $selectorName to $DelegateClassName"
     }

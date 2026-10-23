@@ -184,7 +184,7 @@ object TransitNetworkDemo : Demo {
                 {
                   Text(
                     if (departures.nextSailings.isEmpty()) "No sailings in the next day"
-                    else "Next sailings: ${departures.nextSailings.joinToString(", ")}"
+                    else "Next sailings: ${departures.nextSailings.joinToString(", ")}",
                   )
                 }
               } else null,
@@ -192,7 +192,7 @@ object TransitNetworkDemo : Demo {
               ListItemDefaults.colors(
                 containerColor =
                   if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                  else Color.Transparent
+                  else Color.Transparent,
               ),
             modifier = Modifier.clickable { selectedRouteId = if (isSelected) null else route.id },
           )

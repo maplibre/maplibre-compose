@@ -14,7 +14,7 @@ internal data class TextUnitContextExpression<T : ExpressionValue?>(
       object : ExpressionContext by context {
         override val emScale = this@TextUnitContextExpression.emScale
         override val spScale = this@TextUnitContextExpression.spScale
-      }
+      },
     )
 
   override fun visit(block: (Expression<*>) -> Unit) {

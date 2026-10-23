@@ -123,9 +123,9 @@ class StyleReconcilerTest {
               .single()
               .copy(
                 definition =
-                  definition.copy(value = JsonObject(definition.value + ("metadata" to JsonNull)))
-              )
-          )
+                  definition.copy(value = JsonObject(definition.value + ("metadata" to JsonNull))),
+              ),
+          ),
       )
     reconciler.apply(recording, withConstruction)
     assertEquals(listOf("layer:raster"), recording.additions)
@@ -279,9 +279,9 @@ class StyleReconcilerTest {
                     Anchor.Below {
                       predicates++
                       it.id == "base"
-                    }
-                )
-            )
+                    },
+                ),
+            ),
         )
       }
     val prepared = reconciler.prepare(style, desired)

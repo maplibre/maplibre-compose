@@ -76,7 +76,7 @@ internal class IosSnapshotSharer : SnapshotSharer {
                 error != null -> SnapshotActionResult.Failed
                 completed -> SnapshotActionResult.Completed()
                 else -> SnapshotActionResult.Cancelled
-              }
+              },
             )
           }
         }
@@ -106,7 +106,7 @@ internal class IosSnapshotSharer : SnapshotSharer {
               if (continuation.isActive) {
                 continuation.resume(
                   if (success && error == null) SnapshotActionResult.Completed("Photos")
-                  else SnapshotActionResult.Failed
+                  else SnapshotActionResult.Failed,
                 )
               }
             },

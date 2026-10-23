@@ -346,7 +346,7 @@ class LinuxOpenGlInteropTest {
         MlnFfiRuntimeOptions(
           cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
           mainDispatcher = UnconfinedMain,
-        )
+        ),
       )
     private val state = runtime.createMapState(BaseStyle.Demo)
     private val renderer =
@@ -485,7 +485,7 @@ class LinuxOpenGlInteropTest {
               directContext,
               false,
               ImageInfo(DrawWidth, DrawHeight, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
-            )
+            ),
           ) {
             "Skia could not create the EGL test render target"
           }
@@ -685,7 +685,7 @@ class LinuxOpenGlInteropTest {
         {"version":8,"transition":{"duration":0,"delay":0},"sources":{},"layers":[
           {"id":"background","type":"background","paint":{"background-color":"$color"}}
         ]}
-        """
+        """,
       )
   }
 }

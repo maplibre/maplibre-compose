@@ -1,0 +1,77 @@
+---
+import "../styles/camera-diagrams.css";
+
+interface Props {
+  label: string;
+  note?: string;
+  direction?: "alternate" | "normal";
+  duration?: number;
+}
+const { label, note, direction = "alternate", duration = 3800 } = Astro.props;
+---
+
+<camera-motion
+  class="camera-illustration"
+  role="group"
+  aria-label={label}
+  data-direction={direction}
+  data-duration={duration}
+>
+  <slot />
+  {note && <p class="motion-caption">{note}</p>}
+</camera-motion>
+
+<script>
+class CameraMotion extends HTMLElement {
+  private animations: Animation[] = [];
+  private reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  private observer?: IntersectionObserver;
+  private visible = false;
+
+  private updateMotion = () => {
+    if (this.reducedMotion.matches) {
+      this.stop();
+      return;
+    }
+    if (this.visible && !this.animations.length) {
+      for (const element of this.querySelectorAll<HTMLElement | SVGElement>("[data-camera-frames]")) {
+        const frames = JSON.parse(element.dataset.cameraFrames!) as Keyframe[];
+        this.animations.push(element.animate(frames, {
+          duration: Number(this.dataset.duration),
+          easing: this.dataset.direction === "normal" ? "linear" : "ease-in-out",
+          iterations: Infinity,
+          direction: this.dataset.direction as PlaybackDirection,
+        }));
+      }
+    }
+    for (const animation of this.animations) {
+      if (this.visible) animation.play();
+      else animation.pause();
+    }
+  };
+
+  private stop = () => {
+    for (const animation of this.animations) animation.cancel();
+    this.animations = [];
+  };
+
+  connectedCallback() {
+    this.reducedMotion.addEventListener("change", this.updateMotion);
+    this.observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        this.visible = entry.isIntersecting && entry.intersectionRatio >= 0.25;
+        this.updateMotion();
+      }
+    }, { threshold: 0.25 });
+    this.observer.observe(this);
+  }
+
+  disconnectedCallback() {
+    this.stop();
+    this.observer?.disconnect();
+    this.reducedMotion.removeEventListener("change", this.updateMotion);
+  }
+}
+
+customElements.define("camera-motion", CameraMotion);
+</script>

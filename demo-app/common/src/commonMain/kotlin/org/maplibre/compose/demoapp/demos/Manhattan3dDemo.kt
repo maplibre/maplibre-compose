@@ -26,7 +26,7 @@ object Manhattan3dDemo : Demo {
         zoom = 14.2,
         bearing = 2.0,
         pitch = 60.0,
-      )
+      ),
     )
   override val pointerPin = DemoPointerPin(offlineRegion.center, destination)
 

@@ -155,7 +155,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
       val token = newToken()
       val responsePath = PortalResponsePath(connection.uniqueName, token)
       request.set(
-        connection.getRemoteObject(PortalBus, responsePath.current, PortalRequest::class.java)
+        connection.getRemoteObject(PortalBus, responsePath.current, PortalRequest::class.java),
       )
       continuation.invokeOnCancellation {
         closeQuietly { request.get()?.Close() }
@@ -168,7 +168,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
             if (!responsePath.accepts(signal.path)) return@addSigHandler
             closeQuietly { subscription.getAndSet(null)?.close() }
             if (continuation.isActive) continuation.resume(signal.response.toLong())
-          }
+          },
         )
         val requestPath =
           portal.start(
@@ -178,7 +178,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
           )
         responsePath.update(requestPath.path)
         request.set(
-          connection.getRemoteObject(PortalBus, requestPath.path, PortalRequest::class.java)
+          connection.getRemoteObject(PortalBus, requestPath.path, PortalRequest::class.java),
         )
       } catch (error: Throwable) {
         closeQuietly { subscription.getAndSet(null)?.close() }

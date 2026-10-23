@@ -123,7 +123,7 @@ class DesktopRuntimeConfigurationTest {
           "main",
           "ConsoleLauncher.java",
           1,
-        )
+        ),
       )
     val traces = mapOf(Thread({}, "main") to appMain, Thread({}, "Test worker") to workerMain)
 

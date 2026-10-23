@@ -11,7 +11,7 @@ import org.maplibre.compose.expressions.value.StringValue
 /** Returns whether this string contains the [substring]. */
 @JvmName("containsString")
 public fun Expression<StringValue>.contains(
-  substring: Expression<StringValue>
+  substring: Expression<StringValue>,
 ): Expression<BooleanValue> = call("in", substring, this)
 
 /** Returns whether this string contains the [substring]. */
@@ -26,7 +26,9 @@ public fun String.contains(substring: Expression<StringValue>): Expression<Boole
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun Expression<StringValue>.indexOf(
@@ -36,7 +38,9 @@ public fun Expression<StringValue>.indexOf(
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun String.indexOf(
@@ -46,7 +50,9 @@ public fun String.indexOf(
 
 /**
  * Returns the first index at which the [substring] is located in this string, or `-1` if it cannot
- * be found. Accepts an optional [startIndex] from where to begin the search.
+ * be found.
+ *
+ * @param startIndex An optional index from where to begin the search.
  */
 @JvmName("indexOfString")
 public fun Expression<StringValue>.indexOf(
@@ -109,24 +115,26 @@ public fun Expression<StringValue>.lowercase(): Expression<StringValue> = call("
 /** Concatenates this string expression with [other]. */
 @JvmName("concat")
 public operator fun Expression<StringValue>.plus(
-  other: Expression<StringValue>
+  other: Expression<StringValue>,
 ): Expression<StringValue> = call("concat", this, other)
 
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun Expression<StringValue>.split(
-  separator: Expression<StringValue>
+  separator: Expression<StringValue>,
 ): Expression<ListValue<StringValue>> = call("split", this, separator)
 
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun Expression<StringValue>.split(separator: String): Expression<ListValue<StringValue>> =
   split(const(separator))
@@ -134,8 +142,9 @@ public fun Expression<StringValue>.split(separator: String): Expression<ListValu
 /**
  * Returns the substrings formed by splitting this string at each occurrence of [separator].
  *
- * An empty [separator] splits this string into individual Unicode characters. Consecutive
- * separators produce empty strings in the result.
+ * Consecutive separators produce empty strings in the result.
+ *
+ * @param separator An empty separator splits this string into individual Unicode characters.
  */
 public fun String.split(separator: Expression<StringValue>): Expression<ListValue<StringValue>> =
   const(this).split(separator)

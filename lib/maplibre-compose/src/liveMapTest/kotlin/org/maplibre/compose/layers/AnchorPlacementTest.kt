@@ -85,6 +85,6 @@ class AnchorPlacementTest {
         "layers": [${layerIds.joinToString { """{ "id": "$it", "type": "background" }""" }}]
       }
       """
-        .trimIndent()
+        .trimIndent(),
     )
 }

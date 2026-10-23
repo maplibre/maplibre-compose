@@ -18,6 +18,8 @@
     "docs/public/metrics-data",
     "docs/src/generated",
     "pnpm-lock.yaml",
+    // mise hashes these graphs; formatting them would fail install --locked.
+    ".mise/locks/**",
     "kotlin-js-store",
     "**/*.api",
     // Vendored: third-party sources committed as-is.
@@ -49,13 +51,13 @@
   },
   // Digests are required on a bump; dprint reports the one it got.
   "plugins": [
-    "https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
-    "https://plugins.dprint.dev/json-0.21.3.wasm@f34c8fbaeda1f42c479d4a5fa2c86f93d105c2d527ec61fffe912e4d9dc5cc77",
-    "https://plugins.dprint.dev/ruff-0.7.0.wasm@b243963dc7b29a3cd420169611e3caf065353d641d5175c625d39652c659c980",
-    "https://plugins.dprint.dev/markdown-0.21.1.wasm@064467750514c9ce5192b375582d762ec64cb3ba99673413fa86645d50406279",
-    "https://plugins.dprint.dev/toml-0.7.0.wasm@0126c8112691542d30b52a639076ecc83e07bace877638cee7c6915fd36b8629",
+    "https://plugins.dprint.dev/exec-0.8.0.json@1f2dfbf5dec6d2e590b2c8b0ba6dbfaf80d0320fa9bd4c3f4f29efb99cd2bd6f",
+    "https://plugins.dprint.dev/json-0.25.2.wasm@811ca4c6f732bcd6f707bc2f42d42395bb4127cdf829960cf628a18fc149777e",
+    "https://plugins.dprint.dev/ruff-0.11.1.wasm@aeacfccd161ad431a9ad468cae36c01d3abd9d04a4c3c56e0cca07ec9daed703",
+    "https://plugins.dprint.dev/markdown-0.26.0.wasm@5cebd0459bf1aa13fb027331720158d03e2a897b1d9f7b3bf93cac661ca4ddbd",
+    "https://plugins.dprint.dev/toml-0.9.0.wasm@776e088ed4255a51a80e3640e5fd20b15661147e86df3e99611aaa37e9c59852",
     "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm@40a2fdda7040317eb1b23520f3a00769a5571eedb049c4ca9175c1b9eeba01ae",
-    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm@d3294334fd3e2cc622c829614704278354092d5d292fe4ed4b6df8eb89209fe5",
-    "https://plugins.dprint.dev/g-plane/malva-v0.15.3.wasm@e8a5896557a73c1ac23717dde18f5099d547c72972fd048518f4f8e2b7b6d639",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.6.wasm@93dd0c870b60431ceea59f055792fee4a353868223c813d3a44414b31d1df602",
+    "https://plugins.dprint.dev/g-plane/malva-v0.16.0.wasm@1c1b31f972ef5aae052f97b6723aaf962e0175c5bbe4ba877e092512af354113",
   ],
 }

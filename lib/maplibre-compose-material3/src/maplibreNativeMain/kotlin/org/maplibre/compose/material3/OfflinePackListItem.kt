@@ -79,15 +79,15 @@ import org.maplibre.compose.offline.OfflineStorage
  * By default, it includes controls to pause, resume, invalidate, and delete the pack, and a
  * [CircularProgressIndicator] for download progress.
  *
- * Supply [headlineContent] with a pack name, for example from [OfflinePack.metadata].
- *
  * Swipe the item from end to start to request deletion. The default trailing delete button and the
  * swipe gesture both require confirmation before deleting the pack.
  *
- * Pass the [OfflineStorage] from the [org.maplibre.compose.map.MapRuntime] that created [pack].
- *
  * You can customize each part of the [ListItem] by supplying alternate [leadingContent],
  * [supportingContent], and [trailingContent].
+ *
+ * @param offlineStorage The [OfflineStorage] from the [org.maplibre.compose.map.MapRuntime] that
+ *   created [pack].
+ * @param headlineContent A pack name, for example from [OfflinePack.metadata].
  */
 @Composable
 public fun OfflinePackListItem(
@@ -233,8 +233,8 @@ public object OfflinePackListItemDefaults {
   /**
    * Displays the pack's download status and size, or its error or tile limit status.
    *
-   * [unknownContent] shows progress that is not reported yet, and a status or progress that this
-   * version does not name.
+   * @param unknownContent Shows progress that is not reported yet, and a status or progress that
+   *   this version does not name.
    */
   @Composable
   public fun SupportingContent(

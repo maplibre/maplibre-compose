@@ -35,8 +35,9 @@ public interface AndroidLocationBackend {
   @MainThread public fun createLocationProvider(context: Context): LocationProvider
 
   /**
-   * Creates this backend's heading provider, or returns null so the default framework heading
-   * provider is used.
+   * Creates this backend's heading provider.
+   *
+   * @return The heading provider, or null so the default framework heading provider is used.
    */
   public fun createHeadingProvider(context: Context): HeadingProvider? = null
 }
@@ -73,7 +74,7 @@ internal object AndroidLocationBackendResolver {
   fun resolve(availableBackends: List<AndroidLocationBackend>): AndroidBackendResolution {
     val backend =
       availableBackends.minWithOrNull(
-        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id }
+        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id },
       )
     return if (backend == null) AndroidBackendResolution.None
     else AndroidBackendResolution.Discovered(backend)

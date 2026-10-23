@@ -70,8 +70,8 @@ internal constructor(
         flowOf(
           LocationEvent.Unavailable(
             if (servicesEnabled()) LocationUnavailableReason.PermissionDenied
-            else LocationUnavailableReason.ServicesDisabled
-          )
+            else LocationUnavailableReason.ServicesDisabled,
+          ),
         )
       }
     }
@@ -122,8 +122,8 @@ internal constructor(
           LocationEvent.Update(
             location.asMaplibreLocationMeasurement(),
             TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
-          )
-        )
+          ),
+        ),
       )
     }
 
@@ -148,7 +148,7 @@ private sealed interface AppleLocationCallback {
 }
 
 internal suspend fun NSError.asUnavailableReason(
-  locationServicesEnabled: suspend () -> Boolean
+  locationServicesEnabled: suspend () -> Boolean,
 ): LocationUnavailableReason? =
   when {
     domain != kCLErrorDomain -> null

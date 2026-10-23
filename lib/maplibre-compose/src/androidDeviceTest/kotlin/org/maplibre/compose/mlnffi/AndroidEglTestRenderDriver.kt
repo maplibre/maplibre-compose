@@ -77,8 +77,8 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
             surface = NativeHandle(surface.nativeHandle),
             extent = extent,
             generation = generation,
-          )
-      )
+          ),
+      ),
     )
   }
 

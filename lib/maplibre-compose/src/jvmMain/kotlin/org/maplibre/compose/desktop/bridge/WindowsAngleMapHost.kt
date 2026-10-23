@@ -44,8 +44,8 @@ internal class WindowsAngleMapHost(
           target =
             requireNotNull(textures.current) { "Windows OpenGL texture is not initialized" }
               .exported
-              .target(textures.generation)
-        )
+              .target(textures.generation),
+        ),
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
@@ -68,7 +68,7 @@ internal class WindowsAngleMapHost(
         .copy(
           origin =
             if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft
-            else TextureOrigin.TopLeft
+            else TextureOrigin.TopLeft,
         ),
       destination,
       frameCompletion,
@@ -92,7 +92,7 @@ internal class WindowsAngleMapHost(
         presentationHost.withContext {
           closing.forEach(WindowsOpenGlSharedTexture::closeImported)
           presenter.closeAll()
-        }
+        },
       )
     }
       .isSuccess

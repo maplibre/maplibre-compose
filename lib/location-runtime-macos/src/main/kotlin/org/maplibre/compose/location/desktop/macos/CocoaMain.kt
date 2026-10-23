@@ -104,7 +104,7 @@ internal object CocoaMain {
         ObjectiveC.selector(InvokeSelector),
         workStub.address(),
         "v@:",
-      )
+      ),
     ) {
       "Failed to add $InvokeSelector to $JobClassName"
     }

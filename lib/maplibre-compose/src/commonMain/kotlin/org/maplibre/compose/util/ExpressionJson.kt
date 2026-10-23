@@ -44,7 +44,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
       JsonPrimitive(
         value.toArgb().let {
           "rgba(${(it shr 16) and 0xFF}, ${(it shr 8) and 0xFF}, ${it and 0xFF}, ${value.alpha})"
-        }
+        },
       )
 
     // Never wrapped: the spec reads a bare `[from, to, progress]` as a projection transition
@@ -55,7 +55,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
           JsonPrimitive(value.from.value),
           JsonPrimitive(value.to.value),
           JsonPrimitive(value.progress),
-        )
+        ),
       )
 
     is DpPaddingLiteral ->
@@ -79,7 +79,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
           listOf(
             JsonPrimitive("semiliteral"),
             JsonArray(elements.map { it.normalizeJsonLike(inLiteral = false) }),
-          )
+          ),
         )
       // style-spec 26.4.2 parses semiliteral children in the parent's expected array type and
       // crashes. A let binding gives the array an unconstrained context while preserving its
@@ -91,7 +91,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
           JsonPrimitive("semiliteral_value"),
           array,
           JsonArray(listOf(JsonPrimitive("var"), JsonPrimitive("semiliteral_value"))),
-        )
+        ),
       )
     }
 

@@ -20,7 +20,7 @@ public actual class SystemSettingsLauncher {
 
   private fun openLocationServicesPane(): Boolean =
     NSURL.URLWithString(
-        "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices",
       )
       ?.let { NSWorkspace.sharedWorkspace.openURL(it) } ?: false
 }

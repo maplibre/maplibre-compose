@@ -228,7 +228,7 @@ class BrowserMapLifecycleTest {
   private companion object {
     val StyleA =
       BaseStyle.Json(
-        """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}"""
+        """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}""",
       )
     val ReplayStyle = BaseStyle.Uri("https://replay-style.test/style.json")
     const val ReplayStyleJson =

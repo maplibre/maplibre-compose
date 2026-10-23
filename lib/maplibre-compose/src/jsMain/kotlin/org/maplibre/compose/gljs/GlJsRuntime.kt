@@ -34,7 +34,7 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
           )
         );
       })()
-      """
+      """,
     )
     .unsafeCast<String>()
 

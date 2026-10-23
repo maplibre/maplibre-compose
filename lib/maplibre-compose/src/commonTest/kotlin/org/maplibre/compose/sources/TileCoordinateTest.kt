@@ -76,7 +76,7 @@ class TileCoordinateTest {
         minZoom = 0
         maxZoom = 32
       }
-        .minZoom == 0
+        .minZoom == 0,
     )
   }
 

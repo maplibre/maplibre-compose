@@ -57,7 +57,7 @@ class BrowserMapSurfaceTest {
 
                 override fun close() = Unit
               }
-            }
+            },
         ) {
           GlJsMapSurface(renderer, Modifier.size(size.value), logger = null, presentFrames = true)
         }
@@ -70,7 +70,7 @@ class BrowserMapSurfaceTest {
                 child.place(0, 0)
               }
             }
-            .drawBehind { drawRect(color.value) }
+            .drawBehind { drawRect(color.value) },
         )
       }
     }

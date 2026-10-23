@@ -74,7 +74,7 @@ class CustomVectorTileSourceTest {
       assertTrue(
         handle
           .querySourceFeatures(setOf(SourceLayer), feature["name"].asString() eq const("absent"))
-          .isEmpty()
+          .isEmpty(),
       )
 
       assertTrue(requests.isNotEmpty())
@@ -219,7 +219,7 @@ class CustomVectorTileSourceTest {
           ]
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     val ReplacementStyle =
@@ -232,7 +232,7 @@ class CustomVectorTileSourceTest {
           "layers": []
         }
         """
-          .trimIndent()
+          .trimIndent(),
       )
   }
 }

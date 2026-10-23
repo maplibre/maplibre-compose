@@ -1,0 +1,43 @@
+---
+import MapTerrain from "./MapTerrain.astro";
+
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<!-- Slot content uses the same 320 × 240 SVG coordinates as the map. -->
+<svg viewBox="0 0 320 240" role="img" aria-label={label}>
+  <slot name="map"><MapTerrain /></slot>
+
+  <slot />
+</svg>
+
+<style>
+svg {
+  --map-land: #e9eef0;
+  --map-water: #bddde5;
+  --map-park: #cfdfce;
+  --map-building: #d9dfdf;
+  --map-road: #fff;
+  --map-road-outline: #b5c3c8;
+
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.375rem;
+}
+
+:global([data-theme="dark"]) svg {
+  --map-land: #737f89;
+  --map-water: #5c8492;
+  --map-park: #7e9785;
+  --map-building: #66747e;
+  --map-road: #98a4ae;
+  --map-road-outline: #546470;
+}
+</style>

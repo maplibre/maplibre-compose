@@ -38,7 +38,7 @@ public abstract class TileLodAlgorithm private constructor() {
     ) : this(Builder(from).apply(block))
 
     private constructor(
-      builder: Builder
+      builder: Builder,
     ) : this(builder.minRadius, builder.scale, builder.pitchThreshold, builder.zoomShift)
 
     init {
@@ -101,7 +101,7 @@ public abstract class TileLodAlgorithm private constructor() {
     ) : this(Builder(from).apply(block))
 
     private constructor(
-      builder: Builder
+      builder: Builder,
     ) : this(builder.scale, builder.pitchThreshold, builder.zoomShift)
 
     init {
