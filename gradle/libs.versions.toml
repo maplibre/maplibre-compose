@@ -60,7 +60,7 @@ maplibre-nativeFfi = "0.202610.0"
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.
 maplibre-styleSpec = "26.4.4"
 maplibre-vtPbf = "4.3.2"
-mobilityData = "0.6.0"
+mobilityData = "0.7.2"
 playServices-location = "21.4.0"
 spatialk = "0.8.0"
 robolectric = "4.17"
