@@ -189,10 +189,12 @@ internal class NativePresentation(
             await(closing, closing.detach())
           true
         } catch (error: Throwable) {
+          // A frame that loses the target while the detach waits ends the detach with TARGET_LOST.
           val targetLost =
             error is MaplibreException &&
-              error.status == Status.INVALID_STATE &&
-              closing.getSnapshot().state == RenderSessionState.TARGET_LOST
+              (error.status == Status.TARGET_LOST ||
+                error.status == Status.INVALID_STATE &&
+                  closing.getSnapshot().state == RenderSessionState.TARGET_LOST)
           if (!targetLost) failure = error
           runCatching { closing.abandon() }
             .onFailure { abandoned ->
