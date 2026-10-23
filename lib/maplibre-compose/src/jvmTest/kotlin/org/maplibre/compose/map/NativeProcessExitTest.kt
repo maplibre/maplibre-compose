@@ -19,6 +19,7 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.LogSeverityMask
@@ -27,6 +28,7 @@ import org.maplibre.nativeffi.generated.LogSeverityMask
 class NativeProcessExitTest {
   @Test
   fun exits_after_native_logging_and_compose_runtime_cleanup() {
+    skipUnlessSnapshotsAvailable()
     val output = Files.createTempFile("maplibre-compose-exit-", ".log")
     val java = if (System.getProperty("os.name").startsWith("Windows")) "java.exe" else "java"
     val process =

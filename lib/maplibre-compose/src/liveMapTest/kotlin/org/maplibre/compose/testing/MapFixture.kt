@@ -165,6 +165,9 @@ internal expect val mapLibreFlavor: MapLibreFlavor
 
 internal expect fun skipMapTest(reason: String): Nothing
 
+/** Skips the test where this platform's runtime has no offscreen snapshot backend. */
+internal expect fun skipUnlessSnapshotsAvailable()
+
 /** What a suspending test body hands back: `Unit` on the JVM, and a `Promise` in the browser. */
 expect class MapTestResult
 
