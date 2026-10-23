@@ -53,6 +53,9 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
   suspend fun add(source: Source): MutableSourceHandle? {
     requireSourceWritable(source.id)
     val binding = readyBinding("add source '${source.id}'") ?: return null
+    check(source.id !in binding.contents.sources) {
+      "Source ID '${source.id}' already exists in style"
+    }
     val definition = source.definition()
     val owned = OwnedSource(binding, definition)
     val command = binding.addSource(definition)

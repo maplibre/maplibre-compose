@@ -194,6 +194,27 @@ class StyleReconcilerTest {
   }
 
   @Test
+  fun a_composed_layer_with_a_base_layer_id_leaves_the_base_layer_in_place() = runTest {
+    val style = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
+    val reconciler = StyleReconciler()
+
+    reconciler.apply(
+      style,
+      StyleSnapshot(
+        emptyList(),
+        listOf(StyleSnapshot.Layer(TestLayer("base", "fill").definition(), Anchor.Top, null, null)),
+        emptyList(),
+      ),
+    )
+
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("base"), style.contents.layerIds())
+    assertEquals("background", style.contents.layers.single().type)
+    // Only the fake engine's own base-style installation reached it.
+    assertEquals(listOf("base"), style.layerAdditions)
+  }
+
+  @Test
   fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() = runTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()

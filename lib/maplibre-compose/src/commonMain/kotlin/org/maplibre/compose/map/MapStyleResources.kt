@@ -86,7 +86,8 @@ public class StyleSources internal constructor(private val style: MapStyleState)
    * @return the handle, or null if no style is ready or the loaded style changes before the source
    *   is added. Nothing is added to the new style, and a warning is logged.
    * @throws StyleHandleException if the engine rejects the source.
-   * @throws IllegalStateException if the style content declares [source]'s ID or the map is closed.
+   * @throws IllegalStateException if the loaded style already has a source with [source]'s ID, the
+   *   style content declares it, or the map is closed.
    */
   public suspend fun add(source: Source): MutableSourceHandle? =
     style.owner.resourceCommands.add(source)

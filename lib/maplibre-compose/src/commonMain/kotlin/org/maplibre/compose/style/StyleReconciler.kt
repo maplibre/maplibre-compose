@@ -174,7 +174,9 @@ internal class StyleReconciler {
             if (desired.definition.sourceId in rejectedSources) return@forEachIndexed
             val before = beforeLayerId(contents.layerIds(), placement, previousId)
             if (rejectedLayers[id] == desired.definition to before) return@forEachIndexed
-            applied = addLayer(style, desired, placement, before, revision.animatorDurationScale)
+            applied =
+              addLayer(style, desired, placement, before, revision.animatorDurationScale)
+                ?: return@forEachIndexed
           } else {
             applied.installation.update(desired.definition, revision.animatorDurationScale)
             val ids = contents.layerIds()
@@ -219,6 +221,14 @@ internal class StyleReconciler {
     }
 
   private fun addSource(style: StyleBinding, definition: SourceDefinition) {
+    // The engine would reject a second source with the ID, so the existing one is kept as it is.
+    if (definition.id in style.contents.sources) {
+      rejectedSources[definition.id] = definition
+      style.logger?.w {
+        "Source '${definition.id}' was not added: the style already has a source with this ID"
+      }
+      return
+    }
     val installation = SourceInstallation(style, definition)
     sources[definition.id] = installation
     style.contents.addSource(definition)
@@ -250,8 +260,16 @@ internal class StyleReconciler {
     placement: Placement,
     before: String,
     animatorDurationScale: Float,
-  ): AppliedLayer {
+  ): AppliedLayer? {
     val definition = desired.definition
+    // The engine would reject a second layer with the ID, so the existing one is kept as it is.
+    if (style.contents.hasLayer(definition.id)) {
+      rejectedLayers[definition.id] = definition to before
+      style.logger?.w {
+        "Layer '${definition.id}' was not added: the style already has a layer with this ID"
+      }
+      return null
+    }
     val applied =
       AppliedLayer(
         placement = placement,
