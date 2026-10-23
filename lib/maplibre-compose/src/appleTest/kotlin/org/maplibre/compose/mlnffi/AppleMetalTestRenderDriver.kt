@@ -9,9 +9,9 @@ import kotlinx.cinterop.ObjCObject
 import kotlinx.cinterop.UByteVar
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.autoreleasepool
-import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.objcPtr
+import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.toLong
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.testing.RgbaPixel
@@ -28,8 +28,9 @@ import platform.Metal.MTLTextureUsageShaderRead
 /**
  * Deterministic offscreen Metal host for the shared real-map test corpus.
  *
- * The producer renders straight into a shared-storage `MTLTexture`, so the bridge has no consumer
- * side: presentation is a no-op, and readback is a CPU read of the texture.
+ * The producer renders straight into a shared-storage `MTLTexture`. Presentation copies the texture
+ * to memory while the frame is still acquired, because once the frame is released the next frame
+ * can render into the same texture. Readback reads that copy.
  */
 internal class AppleMetalTestRenderDriver
 private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver {
@@ -37,6 +38,8 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
   private val retiredTextures = mutableListOf<MTLTextureProtocol>()
   private var extent = MapExtent.Empty
   private var generation = 0L
+  private var presented: ByteArray? = null
+  private var presentedWidth = 0
 
   override val backends = RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
 
@@ -73,34 +76,44 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
     destination: MlnFfiMapDestination,
   ): Boolean = false
 
-  /** The producer renders directly into the test texture, so there is nothing to present. */
-  override fun present(target: MlnFfiRenderTarget): Boolean = true
+  /** Copies the rendered texture to memory, while the frame that holds it is still acquired. */
+  override fun present(target: MlnFfiRenderTarget): Boolean = autoreleasepool {
+    val texture = texture ?: return false
+    val width = texture.width.toInt()
+    val height = texture.height.toInt()
+    val bytesPerRow = width * BytesPerPixel
+    presented = memScoped {
+      val bytes = allocArray<UByteVar>(bytesPerRow * height)
+      // Metal texture rows start at the top left, as fixture coordinates do.
+      texture.getBytes(
+        bytes,
+        bytesPerRow.toULong(),
+        MTLRegionMake2D(0u, 0u, width.toULong(), height.toULong()),
+        0uL,
+      )
+      bytes.readBytes(bytesPerRow * height)
+    }
+    presentedWidth = width
+    true
+  }
 
   override fun discardPresentedFrame() {
     texture?.let(retiredTextures::add)
     texture = null
+    presented = null
     extent = MapExtent.Empty
   }
 
-  override fun readPixel(x: Int, y: Int): RgbaPixel = autoreleasepool {
-    val texture = checkNotNull(texture) { "No iOS test frame has been rendered" }
-    memScoped {
-      val bytes = allocArray<UByteVar>(4)
-      // Metal texture rows start at the top left, as fixture coordinates do.
-      texture.getBytes(
-        bytes,
-        BytesPerRow,
-        MTLRegionMake2D(x.toULong(), y.toULong(), 1u, 1u),
-        0uL,
-      )
-      // BGRA8Unorm stores blue in the first byte.
-      RgbaPixel(
-        red = bytes[2].toInt(),
-        green = bytes[1].toInt(),
-        blue = bytes[0].toInt(),
-        alpha = bytes[3].toInt(),
-      )
-    }
+  override fun readPixel(x: Int, y: Int): RgbaPixel {
+    val bytes = checkNotNull(presented) { "No iOS test frame has been presented" }
+    val offset = (y * presentedWidth + x) * BytesPerPixel
+    // BGRA8Unorm stores blue in the first byte.
+    return RgbaPixel(
+      red = bytes[offset + 2].toInt() and 0xff,
+      green = bytes[offset + 1].toInt() and 0xff,
+      blue = bytes[offset].toInt() and 0xff,
+      alpha = bytes[offset + 3].toInt() and 0xff,
+    )
   }
 
   private fun ensureTexture(next: MapExtent): MTLTextureProtocol = autoreleasepool {
@@ -134,12 +147,13 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
 
   override fun close() {
     texture = null
+    presented = null
     retiredTextures.clear()
     extent = MapExtent.Empty
   }
 
   companion object {
-    private const val BytesPerRow = 4uL
+    private const val BytesPerPixel = 4
 
     fun create(): AppleMetalTestRenderDriver {
       val device =

@@ -26,7 +26,7 @@ class MlnFfiMapRepaintTest {
       fixture.awaitUntil("the initial blue background") {
         fixture.tryReadPixel(256, 256)?.isNear(RgbaPixel(0, 0, 255, 255)) == true
       }
-      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) {
+      fixture.assertRedrawsAs("the replaced base style", RgbaPixel(255, 0, 0, 255)) {
         fixture.session.setBaseStyle(background("#ff0000"))
       }
       val style = checkNotNull(fixture.style)
@@ -34,8 +34,12 @@ class MlnFfiMapRepaintTest {
         TestLayer("green", "background").apply {
           paint("background-color", (const(Color.Green)).asLayerProperty())
         }
-      fixture.assertRedrawsAs(RgbaPixel(0, 255, 0, 255)) { style.install(layer) }
-      fixture.assertRedrawsAs(RgbaPixel(255, 0, 0, 255)) { style.uninstall(layer) }
+      fixture.assertRedrawsAs("the installed layer", RgbaPixel(0, 255, 0, 255)) {
+        style.install(layer)
+      }
+      fixture.assertRedrawsAs("the uninstalled layer", RgbaPixel(255, 0, 0, 255)) {
+        style.uninstall(layer)
+      }
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -87,13 +91,25 @@ class MlnFfiMapRepaintTest {
 
   /** Waits for the map to settle, applies [mutate], and waits for a requested frame to show it. */
   private suspend fun BridgeMapFixture.assertRedrawsAs(
+    change: String,
     expected: RgbaPixel,
     mutate: suspend () -> Unit,
   ) {
     awaitSettled()
+    val framesBefore = renderedFrames
     mutate()
-    awaitUntil("a requested frame to display $expected") {
-      tryReadPixel(256, 256)?.isNear(expected) == true
+    var pixel: RgbaPixel? = null
+    try {
+      awaitUntil("a frame to show $change as $expected") {
+        pixel = tryReadPixel(256, 256)
+        pixel?.isNear(expected) == true
+      }
+    } catch (error: IllegalStateException) {
+      throw IllegalStateException(
+        "${error.message} The last pixel was $pixel, after " +
+          "${renderedFrames - framesBefore} frames since the change.",
+        error,
+      )
     }
   }
 
