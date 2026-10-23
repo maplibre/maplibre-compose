@@ -724,7 +724,14 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       override fun isReady(): Boolean = owner.isCurrent(style)
 
       override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) {
-        if (!isReady() || !style.isLoaded || !isResourceCurrent()) return
+        if (!isReady() || !style.isLoaded) {
+          owner.logger?.w { "$target was not written: the loaded style changed first" }
+          return
+        }
+        if (!isResourceCurrent()) {
+          owner.logger?.w { "$target was not written: it was removed or replaced first" }
+          return
+        }
         try {
           action()
         } catch (error: StyleMutationException) {

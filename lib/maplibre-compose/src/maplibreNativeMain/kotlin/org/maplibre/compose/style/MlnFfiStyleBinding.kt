@@ -825,8 +825,10 @@ internal open class MlnFfiStyleBinding(
       try {
         session.querySourceFeatures(sourceId, options).await()
       } catch (error: MaplibreException) {
-        // A session that detached during the query has nothing to answer with.
-        if (error.status == Status.INVALID_STATE) return emptyList()
+        // A session that detached or lost its target during the query has nothing to answer with.
+        if (error.status == Status.INVALID_STATE || error.status == Status.TARGET_LOST) {
+          return emptyList()
+        }
         throw error
       }
     return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }

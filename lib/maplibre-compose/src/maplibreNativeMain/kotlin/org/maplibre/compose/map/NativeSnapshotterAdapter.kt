@@ -103,7 +103,8 @@ private class NativeSnapshotterAdapter(
     try {
       loadStyle(current, baseStyle)
     } catch (error: Throwable) {
-      if (error !is CancellationException) current.replace = true
+      // A cancelled load can still report its style, which must not satisfy the next load.
+      current.replace = true
       throw error
     }
     loadedBaseStyleRevision = baseStyleRevision

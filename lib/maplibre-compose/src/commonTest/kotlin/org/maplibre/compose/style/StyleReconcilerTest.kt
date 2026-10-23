@@ -220,6 +220,21 @@ class StyleReconcilerTest {
   }
 
   @Test
+  fun a_refused_source_removal_keeps_the_source_tracked() = runTest {
+    val style = RecordingStyleBinding(refusedSourceRemovals = setOf("kept"))
+    val reconciler = StyleReconciler()
+    val kept = source("kept")
+
+    reconciler.apply(style, StyleSnapshot(listOf(kept.definition()), emptyList(), emptyList()))
+    reconciler.settle(style)
+    reconciler.apply(style, StyleSnapshot.Empty)
+    reconciler.settle(style)
+
+    assertTrue("kept" in style.contents.sources)
+    assertTrue("kept" in style.installedSourceIds)
+  }
+
+  @Test
   fun a_composed_layer_with_a_base_layer_id_leaves_the_base_layer_in_place() = runTest {
     val style = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
     val reconciler = StyleReconciler()

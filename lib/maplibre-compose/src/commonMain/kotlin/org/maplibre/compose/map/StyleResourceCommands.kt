@@ -150,10 +150,12 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
 
   /**
    * Writes or removes an image and expires its handles. A write the engine rejects keeps the
-   * engine's previous image, and gives its handles back unless a later write changed the image.
+   * engine's previous image, and gives back its handles and ownership unless a later write changed
+   * the image.
    */
   private fun writeImage(binding: StyleBinding, id: String, definition: StyleImageDefinition?) {
     val command = if (definition == null) binding.removeImage(id) else binding.setImage(definition)
+    val previousOwnership = images[id]
     if (definition == null) images.remove(id) else images[id] = false
     val previous = binding.identity.images.take(id)
     val write = Any()
@@ -162,7 +164,10 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
       if (imageWrites[id] === write) imageWrites.remove(id)
       if (error !is StyleMutationException) return@invokeOnCompletion
       binding.reportRejectedWrite("Image '$id'", null, error)
-      if (previous != null && imageWrites[id] == null) binding.identity.images.restore(id, previous)
+      // Unless a later write changed the image, the engine still holds what it held before.
+      if (imageWrites[id] != null || !style.isCurrentLoadedStyle(binding)) return@invokeOnCompletion
+      if (previousOwnership == null) images.remove(id) else images[id] = previousOwnership
+      if (previous != null) binding.identity.images.restore(id, previous)
     }
   }
 

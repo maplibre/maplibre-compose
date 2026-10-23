@@ -18,6 +18,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
@@ -362,8 +363,11 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   // region operation plumbing
 
+  /** Waits until startup has finished, and throws its failure, before a public operation. */
   private suspend fun awaitRuntime(): RuntimeHandle {
     check(open) { "The offline storage has been disposed" }
+    val ready = storageState.first { it !is OfflineStorageState.Loading }
+    if (ready is OfflineStorageState.Failed) throw ready.cause
     return owner.awaitRuntime()
   }
 

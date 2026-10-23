@@ -253,9 +253,15 @@ internal class StyleReconciler {
 
   private fun removeSource(style: StyleBinding, applied: SourceInstallation) {
     sources.remove(applied.id)
-    style.contents.removeSource(applied.id)
+    val entry = style.contents.removeSource(applied.id)
     track(applied.remove()) { error ->
       style.logger?.w(error) { "Source '${applied.id}' was not removed: ${error.message}" }
+      // The engine kept the source, such as for a layer added outside the style API. It stays
+      // tracked unless a later write took its ID.
+      if (binding !== style || entry == null) return@track
+      if (applied.id in sources || applied.id in style.contents.sources) return@track
+      sources[applied.id] = applied
+      style.contents.restoreSource(applied.id, entry)
     }
   }
 
