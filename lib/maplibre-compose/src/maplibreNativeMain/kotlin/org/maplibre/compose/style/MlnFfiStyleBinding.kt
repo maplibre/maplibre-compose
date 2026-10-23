@@ -178,10 +178,8 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Submits a structural write inline on main; its outcome completes on main.
-   *
-   * TODO: complete the outcome directly once
-   *   https://github.com/maplibre/maplibre-native-ffi/issues/959 delivers completions to main.
+   * Submits a structural write inline on main. Its outcome completes on main after the events the
+   * write raised.
    */
   @OptIn(ExperimentalCoroutinesApi::class)
   private fun command(start: (MapHandle) -> Deferred<CommandCompletion>): StyleCommand {
@@ -194,22 +192,17 @@ internal open class MlnFfiStyleBinding(
       } catch (error: MaplibreException) {
         return rejectedStyleCommand(StyleMutationException(error.message, error))
       }
+    val ordered = owner.inEventOrder(submitted)
     val outcome = CompletableDeferred<Unit>()
-    submitted.invokeOnCompletion { error ->
-      owner.completeOnMain {
-        when {
-          error is CancellationException -> outcome.cancel(error)
-          error != null ->
-            outcome.completeExceptionally(StyleMutationException(error.message, error))
-          else -> {
-            val completion = submitted.getCompleted()
-            if (completion.failed) {
-              outcome.completeExceptionally(
-                StyleMutationException(completion.failureMessage(), null),
-              )
-            } else outcome.complete(Unit)
-          }
-        }
+    ordered.invokeOnCompletion { error ->
+      when {
+        error is CancellationException -> outcome.cancel(error)
+        error != null -> outcome.completeExceptionally(StyleMutationException(error.message, error))
+        ordered.getCompleted().failed ->
+          outcome.completeExceptionally(
+            StyleMutationException(ordered.getCompleted().failureMessage(), null),
+          )
+        else -> outcome.complete(Unit)
       }
     }
     return outcome
