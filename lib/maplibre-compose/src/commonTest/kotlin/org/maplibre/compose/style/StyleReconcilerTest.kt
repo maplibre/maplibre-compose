@@ -194,6 +194,32 @@ class StyleReconcilerTest {
   }
 
   @Test
+  fun a_layer_over_a_missing_source_waits_for_the_source_instead_of_retrying() = runTest {
+    // The fake engine rejects the layer's type, as MapLibre rejects a layer over a missing source.
+    val style = RecordingStyleBinding(refusedLayerTypes = setOf("circle"))
+    val reconciler = StyleReconciler()
+    val missing = source("missing")
+    val layer = TestLayer("over-missing", "circle", missing)
+    val withoutSource =
+      StyleSnapshot(
+        emptyList(),
+        listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+        emptyList(),
+      )
+
+    reconciler.apply(style, withoutSource)
+    assertTrue(reconciler.settle(style))
+    reconciler.apply(style, withoutSource)
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("over-missing"), style.layerAdditions)
+
+    // Declaring the source retries the layer.
+    reconciler.apply(style, withoutSource.copy(sources = listOf(missing.definition())))
+    reconciler.settle(style)
+    assertEquals(listOf("over-missing", "over-missing"), style.layerAdditions)
+  }
+
+  @Test
   fun a_composed_layer_with_a_base_layer_id_leaves_the_base_layer_in_place() = runTest {
     val style = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
     val reconciler = StyleReconciler()

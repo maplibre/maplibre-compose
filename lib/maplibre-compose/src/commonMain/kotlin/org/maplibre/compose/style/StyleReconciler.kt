@@ -32,8 +32,11 @@ internal class StyleReconciler {
   /** Source definitions the engine rejected, skipped until the revision changes them. */
   private val rejectedSources = mutableMapOf<String, SourceDefinition>()
 
-  /** Layer definitions the engine rejected, with the layer each was placed below. */
-  private val rejectedLayers = mutableMapOf<String, Pair<LayerDefinition, String>>()
+  /**
+   * Layer additions the engine rejected. A revision skips each until something it depended on
+   * changes: its definition, the layer it is placed below, or whether its source exists.
+   */
+  private val rejectedLayers = mutableMapOf<String, LayerRejection>()
 
   /**
    * Structural writes whose outcome [settle] has not handled, each with its rejection handler. A
@@ -125,7 +128,7 @@ internal class StyleReconciler {
     val placedLayers = prepared.layers
     val desiredLayers = placedLayers.associateBy { it.definition.id }
     rejectedLayers.entries.removeAll { (id, rejected) ->
-      desiredLayers[id]?.definition != rejected.first
+      desiredLayers[id]?.definition != rejected.definition
     }
 
     layers.values.toList().forEach { applied ->
@@ -173,7 +176,9 @@ internal class StyleReconciler {
             // A layer over a rejected source waits for the source.
             if (desired.definition.sourceId in rejectedSources) return@forEachIndexed
             val before = beforeLayerId(contents.layerIds(), placement, previousId)
-            if (rejectedLayers[id] == desired.definition to before) return@forEachIndexed
+            if (rejectedLayers[id] == layerRejection(style, desired.definition, before)) {
+              return@forEachIndexed
+            }
             applied =
               addLayer(style, desired, placement, before, revision.animatorDurationScale)
                 ?: return@forEachIndexed
@@ -264,7 +269,7 @@ internal class StyleReconciler {
     val definition = desired.definition
     // The engine would reject a second layer with the ID, so the existing one is kept as it is.
     if (style.contents.hasLayer(definition.id)) {
-      rejectedLayers[definition.id] = definition to before
+      rejectedLayers[definition.id] = layerRejection(style, definition, before)
       style.logger?.w {
         "Layer '${definition.id}' was not added: the style already has a layer with this ID"
       }
@@ -283,14 +288,13 @@ internal class StyleReconciler {
       style.contents.removeLayer(definition.id)
       style.identity.layers.remove(definition.id)
       rejected = true
-      // A layer placed against a rejected layer, or over a rejected source, failed only because of
-      // that rejection; the next revision places it again.
-      val sourceId = definition.sourceId
-      val blocked =
-        (before.isNotEmpty() && !style.contents.hasLayer(before)) ||
-          (sourceId != null && sourceId !in style.contents.sources)
-      if (blocked) return@track
-      rejectedLayers[definition.id] = definition to before
+      val rejection = layerRejection(style, definition, before)
+      rejectedLayers[definition.id] = rejection
+      // A layer placed against a rejected layer, or over a missing source, failed only because of
+      // that; it is placed again once the layer is gone or the source exists.
+      if ((before.isNotEmpty() && !style.contents.hasLayer(before)) || !rejection.sourceExists) {
+        return@track
+      }
       style.logger?.w(error) {
         "${applied.installation.describe()} was not added, and stays out of the style until its " +
           "definition changes: ${error.message}. Layer JSON: ${definition.value}"
@@ -372,6 +376,19 @@ internal class StyleReconciler {
     check(index >= 0) { "Layer ID '$id' not found in style" }
     return getOrNull(index + 1).orEmpty()
   }
+
+  private fun layerRejection(style: StyleBinding, definition: LayerDefinition, before: String) =
+    LayerRejection(
+      definition,
+      before,
+      sourceExists = definition.sourceId?.let { it in style.contents.sources } ?: true,
+    )
+
+  private data class LayerRejection(
+    val definition: LayerDefinition,
+    val before: String,
+    val sourceExists: Boolean,
+  )
 
   private class AppliedLayer(
     val placement: Placement,

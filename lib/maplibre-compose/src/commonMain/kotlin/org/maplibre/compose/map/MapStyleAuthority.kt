@@ -168,12 +168,16 @@ internal class MapStyleAuthority(
     try {
       withContext(NonCancellable) {
         var next = revision
-        while (acceptsResources(adapter, binding)) {
+        repeat(MaxStyleRevisionPasses) {
+          if (!acceptsResources(adapter, binding)) return@withContext
           val rejected = adapter.reconcileStyleRevision(next)
           if (!acceptsResources(adapter, binding)) return@withContext
           publishResources(binding)
           if (!rejected) return@withContext
           next = style.declaredRevision
+        }
+        runtime.logger?.w {
+          "Style content still had rejected writes after $MaxStyleRevisionPasses passes"
         }
       }
     } catch (error: CancellationException) {
@@ -323,3 +327,9 @@ internal class MapStyleAuthority(
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 }
+
+/**
+ * How many times one revision is applied while the engine rejects part of it. Each pass skips the
+ * definitions an earlier pass saw rejected, so a few passes settle any revision.
+ */
+internal const val MaxStyleRevisionPasses = 8

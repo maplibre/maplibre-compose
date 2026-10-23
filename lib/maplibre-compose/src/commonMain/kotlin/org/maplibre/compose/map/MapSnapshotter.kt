@@ -277,6 +277,9 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
  * An image contains only the rendered map: the sources, layers, and images of the style. It
  * contains no Compose UI, such as map controls, and no attribution text, so show the
  * [attributions][org.maplibre.compose.overlay.attributions] of [style] with the image.
+ *
+ * On Windows desktop, captures need the Vulkan runtime; with the OpenGL runtime, [capture] throws
+ * [MapSnapshotException].
  */
 public sealed interface MapSnapshotter {
   /**
@@ -459,7 +462,10 @@ internal class MapSnapshotterImplementation(
       currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
       // Applied again after a rejection: the rejected definitions stay out, and what they had
       // blocked goes in.
-      while (platform.apply(revision)) currentCoroutineContext().ensureActive()
+      for (pass in 1..MaxStyleRevisionPasses) {
+        if (!platform.apply(revision)) break
+        currentCoroutineContext().ensureActive()
+      }
       // Publish a reused style's handles before rendering, as a map does.
       if (isCurrent(currentBinding)) style.updateResources(style.resources(currentBinding))
       val image = platform.capture(request)
