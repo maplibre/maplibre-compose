@@ -63,7 +63,7 @@ internal actual fun enginePixels(width: Int, height: Int, straightArgb: IntArray
       height.toUInt(),
       stride = (width * 4).toUInt(),
       pixels = rgba,
-    )
+    ),
   )
 }
 

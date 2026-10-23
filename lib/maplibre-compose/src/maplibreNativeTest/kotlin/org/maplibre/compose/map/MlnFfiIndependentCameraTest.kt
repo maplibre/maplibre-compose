@@ -33,7 +33,7 @@ class MlnFfiIndependentCameraTest {
       fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
 
       state.setCameraPosition(
-        state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero)
+        state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero),
       )
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {

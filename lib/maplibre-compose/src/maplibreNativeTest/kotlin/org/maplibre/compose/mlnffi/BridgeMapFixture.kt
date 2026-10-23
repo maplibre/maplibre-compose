@@ -84,7 +84,7 @@ private constructor(
           requestInterceptor = resourceConfig.interceptor,
           resourceProvider = resourceConfig.provider,
           logger = MapLog,
-        )
+        ),
       )
   val state = runtime.createMapState(BaseStyle.Empty)
 

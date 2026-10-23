@@ -148,7 +148,7 @@ class MlnFfiMapCompositionTest {
                       } while (event.changes.any { it.pressed })
                     }
                   }
-                }
+                },
               )
               Box(Modifier.size(30.dp).testTag("button").clickable { buttonClicks++ })
             },
@@ -244,7 +244,7 @@ class MlnFfiMapCompositionTest {
                   change.consume()
                   drags++
                 }
-              }
+              },
             )
           },
         )
@@ -311,7 +311,7 @@ class MlnFfiMapCompositionTest {
                   if (zoom != 1f) pinches++
                   if (rotation != 0f) twists++
                 }
-              }
+              },
             )
           },
         )
@@ -958,11 +958,11 @@ class MlnFfiMapCompositionTest {
     withTestRuntime(runtimeOptions) { runtime ->
       val first =
         BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"bg-a","type":"background"}]}"""
+          """{"version":8,"sources":{},"layers":[{"id":"bg-a","type":"background"}]}""",
         )
       val second =
         BaseStyle.Json(
-          """{"version":8,"sources":{},"layers":[{"id":"bg-b","type":"background"}]}"""
+          """{"version":8,"sources":{},"layers":[{"id":"bg-b","type":"background"}]}""",
         )
       val state = runtime.createMapState(baseStyle = first)
 
@@ -1076,7 +1076,7 @@ class MlnFfiMapCompositionTest {
 
         assertSame(session, mapState.currentMapAttachment?.adapter)
         assertEquals(LayoutDirection.Rtl, session.layoutDirection)
-      }
+      },
     ) { errors, onFrame ->
       CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
         mapState =
@@ -1119,7 +1119,7 @@ class MlnFfiMapCompositionTest {
         )
         assertEquals(firstPosition.zoom, actual.zoom, PositionTolerance, "zoom")
         assertEquals(firstPosition.pitch, actual.pitch, PositionTolerance, "pitch")
-      }
+      },
     ) { errors, onFrame ->
       mapState =
         TestMap(
@@ -1160,7 +1160,7 @@ class MlnFfiMapCompositionTest {
           abs(second - first * 2f) < 4f,
           "the camera target should stay at the resized center: first=$first second=$second",
         )
-      }
+      },
     ) { errors, onFrame ->
       TestMap(
         modifier = Modifier.width(mapWidth.value).height(256.dp),
@@ -1173,7 +1173,7 @@ class MlnFfiMapCompositionTest {
             Box(
               Modifier.placedAt(target, alignment = Alignment.Center)
                 .size(4.dp)
-                .testTag(PlacedAtTag)
+                .testTag(PlacedAtTag),
             )
           },
       )
@@ -1198,12 +1198,12 @@ class MlnFfiMapCompositionTest {
   private companion object {
     val RetainedStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"retained-style","type":"background"}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"retained-style","type":"background"}]}""",
       )
 
     val ReplacementStyle =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"replacement-style","type":"background"}]}"""
+        """{"version":8,"sources":{},"layers":[{"id":"replacement-style","type":"background"}]}""",
       )
 
     const val RenderTimeoutMillis = 30_000L

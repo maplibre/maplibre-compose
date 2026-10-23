@@ -64,7 +64,7 @@ private constructor(
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
         GeneratedApi.runtimeCreate(
-          GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString())
+          GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString()),
         )
       try {
         eventHandler?.let { runtime.setEventHandler(it).await() }

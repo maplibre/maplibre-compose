@@ -27,7 +27,7 @@ class GlJsMapSessionTest {
           try { return original.call(this, options); }
           finally { entering(false); }
         };
-      })"""
+      })""",
         )
       engine.asDynamic().jumpTo = wrap(original) { entered: Boolean -> insideJump = entered }
       val callbacks = session.callbacks

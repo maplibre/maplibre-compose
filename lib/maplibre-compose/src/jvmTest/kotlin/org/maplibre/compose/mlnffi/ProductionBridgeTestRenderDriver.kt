@@ -121,7 +121,7 @@ private constructor(
         tryLoadRuntimeBackends().getOrThrow().singleOrNull()
           ?: error(
             "Desktop bridge tests require exactly one packaged runtime backend; found " +
-              tryLoadRuntimeBackends().getOrThrow().joinToString().ifEmpty { "none" }
+              tryLoadRuntimeBackends().getOrThrow().joinToString().ifEmpty { "none" },
           )
       val producer = runtimeBackend
       val environment = DesktopTestGpuEnvironment.create()
@@ -243,7 +243,7 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
           OpenGlTestGpuEnvironment.create()
         else ->
           error(
-            "No production Desktop bridge test environment for ${System.getProperty("os.name")}"
+            "No production Desktop bridge test environment for ${System.getProperty("os.name")}",
           )
       }
   }

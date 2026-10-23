@@ -208,7 +208,7 @@ class SnapshotCompositionTest {
                           snapshotter.style.globalState.get()
                           Unit
                         }
-                      }
+                      },
                     )
                   }
                 }
@@ -236,7 +236,7 @@ class SnapshotCompositionTest {
             layout["icon-image"],
           )
           captured.image.toImageBitmap()
-        }
+        },
       )
     val runtime =
       mapRuntimeForTest(

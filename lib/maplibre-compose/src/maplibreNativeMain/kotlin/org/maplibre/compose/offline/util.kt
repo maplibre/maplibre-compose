@@ -34,8 +34,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
             maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
             pixelRatio = pixelRatio,
             includeIdeographs = IncludeIdeographs,
-          )
-        )
+          ),
+        ),
       )
     is OfflinePackDefinition.Shape ->
       FfiRegionDefinition(
@@ -47,8 +47,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
             maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
             pixelRatio = pixelRatio,
             includeIdeographs = IncludeIdeographs,
-          )
-        )
+          ),
+        ),
       )
     is UnspecifiedOfflinePackDefinition ->
       error("UnspecifiedOfflinePackDefinition has no instances")

@@ -41,7 +41,7 @@ class MlnFfiMapEventsTest {
                     drawCallCount = 4L,
                     totalDrawCallCount = 5L,
                   ),
-              )
+              ),
             ),
         )
         .toMapEvent()
@@ -85,7 +85,7 @@ class MlnFfiMapEventsTest {
               needsRepaint = false,
               placementChanged = false,
               stats = RenderingStats(0.0, 0.0, 0L, 0L, 0L),
-            )
+            ),
           ),
       )
     return assertNotNull((event.toMapEvent() as MapEvent.FrameRendered).stats)

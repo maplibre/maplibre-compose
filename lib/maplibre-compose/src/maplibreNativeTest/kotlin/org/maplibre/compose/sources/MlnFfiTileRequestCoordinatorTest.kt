@@ -190,7 +190,7 @@ class MlnFfiTileRequestCoordinatorTest {
           MlnFfiRuntimeOptions(
             cacheFile,
             mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
-          )
+          ),
         )
         .also { it.start() }
     try {

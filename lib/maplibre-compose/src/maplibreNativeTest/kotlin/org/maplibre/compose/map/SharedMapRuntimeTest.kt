@@ -46,7 +46,7 @@ class SharedMapRuntimeTest {
           cacheFile,
           maximumCacheSizeBytes = 1_000_000,
           mainDispatcher = TestMainDispatcher(),
-        )
+        ),
       )
     try {
       BridgeMapFixture.create(runtime = runtime).use { first ->
@@ -75,7 +75,7 @@ class SharedMapRuntimeTest {
                       BoundingBox(-1.0, -1.0, 1.0, 1.0),
                       1f,
                       maxZoom = 0.0,
-                    )
+                    ),
                   )
                 runtime.offlineStorage.resume(pack)
                 val download = async {

@@ -126,7 +126,7 @@ internal actual suspend fun withTestMapRuntime(
         maximumCacheSizeBytes = null,
         resourceProvider = provider,
         mainDispatcher = TestMainDispatcher(),
-      )
+      ),
     )
   try {
     block(runtime)

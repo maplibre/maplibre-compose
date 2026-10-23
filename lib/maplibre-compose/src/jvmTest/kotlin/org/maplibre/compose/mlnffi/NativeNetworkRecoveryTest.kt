@@ -152,7 +152,7 @@ private class TestRuntime(cachePath: String) : AutoCloseable {
         .setEventHandler(
           RuntimeEventHandler { batch ->
             batch.events.forEach { events.trySend(it) }
-          }
+          },
         )
         .await()
     }

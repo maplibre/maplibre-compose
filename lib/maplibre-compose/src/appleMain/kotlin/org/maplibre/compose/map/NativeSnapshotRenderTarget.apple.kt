@@ -42,7 +42,7 @@ private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
       if (MapRenderBackend.Metal in backends) {
         NativeSnapshotRenderTargetPlan {
           NativeSnapshotRenderTarget(
-            checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" }
+            checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" },
           )
         }
       } else {

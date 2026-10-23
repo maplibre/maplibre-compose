@@ -107,7 +107,7 @@ internal class AppleMlnFfiSurfaceController(
       enqueueRenderer {
         result = runCatching(action)
         done.signal()
-      }
+      },
     ) {
       "The Apple map surface controller is shutting down"
     }

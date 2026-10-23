@@ -71,7 +71,7 @@ class MlnFfiViewportTest {
               listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
-          }
+          },
         )
       assertEquals(expected[0], assertNotNull(session.getViewport()).metersPerDpAtCenter)
       assertEquals(

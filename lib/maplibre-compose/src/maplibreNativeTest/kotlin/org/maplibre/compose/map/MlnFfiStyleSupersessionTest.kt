@@ -47,7 +47,7 @@ class MlnFfiStyleSupersessionTest {
         provider =
           MapResourceProvider("held") {
             if (it.url == "held://first") first.load() else second.load()
-          }
+          },
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
@@ -121,7 +121,7 @@ class MlnFfiStyleSupersessionTest {
         provider =
           MapResourceProvider("held") {
             if (it.url == "held://first") first.load() else error("replacement document failed")
-          }
+          },
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))

@@ -58,7 +58,7 @@ internal fun MlnFfiMapSurfaceContent(
       Box(
         Modifier.matchParentSize()
           .background(options.uiOptions.loadColor)
-          .testTag(MapLoadPlaceholderTag)
+          .testTag(MapLoadPlaceholderTag),
       )
     }
   }
@@ -85,7 +85,7 @@ internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
         if (RenderBackendFlag.VULKAN in supported) add(MapRenderBackend.Vulkan)
         if (RenderBackendFlag.OPENGL in supported) add(MapRenderBackend.OpenGl)
         // WebGPU is currently supported only by the browser FFI runtime, which no host here uses.
-      }
+      },
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)

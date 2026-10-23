@@ -22,7 +22,7 @@ class DefaultMapRuntimeTest {
             configure = {
               cacheFile = cache
               mainDispatcher = TestMainDispatcher()
-            }
+            },
           ) {
             runtime = it
             state = it.createMapState(BaseStyle.Empty)

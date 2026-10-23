@@ -60,7 +60,7 @@ internal fun createNativeSnapshotterAdapter(
     NativeSnapshotRenderTarget.select(available)
       ?: throw MapSnapshotException(
         "No compatible offscreen snapshot backend is available from " +
-          available.joinToString().ifEmpty { "none" }
+          available.joinToString().ifEmpty { "none" },
       )
   return NativeSnapshotterAdapter(owner, targetPlan)
 }
@@ -233,7 +233,7 @@ private class NativeSnapshotterAdapter(
     if (completion.failed) {
       current.endStyleLoad(load)
       throw IllegalStateException(
-        completion.diagnostic.ifBlank { "MapLibre could not load the style" }
+        completion.diagnostic.ifBlank { "MapLibre could not load the style" },
       )
     }
     load.result.await().getOrThrow()
@@ -255,7 +255,7 @@ private class NativeSnapshotterAdapter(
           FrameDemand(
             flags = FrameDemandFlag.IF_NEEDED or FrameDemandFlag.WAIT_FOR_UPDATE,
             token = demand,
-          )
+          ),
         )
       } catch (error: MaplibreException) {
         if (image.isCompleted) break
@@ -284,7 +284,7 @@ private class NativeSnapshotterAdapter(
       }
     check(
       geometry.size.width.value.toInt() == extent.width &&
-        geometry.size.height.value.toInt() == extent.height
+        geometry.size.height.value.toInt() == extent.height,
     ) {
       "The snapshot map reported a ${geometry.size} viewport, expected " +
         "${extent.width}x${extent.height} logical pixels"
@@ -464,7 +464,7 @@ private constructor(
                 initialExtent = extent.toFfiExtent(),
                 mapMode = MapMode.STATIC,
                 eventMask = SnapshotEvents,
-              )
+              ),
           )
           .await()
       val target =

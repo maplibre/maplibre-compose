@@ -39,7 +39,7 @@ class SourceInstallationFailureTest {
                 bounds,
                 PreparedImage.fromBitmap(ImageBitmap(1, 1)),
               )
-              .definition()
+              .definition(),
           )
         val next =
           assertIs<SourceDefinition.Image>(
@@ -48,7 +48,7 @@ class SourceInstallationFailureTest {
                 changedBounds,
                 "https://example.invalid/image.png",
               )
-              .definition()
+              .definition(),
           )
         val binding =
           object : StyleBinding by native {

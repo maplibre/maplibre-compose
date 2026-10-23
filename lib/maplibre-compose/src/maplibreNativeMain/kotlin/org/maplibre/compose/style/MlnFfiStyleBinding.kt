@@ -794,7 +794,7 @@ internal open class MlnFfiStyleBinding(
   ): JsonObject =
     Json.parseToJsonElement(
         query { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) }
-          .decodeToString()
+          .decodeToString(),
       )
       .jsonObject
 

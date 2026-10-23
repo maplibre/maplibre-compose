@@ -29,7 +29,7 @@ class SharedTextureMapHostTest {
 
       val next =
         assertIs<MlnFfiMapFrameAcquisition.Acquired>(
-            driver.acquireFrame(MapExtent.fromPhysical(96, 96, 1.0))
+            driver.acquireFrame(MapExtent.fromPhysical(96, 96, 1.0)),
           )
           .frame
       assertEquals(1, releases, "Replacement must finish the previous frame's reads")

@@ -171,7 +171,7 @@ class MlnFfiSurfaceLossTest {
     fixture.use {
       it.loadStyle(BlackStyle)
       it.session.setCameraPosition(
-        CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0)
+        CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0),
       )
       val style = checkNotNull(it.style)
       val source =
@@ -181,7 +181,7 @@ class MlnFfiSurfaceLossTest {
             GeoJsonData.Features(
               buildFeatureCollection<Geometry, JsonObject?> {
                 addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
-              }
+              },
             ),
         )
       style.install(source)
@@ -252,7 +252,7 @@ class MlnFfiSurfaceLossTest {
         {"version":8,"sources":{},"layers":[
           {"id":"bg","type":"background","paint":{"background-color":"#eee"}}
         ]}
-        """
+        """,
       )
 
     val BlackStyle =
@@ -262,7 +262,7 @@ class MlnFfiSurfaceLossTest {
           {"id":"background","type":"background","paint":{"background-color":"#000000"}}
         ]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     val Red = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
@@ -296,7 +296,7 @@ private fun StyleBinding.featureStateOnOwnerThread(
           map.getFeatureState(featureStateSelector(sourceId, null, featureId)).let { completion ->
             runBlocking { completion.await() }
           }
-        }
+        },
       )
     }
   }

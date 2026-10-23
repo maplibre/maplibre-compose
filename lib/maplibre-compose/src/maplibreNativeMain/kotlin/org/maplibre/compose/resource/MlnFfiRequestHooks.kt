@@ -25,8 +25,8 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
           config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
             GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
           }
-        }
-      )
+        },
+      ),
     )
     .reportFailure(
       config.logger,
@@ -40,8 +40,8 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
             val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
             if (rewritten != url) it.complete(rewritten)
           }
-        }
-      )
+        },
+      ),
     )
     .reportFailure(config.logger, "install the request interceptor's URL transform")
 }

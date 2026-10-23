@@ -211,7 +211,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
   /** Runs [action] after the controller rendered its first frame into a layer. */
   private fun withScriptedController(
-    action: suspend (AppleMlnFfiSurfaceController, ScriptedRenderer) -> Unit
+    action: suspend (AppleMlnFfiSurfaceController, ScriptedRenderer) -> Unit,
   ) = runAppleSurfaceTest {
     val renderer = ScriptedRenderer()
     val controller =

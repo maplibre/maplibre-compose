@@ -42,8 +42,8 @@ class MlnFfiOfflineStorageTest {
     val owner =
       MlnFfiRuntime(
         options.copy(
-          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
-        )
+          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
+        ),
       )
     val storage = MlnFfiOfflineStorage(owner)
     owner.start()
@@ -72,9 +72,9 @@ class MlnFfiOfflineStorageTest {
           type = RuntimeEventType.OFFLINE_REGION_STATUS_CHANGED,
           payload =
             RuntimeEventPayload.OfflineRegionStatus(
-              RuntimeEventOfflineRegionStatus(pack.regionId, newer)
+              RuntimeEventOfflineRegionStatus(pack.regionId, newer),
             ),
-        )
+        ),
       )
       assertEquals(newer.toDownloadProgress(), pack.downloadProgress.value)
 
@@ -95,8 +95,8 @@ class MlnFfiOfflineStorageTest {
     val owner =
       MlnFfiRuntime(
         configured.copy(
-          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
-        )
+          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
+        ),
       )
     val storage = MlnFfiOfflineStorage(owner)
     owner.start()

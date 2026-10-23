@@ -390,8 +390,8 @@ internal class NativePresentation(
               flags =
                 FrameDemandFlag.IF_NEEDED or
                   FrameDemandFlag.WAIT_FOR_UPDATE or
-                  FrameDemandFlag.PRESENT
-            )
+                  FrameDemandFlag.PRESENT,
+            ),
           )
         }
         completed ?: return MlnFfiFrameResult.AwaitUpdate
@@ -444,7 +444,7 @@ internal class NativePresentation(
     }
     return MlnFfiFrameResult.Rendered(
       if (captureProjection) viewport.captureFrameProjection(presentedView, frame.target.extent)
-      else null
+      else null,
     )
   }
 
@@ -596,7 +596,7 @@ internal class NativePresentation(
           VulkanBorrowedTexture(
             image = image.address.toULong(),
             imageView = imageView.address.toULong(),
-          )
+          ),
         ),
       format = format.toUInt(),
       initialLayout = initialLayout.toUInt(),
@@ -676,7 +676,7 @@ internal fun EglContextHandles.toFfi(): OpenglContextDescriptor {
             if (dedicated && clientApi == OpenglClientApi.UNSPECIFIED) OpenglClientApi.GLES
             else clientApi,
           getProcAddress = NativePointer.ofAddress(getProcAddress.address),
-        )
+        ),
       ),
   )
 }
@@ -692,6 +692,6 @@ internal fun WglContextHandles.toFfi(): OpenglContextDescriptor =
             if (ownership == OpenglContextOwnership.DEDICATED) NativePointer.NULL_POINTER
             else NativePointer.ofAddress(shareContext.address),
           getProcAddress = NativePointer.ofAddress(getProcAddress.address),
-        )
+        ),
       ),
   )

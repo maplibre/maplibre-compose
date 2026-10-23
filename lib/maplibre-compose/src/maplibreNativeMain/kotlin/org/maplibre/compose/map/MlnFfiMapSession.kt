@@ -340,7 +340,7 @@ internal class MlnFfiMapSession(
           if (map == null) createMap()
           presentationActive = true
           presentation.resume()
-        }
+        },
       )
     }
   }
@@ -382,7 +382,7 @@ internal class MlnFfiMapSession(
           viewport.detach()
           presentationActive = false
           presentation.release()
-        }
+        },
       )
     }
     completion.await().getOrThrow()
@@ -400,7 +400,7 @@ internal class MlnFfiMapSession(
               initialExtent = LogicalExtent(1u, 1u, scaleFactor),
               mapMode = MapMode.CONTINUOUS,
               eventMask = HandledMapEvents,
-            )
+            ),
         )
         .await()
     if (!owner.register(created, child)) {
@@ -716,7 +716,7 @@ internal class MlnFfiMapSession(
     val applied = viewport.cameraForAssignment(cameraPosition)
     map
       .updateCamera(
-        FfiCameraUpdate(camera = applied.toCameraOptions(viewport.appliedViewportInsets))
+        FfiCameraUpdate(camera = applied.toCameraOptions(viewport.appliedViewportInsets)),
       )
       .report("move the camera")
   }
@@ -825,7 +825,7 @@ internal class MlnFfiMapSession(
           ScreenPoint(
             x = (size.width.toDouble() + persistent.left - persistent.right) / 2.0,
             y = (size.height.toDouble() + persistent.top - persistent.bottom) / 2.0,
-          )
+          ),
         )
       }
     return camera.copy(center = center, padding = persistent)
@@ -846,7 +846,7 @@ internal class MlnFfiMapSession(
           mode = animation.updateMode,
           camera = update.toCameraOptions(viewport.appliedViewportInsets),
           animation = options,
-        )
+        ),
       )
     }
   }
@@ -891,7 +891,7 @@ internal class MlnFfiMapSession(
               pitch = pitch,
             ),
           animation = options,
-        )
+        ),
       )
     }
   }
@@ -918,7 +918,7 @@ internal class MlnFfiMapSession(
           mode = animation.updateMode,
           camera = checkNotNull(camera),
           animation = options,
-        )
+        ),
       )
     }
   }
@@ -1002,7 +1002,7 @@ internal class MlnFfiMapSession(
           maxZoom = value.maxZoom,
           minPitch = value.minPitch,
           maxPitch = value.maxPitch,
-        )
+        ),
       )
       .report("set the camera constraints")
   }
@@ -1069,7 +1069,7 @@ internal class MlnFfiMapSession(
       target,
       animation ->
       target.updateCamera(
-        FfiCameraUpdate(mode = CameraUpdateMode.EASE, camera = camera, animation = animation)
+        FfiCameraUpdate(mode = CameraUpdateMode.EASE, camera = camera, animation = animation),
       )
     }
   }
@@ -1115,8 +1115,8 @@ internal class MlnFfiMapSession(
         ScreenBox(
           min = DpOffset(left, top).toScreenPoint(),
           max = DpOffset(right, bottom).toScreenPoint(),
-        )
-      )
+        ),
+      ),
     )
 
   /** Rendered feature state belongs to the render session, so a query without one is empty. */
@@ -1293,7 +1293,7 @@ internal class MlnFfiMapSession(
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) {
     submitCameraInput(gestureToken) { phase ->
       discarding.applyCameraDelta(
-        CameraDelta(offset = ScreenPoint(deltaX, deltaY), gesturePhase = phase)
+        CameraDelta(offset = ScreenPoint(deltaX, deltaY), gesturePhase = phase),
       )
     }
   }
@@ -1311,7 +1311,7 @@ internal class MlnFfiMapSession(
       fields = setOf(TransitionField.Center),
     ) { map, animation ->
       map.discarding.applyCameraDelta(
-        CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation)
+        CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation),
       )
     }
   }
@@ -1319,7 +1319,7 @@ internal class MlnFfiMapSession(
   override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) {
     submitCameraInput(gestureToken) { phase ->
       discarding.applyCameraDelta(
-        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), gesturePhase = phase)
+        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), gesturePhase = phase),
       )
     }
   }
@@ -1337,7 +1337,7 @@ internal class MlnFfiMapSession(
       fields = setOf(TransitionField.Center, TransitionField.Zoom),
     ) { map, animation ->
       map.discarding.applyCameraDelta(
-        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation)
+        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation),
       )
     }
   }
@@ -1381,7 +1381,7 @@ internal class MlnFfiMapSession(
             pitch = pitch,
             anchor = anchor?.toScreenPoint(),
             gesturePhase = phase,
-          )
+          ),
         )
       }
     }
@@ -1407,7 +1407,7 @@ internal class MlnFfiMapSession(
           mode = CameraUpdateMode.EASE,
           camera = CameraOptions(bearing = bearing),
           animation = animation,
-        )
+        ),
       )
     }
   }
@@ -1431,7 +1431,7 @@ internal class MlnFfiMapSession(
           pitch = pitchDelta.takeIf { it != 0.0 },
           anchor = anchor?.toScreenPoint(),
           animation = animation,
-        )
+        ),
       )
     }
   }

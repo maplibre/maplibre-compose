@@ -128,7 +128,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       }
     return registerRegion(runtime, info)
       ?: throw OfflineStorageException(
-        "MapLibre created an offline region that this build cannot represent"
+        "MapLibre created an offline region that this build cannot represent",
       )
   }
 

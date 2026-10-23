@@ -84,7 +84,7 @@ internal fun MapHandle.styleImageInfo(imageId: String): StyleImageInfo? =
   getStyleImage(imageId).let { completion -> runBlocking { completion.await() } }
 
 internal fun MapHandle.styleImageStretches(
-  imageId: String
+  imageId: String,
 ): Pair<List<ImageStretch>, List<ImageStretch>>? =
   styleImageInfo(imageId)?.let { it.stretchX to it.stretchY }
 

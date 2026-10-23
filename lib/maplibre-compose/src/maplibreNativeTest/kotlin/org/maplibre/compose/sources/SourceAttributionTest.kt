@@ -32,7 +32,7 @@ class SourceAttributionTest {
               requested.complete(Unit)
               tileJson.await()
             } else awaitCancellation() // Keep tiles pending so the map cannot become idle.
-          }
+          },
       )
     MlnFfiMapFixture(BridgeMapFixture.create(resourceConfig = config), MapFixture.DefaultExtent)
       .use { fixture ->
@@ -51,7 +51,7 @@ class SourceAttributionTest {
 
         tileJson.complete(
           """{"tilejson":"3.0.0","tiles":["fixture://tiles/{z}/{x}/{y}.pbf"],"attribution":"late attribution","minzoom":0,"maxzoom":0}"""
-            .encodeToByteArray()
+            .encodeToByteArray(),
         )
         fixture.pumpUntil("attribution while tiles are pending", timeout = 5.seconds) {
           fixture.state.style.sources[source]?.attributionHtml == "late attribution"
@@ -66,8 +66,8 @@ class SourceAttributionTest {
         assertNull(fixture.state.style.sources[source])
         fixture.loadStyle(
           BaseStyle.Json(
-            """{"version":8,"sources":{"replacement":{"type":"geojson","attribution":"replacement attribution","data":{"type":"FeatureCollection","features":[]}}},"layers":[]}"""
-          )
+            """{"version":8,"sources":{"replacement":{"type":"geojson","attribution":"replacement attribution","data":{"type":"FeatureCollection","features":[]}}},"layers":[]}""",
+          ),
         )
         assertNull(fixture.state.style.sources[source])
         assertEquals(
