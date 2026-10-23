@@ -2074,9 +2074,11 @@ public final class org/maplibre/compose/location/HeadingTrackingStatus$Tracking 
 
 public final class org/maplibre/compose/location/HeadingTrackingStatus$Unavailable : org/maplibre/compose/location/HeadingTrackingStatus {
 	public static final field $stable I
-	public final fun component1 ()Ljava/lang/Throwable;
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public final fun component2 ()Ljava/lang/Throwable;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCause ()Ljava/lang/Throwable;
+	public final fun getReason ()Lorg/maplibre/compose/location/LocationUnavailableReason;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

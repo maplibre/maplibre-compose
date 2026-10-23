@@ -52,9 +52,11 @@ public interface LocationProvider : AutoCloseable {
   /**
    * Returns a cold stream of foreground location updates.
    *
-   * When [backendAvailability] is [LocationBackendAvailability.Unsupported], collection emits
-   * [LocationEvent.Unavailable] with [LocationUnavailableReason.Unsupported] and completes. A
-   * [LocationBackendAvailability.Misconfigured] provider fails collection with an
+   * A provider reports conditions and platform failures that prevent location delivery as
+   * [LocationEvent.Unavailable] instead of failing the flow. When [backendAvailability] is
+   * [LocationBackendAvailability.Unsupported], collection emits [LocationEvent.Unavailable] with
+   * [LocationUnavailableReason.Unsupported] and completes. Only a
+   * [LocationBackendAvailability.Misconfigured] provider fails collection, with an
    * [IllegalStateException].
    *
    * Each collector starts an independent platform location request. Cancelling collection stops
@@ -239,7 +241,9 @@ public sealed interface LocationEvent {
 internal data object UnspecifiedLocationEvent : LocationEvent
 
 /**
- * Reasons that a provider cannot currently deliver location measurements.
+ * Reasons that a provider cannot currently deliver location or heading measurements.
+ *
+ * Heading providers report only [Unsupported] and [TemporarilyUnavailable].
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
@@ -254,18 +258,18 @@ public sealed interface LocationUnavailableReason {
   public data object ServicesDisabled : LocationUnavailableReason
 
   /**
-   * The provider cannot deliver a location now, but a later location request may succeed.
+   * The provider cannot deliver a measurement now, but a later request may succeed.
    *
-   * For example, a device in a tunnel may temporarily lose satellite positioning, or a browser
-   * request may time out before a position is available.
+   * For example, a device in a tunnel may temporarily lose satellite positioning, a browser request
+   * may time out before a position is available, or magnetic interference may prevent a heading.
    */
   public data object TemporarilyUnavailable : LocationUnavailableReason
 
   /**
-   * The target or host cannot provide location.
+   * The target, host, or device cannot provide the measurement.
    *
    * For example, an initialized Windows provider may report that location is not available on the
-   * device.
+   * device, or a device may have no heading sensor.
    */
   public data object Unsupported : LocationUnavailableReason
 

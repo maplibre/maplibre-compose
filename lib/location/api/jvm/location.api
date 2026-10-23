@@ -9,6 +9,34 @@ public final class org/maplibre/compose/location/DesktopLocationProviderKt {
 	public static synthetic fun createDefaultLocationProvider$default (Lorg/maplibre/compose/location/XdgPortalWindow;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationProvider;
 }
 
+public abstract interface class org/maplibre/compose/location/HeadingEvent {
+}
+
+public final class org/maplibre/compose/location/HeadingEvent$Unavailable : org/maplibre/compose/location/HeadingEvent {
+	public fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public final fun component2 ()Ljava/lang/Throwable;
+	public final fun copy (Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;)Lorg/maplibre/compose/location/HeadingEvent$Unavailable;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/HeadingEvent$Unavailable;Lorg/maplibre/compose/location/LocationUnavailableReason;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingEvent$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCause ()Ljava/lang/Throwable;
+	public final fun getReason ()Lorg/maplibre/compose/location/LocationUnavailableReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/HeadingEvent$Update : org/maplibre/compose/location/HeadingEvent {
+	public fun <init> (Lorg/maplibre/compose/location/HeadingMeasurement;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/HeadingMeasurement;
+	public final fun copy (Lorg/maplibre/compose/location/HeadingMeasurement;)Lorg/maplibre/compose/location/HeadingEvent$Update;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/HeadingEvent$Update;Lorg/maplibre/compose/location/HeadingMeasurement;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingEvent$Update;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMeasurement ()Lorg/maplibre/compose/location/HeadingMeasurement;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/location/HeadingMeasurement {
 	public static final field Companion Lorg/maplibre/compose/location/HeadingMeasurement$Companion;
 	public synthetic fun <init> (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V

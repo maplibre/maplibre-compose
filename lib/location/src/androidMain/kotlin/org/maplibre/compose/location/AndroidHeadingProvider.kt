@@ -10,13 +10,10 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.sample
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.radians
 
@@ -29,15 +26,18 @@ import org.maplibre.spatialk.units.extensions.radians
  * to [HeadingMeasurement.bearing] with [HeadingReference.MagneticNorth]. A sensor that reports its
  * accuracy as unavailable maps to a `null` [HeadingMeasurement.accuracy].
  *
+ * A device without a rotation-vector sensor reports [LocationUnavailableReason.Unsupported]. When
+ * the system refuses to enable the sensor, collection reports a `null` reason and completes.
+ *
  * @param context Context used to obtain the platform sensor manager.
  */
-@OptIn(FlowPreview::class)
 public class AndroidHeadingProvider(context: Context) : HeadingProvider {
   private val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
 
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = callbackFlow {
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = callbackFlow {
     val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     if (sensor == null) {
+      send(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
       close()
       return@callbackFlow
     }
@@ -56,15 +56,17 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
             val accuracy = event.values.getOrNull(4)?.takeIf { it >= 0f }
 
             trySend(
-              HeadingMeasurement(
-                bearing = Bearing.North + azimuth,
-                reference = HeadingReference.MagneticNorth,
-                accuracy = accuracy?.toDouble()?.radians,
-                measuredAt =
-                  Clock.System.now() -
-                    (SystemClock.elapsedRealtimeNanos() - event.timestamp)
-                      .coerceAtLeast(0)
-                      .nanoseconds,
+              HeadingEvent.Update(
+                HeadingMeasurement(
+                  bearing = Bearing.North + azimuth,
+                  reference = HeadingReference.MagneticNorth,
+                  accuracy = accuracy?.toDouble()?.radians,
+                  measuredAt =
+                    Clock.System.now() -
+                      (SystemClock.elapsedRealtimeNanos() - event.timestamp)
+                        .coerceAtLeast(0)
+                        .nanoseconds,
+                ),
               ),
             )
           }
@@ -82,16 +84,19 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
         Handler(handlerThread.looper),
       )
     if (!registered) {
-      close(IllegalStateException("Android rotation-vector sensor registration failed"))
+      send(
+        HeadingEvent.Unavailable(
+          reason = null,
+          cause = IllegalStateException("Android rotation-vector sensor registration failed"),
+        ),
+      )
+      close()
       return@callbackFlow
     }
 
     awaitClose { sensorManager.unregisterListener(listener) }
   }
-    .let { updates ->
-      if (request.minimumInterval == Duration.ZERO) updates
-      else updates.sample(request.minimumInterval)
-    }
+    .throttleUpdates(request.minimumInterval)
 
   private companion object {
     private val handlerThread by lazy {

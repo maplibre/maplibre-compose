@@ -1,21 +1,20 @@
 package org.maplibre.compose.location
 
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.sample
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import platform.CoreLocation.CLHeading
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLErrorDomain
+import platform.CoreLocation.kCLErrorHeadingFailure
 import platform.Foundation.NSError
 import platform.Foundation.timeIntervalSince1970
 import platform.darwin.NSObject
@@ -32,8 +31,12 @@ import platform.darwin.NSObject
  * [`CLHeading.headingAccuracy`](https://developer.apple.com/documentation/corelocation/clheading/headingaccuracy)
  * marks the heading as invalid. The provider ignores that callback. A valid accuracy maps to
  * [HeadingMeasurement.accuracy].
+ *
+ * A device without a magnetometer reports [LocationUnavailableReason.Unsupported]. Magnetic
+ * interference reports [LocationUnavailableReason.TemporarilyUnavailable], and other Core Location
+ * failures report a `null` reason. Collection continues after a failure, because Core Location
+ * keeps trying.
  */
-@OptIn(FlowPreview::class)
 public class IosHeadingProvider
 internal constructor(
   private val isHeadingAvailable: () -> Boolean,
@@ -41,27 +44,24 @@ internal constructor(
 ) : HeadingProvider {
   public constructor() : this({ CLLocationManager.headingAvailable() }, Dispatchers.Main)
 
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = callbackFlow {
-    val manager = CLLocationManager()
-    val delegate = IosHeadingDelegate(channel)
-    manager.delegate = delegate
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = callbackFlow {
     if (!isHeadingAvailable()) {
-      delegate.stop(manager)
+      send(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
       close()
       return@callbackFlow
     }
+    val manager = CLLocationManager()
+    val delegate = IosHeadingDelegate(channel)
+    manager.delegate = delegate
     manager.startUpdatingHeading()
     // Retaining the delegate in this closure is required because CLLocationManager does not.
     awaitClose { delegate.stop(manager) }
   }
     .flowOn(coroutineContext)
-    .let { updates ->
-      if (request.minimumInterval == Duration.ZERO) updates
-      else updates.sample(request.minimumInterval)
-    }
+    .throttleUpdates(request.minimumInterval)
 }
 
-internal class IosHeadingDelegate(private val channel: SendChannel<HeadingMeasurement>) :
+internal class IosHeadingDelegate(private val channel: SendChannel<HeadingEvent>) :
   NSObject(), CLLocationManagerDelegateProtocol {
   override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
     if (didUpdateHeading.headingAccuracy < 0.0) return
@@ -69,21 +69,30 @@ internal class IosHeadingDelegate(private val channel: SendChannel<HeadingMeasur
     val heading =
       if (hasTrueHeading) didUpdateHeading.trueHeading else didUpdateHeading.magneticHeading
     channel.trySend(
-      HeadingMeasurement(
-        bearing = Bearing.North + heading.degrees,
-        reference =
-          if (hasTrueHeading) HeadingReference.TrueNorth else HeadingReference.MagneticNorth,
-        accuracy = didUpdateHeading.headingAccuracy.degrees,
-        measuredAt =
-          Instant.fromEpochMilliseconds(
-            (didUpdateHeading.timestamp.timeIntervalSince1970 * 1_000).toLong(),
-          ),
+      HeadingEvent.Update(
+        HeadingMeasurement(
+          bearing = Bearing.North + heading.degrees,
+          reference =
+            if (hasTrueHeading) HeadingReference.TrueNorth else HeadingReference.MagneticNorth,
+          accuracy = didUpdateHeading.headingAccuracy.degrees,
+          measuredAt =
+            Instant.fromEpochMilliseconds(
+              (didUpdateHeading.timestamp.timeIntervalSince1970 * 1_000).toLong(),
+            ),
+        ),
       ),
     )
   }
 
   override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-    channel.close(IosHeadingException(didFailWithError))
+    val headingFailure =
+      didFailWithError.domain == kCLErrorDomain && didFailWithError.code == kCLErrorHeadingFailure
+    channel.trySend(
+      HeadingEvent.Unavailable(
+        reason = if (headingFailure) LocationUnavailableReason.TemporarilyUnavailable else null,
+        cause = IosHeadingException(didFailWithError),
+      ),
+    )
   }
 
   fun stop(manager: CLLocationManager) {

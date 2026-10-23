@@ -10,7 +10,8 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider {
   return remember(coroutineScope) { WebLocationProvider(coroutineScope) }
 }
 
-@Composable public actual fun rememberDefaultHeadingProvider(): HeadingProvider = NoHeadingProvider
+@Composable
+public actual fun rememberDefaultHeadingProvider(): HeadingProvider = UnsupportedHeadingProvider
 
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {

@@ -10,9 +10,10 @@ import androidx.compose.runtime.snapshotFlow
 import kotlin.time.Clock
 import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import org.maplibre.compose.demoapp.demos.DemoLocationEngine
+import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
@@ -21,6 +22,7 @@ import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -75,18 +77,22 @@ internal class MockLocationEngine : DemoLocationEngine {
 
   fun createHeadingProvider(): HeadingProvider =
     object : HeadingProvider {
-      override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> =
-        if (!sample.headingAvailable) emptyFlow()
-        else
+      override fun updates(request: HeadingRequest): Flow<HeadingEvent> =
+        if (!sample.headingAvailable) {
+          flowOf(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
+        } else {
           snapshotFlow { sample }
             .map {
-              HeadingMeasurement(
-                bearing = Bearing.North + it.bearing.toDouble().degrees,
-                reference = HeadingReference.TrueNorth,
-                accuracy =
-                  it.bearingAccuracy.takeIf { _ -> it.bearingAccuracyKnown }?.toDouble()?.degrees,
-                measuredAt = Clock.System.now(),
+              HeadingEvent.Update(
+                HeadingMeasurement(
+                  bearing = Bearing.North + it.bearing.toDouble().degrees,
+                  reference = HeadingReference.TrueNorth,
+                  accuracy =
+                    it.bearingAccuracy.takeIf { _ -> it.bearingAccuracyKnown }?.toDouble()?.degrees,
+                  measuredAt = Clock.System.now(),
+                ),
               )
             }
+        }
     }
 }

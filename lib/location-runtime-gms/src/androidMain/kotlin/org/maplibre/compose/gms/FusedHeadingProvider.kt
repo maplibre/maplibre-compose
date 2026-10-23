@@ -9,12 +9,14 @@ import java.util.concurrent.Executors
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.transform
+import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
@@ -34,9 +36,10 @@ import org.maplibre.spatialk.units.extensions.degrees
  * [`DeviceOrientation.headingErrorDegrees`](https://developers.google.com/android/reference/com/google/android/gms/location/DeviceOrientation#getHeadingErrorDegrees())
  * maps to its accuracy. The value `180`, which denotes complete ignorance, maps to `null`.
  *
+ * A failed registration reports a `null` reason with the failure as its cause and completes.
+ *
  * @param orientationClient Client used to request orientation updates.
  */
-@OptIn(FlowPreview::class)
 public class FusedHeadingProvider
 internal constructor(
   private val orientationClient: FusedOrientationProviderClient,
@@ -47,18 +50,22 @@ internal constructor(
     orientationClient: FusedOrientationProviderClient,
   ) : this(orientationClient, SystemClock::elapsedRealtimeNanos)
 
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = callbackFlow {
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = callbackFlow {
     val deviceOrientationRequest =
       DeviceOrientationRequest.Builder(request.minimumInterval.inWholeMicroseconds).build()
     val callback: (DeviceOrientation) -> Unit = { orientation ->
       trySend(
-        HeadingMeasurement(
-          bearing = Bearing.North + orientation.headingDegrees.toDouble().degrees,
-          reference = HeadingReference.TrueOrMagneticNorth,
-          accuracy = orientation.headingErrorDegrees.takeIf { it < 180f }?.toDouble()?.degrees,
-          measuredAt =
-            Clock.System.now() -
-              (elapsedRealtimeNanos() - orientation.elapsedRealtimeNs).coerceAtLeast(0).nanoseconds,
+        HeadingEvent.Update(
+          HeadingMeasurement(
+            bearing = Bearing.North + orientation.headingDegrees.toDouble().degrees,
+            reference = HeadingReference.TrueOrMagneticNorth,
+            accuracy = orientation.headingErrorDegrees.takeIf { it < 180f }?.toDouble()?.degrees,
+            measuredAt =
+              Clock.System.now() -
+                (elapsedRealtimeNanos() - orientation.elapsedRealtimeNs)
+                  .coerceAtLeast(0)
+                  .nanoseconds,
+          ),
         ),
       )
     }
@@ -69,7 +76,10 @@ internal constructor(
         executor,
         callback,
       )
-    registration.addOnFailureListener(executor) { error -> close(error) }
+    registration.addOnFailureListener(executor) { error ->
+      trySend(HeadingEvent.Unavailable(reason = null, cause = error))
+      close()
+    }
 
     awaitClose {
       registration.addOnCompleteListener(executor) {
@@ -78,8 +88,13 @@ internal constructor(
     }
   }
     .let { updates ->
+      // Unlike `sample`, this keeps the final Unavailable event before completion.
       if (request.minimumInterval == Duration.ZERO) updates
-      else updates.sample(request.minimumInterval)
+      else
+        updates.conflate().transform { event ->
+          emit(event)
+          if (event is HeadingEvent.Update) delay(request.minimumInterval)
+        }
     }
 
   private companion object {

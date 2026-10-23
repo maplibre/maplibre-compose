@@ -2,22 +2,21 @@ package org.maplibre.compose.location
 
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
-import kotlin.test.assertTrue
-import kotlin.time.Duration
+import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 
 class IosHeadingProviderTest {
   @Test
-  fun unavailableHeadingCompletesWithoutValues() = runTest {
-    val headings =
+  fun missingMagnetometerReportsUnsupportedAndCompletes() = runTest {
+    val events =
       IosHeadingProvider(
           isHeadingAvailable = { false },
           coroutineContext = EmptyCoroutineContext,
         )
-        .updates(HeadingRequest { minimumInterval = Duration.ZERO })
+        .updates()
         .toList()
 
-    assertTrue(headings.isEmpty())
+    assertEquals(listOf(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported)), events)
   }
 }

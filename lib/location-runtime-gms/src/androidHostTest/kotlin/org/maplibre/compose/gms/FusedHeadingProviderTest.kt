@@ -12,8 +12,8 @@ import java.lang.reflect.Proxy
 import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -21,9 +21,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.location.HeadingEvent
+import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
 import org.maplibre.spatialk.units.Bearing
@@ -41,10 +44,13 @@ class FusedHeadingProviderTest {
           elapsedRealtimeNanos = { 0L },
         )
 
-      val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
-      val bearing = result.bearing
+      val result = provider.firstMeasurement()
 
-      assertEquals(heading.toDouble(), Bearing.North.clockwiseRotationTo(bearing).inDegrees, 1e-10)
+      assertEquals(
+        heading.toDouble(),
+        Bearing.North.clockwiseRotationTo(result.bearing).inDegrees,
+        1e-10,
+      )
       assertEquals(HeadingReference.TrueOrMagneticNorth, result.reference)
     }
   }
@@ -57,13 +63,11 @@ class FusedHeadingProviderTest {
         elapsedRealtimeNanos = { 0L },
       )
 
-    val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
-
-    assertNull(result.accuracy)
+    assertNull(provider.firstMeasurement().accuracy)
   }
 
   @Test
-  fun `registration failure terminates the flow`() = runTest {
+  fun `registration failure reports unavailable and completes`() = runTest {
     val failure = IllegalStateException("registration failed")
     val provider =
       FusedHeadingProvider(
@@ -71,12 +75,10 @@ class FusedHeadingProviderTest {
         elapsedRealtimeNanos = { 0L },
       )
 
-    val thrown =
-      assertFailsWith<IllegalStateException> {
-        provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
-      }
-
-    assertEquals(failure.message, thrown.message)
+    assertEquals(
+      listOf(HeadingEvent.Unavailable(reason = null, cause = failure)),
+      provider.updates().toList(),
+    )
   }
 
   @Test
@@ -104,6 +106,12 @@ class FusedHeadingProviderTest {
     registration.setResult(null)
     assertTrue(removed.isCompleted)
   }
+
+  private suspend fun FusedHeadingProvider.firstMeasurement(): HeadingMeasurement =
+    assertIs<HeadingEvent.Update>(
+        updates(HeadingRequest { minimumInterval = Duration.ZERO }).first(),
+      )
+      .measurement
 
   private fun fakeClient(
     heading: Float = 0f,

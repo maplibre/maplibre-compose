@@ -1,6 +1,7 @@
 package org.maplibre.compose.gms
 
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.TaskCompletionSource
 import com.google.android.gms.tasks.Tasks
 import java.lang.reflect.InvocationHandler
@@ -8,14 +9,19 @@ import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.Executor
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationRequest
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -26,7 +32,7 @@ class FusedLocationProviderTest {
     val removed = CompletableDeferred<Unit>()
     val provider =
       FusedLocationProvider(
-        locationClient = fakeClient(registration, removed),
+        locationClient = fakeClient(registration.task, removed),
         permissionDelegate = null,
         executor = DirectExecutor,
       )
@@ -40,9 +46,24 @@ class FusedLocationProviderTest {
     assertTrue(removed.isCompleted)
   }
 
+  @Test
+  fun `registration failure reports unavailable`() = runTest {
+    val failure = IllegalStateException("Google Play services unavailable")
+    val provider =
+      FusedLocationProvider(
+        locationClient = fakeClient(Tasks.forException(failure)),
+        permissionDelegate = null,
+        executor = DirectExecutor,
+      )
+
+    val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+    assertNull(event.reason)
+    assertEquals(failure.message, event.cause?.message)
+  }
+
   private fun fakeClient(
-    registration: TaskCompletionSource<Void>,
-    removed: CompletableDeferred<Unit>,
+    registration: Task<Void>,
+    removed: CompletableDeferred<Unit> = CompletableDeferred(),
   ): FusedLocationProviderClient =
     Proxy.newProxyInstance(
       FusedLocationProviderClient::class.java.classLoader,
@@ -51,7 +72,7 @@ class FusedLocationProviderTest {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any =
           when (method.name) {
             "getLastLocation" -> Tasks.forResult(null)
-            "requestLocationUpdates" -> registration.task
+            "requestLocationUpdates" -> registration
             "removeLocationUpdates" -> {
               removed.complete(Unit)
               Tasks.forResult(null)
