@@ -29,4 +29,28 @@ internal actual object FfiTestPlatform {
     assumeTrue(reason, false)
     error("JUnit did not abort skipped test: $reason")
   }
+
+  actual fun watchForHang(timeoutMillis: Long): AutoCloseable {
+    val watchdog =
+      Thread(
+          {
+            try {
+              Thread.sleep(timeoutMillis)
+            } catch (_: InterruptedException) {
+              return@Thread
+            }
+            System.err.println("The test is still running after $timeoutMillis ms. Thread stacks:")
+            Thread.getAllStackTraces().forEach { (thread, stack) ->
+              System.err.println("\"${thread.name}\" ${thread.state}")
+              stack.forEach { System.err.println("    at $it") }
+            }
+          },
+          "maplibre-test-hang-watchdog",
+        )
+        .apply {
+          isDaemon = true
+          start()
+        }
+    return AutoCloseable { watchdog.interrupt() }
+  }
 }

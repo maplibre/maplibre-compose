@@ -49,4 +49,6 @@ internal actual object FfiTestPlatform {
   actual fun skip(reason: String): Nothing {
     error("iOS cannot skip a shared FFI test: $reason")
   }
+
+  actual fun watchForHang(timeoutMillis: Long): AutoCloseable = AutoCloseable {}
 }

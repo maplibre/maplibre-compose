@@ -19,6 +19,12 @@ internal expect object FfiTestPlatform {
 
   /** Records a test as skipped in the platform's test runner. */
   fun skip(reason: String): Nothing
+
+  /**
+   * Prints every thread's stack to standard error if the returned watch is still open after
+   * [timeoutMillis], so a CI log shows where a hung test waits.
+   */
+  fun watchForHang(timeoutMillis: Long): AutoCloseable
 }
 
 /**
