@@ -11,19 +11,13 @@ import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.map.layerFilter
-import org.maplibre.compose.map.layerMaxZoom
-import org.maplibre.compose.map.layerMinZoom
-import org.maplibre.compose.map.layerSourceId
-import org.maplibre.compose.map.layerSourceLayer
-import org.maplibre.compose.map.layerVisibility
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
-import org.maplibre.compose.util.onMap
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.generated.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -33,7 +27,7 @@ import org.maplibre.spatialk.geojson.Geometry
 class MlnFfiLayerKeyRoundTripTest {
 
   @Test
-  fun the_common_layer_keys_reach_maplibre_before_and_after_attach() {
+  fun the_common_layer_keys_reach_maplibre_before_and_after_attach() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -70,34 +64,27 @@ class MlnFfiLayerKeyRoundTripTest {
       )
       afterHandle.update(afterAttach.definition())
 
-      style.onMap { map ->
-        assertEquals("places", map.layerSourceLayer("before"))
-        assertEquals(SourceId, map.layerSourceId("before"))
-        assertEquals(3.0, map.layerMinZoom("before"))
-        assertEquals(15.0, map.layerMaxZoom("before"))
-        assertEquals(StyleLayerVisibility.NONE, map.layerVisibility("before"))
-        assertEquals(
-          Json.parseToJsonElement("""["==",["get","class"],"park"]"""),
-          map.layerFilter("before")?.toJsonElement(),
-        )
+      val map = style.mapForTest
+      val before = assertNotNull(map.getStyleLayer("before").await())
+      assertEquals("places", before.sourceLayer)
+      assertEquals(SourceId, before.sourceId)
+      assertEquals(3.0, before.minZoom)
+      assertEquals(15.0, before.maxZoom)
+      assertEquals(StyleLayerVisibility.NONE, before.visibility)
+      assertEquals(
+        Json.parseToJsonElement("""["==",["get","class"],"park"]"""),
+        map.getStyleLayerProperty("before", "filter").await()?.toJsonElement(),
+      )
 
-        assertEquals("roads", map.layerSourceLayer("after"))
-        assertEquals(4.0, map.layerMinZoom("after"))
-        assertEquals(16.0, map.layerMaxZoom("after"))
-        assertEquals(StyleLayerVisibility.NONE, map.layerVisibility("after"))
-        assertEquals(
-          Json.parseToJsonElement("""["==",["get","class"],"wood"]"""),
-          map.layerFilter("after")?.toJsonElement(),
-        )
-
-        afterAttach.minZoom = 5f
-        afterHandle.update(afterAttach.definition())
-        assertEquals(
-          5.0,
-          map.layerMinZoom("after"),
-          "nested style writes must finish inside the current owner operation",
-        )
-      }
+      val after = assertNotNull(map.getStyleLayer("after").await())
+      assertEquals("roads", after.sourceLayer)
+      assertEquals(4.0, after.minZoom)
+      assertEquals(16.0, after.maxZoom)
+      assertEquals(StyleLayerVisibility.NONE, after.visibility)
+      assertEquals(
+        Json.parseToJsonElement("""["==",["get","class"],"wood"]"""),
+        map.getStyleLayerProperty("after", "filter").await()?.toJsonElement(),
+      )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

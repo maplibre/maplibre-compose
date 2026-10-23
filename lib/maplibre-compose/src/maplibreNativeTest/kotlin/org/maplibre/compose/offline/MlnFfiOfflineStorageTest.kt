@@ -1,7 +1,5 @@
 package org.maplibre.compose.offline
 
-import kotlin.coroutines.ContinuationInterceptor
-import kotlin.coroutines.coroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,14 +7,13 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.TestMapMain
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.nativeffi.generated.OfflineRegionStatus
 import org.maplibre.nativeffi.generated.RuntimeEvent
 import org.maplibre.nativeffi.generated.RuntimeEventOfflineRegionStatus
@@ -30,7 +27,12 @@ class MlnFfiOfflineStorageTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val options =
+    MlnFfiRuntimeOptions(
+      cacheFile = cacheFile,
+      maximumCacheSizeBytes = null,
+      mainDispatcher = TestMapMain.dispatcher,
+    )
 
   @AfterTest
   fun cleanUp() {
@@ -38,13 +40,8 @@ class MlnFfiOfflineStorageTest {
   }
 
   @Test
-  fun a_status_query_does_not_overwrite_progress_published_while_it_waited() = runBlocking {
-    val owner =
-      MlnFfiRuntime(
-        options.copy(
-          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
-        ),
-      )
+  fun a_status_query_does_not_overwrite_progress_published_while_it_waited() = runMapTest {
+    val owner = MlnFfiRuntime(options)
     val storage = MlnFfiOfflineStorage(owner)
     owner.start()
     try {
@@ -85,31 +82,22 @@ class MlnFfiOfflineStorageTest {
     } finally {
       storage.close()
       owner.close()
-      withTimeout(5_000L) { owner.awaitClosed() }
+      owner.awaitClosed()
     }
   }
 
   @Test
-  fun an_initial_cache_budget_failure_is_published_and_rejects_operations() = runBlocking {
-    val configured = options.copy(maximumCacheSizeBytes = -1)
-    val owner =
-      MlnFfiRuntime(
-        configured.copy(
-          mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
-        ),
-      )
+  fun an_initial_cache_budget_failure_is_published_and_rejects_operations() = runMapTest {
+    val owner = MlnFfiRuntime(options.copy(maximumCacheSizeBytes = -1))
     val storage = MlnFfiOfflineStorage(owner)
     owner.start()
     try {
-      withTimeout(5_000L) {
-        assertFailsWith<OfflineStorageException> { storage.clearAmbientCache() }
-      }
+      assertFailsWith<OfflineStorageException> { storage.clearAmbientCache() }
       assertIs<OfflineStorageState.Failed>(storage.state.value)
     } finally {
       storage.close()
       owner.close()
-      withTimeout(5_000L) { owner.awaitClosed() }
+      owner.awaitClosed()
     }
-    Unit
   }
 }

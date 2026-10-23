@@ -30,7 +30,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraMoveReason
@@ -45,12 +44,13 @@ import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 /** Exercises the public presenter with a real buffer consumer, without a Compose UI host. */
 class AndroidMapPresentationTest {
   @Test
   fun declarative_content_survives_surface_replacement_density_changes_and_inactivity() =
-    runBlocking {
+    runMapTest {
       withSurfaceMap { fixture ->
         fixture.withConsumer(256, 192) { first ->
           fixture.withConsumer(320, 240) { second ->
@@ -146,7 +146,7 @@ class AndroidMapPresentationTest {
     }
 
   @Test
-  fun recognized_gestures_use_logical_units_and_finish_camera_movement() = runBlocking {
+  fun recognized_gestures_use_logical_units_and_finish_camera_movement() = runMapTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(320, 240) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 320, 240, 2f) }
@@ -221,7 +221,7 @@ class AndroidMapPresentationTest {
 
   @Test
   fun the_same_map_moves_between_direct_and_compose_hosts_with_its_camera_and_content() =
-    runBlocking {
+    runMapTest {
       withSurfaceMap { fixture ->
         fixture.withConsumer(256, 192) { consumer ->
           fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
@@ -260,7 +260,7 @@ class AndroidMapPresentationTest {
     }
 
   @Test
-  fun closing_a_map_with_an_attached_surface_leaves_the_borrowed_surface_valid() = runBlocking {
+  fun closing_a_map_with_an_attached_surface_leaves_the_borrowed_surface_valid() = runMapTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(256, 192) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }

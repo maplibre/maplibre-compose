@@ -10,36 +10,37 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.testing.runMapTest
 
 class MlnFfiStyleSupersessionTest {
 
   @Test
-  fun a_stalled_uri_document_is_cancelled_without_completing_it() {
+  fun a_stalled_uri_document_is_cancelled_without_completing_it() = runMapTest {
     val first = HeldDocument()
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      fixture.pumpUntil("the first document request", timeout = 5.seconds) {
-        first.started.count == 0L
+      fixture.awaitUntil("the first document request", Timeout) { first.started.isCompleted }
+
+      fixture.loadStyle(style("replacement"), Timeout)
+
+      fixture.awaitUntil("the old provider to be cancelled", Timeout) {
+        first.cancelled.isCompleted
       }
-
-      fixture.loadStyle(style("replacement"), timeout = 5.seconds)
-
-      assertTrue(first.cancelled.await(TimeoutMillis), "the old provider was not cancelled")
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }
   }
 
   @Test
-  fun rapid_uri_a_b_c_replacement_cancels_both_obsolete_documents() {
+  fun rapid_uri_a_b_c_replacement_cancels_both_obsolete_documents() = runMapTest {
     val first = HeldDocument()
     val second = HeldDocument()
     val config =
@@ -51,18 +52,18 @@ class MlnFfiStyleSupersessionTest {
       )
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      fixture.pumpUntil("the first document request", timeout = 5.seconds) {
-        first.started.count == 0L
-      }
+      fixture.awaitUntil("the first document request", Timeout) { first.started.isCompleted }
       fixture.session.setBaseStyle(BaseStyle.Uri("held://second"))
-      fixture.pumpUntil("the second document request", timeout = 5.seconds) {
-        second.started.count == 0L
+      fixture.awaitUntil("the second document request", Timeout) { second.started.isCompleted }
+      fixture.awaitUntil("the first provider to be cancelled", Timeout) {
+        first.cancelled.isCompleted
       }
-      assertTrue(first.cancelled.await(TimeoutMillis))
-      fixture.loadStyle(style("third"), timeout = 5.seconds)
-      assertTrue(second.cancelled.await(TimeoutMillis))
+      fixture.loadStyle(style("third"), Timeout)
+      fixture.awaitUntil("the second provider to be cancelled", Timeout) {
+        second.cancelled.isCompleted
+      }
 
-      fixture.pump()
+      fixture.awaitFrames()
       assertEquals(1, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
       assertTrue("third" in fixture.session.currentStyleLayerIds())
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
@@ -70,21 +71,21 @@ class MlnFfiStyleSupersessionTest {
   }
 
   @Test
-  fun a_failed_replacement_reports_once_and_a_later_style_recovers() {
+  fun a_failed_replacement_reports_once_and_a_later_style_recovers() = runMapTest {
     val first = HeldDocument()
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      fixture.pumpUntil("the first document request", timeout = 5.seconds) {
-        first.started.count == 0L
-      }
+      fixture.awaitUntil("the first document request", Timeout) { first.started.isCompleted }
       fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
-      fixture.pumpUntil("the replacement failure", timeout = 5.seconds) {
+      fixture.awaitUntil("the replacement failure", Timeout) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
-      assertTrue(first.cancelled.await(TimeoutMillis))
-      fixture.loadStyle(style("recovered"), timeout = 5.seconds)
-      fixture.pump()
+      fixture.awaitUntil("the old provider to be cancelled", Timeout) {
+        first.cancelled.isCompleted
+      }
+      fixture.loadStyle(style("recovered"), Timeout)
+      fixture.awaitFrames()
       assertEquals(1, fixture.errors.size)
       assertEquals(1, fixture.engineEvents.count { it is MapEvent.StyleLoadFailed })
       assertTrue("recovered" in fixture.session.currentStyleLayerIds())
@@ -92,55 +93,54 @@ class MlnFfiStyleSupersessionTest {
   }
 
   @Test
-  fun a_setter_rejected_before_native_cannot_adopt_the_old_documents_late_success() {
+  fun a_setter_rejected_before_native_cannot_adopt_the_old_documents_late_success() = runMapTest {
     val first = HeldDocument()
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
     BridgeMapFixture.create(resourceConfig = config).use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      fixture.pumpUntil("the first document request", timeout = 5.seconds) {
-        first.started.count == 0L
-      }
+      fixture.awaitUntil("the first document request", Timeout) { first.started.isCompleted }
       fixture.session.setBaseStyle(BaseStyle.Uri("held://invalid\u0000url"))
-      fixture.pumpUntil("the setter rejection", timeout = 5.seconds) {
+      fixture.awaitUntil("the setter rejection", Timeout) {
         fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
       }
       first.complete(style("obsolete"))
-      fixture.pump()
+      fixture.awaitFrames()
       assertEquals(0, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
       assertEquals(1, fixture.errors.size)
-      fixture.loadStyle(style("recovered"), timeout = 5.seconds)
+      fixture.loadStyle(style("recovered"), Timeout)
       assertTrue("recovered" in fixture.session.currentStyleLayerIds())
     }
   }
 
   @Test
-  fun a_provider_failure_after_supersession_reports_the_current_request_and_recovers() {
-    val first = HeldDocument()
-    val config =
-      MapResourceConfig(
-        provider =
-          MapResourceProvider("held") {
-            if (it.url == "held://first") first.load() else error("replacement document failed")
-          },
-      )
-    BridgeMapFixture.create(resourceConfig = config).use { fixture ->
-      fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
-      fixture.pumpUntil("the first document request", timeout = 5.seconds) {
-        first.started.count == 0L
+  fun a_provider_failure_after_supersession_reports_the_current_request_and_recovers() =
+    runMapTest {
+      val first = HeldDocument()
+      val config =
+        MapResourceConfig(
+          provider =
+            MapResourceProvider("held") {
+              if (it.url == "held://first") first.load() else error("replacement document failed")
+            },
+        )
+      BridgeMapFixture.create(resourceConfig = config).use { fixture ->
+        fixture.session.setBaseStyle(BaseStyle.Uri("held://first"))
+        fixture.awaitUntil("the first document request", Timeout) { first.started.isCompleted }
+        fixture.session.setBaseStyle(BaseStyle.Uri("held://failure"))
+        fixture.awaitUntil("the provider failure", Timeout) {
+          fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
+        }
+        fixture.awaitUntil("the old provider to be cancelled", Timeout) {
+          first.cancelled.isCompleted
+        }
+        assertTrue(fixture.errors.single().contains("replacement document failed"))
+        fixture.loadStyle(style("recovered"), Timeout)
+        assertEquals(1, fixture.engineEvents.count { it is MapEvent.StyleLoadFailed })
       }
-      fixture.session.setBaseStyle(BaseStyle.Uri("held://failure"))
-      fixture.pumpUntil("the provider failure", timeout = 5.seconds) {
-        fixture.engineEvents.any { it is MapEvent.StyleLoadFailed }
-      }
-      assertTrue(first.cancelled.await(TimeoutMillis))
-      assertTrue(fixture.errors.single().contains("replacement document failed"))
-      fixture.loadStyle(style("recovered"), timeout = 5.seconds)
-      assertEquals(1, fixture.engineEvents.count { it is MapEvent.StyleLoadFailed })
     }
-  }
 
   @Test
-  fun a_loaded_callback_can_assign_the_next_style() {
+  fun a_loaded_callback_can_assign_the_next_style() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       val callbacks = fixture.session.callbacks
       var replaced = false
@@ -155,7 +155,7 @@ class MlnFfiStyleSupersessionTest {
           }
         }
       fixture.session.setBaseStyle(style("outer"))
-      fixture.pumpUntil("the callback replacement", timeout = 5.seconds) {
+      fixture.awaitUntil("the callback replacement", Timeout) {
         "nested" in fixture.session.currentStyleLayerIds() && fixture.style?.isLoaded == true
       }
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
@@ -163,8 +163,8 @@ class MlnFfiStyleSupersessionTest {
   }
 
   private class HeldDocument {
-    val started = TestLatch(1)
-    val cancelled = TestLatch(1)
+    val started = CompletableDeferred<Unit>()
+    val cancelled = CompletableDeferred<Unit>()
     val continuation = AtomicReference<CancellableContinuation<ByteArray>?>(null)
 
     fun complete(style: BaseStyle.Json) {
@@ -173,13 +173,13 @@ class MlnFfiStyleSupersessionTest {
 
     suspend fun load(): ByteArray = suspendCancellableCoroutine { pending ->
       continuation.store(pending)
-      pending.invokeOnCancellation { cancelled.countDown() }
-      started.countDown()
+      pending.invokeOnCancellation { cancelled.complete(Unit) }
+      started.complete(Unit)
     }
   }
 
   private companion object {
-    const val TimeoutMillis = 5_000L
+    val Timeout = 5.seconds
 
     fun style(id: String) =
       BaseStyle.Json("""{"version":8,"sources":{},"layers":[{"id":"$id","type":"background"}]}""")

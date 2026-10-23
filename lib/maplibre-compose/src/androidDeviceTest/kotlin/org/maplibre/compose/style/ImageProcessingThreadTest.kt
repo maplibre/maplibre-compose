@@ -18,7 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assume.assumeTrue
 import org.maplibre.compose.map.ResolvedStyleImage
@@ -27,7 +27,7 @@ import org.maplibre.compose.util.toImageBitmap
 
 class ImageProcessingThreadTest {
   @Test
-  fun standalone_painter_draws_off_main_on_api_29_and_on_main_on_older_versions() = runBlocking {
+  fun standalone_painter_draws_off_main_on_api_29_and_on_main_on_older_versions() = runTest {
     val painter =
       object : Painter() {
         override val intrinsicSize = Size(2f, 2f)
@@ -52,7 +52,7 @@ class ImageProcessingThreadTest {
   }
 
   @Test
-  fun standalone_painter_can_draw_a_hardware_bitmap() = runBlocking {
+  fun standalone_painter_can_draw_a_hardware_bitmap() = runTest {
     assumeTrue("Hardware bitmaps require API 26", Build.VERSION.SDK_INT >= 26)
     val bitmap =
       Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
@@ -73,7 +73,7 @@ class ImageProcessingThreadTest {
   }
 
   @Test
-  fun image_preparation_reads_pixels_off_main() = runBlocking {
+  fun image_preparation_reads_pixels_off_main() = runTest {
     val bitmap = BackgroundReadBitmap(intArrayOf(0x80ff0000.toInt(), 0).toImageBitmap(2, 1))
     val prepared = withContext(Dispatchers.Main) { prepareInEngineContext(bitmap) }
     val pixels = IntArray(2)
@@ -82,7 +82,7 @@ class ImageProcessingThreadTest {
   }
 
   @Test
-  fun sdf_conversion_reads_pixels_off_main() = runBlocking {
+  fun sdf_conversion_reads_pixels_off_main() = runTest {
     val bitmap = BackgroundReadBitmap(intArrayOf(0xffffffff.toInt()).toImageBitmap(1, 1))
     val sdf = withContext(Dispatchers.Main) { bitmap.toSdf(radius = 8.0) }
     assertEquals(13, sdf.width)

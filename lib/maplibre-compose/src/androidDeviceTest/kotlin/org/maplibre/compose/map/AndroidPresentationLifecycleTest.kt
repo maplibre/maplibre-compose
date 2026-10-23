@@ -30,7 +30,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.expressions.dsl.const
@@ -38,11 +37,12 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 /** Public ownership and failure behavior, including cleanup without an explicit presenter close. */
 class AndroidPresentationLifecycleTest {
   @Test
-  fun a_duplicate_presenter_does_not_detach_the_current_owner() = runBlocking {
+  fun a_duplicate_presenter_does_not_detach_the_current_owner() = runMapTest {
     withLifecycleFixture { fixture ->
       fixture.awaitRendering()
       fixture.onMain {
@@ -66,7 +66,7 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun closing_the_state_disposes_style_effects_and_presentation_without_explicit_close() =
-    runBlocking {
+    runMapTest {
       withLifecycleFixture { fixture ->
         fixture.awaitRendering()
         fixture.await("the style effect to start") { activeEffects.get() > 0 }
@@ -90,7 +90,7 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun lifecycle_stop_pauses_rendering_and_destroy_releases_the_state_for_another_host() =
-    runBlocking {
+    runMapTest {
       withLifecycleFixture { fixture ->
         fixture.awaitRendering()
         fixture.onMain {
@@ -160,18 +160,18 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun a_failed_style_effect_is_observable_and_releases_the_state_for_a_new_presenter() =
-    runBlocking {
+    runMapTest {
       verifyFailureHandoff(FailurePhase.Effect)
     }
 
   @Test
   fun a_failed_recomposition_is_observable_and_releases_the_state_for_a_new_presenter() =
-    runBlocking {
+    runMapTest {
       verifyFailureHandoff(FailurePhase.Composition)
     }
 
   @Test
-  fun an_initial_style_application_failure_disposes_effects_and_releases_the_state() = runBlocking {
+  fun an_initial_style_application_failure_disposes_effects_and_releases_the_state() = runMapTest {
     verifyFailureHandoff(FailurePhase.InitialApply, failInitially = true)
   }
 

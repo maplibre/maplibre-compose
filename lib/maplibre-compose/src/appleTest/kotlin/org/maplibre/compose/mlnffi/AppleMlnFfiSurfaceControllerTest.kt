@@ -5,21 +5,18 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlin.time.ComparableTimeMark
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapExtent
-import platform.Foundation.NSDate
-import platform.Foundation.NSRunLoop
-import platform.Foundation.dateWithTimeIntervalSinceNow
-import platform.Foundation.runUntilDate
 import platform.QuartzCore.CAMetalLayer
 
 class AppleMlnFfiSurfaceControllerTest {
@@ -131,8 +128,8 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   @Test
-  fun completed_frames_rearm_at_maximum_fps_and_stop_after_surface_loss() = runAppleSurfaceTest {
-    val frames = Channel<ComparableTimeMark>(Channel.UNLIMITED)
+  fun completed_frames_rearm_until_surface_loss() = runAppleSurfaceTest {
+    val frames = MutableStateFlow(0)
     val renderer =
       object : MlnFfiMapRenderer {
         override val backend = MapRenderBackend.Metal
@@ -142,22 +139,20 @@ class AppleMlnFfiSurfaceControllerTest {
           frame: MlnFfiMapFrame,
           captureProjection: Boolean,
         ): MlnFfiFrameResult {
-          frames.trySend(TimeSource.Monotonic.markNow())
+          frames.value++
           return MlnFfiFrameResult.Rendered()
         }
 
         override fun close() = Unit
       }
-    val controller =
-      AppleMlnFfiSurfaceController(renderer, null, maximumFps = 20, onFailure = { throw it })
+    val controller = AppleMlnFfiSurfaceController(renderer, null, onFailure = { throw it })
     try {
       val layer = attachLayer(controller)
-      val first = withTimeout(5_000L) { frames.receive() }
-      val second = withTimeout(5_000L) { frames.receive() }
-      assertTrue(second - first >= 50.milliseconds, "The next demand bypassed maximumFps")
+      withTimeout(5_000L) { frames.first { it >= 2 } }
       controller.surfaceDestroyed(layer).await().getOrThrow()
+      val framesAtLoss = frames.value
       controller.awaitActions()
-      assertTrue(frames.tryReceive().isFailure, "A frame rendered after surface loss")
+      assertEquals(framesAtLoss, frames.value, "A frame rendered after surface loss")
     } finally {
       controller.close()
       controller.awaitClosed()
@@ -315,15 +310,16 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 }
 
-/** Lets main-dispatcher surface work run while a test awaits its completions. */
-@OptIn(kotlinx.cinterop.BetaInteropApi::class)
+/**
+ * Runs [action] with `Dispatchers.Main`, the controller's render thread, on the test scheduler.
+ * Tests run on the process main thread, so the controller's render-thread checks hold.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
 private fun runAppleSurfaceTest(action: suspend () -> Unit) {
-  val scope = CoroutineScope(Dispatchers.Main)
-  val result = scope.async { action() }
-  val deadline = TimeSource.Monotonic.markNow() + 30.seconds
-  while (!result.isCompleted) {
-    check(deadline.hasNotPassedNow()) { "The Apple surface test did not finish" }
-    NSRunLoop.mainRunLoop.runUntilDate(NSDate.dateWithTimeIntervalSinceNow(0.001))
+  Dispatchers.setMain(StandardTestDispatcher())
+  try {
+    runTest { action() }
+  } finally {
+    Dispatchers.resetMain()
   }
-  kotlinx.coroutines.runBlocking { result.await() }
 }

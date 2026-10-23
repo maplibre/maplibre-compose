@@ -142,9 +142,8 @@ class MlnFfiStyleSwitchTest {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-      fun slotLayers(): List<String> = session.currentStyleLayerIds().filter { it in SlotLayerIds }
-      waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+        layers.filter { it in SlotLayerIds } == listOf("bg-a", "user-anchored", "base-slot")
       }
 
       runOnUiThread {
@@ -155,8 +154,8 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready
       }
-      waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+        layers.filter { it in SlotLayerIds } == listOf("bg-b", "user-anchored", "base-slot")
       }
     }
   }
@@ -217,10 +216,9 @@ class MlnFfiStyleSwitchTest {
       }
 
       waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        styleBCancelled.count == 0L &&
-          state.style.loadState == StyleLoadState.Ready &&
-          "user-latest" in session.currentStyleLayerIds()
+        styleBCancelled.count == 0L && state.style.loadState == StyleLoadState.Ready
       }
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { "user-latest" in it }
 
       val layers =
         session.currentStyleLayerIds().filter { it == "user-latest" || it.startsWith("base-") }
@@ -240,11 +238,12 @@ class MlnFfiStyleSwitchTest {
       add(style.baseLayerIds.last())
       add("user-circles")
     }
-    fun relevantLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in RelevantLayerIds }
-
-    waitUntil(timeoutMillis = SettleTimeoutMillis) { relevantLayers() == expected }
-    assertEquals(expected, relevantLayers(), "live style layer order")
+    var relevantLayers: List<String> = emptyList()
+    waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+      relevantLayers = layers.filter { it in RelevantLayerIds }
+      relevantLayers == expected
+    }
+    assertEquals(expected, relevantLayers, "live style layer order")
   }
 
   /** A style and the base-style layer content anchors itself below, as the demo pairs them. */

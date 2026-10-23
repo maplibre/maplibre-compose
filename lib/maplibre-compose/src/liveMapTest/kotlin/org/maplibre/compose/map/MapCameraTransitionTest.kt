@@ -884,7 +884,9 @@ class MapCameraTransitionTest {
   @Test
   fun a_new_camera_command_cancels_an_anchored_animation(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.assertAnchoredCancellation { fixture.state.setCameraPosition(Start) }
+      fixture.assertAnchoredCancellation(settledZoom = Start.zoom) {
+        fixture.state.setCameraPosition(Start)
+      }
     }
   }
 
@@ -905,7 +907,15 @@ class MapCameraTransitionTest {
       }
     }
 
-  private suspend fun MapFixture.assertAnchoredCancellation(change: () -> Unit) = coroutineScope {
+  /**
+   * Starts a long anchored animation, applies [change], and checks that the animation cancels and
+   * the camera stays where it stopped. When [change] moves the camera itself, [settledZoom] is the
+   * zoom it moves to, which the engine may report after the cancellation.
+   */
+  private suspend fun MapFixture.assertAnchoredCancellation(
+    settledZoom: Double? = null,
+    change: () -> Unit,
+  ) = coroutineScope {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     startAtOrigin()
     val animation = launch {
@@ -919,6 +929,11 @@ class MapCameraTransitionTest {
     change()
     pumpUntil("the anchored animation to cancel") { animation.isCompleted }
     assertTrue(animation.isCancelled)
+    if (settledZoom != null) {
+      pumpUntil("the camera to reach the new position") {
+        abs(session.getCameraPosition().zoom - settledZoom) < 1e-9
+      }
+    }
     val stopped = session.getCameraPosition()
     assertTrue(stopped.zoom < 9.0, "cancellation must not jump to the destination")
     var frames = 0

@@ -8,6 +8,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 /**
  * A resize must retarget the live session (maplibre-native-ffi #485) rather than re-attach, which
@@ -16,24 +17,22 @@ import org.maplibre.compose.style.BaseStyle
 class MlnFfiMapResizeTest {
 
   @Test
-  fun a_resize_back_and_forth_keeps_reusing_the_one_session() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
+  fun a_resize_back_and_forth_keeps_reusing_the_one_session() = runMapTest {
+    BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Json(EmptyStyle))
-      fixture.pumpUntilRendered()
-      val attaches = fixture.session.presentation.attachCount
+      fixture.awaitRendered()
+      val attaches = fixture.attachCount
 
       // Every step is a new host target: a borrowed texture cannot be resized, only reallocated.
       listOf(WiderExtent, TallerExtent, BridgeMapFixture.DefaultExtent).forEach { extent ->
-        fixture.hasRendered = false
-        fixture.pumpUntil("the resized map to render", extent = extent) { fixture.hasRendered }
+        val rendered = fixture.renderedFrames
+        fixture.extent = extent
+        fixture.awaitUntil("the map to render at ${extent.width}x${extent.height}") {
+          fixture.renderedFrames > rendered
+        }
       }
 
-      assertEquals(
-        attaches,
-        fixture.session.presentation.attachCount,
-        "no resize should have re-attached",
-      )
+      assertEquals(attaches, fixture.attachCount, "no resize should have re-attached")
       assertTrue(
         fixture.session.presentation.retargetCount >= 3,
         "each of the three sizes should have retargeted, got ${fixture.session.presentation.retargetCount}",
@@ -42,20 +41,17 @@ class MlnFfiMapResizeTest {
   }
 
   @Test
-  fun camera_padding_defines_the_physical_presentation_anchor() {
+  fun camera_padding_defines_the_physical_presentation_anchor() = runMapTest {
     BridgeMapFixture.create(BridgeMapFixture.RetinaExtent).use { fixture ->
-      fixture.loadStyle(BaseStyle.Json(EmptyStyle), extent = BridgeMapFixture.RetinaExtent)
-      fixture.pumpUntilRendered(BridgeMapFixture.RetinaExtent)
+      fixture.loadStyle(BaseStyle.Json(EmptyStyle))
+      fixture.awaitRendered()
 
       fixture.session.setViewportInsets(
         PaddingValues(start = 120.dp, top = 40.dp, end = 20.dp, bottom = 8.dp),
       )
 
       val expected = MlnFfiMapPresentationAnchor(x = 612, y = 544)
-      fixture.pumpUntil(
-        "the padded camera anchor to reach the renderer",
-        extent = BridgeMapFixture.RetinaExtent,
-      ) {
+      fixture.awaitUntil("the padded camera anchor to reach the renderer") {
         fixture.session.presentationAnchor(BridgeMapFixture.RetinaExtent) == expected
       }
       assertEquals(expected, fixture.session.presentationAnchor(BridgeMapFixture.RetinaExtent))

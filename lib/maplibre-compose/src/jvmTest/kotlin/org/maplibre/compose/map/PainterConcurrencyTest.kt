@@ -12,11 +12,11 @@ import kotlin.test.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 
 class PainterConcurrencyTest {
   @Test
-  fun concurrent_conversions_do_not_draw_the_same_painter_in_parallel() = runBlocking {
+  fun concurrent_conversions_do_not_draw_the_same_painter_in_parallel() = runTest {
     val active = AtomicInteger()
     val maximum = AtomicInteger()
     val painter =

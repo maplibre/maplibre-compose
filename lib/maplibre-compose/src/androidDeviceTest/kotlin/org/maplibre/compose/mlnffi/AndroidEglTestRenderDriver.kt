@@ -9,10 +9,8 @@ import android.opengl.GLES30
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.generated.OpenglClientApi
 import org.maplibre.nativeffi.generated.OpenglContextOwnership
@@ -28,30 +26,32 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override val backends = RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
-  /** The thread that creates this host pumps its frames, so it is the host's renderer thread. */
-  private val rendererThread = Thread.currentThread()
-  private val pending = ConcurrentLinkedQueue<() -> Unit>()
-
-  override fun <T> withRendererAccess(action: () -> T): T {
-    runPending()
-    return action()
-  }
-
   /**
-   * Runs [action] on the renderer thread: at once on it, else on its test event loop, which drains
-   * while the test body awaits, else before its next frame.
+   * The thread that renders this host's frames. [BridgeMapFixture] creates the host on
+   * [TestMapMain] and renders there.
    */
+  private val rendererThread = Thread.currentThread()
+
+  /** The first failure of an action queued from another thread, reported by the next frame. */
+  @Volatile private var queuedFailure: Throwable? = null
+
+  /** Runs [action] at once on the renderer thread, and otherwise queues it on [TestMapMain]. */
   override fun enqueueRenderer(action: () -> Unit): Boolean {
-    when {
-      Thread.currentThread() === rendererThread -> action()
-      TestMain.loop != null -> TestMain.loop?.dispatch(EmptyCoroutineContext, Runnable(action))
-      else -> pending += action
+    if (Thread.currentThread() === rendererThread) {
+      action()
+    } else {
+      TestMapMain.dispatcher.dispatch(
+        EmptyCoroutineContext,
+        Runnable {
+          try {
+            action()
+          } catch (error: Throwable) {
+            queuedFailure = queuedFailure ?: error
+          }
+        },
+      )
     }
     return true
-  }
-
-  private fun runPending() {
-    while (true) (pending.poll() ?: return).invoke()
   }
 
   override fun resize(extent: MapExtent) {
@@ -59,7 +59,7 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   }
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
-    runPending()
+    queuedFailure?.let { throw it }
     ensureSurface(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(

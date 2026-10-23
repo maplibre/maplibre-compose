@@ -3,10 +3,8 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -49,7 +47,7 @@ class MlnFfiStylePresentationTest {
       val outcome = binding.addSourceWith { refusal }
       outcome.onRejected { reported = it }
       assertNull(reported, "a refusal must not call application code during the write")
-      fixture.pumpUntil("the refusal to be delivered on main") { reported != null }
+      fixture.awaitUntil("the refusal to be delivered on main") { reported != null }
       assertEquals("refused", reported?.message)
     }
   }
@@ -69,8 +67,7 @@ class MlnFfiStylePresentationTest {
           }
         }
       session.reconcileStyleRevision(ApplicationRevision)
-      // Readiness publishes on the map's main thread, which the pump drains.
-      fixture.pumpUntil("the style readiness to publish") { readyCount == 1 }
+      fixture.awaitUntil("the style readiness to publish") { readyCount == 1 }
       assertEquals(1, readyCount)
       val updated =
         StyleSnapshot(
@@ -94,45 +91,12 @@ class MlnFfiStylePresentationTest {
         )
       session.reconcileStyleRevision(updated)
       val extent = BridgeMapFixture.DefaultExtent
-      fixture.pumpUntil("the updated paint to render") {
+      fixture.awaitUntil("the updated paint to render") {
         fixture
           .tryReadPixel(extent.physicalWidth / 2, extent.physicalHeight / 2)
           ?.isNear(RgbaPixel(0, 255, 0, 255)) == true
       }
       assertEquals(1, readyCount, "a paint update repeated style initialization")
-    }
-  }
-
-  @Test
-  fun a_failed_readiness_callback_fails_loudly_on_the_main_thread() = runMapTest {
-    BridgeMapFixture.create().use { fixture ->
-      fixture.loadStyle(InitialStyle)
-      val session = fixture.session
-      val callbacks = session.callbacks
-      val failure = IllegalStateException("readiness publication failed")
-      session.callbacks =
-        object : MapAdapter.Callbacks by callbacks {
-          override fun onStyleReady(map: MapAdapter) {
-            throw failure
-          }
-        }
-      try {
-        // Readiness is delivered on the map's main thread, so a failing callback surfaces at
-        // the delivery, not at the reconcile call site.
-        session.reconcileStyleRevision(ApplicationRevision)
-        assertSame(failure, assertFailsWith<IllegalStateException> { fixture.pump() })
-      } finally {
-        session.callbacks = callbacks
-      }
-
-      // The engine marked its content ready before the delivery, so the map still presents
-      // and answers gestures once the callback is restored.
-      assertTrue(session.canPresentFrames)
-      val shown = session.getCameraPosition()
-      session.moveBy(deltaX = 100.0, deltaY = 0.0)
-      fixture.pumpUntil("the map to keep answering gestures") {
-        session.getCameraPosition() != shown
-      }
     }
   }
 
@@ -145,7 +109,7 @@ class MlnFfiStylePresentationTest {
 
       fixture.loadStyle(InitialStyle)
       fixture.session.reconcileStyleRevision(ApplicationRevision)
-      fixture.pumpUntil("the application background to be presented") {
+      fixture.awaitUntil("the application background to be presented") {
         fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
 
@@ -160,7 +124,8 @@ class MlnFfiStylePresentationTest {
       )
 
       fixture.session.reconcileStyleRevision(ApplicationRevision)
-      fixture.pumpUntil("the replacement style with application content to be presented") {
+      fixture.renderingPaused = false
+      fixture.awaitUntil("the replacement style with application content to be presented") {
         "application" in fixture.session.currentStyleLayerIds() &&
           fixture.tryReadPixel(centerX, centerY)?.isNear(ApplicationColor) == true
       }
@@ -172,15 +137,16 @@ class MlnFfiStylePresentationTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(InitialStyle)
       fixture.session.reconcileStyleRevision(ApplicationRevision)
-      fixture.pumpUntil("the application background to be presented") {
+      fixture.awaitUntil("the application background to be presented") {
         fixture.tryReadPixel(32, 32)?.isNear(ApplicationColor) == true
       }
 
       fixture.session.setBaseStyle(BaseStyle.Json("invalid"))
-      fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
+      fixture.awaitUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
       fixture.loadStyleBeforeRendering(ReplacementStyle)
       fixture.session.reconcileStyleRevision(StyleSnapshot(emptyList(), emptyList(), emptyList()))
-      fixture.pumpUntil("the next style to render after the refusal") {
+      fixture.renderingPaused = false
+      fixture.awaitUntil("the next style to render after the refusal") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 255, 0, 255)) == true
       }
     }

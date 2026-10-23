@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
@@ -12,6 +13,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -21,15 +23,15 @@ import org.maplibre.spatialk.geojson.Position
 class MlnFfiProjectionTest {
 
   @Test
-  fun presented_projection_keeps_the_rendered_camera_and_tracks_texture_geometry() {
+  fun presented_projection_keeps_the_rendered_camera_and_tracks_texture_geometry() = runMapTest {
     BridgeMapFixture.create(initialExtent = MapExtent.fromLogical(200, 200, 1.0)).use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.hasRendered = false
+      val rendered = fixture.renderedFrames
       fixture.session.setCameraPosition(RotatedCamera)
-      fixture.pumpUntil("the rotated camera to apply") {
+      fixture.awaitUntil("the rotated camera to apply") {
         abs(fixture.session.getCameraPosition().bearing - RotatedCamera.bearing) < 0.01
       }
-      fixture.pumpUntil("the rotated camera to render") { fixture.hasRendered }
+      fixture.awaitUntil("the rotated camera to render") { fixture.renderedFrames > rendered }
       val oldSnapshot =
         fixture.renderFrameProjection().use { projection ->
           fixture.session.presentFrame(projection, MlnFfiMapDestination(0, 0, 200, 200), 1.0)
@@ -39,7 +41,7 @@ class MlnFfiProjectionTest {
 
           val movedCamera = StartCamera.copy(center = Position(25.0, 40.0))
           fixture.session.setCameraPosition(movedCamera)
-          fixture.pumpUntil("the live camera to advance") {
+          fixture.awaitUntil("the live camera to advance") {
             abs(fixture.session.getCameraPosition().bearing - StartCamera.bearing) < 0.01
           }
           assertEquals(
@@ -75,11 +77,11 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun a_snapshot_projection_round_trips_under_pitch_and_bearing() {
+  fun a_snapshot_projection_round_trips_under_pitch_and_bearing() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(RotatedCamera)
-      fixture.pumpUntil("the camera target to land on the screen center") {
+      fixture.awaitUntil("the camera target to land on the screen center") {
         val camera = fixture.session.getCameraPosition()
         val projected = fixture.session.screenLocationFromPosition(camera.center)
         abs(camera.bearing - RotatedCamera.bearing) < 0.01 &&
@@ -108,11 +110,11 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun consecutive_one_pixel_resizes_keep_the_camera_target() {
+  fun consecutive_one_pixel_resizes_keep_the_camera_target() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(StartCamera)
-      fixture.pumpUntil("the starting camera to apply") {
+      fixture.awaitUntil("the starting camera to apply") {
         abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) < 0.01 &&
           fixture.session.screenLocationFromPosition(StartCamera.center).isNear(ScreenCenter)
       }
@@ -120,12 +122,9 @@ class MlnFfiProjectionTest {
       val start = fixture.session.getCameraPosition().center
       for (width in 200..210) {
         val extent = MapExtent.fromLogical(width, 200, scaleFactor = 1.0)
-        fixture.hasRendered = false
-        fixture.pumpUntil(
-          "the map to render at ${extent.width}x${extent.height}",
-          extent = extent,
-        ) {
-          fixture.hasRendered
+        fixture.extent = extent
+        fixture.awaitUntil("the viewport to report ${extent.width}x${extent.height}") {
+          fixture.session.getViewport()?.size == DpSize(width.dp, 200.dp)
         }
         val camera = fixture.session.getCameraPosition()
         assertTrue(
@@ -144,20 +143,22 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun a_resize_reprojects_the_camera_target_to_the_new_center() {
+  fun a_resize_reprojects_the_camera_target_to_the_new_center() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(StartCamera)
-      fixture.pumpUntil("the camera target to land on the first screen center") {
+      fixture.awaitUntil("the camera target to land on the first screen center") {
         val projected = fixture.session.screenLocationFromPosition(StartCamera.center)
         abs(fixture.session.getCameraPosition().zoom - StartCamera.zoom) < 0.01 &&
           projected.isNear(ScreenCenter)
       }
 
       val movedBefore = fixture.events.count { it == "viewportChanged" }
-      fixture.hasRendered = false
-      fixture.pumpUntil("the resized map to render", extent = WideExtent) { fixture.hasRendered }
-      fixture.pumpUntil("the camera target to land on the resized screen center") {
+      fixture.extent = WideExtent
+      fixture.awaitUntil("the viewport to report the resized map") {
+        fixture.session.getViewport()?.size == DpSize(640.dp, 512.dp)
+      }
+      fixture.awaitUntil("the camera target to land on the resized screen center") {
         fixture.session.screenLocationFromPosition(StartCamera.center).isNear(WideScreenCenter)
       }
 

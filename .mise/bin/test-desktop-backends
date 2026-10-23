@@ -5,22 +5,6 @@ case "$(uname -s)" in
   Darwin) backends=(metal vulkan opengl) ;;
   *) backends=(vulkan opengl) ;;
 esac
-# TODO: remove once the desktop Vulkan hang in maplibre-compose#1817 is understood.
-# Prints the stacks of test JVMs that are still running after 20 minutes. `sample` reads native
-# stacks on macOS even when the JVM cannot reach a safepoint.
-print_hung_test_stacks() {
-  sleep 1200
-  command -v pgrep >/dev/null || return 0
-  for pid in $(pgrep -f "Gradle Test Executor"); do
-    echo "Test JVM $pid is still running after 20 minutes. Its stacks:"
-    jcmd "$pid" Thread.print &
-    jcmd_pid=$!
-    sleep 30
-    kill "$jcmd_pid" 2>/dev/null || true
-    if command -v sample >/dev/null; then sample "$pid" 5 -file /dev/stdout || true; fi
-  done
-}
-
 result=0
 for backend in "${backends[@]}"; do
   echo "Testing desktop map backend: $backend"
@@ -28,13 +12,9 @@ for backend in "${backends[@]}"; do
   while IFS= read -r -d '' results; do
     rm -rf "$results" "${results%/test-results/jvmTest}/reports/tests/jvmTest"
   done < <(find lib demo-app -type d -path '*/build/test-results/jvmTest' -prune -print0)
-  print_hung_test_stacks &
-  watcher=$!
   if ! ./gradlew jvmTest "-Pmaplibre.desktop.backend=$backend"; then
     result=1
   fi
-  pkill -P "$watcher" 2>/dev/null || true
-  kill "$watcher" 2>/dev/null || true
   destination="build/desktop-backends/$backend"
   rm -rf "$destination"
   mkdir -p "$destination"

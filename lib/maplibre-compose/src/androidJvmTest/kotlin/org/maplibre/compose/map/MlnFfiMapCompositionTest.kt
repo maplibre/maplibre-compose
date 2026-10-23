@@ -601,9 +601,7 @@ class MlnFfiMapCompositionTest {
           }
       }
       val firstSession = first.currentMapAttachment?.adapter as MlnFfiMapSession
-      waitUntil(timeoutMillis = RenderTimeoutMillis) {
-        "shared-layer" in firstSession.currentStyleLayerIds()
-      }
+      waitUntilStyleLayers(firstSession, RenderTimeoutMillis) { "shared-layer" in it }
 
       showFirst = false
       waitUntil(timeoutMillis = RenderTimeoutMillis) {
@@ -612,9 +610,7 @@ class MlnFfiMapCompositionTest {
           evaluatorIdentities.size == 2
       }
       val secondSession = second.currentMapAttachment?.adapter as MlnFfiMapSession
-      waitUntil(timeoutMillis = RenderTimeoutMillis) {
-        "shared-layer" in secondSession.currentStyleLayerIds()
-      }
+      waitUntilStyleLayers(secondSession, RenderTimeoutMillis) { "shared-layer" in it }
       waitUntil(timeoutMillis = RenderTimeoutMillis) {
         first.style.loadState == StyleLoadState.Ready &&
           second.style.loadState == StyleLoadState.Ready
@@ -683,9 +679,7 @@ class MlnFfiMapCompositionTest {
           state.style.loadState == StyleLoadState.Ready && state.currentMapAttachment != null
         }
         val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-        waitUntil(timeoutMillis = RenderTimeoutMillis) {
-          "initial-background" in session.currentStyleLayerIds()
-        }
+        waitUntilStyleLayers(session, RenderTimeoutMillis) { "initial-background" in it }
 
         presented = false
         waitUntil(timeoutMillis = RenderTimeoutMillis) { state.currentMapAttachment == null }
@@ -700,9 +694,8 @@ class MlnFfiMapCompositionTest {
               it.definition.id == "latest-background"
             }
         }
-        waitUntil(timeoutMillis = RenderTimeoutMillis) {
-          "latest-background" in session.currentStyleLayerIds() &&
-            "initial-background" !in session.currentStyleLayerIds()
+        waitUntilStyleLayers(session, RenderTimeoutMillis) {
+          "latest-background" in it && "initial-background" !in it
         }
       }
     }
@@ -729,9 +722,7 @@ class MlnFfiMapCompositionTest {
       assertTrue("application-layer" !in session.currentStyleLayerIds())
 
       unsupportedLayer = false
-      waitUntil(timeoutMillis = RenderTimeoutMillis) {
-        "application-layer" in session.currentStyleLayerIds()
-      }
+      waitUntilStyleLayers(session, RenderTimeoutMillis) { "application-layer" in it }
       assertEquals(StyleLoadState.Ready, state.style.loadState)
     }
   }
@@ -982,8 +973,9 @@ class MlnFfiMapCompositionTest {
         "a style switch must not cover the map with the load placeholder",
       )
       waitUntil(timeoutMillis = RenderTimeoutMillis) {
-        state.style.loadState == StyleLoadState.Ready && "bg-b" in session.currentStyleLayerIds()
+        state.style.loadState == StyleLoadState.Ready
       }
+      waitUntilStyleLayers(session, RenderTimeoutMillis) { "bg-b" in it }
       assertTrue(onAllNodesWithTag(MapLoadPlaceholderTag).fetchSemanticsNodes().isEmpty())
     }
   }

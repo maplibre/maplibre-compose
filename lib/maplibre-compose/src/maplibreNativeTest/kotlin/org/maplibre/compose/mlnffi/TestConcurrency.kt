@@ -8,11 +8,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -27,12 +24,6 @@ internal class TestGate {
   fun open() {
     opened.complete(Unit)
   }
-
-  /** Waits until the gate opens. */
-  fun awaitUntilOpen() = runBlocking { opened.await() }
-
-  /** Suspends until the gate opens. */
-  suspend fun awaitOpen() = opened.await()
 
   /** Waits up to [timeoutMillis], reporting whether the gate opened. */
   fun await(timeoutMillis: Long): Boolean = runBlocking {
@@ -56,27 +47,8 @@ internal class TestLatch(count: Int) {
     if (remaining.addAndFetch(-1L) <= 0L) gate.open()
   }
 
-  /** Waits without a bound. */
-  fun await() {
-    gate.awaitUntilOpen()
-  }
-
   /** Waits up to [timeoutMillis], reporting whether the count reached zero. */
   fun await(timeoutMillis: Long): Boolean = gate.await(timeoutMillis)
-}
-
-/** Blocks the calling thread for [millis], as `Thread.sleep` does on the JVM. */
-internal fun parkForTest(millis: Long) = runBlocking { delay(millis) }
-
-/**
- * Starts [block] on a worker thread without waiting for it, as a raw `Thread` does. A failure
- * inside [block] surfaces through whatever synchronization the test awaits instead.
- *
- * The worker comes from the shared `Dispatchers.Default` pool, so [block] has no stable thread;
- * thread-affine work, such as a MapLibre runtime, belongs on a [TestThread].
- */
-internal fun launchTestTask(block: () -> Unit) {
-  CoroutineScope(Dispatchers.Default).launch { block() }
 }
 
 /** One dedicated thread that runs every submitted task in submission order. */

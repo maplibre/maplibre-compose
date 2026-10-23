@@ -6,11 +6,12 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.testing.runMapTest
 
 class MlnFfiRequestInterceptorCustomSchemeTest {
 
   @Test
-  fun the_engine_fetches_the_rewritten_url_and_asks_it_for_headers() {
+  fun the_engine_fetches_the_rewritten_url_and_asks_it_for_headers() = runMapTest {
     val rewritten = RecordingList<String>()
     val headerUrls = RecordingList<String>()
     val fixture =
@@ -33,7 +34,7 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
       )
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Uri("custom://style.json"))
-      it.pumpUntil("the rewritten load to fail") { it.errors.isNotEmpty() }
+      it.awaitUntil("the rewritten load to fail") { it.errors.isNotEmpty() }
     }
     assertTrue(
       rewritten.toList().any { it.startsWith("custom://") },

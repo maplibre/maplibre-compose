@@ -1,10 +1,11 @@
 package org.maplibre.compose.testing
 
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration
-import kotlinx.coroutines.CoroutineDispatcher
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
@@ -14,21 +15,19 @@ import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapStateCallbacks
 import org.maplibre.compose.map.NativeSnapshotRenderTarget
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.map.TestMain
-import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.TestMapMain
 import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
-internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent: MapExtent) :
-  MapFixture {
+internal class MlnFfiMapFixture(val bridge: BridgeMapFixture) : MapFixture {
 
   override val state = bridge.state
 
@@ -55,7 +54,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     get() = bridge.errors
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
-    bridge.awaitStyle(style, timeout, extent)
+    bridge.loadStyle(style, timeout)
     bridge.session.reconcileStyleRevision(StyleSnapshot.Empty)
     MapStateCallbacks(state).onStyleReady(bridge.session)
     pumpUntil("the loaded style to be ready", timeout) {
@@ -64,11 +63,11 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {
-    bridge.awaitRendered(extent, timeout)
+    bridge.awaitRendered(timeout)
   }
 
   override fun resize(extent: MapExtent) {
-    this.extent = extent
+    bridge.extent = extent
   }
 
   override suspend fun pump(frames: Int) {
@@ -80,16 +79,12 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     timeout: Duration,
     condition: suspend () -> Boolean,
   ) {
-    bridge.awaitUntil(description, timeout, extent, condition)
+    bridge.awaitUntil(description, timeout, condition)
   }
 
-  /**
-   * A single frame is not enough to have put anything on the target: MapLibre skips one that is
-   * throttled, or that has nothing new to draw.
-   */
+  /** Reads the last presented frame, once the map has rendered. */
   override suspend fun readPixel(x: Int, y: Int): RgbaPixel {
-    bridge.awaitRendered(extent)
-    bridge.frame(extent)
+    bridge.awaitRendered()
     return bridge.readPixel(x, y)
   }
 
@@ -113,7 +108,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
 }
 
 internal actual fun createMapFixture(extent: MapExtent): MapFixture =
-  MlnFfiMapFixture(BridgeMapFixture.create(extent), extent)
+  MlnFfiMapFixture(BridgeMapFixture.create(extent))
 
 internal actual suspend fun withTestMapRuntime(
   provider: MapResourceProvider?,
@@ -127,7 +122,7 @@ internal actual suspend fun withTestMapRuntime(
         cacheFile = cacheFile,
         maximumCacheSizeBytes = null,
         resourceProvider = provider,
-        mainDispatcher = TestMainDispatcher(),
+        mainDispatcher = TestMapMain.dispatcher,
       ),
     )
   try {
@@ -143,21 +138,17 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.Native
 
 actual typealias MapTestResult = Unit
 
+/** Runs [block] on [TestMapMain], the maps' main thread, and then the cleanup it deferred. */
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult =
-  runBlocking {
-    // Posts from engine threads drain into this loop while the test body suspends.
-    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
-    val hang = org.maplibre.compose.mlnffi.FfiTestPlatform.watchForHang(HangReportMillis)
-    try {
-      block()
-    } finally {
-      hang.close()
-      TestMain.loop = null
+  runTest(timeout = 3.minutes) {
+    withContext(TestMapMain.dispatcher) {
+      try {
+        block()
+      } finally {
+        withContext(NonCancellable) { TestMapMain.runCleanups() }
+      }
     }
   }
-
-/** Longer than any map test takes on a CI runner. */
-private const val HangReportMillis = 90_000L
 
 internal actual fun skipMapTest(reason: String): Nothing =
   org.maplibre.compose.mlnffi.FfiTestPlatform.skip(reason)

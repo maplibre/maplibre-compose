@@ -1,6 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
@@ -13,7 +12,6 @@ import org.maplibre.compose.map.resetForTest
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   FfiTestPlatform.initialize()
-  val watchdog = startHangWatchdog()
   var failure: Throwable? = null
   try {
     runAndroidComposeUiTest<ComponentActivity> { block(this) }
@@ -21,54 +19,13 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
     failure = error
     throw error
   } finally {
-    try {
-      DefaultMapRuntime.resetForTest(failure)
-    } finally {
-      watchdog.interrupt()
-      // Bounded, so a stuck stderr dump cannot hold teardown for the watchdog's sake.
-      watchdog.join(1_000)
-    }
+    DefaultMapRuntime.resetForTest(failure)
   }
 }
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runPlainComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   runAndroidComposeUiTest<ComponentActivity> { block(this) }
-}
-
-/**
- * How long a test may run before the watchdog dumps stacks and kills the process.
- *
- * Compose's `waitUntil` checks its timeout between frame pumps. A blocked native render never
- * reaches that check, so the 30 s timeout never fires and the Android job sits until GitHub cancels
- * it.
- */
-private const val HangDumpDelayMillis = 50_000L
-
-/** Fails a blocked FFI Compose test so the instrumentation process cannot stay silent. */
-private fun startHangWatchdog(): Thread {
-  val watchdog = Thread {
-    try {
-      Thread.sleep(HangDumpDelayMillis)
-    } catch (_: InterruptedException) {
-      return@Thread
-    }
-    System.err.println(
-      "An FFI Compose test has run for $HangDumpDelayMillis ms; dumping all threads:",
-    )
-    for ((thread, stack) in Thread.getAllStackTraces()) {
-      System.err.println(thread)
-      for (frame in stack) System.err.println("\tat $frame")
-    }
-    System.err.println(
-      "Killing the instrumentation process so a blocked frame pump cannot hold the job.",
-    )
-    Process.killProcess(Process.myPid())
-  }
-  watchdog.name = "ffi-test-hang-watchdog"
-  watchdog.isDaemon = true
-  watchdog.start()
-  return watchdog
 }
 
 @OptIn(ExperimentalTestApi::class)

@@ -6,9 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
@@ -67,7 +66,6 @@ class GeoJsonSourceUpdateTest {
             resourceConfig =
               MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() }),
           ),
-          MapFixture.DefaultExtent,
         )
     map.use { fixture ->
       fixture.loadStyle(Style)
@@ -106,10 +104,8 @@ class GeoJsonSourceUpdateTest {
             GeoJsonData.Uri(fileUrlOf(file))
           }
         val inline = GeoJsonData.Features(pointAt(if (latestIsUri) Origin else FarAway))
-        run {
-          sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
-          sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
-        }
+        sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
+        sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
 
         (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
         if (latestIsUri) {
@@ -119,7 +115,7 @@ class GeoJsonSourceUpdateTest {
           }
         } else {
           // Withhold the superseded URL response so its native parser cannot race the inline
-          // update. Real hosts draw only requested frames; pumping could mask a missing repaint.
+          // update.
           fixture.awaitRequestedPixel(Background)
         }
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
@@ -138,15 +134,8 @@ class GeoJsonSourceUpdateTest {
       fixture.pumpUntil("the source to render above its minimum zoom") {
         fixture.readPixel(256, 256).isNear(Circle)
       }
-      lateinit var completion: Deferred<Unit>
-      run {
-        handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
-        completion =
-          async(start = CoroutineStart.UNDISPATCHED) {
-            (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-          }
-      }
-      completion.await()
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
+      (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.awaitRequestedPixel(Background)
 
       handle.asMutable!!.setData(GeoJsonData.Features(pointAt(Origin)))
@@ -203,12 +192,10 @@ class GeoJsonSourceUpdateTest {
     }
   }
 
+  /** The host renders only the frames the map asks for, so a missing repaint times out here. */
   private suspend fun MapFixture.awaitRequestedPixel(expected: RgbaPixel) {
-    val native = this as MlnFfiMapFixture
-    withTimeout(5_000L) {
-      while (!readPixel(256, 256).isNear(expected)) {
-        native.bridge.awaitRenderOnDemand(10.milliseconds)
-      }
+    pumpUntil("the center pixel to become $expected", timeout = 5.seconds) {
+      readPixel(256, 256).isNear(expected)
     }
   }
 

@@ -94,9 +94,7 @@ class DesktopDensityPresentationTest {
           assertEquals(camera.zoom, retainedCamera.zoom, 1e-4)
           assertEquals(camera.center.longitude, retainedCamera.center.longitude, 1e-4)
           assertEquals(camera.center.latitude, retainedCamera.center.latitude, 1e-4)
-          waitUntil(timeoutMillis = 10_000) {
-            "density-1.0-1.0" in (replacement.adapter as MlnFfiMapSession).currentStyleLayerIds()
-          }
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { "density-1.0-1.0" in it }
 
           val beforeReturn = frames.get()
           runOnIdle { density = Density(2f) }
@@ -112,9 +110,7 @@ class DesktopDensityPresentationTest {
           assertNotSame(firstEngine, session.mapForTest)
           assertNotSame(replacementEngine, session.mapForTest)
           assertFalse(replacement.isValid)
-          waitUntil(timeoutMillis = 10_000) {
-            "density-2.0-1.0" in (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
-          }
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { "density-2.0-1.0" in it }
 
           // Font scale changes declarative content but not native engine compatibility.
           val effectsBeforeFontScale = styleEffectStarts.get()
@@ -122,8 +118,7 @@ class DesktopDensityPresentationTest {
           waitUntil(timeoutMillis = 10_000) {
             observedDensity.get()?.fontScale == 1.5f
           }
-          waitUntil(timeoutMillis = 10_000) {
-            val layers = (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { layers ->
             "density-2.0-1.5" in layers && "density-2.0-1.0" !in layers
           }
           assertSame(returned, state.currentMapAttachment)

@@ -10,20 +10,23 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.runMapTest
 
 class DesktopGpuBridgeTest {
   @Test
-  fun a_replacement_target_becomes_queryable_after_its_first_frame() {
+  fun a_replacement_target_becomes_queryable_after_its_first_frame() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(background("#ff0000"))
-      fixture.pumpUntil("the initial frame") {
+      fixture.awaitUntil("the initial frame") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(255, 0, 0, 255)) == true
       }
       assertNotNull(fixture.session.readySession())
-      val resized = MapExtent.fromPhysical(191, 127, 1.0)
-      assertEquals(MlnFfiFrameResult.AwaitUpdate, fixture.frame(resized))
+      fixture.renderingPaused = true
+      fixture.extent = MapExtent.fromPhysical(191, 127, 1.0)
+      assertEquals(MlnFfiFrameResult.AwaitUpdate, fixture.frame())
       assertNull(fixture.session.readySession(), "Replacement invalidates the rendered transform")
-      fixture.pumpUntil("the replacement frame to become queryable", extent = resized) {
+      fixture.renderingPaused = false
+      fixture.awaitUntil("the replacement frame to become queryable") {
         fixture.session.readySession() != null
       }
       assertTrue(fixture.readPixel(32, 32).isNear(RgbaPixel(255, 0, 0, 255)))
@@ -31,16 +34,16 @@ class DesktopGpuBridgeTest {
   }
 
   @Test
-  fun map_updates_render_after_the_host_releases_the_sampled_frame() {
+  fun map_updates_render_after_the_host_releases_the_sampled_frame() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(background("#ff0000"))
-      fixture.pumpUntil("the held red frame") {
+      fixture.awaitUntil("the held red frame") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(255, 0, 0, 255)) == true
       }
       val session = assertNotNull(fixture.session.readySession())
       assertEquals(1u, session.getSnapshot().acquiredFrameCount)
       fixture.loadStyle(background("#0000ff"))
-      fixture.pumpUntil("blue after releasing the red frame") {
+      fixture.awaitUntil("blue after releasing the red frame") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 0, 255, 255)) == true
       }
       assertEquals(1u, session.getSnapshot().acquiredFrameCount)
@@ -50,27 +53,24 @@ class DesktopGpuBridgeTest {
   }
 
   @Test
-  fun closing_another_map_keeps_the_remaining_map_able_to_resize_and_render() {
+  fun closing_another_map_keeps_the_remaining_map_able_to_resize_and_render() = runMapTest {
     val first = BridgeMapFixture.create()
     var firstClosed = false
     try {
       BridgeMapFixture.create().use { remaining ->
         first.loadStyle(background("#ff0000"))
-        first.pumpUntil("the first map to render red") {
+        first.awaitUntil("the first map to render red") {
           first.tryReadPixel(32, 32)?.isNear(RgbaPixel(255, 0, 0, 255)) == true
         }
         remaining.loadStyle(background("#0000ff"))
-        remaining.pumpUntil("the second map to render blue") {
+        remaining.awaitUntil("the second map to render blue") {
           remaining.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 0, 255, 255)) == true
         }
-        first.close()
         firstClosed = true
-        val resized = MapExtent.fromPhysical(191, 127, 1.0)
-        remaining.loadStyle(background("#00ff00"), extent = resized)
-        remaining.pumpUntil(
-          "the remaining map to render after closing its neighbour",
-          extent = resized,
-        ) {
+        first.closeNow()
+        remaining.extent = MapExtent.fromPhysical(191, 127, 1.0)
+        remaining.loadStyle(background("#00ff00"))
+        remaining.awaitUntil("the remaining map to render after closing its neighbour") {
           remaining.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 255, 0, 255)) == true
         }
         assertTrue(remaining.readPixel(190, 126).isNear(RgbaPixel(0, 255, 0, 255)))
