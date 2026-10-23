@@ -294,12 +294,13 @@ private class NativeSnapshotterAdapter(
         "${extent.width}x${extent.height} logical pixels"
     }
     return Viewport(
-      cameraPosition = geometry.camera,
-      size = geometry.size,
-      visibleBounds = extents.bounds,
-      visibleRegion = extents.region,
-      metersPerDpAtCenter = metersPerDpAtCenter,
-    )
+        cameraPosition = geometry.camera,
+        size = geometry.size,
+        visibleBounds = extents.bounds,
+        visibleRegion = extents.region,
+        metersPerDpAtCenter = metersPerDpAtCenter,
+      )
+      .withProjection(MapViewProjection(current.map.getSnapshot().view))
   }
 
   private fun createStyleBinding(current: NativeSnapshotEngine): MlnFfiStyleBinding =

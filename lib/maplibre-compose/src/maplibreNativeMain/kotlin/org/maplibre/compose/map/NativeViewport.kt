@@ -203,6 +203,7 @@ internal class NativeViewport {
         visibleRegion = extents.region,
         metersPerDpAtCenter = metersPerDpAtLatitude(camera.center.latitude),
       )
+      .withProjection(snapshot?.view?.let(::MapViewProjection))
       .also { cachedViewport = it }
   }
 

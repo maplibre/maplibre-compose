@@ -1,15 +1,22 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.ViewportProjection
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
+import org.maplibre.compose.util.toDpOffset
+import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toPosition
+import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.GeneratedApi
 import org.maplibre.nativeffi.generated.MapProjectionHandle
 import org.maplibre.nativeffi.generated.MapSnapshot
+import org.maplibre.nativeffi.generated.MapView
 import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
@@ -78,4 +85,20 @@ internal fun unprojectedCorners(
       ScreenPoint(width, height),
     )
     .map { projection.latLngForPixelUnwrapped(it).toPosition() }
+}
+
+/**
+ * Projects for one frozen [view]. A view is plain data, so this holds no native resource and stays
+ * valid after the map moves; each call opens a short-lived projection.
+ */
+internal class MapViewProjection(private val view: MapView) : ViewportProjection {
+  override fun screenLocationFromPosition(position: Position): DpOffset =
+    GeneratedApi.mapProjectionCreate(view).use {
+      it.pixelForLatLng(position.toLatLng()).toDpOffset()
+    }
+
+  override fun positionFromScreenLocation(offset: DpOffset): Position =
+    GeneratedApi.mapProjectionCreate(view).use {
+      it.latLngForPixelUnwrapped(offset.toScreenPoint()).toPosition()
+    }
 }
