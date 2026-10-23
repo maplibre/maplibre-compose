@@ -1024,9 +1024,13 @@ internal class MlnFfiMapSession(
     check(!isClosing) { "The map state is closed" }
     val map = checkNotNull(map) { "The presented map does not exist" }
     val result = PlatformMapScope(map).block()
-    if (!isClosing && this.map === map) {
-      viewport.refresh(map)
-      notifyViewportChanged()
+    // The block's commands run later. The snapshot reflects them once a later query completes, so
+    // the viewport refreshes then, in case they changed the transform without a camera event.
+    owner.inEventOrder(map.getCamera()).invokeOnCompletion { error ->
+      if (error == null && !isClosing && this.map === map) {
+        viewport.refresh(map)
+        notifyViewportChanged()
+      }
     }
     return result
   }
