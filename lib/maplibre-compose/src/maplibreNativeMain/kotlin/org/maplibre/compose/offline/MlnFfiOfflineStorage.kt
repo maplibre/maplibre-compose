@@ -48,8 +48,9 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   private val logger = options.logger
   private val scope = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
 
-  // Not cancelled by close: an operation native accepted still updates the packs when it finishes.
-  private val operations = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
+  // Not cancelled by close: an operation native accepted still updates the packs when it finishes,
+  // and the runtime waits for it before releasing.
+  private val operations = owner.acceptedWorkScope
 
   private val storageState = MutableStateFlow<OfflineStorageState>(OfflineStorageState.Loading)
 

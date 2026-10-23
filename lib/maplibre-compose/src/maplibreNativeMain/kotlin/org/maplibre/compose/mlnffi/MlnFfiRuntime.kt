@@ -44,6 +44,15 @@ internal class MlnFfiRuntime(
   val mainDispatcher = options.mainDispatcher ?: Dispatchers.Main
   private val scope =
     CoroutineScope(SupervisorJob() + mainDispatcher + CoroutineName("maplibre-compose-runtime"))
+
+  // Not cancelled at close: awaitClosed waits for it before releasing the runtime.
+  private val acceptedWork = SupervisorJob()
+
+  /**
+   * Runs work that native has accepted, such as offline pack bookkeeping, which must finish before
+   * the runtime is released. [awaitClosed] waits for it.
+   */
+  val acceptedWorkScope: CoroutineScope = CoroutineScope(acceptedWork + mainDispatcher)
   private val lock = MlnFfiLock()
   private val maps = mutableMapOf<ULong, MapChild>()
   private var closed = false
@@ -176,6 +185,8 @@ internal class MlnFfiRuntime(
         } catch (_: Throwable) {
           null
         }
+      acceptedWork.complete()
+      acceptedWork.join()
       scope.cancel()
       val failures = mutableListOf<Throwable>()
       if (owner != null) runCatching { owner.close() }.exceptionOrNull()?.let(failures::add)
