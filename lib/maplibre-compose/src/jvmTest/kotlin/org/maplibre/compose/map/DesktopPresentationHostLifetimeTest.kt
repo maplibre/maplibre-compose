@@ -74,6 +74,28 @@ class DesktopPresentationHostLifetimeTest {
     }
 
   @Test
+  fun closing_a_presented_state_allows_later_recomposition() = runFfiComposeUiTest {
+    mainClock.autoAdvance = false
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+    var host by mutableStateOf(contextlessPresentationHost("initial"), referentialEqualityPolicy())
+    setContent {
+      ProvideMapPresentationHost(host) { MaplibreMap(state = state) }
+    }
+    waitUntil(timeoutMillis = 10_000) {
+      mainClock.advanceTimeByFrame()
+      state.currentMapAttachment != null
+    }
+    runOnIdle { state.close() }
+    state.awaitClosed()
+    runOnIdle { host = contextlessPresentationHost("replacement") }
+    mainClock.advanceTimeByFrame()
+    runOnIdle { assertTrue(state.currentMapAttachment == null) }
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
   fun inspection_mode_does_not_require_a_presentation_host() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)

@@ -10,13 +10,18 @@ import java.lang.invoke.MethodHandles
 import java.nio.file.Files
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -72,23 +77,98 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.UnconfinedMain
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
+import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
+import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiSurfaceController
+import org.maplibre.compose.mlnffi.TestMapMain
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.compose.testing.runMapTest
 
 class LinuxOpenGlInteropTest {
+
+  @Test
+  fun `losing the consumer context during surface loss or release closes the renderer`() =
+    onLinux("the OpenGL consumer bridge exists only on Linux") {
+      runMapTest {
+        for (releasePresentation in listOf(false, true)) {
+          EglTestContext.create().use { egl ->
+            val presentationHost = EglPresentationHost(egl)
+            val host = LinuxOpenGlMapHost(presentationHost.host, packagedProducer())
+            try {
+              InteropMap(host).use { map ->
+                val frame = map.renderStyle(egl, FirstStyle, FirstExtent)
+                assertNear(
+                  FirstPixel,
+                  egl.withCurrent { egl.drawAndRead(host, frame) },
+                  "frame before context loss",
+                )
+                presentationHost.contextAvailable = false
+                if (releasePresentation) map.releasePresentation()
+                // close loses the surface while the adapter can no longer make its context current.
+              }
+            } finally {
+              host.close()
+            }
+            assertFalse(
+              host.enqueueRenderer { error("The renderer is closed") },
+              "The map renderer thread survived surface loss",
+            )
+          }
+        }
+      }
+    }
+
+  @Test
+  fun `a consumer completion exception still closes the host and renderer thread`() =
+    onLinux("the OpenGL consumer bridge exists only on Linux") {
+      var completions = 0
+      val presentationHost =
+        OpenGlPresentationHost(
+          "a failed context acquisition",
+          {
+            completions++
+            error("consumer completion failed")
+          },
+          { it.run() },
+        )
+      val host = LinuxOpenGlMapHost(presentationHost, packagedProducer())
+      val renderer =
+        object : MlnFfiMapRenderer {
+          override val backend = host.backends.producer
+
+          override fun render(
+            host: MlnFfiMapHostSession,
+            frame: MlnFfiMapFrame,
+            captureProjection: Boolean,
+          ): MlnFfiFrameResult = error("This surface never renders")
+
+          override fun onSurfaceLost(session: MlnFfiMapHostSession) =
+            session.completeConsumerAccess()
+
+          override fun close() = Unit
+        }
+      val controller = MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(host), null)
+      controller.attach {}
+      controller.close()
+      assertTrue(completions >= 2, "Both surface loss and host close must try completion")
+      assertFalse(
+        host.enqueueRenderer { error("The renderer is closed") },
+        "The renderer thread survived a completion failure",
+      )
+    }
 
   @Test
   fun `an inherited GL error does not poison the first memory import`() =
@@ -113,56 +193,20 @@ class LinuxOpenGlInteropTest {
   @Test
   fun `a resize can still present the last completed generation`() =
     onLinux("the Linux OpenGL bridge this resizes exists only on Linux") {
-      EglTestContext.create().use { egl ->
-        val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
-        try {
-          val first =
-            InteropMap(host).use { map ->
-              egl.withCurrent { map.renderStyle(FirstStyle, FirstExtent) }
-            }
-          InteropMap(host).use { map ->
-            val second = egl.withCurrent { map.renderStyle(SecondStyle, SecondExtent) }
-
-            val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
-            assertNear(FirstPixel, oldPixel, "retired generation after resize")
-
-            val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
-            assertNear(SecondPixel, newPixel, "current generation after resize")
-          }
-        } finally {
-          host.close()
-        }
-      }
-    }
-
-  @Test
-  fun `a replacement Compose context gets a new shared target`() =
-    onLinux("the Linux OpenGL bridge this replaces exists only on Linux") {
-      EglTestContext.create().use { firstEgl ->
-        EglTestContext.create().use { secondEgl ->
-          val presentationHost = EglPresentationHost(firstEgl)
-          val host = LinuxOpenGlMapHost(presentationHost.host, packagedProducer())
+      runMapTest {
+        EglTestContext.create().use { egl ->
+          val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
           try {
+            val first =
+              InteropMap(host).use { map -> map.renderStyle(egl, FirstStyle, FirstExtent) }
             InteropMap(host).use { map ->
-              val first = firstEgl.withCurrent { map.renderStyle(FirstStyle, FirstExtent) }
-              assertNear(
-                FirstPixel,
-                firstEgl.withCurrent { firstEgl.drawAndRead(host, first) },
-                "first context before replacement",
-              )
+              val second = map.renderStyle(egl, SecondStyle, SecondExtent)
 
-              presentationHost.replaceContext(secondEgl)
-              val second = secondEgl.withCurrent { map.pumpUntilRendered(FirstExtent) }
-              assertTrue(
-                second.generation != first.generation,
-                "replacement context must allocate a new shared target, " +
-                  "got generation ${second.generation} after ${first.generation}",
-              )
-              assertNear(
-                FirstPixel,
-                secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
-                "replacement context after a new shared target",
-              )
+              val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
+              assertNear(FirstPixel, oldPixel, "retired generation after resize")
+
+              val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
+              assertNear(SecondPixel, newPixel, "current generation after resize")
             }
           } finally {
             host.close()
@@ -172,25 +216,67 @@ class LinuxOpenGlInteropTest {
     }
 
   @Test
+  fun `a replacement Compose context gets a new shared target`() =
+    onLinux("the Linux OpenGL bridge this replaces exists only on Linux") {
+      runMapTest {
+        EglTestContext.create().use { firstEgl ->
+          EglTestContext.create().use { secondEgl ->
+            val presentationHost = EglPresentationHost(firstEgl)
+            val host = LinuxOpenGlMapHost(presentationHost.host, packagedProducer())
+            try {
+              InteropMap(host).use { map ->
+                val first = map.renderStyle(firstEgl, FirstStyle, FirstExtent)
+                assertNear(
+                  FirstPixel,
+                  firstEgl.withCurrent { firstEgl.drawAndRead(host, first) },
+                  "first context before replacement",
+                )
+
+                presentationHost.replaceContext(secondEgl)
+                val second = map.awaitFrame(secondEgl, FirstExtent)
+                assertTrue(
+                  second.generation != first.generation,
+                  "replacement context must allocate a new shared target, " +
+                    "got generation ${second.generation} after ${first.generation}",
+                )
+                assertNear(
+                  FirstPixel,
+                  secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
+                  "replacement context after a new shared target",
+                )
+              }
+            } finally {
+              host.close()
+            }
+          }
+        }
+      }
+    }
+
+  @Test
   fun `reusing the shared target presents the new pixels`() =
     onLinux("the Linux OpenGL bridge this reuses exists only on Linux") {
-      EglTestContext.create().use { egl ->
-        val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
-        try {
-          InteropMap(host).use { map ->
-            egl.withCurrent {
-              val first = map.renderStyle(FirstStyle, FirstExtent)
-              assertNear(FirstPixel, egl.drawAndRead(host, first), "live first frame")
-              val second = map.renderStyle(SecondStyle, FirstExtent)
+      runMapTest {
+        EglTestContext.create().use { egl ->
+          val host = LinuxOpenGlMapHost(EglPresentationHost(egl).host, packagedProducer())
+          try {
+            InteropMap(host).use { map ->
+              val first = map.renderStyle(egl, FirstStyle, FirstExtent)
+              assertNear(
+                FirstPixel,
+                egl.withCurrent { egl.drawAndRead(host, first) },
+                "live first frame",
+              )
+              val second = map.renderStyle(egl, SecondStyle, FirstExtent)
               assertNear(
                 SecondPixel,
-                egl.drawAndRead(host, second),
+                egl.withCurrent { egl.drawAndRead(host, second) },
                 "live second frame after reuse",
               )
             }
+          } finally {
+            host.close()
           }
-        } finally {
-          host.close()
         }
       }
     }
@@ -201,9 +287,9 @@ class LinuxOpenGlInteropTest {
   }
 
   private fun packagedProducer(): MapRenderBackend =
-    when (val backend = Maplibre.supportedRenderBackends().single()) {
-      RenderBackend.OPENGL -> MapRenderBackend.OpenGl
-      RenderBackend.VULKAN -> MapRenderBackend.Vulkan
+    when (val backend = tryLoadRuntimeBackends().getOrThrow().single()) {
+      MapRenderBackend.OpenGl -> MapRenderBackend.OpenGl
+      MapRenderBackend.Vulkan -> MapRenderBackend.Vulkan
       else -> error("No Linux OpenGL bridge for $backend")
     }
 
@@ -217,6 +303,7 @@ class LinuxOpenGlInteropTest {
   private class EglPresentationHost(egl: EglTestContext) {
     private val ownerThread = Thread.currentThread()
     private var context = egl.asComposeContext()
+    var contextAvailable = true
 
     val host = OpenGlPresentationHost("the test EGL OpenGL context", { context }, ::runOnGpuThread)
 
@@ -233,29 +320,34 @@ class LinuxOpenGlInteropTest {
 
     private fun EglTestContext.asComposeContext() =
       OpenGlComposeGpuContext(directContext) { action ->
-        withCurrent { action.run() }
+        if (contextAvailable) withCurrent { action.run() }
       }
   }
 
-  private class InteropMap(private val host: LinuxOpenGlMapHost) : AutoCloseable {
+  /**
+   * A map on [TestMapMain] whose frames the test renders into [host] on that thread, with the
+   * test's EGL context current.
+   */
+  private class InteropMap(private val host: LinuxOpenGlMapHost) {
     private val cacheDirectory = Files.createTempDirectory("maplibre-egl-interop-test")
 
-    @Volatile private var styleLoads = 0
-    @Volatile private var failure: String? = null
+    private val styleLoads = MutableStateFlow(0)
+    private val failure = MutableStateFlow<String?>(null)
+    private val frameRequests = MutableStateFlow(0L)
 
     private val callbacks =
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-          if (style != null) styleLoads++
+          if (style != null) styleLoads.update { it + 1 }
         }
 
         override fun onStyleReady(map: MapAdapter) {}
 
         override fun onStyleFailed(map: MapAdapter, reason: String?) {
-          failure = reason ?: "unknown map load failure"
+          failure.value = reason ?: "unknown map load failure"
         }
 
-        override fun onStyleSourcesChanged(map: MapAdapter) {}
+        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) {}
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
 
@@ -266,12 +358,11 @@ class LinuxOpenGlInteropTest {
         override fun onViewportChanged(map: MapAdapter) {}
       }
 
-    // The pump loop on the test thread never drains a queued main dispatcher; run inline instead.
     private val runtime =
       createNativeMapRuntime(
         MlnFfiRuntimeOptions(
           cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
-          mainDispatcher = UnconfinedMain,
+          mainDispatcher = TestMapMain.dispatcher,
         ),
       )
     private val state = runtime.createMapState(BaseStyle.Demo)
@@ -290,7 +381,11 @@ class LinuxOpenGlInteropTest {
         override val isClosed = false
         override val backends = host.backends
 
-        override fun requestFrame() {}
+        override fun requestFrame() {
+          frameRequests.update { it + 1 }
+        }
+
+        override fun completeConsumerAccess() = host.completeConsumerAccess()
 
         override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
 
@@ -298,81 +393,87 @@ class LinuxOpenGlInteropTest {
       }
 
     init {
-      renderer.start()
+      state.reservePresentation()
+      renderer.beginPresentationAttachment()
       renderer.onSurfaceAvailable(hostSession)
     }
 
-    fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
-      val expectedStyleLoads = styleLoads + 1
+    /** Applies [style] and returns the first frame rendered at [extent] after it loads. */
+    suspend fun renderStyle(
+      egl: EglTestContext,
+      style: BaseStyle,
+      extent: MapExtent,
+    ): MlnFfiRenderTarget {
+      val expectedStyleLoads = styleLoads.value + 1
       renderer.setBaseStyle(style)
-      val deadline = TimeSource.Monotonic.markNow() + TestTimeout
+      // A frame rendered before the style applies would still show the previous one.
+      withTimeoutOrNull(TestTimeout) {
+        combine(styleLoads, failure) { loads, failed ->
+            failed?.let { error(it) }
+            loads >= expectedStyleLoads
+          }
+          .first { it }
+      }
+        ?: error(
+          "Timed out loading style $style; style loads: ${styleLoads.value}/$expectedStyleLoads",
+        )
+      return awaitFrame(egl, extent)
+    }
+
+    /** Renders at [extent] with [egl] current, and again whenever the map asks, until one draws. */
+    suspend fun awaitFrame(egl: EglTestContext, extent: MapExtent): MlnFfiRenderTarget {
       var rendered: MlnFfiRenderTarget? = null
-      var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Wait for style application before pumping. Discarding a frame rendered during the
-      // style callback can consume the only requested frame and leave the map idle forever.
-      while (styleLoads < expectedStyleLoads || rendered == null) {
-        check(deadline.hasNotPassedNow()) {
-          "Timed out rendering style $style at $extent; " +
-            "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
-            "last result: $lastResult, failure: $failure"
+      withTimeoutOrNull(TestTimeout) {
+        while (true) {
+          failure.value?.let { error(it) }
+          val requested = frameRequests.value
+          val visit = egl.withCurrent { renderFrame(extent) }
+          lastResult = visit.result
+          rendered = visit.target
+          if (rendered != null) break
+          if (visit.result == MlnFfiFrameResult.RetryNextFrame) delay(FrameInterval)
+          else frameRequests.first { it != requested }
         }
-        failure?.let { error(it) }
-        if (styleLoads < expectedStyleLoads) {
-          Thread.sleep(PollIntervalMillis)
-          continue
-        }
-        val pumped = pumpFrame(extent)
-        lastResult = pumped.result
-        if (pumped.rendered) {
-          renderedFrames++
-          rendered = pumped.target
-        }
-        Thread.sleep(PollIntervalMillis)
       }
-      return checkNotNull(rendered)
+      return rendered
+        ?: error(
+          "Timed out rendering at $extent; last result: $lastResult, failure: ${failure.value}",
+        )
     }
 
-    fun pumpUntilRendered(extent: MapExtent): MlnFfiRenderTarget {
-      val deadline = TimeSource.Monotonic.markNow() + TestTimeout
-      var lastResult: MlnFfiFrameResult? = null
-      while (true) {
-        check(deadline.hasNotPassedNow()) {
-          "Timed out rendering at $extent; last result: $lastResult, failure: $failure"
-        }
-        failure?.let { error(it) }
-        val pumped = pumpFrame(extent)
-        lastResult = pumped.result
-        if (pumped.rendered) return checkNotNull(pumped.target)
-        Thread.sleep(PollIntervalMillis)
-      }
-    }
-
-    private fun pumpFrame(extent: MapExtent): PumpedFrame {
+    private fun renderFrame(extent: MapExtent): FrameVisit {
       val frame = assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(extent)).frame
       try {
         val result = host.withProducerAccess(frame) { renderer.render(hostSession, frame) }
         if (result is MlnFfiFrameResult.Rendered) {
           host.completeProducerAccess(frame)
-          return PumpedFrame(result, frame.target)
+          return FrameVisit(result, frame.target)
         }
-        return PumpedFrame(result, null)
+        return FrameVisit(result, null)
       } finally {
         host.releaseFrame(frame)
       }
     }
 
-    override fun close() {
+    suspend fun releasePresentation() = renderer.presentation.release()
+
+    /** Runs [block] with this map, then loses its surface and closes its runtime. */
+    suspend inline fun <T> use(block: (InteropMap) -> T): T =
+      try {
+        block(this)
+      } finally {
+        close()
+      }
+
+    suspend fun close() {
       renderer.onSurfaceLost(hostSession)
       runtime.close()
-      runBlocking { withTimeout(TestTimeout.inWholeMilliseconds) { runtime.awaitClosed() } }
+      runtime.awaitClosed()
       cacheDirectory.toFile().deleteRecursively()
     }
 
-    private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
-      val rendered: Boolean
-        get() = result is MlnFfiFrameResult.Rendered && target != null
-    }
+    private class FrameVisit(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?)
   }
 
   private class EglTestContext private constructor() : AutoCloseable {
@@ -580,7 +681,6 @@ class LinuxOpenGlInteropTest {
   private companion object {
     const val DrawWidth = 320
     const val DrawHeight = 240
-    const val PollIntervalMillis = 8L
     const val ChannelTolerance = 2
 
     fun near(expected: RgbaPixel, actual: RgbaPixel): Boolean =
@@ -590,6 +690,9 @@ class LinuxOpenGlInteropTest {
         abs(expected.alpha - actual.alpha) <= ChannelTolerance
 
     val TestTimeout = 30.seconds
+
+    /** About one display frame at 120 Hz. */
+    val FrameInterval = 8.milliseconds
 
     val FirstExtent = MapExtent.fromLogical(256, 192, 1.0)
     val SecondExtent = MapExtent.fromLogical(320, 240, 1.0)

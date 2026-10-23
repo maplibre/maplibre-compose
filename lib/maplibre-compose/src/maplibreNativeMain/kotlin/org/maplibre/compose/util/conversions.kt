@@ -1,16 +1,15 @@
 package org.maplibre.compose.util
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
-import org.maplibre.nativeffi.camera.CameraOptions
-import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.LatLng
-import org.maplibre.nativeffi.geo.LatLngBounds
-import org.maplibre.nativeffi.geo.ScreenPoint
+import org.maplibre.compose.map.CameraPadding
+import org.maplibre.nativeffi.generated.CameraOptions
+import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.LatLng
+import org.maplibre.nativeffi.generated.LatLngBounds
+import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -39,74 +38,42 @@ internal fun BoundingBox.toLatLngBounds(): LatLngBounds =
       ),
   )
 
-internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeInsets =
-  EdgeInsets(
-    top = calculateTopPadding().value.toDouble(),
-    left = calculateLeftPadding(layoutDirection).value.toDouble(),
-    bottom = calculateBottomPadding().value.toDouble(),
-    right = calculateRightPadding(layoutDirection).value.toDouble(),
-  )
-
-/**
- * Snapshots a camera into an immutable value. [CameraOptions] is a mutable builder for native
- * calls, so a later call could mutate one held in Compose state underneath it.
- */
+/** The camera position of these options, with padding inside [viewportInsets]. */
 internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraPosition =
   CameraPosition(
     center = center?.toPosition() ?: Position(0.0, 0.0),
     zoom = zoom ?: 0.0,
     bearing = bearing ?: 0.0,
     pitch = pitch ?: 0.0,
-    padding = (padding ?: EdgeInsets.ZERO).relativeTo(viewportInsets),
+    padding = (padding ?: EdgeInsets()).relativeTo(viewportInsets),
   )
 
 internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =
-  CameraOptions().also {
-    it.center = center.toLatLng()
-    it.zoom = zoom
-    it.bearing = bearing
-    it.pitch = pitch
-    it.padding =
-      EdgeInsets(
-        viewportInsets.top + padding.top.value,
-        viewportInsets.left + padding.left.value,
-        viewportInsets.bottom + padding.bottom.value,
-        viewportInsets.right + padding.right.value,
-      )
-  }
+  CameraOptions(
+    center = center.toLatLng(),
+    zoom = zoom,
+    bearing = bearing,
+    pitch = pitch,
+    padding = padding.inside(viewportInsets),
+  )
 
 internal fun CameraUpdate.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =
-  CameraOptions().also {
-    it.center = center?.toLatLng()
-    it.zoom = zoom
-    it.bearing = bearing
-    it.pitch = pitch
-    it.padding = padding?.let { padding ->
-      EdgeInsets(
-        viewportInsets.top + padding.top.value,
-        viewportInsets.left + padding.left.value,
-        viewportInsets.bottom + padding.bottom.value,
-        viewportInsets.right + padding.right.value,
-      )
-    }
-  }
+  CameraOptions(
+    center = center?.toLatLng(),
+    zoom = zoom,
+    bearing = bearing,
+    pitch = pitch,
+    padding = padding?.inside(viewportInsets),
+  )
 
-/**
- * The camera padding inside [insets]. Fractional insets round-trip through the engine with
- * floating-point residue, and the engine rejects any negative padding, so each side clamps at zero.
- */
+private fun DpPadding.inside(viewportInsets: EdgeInsets): EdgeInsets =
+  (viewportInsets.toCameraPadding() + this).toEdgeInsets()
+
 internal fun EdgeInsets.relativeTo(insets: EdgeInsets): DpPadding =
-  DpPadding(
-    left = (left - insets.left).coerceAtLeast(0.0).dp,
-    top = (top - insets.top).coerceAtLeast(0.0).dp,
-    right = (right - insets.right).coerceAtLeast(0.0).dp,
-    bottom = (bottom - insets.bottom).coerceAtLeast(0.0).dp,
-  )
+  toCameraPadding().relativeTo(insets.toCameraPadding())
 
-internal fun DpPadding.toEdgeInsets(): EdgeInsets =
-  EdgeInsets(
-    top = top.value.toDouble(),
-    left = left.value.toDouble(),
-    bottom = bottom.value.toDouble(),
-    right = right.value.toDouble(),
-  )
+internal fun EdgeInsets.toCameraPadding(): CameraPadding = CameraPadding(top, left, bottom, right)
+
+internal fun CameraPadding.toEdgeInsets(): EdgeInsets = EdgeInsets(top, left, bottom, right)
+
+internal fun DpPadding.toEdgeInsets(): EdgeInsets = (CameraPadding() + this).toEdgeInsets()

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.BroadcastFrameClock
@@ -16,20 +18,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.roundToInt
-import kotlinx.atomicfu.locks.reentrantLock
-import kotlinx.atomicfu.locks.withLock
-import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonPrimitive
@@ -155,8 +161,14 @@ internal interface SnapshotterAdapter {
     request: MapSnapshotRequest,
   ): SnapshotPreparation
 
-  /** Applies [revision] to the loaded style. Resource commands wait meanwhile, as on a map. */
-  suspend fun apply(revision: StyleSnapshot)
+  /**
+   * Applies [revision] to the loaded style and waits for the outcome of its writes. Resource
+   * commands wait meanwhile, as on a map.
+   *
+   * @return true if the engine rejected a source, layer, or move, so [revision] should be applied
+   *   again.
+   */
+  suspend fun apply(revision: StyleSnapshot): Boolean
 
   /** Renders the loaded style with the revision that [apply] applied. */
   suspend fun capture(request: MapSnapshotRequest): ImageBitmap
@@ -265,6 +277,9 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
  * An image contains only the rendered map: the sources, layers, and images of the style. It
  * contains no Compose UI, such as map controls, and no attribution text, so show the
  * [attributions][org.maplibre.compose.overlay.attributions] of [style] with the image.
+ *
+ * On Windows desktop, captures need the Vulkan runtime; with the OpenGL runtime, [capture] throws
+ * [MapSnapshotException].
  */
 public sealed interface MapSnapshotter {
   /**
@@ -323,68 +338,87 @@ internal class MapSnapshotterImplementation(
   baseStyle: BaseStyle,
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
-  private val lock = reentrantLock()
-  private val queue = ArrayDeque<Capture>()
+  private val mutex = Mutex()
+  private val captures = SupervisorJob(runtime.physicalScope.coroutineContext[Job])
+  private val captureScope =
+    CoroutineScope(runtime.physicalScope.coroutineContext + captures + runtime.mainDispatcher)
   private val closure = CompletableDeferred<Result<Unit>>()
   private var adapter: SnapshotterAdapter? = null
-  private var active: Capture? = null
-  private var worker: Job? = null
+  private var active: Job? = null
+  private var cleanup: Deferred<Unit>? = null
   private val cleanupFailures = mutableListOf<Throwable>()
-  private var closed = false
-  private var finishing = false
+  private val closeRequested = AtomicBoolean(false)
+  private val closed: Boolean
+    get() = closeRequested.load()
+
   private var baseStyleRevision = 0L
   private var ownedBaseStyleRevision: Long? = null
   private val ownedSourceIds = mutableSetOf<String>()
   private val ownedLayerIds = mutableSetOf<String>()
-  override val resourceCommands by lazy {
-    StyleResourceCommands(
-      style,
-      runtime.physicalScope,
-      commitSources = { binding, mutate -> commitSourcesAfterCommand(binding, mutate) },
-    )
-  }
+  override val resourceCommands by lazy { StyleResourceCommands(style) }
 
   override val logger: MapLog?
     get() = runtime.logger
 
-  private var activeStyleClaim: StyleClaim? = null
   override val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
 
-  // Runs on the physical scope, not under a Mutex in the caller, so a canceled caller returns at
-  // once while runQueue() holds the next capture until cleanup ends.
   override suspend fun capture(
     size: DpSize,
     block: MapSnapshotRequest.Builder.() -> Unit,
-  ): ImageBitmap = captureRequest(MapSnapshotRequest(size, block))
-
-  private suspend fun captureRequest(request: MapSnapshotRequest): ImageBitmap =
-    suspendCancellableCoroutine { continuation ->
-      val capture = Capture(request, continuation)
-      val accepted = lock.withLock {
-        if (closed) return@withLock false
-        queue.addLast(capture)
-        continuation.invokeOnCancellation { cancel(capture) }
-        if (worker == null) worker = runtime.physicalScope.launch { runQueue() }
-        true
+  ): ImageBitmap {
+    val request = MapSnapshotRequest(size, block)
+    check(!closed) { "The map snapshotter is closed" }
+    return withContext(runtime.mainDispatcher) {
+      val operation = captureScope.async {
+        mutex.withLock {
+          cleanup?.await()
+          currentCoroutineContext().ensureActive()
+          active = currentCoroutineContext().job
+          runCapture(request)
+        }
       }
-      if (!accepted) {
-        continuation.resumeWithException(IllegalStateException("The map snapshotter is closed"))
+      try {
+        operation.await()
+      } catch (error: CancellationException) {
+        cancelActive(operation)
+        throw error
+      } finally {
+        if (active === operation) active = null
+        operation.cancel()
       }
     }
+  }
+
+  private fun cancelActive(operation: Job) {
+    if (active !== operation) return
+    active = null
+    // Register cleanup before cancellation can release the Mutex to its next waiter.
+    cleanup =
+      runtime.physicalScope.async(runtime.mainDispatcher, start = CoroutineStart.LAZY) {
+        runCatching {
+            // Platform cancellation can unblock an operation that is still finishing.
+            adapter?.cancelActiveCapture()
+            operation.join()
+            resourceCommands.clear()
+            style.invalidateLoadedStyle()
+            if (!closed) style.loadState = StyleLoadState.Pending
+          }
+          .exceptionOrNull()
+          ?.let(cleanupFailures::addCleanupFailure)
+      }
+    operation.cancel()
+    cleanup?.start()
+  }
 
   override fun close() {
-    val (finishNow, cancellation) =
-      lock.withLock {
-        if (closed) return
-        closed = true
-        val queued = queue.toList()
-        queue.clear()
-        queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
-        val cancellation = active?.let { abandonActiveLocked(it, snapshotterClosedCancellation()) }
-        (active == null && worker == null) to cancellation
-      }
-    if (finishNow) runtime.physicalScope.launch { finishClose() }
-    cancellation?.let(::startActiveCancellation)
+    if (!closeRequested.compareAndSet(expectedValue = false, newValue = true)) return
+    runtime.physicalScope.launch(runtime.mainDispatcher) {
+      active?.let(::cancelActive)
+      captures.cancel(snapshotterClosedCancellation())
+      captures.join()
+      cleanup?.await()
+      finishClose()
+    }
   }
 
   override suspend fun awaitClosed() {
@@ -392,350 +426,157 @@ internal class MapSnapshotterImplementation(
   }
 
   override fun toString(): String =
-    formatToString("MapSnapshotter", "closed" to lock.withLock { closed }, "style" to style)
+    formatToString("MapSnapshotter", "closed" to closed, "style" to style)
 
-  private suspend fun runQueue() {
-    while (true) {
-      val next =
-        lock.withLock {
-          val candidate = queue.removeFirstOrNull()
-          if (candidate == null) {
-            worker = null
-            null
-          } else {
-            active = candidate
-            candidate
-          }
-        } ?: break
-
-      runCapture(next)
-      // close() and cancel() attach a cancellation only while this capture is active, so reading
-      // it in the section that clears `active` sees every marker. Awaiting it before finishClose()
-      // keeps the cancellation's cleanup failures inside the closure result.
-      val (cancellation, shouldClose) =
-        lock.withLock {
-          active = null
-          next.cancellation to (closed && queue.isEmpty())
-        }
-      cancellation?.await()
-      if (shouldClose) break
-    }
-
-    if (lock.withLock { closed && active == null }) finishClose()
-  }
-
-  private suspend fun runCapture(capture: Capture) = coroutineScope {
+  private suspend fun runCapture(request: MapSnapshotRequest): ImageBitmap {
     val platform =
       try {
         adapter ?: runtime.createSnapshotterAdapter().also { adapter = it }
       } catch (error: Throwable) {
-        capture.resumeFailure(error.toSnapshotFailure())
-        return@coroutineScope
+        throw error.toSnapshotFailure()
       }
-    val operation =
-      launch(start = CoroutineStart.LAZY) {
-        try {
-          platform.validate(capture.request)
-        } catch (error: Throwable) {
-          capture.resumeFailure(error.toSnapshotRequestFailure())
-          return@launch
-        }
-        var claim: StyleClaim? = null
-        var binding: StyleBinding? = null
-        val result =
-          try {
-            // Drain accepted commands before a load enters Loading, which rejects further writes.
-            // User composition and platform callbacks must run outside the command mutex.
-            val currentClaim = resourceCommands.withCommit { claimStyle() }
-            claim = currentClaim
-            val prepared =
-              platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
-            val currentBinding = prepared.binding
-            binding = currentBinding
-            markReloaded(currentBinding)
-            val request = capture.request
-            val evaluationOwnership =
-              styleEvaluationOwnership(currentBinding, currentClaim.ownership)
-            val revision =
-              runtime.styleEvaluator.evaluate(
-                styleContent,
-                currentBinding,
-                prepared.viewport,
-                request.density,
-                request.layoutDirection,
-                evaluationOwnership,
-              )
-            // A command sees the revision before or after this, never part of it.
-            val groundScale =
-              JsonPrimitive(groundScale(prepared.viewport.cameraPosition.center.latitude))
-            resourceCommands.withCommit {
-              declareRevision(currentBinding, revision)
-              recordStyleOwnership(currentClaim, revision)
-              currentBinding.awaitOwner {
-                currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
-              }
-              platform.apply(revision)
-              // Publish a reused style's handles before rendering, as a map does.
-              commitSourcesAfterCommand(currentBinding) {}
-            }
-            val image = platform.capture(request)
-            resourceCommands.withCommit {
-              if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
-                currentBinding.invalidate()
-              }
-            }
-            Result.success(image)
-          } catch (error: Throwable) {
-            if (error is CancellationException) binding?.invalidate()
-            else claim?.let { publishStyleFailure(it, error) }
-            Result.failure(error)
-          } finally {
-            claim?.let(::completeStyleClaim)
-          }
-        result.fold(capture::resume) { capture.resumeFailure(it.toSnapshotFailure()) }
-      }
-    lock.withLock {
-      capture.operation = operation
-      if (capture.abandoned) operation.cancel()
+    try {
+      platform.validate(request)
+    } catch (error: Throwable) {
+      throw error.toSnapshotRequestFailure()
     }
-    operation.start()
-    operation.join()
-  }
-
-  private fun cancel(capture: Capture) {
-    val cancellation = lock.withLock {
-      if (queue.remove(capture) || active !== capture) return
-      abandonActiveLocked(capture)
-    }
-    cancellation?.let(::startActiveCancellation)
-  }
-
-  /** Returns a new cleanup marker, or null when cleanup has already started. */
-  private fun abandonActiveLocked(
-    capture: Capture,
-    error: Throwable? = null,
-  ): CompletableDeferred<Result<Unit>>? {
-    val cancellation =
-      if (capture.cancellation == null) {
-        CompletableDeferred<Result<Unit>>().also { capture.cancellation = it }
-      } else null
-    capture.abandon(error)
-    capture.operation?.cancel()
-    return cancellation
-  }
-
-  private fun startActiveCancellation(cancellation: CompletableDeferred<Result<Unit>>) {
-    runtime.physicalScope.launch {
-      val result = runCatching {
-        adapter?.cancelActiveCapture()
-        settleStyleAfterCancellation()
-        Unit
+    val claim = claimStyle()
+    var binding: StyleBinding? = null
+    try {
+      val prepared = platform.prepare(claim.baseStyle, claim.revision, request)
+      val currentBinding = prepared.binding
+      binding = currentBinding
+      markReloaded(currentBinding)
+      val revision =
+        runtime.styleEvaluator.evaluate(
+          styleContent,
+          currentBinding,
+          prepared.viewport,
+          request.density,
+          request.layoutDirection,
+          styleEvaluationOwnership(currentBinding, claim.ownership),
+        )
+      val groundScale = JsonPrimitive(groundScale(prepared.viewport.cameraPosition.center.latitude))
+      declareRevision(currentBinding, revision)
+      recordStyleOwnership(claim, revision)
+      currentBinding.setGlobalStateProperty(GroundScaleGlobalState, groundScale)
+      // Applied again after a rejection: the rejected definitions stay out, and what they had
+      // blocked goes in.
+      for (pass in 1..MaxStyleRevisionPasses) {
+        if (!platform.apply(revision)) break
+        currentCoroutineContext().ensureActive()
       }
-      result.exceptionOrNull()?.let { error ->
-        lock.withLock { cleanupFailures.addCleanupFailure(error) }
-      }
-      cancellation.complete(result)
-    }
-  }
-
-  private fun settleStyleAfterCancellation() {
-    lock.withLock {
-      resourceCommands.clear()
-      style.invalidateLoadedStyle()
-      if (!closed) style.loadState = StyleLoadState.Pending
+      // Publish a reused style's handles before rendering, as a map does.
+      if (isCurrent(currentBinding)) style.updateResources(style.resources(currentBinding))
+      val image = platform.capture(request)
+      currentCoroutineContext().ensureActive()
+      if (!publishStyle(claim, currentBinding, revision)) currentBinding.invalidate()
+      return image
+    } catch (error: Throwable) {
+      if (error is CancellationException) {
+        binding?.takeUnless { style.isCurrentLoadedStyle(it) }?.invalidate()
+      } else publishStyleFailure(claim, error)
+      throw error.toSnapshotFailure()
     }
   }
 
   private suspend fun finishClose() {
-    val shouldFinish = lock.withLock {
-      if (finishing) false
-      else {
-        finishing = true
-        true
-      }
-    }
-    if (!shouldFinish) {
-      closure.await()
-      return
-    }
-    val closeResult = runCatching {
-      resourceCommands.await()
-      adapter?.close()
-      Unit
-    }
-    val styleResult = runCatching {
-      style.invalidateLoadedStyle()
-      Unit
-    }
-    val result = lock.withLock {
-      val failures = cleanupFailures.toMutableList()
-      closeResult.exceptionOrNull()?.let(failures::addCleanupFailure)
-      styleResult.exceptionOrNull()?.let(failures::addCleanupFailure)
-      failures.cleanupResult("Map snapshotter")
-    }
+    runCatching { adapter?.close() }.exceptionOrNull()?.let(cleanupFailures::addCleanupFailure)
+    runCatching { style.invalidateLoadedStyle() }
+      .exceptionOrNull()
+      ?.let(cleanupFailures::addCleanupFailure)
     runtime.childClosed(this)
-    check(closure.complete(result)) { "Snapshotter closure completed more than once" }
+    closure.complete(cleanupFailures.cleanupResult("Map snapshotter"))
   }
 
   override fun setBaseStyle(value: BaseStyle) {
-    lock.withLock {
-      check(!closed) { "The map snapshotter is closed" }
-      if (style.baseStyle == value) return
-      baseStyleRevision++
-      resourceCommands.clear()
-      style.setBaseStyleState(value)
-      style.invalidateLoadedStyle()
-      style.loadState = StyleLoadState.Pending
-    }
-  }
-
-  /**
-   * Runs [mutate] on the map owner and reads the sources it leaves behind in the same task.
-   *
-   * @return false, with nothing published, when the loaded style changed first.
-   */
-  private suspend fun commitSourcesAfterCommand(
-    binding: StyleBinding,
-    mutate: () -> Unit,
-  ): Boolean {
-    val resources =
-      style.visit(binding) {
-        mutate()
-        style.readResources(binding)
-      } ?: return false
-    return lock.withLock {
-      if (!isCurrentLocked(binding)) return@withLock false
-      style.updateResources(resources)
-      true
-    }
+    requireOpen()
+    if (style.baseStyle == value) return
+    baseStyleRevision++
+    resourceCommands.clear()
+    style.setBaseStyleState(value)
+    style.invalidateLoadedStyle()
+    style.loadState = StyleLoadState.Pending
   }
 
   override fun requireOpen() {
-    lock.withLock { check(!closed) { "The map snapshotter is closed" } }
+    runtime.mainThread.requireMain()
+    check(!closed) { "The map snapshotter is closed" }
   }
 
-  override fun readyLoadedStyle(): StyleBinding? = lock.withLock {
+  override fun readyLoadedStyle(): StyleBinding? =
     style.currentLoadedStyle()?.takeIf { style.loadState == StyleLoadState.Ready }
-  }
 
   // A closed snapshotter keeps its loaded style until cleanup finishes, so closure is checked too.
-  override fun isCurrent(binding: StyleBinding): Boolean = lock.withLock {
-    isCurrentLocked(binding)
-  }
+  override fun isCurrent(binding: StyleBinding): Boolean = !closed && style.isReadyBinding(binding)
 
-  private fun isCurrentLocked(binding: StyleBinding): Boolean =
-    !closed && style.isReadyBinding(binding)
-
-  private fun claimStyle(): StyleClaim = lock.withLock {
-    check(!closed) { "The map snapshotter is closed" }
-    StyleClaim(
-        baseStyle = style.baseStyle,
-        revision = baseStyleRevision,
-        ownership =
-          if (ownedBaseStyleRevision == baseStyleRevision)
-            SnapshotStyleOwnership(ownedSourceIds.toSet(), ownedLayerIds.toSet())
-          else SnapshotStyleOwnership.Empty,
-      )
-      .also {
-        check(activeStyleClaim == null)
-        activeStyleClaim = it
-        // A ready style is reused, so it stays writable while the capture runs.
-        if (style.loadState != StyleLoadState.Ready) style.loadState = StyleLoadState.Loading
-      }
+  private fun claimStyle(): StyleClaim {
+    if (closed) throw snapshotterClosedCancellation()
+    // A ready style is reused, so it stays writable while the capture runs.
+    if (style.loadState != StyleLoadState.Ready) style.loadState = StyleLoadState.Loading
+    return StyleClaim(
+      baseStyle = style.baseStyle,
+      revision = baseStyleRevision,
+      ownership =
+        if (ownedBaseStyleRevision == baseStyleRevision)
+          SnapshotStyleOwnership(ownedSourceIds.toSet(), ownedLayerIds.toSet())
+        else SnapshotStyleOwnership.Empty,
+    )
   }
 
   /** A ready style that the adapter replaced anyway, such as for a new density, is loading. */
   private fun markReloaded(binding: StyleBinding) {
-    lock.withLock {
-      if (
-        !closed && style.loadState == StyleLoadState.Ready && !style.isCurrentLoadedStyle(binding)
-      )
-        style.loadState = StyleLoadState.Loading
-    }
+    if (!closed && style.loadState == StyleLoadState.Ready && !style.isCurrentLoadedStyle(binding))
+      style.loadState = StyleLoadState.Loading
   }
 
   /** Declares [revision] for the reused [binding] before applying it, as a map does. */
   private fun declareRevision(binding: StyleBinding, revision: StyleSnapshot) {
-    lock.withLock {
-      if (!style.isCurrentLoadedStyle(binding)) return
-      resourceCommands.requireNoConflicts(revision)
-      style.declaredRevision = revision
-    }
+    if (!style.isCurrentLoadedStyle(binding)) return
+    resourceCommands.requireNoConflicts(revision)
+    style.declaredRevision = revision
   }
 
   private fun styleEvaluationOwnership(
     binding: StyleBinding,
     ownership: SnapshotStyleOwnership,
-  ): SnapshotStyleOwnership = lock.withLock {
+  ): SnapshotStyleOwnership {
     if (style.currentLoadedStyle() !== binding) return ownership
-    ownership.copy(sourceIds = ownership.sourceIds + resourceCommands.sourceIds())
+    return ownership.copy(sourceIds = ownership.sourceIds + resourceCommands.sourceIds())
   }
 
   private fun recordStyleOwnership(claim: StyleClaim, revision: StyleSnapshot) {
-    lock.withLock {
-      if (closed || claim.revision != baseStyleRevision) return
-      if (ownedBaseStyleRevision != claim.revision) {
-        ownedSourceIds.clear()
-        ownedLayerIds.clear()
-        ownedBaseStyleRevision = claim.revision
-      }
-      revision.sources.mapTo(ownedSourceIds) { it.id }
-      revision.layers.mapTo(ownedLayerIds) { it.definition.id }
+    if (closed || claim.revision != baseStyleRevision) return
+    if (ownedBaseStyleRevision != claim.revision) {
+      ownedSourceIds.clear()
+      ownedLayerIds.clear()
+      ownedBaseStyleRevision = claim.revision
     }
+    revision.sources.mapTo(ownedSourceIds) { it.id }
+    revision.layers.mapTo(ownedLayerIds) { it.definition.id }
   }
 
-  /**
-   * Publishes [binding] with the handles of the resources it holds after [revision]. The engine
-   * read runs as an owner task between two locked steps, so a UI-thread lookup never waits on the
-   * map owner while this snapshotter's lock is held. A loading style stays Loading until the
-   * handles are in place.
-   */
-  private suspend fun publishStyle(
-    capture: Capture,
+  /** Publishes [binding] with the handles of the resources it holds after [revision]. */
+  private fun publishStyle(
     claim: StyleClaim,
     binding: StyleBinding,
     revision: StyleSnapshot,
   ): Boolean {
-    // The read captures metadata from the desired revision, so that is committed first.
-    val accepted = lock.withLock {
-      if (closed || capture.abandoned || claim.revision != baseStyleRevision) {
-        return@withLock false
-      }
-      if (style.currentLoadedStyle() !== binding) {
-        resourceCommands.clear()
-        style.updateLoadedStyle(binding)
-      }
-      style.declaredRevision = revision
-      true
+    if (closed || claim.revision != baseStyleRevision) return false
+    if (style.currentLoadedStyle() !== binding) {
+      resourceCommands.clear()
+      style.updateLoadedStyle(binding)
     }
-    if (!accepted) return false
-    val resources = binding.awaitOwner { style.readResources(binding) } ?: return false
-    return lock.withLock {
-      if (
-        closed ||
-          capture.abandoned ||
-          claim.revision != baseStyleRevision ||
-          style.currentLoadedStyle() !== binding
-      ) {
-        return@withLock false
-      }
-      style.updateResources(resources)
-      style.loadState = StyleLoadState.Ready
-      true
-    }
+    // The handles read source options from the desired revision, so that is committed first.
+    style.declaredRevision = revision
+    style.updateResources(style.resources(binding))
+    style.loadState = StyleLoadState.Ready
+    return true
   }
 
   private fun publishStyleFailure(claim: StyleClaim, error: Throwable) {
-    lock.withLock {
-      if (!closed && claim.revision == baseStyleRevision) {
-        style.loadState = StyleLoadState.Failed(error.message)
-      }
-    }
-  }
-
-  private fun completeStyleClaim(claim: StyleClaim) {
-    lock.withLock {
-      if (activeStyleClaim === claim) activeStyleClaim = null
+    if (!closed && claim.revision == baseStyleRevision) {
+      style.loadState = StyleLoadState.Failed(error.message)
     }
   }
 
@@ -744,28 +585,6 @@ internal class MapSnapshotterImplementation(
     val revision: Long,
     val ownership: SnapshotStyleOwnership,
   )
-
-  private class Capture(
-    val request: MapSnapshotRequest,
-    val continuation: CancellableContinuation<ImageBitmap>,
-  ) {
-    var abandoned = false
-    var operation: Job? = null
-    var cancellation: CompletableDeferred<Result<Unit>>? = null
-
-    fun resume(image: ImageBitmap) {
-      if (!abandoned && continuation.isActive) continuation.resume(image)
-    }
-
-    fun resumeFailure(error: Throwable) {
-      if (!abandoned && continuation.isActive) continuation.resumeWithException(error)
-    }
-
-    fun abandon(error: Throwable?) {
-      abandoned = true
-      if (error != null && continuation.isActive) continuation.resumeWithException(error)
-    }
-  }
 }
 
 internal fun snapshotterClosedCancellation(): CancellationException =

@@ -14,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
@@ -22,7 +23,6 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.resource.MapResourceProvider
@@ -142,9 +142,8 @@ class MlnFfiStyleSwitchTest {
         state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-      fun slotLayers(): List<String> = session.currentStyleLayerIds().filter { it in SlotLayerIds }
-      waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+        layers.filter { it in SlotLayerIds } == listOf("bg-a", "user-anchored", "base-slot")
       }
 
       runOnUiThread {
@@ -155,16 +154,16 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SettleTimeoutMillis) {
         state.style.loadState == StyleLoadState.Ready
       }
-      waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+        layers.filter { it in SlotLayerIds } == listOf("bg-b", "user-anchored", "base-slot")
       }
     }
   }
 
   @Test
   fun a_stalled_style_is_superseded_before_composing_the_latest_content() = runFfiComposeUiTest {
-    val styleBStarted = TestLatch(1)
-    val styleBCancelled = TestLatch(1)
+    val styleBStarted = CompletableDeferred<Unit>()
+    val styleBCancelled = CompletableDeferred<Unit>()
     withTestRuntime(
       from = runtimeOptions,
       configure = {
@@ -172,11 +171,11 @@ class MlnFfiStyleSwitchTest {
           MapResourceProvider("held") { request ->
             when (request.url) {
               BStyleUrl -> {
-                styleBStarted.countDown()
+                styleBStarted.complete(Unit)
                 try {
                   awaitCancellation()
                 } finally {
-                  styleBCancelled.countDown()
+                  styleBCancelled.complete(Unit)
                 }
               }
               CStyleUrl -> StyleCJson.encodeToByteArray()
@@ -208,7 +207,7 @@ class MlnFfiStyleSwitchTest {
         state.style.asMutable!!.baseStyle = BaseStyle.Uri(BStyleUrl)
       }
       waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        styleBStarted.count == 0L
+        styleBStarted.isCompleted
       }
 
       runOnUiThread {
@@ -217,10 +216,9 @@ class MlnFfiStyleSwitchTest {
       }
 
       waitUntil(timeoutMillis = SettleTimeoutMillis) {
-        styleBCancelled.count == 0L &&
-          state.style.loadState == StyleLoadState.Ready &&
-          "user-latest" in session.currentStyleLayerIds()
+        styleBCancelled.isCompleted && state.style.loadState == StyleLoadState.Ready
       }
+      waitUntilStyleLayers(session, SettleTimeoutMillis) { "user-latest" in it }
 
       val layers =
         session.currentStyleLayerIds().filter { it == "user-latest" || it.startsWith("base-") }
@@ -240,11 +238,12 @@ class MlnFfiStyleSwitchTest {
       add(style.baseLayerIds.last())
       add("user-circles")
     }
-    fun relevantLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in RelevantLayerIds }
-
-    waitUntil(timeoutMillis = SettleTimeoutMillis) { relevantLayers() == expected }
-    assertEquals(expected, relevantLayers(), "live style layer order")
+    var relevantLayers: List<String> = emptyList()
+    waitUntilStyleLayers(session, SettleTimeoutMillis) { layers ->
+      relevantLayers = layers.filter { it in RelevantLayerIds }
+      relevantLayers == expected
+    }
+    assertEquals(expected, relevantLayers, "live style layer order")
   }
 
   /** A style and the base-style layer content anchors itself below, as the demo pairs them. */

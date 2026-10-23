@@ -24,9 +24,10 @@ internal fun MapExtent.centerPresentationAnchor(): MlnFfiMapPresentationAnchor =
   MlnFfiMapPresentationAnchor(x = physicalWidth / 2, y = physicalHeight / 2)
 
 /**
- * Receives lifecycle and frames from a surface controller. [render] runs with producer access on
- * the renderer thread. Lifecycle methods marshal native work through the supplied host session;
- * [presentFrame] borrows a completed projection on the Compose thread.
+ * Receives lifecycle and frames from a host. [render] lends borrowed textures within the host
+ * producer-access interval, or services demands for surfaces presented by the native driver.
+ * Lifecycle methods marshal native work through the supplied host session; [presentFrame] borrows a
+ * completed projection on the Compose thread.
  */
 internal interface MlnFfiMapRenderer : AutoCloseable {
   /** The backend this renderer needs MapLibre Native to render with. */

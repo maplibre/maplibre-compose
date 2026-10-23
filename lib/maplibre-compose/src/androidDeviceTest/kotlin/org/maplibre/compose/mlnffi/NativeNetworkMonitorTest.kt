@@ -4,8 +4,10 @@ import android.net.Network
 import android.os.Parcel
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
-import org.maplibre.nativeffi.runtime.NetworkStatus
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.runTest
+import org.maplibre.nativeffi.generated.NetworkStatus
 
 class NativeNetworkMonitorTest {
   @Test
@@ -32,16 +34,14 @@ class NativeNetworkMonitorTest {
   }
 
   @Test
-  fun the_system_monitor_delivers_an_initial_status_and_can_restart() {
-    AndroidMlnFfiPlatform.initialize()
-    repeat(3) {
-      val received = TestLatch(1)
-      startNativeNetworkMonitor { received.countDown() }
-        .use {
-          assertTrue(received.await(10_000), "No initial default network status was delivered")
-        }
+  fun the_system_monitor_delivers_an_initial_status_and_can_restart() =
+    runTest(timeout = 30.seconds) {
+      AndroidMlnFfiPlatform.initialize()
+      repeat(3) {
+        val received = CompletableDeferred<Unit>()
+        startNativeNetworkMonitor { received.complete(Unit) }.use { received.await() }
+      }
     }
-  }
 
   private fun network(id: Int): Network {
     val parcel = Parcel.obtain()

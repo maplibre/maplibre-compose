@@ -78,9 +78,8 @@ import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.mapHostFactory
 import org.maplibre.compose.desktop.skiko.AwtComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
 
 internal class ProductionBridgeTestRenderDriver
 private constructor(
@@ -119,18 +118,12 @@ private constructor(
   companion object {
     fun create(): ProductionBridgeTestRenderDriver {
       val runtimeBackend =
-        Maplibre.supportedRenderBackends().singleOrNull()
+        tryLoadRuntimeBackends().getOrThrow().singleOrNull()
           ?: error(
             "Desktop bridge tests require exactly one packaged runtime backend; found " +
-              Maplibre.supportedRenderBackends().joinToString().ifEmpty { "none" },
+              tryLoadRuntimeBackends().getOrThrow().joinToString().ifEmpty { "none" },
           )
-      val producer =
-        when (runtimeBackend) {
-          RenderBackend.METAL -> MapRenderBackend.Metal
-          RenderBackend.VULKAN -> MapRenderBackend.Vulkan
-          RenderBackend.OPENGL -> MapRenderBackend.OpenGl
-          else -> error("No production Desktop bridge for packaged runtime $runtimeBackend")
-        }
+      val producer = runtimeBackend
       val environment = DesktopTestGpuEnvironment.create()
       return try {
         val factory = environment.presentationHost.mapHostFactory

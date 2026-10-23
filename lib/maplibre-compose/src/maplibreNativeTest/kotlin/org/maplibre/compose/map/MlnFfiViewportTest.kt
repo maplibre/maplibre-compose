@@ -7,6 +7,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -14,29 +16,50 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toPosition
-import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.ScreenPoint
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.map.ProjectionModeOptions
+import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.ProjectionMode
+import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiViewportTest {
   @Test
-  fun ground_scale_uses_the_native_projection_in_logical_pixels() {
+  fun viewport_reads_reuse_the_snapshot_until_the_camera_changes() = runMapTest {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitRendered()
+      val session = fixture.session
+      val previous = assertNotNull(session.getViewport())
+      assertSame(previous, session.getViewport())
+      val nextCamera = previous.cameraPosition.copy(zoom = previous.cameraPosition.zoom + 1.0)
+      session.setCameraPosition(nextCamera)
+      fixture.awaitUntil("the changed viewport") {
+        session.getViewport()?.cameraPosition == nextCamera
+      }
+      val next = assertNotNull(session.getViewport())
+      assertNotSame(previous, next)
+      assertSame(next, session.getViewport())
+      assertEquals(nextCamera, next.cameraPosition)
+    }
+  }
+
+  @Test
+  fun ground_scale_uses_the_native_projection_in_logical_pixels() = runMapTest {
     BridgeMapFixture.create(initialExtent = BridgeMapFixture.RetinaExtent).use { fixture ->
-      fixture.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RetinaExtent)
+      fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(CameraPosition(center = Position(10.0, 60.0), zoom = 9.0))
-      fixture.pumpUntil("the requested viewport") {
+      fixture.awaitUntil("the requested viewport") {
         fixture.session.getViewport()?.cameraPosition?.zoom == 9.0
       }
       val session = fixture.session
@@ -44,7 +67,7 @@ class MlnFfiViewportTest {
       val expected =
         assertNotNull(
           session.readMap { map ->
-            map.createProjection().use { projection ->
+            GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
               listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
@@ -61,16 +84,15 @@ class MlnFfiViewportTest {
   }
 
   @Test
-  fun viewport_insets_do_not_stop_an_unanchored_camera_animation() = runBlocking {
+  fun viewport_insets_do_not_stop_an_unanchored_camera_animation() = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val start = CameraPosition(zoom = 3.0, padding = DpPadding(top = 12.dp))
       state.setCameraPosition(start)
-      fixture.pumpUntil("the starting camera") {
+      fixture.awaitUntil("the starting camera") {
         fixture.session.getCameraPosition().zoom == start.zoom
       }
       val target = start.copy(zoom = 8.0, bearing = 90.0)
@@ -97,22 +119,21 @@ class MlnFfiViewportTest {
       assertEquals(target.zoom, after.zoom, 0.0001)
       assertEquals(target.bearing, after.bearing, 0.0001)
       assertEquals(start.padding, after.padding)
-      assertEquals(36.0, fixture.session.readMap { it.camera.padding?.top })
+      assertEquals(36.0, fixture.session.readMap { it.camera().padding?.top })
     }
   }
 
   @Test
-  fun camera_events_describe_the_mirrored_camera() = runBlocking {
+  fun camera_events_describe_the_snapshot_camera() = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val start = CameraPosition(zoom = 3.0)
       state.setCameraPosition(start)
-      fixture.pumpUntil("the starting camera") { state.cameraPosition.zoom == start.zoom }
-      fixture.settle()
+      fixture.awaitUntil("the starting camera") { state.cameraPosition.zoom == start.zoom }
+      fixture.awaitSettled()
       val moved = mutableListOf<CameraPosition>()
       var ended: CameraPosition? = null
       // An unconfined collector runs at the emission, so it reads the camera that event published.
@@ -147,20 +168,20 @@ class MlnFfiViewportTest {
   }
 
   @Test
-  fun padding_changes_before_the_first_frame_preserve_the_requested_camera() {
+  fun padding_changes_before_the_first_frame_preserve_the_requested_camera() = runMapTest {
     checkInitialPadding(pitch = 0.0, cameraAfterPadding = false)
   }
 
   @Test
-  fun a_camera_set_before_the_first_frame_does_not_apply_pending_padding_to_the_bootstrap_size() {
-    checkInitialPadding(pitch = 30.0, cameraAfterPadding = true)
-  }
+  fun a_camera_set_before_the_first_frame_does_not_apply_pending_padding_to_the_bootstrap_size() =
+    runMapTest {
+      checkInitialPadding(pitch = 30.0, cameraAfterPadding = true)
+    }
 
   @Test
-  fun an_animation_requested_before_the_first_viewport_reaches_its_target() = runBlocking {
+  fun an_animation_requested_before_the_first_viewport_reaches_its_target() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
@@ -172,8 +193,7 @@ class MlnFfiViewportTest {
             CameraAnimation.Fly { duration = 200.milliseconds },
           )
         }
-      // Let the owner accept the animation before any render target has attached.
-      fixture.session.readMap {}
+      fixture.renderingPaused = false
       fixture.awaitUntil("the startup animation to finish") { animation.isCompleted }
       animation.await()
       assertEquals(target.zoom, fixture.session.getCameraPosition().zoom, 0.0001)
@@ -181,29 +201,25 @@ class MlnFfiViewportTest {
   }
 
   @Test
-  fun raw_platform_map_access_that_changes_the_transform_refreshes_the_viewport() = runBlocking {
+  fun raw_platform_map_access_that_changes_the_transform_refreshes_the_viewport() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
-      state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyle(BaseStyle.Empty)
       val camera = CameraPosition(center = Position(-74.006, 40.7128), zoom = 9.0, pitch = 45.0)
       state.setCameraPosition(camera)
-      fixture.pumpUntil("the starting viewport") {
+      fixture.awaitUntil("the starting viewport") {
         fixture.session.getCameraPosition().zoom == camera.zoom &&
           fixture.session.getViewport() != null
       }
       val before = fixture.session.getVisibleRegion()
 
       // A projection mode change moves the viewport's corners without a camera event.
-      state.withPlatformMap {
-        map.projectionMode =
-          ProjectionModeOptions().also {
-            it.axonometric = true
-            it.xSkew = 0.5
-            it.ySkew = 0.5
-          }
-      }
+      state
+        .withPlatformMap {
+          map.setProjectionMode(ProjectionMode(axonometric = true, xSkew = 0.5, ySkew = 0.5))
+        }
+        .await()
       val engineRegion = fixture.session.readMap { map -> map.visibleRegion() }
       assertNotEquals(before, engineRegion, "the raw access must move the viewport")
 
@@ -214,23 +230,24 @@ class MlnFfiViewportTest {
     }
   }
 
-  private fun MapHandle.visibleRegion(): VisibleRegion {
-    val width = size.width.toDouble()
-    val height = size.height.toDouble()
+  private suspend fun MapHandle.visibleRegion(): VisibleRegion {
+    val extent = size()
+    val width = extent.width.toDouble()
+    val height = extent.height.toDouble()
     val corners =
-      latLngsForPixelsUnwrapped(
-          listOf(
+      GeneratedApi.mapProjectionCreate(getSnapshot().view).use { projection ->
+        listOf(
             ScreenPoint(0.0, 0.0),
             ScreenPoint(width, 0.0),
             ScreenPoint(0.0, height),
             ScreenPoint(width, height),
-          ),
-        )
-        .map { it.toPosition() }
+          )
+          .map { projection.latLngForPixelUnwrapped(it).toPosition() }
+      }
     return VisibleRegion(corners[0], corners[1], corners[2], corners[3])
   }
 
-  private fun checkInitialPadding(pitch: Double, cameraAfterPadding: Boolean) {
+  private suspend fun checkInitialPadding(pitch: Double, cameraAfterPadding: Boolean) {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
       val camera =
@@ -245,11 +262,12 @@ class MlnFfiViewportTest {
       fixture.session.setCameraConstraints(CameraConstraints.Standard)
       fixture.session.setViewportInsets(PaddingValues(start = 392.dp, top = 24.dp))
       if (cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
-      // Drain configuration while the map still has its bootstrap size, without drawing.
-      fixture.session.readMap {}
+      // Let the map run the configuration while it still has its bootstrap size, without drawing.
+      fixture.session.readMap { it.camera() }
+      fixture.renderingPaused = false
       val padding = EdgeInsets(top = 44.0, left = 392.0, bottom = 0.0, right = 0.0)
-      fixture.pumpUntil("the initial padding to reach the real viewport") {
-        fixture.hasRendered && fixture.session.readMap { it.camera.padding } == padding
+      fixture.awaitUntil("the initial padding to reach the real viewport") {
+        fixture.hasRendered && fixture.session.readMap { it.camera().padding } == padding
       }
       assertEquals(pitch, fixture.session.getCameraPosition().pitch, 0.0001)
       assertEquals(camera.padding, fixture.session.getCameraPosition().padding)

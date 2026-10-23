@@ -54,11 +54,7 @@ private fun TaoOpenGlRenderContext.openGlGpuContext(): () -> OpenGlComposeGpuCon
   OpenGlComposeGpuContext(
     skiaContext = skiaContext,
     // Tao restores the previous context and invalidates Skia's GL cache after the action.
-    withContextCurrent = { action ->
-      checkNotNull(withContextCurrent { action.run() }) {
-        "$OPEN_GL_DESCRIPTION could not make the GL context current"
-      }
-    },
+    withContextCurrent = { action -> withContextCurrent { action.run() } },
   )
 }
 

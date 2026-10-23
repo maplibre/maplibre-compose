@@ -57,7 +57,9 @@ class StyleGlobalStateTest {
       state.setProperty("runtimeOnly", JsonPrimitive(true))
       fixture.loadStyle(EmptyStyle)
       assertEquals(JsonObject(emptyMap()), state.get())
-      oldBinding.postOwner { oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true)) }
+      fixture.state.style.operationGuard(oldBinding).post("Global state", { true }) {
+        oldBinding.setGlobalStateProperty("leaked", JsonPrimitive(true))
+      }
       fixture.loadStyle(Style)
       assertEquals(defaults, state.get())
       fixture.closeSession()
@@ -71,7 +73,7 @@ class StyleGlobalStateTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(Style)
       val binding = assertNotNull(fixture.style)
-      val source = assertIs<VectorSource>(binding.onOwner { binding.getSource("points") })
+      val source = assertIs<VectorSource>(binding.baseSources["points"])
       val layer = TestLayer("circle", "circle", source)
       layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.paint(

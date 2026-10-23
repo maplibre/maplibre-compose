@@ -7,26 +7,26 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import org.maplibre.compose.map.styleImageInfo
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
-import org.maplibre.nativeffi.style.ImageContent
-import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.generated.ImageContent
+import org.maplibre.nativeffi.generated.ImageStretch as FfiImageStretch
 
 /** Stretch metadata survives the trip into MapLibre as intervals in image pixels. */
 class MlnFfiStyleImageStretchTest {
 
   @Test
-  fun independent_stretch_ranges_on_a_retina_map_scale_with_the_bitmap() {
+  fun independent_stretch_ranges_on_a_retina_map_scale_with_the_bitmap() = runMapTest {
     val fixture = BridgeMapFixture.create(BridgeMapFixture.RetinaExtent)
     fixture.use {
-      it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RetinaExtent)
+      it.loadStyle(BaseStyle.Empty)
       val style =
         assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
-      style.readMap {
-        style.setImage(
+      style
+        .setImage(
           StyleImageDefinition(
             ImageId,
             PreparedImage.fromBitmap(ImageBitmap(140, 120)),
@@ -39,16 +39,20 @@ class MlnFfiStyleImageStretchTest {
               ),
           ),
         )
-      }
+        .await()
 
-      val info = assertNotNull(it.session.styleImageInfo(ImageId), "the image should be uploaded")
+      val info =
+        assertNotNull(
+          style.mapForTest.getStyleImage(ImageId).await(),
+          "the image should be uploaded",
+        )
       assertEquals(2f, info.pixelRatio, "pixel ratio")
-      assertEquals(140, info.width, "the uploaded bitmap remains unscaled")
+      assertEquals(140u, info.width, "the uploaded bitmap remains unscaled")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to
           listOf(FfiImageStretch(25f, 100f)),
-        style.imageStretches(ImageId),
+        info.stretchX to info.stretchY,
         "stretch intervals",
       )
     }

@@ -24,7 +24,13 @@ internal data class MlnFfiMapDestination(
  * After successful completion, the host keeps [target] presentable until a newer completed target
  * is drawn or the host closes, including across resize.
  */
-internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget)
+internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget) {
+  /**
+   * Native ownership, transferred to the host after rendering. The argument reports whether the
+   * consumer finished its GPU reads; false abandons the session before releasing the frame.
+   */
+  var releaseAfterReads: ((consumerCompleted: Boolean) -> Unit)? = null
+}
 
 /** The explicit outcome of asking a host for a frame. */
 internal sealed interface MlnFfiMapFrameAcquisition {
@@ -41,8 +47,15 @@ internal interface MlnFfiMapHostSession {
 
   val backends: RenderBackendPair
 
+  /** Whether this host services caller-driver work in its display-paced frame passes. */
+  val servicesDriverWorkOnFrame: Boolean
+    get() = false
+
   /** Asks the host to schedule another frame. Safe to call from any thread; requests coalesce. */
   fun requestFrame()
+
+  /** Finishes consumer reads and releases held native frames before session teardown. */
+  fun completeConsumerAccess() {}
 
   /**
    * Runs [action] with exclusive access to renderer graphics state, making the host's context
@@ -92,8 +105,14 @@ internal interface MlnFfiMapHost : AutoCloseable {
    */
   fun completeProducerAccess(frame: MlnFfiMapFrame) {}
 
-  /** Releases [frame], whether or not it was rendered into. */
-  fun releaseFrame(frame: MlnFfiMapFrame) {}
+  /** Finishes consumer reads and releases held native frames before session teardown. */
+  fun completeConsumerAccess() {}
+
+  /** Releases ownership that was not transferred to the consumer, including on failure. */
+  fun releaseFrame(frame: MlnFfiMapFrame) {
+    frame.releaseAfterReads?.invoke(true)
+    frame.releaseAfterReads = null
+  }
 
   /** Runs [action] with exclusive access to renderer graphics state. */
   fun <T> withRendererAccess(action: () -> T): T = action()

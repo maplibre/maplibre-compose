@@ -27,7 +27,7 @@ internal interface CameraInputTarget {
     gestureToken: CameraInputToken,
   )
 
-  /** Selects a target on the engine thread after queued movement, under the same camera token. */
+  /** Selects a target after earlier movement, under the same camera token. */
   suspend fun snapBearingAwaitingTransition(
     snapping: BearingSnapping,
     duration: Duration,
@@ -36,7 +36,7 @@ internal interface CameraInputTarget {
 
   val isGestureReady: Boolean
 
-  /** Revokes accepted commands synchronously, then queues backend cancellation and its fence. */
+  /** Revokes accepted commands and submits backend cancellation. */
   fun cancelGesture(token: CameraInputToken)
 
   /** Accepted presses revoke camera work before the drag crosses slop. */

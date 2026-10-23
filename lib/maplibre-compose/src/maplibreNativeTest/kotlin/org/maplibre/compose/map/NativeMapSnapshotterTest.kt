@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -14,13 +15,11 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
-import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -29,6 +28,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
+import org.maplibre.compose.testing.withTestMapRuntime
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Geometry
@@ -38,6 +39,10 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class NativeMapSnapshotterTest {
+  @BeforeTest
+  fun requireSnapshots() {
+    skipUnlessSnapshotsAvailable()
+  }
 
   @Test
   fun snapshotter_rejects_a_runtime_without_an_offscreen_backend() {
@@ -69,13 +74,7 @@ class NativeMapSnapshotterTest {
 
   @Test
   fun composed_source_and_layer_render_into_an_offscreen_snapshot(): MapTestResult = runMapTest {
-    FfiTestPlatform.initialize()
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    val runtime =
-      createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
-      )
-    try {
+    withTestMapRuntime { runtime ->
       val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
       try {
         val densityOne =
@@ -110,70 +109,45 @@ class NativeMapSnapshotterTest {
         snapshotter.close()
         snapshotter.awaitClosed()
       }
-    } finally {
-      runtime.close()
-      runtime.awaitClosed()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 
   /**
-   * A cancelled capture leaves its still image to the engine thread, which renders it from update
-   * events whether or not anyone waits. Each later capture must still render its own image.
+   * A cancelled capture leaves its still image pending, so the snapshotter replaces its engine.
+   * Each later capture must still render its own image, wherever the cancelled one stopped.
    */
   @Test
-  fun an_abandoned_capture_finishes_on_the_engine_and_the_next_capture_renders(): MapTestResult =
-    runMapTest {
-      FfiTestPlatform.initialize()
-      val cacheFile = FfiTestPlatform.createCacheFile()
-      val runtime =
-        createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
-        )
-      val request =
-        MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
-          cameraPosition =
-            CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0)
-        }
+  fun an_abandoned_capture_leaves_the_next_capture_able_to_render(): MapTestResult = runMapTest {
+    val request =
+      MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
+        cameraPosition =
+          CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0)
+      }
+    withTestMapRuntime { runtime ->
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
       try {
-        val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
-        try {
-          // A missing wake would park the engine forever; the bound turns that into a failure.
-          withTimeout(60_000) {
-            for (delayMillis in listOf(0L, 1L, 5L, 20L, 50L)) {
-              val abandoned = launch {
-                snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
-              }
-              delay(delayMillis)
-              abandoned.cancelAndJoin()
-
-              val image =
-                snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
-              assertEquals(Background, image.readPixel(6, Size / 2), "after $delayMillis ms")
-              assertEquals(Green, image.readPixel(Size / 2, Size / 2), "after $delayMillis ms")
-            }
+        for (delayMillis in listOf(0L, 1L, 5L, 20L, 50L)) {
+          val abandoned = launch {
+            snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
           }
-        } finally {
-          snapshotter.close()
-          snapshotter.awaitClosed()
+          delay(delayMillis)
+          abandoned.cancelAndJoin()
+
+          val image = snapshotter.capture(request.size) { cameraPosition = request.cameraPosition }
+          assertEquals(Background, image.readPixel(6, Size / 2), "after $delayMillis ms")
+          assertEquals(Green, image.readPixel(Size / 2, Size / 2), "after $delayMillis ms")
         }
       } finally {
-        runtime.close()
-        runtime.awaitClosed()
-        FfiTestPlatform.deleteCacheFile(cacheFile)
+        snapshotter.close()
+        snapshotter.awaitClosed()
       }
     }
+  }
 
   @Test
   fun returning_to_an_equal_base_style_creates_a_fresh_style_identity(): MapTestResult =
     runMapTest {
-      FfiTestPlatform.initialize()
-      val cacheFile = FfiTestPlatform.createCacheFile()
-      val runtime =
-        createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
-        )
-      try {
+      withTestMapRuntime { runtime ->
         val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
         try {
           val request =
@@ -192,27 +166,15 @@ class NativeMapSnapshotterTest {
           snapshotter.close()
           snapshotter.awaitClosed()
         }
-      } finally {
-        runtime.close()
-        runtime.awaitClosed()
-        FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
 
   @Test
   fun a_rejected_inline_style_cannot_fail_the_next_capture(): MapTestResult = runMapTest {
-    FfiTestPlatform.initialize()
-    val cacheFile = FfiTestPlatform.createCacheFile()
-    val runtime =
-      createNativeMapRuntime(
-        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
-      )
-    try {
+    withTestMapRuntime { runtime ->
       val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
       try {
-        val rejected = runCatching {
-          snapshotter.capture(DpSize(Size.dp, Size.dp))
-        }
+        val rejected = runCatching { snapshotter.capture(DpSize(Size.dp, Size.dp)) }
         assertTrue(rejected.isFailure)
 
         snapshotter.style.asMutable!!.baseStyle = BackgroundStyle
@@ -223,24 +185,14 @@ class NativeMapSnapshotterTest {
         snapshotter.close()
         snapshotter.awaitClosed()
       }
-    } finally {
-      runtime.close()
-      runtime.awaitClosed()
-      FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 
   @Test
   fun invalid_initial_geojson_fails_capture_and_corrected_data_renders(): MapTestResult =
     runMapTest {
-      FfiTestPlatform.initialize()
-      val cacheFile = FfiTestPlatform.createCacheFile()
-      val runtime =
-        createNativeMapRuntime(
-          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null),
-        )
       val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
-      try {
+      withTestMapRuntime { runtime ->
         val snapshotter =
           runtime.createSnapshotter(BackgroundStyle, pointComposition { data.value })
         try {
@@ -264,10 +216,6 @@ class NativeMapSnapshotterTest {
           snapshotter.close()
           snapshotter.awaitClosed()
         }
-      } finally {
-        runtime.close()
-        runtime.awaitClosed()
-        FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
 

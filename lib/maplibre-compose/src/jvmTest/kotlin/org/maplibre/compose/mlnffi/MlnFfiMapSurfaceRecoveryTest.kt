@@ -14,11 +14,63 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapSurfaceRecoveryTest {
+
+  @Test
+  fun rearmed_desktop_frames_observe_maximum_fps() = runFfiComposeUiTest {
+    val starts = mutableListOf<kotlin.time.TimeMark>()
+    val recording = RecordingRenderer(additionalFrameRequests = 3)
+    val capped =
+      object : MlnFfiMapRenderer by recording {
+        override val maximumFps = 10
+
+        override fun render(
+          host: MlnFfiMapHostSession,
+          frame: MlnFfiMapFrame,
+          captureProjection: Boolean,
+        ): MlnFfiFrameResult {
+          starts += TimeSource.Monotonic.markNow()
+          return recording.render(host, frame, captureProjection)
+        }
+      }
+    val factory = FakeMlnFfiMapHostFactory()
+    val result = factory.create(factory.bridges.single())
+    setContent { MlnFfiMapSurface(capped, result, Modifier.size(64.dp)) }
+    waitUntil(timeoutMillis = TimeoutMillis) { starts.size == 4 }
+    waitForIdle()
+    for ((previous, next) in starts.zipWithNext()) {
+      val interval = previous.elapsedNow() - next.elapsedNow()
+      assertTrue(interval >= 90.milliseconds, "A rearmed frame bypassed maximumFps: $interval")
+    }
+  }
+
+  @Test
+  fun detaching_finishes_consumer_reads() {
+    val host = FakeMlnFfiMapHost()
+    var completed = 0
+    val readingHost =
+      object : MlnFfiMapHost by host {
+        override fun completeConsumerAccess() {
+          completed++
+        }
+      }
+    val controller =
+      MlnFfiSurfaceController(
+        RecordingRenderer(),
+        MlnFfiMapHostResult.Created(readingHost),
+        null,
+      )
+    controller.attach {}
+    controller.detach()
+    assertEquals(1, completed)
+    controller.close()
+  }
 
   @Test
   fun surface_attachment_runs_on_the_host_renderer() {
@@ -43,14 +95,14 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun failed_renderer_release_retains_the_host_target() {
+  fun failed_renderer_release_still_closes_the_host() {
     val renderer = RecordingRenderer(failingSurfaceLosses = 1)
     val host = FakeMlnFfiMapHost()
     val controller = MlnFfiSurfaceController(renderer, MlnFfiMapHostResult.Created(host), null)
     controller.attach {}
     controller.close()
     assertEquals(1, renderer.surfaceLostCount)
-    assertFalse(host.closed)
+    assertTrue(host.closed)
   }
 
   @Test

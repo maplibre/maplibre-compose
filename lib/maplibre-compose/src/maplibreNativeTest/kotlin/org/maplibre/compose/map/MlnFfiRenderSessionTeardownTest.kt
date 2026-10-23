@@ -4,17 +4,14 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogRecord
 import org.maplibre.compose.logging.MapLogger
 import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.testing.runMapTest
 
 /**
  * Detaching and closing a map while its host is still driving frames. The lifecycle closes the
@@ -41,30 +38,22 @@ class MlnFfiRenderSessionTeardownTest {
   }
 
   @Test
-  fun detaching_and_closing_behind_queued_frames_destroys_the_map_and_runtime() {
+  fun detaching_and_closing_behind_queued_frames_destroys_the_map_and_runtime() = runMapTest {
     val fixture = BridgeMapFixture.create()
-    fixture.use {
-      it.loadStyleBeforeRendering(Style)
-      it.whileRenderingOnRendererThread {
-        awaitFirstFrame(it)
-        runBlocking { it.session.detachPresentation() }
-        it.state.close()
-        runBlocking { it.state.awaitClosed() }
-      }
+    fixture.loadStyleBeforeRendering(Style)
+    fixture.withRendererThread {
+      fixture.renderingPaused = false
+      fixture.awaitRendered()
+      fixture.session.detachPresentation()
+      fixture.state.close()
+      fixture.state.awaitClosed()
     }
+    fixture.closeNow()
     assertEquals(
       emptyList(),
       errors.map { "${it.message}: ${it.throwable}" },
       "teardown behind queued frames should close the render session, map, and runtime",
     )
-  }
-
-  private fun awaitFirstFrame(fixture: BridgeMapFixture) {
-    val deadline = TimeSource.Monotonic.markNow() + 30.seconds
-    while (!fixture.hasRendered) {
-      check(deadline.hasNotPassedNow()) { "The renderer thread never drew. Errors: $errors" }
-      parkForTest(8L)
-    }
   }
 
   private companion object {

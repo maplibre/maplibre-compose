@@ -34,13 +34,14 @@ internal actual fun rememberComposeMapPresentation(
     presentation.isActive = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     onDispose { lifecycle.removeObserver(observer) }
   }
-  return presentation.Content(options) { session, clicks ->
+  return presentation.Content(options) { session, clicks, canPresentFrames ->
     ComposeMapPresentation(
       session,
       clicks,
       { state.attachmentAuthority.setEngaged(session, it) },
     ) { modifier ->
-      MlnFfiMapSurfaceContent(session, options, modifier) { surfaceModifier, revealSurface ->
+      MlnFfiMapSurfaceContent(canPresentFrames, options, modifier) { surfaceModifier, revealSurface
+        ->
         if (revealSurface) {
           UIKitView(
             modifier = surfaceModifier,

@@ -1,14 +1,18 @@
 package org.maplibre.compose.map
 
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.mlnffi.parkUntilDone
 
-/** Forgets and closes the process default, and waits until it has closed. */
+/**
+ * Forgets and closes the process default, and parks the calling thread until it has closed. Call it
+ * after a test body, where the thread has nothing left to run.
+ */
 internal fun DefaultMapRuntime.resetForTest(testFailure: Throwable? = null) {
   val runtime = clearForTest() ?: return
   try {
-    runBlocking { runtime.awaitClosed() }
+    parkUntilDone(30.seconds) { runtime.awaitClosed() }
   } catch (error: Throwable) {
     if (testFailure == null) throw error
     if (testFailure !== error) testFailure.addSuppressed(error)

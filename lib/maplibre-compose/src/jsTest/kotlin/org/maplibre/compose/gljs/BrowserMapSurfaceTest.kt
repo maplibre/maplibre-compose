@@ -33,7 +33,7 @@ class BrowserMapSurfaceTest {
           host = surface
         }
 
-        override fun onSurfaceLost() = Unit
+        override fun onSurfaceLost(surface: GlJsSurfaceSession) = Unit
 
         override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
           renderedExtent = extent

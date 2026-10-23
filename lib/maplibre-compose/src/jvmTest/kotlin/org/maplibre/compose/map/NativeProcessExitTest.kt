@@ -4,13 +4,14 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.logging.MapLogger
@@ -19,13 +20,17 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.log.LogSeverity
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.LogSeverityMask
 
 /** Native static destruction runs after JVM shutdown, so only a child process tests its exit. */
 class NativeProcessExitTest {
   @Test
   fun exits_after_native_logging_and_compose_runtime_cleanup() {
+    skipUnlessSnapshotsAvailable()
     val output = Files.createTempFile("maplibre-compose-exit-", ".log")
     val java = if (System.getProperty("os.name").startsWith("Windows")) "java.exe" else "java"
     val process =
@@ -61,19 +66,19 @@ class NativeProcessExitTest {
 internal object NativeProcessExitProbe {
   @JvmStatic
   fun main(args: Array<String>) {
-    val received = CountDownLatch(1)
+    val received = CompletableDeferred<Unit>()
     MapLogging.logger = MapLogger { record ->
       if (
         record.source == MapLogSource.NativeEngine &&
           record.category == "ParseStyle" &&
           record.level == MapLogLevel.Warning
       ) {
-        received.countDown()
+        received.complete(Unit)
       }
     }
     Maplibre.loadNativeLibrary()
-    Maplibre.setAsyncLogSeverities(setOf(LogSeverity.WARNING))
-    runBlocking {
+    GeneratedApi.logSetAsyncSeverityMask(LogSeverityMask.WARNING)
+    runMapTest {
       val cache = FfiTestPlatform.createCacheFile()
       val runtime = createNativeMapRuntime(MlnFfiRuntimeOptions(cacheFile = cache))
       try {
@@ -82,7 +87,9 @@ internal object NativeProcessExitProbe {
         val snapshotter = runtime.createSnapshotter(style)
         try {
           snapshotter.capture(DpSize(64.dp, 64.dp))
-          check(received.await(10, TimeUnit.SECONDS)) { "No asynchronous native parser warning" }
+          checkNotNull(withTimeoutOrNull(10.seconds) { received.await() }) {
+            "No asynchronous native parser warning"
+          }
         } finally {
           snapshotter.close()
           snapshotter.awaitClosed()
@@ -92,13 +99,13 @@ internal object NativeProcessExitProbe {
         runtime.awaitClosed()
         FfiTestPlatform.deleteCacheFile(cache)
       }
-    }
-    if (System.getProperty("os.name").startsWith("Windows")) {
-      // Exercise the worker-scoped Direct3D window as well as native runtime shutdown. The
-      // fixture closes the map and render bridge; the shared consumer window stays alive.
-      BridgeMapFixture.create().use { fixture ->
-        fixture.loadStyle(BaseStyle.Empty)
-        fixture.pumpUntilRendered()
+      if (System.getProperty("os.name").startsWith("Windows")) {
+        // Exercise the worker-scoped Direct3D window as well as native runtime shutdown. The
+        // fixture closes the map and render bridge; the shared consumer window stays alive.
+        BridgeMapFixture.create().use { fixture ->
+          fixture.loadStyle(BaseStyle.Empty)
+          fixture.awaitRendered()
+        }
       }
     }
     println(ReadyToExit)

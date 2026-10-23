@@ -54,7 +54,7 @@ class CameraInputIntegrationTest {
           }
           fixture.state.stopCameraMovement()
           fixture.pumpUntil("the gesture to stop") { !fixture.state.isCameraMoving }
-          assertFalse(input.token.canExecute)
+          assertFalse(input.token.acceptsCommands)
           val stopped = fixture.state.cameraPosition
           fixture.gestures.inputPanBy(100.0, 0.0, gestureToken = input.token)
           input.end()
@@ -218,7 +218,7 @@ class CameraInputIntegrationTest {
     }
 
   @Test
-  fun built_in_session_completion_drains_the_backend_before_its_job_finishes(): MapTestResult =
+  fun the_sessions_job_completes_after_its_camera_events_are_delivered(): MapTestResult =
     runMapTest {
       coroutineScope {
         createMapFixture().use { fixture ->
@@ -228,11 +228,20 @@ class CameraInputIntegrationTest {
           fixture.settle()
           val input = GestureInputSession(this, fixture.gestures)
           fixture.gestures.scaleBy(2.0, null, gestureToken = input.token)
+          var completedCamera: CameraPosition? = null
+          var movingAtCompletion: Boolean? = null
+          val job = input.scope.coroutineContext[Job]!!
+          job.invokeOnCompletion {
+            completedCamera = fixture.state.cameraPosition
+            movingAtCompletion = fixture.state.isCameraMoving
+          }
           input.end()
           fixture.awaitWhileRendering("built-in input completion") {
-            input.scope.coroutineContext[Job]!!.join()
+            job.join()
           }
-          assertEquals(4.0, fixture.state.cameraPosition.zoom, 1e-6)
+          assertEquals(4.0, checkNotNull(completedCamera).zoom, 1e-6)
+          assertEquals(false, movingAtCompletion)
+          assertEquals(completedCamera, fixture.state.cameraPosition)
           assertFalse(fixture.state.isCameraMoving)
         }
       }

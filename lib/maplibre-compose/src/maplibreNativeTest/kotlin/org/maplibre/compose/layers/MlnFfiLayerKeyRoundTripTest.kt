@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -18,10 +17,9 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
-import org.maplibre.compose.util.onMap
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.toJsonElement
-import org.maplibre.nativeffi.style.StyleLayerVisibility
+import org.maplibre.nativeffi.generated.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -29,7 +27,7 @@ import org.maplibre.spatialk.geojson.Geometry
 class MlnFfiLayerKeyRoundTripTest {
 
   @Test
-  fun the_common_layer_keys_reach_maplibre_before_and_after_attach() {
+  fun the_common_layer_keys_reach_maplibre_before_and_after_attach() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -39,7 +37,7 @@ class MlnFfiLayerKeyRoundTripTest {
             id = SourceId,
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
           )
-          .also { source -> runBlocking { style.install(source) } }
+          .also { source -> style.install(source) }
 
       val beforeAttach = TestLayer("before", "symbol", source)
       beforeAttach.sourceLayer = "places"
@@ -51,10 +49,10 @@ class MlnFfiLayerKeyRoundTripTest {
         ((Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      runBlocking { style.install(beforeAttach) }
+      style.install(beforeAttach)
 
       val afterAttach = TestLayer("after", "symbol", source)
-      val afterHandle = runBlocking { style.install(afterAttach) }
+      val afterHandle = style.install(afterAttach)
       afterAttach.sourceLayer = "roads"
       afterAttach.minZoom = 4f
       afterAttach.maxZoom = 16f
@@ -64,36 +62,29 @@ class MlnFfiLayerKeyRoundTripTest {
         ((Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None))
           .asLayerProperty(),
       )
-      runBlocking { style.onOwner { afterHandle.update(afterAttach.definition()) } }
+      afterHandle.update(afterAttach.definition())
 
-      style.onMap { map ->
-        assertEquals("places", map.layerSourceLayer("before"))
-        assertEquals(SourceId, map.layerSourceId("before"))
-        assertEquals(3.0, map.layerMinZoom("before"))
-        assertEquals(15.0, map.layerMaxZoom("before"))
-        assertEquals(StyleLayerVisibility.NONE, map.layerVisibility("before"))
-        assertEquals(
-          Json.parseToJsonElement("""["==",["get","class"],"park"]"""),
-          map.layerFilter("before")?.toJsonElement(),
-        )
+      val map = style.mapForTest
+      val before = assertNotNull(map.getStyleLayer("before").await())
+      assertEquals("places", before.sourceLayer)
+      assertEquals(SourceId, before.sourceId)
+      assertEquals(3.0, before.minZoom)
+      assertEquals(15.0, before.maxZoom)
+      assertEquals(StyleLayerVisibility.NONE, before.visibility)
+      assertEquals(
+        Json.parseToJsonElement("""["==",["get","class"],"park"]"""),
+        map.getStyleLayerProperty("before", "filter").await()?.toJsonElement(),
+      )
 
-        assertEquals("roads", map.layerSourceLayer("after"))
-        assertEquals(4.0, map.layerMinZoom("after"))
-        assertEquals(16.0, map.layerMaxZoom("after"))
-        assertEquals(StyleLayerVisibility.NONE, map.layerVisibility("after"))
-        assertEquals(
-          Json.parseToJsonElement("""["==",["get","class"],"wood"]"""),
-          map.layerFilter("after")?.toJsonElement(),
-        )
-
-        afterAttach.minZoom = 5f
-        afterHandle.update(afterAttach.definition())
-        assertEquals(
-          5.0,
-          map.layerMinZoom("after"),
-          "nested style writes must finish inside the current owner operation",
-        )
-      }
+      val after = assertNotNull(map.getStyleLayer("after").await())
+      assertEquals("roads", after.sourceLayer)
+      assertEquals(4.0, after.minZoom)
+      assertEquals(16.0, after.maxZoom)
+      assertEquals(StyleLayerVisibility.NONE, after.visibility)
+      assertEquals(
+        Json.parseToJsonElement("""["==",["get","class"],"wood"]"""),
+        map.getStyleLayerProperty("after", "filter").await()?.toJsonElement(),
+      )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

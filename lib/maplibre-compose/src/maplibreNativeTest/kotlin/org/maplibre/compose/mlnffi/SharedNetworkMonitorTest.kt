@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.maplibre.compose.resource.ConnectivityMode
-import org.maplibre.nativeffi.runtime.NetworkStatus
+import org.maplibre.nativeffi.generated.NetworkStatus
 
 class SharedNetworkMonitorTest {
   private val callbacks = mutableListOf<(NetworkStatus) -> Unit>()

@@ -27,8 +27,8 @@ protected constructor(
 ) : SourceHandle {
   private val identity: StyleIdentity = style.identity
   private val resourceIdentity = style.identity.sources.get(id)
-  // Set once a removal through this handle has run; using the handle after that is misuse. A
-  // removal that the engine rejects or a later change supersedes leaves it unset.
+  // Set once a removal through this handle was submitted; using the handle after that is misuse. A
+  // source whose removal the engine refuses gets a new handle.
   @Volatile private var removed = false
 
   override val asMutable: MutableSourceHandle?
@@ -95,7 +95,7 @@ protected constructor(
 
   protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject? =
     read {
-      operations.visit { style.featureState(id, sourceLayerId, featureId) }
+      style.featureState(id, sourceLayerId, featureId)
     }
 
   protected fun clearFeatureState(
@@ -128,7 +128,6 @@ protected constructor(
   }
 
   /** Runs a read through the owner's single engine path. */
-  internal suspend fun <T> visit(action: () -> T?): T? = operations.visit(action)
 }
 
 internal class GeoJsonSourceHandleImpl
@@ -362,7 +361,7 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) : SourceHandleImpl(id, attributionHtml, style, kind, currentKind, operations)
 
-/** Builds a handle from metadata already captured on the engine owner. */
+/** Builds a handle from the metadata of a published source. */
 internal fun StyleBinding.sourceHandle(
   id: String,
   kind: String,

@@ -1,6 +1,6 @@
 package org.maplibre.compose.sources
 
-import org.maplibre.nativeffi.query.FeatureStateSelector
+import org.maplibre.nativeffi.generated.FeatureStateSelector
 
 internal fun featureStateSelector(
   sourceId: String,
@@ -8,8 +8,9 @@ internal fun featureStateSelector(
   featureId: String? = null,
   stateKey: String? = null,
 ) =
-  FeatureStateSelector(sourceId).apply {
-    this.sourceLayerId = sourceLayerId
-    this.featureId = featureId
-    this.stateKey = stateKey
-  }
+  FeatureStateSelector(
+    sourceId = sourceId,
+    sourceLayerId = sourceLayerId,
+    featureId = featureId,
+    stateKey = stateKey,
+  )

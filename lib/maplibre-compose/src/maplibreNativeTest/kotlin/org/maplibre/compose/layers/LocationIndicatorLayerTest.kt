@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -29,9 +28,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
-import org.maplibre.compose.util.onMap
-import org.maplibre.compose.util.toJsonElement
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Position
 
 class LocationIndicatorLayerTest {
@@ -67,7 +64,7 @@ class LocationIndicatorLayerTest {
   }
 
   @Test
-  fun location_indicator_properties_reach_maplibre() {
+  fun location_indicator_properties_reach_maplibre() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -133,65 +130,56 @@ class LocationIndicatorLayerTest {
         "perspective-compensation",
         (const(0.9f).compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
       // The renderer evaluates the layer only when a frame is drawn, and image properties that
-      // arrive as expressions abort it there rather than at addLayer.
-      it.pumpUntilRendered()
-      repeat(3) { _ -> it.frame() }
+      // arrive as expressions abort it there rather than at addLayer. Draw every frame the map
+      // asks for.
+      it.awaitSettled()
 
-      style.onMap { map ->
-        assertTrue(map.styleLayerExists("indicator"), "the layer should have been added")
-        for (property in
-          listOf(
-            "location",
-            "bearing",
-            "accuracy-radius",
-            "bearing-accuracy",
-            "bearing-accuracy-radius",
-            "bearing-accuracy-color",
-          )) {
-          val transition =
-            map.layerProperty("indicator", "$property-transition")?.toJsonElement() as? JsonObject
-          assertEquals(500.0, (transition?.get("duration") as? JsonPrimitive)?.doubleOrNull)
-        }
-        assertEquals(
-          15.0,
-          (map.layerProperty("indicator", "bearing-accuracy")?.toJsonElement() as? JsonPrimitive)
-            ?.doubleOrNull,
-        )
-        assertEquals(
-          48.0,
-          (map.layerProperty("indicator", "bearing-accuracy-radius")?.toJsonElement()
-              as? JsonPrimitive)
-            ?.doubleOrNull,
-        )
-        assertNotNull(map.layerProperty("indicator", "bearing-accuracy-color"))
-        // A constant image reads back as an object naming it; an expression would read back as an
-        // ["image", ...] array, which the renderer cannot take.
-        assertEquals(
-          JsonPrimitive("top-icon"),
-          (map.layerProperty("indicator", "top-image")?.toJsonElement() as? JsonObject)?.get(
-            "name",
-          ),
-          "the image should be written as a plain name, which the renderer reads as a constant",
-        )
-        assertEquals(
-          JsonArray(listOf(JsonPrimitive(48.0), JsonPrimitive(11.0), JsonPrimitive(0.0))),
-          map.layerProperty("indicator", "location")?.toJsonElement(),
-          "the location should read back as [latitude, longitude, altitude]",
-        )
-        assertEquals(
-          45.0,
-          (map.layerProperty("indicator", "bearing")?.toJsonElement() as? JsonPrimitive)
-            ?.doubleOrNull,
-        )
-        assertEquals(
-          20.0,
-          (map.layerProperty("indicator", "accuracy-radius")?.toJsonElement() as? JsonPrimitive)
-            ?.doubleOrNull,
-        )
+      assertTrue("indicator" in style.layerIds(), "the layer should have been added")
+      for (property in
+        listOf(
+          "location",
+          "bearing",
+          "accuracy-radius",
+          "bearing-accuracy",
+          "bearing-accuracy-radius",
+          "bearing-accuracy-color",
+        )) {
+        val transition = style.layerProperty("indicator", "$property-transition") as? JsonObject
+        assertEquals(500.0, (transition?.get("duration") as? JsonPrimitive)?.doubleOrNull)
       }
+      assertEquals(
+        15.0,
+        (style.layerProperty("indicator", "bearing-accuracy") as? JsonPrimitive)?.doubleOrNull,
+      )
+      assertEquals(
+        48.0,
+        (style.layerProperty("indicator", "bearing-accuracy-radius") as? JsonPrimitive)
+          ?.doubleOrNull,
+      )
+      assertNotNull(style.layerProperty("indicator", "bearing-accuracy-color"))
+      // A constant image reads back as an object naming it; an expression would read back as an
+      // ["image", ...] array, which the renderer cannot take.
+      assertEquals(
+        JsonPrimitive("top-icon"),
+        (style.layerProperty("indicator", "top-image") as? JsonObject)?.get("name"),
+        "the image should be written as a plain name, which the renderer reads as a constant",
+      )
+      assertEquals(
+        JsonArray(listOf(JsonPrimitive(48.0), JsonPrimitive(11.0), JsonPrimitive(0.0))),
+        style.layerProperty("indicator", "location"),
+        "the location should read back as [latitude, longitude, altitude]",
+      )
+      assertEquals(
+        45.0,
+        (style.layerProperty("indicator", "bearing") as? JsonPrimitive)?.doubleOrNull,
+      )
+      assertEquals(
+        20.0,
+        (style.layerProperty("indicator", "accuracy-radius") as? JsonPrimitive)?.doubleOrNull,
+      )
 
       // A property set on the live layer takes effect too.
       layer.paint(
@@ -200,13 +188,11 @@ class LocationIndicatorLayerTest {
           Position(longitude = -122.0, latitude = 37.0, altitude = 10.0),
         ),
       )
-      runBlocking { style.onOwner { handle.update(layer.definition()) } }
-      style.onMap { map ->
-        assertEquals(
-          JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),
-          map.layerProperty("indicator", "location")?.toJsonElement(),
-        )
-      }
+      handle.update(layer.definition())
+      assertEquals(
+        JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),
+        style.layerProperty("indicator", "location"),
+      )
 
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }

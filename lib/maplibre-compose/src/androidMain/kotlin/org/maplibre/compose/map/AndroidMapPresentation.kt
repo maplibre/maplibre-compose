@@ -267,15 +267,19 @@ public class AndroidMapPresentation(
         if (configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl
         else LayoutDirection.Ltr,
     ) {
-      MlnFfiMapPresentation(backend, state, owner, options) { session, _ ->
-        SurfaceHost(session, backend)
+      MlnFfiMapPresentation(backend, state, owner, options) { session, _, canPresentFrames ->
+        SurfaceHost(session, backend, canPresentFrames)
       }
     }
   }
 
   /** Attaches the current binding to [session] while a style can be presented. */
   @Composable
-  private fun SurfaceHost(session: MlnFfiMapSession, backend: MapRenderBackend) {
+  private fun SurfaceHost(
+    session: MlnFfiMapSession,
+    backend: MapRenderBackend,
+    canPresentFrames: Boolean,
+  ) {
     val maximumFps = options.renderOptions.maximumFps
     val controller =
       remember(session) {
@@ -299,7 +303,7 @@ public class AndroidMapPresentation(
       onDispose {}
     }
     // An attached Surface would show black until a style loads; the host keeps its own image.
-    val binding = binding?.takeIf { session.canPresentFrames } ?: return
+    val binding = binding?.takeIf { canPresentFrames } ?: return
     val scaleFactor = LocalDensity.current.density.toDouble()
     // Read the size here, not in the effect, so a resize recomposes this host.
     val width = binding.width

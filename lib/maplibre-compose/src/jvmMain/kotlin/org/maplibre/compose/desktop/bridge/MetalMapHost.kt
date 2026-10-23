@@ -91,11 +91,6 @@ internal class MetalMapHost(
 
   override fun <R> onRendererThread(action: () -> R): R = ObjectiveC.runInAutoreleasePool(action)
 
-  override fun waitForProducers() {
-    vulkan?.waitIdle()
-    angle?.waitIdle()
-  }
-
   override fun present(
     scope: DrawScope,
     context: MetalComposeGpuContext,
@@ -144,6 +139,7 @@ internal class MetalMapHost(
 
   override fun contextReplaced() {
     presenter.closeAll()
+    textures.retireCurrent()
   }
 
   override fun closeTextures() {

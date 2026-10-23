@@ -26,6 +26,8 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapStateCallbacks
+import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.resource.MapResourceProvider
@@ -76,31 +78,30 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
         }
       },
     )
+    recorder.bindState(state)
     state.publishPresentation(token, glJsSession)
-    recorder.attachment = requireNotNull(state.currentMapAttachment)
-    recorder.state = state
   }
 
   private fun frame(): Boolean {
     frameRequested = false
     val rendered = glJsSession.render(GlJsFrameTarget.OwnCanvas, extent)
-    glJsSession.markPresentationStateReplayed()
     return rendered.also { if (it) hasRendered = true }
   }
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
-    state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
-    state.styleAuthority.updateLoadedStyle(glJsSession, null)
     val styleLoadsBefore = events.count { it == MapFixture.StyleLoaded }
-    glJsSession.setBaseStyle(style)
+    checkNotNull(state.style.asMutable).baseStyle = style
     if (recorder.style?.isLoaded != true) {
       pumpUntil("style $style to load", timeout) {
         events.count { it == MapFixture.StyleLoaded } > styleLoadsBefore
       }
     }
-    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty) {}
-    state.styleAuthority.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
-    state.styleAuthority.markStyleReady(glJsSession)
+    glJsSession.reconcileStyleRevision(StyleSnapshot.Empty)
+    // Fixture loads wait for parsed style resources, independently of tile loading.
+    MapStateCallbacks(state).onStyleReady(glJsSession)
+    pumpUntil("the loaded style to be ready", timeout) {
+      state.style.loadState == StyleLoadState.Ready
+    }
   }
 
   internal fun fireStyleError(message: String) {
@@ -233,3 +234,5 @@ internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTes
 
 internal actual fun skipMapTest(reason: String): Nothing =
   error("Browser tests must run with the required capabilities: $reason")
+
+internal actual fun skipUnlessSnapshotsAvailable() = Unit

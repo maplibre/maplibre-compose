@@ -5,12 +5,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.maplibre.nativeffi.resource.ResourceKind
-import org.maplibre.nativeffi.resource.ResourceLoadingMethod
-import org.maplibre.nativeffi.resource.ResourcePriority
-import org.maplibre.nativeffi.resource.ResourceRequest
-import org.maplibre.nativeffi.resource.ResourceStoragePolicy
-import org.maplibre.nativeffi.resource.ResourceUsage
+import org.maplibre.nativeffi.generated.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceLoadingMethod
+import org.maplibre.nativeffi.generated.ResourcePriority
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
+import org.maplibre.nativeffi.generated.ResourceStoragePolicy
+import org.maplibre.nativeffi.generated.ResourceUsage
 
 /** Which side of the resource boundary a URL falls on. */
 class MlnFfiResourceProviderTest {
@@ -117,8 +117,8 @@ class MlnFfiResourceProviderTest {
     )
   }
 
-  private fun request(url: String): ResourceRequest =
-    ResourceRequest(
+  private fun request(url: String): ResourceRequestInfo =
+    ResourceRequestInfo(
       requestedUrl = url,
       resolvedUrl = url,
       kind = ResourceKind.STYLE,

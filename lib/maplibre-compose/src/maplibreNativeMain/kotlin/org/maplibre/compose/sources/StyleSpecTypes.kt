@@ -1,12 +1,12 @@
 package org.maplibre.compose.sources
 
-import org.maplibre.nativeffi.style.RasterDemEncoding as FfiRasterDemEncoding
-import org.maplibre.nativeffi.style.SourceType
-import org.maplibre.nativeffi.style.VectorTileEncoding
+import org.maplibre.nativeffi.generated.StyleRasterDemEncoding as FfiRasterDemEncoding
+import org.maplibre.nativeffi.generated.StyleSourceType as SourceType
+import org.maplibre.nativeffi.generated.StyleVectorTileEncoding as VectorTileEncoding
 
 /**
  * The style spec name, or null for custom-vector or unknown source types. [SourceType.toString]
- * returns the generated FFI representation, such as `SourceType(nativeValue=1)`, instead of the
+ * returns the generated FFI representation, such as `StyleSourceType(rawValue=1)`, instead of the
  * style spec name.
  */
 internal fun SourceType.toStyleSpecType(): String? =

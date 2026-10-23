@@ -16,7 +16,7 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
       normalizedOptions.logger,
     )
   val mainDispatcher = normalizedOptions.mainDispatcher ?: platformMainDispatcher()
-  val owner = MlnFfiRuntime(normalizedOptions, resourceConfig)
+  val owner = MlnFfiRuntime(normalizedOptions.copy(mainDispatcher = mainDispatcher), resourceConfig)
   val runtime =
     MapRuntime(
       platformContext = owner,

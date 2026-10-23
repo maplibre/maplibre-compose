@@ -62,7 +62,6 @@ class CameraInputTest {
       runCurrent()
       assertEquals(listOf(HapticEmphasis.Standard), ticks)
       input.cancel()
-      target.drain()
       runCurrent()
 
       ticks.clear()
@@ -70,7 +69,7 @@ class CameraInputTest {
       cancelled.token.reportRotation(355.0, 5.0)
       target.interruptCamera()
       runCurrent()
-      target.drain()
+
       assertTrue(ticks.isEmpty())
     }
 
@@ -109,55 +108,13 @@ class CameraInputTest {
       val latest = target.observeInput()
       query.complete(Unit)
       runCurrent()
-      target.drain()
+
       assertEquals(1, layers)
       assertTrue(target.moveCalls.isEmpty())
       dispatch(2, latest)
       runCurrent()
-      target.drain()
-      runCurrent()
       assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
       assertEquals(2, layers)
-    }
-
-  @Test
-  fun delayed_acquisition_checks_input_generation_without_revoking_a_newer_owner() =
-    cameraTest { state, target ->
-      val captured = state.gestureAuthority.observeInput()
-      val session = GestureInputSession(this, target)
-      assertEquals(null, state.gestureAuthority.acquireIfCurrent(target, captured))
-      assertTrue(session.token.acceptsCommands)
-      session.end()
-      target.drain()
-      runCurrent()
-    }
-
-  @Test
-  fun input_without_an_active_camera_session_invalidates_delayed_acquisition() =
-    cameraTest { state, target ->
-      val captured = state.gestureAuthority.observeInput()
-      state.gestureAuthority.observeInput()
-      assertEquals(null, state.gestureAuthority.acquireIfCurrent(target, captured))
-      val current = state.gestureAuthority.generation
-      val acquired = checkNotNull(state.gestureAuthority.acquireIfCurrent(target, current))
-      assertTrue(acquired.acceptsCommands)
-      target.onGestureEnded(acquired)
-      target.drain()
-    }
-
-  @Test
-  fun input_session_keeps_accepted_commands_alive_through_normal_completion() =
-    cameraTest { _, target ->
-      val session = GestureInputSession(this, target)
-      target.inputPanBy(10.0, 0.0, gestureToken = session.token)
-      session.end()
-      assertFalse(session.token.acceptsCommands)
-      assertTrue(session.token.canExecute)
-      assertTrue(session.scope.coroutineContext[kotlinx.coroutines.Job]!!.isActive)
-      target.drain()
-      runCurrent()
-      assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
-      assertTrue(session.scope.coroutineContext[kotlinx.coroutines.Job]!!.isCompleted)
     }
 
   @Test
@@ -172,13 +129,13 @@ class CameraInputTest {
         }
         session.end()
         runCurrent()
-        target.drain()
+
         assertTrue(target.moveCalls.isEmpty())
 
         if (interrupt) target.interruptCamera()
         releaseResponse.complete(Unit)
         runCurrent()
-        target.drain()
+
         runCurrent()
         assertEquals(
           if (interrupt) emptyList() else listOf(10.0),
@@ -200,7 +157,6 @@ class CameraInputTest {
         }
       val continuation = session.scope.launch { awaitCancellation() }
       runCurrent()
-      target.inputPanBy(10.0, 0.0, gestureToken = session.token)
       insideOwnerCall = true
       state.setCameraPosition(CameraPosition(zoom = 5.0))
       assertFalse(session.token.acceptsCommands)
@@ -209,7 +165,7 @@ class CameraInputTest {
       insideOwnerCall = false
       runCurrent()
       assertEquals(1, cancelled)
-      target.drain()
+      target.inputPanBy(10.0, 0.0, gestureToken = session.token)
       assertTrue(target.moveCalls.isEmpty())
     }
 
@@ -217,15 +173,15 @@ class CameraInputTest {
   fun old_input_cleanup_cannot_close_the_new_session() = cameraTest { _, target ->
     var cancelled = 0
     val first = GestureInputSession(this, target) { cancelled++ }
-    target.inputPanBy(10.0, 0.0, gestureToken = first.token)
     val second = GestureInputSession(this, target)
     runCurrent()
     first.cancel()
     assertEquals(1, cancelled)
     assertTrue(second.token.acceptsCommands)
+    target.inputPanBy(10.0, 0.0, gestureToken = first.token)
     target.inputPanBy(20.0, 0.0, gestureToken = second.token)
     second.end()
-    target.drain()
+
     runCurrent()
     assertEquals(listOf(20.0), target.moveCalls.map { it.x.toDouble() })
   }
@@ -250,7 +206,6 @@ class CameraInputTest {
         assertTrue(caller.isCompleted)
         target.inputPanBy(10.0, 0.0, gestureToken = token)
         target.onGestureEnded(token)
-        target.drain()
       }
       assertEquals(listOf(10.0, 10.0, 10.0), target.moveCalls.map { it.x.toDouble() })
     }
@@ -286,7 +241,6 @@ class CameraInputTest {
       )
       target.inputScaleByAwaitingTransition(2.0, DpOffset(10.dp, 20.dp), Duration.ZERO, input.token)
       input.end()
-      target.drain()
       runCurrent()
       assertTrue(target.moveCalls.isEmpty())
       assertEquals(listOf("zoom", "pitch"), starts)
@@ -324,26 +278,7 @@ class CameraInputTest {
       assertEquals(1, replacement)
       assertEquals(2, starts)
       input.end()
-      target.drain()
       runCurrent()
-    }
-
-  @Test
-  fun semantic_observer_can_take_camera_authority_before_any_command_is_queued() =
-    cameraTest { state, target ->
-      state.gestureAuthority.updateConfiguration(
-        CameraBuilder(CameraConfiguration())
-          .apply {
-            pan { onStart { state.setCameraPosition(CameraPosition(zoom = 8.0)) } }
-          }
-          .build(),
-      )
-      val input = GestureInputSession(this, target)
-      target.inputPanBy(10.0, 0.0, gestureToken = input.token)
-      target.drain()
-      runCurrent()
-      assertTrue(target.moveCalls.isEmpty())
-      assertFalse(input.token.acceptsCommands)
     }
 
   @Test
@@ -382,7 +317,7 @@ class CameraInputTest {
         val input = GestureInputSession(this, target)
         target.inputFitBoundsAwaitingTransition(fit, Duration.ZERO, input.token)
         input.end()
-        target.drain()
+
         runCurrent()
         assertEquals(
           if (pan && zoom && takeover == null) listOf(fit) else emptyList(),
@@ -403,13 +338,13 @@ class CameraInputTest {
     runTest {
       val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
       val state = runtime.createMapState(BaseStyle.Empty)
-      val target = RecordingGestureTarget(state, deferred = true)
+      val target = RecordingGestureTarget(state)
       try {
         body(state, target)
       } finally {
         state.close()
         runCurrent()
-        target.drain()
+
         runCurrent()
         state.awaitClosed()
         runtime.close()

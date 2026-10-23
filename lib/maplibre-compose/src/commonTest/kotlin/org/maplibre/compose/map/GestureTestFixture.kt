@@ -30,16 +30,13 @@ internal class GestureTestFixture(mainDispatcher: CoroutineDispatcher = TestMain
 
   override fun close() {
     state.close()
-    target.drain()
     runtime.close()
   }
 }
 
-/** Only engine execution is simulated. Pausing it lets ownership tests control queue ordering. */
-internal class RecordingGestureTarget(
-  private val state: MapState,
-  private val deferred: Boolean = false,
-) : PresentationTestAdapter(), CameraInputTarget {
+/** Records camera commands submitted on main. */
+internal class RecordingGestureTarget(private val state: MapState) :
+  PresentationTestAdapter(), CameraInputTarget {
   var startedCount = 0
     private set
 
@@ -51,7 +48,6 @@ internal class RecordingGestureTarget(
   val rotateCalls = mutableListOf<RotateCall>()
   val fitCalls = mutableListOf<Pair<BoxZoomFit, Duration>>()
   var project: (DpOffset) -> Position? = { null }
-  private val pending = ArrayDeque<() -> Unit>()
 
   init {
     currentViewport = viewportFor(MapSnapshotRequest(DpSize(100.dp, 100.dp)))
@@ -91,23 +87,13 @@ internal class RecordingGestureTarget(
 
   private fun finish(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
-      execute {
-        endedCount++
-        token.complete()
-      }
+      endedCount++
+      token.complete()
     }
   }
 
-  private fun execute(action: () -> Unit) {
-    if (deferred) pending.add(action) else action()
-  }
-
   private fun command(token: CameraInputToken?, action: () -> Unit) {
-    checkNotNull(token).enqueue { execute { if (token.canExecute) action() } }
-  }
-
-  fun drain() {
-    while (pending.isNotEmpty()) pending.removeFirst().invoke()
+    if (checkNotNull(token).acceptsCommands) action()
   }
 
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) =

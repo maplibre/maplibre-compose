@@ -32,7 +32,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   private var styleLoaded = false
   private val scope = MainScope()
   private val runtime = mapRuntimeForTest()
-  private val state = runtime.createMapState(BaseStyle.Demo)
+  val state = runtime.createMapState(BaseStyle.Demo)
 
   var loadedBinding: StyleBinding? = null
     private set
@@ -64,7 +64,6 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     val rendered = session.render(GlJsFrameTarget.Composited(target), extentOf(target))
     if (rendered) pacer.rendered(start)
     session.presentFrame(target, extentOf(target))
-    if (session.hasUsableViewport) session.markPresentationStateReplayed()
     return rendered
   }
 
@@ -104,7 +103,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadedBinding = style
       styleLoaded = false
       if (style != null) {
-        scope.launch { session.reconcileStyleRevision(StyleSnapshot.Empty) {} }
+        scope.launch { session.reconcileStyleRevision(StyleSnapshot.Empty) }
       }
     }
 
@@ -116,7 +115,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadFailure = reason ?: "unknown"
     }
 
-    override fun onStyleSourcesChanged(map: MapAdapter) = Unit
+    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) = Unit
 
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 

@@ -40,7 +40,8 @@ public class OpenGlComposeGpuContext(
   /** The Skia context Compose draws this scene with. */
   override val skiaContext: DirectContext,
   /**
-   * Runs [Runnable] with this context current on the calling thread.
+   * Runs [Runnable] with this context current on the calling thread, or skips it when the context
+   * is unavailable during surface loss.
    *
    * Must run synchronously, be safe to nest, and release that access when the action returns or
    * throws. Called under the host's GPU access.

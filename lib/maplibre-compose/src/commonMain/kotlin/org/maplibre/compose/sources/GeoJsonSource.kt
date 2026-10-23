@@ -104,11 +104,11 @@ public sealed interface GeoJsonData {
  *
  * @property minZoom Minimum zoom level at which to create vector tiles (lower means more field of
  *   view detail at low zoom levels). Defaults to 0. Web ignores it.
- * @property maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail
- *   at high zoom levels). Defaults to 18, the style spec default for a GeoJSON source.
- * @property buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value
- *   of 512 produces a buffer as wide as the tile itself. Larger values produce fewer rendering
- *   artifacts near tile edges at the cost of slower performance.
+ * @property maxZoom Maximum zoom level at which to create vector tiles. Higher values preserve more
+ *   detail at high zoom levels. Native accepts values from 0 to 24. Defaults to 18.
+ * @property buffer Size of the tile buffer on each side. Native accepts values from 0 to 512. Zero
+ *   produces no buffer; 512 produces a buffer as wide as the tile. Larger buffers reduce artifacts
+ *   near tile edges at the cost of slower performance.
  * @property tolerance Douglas-Peucker simplification tolerance (higher means simpler geometries and
  *   faster performance).
  * @property cluster If the data is a collection of point features, setting this to `true` clusters
@@ -118,8 +118,8 @@ public sealed interface GeoJsonData {
  *   See the [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/sources/#cluster) for
  *   details.
  *
- * @property clusterRadius Radius of each cluster when clustering points, measured in 1/512ths of a
- *   tile. I.e. a value of 512 indicates a radius equal to the width of a tile.
+ * @property clusterRadius Radius of each cluster in 1/512ths of a tile; 512 equals one tile width.
+ *   Native accepts values from 0 to 4095.
  * @property clusterMinPoints Minimum number of points necessary to form a cluster if clustering is
  *   enabled.
  * @property clusterMaxZoom Max zoom to cluster points on. Clusters are re-evaluated at integer zoom

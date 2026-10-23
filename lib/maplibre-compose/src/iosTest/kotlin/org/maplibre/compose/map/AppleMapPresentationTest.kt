@@ -167,6 +167,7 @@ class AppleMapPresentationTest {
     val releasing = TestLatch(1)
     val release = TestLatch(1)
     var releasedInTime = false
+    var previousAttached = false
     val previous = controller {
       releasing.countDown()
       releasedInTime = release.await(5_000)
@@ -182,9 +183,9 @@ class AppleMapPresentationTest {
       val layer = CAMetalLayer()
       val first = presentation.attachLayer(layer, 32, 32, 1f)
       first.attach(previous)
-      previous.withRendererAccess {}
+      previous.enqueueRenderer { previousAttached = true }
+      awaitApple { previousAttached }
       first.detach(previous)
-      assertTrue(releasing.await(5_000))
       first.attach(current)
       current.withRendererAccess {}
       first.close()
@@ -194,12 +195,15 @@ class AppleMapPresentationTest {
       release.countDown()
       awaitApple { firstResult != null }
       firstResult!!.getOrThrow()
+      assertEquals(0L, releasing.count, "close finished before the renderer released")
       assertTrue(releasedInTime, "close waited for renderer release")
       assertEquals(1, currentReleases)
 
       val second = presentation.attachLayer(layer, 32, 32, 1f)
       second.attach(current)
-      current.withRendererAccess {}
+      var currentAttached = false
+      current.enqueueRenderer { currentAttached = true }
+      awaitApple { currentAttached }
       // The old composition effect can dispose after public close and reuse of the same layer.
       first.detach(current)
       current.withRendererAccess {}
@@ -276,7 +280,7 @@ class AppleMapPresentationTest {
                   AppleMapPresentation(state, MapPresentationOwnerToken(), MapViewOptions())
                 }
               DisposableEffect(presentation) { onDispose { presentation.close() } }
-              presentation.Content { _, _ -> }
+              presentation.Content { _, _, _ -> }
             }
           }
         }
@@ -361,7 +365,11 @@ private fun withFixture(block: (AppleFixture) -> Unit) {
   AppleFixture().use(block)
 }
 
-/** Pumps the native main run loop without installing Compose UI's snapshot manager or clock. */
+/**
+ * Runs the main run loop until [predicate] holds, without installing Compose UI's snapshot manager
+ * or clock. The test runner holds the main thread, so main-queue work, including UIKit layout and
+ * map callbacks, runs only here, as it would in an app's run loop.
+ */
 internal fun awaitApple(predicate: () -> Boolean) {
   val deadline = NSProcessInfo.processInfo.systemUptime + 10.0
   while (!predicate()) {

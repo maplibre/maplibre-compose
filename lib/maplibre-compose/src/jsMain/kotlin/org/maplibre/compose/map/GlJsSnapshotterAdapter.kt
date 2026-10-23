@@ -105,6 +105,7 @@ internal class GlJsSnapshotterAdapter(
                 currentMap,
                 logger,
                 customTileFailed = { recordLoadFailure(it.asProviderFailure()) },
+                callEngine = { it() },
               ) {
                 currentDensity
               }
@@ -146,10 +147,11 @@ internal class GlJsSnapshotterAdapter(
     )
   }
 
-  override suspend fun apply(revision: StyleSnapshot) {
+  override suspend fun apply(revision: StyleSnapshot): Boolean {
     check(open) { "The Web snapshotter is closed" }
     val binding = checkNotNull(styleBinding) { "The Web snapshotter style has not loaded" }
     reconciler.apply(binding, revision)
+    return reconciler.settle(binding)
   }
 
   override suspend fun capture(request: MapSnapshotRequest): ImageBitmap {

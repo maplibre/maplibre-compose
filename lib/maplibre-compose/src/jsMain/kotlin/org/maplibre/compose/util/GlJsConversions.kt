@@ -1,14 +1,13 @@
 package org.maplibre.compose.util
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import js.objects.unsafeJso
 import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.LngLatBounds
 import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
+import org.maplibre.compose.map.CameraPadding
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -36,17 +35,15 @@ internal fun LngLatBounds.toVisibleBounds(): VisibleBounds =
 internal fun BoundingBox.toLngLatBounds(): LngLatBounds =
   LngLatBounds(sw = southwest.toLngLat(), ne = northeast.toLngLat())
 
-internal fun PaddingValues.toPaddingOptions(layoutDirection: LayoutDirection): PaddingOptions =
-  unsafeJso {
-    top = calculateTopPadding().value.toDouble()
-    left = calculateLeftPadding(layoutDirection).value.toDouble()
-    bottom = calculateBottomPadding().value.toDouble()
-    right = calculateRightPadding(layoutDirection).value.toDouble()
-  }
+internal fun DpPadding.toPaddingOptions(): PaddingOptions =
+  (CameraPadding() + this).toPaddingOptions()
 
-internal fun DpPadding.toPaddingOptions(): PaddingOptions = unsafeJso {
-  left = this@toPaddingOptions.left.value.toDouble()
-  top = this@toPaddingOptions.top.value.toDouble()
-  right = this@toPaddingOptions.right.value.toDouble()
-  bottom = this@toPaddingOptions.bottom.value.toDouble()
+internal fun PaddingOptions.toCameraPadding(): CameraPadding =
+  CameraPadding(top, left, bottom, right)
+
+internal fun CameraPadding.toPaddingOptions(): PaddingOptions = unsafeJso {
+  top = this@toPaddingOptions.top
+  left = this@toPaddingOptions.left
+  bottom = this@toPaddingOptions.bottom
+  right = this@toPaddingOptions.right
 }

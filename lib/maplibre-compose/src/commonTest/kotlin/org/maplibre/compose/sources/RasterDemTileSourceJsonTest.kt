@@ -3,13 +3,14 @@ package org.maplibre.compose.sources
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.SourceInstallation
+import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.onRejected
 
 /** A raster DEM definition resolves against the capabilities of each loaded engine. */
 class RasterDemTileSourceJsonTest {
@@ -126,10 +127,10 @@ class RasterDemTileSourceJsonTest {
         scheme = TileScheme.Tms
       }
 
-    val error =
-      assertFailsWith<IllegalStateException> { SourceInstallation(binding, source.definition()) }
+    var error: StyleMutationException? = null
+    SourceInstallation(binding, source.definition()).added.onRejected { error = it }
 
-    assertContains(error.message.orEmpty(), "TileScheme.Xyz")
+    assertContains(error?.message.orEmpty(), "TileScheme.Xyz")
     assertFalse("dem" in binding.sources)
   }
 

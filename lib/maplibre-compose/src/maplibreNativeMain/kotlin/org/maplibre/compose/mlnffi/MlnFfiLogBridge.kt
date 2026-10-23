@@ -4,16 +4,16 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.logging.MapLogging
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.log.LogCallback
-import org.maplibre.nativeffi.log.LogEvent
-import org.maplibre.nativeffi.log.LogRecord
-import org.maplibre.nativeffi.log.LogSeverity
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.LogEvent
+import org.maplibre.nativeffi.generated.LogHandler
+import org.maplibre.nativeffi.generated.LogSeverity
+import org.maplibre.nativeffi.generated.logSetCallback
 
 /**
  * Forwards MapLibre Native's process-global log stream to [MapLogging.logger] through [MapLog].
  *
- * Installed once, when the first native runtime is created; `setLogCallback` loads the native
+ * Installed once, when the first native runtime is created; `logSetCallback` loads the native
  * library itself. The callback reads the current logger at each record, so replacing the logger
  * never reinstalls the callback. Every record is consumed, so a null logger or a filtered severity
  * does not fall through to the engine's platform logger.
@@ -25,22 +25,21 @@ internal object MlnFfiLogBridge {
   fun ensureInstalled() {
     lock.withLock {
       if (installed) return
-      Maplibre.setLogCallback(LogCallback(::forward))
+      GeneratedApi.logSetCallback(LogHandler(::forward))
       installed = true
     }
   }
 
-  private fun forward(record: LogRecord): Boolean {
+  private fun forward(severity: LogSeverity, event: LogEvent, code: Long, message: String): UInt {
     MapLog.log(
-      level = record.severity.toMapLogLevel(),
+      level = severity.toMapLogLevel(),
       throwable = null,
-      message = {
-        if (record.code >= 0) "${record.message} (code ${record.code})" else record.message
-      },
+      message = { if (code >= 0) "$message (code $code)" else message },
       source = MapLogSource.NativeEngine,
-      category = record.event.categoryName(),
+      category = event.categoryName(),
     )
-    return true
+    // Consumed, so the engine's platform logger stays quiet.
+    return 1u
   }
 }
 
@@ -71,5 +70,5 @@ private fun LogEvent.categoryName(): String =
     LogEvent.CRASH -> "Crash"
     LogEvent.GLYPH -> "Glyph"
     LogEvent.TIMING -> "Timing"
-    else -> "Event$nativeValue"
+    else -> "Event$rawValue"
   }

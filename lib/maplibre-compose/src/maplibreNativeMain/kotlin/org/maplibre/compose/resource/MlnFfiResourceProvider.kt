@@ -18,17 +18,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.resource.ResourceErrorReason
-import org.maplibre.nativeffi.resource.ResourceLoadingMethod
-import org.maplibre.nativeffi.resource.ResourcePriority
-import org.maplibre.nativeffi.resource.ResourceProviderCallback
-import org.maplibre.nativeffi.resource.ResourceProviderDecision
-import org.maplibre.nativeffi.resource.ResourceRequest
-import org.maplibre.nativeffi.resource.ResourceRequestHandle
-import org.maplibre.nativeffi.resource.ResourceResponse
-import org.maplibre.nativeffi.resource.ResourceResponseStatus
-import org.maplibre.nativeffi.resource.ResourceStoragePolicy
-import org.maplibre.nativeffi.resource.ResourceUsage
+import org.maplibre.nativeffi.generated.ResourceErrorReason
+import org.maplibre.nativeffi.generated.ResourceLoadingMethod
+import org.maplibre.nativeffi.generated.ResourcePriority
+import org.maplibre.nativeffi.generated.ResourceProviderDecision
+import org.maplibre.nativeffi.generated.ResourceRequestCancelHandler
+import org.maplibre.nativeffi.generated.ResourceRequestHandle
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
+import org.maplibre.nativeffi.generated.ResourceResponse
+import org.maplibre.nativeffi.generated.ResourceResponseStatus
+import org.maplibre.nativeffi.generated.ResourceStoragePolicy
+import org.maplibre.nativeffi.generated.ResourceUsage
 
 /**
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
@@ -57,7 +57,7 @@ internal class MlnFfiResourceProvider(
   },
   /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
   userCoroutineScope: CoroutineScope? = null,
-) : ResourceProviderCallback, AutoCloseable {
+) : AutoCloseable {
 
   private val logger: MapLog?
     get() = getLogger()
@@ -82,8 +82,9 @@ internal class MlnFfiResourceProvider(
       SupervisorJob() + Dispatchers.IO + CoroutineName("maplibre-compose-resource-reader"),
     )
 
-  override fun handle(
-    request: ResourceRequest,
+  /** The runtime's resource provider callback. Runs on MapLibre's network threads. */
+  fun handle(
+    request: ResourceRequestInfo,
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
     return when (val route = config.nativeRoute(request)) {
@@ -93,7 +94,7 @@ internal class MlnFfiResourceProvider(
       }
       NativeResourceRoute.Fetch -> ResourceProviderDecision.PASS_THROUGH
       is NativeResourceRoute.Read -> {
-        take(FfiResourceRequest(handle), route.url, request.requestedUrl)
+        take(FfiResourceRequest(handle), route.url, request.requestedUrl ?: route.url)
         ResourceProviderDecision.HANDLE
       }
     }
@@ -240,7 +241,10 @@ internal interface TakenResourceRequest : AutoCloseable {
 private class FfiResourceRequest(private val handle: ResourceRequestHandle) : TakenResourceRequest {
   override fun isCancelled(): Boolean = handle.isCancelled()
 
-  override fun setCancelCallback(callback: () -> Unit) = handle.setCancelCallback(callback)
+  override fun setCancelCallback(callback: () -> Unit) {
+    // A request already cancelled keeps the handler and reports it instead of calling it.
+    if (handle.setCancelCallback(ResourceRequestCancelHandler(callback))) callback()
+  }
 
   override fun complete(response: ResourceResponse) = handle.complete(response)
 
@@ -253,12 +257,12 @@ private class FfiResourceRequest(private val handle: ResourceRequestHandle) : Ta
  */
 internal fun readResource(url: String, requestedUrl: String, logger: MapLog?): ResourceResponse =
   try {
-    val bytes = readPlatformResourceBytes(url)
-    ResourceResponse(ResourceResponseStatus.OK).also {
-      it.bytes = bytes
-      // Packaged resources cannot change while the process runs.
-      it.mustRevalidate = false
-    }
+    // Packaged resources cannot change while the process runs, so they need no revalidation.
+    ResourceResponse(
+      ResourceResponseStatus.OK,
+      bytes = readPlatformResourceBytes(url),
+      mustRevalidate = false,
+    )
   } catch (error: MlnFfiResourceReadException) {
     failure(url, requestedUrl, error.failure.reason, error.failure.description, error.cause, logger)
   }
@@ -301,10 +305,11 @@ private fun failure(
   val cause = error?.let { ": ${it.message ?: it::class.simpleName}" }.orEmpty()
   if (error == null) logger?.w { "Resource $named $what" }
   else logger?.w(error) { "Resource $named $what" }
-  return ResourceResponse(ResourceResponseStatus.ERROR).also {
-    it.errorReason = reason
-    it.errorMessage = "$named $what$cause"
-  }
+  return ResourceResponse(
+    ResourceResponseStatus.ERROR,
+    errorReason = reason,
+    errorMessage = "$named $what$cause",
+  )
 }
 
 /** The loader for one native request. */
@@ -318,8 +323,8 @@ internal sealed interface NativeResourceRoute {
 }
 
 /** Chooses the loader for [request]. */
-internal fun MapResourceConfig.nativeRoute(request: ResourceRequest): NativeResourceRoute {
-  val incoming = MapResourceRequest(request.resolvedUrl, request.kind.toCommon())
+internal fun MapResourceConfig.nativeRoute(request: ResourceRequestInfo): NativeResourceRoute {
+  val incoming = MapResourceRequest(request.resolvedUrl.orEmpty(), request.kind.toCommon())
   return when (val route = route(incoming)) {
     is MapResourceRoute.Load ->
       NativeResourceRoute.Load(route.provider, request.toLoadRequest(url = route.request.url))
@@ -363,16 +368,18 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 
 /** Copies the FFI request into the request a [MapResourceProvider] loads, field for field. */
-internal fun ResourceRequest.toLoadRequest(url: String = resolvedUrl): MapResourceLoadRequest =
+internal fun ResourceRequestInfo.toLoadRequest(
+  url: String = resolvedUrl.orEmpty(),
+): MapResourceLoadRequest =
   MapResourceLoadRequest(
     url = url,
     kind = kind.toCommon(),
-    requestedUrl = requestedUrl,
+    requestedUrl = requestedUrl ?: url,
     loadingMethod = loadingMethod.toCommon(),
     priority = priority.toCommon(),
     usage = usage.toCommon(),
     storagePolicy = storagePolicy.toCommon(),
-    range = range?.let { it.start..it.end },
+    range = range?.let { it.start.toLong()..it.end.toLong() },
     priorEtag = priorEtag,
     priorModified = priorModifiedUnixMs?.let(Instant::fromEpochMilliseconds),
     priorExpires = priorExpiresUnixMs?.let(Instant::fromEpochMilliseconds),
@@ -384,23 +391,26 @@ internal fun MapResourceLoad.toResourceResponse(): ResourceResponse {
   val response =
     when (this) {
       is MapResourceLoad.Bytes ->
-        ResourceResponse(ResourceResponseStatus.OK).also {
-          it.bytes = bytes
-          it.etag = etag
-          it.mustRevalidate = mustRevalidate
-        }
+        ResourceResponse(
+          ResourceResponseStatus.OK,
+          bytes = bytes,
+          etag = etag,
+          mustRevalidate = mustRevalidate,
+        )
       is MapResourceLoad.NoContent -> ResourceResponse(ResourceResponseStatus.NO_CONTENT)
       is MapResourceLoad.NotModified -> ResourceResponse(ResourceResponseStatus.NOT_MODIFIED)
       is MapResourceLoad.Failed ->
-        ResourceResponse(ResourceResponseStatus.ERROR).also {
-          it.errorReason = reason.toFfi()
-          it.errorMessage = message
-          it.retryAfterUnixMs = retryAfter?.toEpochMilliseconds()
-        }
+        ResourceResponse(
+          ResourceResponseStatus.ERROR,
+          errorReason = reason.toFfi(),
+          errorMessage = message,
+          retryAfterUnixMs = retryAfter?.toEpochMilliseconds(),
+        )
     }
-  response.modifiedUnixMs = modified?.toEpochMilliseconds()
-  response.expiresUnixMs = expires?.toEpochMilliseconds()
-  return response
+  return response.copy(
+    modifiedUnixMs = modified?.toEpochMilliseconds(),
+    expiresUnixMs = expires?.toEpochMilliseconds(),
+  )
 }
 
 internal fun MapResourceError.toFfi(): ResourceErrorReason =
@@ -411,7 +421,7 @@ internal fun MapResourceError.toFfi(): ResourceErrorReason =
     MapResourceError.RateLimit -> ResourceErrorReason.RATE_LIMIT
     MapResourceError.Other -> ResourceErrorReason.OTHER
     // Only ResourceErrorReason.toCommon creates an unnamed reason, and it stores the FFI number.
-    else -> value.toIntOrNull()?.let(::ResourceErrorReason) ?: ResourceErrorReason.OTHER
+    else -> value.toUIntOrNull()?.let(::ResourceErrorReason) ?: ResourceErrorReason.OTHER
   }
 
 /** The reason with the same name in MapLibre Native, or the native number as decimal text. */
@@ -422,7 +432,7 @@ internal fun ResourceErrorReason.toCommon(): MapResourceError =
     ResourceErrorReason.CONNECTION -> MapResourceError.Connection
     ResourceErrorReason.RATE_LIMIT -> MapResourceError.RateLimit
     ResourceErrorReason.OTHER -> MapResourceError.Other
-    else -> MapResourceError(nativeValue.toString())
+    else -> MapResourceError(rawValue.toString())
   }
 
 /** The method with the same name in MapLibre Native, or the native number as decimal text. */
@@ -431,7 +441,7 @@ internal fun ResourceLoadingMethod.toCommon(): MapResourceLoadRequest.LoadingMet
     ResourceLoadingMethod.ALL -> MapResourceLoadRequest.LoadingMethod.All
     ResourceLoadingMethod.CACHE_ONLY -> MapResourceLoadRequest.LoadingMethod.CacheOnly
     ResourceLoadingMethod.NETWORK_ONLY -> MapResourceLoadRequest.LoadingMethod.NetworkOnly
-    else -> MapResourceLoadRequest.LoadingMethod(nativeValue.toString())
+    else -> MapResourceLoadRequest.LoadingMethod(rawValue.toString())
   }
 
 /** The priority with the same name in MapLibre Native, or the native number as decimal text. */
@@ -439,7 +449,7 @@ internal fun ResourcePriority.toCommon(): MapResourceLoadRequest.Priority =
   when (this) {
     ResourcePriority.REGULAR -> MapResourceLoadRequest.Priority.Regular
     ResourcePriority.LOW -> MapResourceLoadRequest.Priority.Low
-    else -> MapResourceLoadRequest.Priority(nativeValue.toString())
+    else -> MapResourceLoadRequest.Priority(rawValue.toString())
   }
 
 /** The usage with the same name in MapLibre Native, or the native number as decimal text. */
@@ -447,7 +457,7 @@ internal fun ResourceUsage.toCommon(): MapResourceLoadRequest.Usage =
   when (this) {
     ResourceUsage.ONLINE -> MapResourceLoadRequest.Usage.Online
     ResourceUsage.OFFLINE -> MapResourceLoadRequest.Usage.Offline
-    else -> MapResourceLoadRequest.Usage(nativeValue.toString())
+    else -> MapResourceLoadRequest.Usage(rawValue.toString())
   }
 
 /** The policy with the same name in MapLibre Native, or the native number as decimal text. */
@@ -455,5 +465,5 @@ internal fun ResourceStoragePolicy.toCommon(): MapResourceLoadRequest.StoragePol
   when (this) {
     ResourceStoragePolicy.PERMANENT -> MapResourceLoadRequest.StoragePolicy.Permanent
     ResourceStoragePolicy.VOLATILE -> MapResourceLoadRequest.StoragePolicy.Volatile
-    else -> MapResourceLoadRequest.StoragePolicy(nativeValue.toString())
+    else -> MapResourceLoadRequest.StoragePolicy(rawValue.toString())
   }

@@ -4,12 +4,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
@@ -29,7 +27,6 @@ import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceProvider
@@ -69,7 +66,6 @@ class GeoJsonSourceUpdateTest {
             resourceConfig =
               MapResourceConfig(provider = MapResourceProvider("held") { awaitCancellation() }),
           ),
-          MapFixture.DefaultExtent,
         )
     map.use { fixture ->
       fixture.loadStyle(Style)
@@ -108,10 +104,8 @@ class GeoJsonSourceUpdateTest {
             GeoJsonData.Uri(fileUrlOf(file))
           }
         val inline = GeoJsonData.Features(pointAt(if (latestIsUri) Origin else FarAway))
-        (fixture as MlnFfiMapFixture).withOwnerParked {
-          sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
-          sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
-        }
+        sourceHandle.asMutable!!.setData(if (latestIsUri) inline else uri)
+        sourceHandle.asMutable!!.setData(if (latestIsUri) uri else inline)
 
         (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
         if (latestIsUri) {
@@ -121,7 +115,7 @@ class GeoJsonSourceUpdateTest {
           }
         } else {
           // Withhold the superseded URL response so its native parser cannot race the inline
-          // update. Real hosts draw only requested frames; pumping could mask a missing repaint.
+          // update.
           fixture.awaitRequestedPixel(Background)
         }
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
@@ -140,16 +134,8 @@ class GeoJsonSourceUpdateTest {
       fixture.pumpUntil("the source to render above its minimum zoom") {
         fixture.readPixel(256, 256).isNear(Circle)
       }
-      lateinit var completion: Deferred<Unit>
-      (fixture as MlnFfiMapFixture).withOwnerParked {
-        handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
-        completion =
-          async(start = CoroutineStart.UNDISPATCHED) {
-            (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-          }
-        assertFalse(completion.isCompleted, "completion missed a queued source's first update")
-      }
-      completion.await()
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FarAway)))
+      (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.awaitRequestedPixel(Background)
 
       handle.asMutable!!.setData(GeoJsonData.Features(pointAt(Origin)))
@@ -206,31 +192,10 @@ class GeoJsonSourceUpdateTest {
     }
   }
 
+  /** The host renders only the frames the map asks for, so a missing repaint times out here. */
   private suspend fun MapFixture.awaitRequestedPixel(expected: RgbaPixel) {
-    val native = this as MlnFfiMapFixture
-    withTimeout(5_000L) {
-      while (!readPixel(256, 256).isNear(expected)) {
-        native.bridge.awaitRenderOnDemand(10.milliseconds)
-      }
-    }
-  }
-
-  private fun MlnFfiMapFixture.withOwnerParked(submit: () -> Unit) {
-    val parked = TestLatch(1)
-    val release = TestLatch(1)
-    val finished = TestLatch(1)
-    try {
-      bridge.session.loop.submit {
-        parked.countDown()
-        release.await(5_000L)
-        finished.countDown()
-      }
-
-      assertTrue(parked.await(5_000L), "native owner did not reach the gate")
-      submit()
-      assertEquals(1L, finished.count, "submission waited for the busy native owner")
-    } finally {
-      release.countDown()
+    pumpUntil("the center pixel to become $expected", timeout = 5.seconds) {
+      readPixel(256, 256).isNear(expected)
     }
   }
 

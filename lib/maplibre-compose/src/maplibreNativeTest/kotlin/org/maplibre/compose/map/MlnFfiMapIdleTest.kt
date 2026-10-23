@@ -4,26 +4,25 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
+import org.maplibre.compose.testing.runMapTest
 
 /**
  * Proves a map that has finished its work stops asking to be drawn. FFI frames are requested rather
- * than continuous, so a map nobody is touching should draw nothing at all. The measurement only
- * holds under [BridgeMapFixture.renderOnDemand], which draws only when the session asks.
+ * than continuous, so a map nobody is touching should draw nothing at all. The fixture draws only
+ * when the session asks, so [BridgeMapFixture.countFramesOver] counts the frames the map requested.
  */
 class MlnFfiMapIdleTest {
 
   @Test
-  fun a_settled_empty_map_asks_for_no_further_frames() {
+  fun a_settled_empty_map_asks_for_no_further_frames() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.pumpUntilRendered()
-      fixture.settle()
+      fixture.awaitRendered()
+      fixture.awaitSettled()
 
-      val drawn = fixture.renderOnDemand(IdleWindow)
+      val drawn = fixture.countFramesOver(IdleWindow)
       assertTrue(
         drawn <= IdleFrameAllowance,
         "A settled map drew $drawn frames across $IdleWindow with nothing asking it to.",
@@ -32,24 +31,19 @@ class MlnFfiMapIdleTest {
   }
 
   @Test
-  fun reading_style_contents_does_not_request_a_frame() {
+  fun reading_style_contents_does_not_request_a_frame() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.pumpUntilRendered()
-      fixture.settle()
+      fixture.awaitRendered()
+      fixture.awaitSettled()
 
-      requireNotNull(fixture.style).also { style ->
-        runBlocking {
-          style.onOwner {
-            style.sourceIds().mapNotNull(style::getSource)
-            style.layerIds()
-            style.getSource("missing")
-            style.getLayer("missing")
-          }
-        }
-      }
+      val style = requireNotNull(fixture.style)
+      style.sourceIds().mapNotNull { style.getSource(it) }
+      style.layerIds()
+      style.getSource("missing")
+      style.getLayer("missing")
 
-      val drawn = fixture.renderOnDemand(IdleWindow)
+      val drawn = fixture.countFramesOver(IdleWindow)
       assertTrue(
         drawn <= IdleFrameAllowance,
         "Style reads made a settled map draw $drawn frames across $IdleWindow.",
@@ -62,16 +56,16 @@ class MlnFfiMapIdleTest {
    * own; one that ends without clearing that request leaves the map drawing forever.
    */
   @Test
-  fun a_map_asks_for_no_further_frames_once_its_camera_stops() {
+  fun a_map_asks_for_no_further_frames_once_its_camera_stops() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.pumpUntilRendered()
+      fixture.awaitRendered()
       fixture.session.setCameraPosition(
         fixture.session.getCameraPosition().copy(zoom = 4.0, bearing = 30.0),
       )
-      fixture.settle()
+      fixture.awaitSettled()
 
-      val drawn = fixture.renderOnDemand(IdleWindow)
+      val drawn = fixture.countFramesOver(IdleWindow)
       assertTrue(
         drawn <= IdleFrameAllowance,
         "A map drew $drawn frames across $IdleWindow after its camera came to rest.",

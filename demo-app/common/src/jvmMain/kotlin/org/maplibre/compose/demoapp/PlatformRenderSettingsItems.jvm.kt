@@ -8,21 +8,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.RenderBackendFlag
 
 @Composable
 actual fun PlatformRenderSettingsItems(settings: DemoSettings) {
   val mapBackends = remember {
     runCatching {
         Maplibre.loadNativeLibrary()
-        Maplibre.supportedRenderBackends().joinToString(" / ") {
-          when (it) {
-            RenderBackend.METAL -> "Metal"
-            RenderBackend.VULKAN -> "Vulkan"
-            RenderBackend.OPENGL -> "OpenGL"
-            RenderBackend.WEBGPU -> "WebGPU"
-          }
-        }
+        val supported = GeneratedApi.supportedRenderBackendMask()
+        listOf(
+            RenderBackendFlag.METAL to "Metal",
+            RenderBackendFlag.VULKAN to "Vulkan",
+            RenderBackendFlag.OPENGL to "OpenGL",
+            RenderBackendFlag.WEBGPU to "WebGPU",
+          )
+          .filter { (flag, _) -> flag in supported }
+          .joinToString(" / ") { (_, name) -> name }
       }
       .getOrDefault("unavailable")
   }

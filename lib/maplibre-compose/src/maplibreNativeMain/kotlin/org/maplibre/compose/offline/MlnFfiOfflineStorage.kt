@@ -2,88 +2,111 @@
 
 package org.maplibre.compose.offline
 
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
+import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
+import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.toCommon
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.MaplibreStatus
-import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
-import org.maplibre.nativeffi.offline.OfflineRegionInfo
-import org.maplibre.nativeffi.runtime.AmbientCacheOperation
-import org.maplibre.nativeffi.runtime.OfflineOperationHandle
-import org.maplibre.nativeffi.runtime.RuntimeEvent
-import org.maplibre.nativeffi.runtime.RuntimeEventPayload
-import org.maplibre.nativeffi.runtime.RuntimeEventType
-import org.maplibre.nativeffi.runtime.RuntimeHandle
+import org.maplibre.nativeffi.generated.AmbientCacheOperation
+import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
+import org.maplibre.nativeffi.generated.OfflineRegionInfo
+import org.maplibre.nativeffi.generated.OfflineRegionStatus
+import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventPayload
+import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.generated.RuntimeHandle
 
-/** The MapLibre Native FFI offline storage that belongs to one map runtime. */
+/**
+ * The MapLibre Native FFI offline storage that belongs to one map runtime. Every operation is one
+ * native runtime operation, run in submission order, whose result completes the caller's wait.
+ */
 internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   OfflineStorageBackend, OfflinePackOwner {
 
   private val options = owner.options
   private val logger = options.logger
+  private val scope = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
 
-  /**
-   * Pack updates are serialized on the owner; closing can reject initialization from any thread.
-   */
+  // Not cancelled by close: an operation native accepted still updates the packs when it finishes,
+  // and the runtime waits for it before releasing.
+  private val operations = owner.acceptedWorkScope
+
   private val storageState = MutableStateFlow<OfflineStorageState>(OfflineStorageState.Loading)
 
-  /** Owner-thread state: the packs this storage has seen, keyed by native region id. */
+  /** The packs this storage has seen, keyed by native region id, under [lock]. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
-
-  private val operations = MlnFfiOfflineOperations(owner, logger, ::handleEvent)
-
-  /** One storage applies one cache-budget change at a time. */
-  private val cacheBudgetMutex = Mutex()
+  private val lock = MlnFfiLock()
+  @Volatile private var open = true
 
   @OptIn(ExperimentalAtomicApi::class) private val runtimeGuard = AtomicReference<() -> Unit> {}
 
   override val state: StateFlow<OfflineStorageState> = storageState.asStateFlow()
 
   init {
-    val accepted = configureCacheBudget { configured ->
-      configured.fold(
-        onSuccess = {
-          val accepted =
-            submit(
-              description = "list the offline packs",
-              start = { it.startOfflineRegions() },
-              finish = { nativeRuntime, handle ->
-                nativeRuntime.takeOfflineRegionsResult(handle).forEach { info ->
-                  runCatching { registerRegion(info) }
+    owner.onRuntimeEvent = ::handleEvent
+    val initialCacheSize = options.maximumCacheSizeBytes
+    if (initialCacheSize != null && initialCacheSize < 0) {
+      failStartup(OfflineStorageException("The maximum ambient cache size must not be negative"))
+    } else
+      scope.launch {
+        try {
+          val runtime = owner.awaitRuntime()
+          coroutineScope {
+            val cacheSize =
+              async(start = CoroutineStart.UNDISPATCHED) {
+                initialCacheSize?.let { size ->
+                  run("set the initial maximum ambient cache size to $size bytes") {
+                    runtime.setMaximumAmbientCacheSize(size.toULong())
+                  }
+                  logger?.d { "Ambient cache size set to $size bytes" }
+                }
+              }
+            val regions =
+              async(start = CoroutineStart.UNDISPATCHED) {
+                run("list the offline packs") { runtime.listOfflineRegions() }
+              }
+            cacheSize.await()
+            regions
+              .await()
+              .map { info ->
+                async(start = CoroutineStart.UNDISPATCHED) {
+                  runCatching { registerRegion(runtime, info) }
                     .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
                 }
-              },
-              onResult = { listed ->
-                listed.fold(
-                  onSuccess = {
-                    owner.initialized(Result.success(Unit))
-                    storageState.compareAndSet(
-                      OfflineStorageState.Loading,
-                      OfflineStorageState.Ready(packsById.values.toSet()),
-                    )
-                  },
-                  onFailure = ::failStartup,
-                )
-              },
+              }
+              .forEach { it.await() }
+          }
+          lock.withLock {
+            storageState.compareAndSet(
+              OfflineStorageState.Loading,
+              OfflineStorageState.Ready(packsById.values.toSet()),
             )
-          if (!accepted) failStartup(OfflineStorageException("The offline storage is closed"))
-        },
-        onFailure = ::failStartup,
-      )
-    }
-    if (!accepted) failStartup(OfflineStorageException("The offline storage could not initialize"))
+          }
+        } catch (error: Throwable) {
+          failStartup(error)
+        }
+      }
   }
 
   @OptIn(ExperimentalAtomicApi::class)
@@ -96,43 +119,24 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     runtimeGuard.load()()
   }
 
-  /** Applies the configured cache budget, or does nothing when there is none. */
-  private fun configureCacheBudget(complete: (Result<Unit>) -> Unit): Boolean {
-    val initialSize = options.maximumCacheSizeBytes
-    if (initialSize == null) {
-      return operations.post(
-        task = { complete(Result.success(Unit)) },
-        reject = { complete(Result.failure(it)) },
-      )
-    }
-    return submit(
-      description = "set the initial maximum ambient cache size to $initialSize bytes",
-      start = { it.startSetMaximumAmbientCacheSize(initialSize) },
-      finish = { _, _ -> logger?.d { "Ambient cache size set to $initialSize bytes" } },
-      onResult = complete,
-    )
-  }
-
   private fun failStartup(error: Throwable) {
-    owner.initialized(Result.failure(error))
     storageState.compareAndSet(OfflineStorageState.Loading, OfflineStorageState.Failed(error))
-    operations.shutdown()
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
     val ffiDefinition = definition.toFfiRegionDefinition()
-    // Copied because the caller still owns the array it passed and native reads it later.
-    val ffiMetadata = metadata.copyOf()
-    return runOperation(
-      description = "create an offline pack",
-      start = { it.startCreateOfflineRegion(ffiDefinition, ffiMetadata) },
-      finish = { nativeRuntime, handle ->
-        registerRegion(nativeRuntime.takeCreateOfflineRegionResult(handle))
-          ?: throw OfflineStorageException(
-            "MapLibre created an offline region that this build cannot represent",
-          )
-      },
-    )
+    val runtime = awaitRuntime()
+    return finishing {
+      val info =
+        run("create an offline pack") {
+          // Native copies the metadata at submission, so the caller keeps its array.
+          runtime.createOfflineRegion(ffiDefinition, metadata)
+        }
+      registerRegion(runtime, info)
+        ?: throw OfflineStorageException(
+          "MapLibre created an offline region that this build cannot represent",
+        )
+    }
   }
 
   override fun resume(pack: OfflinePack) {
@@ -147,23 +151,22 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   override suspend fun delete(pack: OfflinePack) {
     requireOwned(pack)
-    runOperation(
-      description = "delete offline pack ${pack.regionId}",
-      start = { it.startDeleteOfflineRegion(pack.regionId) },
-      finish = { _, _ ->
+    val runtime = awaitRuntime()
+    finishing {
+      run("delete offline pack ${pack.regionId}") { runtime.deleteOfflineRegion(pack.regionId) }
+      lock.withLock {
         packsById.remove(pack.regionId)
         publishPacks()
-      },
-    )
+      }
+    }
   }
 
   override suspend fun invalidate(pack: OfflinePack) {
     requireOwned(pack)
-    runOperation(
-      description = "invalidate offline pack ${pack.regionId}",
-      start = { it.startInvalidateOfflineRegion(pack.regionId) },
-      finish = { _, _ -> },
-    )
+    val runtime = awaitRuntime()
+    run("invalidate offline pack ${pack.regionId}") {
+      runtime.invalidateOfflineRegion(pack.regionId)
+    }
   }
 
   override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> {
@@ -171,16 +174,21 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     require(sourceFile != options.cacheFile) {
       "The source database must differ from this storage's database"
     }
-    return runOperation(
-      description = "merge offline database $sourceFile",
-      start = { it.startMergeOfflineRegionsDatabase(sourceFile.toString()) },
-      finish = { nativeRuntime, handle ->
-        nativeRuntime
-          .takeMergeOfflineRegionsDatabaseResult(handle)
-          .mapNotNull(::registerRegion)
+    val runtime = awaitRuntime()
+    return finishing {
+      val merged =
+        run("merge offline database $sourceFile") {
+          runtime.mergeOfflineRegions(sourceFile.toString())
+        }
+      coroutineScope {
+        merged
+          .map { info ->
+            async(start = CoroutineStart.UNDISPATCHED) { registerRegion(runtime, info) }
+          }
+          .mapNotNull { it.await() }
           .toSet()
-      },
-    )
+      }
+    }
   }
 
   override suspend fun invalidateAmbientCache() {
@@ -193,18 +201,18 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   override suspend fun setMaximumAmbientCacheSize(sizeBytes: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
-    cacheBudgetMutex.withLock {
-      runOperation(
-        description = "set the maximum ambient cache size to $sizeBytes bytes",
-        start = { it.startSetMaximumAmbientCacheSize(sizeBytes) },
-        finish = { _, _ -> },
-      )
+    val runtime = awaitRuntime()
+    run("set the maximum ambient cache size to $sizeBytes bytes") {
+      require(sizeBytes >= 0) { "The maximum ambient cache size must not be negative" }
+      runtime.setMaximumAmbientCacheSize(sizeBytes.toULong())
     }
   }
 
-  /** Rejects further work immediately and asks the owner to release its resources. */
+  /** Rejects further work immediately. Operations native already accepted still finish. */
   override fun close() {
-    operations.shutdown()
+    open = false
+    // Background reads and status refreshes stop; a caller's own operation keeps its wait.
+    scope.cancel()
     storageState.compareAndSet(
       OfflineStorageState.Loading,
       OfflineStorageState.Failed(OfflineStorageException("The offline storage is closed")),
@@ -217,109 +225,119 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
   override suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
-    val ffiMetadata = metadata.copyOf()
-    runOperation(
-      description = "update the metadata of offline pack ${pack.regionId}",
-      start = { it.startUpdateOfflineRegionMetadata(pack.regionId, ffiMetadata) },
-      finish = { nativeRuntime, handle ->
-        // Native echoes back what it stored, which is what the pack should show.
-        pack.metadataState.value =
-          nativeRuntime.takeUpdateOfflineRegionMetadataResult(handle).metadata.copyOf()
-      },
-    )
+    val runtime = awaitRuntime()
+    finishing {
+      val info =
+        run("update the metadata of offline pack ${pack.regionId}") {
+          runtime.updateOfflineRegionMetadata(pack.regionId, metadata)
+        }
+      // Native echoes back what it stored, which is what the pack should show.
+      pack.metadataState.value = info.metadata.copyOf()
+    }
   }
 
-  // region owner-thread bookkeeping
+  // region bookkeeping
 
   /**
    * Adopts or reuses a region that MapLibre reported, or returns null when its definition cannot be
-   * represented. Runs on the owner thread; there is at most one [OfflinePack] per region.
+   * represented. There is at most one [OfflinePack] per region.
    */
-  private fun registerRegion(info: OfflineRegionInfo): OfflinePack? {
-    val existing = packsById[info.id]
-    if (existing != null) {
-      // An operation such as a database merge can change the resources of an existing region.
-      refreshStatus(info.id)
-      return existing
+  private suspend fun registerRegion(
+    runtime: RuntimeHandle,
+    info: OfflineRegionInfo,
+  ): OfflinePack? =
+    withContext(owner.mainDispatcher) {
+      val existing = lock.withLock { packsById[info.id] }
+      if (existing != null) {
+        // An operation such as a database merge can change the resources of an existing region.
+        refreshStatus(existing) { runtime.getOfflineRegionStatus(info.id) }
+        return@withContext existing
+      }
+
+      val definition = info.definition.toOfflinePackDefinition(logger) ?: return@withContext null
+      val pack = lock.withLock {
+        packsById
+          .getOrPut(info.id) {
+            OfflinePack(this@MlnFfiOfflineStorage, info.id, definition, info.metadata.copyOf())
+          }
+          .also { publishPacks() }
+      }
+
+      // Submit observation and seed progress before returning: a caller can resume the download
+      // immediately, and its progress must not be overwritten by a late initial status read.
+      launchOperation("observe offline pack ${info.id}") {
+        runtime.setOfflineRegionObserved(info.id, true)
+      }
+      refreshStatus(pack) { runtime.getOfflineRegionStatus(info.id) }
+      pack
     }
-
-    val definition = info.definition.toOfflinePackDefinition(logger) ?: return null
-    val pack = OfflinePack(this, info.id, definition, info.metadata.copyOf())
-    packsById[info.id] = pack
-    publishPacks()
-
-    // Status events only arrive for observed regions, and an unreported pack reads as NotReported.
-    observe(info.id)
-    refreshStatus(info.id)
-    return pack
-  }
 
   private fun setDownloadState(pack: OfflinePack, state: OfflineRegionDownloadState) {
-    val accepted =
-      submit(
-        description = "change the download state of offline pack ${pack.regionId}",
-        start = { it.startSetOfflineRegionDownloadState(pack.regionId, state) },
-        // mbgl's setState early-returns when the state is unchanged, emitting no status event, so
-        // the status is read back explicitly.
-        finish = { _, _ -> refreshStatus(pack.regionId) },
-      )
-    if (!accepted) {
+    if (!open) {
       logger?.w { "Cannot change the download state of pack ${pack.regionId}: storage disposed" }
+      return
+    }
+    scope.launch {
+      val runtime = owner.awaitRuntime()
+      launchOperation("change the download state of offline pack ${pack.regionId}") {
+        runtime.setOfflineRegionDownloadState(pack.regionId, state)
+      }
     }
   }
 
-  private fun observe(regionId: Long) {
-    submit(
-      description = "observe offline pack $regionId",
-      start = { it.startSetOfflineRegionObserved(regionId, true) },
-      finish = { _, _ -> },
-    )
-  }
-
-  private fun refreshStatus(regionId: Long) {
-    submit(
-      description = "read the status of offline pack $regionId",
-      start = { it.startOfflineRegionStatus(regionId) },
-      finish = { nativeRuntime, handle ->
-        publishProgress(
-          regionId,
-          nativeRuntime.takeOfflineRegionStatusResult(handle).toDownloadProgress(),
-        )
-      },
-    )
+  internal suspend fun refreshStatus(
+    pack: OfflinePack,
+    start: () -> Deferred<OfflineRegionStatus>,
+  ) {
+    val revision = lock.withLock { pack.progressRevision }
+    try {
+      val status = run("read the status of offline pack ${pack.regionId}", start)
+      lock.withLock {
+        if (packsById[pack.regionId] === pack && pack.progressRevision == revision) {
+          pack.progressRevision++
+          pack.progressState.value = status.toDownloadProgress()
+        }
+      }
+    } catch (error: Throwable) {
+      if (error is CancellationException) throw error
+      logger?.e(error) { "Failed to read the status of offline pack ${pack.regionId}" }
+    }
   }
 
   private suspend fun runAmbientCacheOperation(
     description: String,
     operation: AmbientCacheOperation,
   ) {
-    runOperation(
-      description = description,
-      start = { it.startAmbientCacheOperation(operation) },
-      finish = { _, _ -> },
-    )
+    val runtime = awaitRuntime()
+    run(description) { runtime.runAmbientCacheOperation(operation) }
   }
 
   // endregion
 
-  // region event pump callbacks
+  // region events
 
-  /** Called on the owner thread for every runtime event that is not an operation completion. */
+  /** Called on main for every runtime event. */
   private fun handleEvent(event: RuntimeEvent) {
+    if (!open) return
     when (event.type) {
       RuntimeEventType.OFFLINE_REGION_STATUS_CHANGED -> {
-        val payload = event.payload as? RuntimeEventPayload.OfflineRegionStatusChanged ?: return
+        val payload = (event.payload as? RuntimeEventPayload.OfflineRegionStatus)?.value ?: return
         publishProgress(payload.regionId, payload.status.toDownloadProgress())
       }
 
       RuntimeEventType.OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED -> {
-        val payload = event.payload as? RuntimeEventPayload.OfflineRegionTileCountLimit ?: return
+        val payload =
+          (event.payload as? RuntimeEventPayload.OfflineRegionTileCountLimit)?.value ?: return
         logger?.w { "Offline pack ${payload.regionId} hit the tile limit of ${payload.limit}" }
-        publishProgress(payload.regionId, DownloadProgress.TileLimitExceeded(payload.limit))
+        publishProgress(
+          payload.regionId,
+          DownloadProgress.TileLimitExceeded(payload.limit.toLong()),
+        )
       }
 
       RuntimeEventType.OFFLINE_REGION_RESPONSE_ERROR -> {
-        val payload = event.payload as? RuntimeEventPayload.OfflineRegionResponseError ?: return
+        val payload =
+          (event.payload as? RuntimeEventPayload.OfflineRegionResponseError)?.value ?: return
         val reason = payload.reason.toCommon()
         val message = event.message.ifBlank { "MapLibre could not download an offline resource" }
         logger?.e { "Offline pack ${payload.regionId} failed (${reason.value}): $message" }
@@ -327,21 +345,23 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       }
 
       else ->
-        // Event types are value classes over Int, so an FFI upgrade can deliver a type this build
-        // has never seen.
+        // Event types are open value classes, so an FFI upgrade can deliver a type this build has
+        // never seen.
         logger?.d { "Ignoring MapLibre event ${event.type} in the offline storage" }
     }
   }
 
-  private fun publishProgress(regionId: Long, progress: DownloadProgress) {
+  private fun publishProgress(regionId: Long, progress: DownloadProgress) = lock.withLock {
     val pack = packsById[regionId]
     if (pack == null) {
       logger?.d { "Ignoring progress for offline region $regionId, which has no pack" }
-      return
+      return@withLock
     }
+    pack.progressRevision++
     pack.progressState.value = progress
   }
 
+  /** Under [lock]. */
   private fun publishPacks() {
     // Snapshotted so Compose never sees the mutable map behind it.
     if (storageState.value is OfflineStorageState.Ready) {
@@ -353,86 +373,53 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
   // region operation plumbing
 
-  /**
-   * Starts an offline operation on the owner thread and reports its outcome there.
-   *
-   * [start] and [finish] both run on the owner thread: the first when the task is dequeued, the
-   * second when the runtime reports that this operation's id completed. Returns false when the
-   * storage is already disposed, in which case [onResult] is not called.
-   */
-  private fun <T, R> submit(
-    description: String,
-    start: (RuntimeHandle) -> OfflineOperationHandle<T>,
-    finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
-    isCancelled: () -> Boolean = { false },
-    onStarted: (OfflineOperationHandle<T>) -> Unit = {},
-    onResult: (Result<R>) -> Unit = { result ->
-      result.onFailure { logger?.e(it) { "Failed to $description" } }
-    },
-  ): Boolean {
-    return operations.post(
-      task = { nativeRuntime ->
-        val handle = start(nativeRuntime)
-        // Operation id is the only thing correlating a completion event with its in-flight handle.
-        operations.register(
-          description = description,
-          handle = handle,
-          complete = { completedRuntime, event ->
-            val result =
-              try {
-                failOnNativeError(description, event)
-                Result.success(finish(completedRuntime, handle))
-              } catch (error: Throwable) {
-                Result.failure(error.toOfflineStorageException(description))
-              }
-            onResult(result)
-          },
-          discard = { reason -> onResult(Result.failure(reason)) },
-        )
-        onStarted(handle)
-      },
-      reject = { error -> onResult(Result.failure(error.toOfflineStorageException(description))) },
-      isCancelled = isCancelled,
-    )
+  /** Waits until startup has finished, and throws its failure, before a public operation. */
+  private suspend fun awaitRuntime(): RuntimeHandle {
+    check(open) { "The offline storage has been disposed" }
+    val ready = storageState.first { it !is OfflineStorageState.Loading }
+    if (ready is OfflineStorageState.Failed) throw ready.cause
+    return owner.awaitRuntime()
   }
 
-  /** The suspending form of [submit], cancellable down to the native operation. */
-  private suspend fun <T, R> runOperation(
-    description: String,
-    start: (RuntimeHandle) -> OfflineOperationHandle<T>,
-    finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
-  ): R {
-    awaitReady()
-    return suspendCancellableCoroutine { continuation ->
-      val accepted =
-        submit(
-          description = description,
-          start = start,
-          finish = finish,
-          isCancelled = { !continuation.isActive },
-          onStarted = { handle ->
-            // Cancelling must leave nothing registered; discard drops and closes on the owner
-            // thread.
-            continuation.invokeOnCancellation { operations.discard(handle) }
-          },
-          // Resuming an already-cancelled continuation would report the failure to the caller's
-          // exception handler instead of dropping it.
-          onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
-        )
-      if (!accepted) {
-        continuation.resumeWithException(
-          OfflineStorageException("Cannot $description: the offline storage has been disposed"),
-        )
-      }
+  /**
+   * Starts one native operation and waits for its result. A caller cancelled before submission
+   * starts nothing; once native accepted the operation, cancelling ends only the wait.
+   */
+  private suspend fun <T> run(description: String, start: () -> Deferred<T>): T {
+    if (!open) {
+      throw OfflineStorageException("Cannot $description: the offline storage has been disposed")
+    }
+    (storageState.value as? OfflineStorageState.Failed)?.let { throw it.cause }
+    currentCoroutineContext().ensureActive()
+    return try {
+      start().await()
+    } catch (error: Throwable) {
+      throw error.toOfflineStorageException(description)
     }
   }
 
-  private fun failOnNativeError(description: String, event: RuntimeEvent) {
-    val payload = event.payload as? RuntimeEventPayload.OfflineOperationCompleted ?: return
-    if (payload.resultStatus == MaplibreStatus.OK.nativeCode) return
-    val message = event.message.ifBlank { "status ${payload.resultStatus}" }
-    throw OfflineStorageException("Failed to $description: $message")
+  /**
+   * Runs [operation], which changes what the storage holds, to its end even when the caller stops
+   * waiting, so the published packs follow what native did. A caller cancelled before it starts
+   * starts nothing.
+   */
+  private suspend fun <T> finishing(operation: suspend CoroutineScope.() -> T): T {
+    currentCoroutineContext().ensureActive()
+    return operations.async(start = CoroutineStart.UNDISPATCHED, block = operation).await()
   }
+
+  /** Starts an operation nobody waits on, logging its failure. */
+  private fun launchOperation(description: String, start: () -> Deferred<Unit>) =
+    if (!open) null
+    else
+      scope.launch(start = CoroutineStart.UNDISPATCHED) {
+        try {
+          run(description, start)
+        } catch (error: Throwable) {
+          if (error is CancellationException) throw error
+          logger?.e(error) { "Failed to $description" }
+        }
+      }
 
   private fun Throwable.toOfflineStorageException(description: String): Throwable =
     when (this) {

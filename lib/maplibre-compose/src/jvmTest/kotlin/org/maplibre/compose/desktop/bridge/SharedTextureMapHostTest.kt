@@ -4,11 +4,44 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
+import org.maplibre.compose.mlnffi.ProductionBridgeTestRenderDriver
 
 class SharedTextureMapHostTest {
+
+  @Test
+  fun native_frames_stay_acquired_through_draw_and_release_before_replacement_or_close() {
+    val driver = ProductionBridgeTestRenderDriver.create()
+    var releases = 0
+    try {
+      val extent = MapExtent.fromPhysical(64, 64, 1.0)
+      val first = assertIs<MlnFfiMapFrameAcquisition.Acquired>(driver.acquireFrame(extent)).frame
+      first.releaseAfterReads = { releases++ }
+      driver.completeProducerAccess(first)
+      driver.releaseFrame(first)
+      assertTrue(driver.present(first.target))
+      assertEquals(0, releases, "Drawing must not let native write the sampled texture")
+
+      val next =
+        assertIs<MlnFfiMapFrameAcquisition.Acquired>(
+            driver.acquireFrame(MapExtent.fromPhysical(96, 96, 1.0)),
+          )
+          .frame
+      assertEquals(1, releases, "Replacement must finish the previous frame's reads")
+      next.releaseAfterReads = { releases++ }
+      driver.completeProducerAccess(next)
+      assertTrue(driver.present(next.target))
+      assertEquals(1, releases)
+    } finally {
+      driver.close()
+    }
+    assertEquals(2, releases, "Close must release the last held frame")
+  }
 
   @Test
   fun a_replaced_texture_stays_presentable_until_a_newer_generation_is_drawn() {

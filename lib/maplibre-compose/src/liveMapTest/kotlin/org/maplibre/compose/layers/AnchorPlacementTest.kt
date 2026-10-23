@@ -2,13 +2,12 @@ package org.maplibre.compose.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
+import org.maplibre.compose.testing.readLayerIds
 import org.maplibre.compose.testing.runMapTest
 
 class AnchorPlacementTest {
@@ -30,7 +29,7 @@ class AnchorPlacementTest {
       val declared = setOf("front", "back", "over-symbols")
       assertEquals(
         listOf("back", "over-symbols", "front"),
-        assertNotNull(fixture.style).let { it.onOwner { it.layerIds() } }.filter { it in declared },
+        fixture.readLayerIds().filter { it in declared },
       )
       assertEquals(declared, fixture.state.style.layers.map { it.id }.toSet())
     }
@@ -58,9 +57,7 @@ class AnchorPlacementTest {
         val expected = listOf("over-unloaded", "second-bottom", "under", "second-top")
         assertEquals(
           expected,
-          assertNotNull(fixture.style)
-            .let { it.onOwner { it.layerIds() } }
-            .filter { it in expected },
+          fixture.readLayerIds().filter { it in expected },
         )
         assertEquals(expected, fixture.state.style.layers.map { it.id })
       }

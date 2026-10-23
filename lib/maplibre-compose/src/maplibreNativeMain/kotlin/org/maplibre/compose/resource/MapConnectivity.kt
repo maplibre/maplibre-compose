@@ -2,12 +2,12 @@ package org.maplibre.compose.resource
 
 import org.maplibre.compose.mlnffi.SharedNetworkMonitor
 import org.maplibre.compose.mlnffi.startNativeNetworkMonitor
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.generated.GeneratedApi
 
 /** Controls network connectivity for all MapLibre Native map runtimes in this process. */
 public object MapConnectivity {
   private val monitor =
-    SharedNetworkMonitor(::startNativeNetworkMonitor, Maplibre::setNetworkStatus)
+    SharedNetworkMonitor(::startNativeNetworkMonitor, GeneratedApi::networkSetStatus)
 
   /**
    * Connectivity mode for maps, snapshots, and offline downloads.

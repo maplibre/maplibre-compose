@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
@@ -25,8 +23,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
@@ -41,16 +37,13 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
@@ -69,7 +62,6 @@ import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
-import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.layerHandle
@@ -342,7 +334,9 @@ public sealed interface StyleLoadState {
   public data object Ready : StyleLoadState
 
   /**
-   * Loading the style or applying its composed content failed. A later revision may recover.
+   * Loading the style failed, or applying its composed content threw. A source or layer that the
+   * engine rejects does not fail the style: it is left out with a warning. A later revision may
+   * recover.
    *
    * @property reason The failure message, or `null` when the failure has none.
    */
@@ -383,38 +377,34 @@ internal interface MapStyleStateOwner {
 /**
  * Desired and applied style state for one logical map or snapshotter.
  *
+ * Call style commands and suspending reads on the runtime's main dispatcher.
+ *
  * Once the map state or snapshotter has closed, starting a style command, write, or read throws
  * [IllegalStateException]. A close while a call runs is treated like a style change: the command or
  * write does nothing and logs a warning, and the read returns null.
  */
 public class MapStyleState internal constructor(baseStyle: BaseStyle) {
-  /**
-   * Waits for resource commands accepted before this call. Callers wait on the resource instead:
-   * [StyleSources.add] returns once its command has run, and [StyleImages.get] waits the same way.
-   */
-  internal suspend fun awaitCommands() {
-    owner.resourceCommands.await()
-  }
-
   /** The map or snapshotter that owns this state, attached right after construction. */
   internal lateinit var owner: MapStyleStateOwner
     private set
 
-  // Owner-side commits publish one immutable index for readers on the engine thread too.
-  private val declarations = AtomicReference(StyleDeclarations(StyleSnapshot.Empty))
+  // Desired declarations and published handles are confined to main.
+  private var declarations = StyleDeclarations(StyleSnapshot.Empty)
 
   internal var declaredRevision: StyleSnapshot
-    get() = declarations.load().revision
-    set(value) = declarations.store(StyleDeclarations(value))
+    get() = declarations.revision
+    set(value) {
+      declarations = StyleDeclarations(value)
+    }
 
   internal fun desiredSourceDefinition(id: String): SourceDefinition? =
-    declarations.load().sources[id] ?: owner.resourceCommands.sourceDefinition(id)
+    declarations.sources[id] ?: owner.resourceCommands.sourceDefinition(id)
 
-  internal fun isSourceWritable(id: String): Boolean = id !in declarations.load().sources
+  internal fun isSourceWritable(id: String): Boolean = id !in declarations.sources
 
-  internal fun isLayerWritable(id: String): Boolean = id !in declarations.load().layers
+  internal fun isLayerWritable(id: String): Boolean = id !in declarations.layers
 
-  internal fun isImageWritable(id: String): Boolean = id !in declarations.load().images
+  internal fun isImageWritable(id: String): Boolean = id !in declarations.images
 
   internal fun requireSourceWritable(id: String) =
     requireWritable("Source", id, isSourceWritable(id))
@@ -430,7 +420,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun isReadyBinding(binding: StyleBinding): Boolean =
     loadState == StyleLoadState.Ready && isCurrentLoadedStyle(binding)
 
-  private val loadedStyle = AtomicReference<StyleBinding?>(null)
+  private var loadedStyle: StyleBinding? = null
   private var sourcesState: Map<String, SourceHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
   private var layersState: Map<String, LayerHandle> by
@@ -452,7 +442,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   private val loadStateState = mutableStateOf<StyleLoadState>(StyleLoadState.Pending)
-  private val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
+  internal val loadStates = MutableStateFlow<StyleLoadState>(StyleLoadState.Pending)
 
   public var loadState: StyleLoadState
     get() = loadStateState.value
@@ -542,104 +532,14 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     mutateStyle("The projection", value) { it.setProjection(value) }
   }
 
-  /**
-   * Reads from the ready loaded style, or returns null without one. A style that stops being ready
-   * while the engine answers also reads as null: the value belongs to a generation that is gone.
-   */
-  private suspend fun <T> readStyle(read: (StyleBinding) -> T?): T? {
+  /** Ordered read from the ready style; an expired binding has no result. */
+  private suspend fun <T> readStyle(read: suspend (StyleBinding) -> T?): T? {
     owner.requireOpen()
     val current = readyLoadedStyle() ?: return null
-    return visit(current) { read(current) }
+    return operationGuard(current).read({ true }) { read(current) }
   }
 
-  /**
-   * Runs the engine work of a style command or read on the owner of [binding]. Every command and
-   * read reaches the engine through here.
-   *
-   * @return null, discarding what [action] did, when the owner closed or [binding] stopped being
-   *   the ready loaded style before or while [action] ran, including when [action] fails because
-   *   the style unloaded. Callers log a skipped command.
-   */
-  internal suspend fun <T> visit(binding: StyleBinding, action: () -> T?): T? {
-    val result = binding.awaitOwner {
-      if (!isLive(binding)) return@awaitOwner null
-      try {
-        action()
-      } catch (error: Exception) {
-        if (isLive(binding)) throw error
-        null
-      }
-    }
-    return result.takeIf { isLive(binding) }
-  }
-
-  /**
-   * Runs a handle read, such as one that queries the renderer, that may suspend anywhere. Every
-   * handle read goes through here.
-   *
-   * @return null when the owner closed, [binding] stopped being the ready loaded style, or
-   *   [isResourceCurrent] turned false before or while [action] ran, including when [action] fails
-   *   because of it.
-   */
-  internal suspend fun <T> read(
-    binding: StyleBinding,
-    isResourceCurrent: () -> Boolean = { true },
-    action: suspend () -> T?,
-  ): T? {
-    fun live() = isLive(binding) && isResourceCurrent()
-    if (!live()) return null
-    val result =
-      try {
-        action()
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        if (live()) throw error
-        return null
-      }
-    return result.takeIf { live() }
-  }
-
-  /**
-   * Posts a style write to the owner of [binding]. Every write reaches the engine through here. A
-   * write that the owner's close, a style change, or the replacement of its resource
-   * ([isResourceCurrent]) overtakes, before or while it runs, does nothing and logs one warning; an
-   * engine rejection is logged and keeps the previous value.
-   */
-  internal fun post(
-    binding: StyleBinding,
-    target: String,
-    value: JsonElement? = null,
-    isResourceCurrent: () -> Boolean = { true },
-    action: () -> Unit,
-  ) {
-    val dropped: () -> Unit = {
-      owner.logger?.w { "$target was not written: the loaded style changed first" }
-    }
-    binding.postOwner(onDropped = dropped) {
-      if (!isLive(binding)) return@postOwner dropped()
-      if (!isResourceCurrent()) {
-        owner.logger?.w { "$target was not written: it was removed or replaced first" }
-        return@postOwner
-      }
-      try {
-        action()
-      } catch (error: Exception) {
-        when {
-          !isLive(binding) -> dropped()
-          error is StyleMutationException -> binding.reportRejectedWrite(target, value, error)
-          else -> throw error
-        }
-      }
-    }
-  }
-
-  private fun isLive(binding: StyleBinding): Boolean = binding.isLoaded && owner.isCurrent(binding)
-
-  /**
-   * Posts a write to the ready loaded style. Without one, the write is skipped and logged. The
-   * engine reports a rejection through the logger.
-   */
+  /** Submits a write inline on main, or logs that no style is ready. */
   private fun mutateStyle(
     target: String,
     value: JsonElement? = null,
@@ -651,7 +551,15 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
       owner.logger?.w { "$target was not written: no style is ready" }
       return
     }
-    post(current, target, value) { mutate(current) }
+    try {
+      mutate(current)
+    } catch (error: StyleMutationException) {
+      current.reportRejectedWrite(target, value, error)
+    }
+  }
+
+  internal fun forgetSourceHandle(id: String) {
+    sourcesState = sourcesState - id
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {
@@ -682,7 +590,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun updateLoadedStyle(style: StyleBinding?) {
     declaredRevision = StyleSnapshot.Empty
     publishedResources = null
-    loadedStyle.store(style)
+    loadedStyle = style
     sourcesState = emptyMap()
     layersState = emptyMap()
   }
@@ -690,50 +598,77 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal fun invalidateLoadedStyle() {
     declaredRevision = StyleSnapshot.Empty
     publishedResources = null
-    loadedStyle.exchange(null)?.invalidate()
+    loadedStyle?.invalidate()
+    loadedStyle = null
     sourcesState = emptyMap()
     layersState = emptyMap()
   }
 
-  internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
+  internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle === style
 
-  internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
+  internal fun currentLoadedStyle(): StyleBinding? = loadedStyle
 
-  /** Captures engine metadata in one owner visit, without touching published handles. */
-  internal fun readResources(current: StyleBinding): LoadedStyleResources {
-    val ids = current.sourceIds()
-    current.identity.sources.retain(ids.toSet())
-    val sourceMetadata = ids.associateWith { id ->
-      val definition = desiredSourceDefinition(id)
-      val source = current.getSource(id)
-      LoadedSourceMetadata(
-        identity = current.identity.sources.get(id),
-        kind = sourceKind(definition, source),
-        attributionHtml = source?.attributionHtml.orEmpty(),
-        options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
-        composed = definition != null,
-      )
+  /** Builds the resources of [current] from what main submitted to it. */
+  internal fun resources(current: StyleBinding): LoadedStyleResources {
+    val sourceMetadata =
+      current.contents.sources.mapValues { (id, entry) ->
+        val definition = desiredSourceDefinition(id)
+        LoadedSourceMetadata(
+          identity = current.identity.sources.get(id),
+          kind = entry.kind,
+          attributionHtml = entry.attributionHtml,
+          options = (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions.Standard,
+          composed = definition != null,
+        )
+      }
+    val layerMetadata =
+      current.contents.layers.associate { summary ->
+        summary.id to LoadedLayerMetadata(current.identity.layers.get(summary.id), summary)
+      }
+    return LoadedStyleResources(current, sourceMetadata, layerMetadata)
+  }
+
+  /**
+   * Reads the engine's metadata for source [id], such as attribution from TileJSON that arrived
+   * after the source was added, and publishes it while [current] is still the loaded style.
+   */
+  internal suspend fun refreshSource(current: StyleBinding, id: String) {
+    val entry = current.contents.sources[id] ?: return
+    val source = current.getSource(id) ?: return
+    if (!isCurrentLoadedStyle(current) || !current.isLoaded) return
+    if (current.contents.sources[id] !== entry) return
+    current.contents.updateSource(id, source, desiredSourceDefinition(id))
+    publish(current)
+  }
+
+  /** [refreshSource] for every source, in one ordered read. */
+  internal suspend fun refreshSources(current: StyleBinding) {
+    val entries = current.contents.sources.toMap()
+    val sources = current.sources()
+    if (!isCurrentLoadedStyle(current) || !current.isLoaded) return
+    entries.forEach { (id, entry) ->
+      val source = sources[id] ?: return@forEach
+      if (current.contents.sources[id] === entry) {
+        current.contents.updateSource(id, source, desiredSourceDefinition(id))
+      }
     }
-    val order = current.layerIds()
-    val summaries = current.layerSummaries().associateBy { it.id }
-    current.identity.layers.retain(order.toSet())
-    val layers = order.associateWith { id ->
-      LoadedLayerMetadata(
-        current.identity.layers.get(id),
-        summaries[id] ?: declarations.load().layers[id],
-      )
-    }
-    return LoadedStyleResources(current, sourceMetadata, layers)
+    publish(current)
   }
 
   private var publishedResources: LoadedStyleResources? = null
 
-  internal fun hasResources(binding: StyleBinding): Boolean =
-    publishedResources?.binding === binding
+  /** Republishes the handles of [current] after an imperative write, once they are published. */
+  internal fun publish(current: StyleBinding) {
+    if (publishedResources?.binding === current && current.isLoaded) {
+      updateResources(resources(current))
+    }
+  }
 
   /** Builds and publishes handles on the state owner, reusing unchanged resource identities. */
   internal fun updateResources(resources: LoadedStyleResources) {
     val current = resources.binding
+    current.identity.sources.retain(resources.sources.keys)
+    current.identity.layers.retain(resources.layers.keys)
     val previous = publishedResources?.takeIf { it.binding === current }
     val sources =
       resources.sources
@@ -788,20 +723,39 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
       override fun isReady(): Boolean = owner.isCurrent(style)
 
-      override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) =
-        this@MapStyleState.post(
-          style,
-          target,
-          isResourceCurrent = isResourceCurrent,
-          action = action,
-        )
+      override fun post(target: String, isResourceCurrent: () -> Boolean, action: () -> Unit) {
+        if (!isReady() || !style.isLoaded) {
+          owner.logger?.w { "$target was not written: the loaded style changed first" }
+          return
+        }
+        if (!isResourceCurrent()) {
+          owner.logger?.w { "$target was not written: it was removed or replaced first" }
+          return
+        }
+        try {
+          action()
+        } catch (error: StyleMutationException) {
+          style.reportRejectedWrite(target, null, error)
+        }
+      }
 
       override suspend fun <T> read(
         isResourceCurrent: () -> Boolean,
         action: suspend () -> T?,
-      ): T? = this@MapStyleState.read(style, isResourceCurrent, action)
-
-      override suspend fun <T> visit(action: () -> T?): T? = this@MapStyleState.visit(style, action)
+      ): T? {
+        fun live() = isReady() && style.isLoaded && isResourceCurrent()
+        if (!live()) return null
+        val result =
+          try {
+            action()
+          } catch (error: CancellationException) {
+            throw error
+          } catch (error: Exception) {
+            if (live()) throw error
+            return null
+          }
+        return result.takeIf { live() }
+      }
 
       override fun isSourceWritable(id: String): Boolean = this@MapStyleState.isSourceWritable(id)
 
@@ -850,7 +804,6 @@ internal constructor(
   internal val token: MapPresentationToken,
   internal val adapter: MapAdapter,
 ) {
-  private val invalidated = CompletableDeferred<Unit>()
   @Volatile private var live = true
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
@@ -904,19 +857,17 @@ internal constructor(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     guard: CameraCommandGuard?,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.fitCameraToBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding, guard)
+  }
 
   suspend fun animateCamera(
     update: CameraUpdate,
     animation: CameraAnimation = CameraAnimation.Ease.Standard,
     guard: CameraCommandGuard? = null,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCamera(update, animation, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.animateCamera(update, animation, guard)
+  }
 
   suspend fun animateCameraAround(
     anchor: CameraAnchor,
@@ -925,10 +876,9 @@ internal constructor(
     pitch: Double?,
     animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCameraAround(anchor, zoom, bearing, pitch, animation, boundGuard)
-    }
+  ): Unit = afterViewport {
+    adapter.animateCameraAround(anchor, zoom, bearing, pitch, animation, guard)
+  }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -938,18 +888,17 @@ internal constructor(
     fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
-  ): Unit =
-    afterCameraTurn(guard) { boundGuard ->
-      adapter.animateCameraToBounds(
-        boundingBox,
-        bearing,
-        pitch,
-        cameraPadding,
-        fitPadding,
-        animation,
-        boundGuard,
-      )
-    }
+  ): Unit = afterViewport {
+    adapter.animateCameraToBounds(
+      boundingBox,
+      bearing,
+      pitch,
+      cameraPadding,
+      fitPadding,
+      animation,
+      guard,
+    )
+  }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
@@ -1012,6 +961,8 @@ internal constructor(
     engagedState = engaged
   }
 
+  // TODO: read whether the camera is still changing from the native map snapshot, and drop this
+  // count, once https://github.com/maplibre/maplibre-native-ffi/issues/958 reports it.
   internal fun cameraChangeStarted() {
     activeCameraChanges++
     if (!gestureActiveState) moveReasonState = CameraMoveReason.Programmatic
@@ -1036,15 +987,6 @@ internal constructor(
     engagedState = false
   }
 
-  /**
-   * Fails lease-bound operations parked on this attachment. Callers on an immediate dispatcher
-   * resume inline, so this runs after the owner has replaced the attachment and closed its
-   * snapshot.
-   */
-  internal fun cancelLeaseBoundOperations() {
-    invalidated.complete(Unit)
-  }
-
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? {
     if (this == const(true)) return null
     return compile(ExpressionContext.None)
@@ -1054,55 +996,11 @@ internal constructor(
     owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
 
   /** Runs [block] once this attachment has a viewport, while it stays current. */
-  private suspend fun <T> afterViewport(block: suspend () -> T): T = runLeaseBound {
+  private suspend fun <T> afterViewport(block: suspend () -> T): T {
     owner.awaitViewport(this)
-    block()
-  }
-
-  /**
-   * [afterViewport] for a camera command: waits for [guard]'s dispatch turn, then passes [block] a
-   * guard that also fails once this attachment is replaced.
-   */
-  private suspend fun <T> afterCameraTurn(
-    guard: CameraCommandGuard?,
-    block: suspend (CameraCommandGuard) -> T,
-  ): T = afterViewport {
-    guard?.awaitDispatchTurn()
-    block(boundGuard(guard))
-  }
-
-  private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard =
-    object : CameraCommandGuard {
-      override fun isValid(): Boolean =
-        owner.isCurrent(this@MapAttachment) && guard?.isValid() != false
-
-      override fun dispatched() {
-        guard?.dispatched()
-      }
-    }
-
-  /**
-   * Runs [block] while this attachment is current. Invalidation fails it with
-   * [MapAttachmentChangedException] instead of leaving it parked.
-   */
-  internal suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
-    if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-    val operation =
-      async(start = CoroutineStart.UNDISPATCHED) {
-        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-        block()
-      }
-    select {
-      operation.onAwait { result ->
-        // An inline operation can finish after invalidation, before select starts listening.
-        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
-        result
-      }
-      invalidated.onAwait {
-        operation.cancelAndJoin()
-        throw MapAttachmentChangedException()
-      }
-    }
+    val result = block()
+    if (!owner.isCurrent(this)) throw MapAttachmentChangedException()
+    return result
   }
 }
 
@@ -1563,9 +1461,6 @@ internal constructor(
 
   internal fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter? = null) =
     lifecycle.releasePresentation(token, adapter)
-
-  internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? =
-    lifecycle.retainedAdapter(compatibilityKey)
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = MapStateCallbacks(this)
 

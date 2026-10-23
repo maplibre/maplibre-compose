@@ -6,6 +6,15 @@ import org.jetbrains.skia.DirectContext
 internal class ComposeFrameCompletion {
   private var currentContext: DirectContext? = null
   private var preserveFrame: (() -> Unit)? = null
+  private var releaseFrame: ((Boolean) -> Unit)? = null
+
+  val hasFrame: Boolean
+    get() = releaseFrame != null
+
+  fun holdFrame(release: (Boolean) -> Unit) {
+    check(releaseFrame == null) { "The previous frame is still acquired" }
+    releaseFrame = release
+  }
 
   /** Makes [context] ready for another access to the shared target. */
   fun prepare(context: DirectContext, contextReplaced: () -> Unit) {
@@ -20,6 +29,21 @@ internal class ComposeFrameCompletion {
       context.submit(syncCpu = true)
       preserveFrame = null
     }
+    releaseFrame?.invoke(true)
+    releaseFrame = null
+    currentContext = context
+  }
+
+  /**
+   * Calls [contextReplaced] when Compose draws with a context other than the last prepared one, so
+   * the host drops wrappers built for the old context. The held frame stays acquired: Compose still
+   * reads it, and the next [prepare] releases it.
+   */
+  fun adoptContext(context: DirectContext, contextReplaced: () -> Unit) {
+    val previousContext = currentContext
+    if (previousContext == null || previousContext === context) return
+    preserveFrame = null
+    contextReplaced()
     currentContext = context
   }
 
@@ -33,5 +57,7 @@ internal class ComposeFrameCompletion {
   fun abandon() {
     preserveFrame = null
     currentContext = null
+    releaseFrame?.invoke(false)
+    releaseFrame = null
   }
 }

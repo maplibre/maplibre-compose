@@ -11,17 +11,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 
 /**
  * Tracks the current [MapAttachment] of one [MapState], hands out attachments and viewports to
- * callers that wait for them, and replays the durable camera onto each attachment. The lifecycle
- * authority drives it through the commit and invalidate calls.
+ * callers that wait for them. The lifecycle authority drives it through the commit and invalidate
+ * calls.
  */
 internal class MapAttachmentAuthority(
   internal val lifecycle: MapLifecycleAuthority,
@@ -29,7 +29,6 @@ internal class MapAttachmentAuthority(
   private val styleAuthority: MapStyleAuthority,
   cameraPosition: CameraPosition,
 ) {
-  private var cameraCommandRevision = 0L
   private val eventsFlow =
     MutableSharedFlow<MapEvent>(
       extraBufferCapacity = 64,
@@ -59,12 +58,8 @@ internal class MapAttachmentAuthority(
     requireOpen()
     if (!guard.isValid()) return
     cameraPositionState = position
-    cameraCommandRevision++
     val attachment = current ?: return
-    applyAttachmentCameraCommand(
-      attachment,
-      CameraCommand(attachment.adapter, position, cameraCommandRevision, guard),
-    )
+    attachment.adapter.setCameraPosition(position, guard)
   }
 
   suspend fun awaitViewport(): Viewport {
@@ -86,6 +81,15 @@ internal class MapAttachmentAuthority(
       }
       .viewport!!
 
+  /** Waits for published style handles, or fails when this presentation ends. */
+  internal suspend fun awaitStyle(attachment: MapAttachment) {
+    combine(presence, styleAuthority.style.loadStates) { presentation, style ->
+        if (presentation.attachment !== attachment) throw MapAttachmentChangedException()
+        style
+      }
+      .first { it !is StyleLoadState.Loading }
+  }
+
   /**
    * Publishes the viewport of [adapter], and the camera it was rendered with, and returns the
    * presentation that holds them. A map with no readable viewport keeps the values it has, so a
@@ -99,8 +103,10 @@ internal class MapAttachmentAuthority(
     val current = current ?: return null
     if (viewport != null) {
       cameraPositionState = viewport.cameraPosition
-      current.updateViewport(viewport)
-      styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
+      if (current.viewport !== viewport) {
+        current.updateViewport(viewport)
+        styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
+      }
     }
     return current
   }
@@ -177,46 +183,22 @@ internal class MapAttachmentAuthority(
       outgoing?.invalidate()
     }
     presence.value = Presence(closed = true)
-    outgoing?.cancelLeaseBoundOperations()
   }
 
-  internal fun invalidatePresentation(adapter: MapAdapter?) {
+  internal fun clearPresentation() {
     lifecycle.requireMain()
     val outgoing = current
     Snapshot.withMutableSnapshot {
       current = null
       outgoing?.invalidate()
-      if (adapter?.retainsEngineBetweenPresentations != true) {
-        styleAuthority.style.loadState = StyleLoadState.Pending
-      }
     }
     presence.value = Presence()
-    outgoing?.cancelLeaseBoundOperations()
-  }
-
-  /**
-   * Posted from the thread that closed [adapter], so it can run after a replacement was published.
-   * The style then belongs to the replacement and stays.
-   */
-  internal fun invalidateClosedAdapter(adapter: MapAdapter) {
-    lifecycle.requireMain()
-    val outgoing = current?.takeIf { it.adapter === adapter }
-    val replaced = lifecycle.currentAdapter().let { it != null && it !== adapter }
-    Snapshot.withMutableSnapshot {
-      if (!replaced) styleAuthority.invalidateClosedAdapter()
-      if (outgoing != null) {
-        current = null
-        outgoing.invalidate()
-      }
-    }
-    if (outgoing != null) presence.value = Presence()
-    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {
     lifecycle.requireMain()
     if (!lifecycle.isPendingPublication(adapter)) return
-    applyCameraCommand(CameraCommand(adapter, cameraPositionState, cameraCommandRevision))
+    adapter.setCameraPosition(cameraPositionState)
     styleAuthority.configurePendingAdapter(adapter)
   }
 
@@ -230,39 +212,6 @@ internal class MapAttachmentAuthority(
     cameraPositionState = viewport.cameraPosition
     current.updateViewport(viewport)
     styleAuthority.updateGroundScale(viewport.cameraPosition.center.latitude)
-  }
-
-  private fun applyCameraCommand(initial: CameraCommand) {
-    var command = initial
-    while (true) {
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      command.adapter.setCameraPosition(command.value, command.guard)
-      // GL JS fires camera events inside jumpTo, even before this camera applies when it stops an
-      // ease. Code they resume inline can set a newer camera, which this replays.
-      if (lifecycle.currentAdapter() !== command.adapter) return
-      if (cameraCommandRevision == command.revision) return
-      command =
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
-    }
-  }
-
-  private fun applyAttachmentCameraCommand(
-    attachment: MapAttachment,
-    initial: CameraCommand,
-  ) {
-    val guard = CameraCommandGuard {
-      isCurrent(attachment) && initial.guard?.isValid() != false
-    }
-    var command = initial
-    while (true) {
-      if (!isCurrent(attachment)) return
-      command.adapter.setCameraPosition(command.value, guard)
-      // Replays a newer camera set during the call, as in applyCameraCommand.
-      if (!isCurrent(attachment)) return
-      if (cameraCommandRevision == command.revision) return
-      command =
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
-    }
   }
 
   internal fun commitPresentation(
@@ -295,12 +244,5 @@ internal class MapAttachmentAuthority(
     val attachment: MapAttachment? = null,
     val viewport: Viewport? = null,
     val closed: Boolean = false,
-  )
-
-  private data class CameraCommand(
-    val adapter: MapAdapter,
-    val value: CameraPosition,
-    val revision: Long,
-    val guard: CameraCommandGuard? = null,
   )
 }

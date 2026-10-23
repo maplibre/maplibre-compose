@@ -110,8 +110,13 @@ class AndroidRenderRecoveryTest {
       )
       assertTrue(frameQueued.await(10, TimeUnit.SECONDS))
       val teardown = Thread { controller.surfaceDestroyed() }.apply { start() }
-      // The teardown thread waits for the render thread only after it queued the teardown.
-      while (teardown.state != Thread.State.WAITING && teardown.isAlive) Thread.yield()
+      // The teardown thread waits for the render thread only after it queued the teardown, and the
+      // controller offers no other signal between the two.
+      val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+      while (teardown.state != Thread.State.WAITING && teardown.isAlive) {
+        check(System.nanoTime() < deadline) { "The teardown never waited for the render thread" }
+        Thread.yield()
+      }
       release.countDown()
       teardown.join(10_000)
       assertFalse(teardown.isAlive, "Surface teardown did not finish")
@@ -211,6 +216,7 @@ class AndroidRenderRecoveryTest {
     var losses = 0
     var alwaysFail = false
     var result: MlnFfiFrameResult = MlnFfiFrameResult.Rendered()
+    private var completedDemand = false
     var frames = 0
     var attachments = 0
     var resizes = 0
@@ -228,6 +234,7 @@ class AndroidRenderRecoveryTest {
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       attachments++
+      completedDemand = false
     }
 
     override fun onSurfaceLost(session: MlnFfiMapHostSession) {
@@ -244,11 +251,13 @@ class AndroidRenderRecoveryTest {
       frame: MlnFfiMapFrame,
       captureProjection: Boolean,
     ): MlnFfiFrameResult {
+      if (completedDemand && nextError == null && !alwaysFail) return MlnFfiFrameResult.AwaitUpdate
       frames++
       val error = nextError
       nextError = null
       if (error != null) throw error
       if (alwaysFail) throw MlnFfiRecoverableFrameException("Test frame failure", null)
+      completedDemand = true
       completed.add(Unit)
       return result
     }

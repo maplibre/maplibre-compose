@@ -20,13 +20,18 @@ class SourceHandleReconstructionTest {
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = PresentationTestAdapter()
     state.publishPresentation(state.reservePresentation(), adapter)
-    val binding = RecordingStyleBinding()
     val clipJson = buildJsonObject {
       put("type", "video")
       put("attribution", "© clip")
     }
-    binding.addSource("clip", clipJson)
-    binding.addSource("tiles", buildJsonObject { put("type", "vector") })
+    val binding =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            reconstructedSource("clip", clipJson),
+            reconstructedSource("tiles", buildJsonObject { put("type", "vector") }),
+          ),
+      )
     try {
       state.styleAuthority.updateLoadedStyle(adapter, binding)
       state.styleAuthority.markStyleReady(adapter)
@@ -35,7 +40,6 @@ class SourceHandleReconstructionTest {
       assertIs<VectorTileSourceHandle>(state.style.sources["tiles"])
 
       assertNotNull(clip.asMutable).remove()
-      state.style.awaitCommands()
       assertNull(state.style.sources["clip"])
       val added = checkNotNull(state.style.sources.add(reconstructedSource("clip", clipJson)))
       assertEquals("clip", added.id)

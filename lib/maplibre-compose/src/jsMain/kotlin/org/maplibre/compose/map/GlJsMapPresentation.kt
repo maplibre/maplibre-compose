@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
@@ -23,17 +22,19 @@ internal fun <T> GlJsMapPresentation(
     val layoutDirection = LocalLayoutDirection.current
     val callbacks = binding.callbacks
     val logger = state.runtime.logger
-    val session = remember {
-      GlJsMapSession(
-        lifecycleAuthority = state.lifecycle,
-        callbacks = callbacks,
-        logger = logger,
-        layoutDirection = layoutDirection,
-        requests = state.runtime.jsRequests,
-        mapContainer = container,
-      )
-    }
+    val session =
+      state.lifecycle.adapter {
+        GlJsMapSession(
+          lifecycleAuthority = state.lifecycle,
+          callbacks = callbacks,
+          logger = logger,
+          layoutDirection = layoutDirection,
+          requests = state.runtime.jsRequests,
+          mapContainer = container,
+        )
+      } as GlJsMapSession
 
+    SideEffect { session.mapContainer = container }
     session.callbacks = callbacks
     session.logger = logger
     session.layoutDirection = layoutDirection
@@ -45,8 +46,9 @@ internal fun <T> GlJsMapPresentation(
     SideEffect { session.setBaseStyle(state.style.baseStyle) }
     if (session.hasUsableViewport) {
       SideEffect {
-        binding.update(session)
-        session.markPresentationStateReplayed()
+        if (session.hasUsableViewport) {
+          binding.update(session)
+        }
       }
     }
 
@@ -54,7 +56,6 @@ internal fun <T> GlJsMapPresentation(
 
     DisposableEffect(session) {
       onDispose {
-        session.close()
         currentOnReset.value()
       }
     }

@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -19,9 +20,14 @@ import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.compose.testing.withTestMapRuntime
 
 class SnapshotLoadFailureTest {
+  @BeforeTest
+  fun requireSnapshots() {
+    skipUnlessSnapshotsAvailable()
+  }
 
   @Test
   fun a_failing_vector_tile_provider_fails_each_capture_until_it_recovers(): MapTestResult =

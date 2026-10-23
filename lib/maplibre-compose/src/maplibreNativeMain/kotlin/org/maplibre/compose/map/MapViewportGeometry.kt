@@ -7,10 +7,10 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toPosition
-import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.ScreenPoint
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.map.MapProjectionHandle
+import org.maplibre.nativeffi.generated.EdgeInsets
+import org.maplibre.nativeffi.generated.MapProjectionHandle
+import org.maplibre.nativeffi.generated.MapSnapshot
+import org.maplibre.nativeffi.generated.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 /** The applied camera and the size it renders at, read from one map transform. */
@@ -20,19 +20,13 @@ internal data class MapViewportGeometry(
   val size: DpSize,
 )
 
-/**
- * Owner thread only. Reads the camera the map would render right now. Each engine read is one
- * native call, so every field is read once.
- */
-internal fun MapHandle.readViewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry {
-  val size = size
-  val camera = camera
-  return MapViewportGeometry(
-    camera = camera.toCameraPosition(viewportInsets),
-    padding = camera.padding ?: EdgeInsets.ZERO,
-    size = DpSize(size.width.dp, size.height.dp),
+/** The camera and size that one published map snapshot describes. */
+internal fun MapSnapshot.viewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry =
+  MapViewportGeometry(
+    camera = view.camera.toCameraPosition(viewportInsets),
+    padding = view.camera.padding ?: EdgeInsets(),
+    size = DpSize(view.extent.width.toInt().dp, view.extent.height.toInt().dp),
   )
-}
 
 /** The area a frozen transform renders, derived from its corners. */
 internal class MapViewportExtents(corners: List<Position>) {

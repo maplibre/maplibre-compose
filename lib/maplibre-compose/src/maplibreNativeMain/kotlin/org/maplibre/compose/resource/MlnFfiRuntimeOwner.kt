@@ -2,50 +2,58 @@
 
 package org.maplibre.compose.resource
 
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLogBridge
-import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
-import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
+import org.maplibre.compose.mlnffi.reportFailure
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.ResourceProvider
+import org.maplibre.nativeffi.generated.RuntimeEventHandler
+import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.setResourceProvider
 
 /**
  * A MapLibre runtime together with its resource provider. Provider-owned request handles remain
  * valid until the provider releases them, even if a slow read outlasts the runtime.
- *
- * Owner-thread state throughout: a runtime belongs to the thread that created it, so this is
- * created, pumped, and closed on that one thread.
  */
 internal class MlnFfiRuntimeOwner
 private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
   private val networkMonitor: AutoCloseable,
-) : AutoCloseable {
+) {
 
   /**
-   * Starts teardown of everything attached to the runtime, then closes it.
-   *
-   * The provider stops accepting reads before `RuntimeHandle.close`, whose drain is bounded;
-   * request handles held by slower reads safely outlive the runtime and observe cancellation.
+   * Stops the provider accepting reads, then releases the runtime and waits for its native
+   * teardown. Request handles held by slower reads safely outlive the runtime and observe
+   * cancellation.
    */
-  override fun close() {
-    networkMonitor.use { runtime.use { provider.close() } }
-  }
+  suspend fun close() =
+    withContext(NonCancellable) {
+      try {
+        provider.close()
+        runtime.release().await()
+      } finally {
+        networkMonitor.close()
+      }
+    }
 
   companion object {
     /**
-     * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
+     * Creates a runtime and everything that hangs off it, or throws having released whatever it got
      * as far as. [what] names the runtime in log lines.
      */
-    fun open(
+    suspend fun open(
       rawCacheFile: Path,
       getLogger: () -> MapLog?,
       what: String,
       resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
+      eventHandler: RuntimeEventHandler? = null,
     ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
@@ -55,34 +63,41 @@ private constructor(
 
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
-        RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
+        GeneratedApi.runtimeCreate(
+          GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString()),
+        )
+      try {
+        eventHandler?.let { runtime.setEventHandler(it).await() }
+      } catch (error: Throwable) {
+        runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
+        throw error
+      }
       val networkMonitor =
         try {
           MapConnectivity.acquireMonitor()
         } catch (error: Throwable) {
-          runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
+          runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error
         }
       val provider =
         try {
           resourceProviderFactory(getLogger, resourceConfig)
         } catch (error: Throwable) {
-          runCatching { runtime.close() }.exceptionOrNull()?.let(error::addSuppressed)
+          runCatching { runtime.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
           runCatching { networkMonitor.close() }.exceptionOrNull()?.let(error::addSuppressed)
           throw error
         }
       val owner = MlnFfiRuntimeOwner(runtime, provider, networkMonitor)
       return try {
-        // Installed with the runtime rather than with the map, so nothing can request a resource
-        // before the provider that serves it exists.
-        runtime.setResourceProvider(provider)
+        // Installed with the runtime rather than with the map. Runtime work runs in submission
+        // order, so nothing can request a resource before the provider that serves it exists.
+        runtime
+          .setResourceProvider(ResourceProvider(provider::handle))
+          .reportFailure(getLogger(), "install the resource provider")
         runtime.installRequestInterceptor(resourceConfig)
-        getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
+        getLogger()?.i { "Created the $what" }
         owner
       } catch (error: Throwable) {
-        // Unwinds in the same order a successful close uses, or the runtime's scheduler and
-        // database
-        // connection stay open for the life of the process.
         runCatching { owner.close() }.exceptionOrNull()?.let(error::addSuppressed)
         throw error
       }

@@ -3,9 +3,12 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -24,7 +27,7 @@ import org.maplibre.spatialk.geojson.Position
 class StyleReconcilerTest {
 
   @Test
-  fun duplicate_resource_ids_fail_a_complete_revision() {
+  fun duplicate_resource_ids_fail_a_complete_revision() = runTest {
     val source = source("duplicate").definition()
 
     val error =
@@ -40,7 +43,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() {
+  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() = runTest {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
@@ -58,7 +61,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun unchanged_layers_skip_preparation_but_duration_scale_changes_still_apply() {
+  fun unchanged_layers_skip_preparation_but_duration_scale_changes_still_apply() = runTest {
     val delegate = RecordingStyleBinding()
     var propertyChecks = 0
     val style =
@@ -98,7 +101,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun construction_changes_replace_layers_but_live_properties_do_not() {
+  fun construction_changes_replace_layers_but_live_properties_do_not() = runTest {
     val delegate = RecordingStyleBinding()
     val recording = RecordingOperations(delegate)
     val reconciler = StyleReconciler()
@@ -134,12 +137,12 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_later_complete_revision_removes_resources_left_by_a_partial_failure() {
+  fun a_later_complete_revision_removes_resources_left_by_a_partial_failure() = runTest {
     var fail = true
     val delegate = RecordingStyleBinding()
     val style =
       object : StyleBinding by delegate {
-        override fun addSource(definition: SourceDefinition): Boolean {
+        override fun addSource(definition: SourceDefinition): StyleCommand {
           if (fail && definition.id == "refused") error("engine refused")
           return delegate.addSource(definition)
         }
@@ -166,7 +169,131 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() {
+  fun a_rejected_layer_stays_out_until_its_definition_changes() = runTest {
+    val style = RecordingStyleBinding(refusedLayerTypes = setOf("refused"))
+    val reconciler = StyleReconciler()
+    fun revisionWith(vararg layers: TestLayer) =
+      StyleSnapshot(
+        emptyList(),
+        layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top, null, null) },
+        emptyList(),
+      )
+
+    reconciler.apply(style, revisionWith(TestLayer("a", "refused"), TestLayer("b", "background")))
+    assertTrue(reconciler.settle(style))
+    assertEquals(listOf("b"), style.contents.layerIds())
+
+    // Applying the same revision again leaves the rejected definition out.
+    reconciler.apply(style, revisionWith(TestLayer("a", "refused"), TestLayer("b", "background")))
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("a", "b"), style.layerAdditions)
+
+    reconciler.apply(style, revisionWith(TestLayer("a", "fill"), TestLayer("b", "background")))
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("a", "b"), style.contents.layerIds())
+    assertEquals(setOf("a", "b"), style.installedLayerIds)
+  }
+
+  @Test
+  fun a_layer_over_a_missing_source_waits_for_the_source_instead_of_retrying() = runTest {
+    // The fake engine rejects the layer's type, as MapLibre rejects a layer over a missing source.
+    val style = RecordingStyleBinding(refusedLayerTypes = setOf("circle"))
+    val reconciler = StyleReconciler()
+    val missing = source("missing")
+    val layer = TestLayer("over-missing", "circle", missing)
+    val withoutSource =
+      StyleSnapshot(
+        emptyList(),
+        listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+        emptyList(),
+      )
+
+    reconciler.apply(style, withoutSource)
+    assertTrue(reconciler.settle(style))
+    reconciler.apply(style, withoutSource)
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("over-missing"), style.layerAdditions)
+
+    // Declaring the source retries the layer.
+    reconciler.apply(style, withoutSource.copy(sources = listOf(missing.definition())))
+    reconciler.settle(style)
+    assertEquals(listOf("over-missing", "over-missing"), style.layerAdditions)
+  }
+
+  @Test
+  fun a_refused_source_removal_keeps_the_source_tracked() = runTest {
+    val style = RecordingStyleBinding(refusedSourceRemovals = setOf("kept"))
+    val reconciler = StyleReconciler()
+    val kept = source("kept")
+
+    reconciler.apply(style, StyleSnapshot(listOf(kept.definition()), emptyList(), emptyList()))
+    reconciler.settle(style)
+    reconciler.apply(style, StyleSnapshot.Empty)
+    reconciler.settle(style)
+
+    assertTrue("kept" in style.contents.sources)
+    assertTrue("kept" in style.installedSourceIds)
+  }
+
+  @Test
+  fun a_refused_replacement_keeps_tracking_the_source_the_engine_kept() = runTest {
+    val recording = RecordingStyleBinding()
+    val outcomes = mutableListOf<CompletableDeferred<Unit>>()
+    var pending = false
+    val style =
+      object : StyleBinding by recording {
+        override fun addSource(definition: SourceDefinition): StyleCommand =
+          if (pending) CompletableDeferred<Unit>().also { outcomes += it }
+          else recording.addSource(definition)
+
+        override fun removeSource(sourceId: String): StyleCommand =
+          if (pending) CompletableDeferred<Unit>().also { outcomes += it }
+          else recording.removeSource(sourceId)
+      }
+    val reconciler = StyleReconciler()
+    fun revisionWith(source: RasterTileSource) =
+      StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())
+
+    reconciler.apply(style, revisionWith(source("replaced")))
+    assertFalse(reconciler.settle(style))
+
+    // A source that cannot be updated in place is removed, then added again.
+    pending = true
+    val replacement =
+      RasterTileSource("replaced", listOf("https://example.invalid/other/{z}/{x}/{y}.png"))
+    reconciler.apply(style, revisionWith(replacement))
+    assertEquals(2, outcomes.size)
+    // The engine refuses the removal, then rejects the addition of the ID it still holds.
+    outcomes[0].completeExceptionally(StyleMutationException("in use", null))
+    outcomes[1].completeExceptionally(StyleMutationException("already exists", null))
+    reconciler.settle(style)
+
+    assertTrue("replaced" in style.contents.sources)
+  }
+
+  @Test
+  fun a_composed_layer_with_a_base_layer_id_leaves_the_base_layer_in_place() = runTest {
+    val style = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
+    val reconciler = StyleReconciler()
+
+    reconciler.apply(
+      style,
+      StyleSnapshot(
+        emptyList(),
+        listOf(StyleSnapshot.Layer(TestLayer("base", "fill").definition(), Anchor.Top, null, null)),
+        emptyList(),
+      ),
+    )
+
+    assertFalse(reconciler.settle(style))
+    assertEquals(listOf("base"), style.contents.layerIds())
+    assertEquals("background", style.contents.layers.single().type)
+    // Only the fake engine's own base-style installation reached it.
+    assertEquals(listOf("base"), style.layerAdditions)
+  }
+
+  @Test
+  fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() = runTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     fun revisionWith(vararg images: StyleImageDefinition) =
@@ -187,7 +314,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_failed_replacement_is_replaced_again_by_the_next_revision() {
+  fun a_failed_replacement_is_replaced_again_by_the_next_revision() = runTest {
     val refused = mutableSetOf("icon")
     val style = RecordingStyleBinding(refusedImageReplacements = refused)
     val reconciler = StyleReconciler()
@@ -197,9 +324,9 @@ class StyleReconcilerTest {
       StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
-    assertFailsWith<StyleMutationException> {
-      reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
-    }
+    // The engine keeps its previous image, so the rejection asks for no second pass.
+    reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    assertFalse(reconciler.settle(style))
     refused.clear()
 
     // The engine may hold either image, so reverting is not a no-op and not a plain add.
@@ -209,7 +336,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() {
+  fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() = runTest {
     val style = RecordingStyleBinding(refusedImageReplacements = setOf("icon"))
     val reconciler = StyleReconciler()
     fun revisionWith(vararg images: StyleImageDefinition) =
@@ -218,9 +345,9 @@ class StyleReconcilerTest {
       StyleImageDefinition("icon", PreparedImage.fromBitmap(FakeImageBitmap(1, 1)), false, null)
 
     reconciler.apply(style, revisionWith(icon))
-    assertFailsWith<StyleMutationException> {
-      reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
-    }
+    // The engine keeps its previous image, so the rejection asks for no second pass.
+    reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    assertFalse(reconciler.settle(style))
 
     // The engine still holds the previous image, so dropping the ID removes it.
     reconciler.apply(style, revisionWith())
@@ -228,7 +355,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun an_image_source_uploads_only_changed_pixels_after_its_corners() {
+  fun an_image_source_uploads_only_changed_pixels_after_its_corners() = runTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     fun revisionWith(position: PositionQuad, image: PreparedImage) =
@@ -259,7 +386,7 @@ class StyleReconcilerTest {
   }
 
   @Test
-  fun preparing_resolves_anchors_without_installing_or_replaying_application_callbacks() {
+  fun preparing_resolves_anchors_without_installing_or_replaying_application_callbacks() = runTest {
     val base = TestLayer("base", "background")
     val style = RecordingStyleBinding(layers = listOf(base))
     val reconciler = StyleReconciler()
@@ -326,10 +453,10 @@ class StyleReconcilerTest {
     StyleBinding by delegate {
     val additions = mutableListOf<String>()
 
-    override fun addSource(definition: SourceDefinition): Boolean =
+    override fun addSource(definition: SourceDefinition): StyleCommand =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+    override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand =
       delegate.addLayer(layer, beforeLayerId).also {
         additions += "layer:${(layer["id"] as JsonPrimitive).content}"
       }

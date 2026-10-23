@@ -1,11 +1,13 @@
 package org.maplibre.compose.style
 
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -25,9 +27,9 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.map.MlnFfiMapRuntimeLoop
-import org.maplibre.compose.mlnffi.MlnFfiLock
-import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
+import org.maplibre.compose.mlnffi.failed
+import org.maplibre.compose.mlnffi.failureMessage
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -55,23 +57,24 @@ import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.error.NativeErrorException
-import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
-import org.maplibre.nativeffi.render.RenderSessionHandle
-import org.maplibre.nativeffi.style.CustomGeometrySourceCallback
-import org.maplibre.nativeffi.style.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
-import org.maplibre.nativeffi.style.CustomMvtVectorSourceCallback
-import org.maplibre.nativeffi.style.CustomMvtVectorSourceOptions
-import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
-import org.maplibre.nativeffi.style.GeoJsonSourceOptions
-import org.maplibre.nativeffi.style.ImageContent
-import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
-import org.maplibre.nativeffi.style.SourceType
-import org.maplibre.nativeffi.style.StyleImageOptions
-import org.maplibre.nativeffi.style.TileJson
-import org.maplibre.nativeffi.style.TileScheme
+import org.maplibre.nativeffi.generated.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
+import org.maplibre.nativeffi.generated.CustomMvtVectorSourceOptions
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.GeojsonSourceDataHandle
+import org.maplibre.nativeffi.generated.GeojsonSourceOptions
+import org.maplibre.nativeffi.generated.ImageContent
+import org.maplibre.nativeffi.generated.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.generated.MapDiscarding
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.RenderSessionHandle
+import org.maplibre.nativeffi.generated.SourceFeatureQueryOptions
+import org.maplibre.nativeffi.generated.Status
+import org.maplibre.nativeffi.generated.StyleImageOptions
+import org.maplibre.nativeffi.generated.StyleSourceInfo
+import org.maplibre.nativeffi.generated.StyleSourceTileInfo
+import org.maplibre.nativeffi.generated.StyleSourceType
+import org.maplibre.nativeffi.generated.StyleTileScheme
+import org.maplibre.nativeffi.runtime.CommandCompletion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -79,50 +82,68 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
-/** Reaches the render session of a map, which lives on its renderer thread. */
+/** Reaches the render session of a map, for feature queries from any thread. */
 internal interface MlnFfiRenderSessions {
-  /**
-   * Runs [action] with the ready render session and suspends until it returns. Returns null when no
-   * render session is ready, or its thread can no longer run [action]. The handle must not escape
-   * [action].
-   */
-  suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T?
+  /** The render session once it has drawn a frame, or null while there is none. */
+  fun readySession(): RenderSessionHandle?
 
   object None : MlnFfiRenderSessions {
-    override suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? = null
+    override fun readySession(): RenderSessionHandle? = null
+  }
+}
+
+/** What a loaded style held when it finished loading, read once for its binding. */
+internal class LoadedStyleContents(
+  val layers: List<LayerSummary>,
+  val sources: List<StyleSourceInfo>,
+  val document: JsonObject?,
+) {
+  companion object {
+    /** Reads [map]'s loaded style. Queries run after every command submitted before this call. */
+    suspend fun read(map: MapHandle): LoadedStyleContents {
+      val layers = map.listStyleLayers()
+      val sources = map.listStyleSources()
+      val document = map.getLoadedStyleJson()
+      return LoadedStyleContents(
+        layers = layers.await().map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) },
+        sources = sources.await(),
+        document = runCatching { document.await().toJsonElement() as? JsonObject }.getOrNull(),
+      )
+    }
   }
 }
 
 /**
- * [StyleBinding] for one loaded style in a MapLibre Native map. Construction runs on [loop]'s owner
- * thread while [map] is alive; initial metadata is captured before publication.
+ * [StyleBinding] for one loaded style in a MapLibre Native map.
  *
- * Engine reads and mutations call the map directly on the shared runtime owner thread. Handles and
- * commands use [awaitOwner] or [postOwner]; accepted visits apply their operations inline. Feature
- * queries stay on the renderer, and data preparation stays on workers.
+ * Commands and ordered queries are submitted on main. A structural write's outcome completes on
+ * main; native logs the failure of any other write, which discards its outcome. GeoJSON and custom
+ * tile preparation stay on workers.
  */
 internal open class MlnFfiStyleBinding(
-  map: MapHandle,
-  /** The loop whose owner thread runs this binding's engine calls. Internal for tests. */
-  internal val loop: MlnFfiMapRuntimeLoop,
+  private val map: MapHandle,
+  private val owner: MlnFfiRuntime,
+  contents: LoadedStyleContents,
   override val identity: StyleIdentity = StyleIdentity.create(),
   private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
   private val renderSessions: MlnFfiRenderSessions = MlnFfiRenderSessions.None,
-  private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
-  /** Receives the exception of a failed custom source provider call. Owner thread. */
+  /** Receives the exception of a failed custom source provider call. */
   private val customTileFailed: (Throwable) -> Unit = {},
 ) : StyleBinding {
-  @Volatile private var loaded = true
+  private var loaded = true
+
+  /** Test seam: the map this style is loaded in. */
+  internal val mapForTest: MapHandle
+    get() = map
+
   private val geoJsonCoordinators =
-    mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle>>()
-  private val geoJsonLock = MlnFfiLock()
+    mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle>>()
 
   /** The tile coordinators serving this loaded style's custom sources, by source id. */
   private val tileCoordinators = mutableMapOf<String, MlnFfiTileRequestCoordinator<*>>()
-  private val tileLock = MlnFfiLock()
 
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
@@ -133,138 +154,175 @@ internal open class MlnFfiStyleBinding(
   override val logger: MapLog?
     get() = loggerProvider()
 
-  private var declaredSources: JsonObject? = null
+  private val declaredSources: JsonObject =
+    contents.document?.get("sources") as? JsonObject ?: JsonObject(emptyMap())
 
-  override val baseLayers: List<LayerSummary> =
-    map.styleLayers().map { layer ->
-      LayerSummary(layer.id, layer.type, layer.sourceId, layer.sourceLayer)
-    }
+  override val baseLayers: List<LayerSummary> = contents.layers
+
   override val baseSources: Map<String, Source> =
-    map.styleSourceIds().associateWith { reconstructSource(map, it) }
+    contents.sources.associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
-  /** Runs [action] through [MlnFfiMapRuntimeLoop.await]. */
-  override suspend fun <T> awaitOwner(action: () -> T): T? {
-    if (!isLoaded) return null
-    return loop.await {
-      if (!isLoaded) return@await null
-      try {
-        action()
-      } catch (error: Exception) {
-        // A style unloaded during this visit has nothing left to read or update.
-        if (isLoaded) throw error
-        null
-      }
-    }
-  }
+  override val contents: StyleContents = StyleContents(baseSources, baseLayers)
 
-  override fun postOwner(onDropped: () -> Unit, action: () -> Unit) {
-    submit(onDropped) {
+  /** Posts a worker's prepared result to main before submitting it to the native executor. */
+  open fun submit(onDropped: () -> Unit = {}, command: (MapHandle) -> Unit) {
+    owner.postToMain {
+      if (!isLoaded) return@postToMain onDropped()
       try {
-        action()
-      } catch (error: Exception) {
-        // A style unloaded during this accepted visit has nothing left to update.
-        if (isLoaded) throw error
+        command(map)
+      } catch (error: Throwable) {
         onDropped()
+        throw error
       }
     }
   }
 
   /**
-   * Runs [action] with the map, on the owner thread only.
-   *
-   * @throws IllegalStateException on any other thread.
-   * @throws IllegalStateException when the style has unloaded.
+   * Submits a structural write inline on main. Its outcome completes on main after the events the
+   * write raised.
    */
-  internal fun <T> withMap(action: (MapHandle) -> T): T {
-    check(loop.isOwnerThread()) {
-      "A MapLibre Native style call ran off the map's owner thread; use awaitOwner or postOwner"
+  @OptIn(ExperimentalCoroutinesApi::class)
+  private fun command(start: (MapHandle) -> Deferred<CommandCompletion>): StyleCommand {
+    if (!isLoaded) {
+      return rejectedStyleCommand(StyleMutationException("The style is no longer loaded", null))
     }
-    requireCurrent()
-    return action(checkNotNull(loop.map) { "The map owner loop has no map" })
+    val submitted =
+      try {
+        start(map)
+      } catch (error: MaplibreException) {
+        return rejectedStyleCommand(StyleMutationException(error.message, error))
+      }
+    val ordered = owner.inEventOrder(submitted)
+    val outcome = CompletableDeferred<Unit>()
+    ordered.invokeOnCompletion { error ->
+      when {
+        error is CancellationException -> outcome.cancel(error)
+        error != null -> outcome.completeExceptionally(StyleMutationException(error.message, error))
+        ordered.getCompleted().failed ->
+          outcome.completeExceptionally(
+            StyleMutationException(ordered.getCompleted().failureMessage(), null),
+          )
+        else -> outcome.complete(Unit)
+      }
+    }
+    return outcome
   }
 
-  override fun setImage(definition: StyleImageDefinition) = mutateMap { map ->
+  private inline fun write(
+    target: String = "The style",
+    value: JsonElement? = null,
+    start: (MapDiscarding) -> Unit,
+  ) {
+    if (!isLoaded) return
+    try {
+      start(map.discarding)
+    } catch (error: MaplibreException) {
+      reportRejectedWrite(target, value, StyleMutationException(error.message, error))
+    }
+  }
+
+  /** One ordered query, submitted from main. */
+  private suspend fun <T> query(start: (MapHandle) -> Deferred<T>): T {
+    requireCurrent()
+    return start(map).await()
+  }
+
+  /** Holds render updates while a synchronous revision submits its writes. */
+  fun commandGroup(action: () -> Unit) {
+    requireCurrent()
+    map.discarding.beginCommandGroup()
+    try {
+      action()
+    } finally {
+      map.discarding.endCommandGroup()
+    }
+  }
+
+  override fun setImage(definition: StyleImageDefinition): StyleCommand {
     val (id, image, sdf, stretch) = definition
     val scale = getScale()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    val options =
+      StyleImageOptions(
+        sdf = sdf,
+        pixelRatio = scale,
+        stretchX =
+          stretchPx
+            ?.stretchX
+            ?.takeIf { it.isNotEmpty() }
+            ?.map { (start, end) ->
+              FfiImageStretch(start, end)
+            },
+        stretchY =
+          stretchPx
+            ?.stretchY
+            ?.takeIf { it.isNotEmpty() }
+            ?.map { (start, end) ->
+              FfiImageStretch(start, end)
+            },
+        content = stretchPx?.content?.let { ImageContent(it.left, it.top, it.right, it.bottom) },
+      )
     // The engine replaces an existing image in place, so no existence read is needed.
-    map.setStyleImage(
-      imageId = id,
-      image = image.pixels.ffi,
-      options =
-        StyleImageOptions().also { options ->
-          options.sdf = sdf
-          options.pixelRatio = scale
-          stretchPx?.let { px ->
-            if (px.stretchX.isNotEmpty()) {
-              options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
-            }
-            if (px.stretchY.isNotEmpty()) {
-              options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
-            }
-            px.content?.let { box ->
-              options.content = ImageContent(box.left, box.top, box.right, box.bottom)
-            }
-          }
-        },
-    )
+    return command { it.setStyleImage(id, image.pixels.ffi, options) }
   }
 
-  override fun removeImage(id: String): Boolean = mutateMap {
-    it.removeStyleImage(id)
+  override fun removeImage(id: String): StyleCommand = command { it.removeStyleImage(id) }
+
+  override suspend fun imageExists(id: String): Boolean? = query { it.getStyleImage(id) } != null
+
+  override suspend fun getSource(id: String): Source? = query {
+    it.getStyleSource(id)
   }
+    ?.let { reconstructedSource(id, sourceDefinition(it)) }
 
-  override fun imageExists(id: String): Boolean? = withMap { it.styleImageInfo(id) != null }
-
-  override fun getSource(id: String): Source? = withMap { map ->
-    if (!map.styleSourceExists(id)) null else reconstructSource(map, id)
+  override suspend fun sources(): Map<String, Source> = query {
+    it.listStyleSources()
   }
+    .associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
-  override fun sourceIds(): List<String> = withMap { it.styleSourceIds() }
+  override suspend fun sourceIds(): List<String> = query { it.listStyleSources() }.map { it.id }
 
-  override fun getLayer(id: String): LayerDefinition? = withMap { map ->
-    if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
+  override suspend fun getLayer(id: String): LayerDefinition? {
+    val json = query { it.getStyleLayerJson(id) } ?: return null
+    val definition =
+      json.toJsonElement() as? JsonObject
+        ?: buildJsonObject { query { it.getStyleLayer(id) }?.type?.let { put("type", it) } }
+    return layerDefinitionFromJson(id, definition)
   }
 
   /** The full engine order: insertions and moves are relative to it. */
-  override fun layerIds(): List<String> = withMap { it.styleLayerIds() }
+  override suspend fun layerIds(): List<String> = query { it.listStyleLayers() }.map { it.id }
 
-  override fun layerSummaries(): List<LayerSummary> = withMap { map ->
-    map.styleLayers().map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
+  override suspend fun layerSummaries(): List<LayerSummary> = query {
+    it.listStyleLayers()
+  }
+    .map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
+
+  private fun sourceDefinition(info: StyleSourceInfo): JsonObject = buildJsonObject {
+    info.type.toStyleSpecType()?.let { put("type", it) }
+    val attribution = info.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(info.id)
+    attribution?.let { put("attribution", it) }
+    info.tileSize?.takeIf { it > 0u }?.let { put("tileSize", it.toInt()) }
+    if (info.isVolatile) put("volatile", true)
+    if (info.type == StyleSourceType.VECTOR)
+      info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+    if (info.type == StyleSourceType.RASTER_DEM)
+      info.rasterEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+    val url = info.url?.takeIf { it.isNotEmpty() }
+    if (url != null) put("url", url) else info.tilejson?.let { putTileJson(it, info) }
   }
 
-  private fun reconstructSource(map: MapHandle, id: String): Source =
-    reconstructedSource(id, sourceDefinition(map, id))
-
-  private fun sourceDefinition(map: MapHandle, id: String): JsonObject {
-    val info = map.styleSourceInfo(id)
-    return buildJsonObject {
-      (info?.type ?: map.styleSourceType(id))?.toStyleSpecType()?.let { put("type", it) }
-      val attribution =
-        info?.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(map, id)
-      attribution?.let { put("attribution", it) }
-      info?.tileSize?.takeIf { it > 0 }?.let { put("tileSize", it) }
-      if (info?.volatileSource == true) put("volatile", true)
-      if (info?.type == SourceType.VECTOR)
-        info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
-      if (info?.type == SourceType.RASTER_DEM)
-        info.rasterDemEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
-      val url = info?.url?.takeIf { it.isNotEmpty() }
-      if (url != null) put("url", url) else info?.tileJson?.let { putTileJson(it) }
-    }
-  }
-
-  private fun JsonObjectBuilder.putTileJson(tileJson: TileJson) {
+  private fun JsonObjectBuilder.putTileJson(tileJson: StyleSourceTileInfo, info: StyleSourceInfo) {
     if (tileJson.tileUrls.isNotEmpty())
       putJsonArray("tiles") { tileJson.tileUrls.forEach { add(it) } }
     put("minzoom", tileJson.minZoom)
     put("maxzoom", tileJson.maxZoom)
     when (tileJson.scheme) {
-      TileScheme.XYZ -> put("scheme", "xyz")
-      TileScheme.TMS -> put("scheme", "tms")
+      StyleTileScheme.XYZ -> put("scheme", "xyz")
+      StyleTileScheme.TMS -> put("scheme", "tms")
       else -> Unit
     }
-    tileJson.bounds?.toBoundingBox()?.let { box ->
+    info.bounds?.toBoundingBox()?.let { box ->
       putJsonArray("bounds") {
         add(box.west)
         add(box.south)
@@ -274,66 +332,27 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  private fun declaredAttribution(map: MapHandle, id: String): String? {
-    val sources =
-      declaredSources
-        ?: run {
-          val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
-          ((document as? JsonObject)?.get("sources") as? JsonObject ?: JsonObject(emptyMap()))
-            .also { declaredSources = it }
-        }
-    return ((sources[id] as? JsonObject)?.get("attribution") as? JsonPrimitive)?.contentOrNull
-  }
-
-  private fun reconstructLayer(map: MapHandle, id: String): LayerDefinition {
-    val definition =
-      (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
-        ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
-    return layerDefinitionFromJson(id, definition)
-  }
+  private fun declaredAttribution(id: String): String? =
+    ((declaredSources[id] as? JsonObject)?.get("attribution") as? JsonPrimitive)?.contentOrNull
 
   override fun invalidate() {
     if (!loaded) return
     loaded = false
-    val coordinators = geoJsonLock.withLock {
-      geoJsonCoordinators.values.toList().also { geoJsonCoordinators.clear() }
-    }
-    coordinators.forEach { it.close() }
-    val tiles = tileLock.withLock {
-      tileCoordinators.values.toList().also { tileCoordinators.clear() }
-    }
-    tiles.forEach { it.close() }
-  }
-
-  /**
-   * Runs [action] through [MlnFfiMapRuntimeLoop.submit] and returns at once. [onDropped] runs
-   * instead when the style has unloaded or the loop stops first, and after [action] when it throws.
-   */
-  open fun submit(onDropped: () -> Unit = {}, action: (MapHandle) -> Unit) {
-    if (!isLoaded) return onDropped()
-    loop.submit(onDropped = onDropped) { map -> if (isLoaded) action(map) else onDropped() }
-  }
-
-  /** Owner thread only. Reports an engine refusal as a [StyleMutationException]. */
-  private fun <T> mutateMap(action: (MapHandle) -> T): T = withMap { map ->
-    try {
-      action(map)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
+    geoJsonCoordinators.values.toList().forEach { it.close() }
+    geoJsonCoordinators.clear()
+    tileCoordinators.values.toList().forEach { it.close() }
+    tileCoordinators.clear()
   }
 
   fun setSourceVolatile(sourceId: String, value: Boolean) {
-    mutateMap { it.setStyleSourceVolatile(sourceId, value) }
+    write { it.setStyleSourceVolatile(sourceId, value) }
   }
 
-  /** Delegates to the map's [MlnFfiRenderSessions]. */
-  suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? {
-    requireCurrent()
-    return renderSessions.awaitRenderSession(action).also {
-      if (it == null) logger?.d { "Ignoring a render session call: no session is ready yet" }
-    }
+  /** Whether the source skips persistent storage writes, or null when it does not exist. */
+  suspend fun sourceVolatile(sourceId: String): Boolean? = query {
+    it.getStyleSource(sourceId)
   }
+    ?.isVolatile
 
   /**
    * MapLibre Native implements no encoding but mapbox and terrarium.
@@ -345,92 +364,84 @@ internal open class MlnFfiStyleBinding(
   final override val supportsRasterDemScheme: Boolean
     get() = true
 
-  override fun addSource(sourceId: String, source: JsonObject): Boolean =
-    addSourceWith(sourceId) { map -> map.addStyleSourceJson(sourceId, source.toJsonBytes()) }
+  override fun addSource(sourceId: String, source: JsonObject): StyleCommand =
+    addSourceWith { map ->
+      map.addStyleSourceJson(sourceId, source.toJsonBytes())
+    }
 
   /**
-   * Adds a source on the owner thread, for the types MapLibre Native creates from a typed adder
-   * rather than from source JSON. Wraps a refusal the way [addSource] does.
-   *
-   * @return false if the style has unloaded, in which case [add] did not run.
+   * Adds a source, for the types MapLibre Native creates from a typed adder rather than from source
+   * JSON. Reports a refusal the way [addSource] does.
    */
-  fun addSourceWith(sourceId: String, add: (MapHandle) -> Unit): Boolean = mutateMap { map ->
-    add(map)
-    sourceChanged(sourceId)
-    true
-  }
+  fun addSourceWith(add: (MapHandle) -> Deferred<CommandCompletion>): StyleCommand = command(add)
 
-  override fun removeSource(sourceId: String) {
-    mutateMap { map ->
-      map.removeStyleSource(sourceId)
-      identity.sources.remove(sourceId)
-      geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
-      sourceChanged(sourceId)
+  override fun removeSource(sourceId: String): StyleCommand {
+    identity.sources.remove(sourceId)
+    val geoJson = geoJsonCoordinators[sourceId]
+    val tiles = tileCoordinators[sourceId]
+    val removed = command { it.removeStyleSource(sourceId) }
+    // The data providers keep serving a source whose removal native refuses.
+    removed.invokeOnCompletion { error ->
+      if (error != null) return@invokeOnCompletion
+      if (geoJsonCoordinators[sourceId] === geoJson) geoJsonCoordinators.remove(sourceId)
+      geoJson?.close()
+      if (tileCoordinators[sourceId] === tiles) tileCoordinators.remove(sourceId)
+      tiles?.close()
     }
-    removeTileCoordinator(sourceId)
+    return removed
   }
 
   override fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-geometry-$sourceId",
         binding = this,
         load = { tile -> provider.loadTile(tile).toJson().encodeToByteArray() },
-        deliver = { map, tile, data -> map.setCustomGeometrySourceTileData(sourceId, tile, data) },
+        deliver = { map, tile, data ->
+          map.discarding.setCustomGeometrySourceTileData(sourceId, tile, data)
+        },
         fail = { map, tile, error ->
           logger?.e(error) {
             "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
           }
           customTileFailed(error)
-          map.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
+          map.discarding.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
         },
       )
-    val callback =
-      object : CustomGeometrySourceCallback {
-        override fun fetchTile(tileId: CanonicalTileId) {
-          coordinator.fetch(tileId)
-        }
-
-        override fun cancelTile(tileId: CanonicalTileId) {
-          coordinator.cancel(tileId)
-        }
-      }
     return installCoordinator(sourceId, coordinator) { map ->
       map.addCustomGeometrySource(
         sourceId,
-        FfiCustomGeometrySourceOptions(callback).also {
-          it.minZoom = options.minZoom.toDouble()
-          it.maxZoom = options.maxZoom.toDouble()
-          it.buffer = options.buffer
-          it.tolerance = options.tolerance.toDouble()
-          it.clip = options.clip
-          it.wrap = options.wrap
-        },
+        FfiCustomGeometrySourceOptions(
+          fetchTile = coordinator::fetch,
+          cancelTile = coordinator::cancel,
+          minZoom = options.minZoom.toDouble(),
+          maxZoom = options.maxZoom.toDouble(),
+          buffer = options.buffer.toUInt(),
+          tolerance = options.tolerance.toDouble(),
+          clip = options.clip,
+          wrap = options.wrap,
+        ),
       )
     }
   }
 
   override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
-    mutateMap { map ->
-      map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds())
-    }
+    write { it.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds()) }
   }
 
   override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
-    mutateMap { map ->
-      map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId())
-    }
+    write { it.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
 
   override fun addCustomVectorSource(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean {
+  ): StyleCommand {
     val coordinator =
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-vector-$sourceId",
@@ -450,41 +461,33 @@ internal open class MlnFfiStyleBinding(
             throw error
           }
         },
-        deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
+        deliver = { map, tile, data ->
+          map.discarding.setCustomMvtVectorSourceTileData(sourceId, tile, data)
+        },
         fail = { map, tile, error ->
           customTileFailed(error)
-          map.setCustomMvtVectorSourceTileError(
+          map.discarding.setCustomMvtVectorSourceTileError(
             sourceId,
             tile,
             error.message ?: "Tile loading failed",
           )
         },
       )
-    val callback =
-      object : CustomMvtVectorSourceCallback {
-        override fun fetchTile(tileId: CanonicalTileId) {
-          coordinator.fetch(tileId)
-        }
-
-        override fun cancelTile(tileId: CanonicalTileId) {
-          coordinator.cancel(tileId)
-        }
-      }
     return installCoordinator(sourceId, coordinator) { map ->
       map.addCustomMvtVectorSource(
         sourceId,
-        CustomMvtVectorSourceOptions(callback).also {
-          it.minZoom = options.minZoom.toDouble()
-          it.maxZoom = options.maxZoom.toDouble()
-        },
+        CustomMvtVectorSourceOptions(
+          fetchTile = coordinator::fetch,
+          cancelTile = coordinator::cancel,
+          minZoom = options.minZoom.toDouble(),
+          maxZoom = options.maxZoom.toDouble(),
+        ),
       )
     }
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    mutateMap { map ->
-      map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId())
-    }
+    write { it.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
 
   /**
@@ -494,77 +497,85 @@ internal open class MlnFfiStyleBinding(
   private fun installCoordinator(
     sourceId: String,
     coordinator: MlnFfiTileRequestCoordinator<*>,
-    add: (MapHandle) -> Unit,
-  ): Boolean {
-    // Checked under the lock that invalidate() takes after unloading, so no coordinator outlives
-    // the style.
-    val replaced = tileLock.withLock {
-      if (isLoaded) tileCoordinators.put(sourceId, coordinator) else coordinator
-    }
-    replaced?.close()
-    val added =
-      try {
-        addSourceWith(sourceId, add)
-      } catch (error: Throwable) {
-        removeTileCoordinator(sourceId)
-        throw error
-      }
-    if (!added) removeTileCoordinator(sourceId)
+    add: (MapHandle) -> Deferred<CommandCompletion>,
+  ): StyleCommand {
+    if (!isLoaded) coordinator.close()
+    val added = addSourceWith(add)
+    if (isLoaded) tileCoordinators.replaceWhile(sourceId, coordinator, added) { it.isClosed }
     return added
   }
 
-  private fun removeTileCoordinator(sourceId: String) {
-    tileLock.withLock { tileCoordinators.remove(sourceId) }?.close()
-  }
-
-  override fun sourceExists(sourceId: String): Boolean? = withMap { map ->
-    map.styleSourceExists(sourceId)
+  /**
+   * Serves [sourceId] with [coordinator] once [added] is submitted. The previous coordinator keeps
+   * its source's data until the engine has answered: an accepted add closes it, and a rejected one,
+   * which leaves the previous source in place, gives it back the ID.
+   */
+  private fun <C : AutoCloseable> MutableMap<String, C>.replaceWhile(
+    sourceId: String,
+    coordinator: C,
+    added: StyleCommand,
+    isClosed: (C) -> Boolean,
+  ) {
+    val previous = put(sourceId, coordinator)
+    added.invokeOnCompletion { error ->
+      if (error == null) {
+        previous?.close()
+        return@invokeOnCompletion
+      }
+      if (get(sourceId) === coordinator) {
+        if (previous != null && !isClosed(previous)) put(sourceId, previous) else remove(sourceId)
+      }
+      coordinator.close()
+    }
   }
 
   override fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean {
+  ): StyleCommand {
     val corners = coordinates.map { it.toLatLng() }
-    return addSourceWith(sourceId) { map ->
+    return addSourceWith { map ->
       map.addImageSourceImage(sourceId, corners, image.pixels.ffi)
     }
   }
 
   override fun setImageSourceImage(sourceId: String, image: PreparedImage) {
-    mutateMap { map -> map.setImageSourceImage(sourceId, image.pixels.ffi) }
+    write { it.setImageSourceImage(sourceId, image.pixels.ffi) }
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    mutateMap { map -> map.setImageSourceUrl(sourceId, url) }
+    write { it.setImageSourceUrl(sourceId, url) }
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     val corners = coordinates.map { it.toLatLng() }
-    mutateMap { map -> map.setImageSourceCoordinates(sourceId, corners) }
+    write { it.setImageSourceCoordinates(sourceId, corners) }
   }
 
   override fun addGeoJsonSource(
     sourceId: String,
     data: GeoJsonData,
     options: GeoJsonOptions,
-  ): Boolean {
+  ): StyleCommand {
     val ffiOptions = options.toFfiOptions()
-    return addSourceWith(sourceId) { map ->
+    val added = addSourceWith { map ->
       if (data is GeoJsonData.Uri) {
-        map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
+        map.addGeojsonSourceUrl(sourceId, data.uri, ffiOptions)
       } else {
-        GeoJsonSourceDataHandle.create(EmptyFeatureCollection, ffiOptions).use { empty ->
-          map.addGeoJsonSourceData(sourceId, empty)
+        // Native leases the data at submission, so the handle closes as soon as this returns.
+        GeneratedApi.geojsonSourceDataCreate(EmptyFeatureCollection, ffiOptions).use { empty ->
+          map.addGeojsonSourceData(sourceId, empty)
         }
       }
-      val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
-      // Register initial data before notifying source observers, which can submit newer data.
-      if (data !is GeoJsonData.Uri) {
-        coordinator.submit(data) { error("Expected inline data") }
-      }
     }
+    val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
+    geoJsonCoordinators.replaceWhile(sourceId, coordinator, added) { it.isClosed }
+    // Register initial data before notifying source observers, which can submit newer data.
+    if (data !is GeoJsonData.Uri) {
+      coordinator.submit(data) { error("Expected inline data") }
+    }
+    return added
   }
 
   override fun submitGeoJsonData(
@@ -572,108 +583,93 @@ internal open class MlnFfiStyleBinding(
     data: GeoJsonData,
     fallbackOptions: GeoJsonOptions,
   ) {
-    withMap { map ->
-      val coordinator =
-        geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
-          ?: geoJsonCoordinator(
+    requireCurrent()
+    val coordinator =
+      geoJsonCoordinators[sourceId]
+        ?: geoJsonCoordinator(
             sourceId,
-            loadedGeoJsonOptions(map, sourceId) ?: fallbackOptions.toFfiOptions(),
+            loadedGeoJsonOptions(sourceId) ?: fallbackOptions.toFfiOptions(),
           )
-      try {
-        coordinator.submit(data) { url -> map.setGeoJsonSourceUrl(sourceId, url) }
-      } catch (error: MaplibreException) {
-        val failure = StyleMutationException(error.message, error)
-        sourceDataFailed(identity, sourceId, failure)
-        throw failure
-      }
+          .also { geoJsonCoordinators[sourceId] = it }
+    try {
+      coordinator.submit(data) { url -> write { it.setGeojsonSourceUrl(sourceId, url) } }
+    } catch (error: StyleMutationException) {
+      sourceDataFailed(identity, sourceId, error)
+      throw error
     }
   }
 
   private fun prepareGeoJson(
     data: GeoJsonData,
-    options: GeoJsonSourceOptions,
-  ): GeoJsonSourceDataHandle =
+    options: GeojsonSourceOptions,
+  ): GeojsonSourceDataHandle =
     try {
-      GeoJsonSourceDataHandle.create(checkNotNull(data.toInlineUtf8()), options)
+      GeneratedApi.geojsonSourceDataCreate(checkNotNull(data.toInlineUtf8()), options)
     } catch (error: Throwable) {
       if (error is CancellationException) throw error
       rethrowIfFatal(error)
       throw StyleMutationException(error.message, error)
     }
 
-  /** Called on the owner thread. Each replacement gets a new coordinator and fixed options. */
+  /** Each source installation gets a new coordinator with fixed options. */
   private fun geoJsonCoordinator(
     sourceId: String,
-    options: GeoJsonSourceOptions,
-  ): MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle> {
+    options: GeojsonSourceOptions,
+  ): MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle> {
     val coordinator =
       MlnFfiGeoJsonCoordinator(
         prepare = { data -> prepareGeoJson(data, options) },
-        // Not cancellable: the prepared data is freed when install returns.
-        install = { prepared, isCurrent ->
-          if (isLoaded) {
-            loop.await(cancellable = false) { map ->
-              if (isLoaded && isCurrent()) map.setGeoJsonSourceData(sourceId, prepared)
+        // Native leases the prepared data at submission; the wait reports its outcome.
+        install = install@{ prepared, isCurrent ->
+            withContext(owner.mainDispatcher) {
+              if (!isLoaded || !isCurrent()) return@withContext
+              val completion = map.setGeojsonSourceData(sourceId, prepared).await()
+              if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
             }
-          }
-        },
+          },
         reportFailure = { error, isCurrent ->
-          if (isLoaded) {
-            loop.await(cancellable = false) {
-              if (isLoaded && isCurrent()) {
-                logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
-                sourceDataFailed(identity, sourceId, error)
-              }
+          withContext(owner.mainDispatcher) {
+            if (isLoaded && isCurrent()) {
+              logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
+              sourceDataFailed(identity, sourceId, error)
             }
           }
         },
       )
-    geoJsonLock
-      .withLock {
-        if (!isLoaded) {
-          coordinator.close()
-          requireCurrent()
-        }
-        geoJsonCoordinators.put(sourceId, coordinator)
-      }
-      ?.close()
+    requireCurrent()
     return coordinator
   }
 
   /** Native still-image requests must include data submitted by the desired revision. */
   internal suspend fun awaitGeoJsonUpdates() {
-    // The owner barrier includes accepted URL updates and newly created coordinators.
-    val coordinators = awaitOwner { geoJsonLock.withLock { geoJsonCoordinators.values.toList() } }
-    coordinators?.forEach { it.awaitLatest() }
+    geoJsonCoordinators.values.toList().forEach { it.awaitLatest() }
     requireCurrent()
   }
 
-  private fun loadedGeoJsonOptions(map: MapHandle, sourceId: String): GeoJsonSourceOptions? {
-    val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull() as? JsonObject
-    val sources = document?.get("sources") as? JsonObject
-    val source = sources?.get(sourceId) as? JsonObject ?: return null
+  private fun loadedGeoJsonOptions(sourceId: String): GeojsonSourceOptions? {
+    val source = declaredSources[sourceId] as? JsonObject ?: return null
     if ((source["type"] as? JsonPrimitive)?.content != "geojson") return null
     val defaults = GeoJsonOptions.Standard
     val minZoom = (source["minzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.minZoom.toDouble()
     val maxZoom = (source["maxzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.maxZoom.toDouble()
-    return GeoJsonSourceOptions().also { options ->
-      options.minZoom = minZoom
-      options.maxZoom = maxZoom
-      options.tolerance =
-        (source["tolerance"] as? JsonPrimitive)?.doubleOrNull ?: defaults.tolerance.toDouble()
-      options.buffer = (source["buffer"] as? JsonPrimitive)?.intOrNull ?: defaults.buffer
-      options.cluster = (source["cluster"] as? JsonPrimitive)?.booleanOrNull ?: defaults.cluster
-      options.clusterRadius =
-        (source["clusterRadius"] as? JsonPrimitive)?.intOrNull ?: defaults.clusterRadius
-      options.clusterMaxZoom =
-        (source["clusterMaxZoom"] as? JsonPrimitive)?.doubleOrNull ?: maxZoom - 1.0
-      options.clusterMinPoints =
-        (source["clusterMinPoints"] as? JsonPrimitive)?.intOrNull ?: defaults.clusterMinPoints
-      options.lineMetrics =
-        (source["lineMetrics"] as? JsonPrimitive)?.booleanOrNull ?: defaults.lineMetrics
-      options.synchronousTiling = defaults.synchronousTiling
-      options.clusterProperties = (source["clusterProperties"] as? JsonObject)?.toJsonBytes()
-    }
+    return GeojsonSourceOptions(
+      minZoom = minZoom,
+      maxZoom = maxZoom,
+      tolerance =
+        (source["tolerance"] as? JsonPrimitive)?.doubleOrNull ?: defaults.tolerance.toDouble(),
+      buffer = ((source["buffer"] as? JsonPrimitive)?.intOrNull ?: defaults.buffer).toUInt(),
+      cluster = (source["cluster"] as? JsonPrimitive)?.booleanOrNull ?: defaults.cluster,
+      clusterRadius =
+        ((source["clusterRadius"] as? JsonPrimitive)?.intOrNull ?: defaults.clusterRadius).toUInt(),
+      clusterMaxZoom = (source["clusterMaxZoom"] as? JsonPrimitive)?.doubleOrNull ?: maxZoom - 1.0,
+      clusterMinPoints =
+        ((source["clusterMinPoints"] as? JsonPrimitive)?.intOrNull ?: defaults.clusterMinPoints)
+          .toUInt(),
+      lineMetrics =
+        (source["lineMetrics"] as? JsonPrimitive)?.booleanOrNull ?: defaults.lineMetrics,
+      synchronousTiling = defaults.synchronousTiling,
+      clusterProperties = (source["clusterProperties"] as? JsonObject)?.toJsonBytes(),
+    )
   }
 
   override suspend fun clusterExpansionZoom(
@@ -722,6 +718,14 @@ internal open class MlnFfiStyleBinding(
     return leaves
   }
 
+  /** The render session for a feature query, or null when none has drawn a frame yet. */
+  private fun readySession(): RenderSessionHandle? {
+    requireCurrent()
+    return renderSessions.readySession().also {
+      if (it == null) logger?.d { "Ignoring a render session call: no session is ready yet" }
+    }
+  }
+
   /**
    * Runs one supercluster query against the render session. Returns null when the feature carries
    * no cluster id, when no render session is attached yet, or when the engine reports no cluster.
@@ -735,22 +739,19 @@ internal open class MlnFfiStyleBinding(
     arguments: ByteArray? = null,
   ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
+    val session = readySession() ?: return null
     return try {
-      awaitRenderSession { session ->
-        session.queryFeatureExtension(
-          sourceId,
-          ffiFeature,
-          SuperclusterExtension,
-          field,
-          arguments,
-        )
-      }
+      session
+        .queryFeatureExtensions(sourceId, ffiFeature, SuperclusterExtension, field, arguments)
+        .await()
     } catch (error: MaplibreException) {
       // Supercluster's missing-cluster error reaches the C API only as this diagnostic text.
-      if (error is NativeErrorException && error.diagnostic == MissingClusterDiagnostic) {
+      if (error.status == Status.NATIVE_ERROR && error.diagnostic == MissingClusterDiagnostic) {
         logger?.w { "Cluster '$field' query matched no cluster in source '$sourceId'" }
         return null
       }
+      // A session that detached during the query has nothing to answer with.
+      if (error.status == Status.INVALID_STATE || error.status == Status.TARGET_LOST) return null
       throw StyleHandleException(
         "Cluster '$field' query failed in source '$sourceId': ${error.message}",
         error,
@@ -789,21 +790,19 @@ internal open class MlnFfiStyleBinding(
   ): () -> Unit {
     val bytes = state.toJsonBytes()
     val selector = featureStateSelector(sourceId, sourceLayerId, featureId)
-    return { mutateMap { map -> map.setFeatureState(selector, bytes) } }
+    return { write { it.setFeatureState(selector, bytes) } }
   }
 
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
-  ): JsonObject = withMap { map ->
+  ): JsonObject =
     Json.parseToJsonElement(
-        map
-          .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
+        query { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) }
           .decodeToString(),
       )
       .jsonObject
-  }
 
   override fun removeFeatureState(
     sourceId: String,
@@ -811,15 +810,13 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     stateKey: String?,
   ) {
-    mutateMap { map ->
-      map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
+    write {
+      it.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
     }
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    mutateMap { map ->
-      map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
-    }
+    write { it.removeFeatureState(featureStateSelector(sourceId, sourceLayerId)) }
   }
 
   /** Empty rather than an exception when no render session is attached. */
@@ -830,27 +827,34 @@ internal open class MlnFfiStyleBinding(
   ): List<Feature<Geometry, JsonObject?>> {
     if (sourceLayerIds.isEmpty()) return emptyList()
     val options =
-      SourceFeatureQueryOptions().also {
-        it.sourceLayerIds = sourceLayerIds.toList()
-        it.filter = filter?.toJsonBytes()
-      }
+      SourceFeatureQueryOptions(
+        sourceLayerIds = sourceLayerIds.toList(),
+        filter = filter?.toJsonBytes(),
+      )
+    val session = readySession() ?: return emptyList()
     val result =
-      awaitRenderSession { session -> session.querySourceFeatures(sourceId, options) }
-        ?: return emptyList()
+      try {
+        session.querySourceFeatures(sourceId, options).await()
+      } catch (error: MaplibreException) {
+        // A session that detached or lost its target during the query has nothing to answer with.
+        if (error.status == Status.INVALID_STATE || error.status == Status.TARGET_LOST) {
+          return emptyList()
+        }
+        throw error
+      }
     return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = mutateMap { map ->
-    map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
-    true
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand = command {
+    it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
   }
 
-  override fun removeLayer(layerId: String) {
-    mutateMap { map -> map.removeStyleLayer(layerId) }
+  override fun removeLayer(layerId: String): StyleCommand = command {
+    it.removeStyleLayer(layerId)
   }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) {
-    mutateMap { map -> map.moveStyleLayer(layerId, beforeLayerId) }
+  override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand = command {
+    it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null })
   }
 
   override fun setLayerProperty(
@@ -859,97 +863,90 @@ internal open class MlnFfiStyleBinding(
     value: JsonElement,
     kind: LayerPropertyKind,
   ) {
-    mutateMap { map ->
-      when {
-        kind == LayerPropertyKind.Root && name == "filter" ->
-          map.setLayerFilter(layerId, value.toJsonBytes())
-        kind != LayerPropertyKind.Root -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-        name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
-        name == "source-layer" ->
-          map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
-        name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
-        name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
-        else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-      }
+    write("Layer '$layerId' property '$name'", value) {
+      it.setStyleLayerProperty(layerId, name, value.toJsonBytes())
+    }
+  }
+
+  override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
+    writes.forEach { change ->
+      setLayerProperty(change.layerId, change.name, change.value, change.kind)
     }
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutateMap { map ->
-      map.setLayerFilter(layerId, filter.toJsonBytes())
-    }
+    setLayerProperty(layerId, "filter", filter, LayerPropertyKind.Root)
   }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? = withMap { map ->
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
     when (name) {
-      "id" -> JsonPrimitive(layerId)
-      "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
-      "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-      "source-layer" ->
-        map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-      "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "filter" -> map.layerFilter(layerId)?.toJsonElement()
-      else -> map.layerProperty(layerId, name)?.toJsonElement()
+      "id" -> query { it.getStyleLayer(layerId) }?.id?.let(::JsonPrimitive)
+      "type" -> query { it.getStyleLayer(layerId) }?.type?.let(::JsonPrimitive)
+      else -> query { it.getStyleLayerProperty(layerId, name) }?.toJsonElement()
     }
-  }
 
   /** An unset native duration applies paint changes instantly, so it reads as zero. */
-  override fun transition(): TransitionOptions? = withMap { map ->
-    val options = map.styleTransitionOptions()
-    TransitionOptions(
+  override suspend fun transition(): TransitionOptions? {
+    val options = query { it.getStyleTransitionOptions() }
+    return TransitionOptions(
       duration = options.durationMs?.milliseconds ?: Duration.ZERO,
       delay = options.delayMs?.milliseconds ?: Duration.ZERO,
     )
   }
 
-  /** Native replaces every field on write, so the placement flag is read back first. */
+  private var transitionOptions =
+    org.maplibre.nativeffi.generated.StyleTransitionOptions(
+      durationMs =
+        ((contents.document?.get("transition") as? JsonObject)?.get("duration") as? JsonPrimitive)
+          ?.doubleOrNull,
+      delayMs =
+        ((contents.document?.get("transition") as? JsonObject)?.get("delay") as? JsonPrimitive)
+          ?.doubleOrNull,
+      enablePlacementTransitions = true,
+    )
+
   override fun setTransition(options: TransitionOptions) {
-    mutateMap { map ->
-      map.setStyleTransitionOptions(
-        map.styleTransitionOptions().copy {
-          durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS)
-          delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS)
-        },
+    val next =
+      transitionOptions.copy(
+        durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS),
+        delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS),
       )
-    }
+    write("The style transition") { it.setStyleTransitionOptions(next) }
+    transitionOptions = next
   }
 
   override val supportsPlacementTransitions: Boolean = true
 
-  override fun placementTransitions(): Boolean? = withMap { map ->
-    map.styleTransitionOptions().enablePlacementTransitions ?: true
-  }
+  override suspend fun placementTransitions(): Boolean? =
+    query { it.getStyleTransitionOptions() }.enablePlacementTransitions ?: true
 
   override fun setPlacementTransitions(enabled: Boolean) {
-    mutateMap { map ->
-      map.setStyleTransitionOptions(
-        map.styleTransitionOptions().copy { enablePlacementTransitions = enabled },
-      )
-    }
+    val next = transitionOptions.copy(enablePlacementTransitions = enabled)
+    write("The placement transition setting") { it.setStyleTransitionOptions(next) }
+    transitionOptions = next
   }
 
-  override fun globalState(): JsonObject? = withMap { map ->
-    Json.parseToJsonElement(map.getGlobalState().decodeToString()).jsonObject
-  }
+  override suspend fun globalState(): JsonObject? =
+    Json.parseToJsonElement(query { it.getGlobalState() }.decodeToString()).jsonObject
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     val bytes = value.toJsonBytes()
-    mutateMap { map -> map.setGlobalStateProperty(name, bytes) }
+    write("Global state '$name'", value) { it.setGlobalStateProperty(name, bytes) }
   }
 
-  override fun lightProperty(name: String): JsonElement? = withMap { map ->
-    map.styleLightProperty(name)?.toJsonElement()
+  override suspend fun lightProperty(name: String): JsonElement? = query {
+    it.getStyleLightProperty(name)
   }
+    ?.toJsonElement()
 
   override fun setLight(light: JsonObject) {
     val bytes = light.toJsonBytes()
-    mutateMap { map -> map.setStyleLightJson(bytes) }
+    write("The light", light) { it.setStyleLightJson(bytes) }
   }
 
   override val supportsSky: Boolean = false
 
-  override fun skyProperty(name: String): JsonElement? {
+  override suspend fun skyProperty(name: String): JsonElement? {
     requireCurrent()
     return null
   }
@@ -961,7 +958,7 @@ internal open class MlnFfiStyleBinding(
 
   override val supportsProjection: Boolean = false
 
-  override fun projectionProperty(name: String): JsonElement? {
+  override suspend fun projectionProperty(name: String): JsonElement? {
     requireCurrent()
     return null
   }
@@ -971,10 +968,6 @@ internal open class MlnFfiStyleBinding(
     if (projection["type"] != JsonPrimitive("mercator")) {
       logger?.w { "MapLibre Native supports only the Mercator projection" }
     }
-  }
-
-  override fun layerExists(layerId: String): Boolean? = withMap { map ->
-    map.styleLayerExists(layerId)
   }
 
   // A property's transition travels the same write path, and native refuses it as hard as the
@@ -1017,30 +1010,22 @@ internal open class MlnFfiStyleBinding(
   }
 }
 
-private fun JsonElement.requireRootString(layerId: String, name: String): String =
-  (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a string", null)
-
-private fun JsonElement.requireRootNumber(layerId: String, name: String): Double =
-  (this as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
-    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a number", null)
-
 /** The same options that the definition writes into source JSON, as the typed adder takes them. */
-private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
-  GeoJsonSourceOptions().also {
-    it.minZoom = minZoom.toDouble()
-    it.maxZoom = maxZoom.toDouble()
-    it.tolerance = tolerance.toDouble()
-    it.buffer = buffer
-    it.cluster = cluster
-    it.clusterRadius = clusterRadius
-    it.clusterMaxZoom = clusterMaxZoom.toDouble()
-    it.clusterMinPoints = clusterMinPoints
-    it.lineMetrics = lineMetrics
+private fun GeoJsonOptions.toFfiOptions(): GeojsonSourceOptions =
+  GeojsonSourceOptions(
+    minZoom = minZoom.toDouble(),
+    maxZoom = maxZoom.toDouble(),
+    tolerance = tolerance.toDouble(),
+    buffer = buffer.toUInt(),
+    cluster = cluster,
+    clusterRadius = clusterRadius.toUInt(),
+    clusterMaxZoom = clusterMaxZoom.toDouble(),
+    clusterMinPoints = clusterMinPoints.toUInt(),
+    lineMetrics = lineMetrics,
     // Viewport tiles are sliced during the next render when true, or on a worker when false.
-    it.synchronousTiling = synchronousTiling
-    it.clusterProperties = clusterPropertiesBytes()
-  }
+    synchronousTiling = synchronousTiling,
+    clusterProperties = clusterPropertiesBytes(),
+  )
 
 private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   if (clusterProperties.isEmpty()) return null

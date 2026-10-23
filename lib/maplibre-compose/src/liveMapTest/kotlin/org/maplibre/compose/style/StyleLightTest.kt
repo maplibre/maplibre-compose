@@ -62,7 +62,8 @@ class StyleLightTest {
           light.set(Light(anchor = null, intensity = const("bright").cast<FloatValue>()))
           assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
           assertNull(light.getProperty("intensity"))
-          assertEquals(2, warnings.count { it.startsWith("The light") }, "Warnings: $warnings")
+          fixture.pumpUntil("both light rejection warnings") { warnings.size == 2 }
+          assertEquals(2, warnings.size, "Warnings: $warnings")
         }
       }
     }

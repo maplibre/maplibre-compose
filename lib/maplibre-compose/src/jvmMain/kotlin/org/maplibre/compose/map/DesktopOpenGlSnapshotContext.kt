@@ -1,60 +1,45 @@
 package org.maplibre.compose.map
 
 import org.maplibre.compose.desktop.bridge.DesktopEglContext
-import org.maplibre.compose.desktop.bridge.WindowsWglContext
-import org.maplibre.nativeffi.render.EglContextDescriptor
-import org.maplibre.nativeffi.render.NativePointer
-import org.maplibre.nativeffi.render.OpenGLContextDescriptor
-import org.maplibre.nativeffi.render.OpenGLContextOwnership
-import org.maplibre.nativeffi.render.WglContextDescriptor
+import org.maplibre.compose.mlnffi.EglContextHandles
+import org.maplibre.nativeffi.generated.OpenglClientApi
+import org.maplibre.nativeffi.generated.OpenglContextDescriptor
+import org.maplibre.nativeffi.generated.OpenglContextOwnership
 
-/** Owns the share context used by an FFI OpenGL snapshot texture session. */
-internal sealed interface DesktopOpenGlSnapshotContext : AutoCloseable {
-  val descriptor: OpenGLContextDescriptor
+/**
+ * The EGL display and config of an FFI OpenGL snapshot texture session. The session creates a
+ * private context of its own from them, so it renders and reads back on its native core worker.
+ */
+internal class DesktopOpenGlSnapshotContext private constructor(metalDevice: Long?) :
+  AutoCloseable {
+  private val context = DesktopEglContext.create(metalDevice)
+
+  // The private context uses the API that the config was chosen for: GLES through ANGLE on macOS,
+  // desktop OpenGL on Linux.
+  private val clientApi = if (metalDevice != null) OpenglClientApi.GLES else OpenglClientApi.GL
+
+  val descriptor: OpenglContextDescriptor
+    get() =
+      context.handles
+        .copy(ownership = OpenglContextOwnership.DEDICATED, clientApi = clientApi)
+        .let(EglContextHandles::toFfi)
+
+  override fun close() = context.close()
 
   companion object {
-    /** Creates share contexts on [os], or null when [os] has no offscreen OpenGL provider. */
+    /**
+     * Creates contexts on [os], or null when [os] has no EGL provider. A WGL context offers no
+     * private session context, so Windows renders OpenGL snapshots only through Vulkan.
+     */
     fun provider(os: String): (() -> DesktopOpenGlSnapshotContext)? =
       when {
-        os.contains("linux") -> ::EglSnapshotContext
-        os.contains("windows") -> ::WglSnapshotContext
-        os.contains("mac") -> ::angleMetalSnapshotContext
+        os.contains("linux") -> { ->
+          DesktopOpenGlSnapshotContext(null)
+        }
+        os.contains("mac") -> { ->
+          DesktopOpenGlSnapshotContext(0L)
+        }
         else -> null
       }
   }
-}
-
-private class WglSnapshotContext : DesktopOpenGlSnapshotContext {
-  private val context = WindowsWglContext.create()
-  override val descriptor: OpenGLContextDescriptor
-    get() =
-      context.handles.let {
-        WglContextDescriptor(
-          deviceContext = NativePointer.ofAddress(it.deviceContext.address),
-          shareContext = NativePointer.ofAddress(it.shareContext.address),
-          getProcAddress = NativePointer.ofAddress(it.getProcAddress.address),
-          ownership = OpenGLContextOwnership.SHARED,
-        )
-      }
-
-  override fun close() = context.close()
-}
-
-private fun angleMetalSnapshotContext() = EglSnapshotContext(metalDevice = 0L)
-
-private class EglSnapshotContext(metalDevice: Long? = null) : DesktopOpenGlSnapshotContext {
-  private val context = DesktopEglContext.create(metalDevice)
-  override val descriptor: OpenGLContextDescriptor
-    get() =
-      context.handles.let {
-        EglContextDescriptor(
-          display = NativePointer.ofAddress(it.display.address),
-          config = NativePointer.ofAddress(it.config.address),
-          shareContext = NativePointer.ofAddress(it.shareContext.address),
-          getProcAddress = NativePointer.ofAddress(it.getProcAddress.address),
-          ownership = OpenGLContextOwnership.SHARED,
-        )
-      }
-
-  override fun close() = context.close()
 }

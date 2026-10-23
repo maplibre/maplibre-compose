@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
@@ -18,6 +19,8 @@ public actual class PlatformMapScope internal constructor(private val engineMap:
 // Exposes MapLibre GL JS bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
-  val session = lifecycle.presentationAdapterForPlatformAccess() as GlJsMapSession
-  return session.withPlatformMap(block)
+  return withContext(runtime.mainDispatcher) {
+    val session = lifecycle.presentationAdapterForPlatformAccess() as GlJsMapSession
+    session.withPlatformMap(block)
+  }
 }

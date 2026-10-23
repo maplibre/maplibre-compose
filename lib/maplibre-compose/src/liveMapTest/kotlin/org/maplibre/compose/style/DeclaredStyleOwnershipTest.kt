@@ -22,6 +22,7 @@ import org.maplibre.compose.sources.rememberImageSource
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
+import org.maplibre.compose.testing.readLayerIds
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.PreparedImage
@@ -48,8 +49,8 @@ class DeclaredStyleOwnershipTest {
       fixture.declare {}
       assertNull(fixture.state.style.sources["points"])
       assertNull(fixture.state.style.layers["points"])
-      val style = assertNotNull(fixture.style)
-      assertTrue("points" !in style.onOwner { style.layerIds() })
+      assertNotNull(fixture.style)
+      assertTrue("points" !in fixture.readLayerIds())
 
       fixture.declare { CircleLayer("points", source, visible = true) }
       assertNotNull(fixture.state.style.sources["points"])

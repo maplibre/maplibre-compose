@@ -1,42 +1,49 @@
 package org.maplibre.compose.resource
 
-import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.resource.HttpHeader
-import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
-import org.maplibre.nativeffi.resource.ResourceKind
-import org.maplibre.nativeffi.resource.ResourceTransformCallback
-import org.maplibre.nativeffi.runtime.RuntimeHandle
+import org.maplibre.compose.mlnffi.reportFailure
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.HttpHeaderTransform
+import org.maplibre.nativeffi.generated.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceTransform
+import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.generated.httpHeaderTransformResponseSetHeader
+import org.maplibre.nativeffi.generated.setHttpHeaderTransform
 
 /**
  * Installs the URL and header callbacks, each of which uses the interceptor in [config].
  *
- * Native invokes the two callbacks independently, on its network threads, and passes the header
- * callback the URL that the URL callback returned.
+ * Native invokes the callbacks independently and passes the header callback the URL that completed
+ * the URL transform request.
  */
 internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) {
-  try {
-    setHttpHeaderTransform(
-      HttpHeaderTransformCallback { request ->
-        val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-        config.interceptor.headersOrNone(mapRequest, config.logger).map {
-          HttpHeader(it.key, it.value)
-        }
-      },
+  // OpenHarmony and the browser FFI decline header transforms; that failure arrives here and leaves
+  // the URL transform in place.
+  setHttpHeaderTransform(
+      HttpHeaderTransform(
+        callback = { kind, url, response ->
+          val mapRequest = MapResourceRequest(url, kind.toCommon())
+          config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
+            GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
+          }
+        },
+      ),
     )
-  } catch (error: Throwable) {
-    rethrowIfFatal(error)
-    // OpenHarmony and the browser FFI decline header transforms.
-    config.logger?.w(error) {
-      "This platform declined the header transform; request interceptor headers are ignored"
-    }
-  }
+    .reportFailure(
+      config.logger,
+      "install the header transform; request interceptor headers are ignored",
+    )
   setResourceTransform(
-    ResourceTransformCallback { request ->
-      val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-      val url = config.interceptor.rewrittenUrl(mapRequest, config.logger)
-      if (url == request.url) null else url
-    },
-  )
+      ResourceTransform(
+        callback = { kind, url, request ->
+          request.use {
+            val mapRequest = MapResourceRequest(url, kind.toCommon())
+            val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
+            if (rewritten != url) it.complete(rewritten)
+          }
+        },
+      ),
+    )
+    .reportFailure(config.logger, "install the request interceptor's URL transform")
 }
 
 /** The kind with the same name in MapLibre GL JS, or the native number as decimal text. */
@@ -50,5 +57,5 @@ internal fun ResourceKind.toCommon(): MapResourceKind =
     ResourceKind.SPRITE_JSON -> MapResourceKind.SpriteJson
     ResourceKind.SPRITE_IMAGE -> MapResourceKind.SpriteImage
     ResourceKind.IMAGE -> MapResourceKind.Image
-    else -> MapResourceKind(nativeValue.toString())
+    else -> MapResourceKind(rawValue.toString())
   }

@@ -9,15 +9,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
@@ -33,17 +29,12 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
-import org.maplibre.compose.style.readMap
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -58,60 +49,59 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 class MlnFfiSurfaceLossTest {
 
   @Test
-  fun a_map_whose_surface_is_lost_and_restored_renders_again_with_its_style_and_camera_intact() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
-      it.loadStyle(Style)
-      it.session.setCameraPosition(Camera)
-      it.pumpUntilRendered()
-      it.pumpUntil("the map to reach its camera") {
-        abs(it.session.getCameraPosition().zoom - Camera.zoom) < Tolerance
-      }
-      val attachesBefore = it.attachCount
-      val styleLoadsBefore = it.events.count { event -> event == BridgeMapFixture.StyleLoaded }
+  fun a_map_whose_surface_is_lost_and_restored_renders_again_with_its_style_and_camera_intact() =
+    runMapTest {
+      BridgeMapFixture.create().use {
+        it.loadStyle(Style)
+        it.session.setCameraPosition(Camera)
+        it.awaitRendered()
+        it.awaitUntil("the map to reach its camera") {
+          abs(it.session.getCameraPosition().zoom - Camera.zoom) < Tolerance
+        }
+        val attachesBefore = it.attachCount
+        val styleLoadsBefore = it.events.count { event -> event == BridgeMapFixture.StyleLoaded }
 
-      it.loseSurface()
-      it.restoreSurface()
+        it.loseSurface()
+        it.restoreSurface()
 
-      // The map is idle, so nothing but the restore itself will ask for the re-attaching frame.
-      it.pumpUntilRendered()
+        // The map is idle, so nothing but the restore itself will ask for the re-attaching frame.
+        it.awaitRendered()
 
-      assertEquals(
-        attachesBefore + 1,
-        it.attachCount,
-        "the restored surface should have attached exactly one new render session",
-      )
-      assertEquals(
-        styleLoadsBefore,
-        it.events.count { event -> event == BridgeMapFixture.StyleLoaded },
-        "the style lives on the map, so surface loss should not have reloaded it",
-      )
-      val camera = it.session.getCameraPosition()
-      assertNear(Camera.zoom, camera.zoom, "zoom should survive surface loss")
-      assertNear(
-        Camera.center.longitude,
-        camera.center.longitude,
-        "longitude should survive surface loss",
-      )
-      assertNear(
-        Camera.center.latitude,
-        camera.center.latitude,
-        "latitude should survive surface loss",
-      )
-      assertTrue(
-        it.errors.isEmpty(),
-        "losing and restoring the surface reported errors: ${it.errors}",
-      )
-      // A presentation lease can end while its host remains available.
-      runBlocking {
+        assertEquals(
+          attachesBefore + 1,
+          it.attachCount,
+          "the restored surface should have attached exactly one new render session",
+        )
+        assertEquals(
+          styleLoadsBefore,
+          it.events.count { event -> event == BridgeMapFixture.StyleLoaded },
+          "the style lives on the map, so surface loss should not have reloaded it",
+        )
+        val camera = it.session.getCameraPosition()
+        assertNear(Camera.zoom, camera.zoom, "zoom should survive surface loss")
+        assertNear(
+          Camera.center.longitude,
+          camera.center.longitude,
+          "longitude should survive surface loss",
+        )
+        assertNear(
+          Camera.center.latitude,
+          camera.center.latitude,
+          "latitude should survive surface loss",
+        )
+        assertTrue(
+          it.errors.isEmpty(),
+          "losing and restoring the surface reported errors: ${it.errors}",
+        )
+        // A presentation lease can end while its host remains available.
         it.session.detachPresentation()
+        it.session.beginPresentationAttachment()
         it.session.attachPresentation()
-      }
-      it.pumpUntil("the retained host to render a new attachment") {
-        it.attachCount == attachesBefore + 2
+        it.awaitUntil("the retained host to render a new attachment") {
+          it.attachCount == attachesBefore + 2
+        }
       }
     }
-  }
 
   /**
    * Losing a surface that never comes back, and then closing. Teardown closes the render session on
@@ -119,27 +109,26 @@ class MlnFfiSurfaceLossTest {
    * up must close without closing twice or waiting on a thread that is gone.
    */
   @Test
-  fun a_map_whose_surface_is_lost_closes_cleanly() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
+  fun a_map_whose_surface_is_lost_closes_cleanly() = runMapTest {
+    BridgeMapFixture.create().use {
       it.loadStyle(Style)
-      it.pumpUntilRendered()
+      it.awaitRendered()
       it.loseSurface()
       it.session.close()
       it.session.close()
+      it.session.awaitClosed()
     }
   }
 
   @Test
-  fun failed_renderer_release_finishes_camera_waiters_but_keeps_the_live_map() = runBlocking {
+  fun failed_renderer_release_finishes_camera_waiters_but_keeps_the_live_map() = runMapTest {
     val fixture = BridgeMapFixture.create()
     var closureFailure: Throwable? = null
     try {
       fixture.loadStyle(Style)
-      fixture.pumpUntilRendered()
+      fixture.awaitRendered()
       val session = fixture.session
-      val engine = checkNotNull(session.lifecycle.engine)
-      val map = checkNotNull(session.loop.map)
+      val map = checkNotNull(session.mapForTest)
       val animation =
         async(start = CoroutineStart.UNDISPATCHED) {
           session.animateCamera(
@@ -149,110 +138,94 @@ class MlnFfiSurfaceLossTest {
           )
         }
       fixture.awaitUntil("the camera animation to start") { session.getCameraPosition().zoom > 0.1 }
-      val ownerHeld = MlnFfiGate()
-      val entered = CompletableDeferred<Unit>()
-      session.loop.submit {
-        entered.complete(Unit)
-        ownerHeld.awaitUntilOpen()
-      }
-      entered.await()
       fixture.rendererEnqueueFailure = IllegalStateException("renderer cleanup unavailable")
       try {
         session.close()
         closureFailure = assertFailsWith<MapCleanupException> { session.awaitClosed() }
         withTimeout(5.seconds) { animation.await() }
-        assertSame(map, session.loop.map, "renderer failure must retain its map")
+        assertSame(map, session.mapForTest, "renderer failure must retain its map")
       } finally {
         fixture.rendererEnqueueFailure = null
-        ownerHeld.open()
         // Recover the deliberately failed handoff so this test releases its real GPU resources.
-        session.destroyEngine(engine)
+        session.stopMap()
       }
     } finally {
-      val cleanup = runCatching { fixture.close() }
+      val cleanup = runCatching { fixture.closeNow() }
       if (closureFailure == null) cleanup.getOrThrow()
       else assertSame(closureFailure.cause, cleanup.exceptionOrNull()?.cause)
     }
   }
 
   @Test
-  fun feature_state_accepts_mutations_without_a_surface_and_survives_its_replacement() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
-      it.loadStyle(BlackStyle)
-      it.session.setCameraPosition(
-        CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0),
-      )
-      val style = checkNotNull(it.style)
-      val source =
-        GeoJsonSource(
-          id = "points",
-          data =
-            GeoJsonData.Features(
-              buildFeatureCollection<Geometry, JsonObject?> {
-                addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
-              },
-            ),
+  fun feature_state_accepts_mutations_without_a_surface_and_survives_its_replacement() =
+    runMapTest {
+      BridgeMapFixture.create().use {
+        it.loadStyle(BlackStyle)
+        it.session.setCameraPosition(
+          CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0),
         )
-      runBlocking { style.install(source) }
-      val layer = TestLayer("circles", "circle", source)
-      layer.paint("circle-radius", (const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
-      layer.paint(
-        "circle-color",
-        (switch(
-              condition(
-                all(
-                  feature.state("before-surface").asBoolean(const(false)),
-                  feature.state("without-surface").asBoolean(const(false)),
-                ),
-                const(Color.Red),
+        val style = checkNotNull(it.style)
+        val source =
+          GeoJsonSource(
+            id = "points",
+            data =
+              GeoJsonData.Features(
+                buildFeatureCollection<Geometry, JsonObject?> {
+                  addFeature(geometry = Point(Position(0.0, 0.0))) { setId(1) }
+                },
               ),
-              fallback = const(Color.Blue),
-            )
-            .compile(ExpressionContext.None))
-          .asLayerProperty(),
-      )
-      runBlocking { style.install(layer) }
+          )
+        style.install(source)
+        val layer = TestLayer("circles", "circle", source)
+        layer.paint(
+          "circle-radius",
+          (const(48.dp).compile(ExpressionContext.None)).asLayerProperty(),
+        )
+        layer.paint(
+          "circle-color",
+          (switch(
+                condition(
+                  all(
+                    feature.state("before-surface").asBoolean(const(false)),
+                    feature.state("without-surface").asBoolean(const(false)),
+                  ),
+                  const(Color.Red),
+                ),
+                fallback = const(Color.Blue),
+              )
+              .compile(ExpressionContext.None))
+            .asLayerProperty(),
+        )
+        style.install(layer)
 
-      runBlocking {
-        style.onOwner {
-          style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
+        style.prepareFeatureStateUpdate(source.id, null, "1", state("before-surface"))()
+        it.awaitUntil("the incomplete feature state to render blue") {
+          it.tryReadPixel(Center, Center)?.isNear(Blue) == true
         }
-      }
-      it.pumpUntil("the incomplete feature state to render blue") {
-        it.tryReadPixel(Center, Center)?.isNear(Blue) == true
-      }
-      it.loseSurface()
-      assertEquals(null, it.tryReadPixel(Center, Center))
-      runBlocking {
-        style.onOwner {
-          style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
+        it.loseSurface()
+        assertEquals(null, it.tryReadPixel(Center, Center))
+        style.prepareFeatureStateUpdate(source.id, null, "1", state("without-surface"))()
+        assertEquals(
+          state("before-surface", "without-surface"),
+          style.featureState(source.id, null, "1"),
+        )
+        it.restoreSurface()
+        assertEquals(null, it.tryReadPixel(Center, Center))
+        it.awaitUntil("feature state to render on the replacement surface") {
+          it.tryReadPixel(Center, Center)?.isNear(Red) == true
         }
-      }
-      assertEquals(
-        state("before-surface", "without-surface"),
-        style.featureStateOnOwnerThread(source.id, "1"),
-      )
-      it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(Center, Center))
-      it.pumpUntil("feature state to render on the replacement surface") {
-        it.tryReadPixel(Center, Center)?.isNear(Red) == true
-      }
 
-      it.loseSurface()
-      assertEquals(null, it.tryReadPixel(Center, Center))
-      style.postOwner { style.resetFeatureStates(source.id, null) }
-      assertEquals(
-        JsonObject(emptyMap()),
-        style.featureStateOnOwnerThread(source.id, "1"),
-      )
-      it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(Center, Center))
-      it.pumpUntil("the reset feature state to render") {
-        it.tryReadPixel(Center, Center)?.isNear(Blue) == true
+        it.loseSurface()
+        assertEquals(null, it.tryReadPixel(Center, Center))
+        style.resetFeatureStates(source.id, null)
+        assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "1"))
+        it.restoreSurface()
+        assertEquals(null, it.tryReadPixel(Center, Center))
+        it.awaitUntil("the reset feature state to render") {
+          it.tryReadPixel(Center, Center)?.isNear(Blue) == true
+        }
       }
     }
-  }
 
   private companion object {
     /** Inline and layer-only, so the test needs no network to prove a style survived. */
@@ -292,21 +265,4 @@ class MlnFfiSurfaceLossTest {
       assertTrue(abs(expected - actual) < Tolerance, "$message (expected $expected, got $actual)")
     }
   }
-}
-
-/**
- * Reads a feature's state through the fixture's blocking owner-thread seam. The bridge fixture
- * drives the map without coroutines, so this stays off the suspend read a caller would use.
- */
-private fun StyleBinding.featureStateOnOwnerThread(
-  sourceId: String,
-  featureId: String,
-): JsonObject {
-  val bytes =
-    checkNotNull(
-      (this as MlnFfiStyleBinding).readMap { map ->
-        map.getFeatureState(featureStateSelector(sourceId, null, featureId))
-      },
-    )
-  return Json.parseToJsonElement(bytes.decodeToString()).jsonObject
 }

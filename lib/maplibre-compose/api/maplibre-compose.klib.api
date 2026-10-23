@@ -2139,7 +2139,7 @@ final class org.maplibre.compose.map/MutableMapStyleState { // org.maplibre.comp
 final class org.maplibre.compose.map/PlatformMapScope { // org.maplibre.compose.map/PlatformMapScope|null[0]
     final val map // org.maplibre.compose.map/PlatformMapScope.map|{}map[0]
         // Targets: [apple]
-        final fun <get-map>(): org.maplibre.nativeffi.map/MapHandle // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
+        final fun <get-map>(): org.maplibre.nativeffi.generated/MapHandle // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
 
         // Targets: [js]
         final fun <get-map>(): dynamic // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
@@ -5112,9 +5112,6 @@ final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrame
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop[0]
 
 // Targets: [apple]
-final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop[0]
-
-// Targets: [apple]
 final val org.maplibre.compose.offline/offlineStorage // org.maplibre.compose.offline/offlineStorage|@org.maplibre.compose.map.MapRuntime{}offlineStorage[0]
     final fun (org.maplibre.compose.map/MapRuntime).<get-offlineStorage>(): org.maplibre.compose.offline/OfflineStorage // org.maplibre.compose.offline/offlineStorage.<get-offlineStorage>|<get-offlineStorage>@org.maplibre.compose.map.MapRuntime(){}[0]
 
@@ -5222,9 +5219,6 @@ final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrame
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(){}[0]
-
-// Targets: [apple]
-final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiRuntime_Task$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(){}[0]

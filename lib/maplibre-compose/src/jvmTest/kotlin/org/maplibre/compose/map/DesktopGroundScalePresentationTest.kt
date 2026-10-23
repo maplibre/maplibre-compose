@@ -1,3 +1,5 @@
+@file:OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.size
@@ -7,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonObject
@@ -19,6 +22,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GroundScaleGlobalState
 import org.maplibre.compose.style.GroundScaleTolerance
 import org.maplibre.compose.style.groundScale as expectedGroundScale
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -35,35 +40,49 @@ class DesktopGroundScalePresentationTest {
             BaseStyle.Empty,
             cameraPosition = CameraPosition(center = Position(0.0, 0.0), zoom = 4.0),
           ) {}
-        fun groundScale(): Float? =
-          (state.currentMapAttachment?.adapter as? MlnFfiMapSession)
-            ?.readMap { it.getGlobalState().decodeToString() }
-            ?.let { Json.parseToJsonElement(it).jsonObject[GroundScaleGlobalState] }
-            ?.jsonPrimitive
-            ?.float
+        // The map queues the write in the same main turn that publishes a ready style or a new
+        // viewport, and runs commands in submission order, so a later read observes it.
+        suspend fun assertGroundScale(latitude: Double) {
+          val globalState =
+            Json.parseToJsonElement(
+                state.withPlatformMap { map.getGlobalState() }.await().decodeToString(),
+              )
+              .jsonObject
+          val written =
+            assertNotNull(globalState[GroundScaleGlobalState], "No ground scale was written")
+              .jsonPrimitive
+              .float
+          assertTrue(
+            abs(written / expectedGroundScale(latitude) - 1f) <= GroundScaleTolerance,
+            "Expected the ground scale at latitude $latitude, got $written",
+          )
+        }
+        fun presentsLatitude(latitude: Double): Boolean {
+          val center = state.currentMapAttachment?.viewport?.cameraPosition?.center ?: return false
+          return abs(center.latitude - latitude) < 1e-6
+        }
         try {
           setFfiTestMapContent(options) {
             MaplibreMap(state = state, modifier = Modifier.size(128.dp))
           }
-          fun holds(latitude: Double): Boolean {
-            val written = groundScale() ?: return false
-            return abs(written / expectedGroundScale(latitude) - 1f) <= GroundScaleTolerance
+          waitUntil(timeoutMillis = 10_000) {
+            state.style.loadState == StyleLoadState.Ready && presentsLatitude(0.0)
           }
-          waitUntil(timeoutMillis = 10_000) { holds(0.0) }
+          assertGroundScale(0.0)
           runOnIdle {
             state.setCameraPosition(CameraPosition(center = Position(0.0, 60.0), zoom = 4.0))
           }
-          waitUntil(timeoutMillis = 10_000) { holds(60.0) }
+          waitUntil(timeoutMillis = 10_000) { presentsLatitude(60.0) }
+          assertGroundScale(60.0)
           // A new style starts without global state; the map writes the current scale again.
           runOnIdle {
             assertNotNull(state.style.asMutable).baseStyle =
               BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
           }
           waitUntil(timeoutMillis = 10_000) {
-            state.style.baseStyle is BaseStyle.Json &&
-              state.style.loadState == StyleLoadState.Ready &&
-              holds(60.0)
+            state.style.baseStyle is BaseStyle.Json && state.style.loadState == StyleLoadState.Ready
           }
+          assertGroundScale(60.0)
         } finally {
           runtime.close()
           runtime.awaitClosed()

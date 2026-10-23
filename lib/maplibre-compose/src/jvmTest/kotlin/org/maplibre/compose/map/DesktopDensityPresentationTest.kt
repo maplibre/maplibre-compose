@@ -72,7 +72,8 @@ class DesktopDensityPresentationTest {
               frames.get() > 0
           }
           val firstAttachment = requireNotNull(state.currentMapAttachment)
-          val firstEngine = firstAttachment.adapter
+          val session = firstAttachment.adapter as MlnFfiMapSession
+          val firstEngine = requireNotNull(session.mapForTest)
           val beforeReplacement = frames.get()
           runOnIdle { density = Density(1f) }
           waitUntil(timeoutMillis = 10_000) {
@@ -83,18 +84,17 @@ class DesktopDensityPresentationTest {
               frames.get() > beforeReplacement
           }
           val replacement = requireNotNull(state.currentMapAttachment)
-          assertNotSame(firstEngine, replacement.adapter)
+          assertSame(session, replacement.adapter)
+          val replacementEngine = requireNotNull(session.mapForTest)
+          assertNotSame(firstEngine, replacementEngine)
           assertFalse(firstAttachment.isValid)
-          firstEngine.awaitClosed()
           val retainedCamera = state.cameraPosition
           assertEquals(camera.bearing, retainedCamera.bearing, 1e-4)
           assertEquals(camera.pitch, retainedCamera.pitch, 1e-4)
           assertEquals(camera.zoom, retainedCamera.zoom, 1e-4)
           assertEquals(camera.center.longitude, retainedCamera.center.longitude, 1e-4)
           assertEquals(camera.center.latitude, retainedCamera.center.latitude, 1e-4)
-          waitUntil(timeoutMillis = 10_000) {
-            "density-1.0-1.0" in (replacement.adapter as MlnFfiMapSession).currentStyleLayerIds()
-          }
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { "density-1.0-1.0" in it }
 
           val beforeReturn = frames.get()
           runOnIdle { density = Density(2f) }
@@ -106,13 +106,11 @@ class DesktopDensityPresentationTest {
               frames.get() > beforeReturn
           }
           val returned = requireNotNull(state.currentMapAttachment)
-          assertNotSame(firstEngine, returned.adapter)
-          assertNotSame(replacement.adapter, returned.adapter)
+          assertSame(session, returned.adapter)
+          assertNotSame(firstEngine, session.mapForTest)
+          assertNotSame(replacementEngine, session.mapForTest)
           assertFalse(replacement.isValid)
-          replacement.adapter.awaitClosed()
-          waitUntil(timeoutMillis = 10_000) {
-            "density-2.0-1.0" in (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
-          }
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { "density-2.0-1.0" in it }
 
           // Font scale changes declarative content but not native engine compatibility.
           val effectsBeforeFontScale = styleEffectStarts.get()
@@ -120,8 +118,7 @@ class DesktopDensityPresentationTest {
           waitUntil(timeoutMillis = 10_000) {
             observedDensity.get()?.fontScale == 1.5f
           }
-          waitUntil(timeoutMillis = 10_000) {
-            val layers = (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
+          waitUntilStyleLayers(session, timeoutMillis = 10_000) { layers ->
             "density-2.0-1.5" in layers && "density-2.0-1.0" !in layers
           }
           assertSame(returned, state.currentMapAttachment)

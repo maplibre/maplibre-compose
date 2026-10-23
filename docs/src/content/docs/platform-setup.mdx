@@ -74,7 +74,9 @@ Desktop apps package one runtime for each operating system and CPU they ship to.
 | Windows arm64 | —                                            | `maplibre-compose-runtime-vulkan-windows-arm64` | `maplibre-compose-runtime-opengl-windows-arm64` |
 
 We recommend Metal on macOS and Vulkan on Linux and Windows. The demo app
-packages these by default. Intel Macs are not supported.
+packages these by default. Intel Macs are not supported. On Windows, the OpenGL
+runtime shows maps but cannot capture
+[snapshots](/maplibre-compose/snapshotter/).
 
 For local development and Compose Desktop installers, select the runtime for the
 machine running Gradle. Build each installer on its target operating system. This

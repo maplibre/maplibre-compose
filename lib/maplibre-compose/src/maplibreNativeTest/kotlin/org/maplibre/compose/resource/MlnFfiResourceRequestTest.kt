@@ -12,32 +12,37 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
-import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
-import org.maplibre.compose.mlnffi.launchTestTask
-import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.nativeffi.resource.ResourceErrorReason
-import org.maplibre.nativeffi.resource.ResourceKind
-import org.maplibre.nativeffi.resource.ResourceLoadingMethod
-import org.maplibre.nativeffi.resource.ResourcePriority
-import org.maplibre.nativeffi.resource.ResourceRequest
-import org.maplibre.nativeffi.resource.ResourceResponse
-import org.maplibre.nativeffi.resource.ResourceResponseStatus
-import org.maplibre.nativeffi.resource.ResourceStoragePolicy
-import org.maplibre.nativeffi.resource.ResourceUsage
+import org.maplibre.compose.testing.runMapTest
+import org.maplibre.nativeffi.generated.ResourceErrorReason
+import org.maplibre.nativeffi.generated.ResourceKind
+import org.maplibre.nativeffi.generated.ResourceLoadingMethod
+import org.maplibre.nativeffi.generated.ResourcePriority
+import org.maplibre.nativeffi.generated.ResourceRange
+import org.maplibre.nativeffi.generated.ResourceRequestInfo
+import org.maplibre.nativeffi.generated.ResourceResponse
+import org.maplibre.nativeffi.generated.ResourceResponseStatus
+import org.maplibre.nativeffi.generated.ResourceStoragePolicy
+import org.maplibre.nativeffi.generated.ResourceUsage
 
-/** Long enough that a wait failing here means the thing waited for is not going to happen. */
-private const val WaitSeconds = 10L
+/**
+ * How long a read or load held open by a test waits to be released, so that a failed test does not
+ * strand the worker it holds.
+ */
+private const val HoldMillis = 10_000L
 
 /**
  * What the provider does with a request between taking it and answering it. Taking a request must
@@ -68,19 +73,19 @@ class MlnFfiResourceRequestTest {
       .also { providers += it }
 
   @Test
-  fun taking_a_request_returns_before_the_resource_is_read() {
-    val reading = TestLatch(1)
+  fun taking_a_request_returns_before_the_resource_is_read() = runTest {
+    val reading = CompletableDeferred<Unit>()
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
-      reading.countDown()
-      finishRead.await(WaitSeconds * 1_000)
+      reading.complete(Unit)
+      finishRead.await(HoldMillis)
       ok("late")
     }
     val request = RecordedRequest()
 
     provider.take(request, Url, Url)
 
-    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
+    reading.await()
     assertEquals(0, request.completions, "the request was answered before the read finished")
     finishRead.countDown()
     request.awaitAnswer()
@@ -89,7 +94,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_user_scope_cancelled_before_dispatch_still_closes_the_handle() {
+  fun a_user_scope_cancelled_before_dispatch_still_closes_the_handle() = runTest {
     val provider =
       MlnFfiResourceProvider(
           getLogger = { null },
@@ -136,8 +141,8 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_cancelled_user_load_is_cancelled_and_closed() {
-    val loading = TestLatch(1)
+  fun a_cancelled_user_load_is_cancelled_and_closed() = runTest {
+    val loading = CompletableDeferred<Unit>()
     val cancelled = AtomicBoolean(false)
     val provider =
       MlnFfiResourceProvider(getLogger = { null }).also {
@@ -149,13 +154,13 @@ class MlnFfiResourceRequestTest {
         load = {
           suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { cancelled.store(true) }
-            loading.countDown()
+            loading.complete(Unit)
           }
         },
       )
     val request = RecordedRequest()
     provider.takeUser(request, MapResourceLoadRequest(Url, MapResourceKind.Style), userProvider)
-    assertTrue(loading.await(WaitSeconds * 1_000), "the user load never started")
+    loading.await()
 
     request.cancel()
     request.awaitClose()
@@ -165,7 +170,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun replacing_a_style_cancels_the_native_request_and_its_user_load() {
+  fun replacing_a_style_cancels_the_native_request_and_its_user_load() = runMapTest {
     val loading = AtomicBoolean(false)
     val cancelled = AtomicBoolean(false)
     val userProvider =
@@ -186,14 +191,14 @@ class MlnFfiResourceRequestTest {
           "layers":[{"id":"raster","type":"raster","source":"tiles"}]}""",
         ),
       )
-      it.pumpUntil("the native request to start provider.load") { loading.load() }
+      it.awaitUntil("the native request to start provider.load") { loading.load() }
       it.session.setBaseStyle(BaseStyle.Empty)
-      it.pumpUntil("style replacement to cancel provider.load") { cancelled.load() }
+      it.awaitUntil("style replacement to cancel provider.load") { cancelled.load() }
     }
   }
 
   @Test
-  fun cancellation_during_registration_does_not_start_the_user_load() {
+  fun cancellation_during_registration_does_not_start_the_user_load() = runTest {
     val provider = MlnFfiResourceProvider(getLogger = { null }).also { providers += it }
     val loaded = AtomicBoolean(false)
     val userProvider =
@@ -214,18 +219,20 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun blocking_user_loads_leave_default_dispatcher_work_running() {
+  fun blocking_user_loads_leave_default_dispatcher_work_running() = runTest {
     val provider = MlnFfiResourceProvider(getLogger = { null }).also { providers += it }
     // More than a pool sized to the CPU count, such as Dispatchers.Default, runs at once.
     val loads = 32
-    val started = TestLatch(loads)
+    val started = AtomicInt(0)
+    val allStarted = CompletableDeferred<Unit>()
     val release = TestLatch(1)
     val userProvider =
       MapResourceProvider(
         accepts = { true },
         load = {
-          started.countDown()
-          release.await()
+          if (started.incrementAndFetch() == loads) allStarted.complete(Unit)
+          // Blocks its thread, as an application's blocking read would.
+          release.await(HoldMillis)
           MapResourceLoad.NoContent()
         },
       )
@@ -234,10 +241,10 @@ class MlnFfiResourceRequestTest {
       requests.forEach {
         provider.takeUser(it, MapResourceLoadRequest(Url, MapResourceKind.Tile), userProvider)
       }
-      assertTrue(started.await(WaitSeconds * 1_000), "blocking loads did not all run at once")
-      val defaultWork = TestLatch(1)
-      launchTestTask { defaultWork.countDown() }
-      assertTrue(defaultWork.await(WaitSeconds * 1_000), "blocking loads starved Default")
+      allStarted.await()
+      val defaultWork = CompletableDeferred<Unit>()
+      CoroutineScope(Dispatchers.Default).launch { defaultWork.complete(Unit) }
+      defaultWork.await()
     } finally {
       release.countDown()
     }
@@ -245,7 +252,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_provider_timeout_completes_an_active_request() {
+  fun a_provider_timeout_completes_an_active_request() = runTest {
     val provider =
       MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
@@ -312,7 +319,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_ffi_request_copies_into_the_load_request() {
     val ffi =
-      ResourceRequest(
+      ResourceRequestInfo(
         requestedUrl = "maplibre://tiles/1/2/3",
         resolvedUrl = "https://tiles.example.com/1/2/3.pbf",
         kind = ResourceKind.TILE,
@@ -320,7 +327,7 @@ class MlnFfiResourceRequestTest {
         priority = ResourcePriority.LOW,
         usage = ResourceUsage.OFFLINE,
         storagePolicy = ResourceStoragePolicy.VOLATILE,
-        range = ResourceRequest.ByteRange(0, 9),
+        range = ResourceRange(0u, 9u),
         priorModifiedUnixMs = 10,
         priorExpiresUnixMs = 20,
         priorEtag = "v1",
@@ -344,7 +351,7 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_load_request_names_the_default_ffi_values() {
     val load =
-      ResourceRequest(
+      ResourceRequestInfo(
           requestedUrl = Url,
           resolvedUrl = Url,
           kind = ResourceKind.STYLE,
@@ -368,14 +375,14 @@ class MlnFfiResourceRequestTest {
   @Test
   fun the_load_request_keeps_unnamed_values_as_their_number() {
     val load =
-      ResourceRequest(
+      ResourceRequestInfo(
           requestedUrl = Url,
           resolvedUrl = Url,
           kind = ResourceKind.STYLE,
-          loadingMethod = ResourceLoadingMethod(9),
-          priority = ResourcePriority(9),
-          usage = ResourceUsage(9),
-          storagePolicy = ResourceStoragePolicy(9),
+          loadingMethod = ResourceLoadingMethod(9u),
+          priority = ResourcePriority(9u),
+          usage = ResourceUsage(9u),
+          storagePolicy = ResourceStoragePolicy(9u),
           range = null,
           priorModifiedUnixMs = null,
           priorExpiresUnixMs = null,
@@ -390,7 +397,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_user_load_reaches_the_request_as_the_ffi_response() {
+  fun a_user_load_reaches_the_request_as_the_ffi_response() = runTest {
     val provider =
       MlnFfiResourceProvider(getLogger = { null }).also {
         providers += it
@@ -405,7 +412,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_cancelled_request_is_closed_without_being_read() {
+  fun a_cancelled_request_is_closed_without_being_read() = runTest {
     val provider = provider { _, _ -> ok("unwanted") }
     val request = RecordedRequest(cancelled = true)
 
@@ -418,23 +425,21 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun shutdown_returns_while_an_accepted_read_finishes_independently() {
-    val reading = TestLatch(1)
+  fun shutdown_returns_while_an_accepted_read_finishes_independently() = runTest {
+    val reading = CompletableDeferred<Unit>()
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
-      reading.countDown()
-      finishRead.await(WaitSeconds * 1_000)
+      reading.complete(Unit)
+      finishRead.await(HoldMillis)
       ok("in flight")
     }
     val request = RecordedRequest()
     provider.take(request, Url, Url)
-    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
+    reading.await()
 
-    val closed = TestLatch(1)
-    launchTestTask { provider.close().also { closed.countDown() } }
+    provider.close()
 
-    assertTrue(closed.await(WaitSeconds * 1_000), "close should not wait for reads")
-    assertEquals(0, request.completions)
+    assertEquals(0, request.completions, "close should not wait for reads")
     finishRead.countDown()
     request.awaitAnswer()
     assertEquals(1, request.completions, "the in-flight request must still be answered")
@@ -443,25 +448,23 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun accepted_reads_are_independent_and_still_finish_after_shutdown() {
-    val reading = TestLatch(1)
+  fun accepted_reads_are_independent_and_still_finish_after_shutdown() = runTest {
+    val reading = CompletableDeferred<Unit>()
     val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
-      reading.countDown()
-      finishRead.await(WaitSeconds * 1_000)
+      reading.complete(Unit)
+      finishRead.await(HoldMillis)
       ok("queued")
     }
     val first = RecordedRequest()
     val second = RecordedRequest()
     provider.take(first, Url, Url)
-    assertTrue(reading.await(WaitSeconds * 1_000), "the read never started")
+    reading.await()
     provider.take(second, OtherUrl, OtherUrl)
 
-    val closed = TestLatch(1)
-    launchTestTask { provider.close().also { closed.countDown() } }
+    provider.close()
     finishRead.countDown()
 
-    assertTrue(closed.await(WaitSeconds * 1_000), "close never returned")
     second.awaitAnswer()
     assertEquals(setOf(Url, OtherUrl), reads.toSet(), "both accepted reads must run")
     assertEquals(1, second.completions, "a request the provider took must be answered")
@@ -485,7 +488,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun a_read_that_throws_still_closes_the_request() {
+  fun a_read_that_throws_still_closes_the_request() = runTest {
     // An exception escaping the reader thread would leave the native request alive until the
     // binding's leak cleaner noticed it.
     val provider = provider { _, _ -> throw IllegalStateException("the disk went away") }
@@ -499,7 +502,7 @@ class MlnFfiResourceRequestTest {
   }
 
   private fun ok(body: String) =
-    ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.encodeToByteArray() }
+    ResourceResponse(ResourceResponseStatus.OK, bytes = body.encodeToByteArray())
 
   /** A request the provider can take, recording what it did with it. */
   @OptIn(ExperimentalAtomicApi::class)
@@ -508,7 +511,8 @@ class MlnFfiResourceRequestTest {
     private val cancelOnRegistration: Boolean = false,
   ) : TakenResourceRequest {
     private val responses = RecordingList<ResourceResponse>()
-    private val answered = TestLatch(1)
+    private val answered = CompletableDeferred<Unit>()
+    private val closed = CompletableDeferred<Unit>()
     private val closeCount = AtomicInt(0)
     private val cancelledState = AtomicBoolean(cancelled)
     private val cancelCallback = AtomicReference<(() -> Unit)?>(null)
@@ -528,12 +532,13 @@ class MlnFfiResourceRequestTest {
 
     override fun complete(response: ResourceResponse) {
       responses += response
-      answered.countDown()
+      answered.complete(Unit)
     }
 
     override fun close() {
       cancelCallback.store(null)
       closeCount.incrementAndFetch()
+      closed.complete(Unit)
     }
 
     val completions: Int
@@ -545,14 +550,13 @@ class MlnFfiResourceRequestTest {
     val response: ResourceResponse
       get() = responses.single()
 
-    fun awaitAnswer() {
-      assertTrue(answered.await(WaitSeconds * 1_000), "the request was never answered")
+    suspend fun awaitAnswer() {
+      answered.await()
     }
 
-    fun awaitClose() {
-      val deadline = TimeSource.Monotonic.markNow() + WaitSeconds.seconds
-      while (closes == 0 && deadline.hasNotPassedNow()) parkForTest(1)
-      assertEquals(1, closes, "the request was never closed")
+    suspend fun awaitClose() {
+      closed.await()
+      assertEquals(1, closes, "the request was closed more than once")
     }
   }
 

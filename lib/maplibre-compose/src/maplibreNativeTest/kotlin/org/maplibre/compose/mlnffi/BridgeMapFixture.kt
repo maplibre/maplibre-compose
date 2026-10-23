@@ -6,15 +6,24 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapEvent
@@ -22,7 +31,6 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
 import org.maplibre.compose.resource.MapResourceConfig
@@ -35,15 +43,20 @@ import org.maplibre.compose.testing.RgbaPixel
 
 /**
  * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
- * without a Compose composition. Frames are driven explicitly by the caller.
+ * without a Compose composition.
+ *
+ * The fixture is a host: it renders when the session asks for a frame, at display cadence, on
+ * [TestMapMain], which is also the map's main thread. Create and use it from a `runMapTest` body.
+ * Every wait suspends, so engine callbacks and frames run while a test waits.
  */
 internal class BridgeMapFixture
 private constructor(
   private val driver: FfiTestRenderDriver,
   private val cacheFile: Path,
-  private val initialExtent: MapExtent,
+  initialExtent: MapExtent,
   resourceConfig: MapResourceConfig,
   sharedRuntime: MapRuntime?,
+  present: Boolean,
 ) : AutoCloseable {
 
   private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
@@ -66,17 +79,13 @@ private constructor(
   val style: StyleBinding?
     get() = recorder.style
 
-  private val frameRequested = AtomicBoolean(true)
-  /** Engine callbacks land here; [pumpUntil] and the test's `runBlocking` loop drain it. */
   private val ownsRuntime = sharedRuntime == null
-  private val testMain =
-    sharedRuntime?.mainDispatcher as? TestMainDispatcher ?: TestMainDispatcher()
   private val runtime =
     sharedRuntime
       ?: createNativeMapRuntime(
         MlnFfiRuntimeOptions(
           cacheFile = cacheFile,
-          mainDispatcher = testMain,
+          mainDispatcher = TestMapMain.dispatcher,
           requestInterceptor = resourceConfig.interceptor,
           resourceProvider = resourceConfig.provider,
           logger = MapLog,
@@ -96,15 +105,62 @@ private constructor(
     )
 
   fun bindState(state: MapState) {
-    recorder.attachment = requireNotNull(state.currentMapAttachment)
-    recorder.state = state
+    recorder.bindState(state)
   }
 
-  /** The thread [whileRenderingOnRendererThread] drives frames from, while one is running. */
-  @Volatile private var rendererThread: RendererThread? = null
+  /** The extent the next frame renders at. Changing it schedules a frame. */
+  var extent: MapExtent = initialExtent
+    set(value) {
+      if (field == value) return
+      field = value
+      scheduleFrame()
+    }
+
+  /** While true, frames the session asks for wait until [frame] or until rendering resumes. */
+  var renderingPaused: Boolean = false
+    set(value) {
+      field = value
+      if (!value) scheduleFrame()
+    }
 
   /** Simulates the host failing to dispatch renderer cleanup before it reaches the GPU context. */
   @Volatile var rendererEnqueueFailure: Throwable? = null
+
+  /** The thread frames render on, when it is not main; see [withRendererThread]. */
+  @Volatile private var rendererThread: TestThread? = null
+  // The work launched onto [rendererThread], which finishes before the thread closes.
+  @Volatile private var rendererJob: Job? = null
+  private val rendererContext: CoroutineContext
+    get() {
+      val thread = rendererThread ?: return TestMapMain.dispatcher
+      return thread.dispatcher + checkNotNull(rendererJob)
+    }
+
+  private val scope = CoroutineScope(SupervisorJob() + TestMapMain.dispatcher)
+  private val frameScheduled = AtomicBoolean(false)
+  private val frameRequested = AtomicBoolean(true)
+  private var frameExtent: MapExtent? = null
+  private var surfaceTarget = false
+  // Written on the renderer thread and read on main.
+  @Volatile private var renderFailure: Throwable? = null
+  // Recoverable frame failures since the last rendered frame.
+  private var recoveries = 0
+
+  /** Counts frame visits, so a wait re-checks its condition after each one. */
+  private val visits = MutableStateFlow(0L)
+
+  /** How many frames have rendered and presented. */
+  @Volatile
+  var renderedFrames: Long = 0
+    private set
+
+  /**
+   * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
+   * attached. The runtime and map are created on their own thread, so the first frame is not it.
+   */
+  @Volatile
+  var hasRendered: Boolean = false
+    private set
 
   private val hostSession =
     object : MlnFfiMapHostSession {
@@ -113,23 +169,69 @@ private constructor(
 
       override fun requestFrame() {
         frameRequested.store(true)
+        scheduleFrame()
       }
+
+      override fun completeConsumerAccess() = driver.completeConsumerAccess()
 
       override fun <T> withRendererAccess(action: () -> T): T {
         val thread = rendererThread ?: return driver.withRendererAccess(action)
-        return thread.run { driver.withRendererAccess(action) }
+        return thread.submit { driver.withRendererAccess(action) }
       }
 
+      // Queues without waiting, as the host contract requires: native wakes the session's driver
+      // work from inside a render, while a renderer thread may be waiting for that render.
       override fun enqueueRenderer(action: () -> Unit): Boolean {
         rendererEnqueueFailure?.let { throw it }
-        withRendererAccess(action)
+        if (rendererThread == null) return driver.enqueueRenderer(action)
+        scope.launch(rendererContext) { driver.withRendererAccess(action) }
         return true
       }
     }
 
   init {
-    session.start()
+    recorder.bindState(state)
+    if (present) {
+      val token = state.reservePresentation()
+      session.beginPresentationAttachment()
+      state.publishPresentation(token, session)
+    }
     session.onSurfaceAvailable(hostSession)
+    scheduleFrame()
+  }
+
+  /** Schedules one frame visit at display cadence. Requests coalesce. Safe from any thread. */
+  private fun scheduleFrame() {
+    if (!frameScheduled.compareAndSet(expectedValue = false, newValue = true)) return
+    scope.launch(rendererContext) {
+      delay(FrameInterval)
+      frameScheduled.store(false)
+      if (renderingPaused) return@launch
+      try {
+        frame()
+      } catch (error: MlnFfiRecoverableFrameException) {
+        recover(error)
+      } catch (error: Throwable) {
+        renderFailure = renderFailure ?: error
+      }
+    }
+  }
+
+  /**
+   * Rebuilds the render session after a recoverable frame failure, as a production host does, and
+   * fails the test after the same number of attempts. Logged at info level, so a test that counts
+   * warnings does not count a rebuild.
+   */
+  private fun recover(error: MlnFfiRecoverableFrameException) {
+    if (++recoveries > MaxRenderRecoveryAttempts) {
+      renderFailure = renderFailure ?: error
+      return
+    }
+    MapLog.i(error) {
+      "Test frame failed; rebuilding the render session (attempt $recoveries of $MaxRenderRecoveryAttempts)"
+    }
+    loseSurface()
+    restoreSurface()
   }
 
   /**
@@ -145,6 +247,7 @@ private constructor(
   fun restoreSurface() {
     forgetPresentedFrame()
     session.onSurfaceAvailable(hostSession)
+    scheduleFrame()
   }
 
   private fun forgetPresentedFrame() {
@@ -156,24 +259,22 @@ private constructor(
     get() = session.presentation.attachCount
 
   /**
-   * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
-   * attached. The runtime and map are created on their own thread, so the first frame is not it.
+   * Visits the renderer once: renders if the session asked for a frame or the extent changed, and
+   * otherwise returns [MlnFfiFrameResult.AwaitUpdate].
    */
-  @Volatile
-  var hasRendered: Boolean = false
-    internal set
+  fun frame(captureProjection: Boolean = false): MlnFfiFrameResult {
+    try {
+      return renderFrame(captureProjection)
+    } finally {
+      visits.value++
+    }
+  }
 
-  /**
-   * Renders one frame, with the same producer-access contract as the desktop `MlnFfiMapSurface`.
-   */
-  fun frame(
-    extent: MapExtent = initialExtent,
-    captureProjection: Boolean = false,
-  ): MlnFfiFrameResult =
-    rendererThread?.run { renderFrame(extent, captureProjection) }
-      ?: renderFrame(extent, captureProjection)
-
-  private fun renderFrame(extent: MapExtent, captureProjection: Boolean): MlnFfiFrameResult {
+  private fun renderFrame(captureProjection: Boolean): MlnFfiFrameResult {
+    val extent = extent
+    if (frameExtent == extent && !frameRequested.load() && !captureProjection) {
+      return MlnFfiFrameResult.AwaitUpdate
+    }
     frameRequested.store(false)
     val frame =
       when (val acquisition = driver.acquireFrame(extent)) {
@@ -181,16 +282,34 @@ private constructor(
         MlnFfiMapFrameAcquisition.NotReady ->
           error("The production ${driver.backends} bridge had no test GPU context")
       }
+    frameExtent = extent
+    surfaceTarget =
+      when (frame.target) {
+        is OpenGlSurfaceTarget,
+        is MetalSurfaceTarget,
+        is VulkanSurfaceTarget -> true
+        else -> false
+      }
     return try {
       driver
         .withProducerAccess(frame) { session.render(hostSession, frame, captureProjection) }
         .also {
-          if (it is MlnFfiFrameResult.Rendered) {
-            driver.completeProducerAccess(frame)
-            check(driver.present(frame.target)) {
-              "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"
+          when (it) {
+            is MlnFfiFrameResult.Rendered -> {
+              if (!surfaceTarget) {
+                driver.completeProducerAccess(frame)
+                check(driver.present(frame.target)) {
+                  "The production ${driver.backends} bridge did not present generation ${frame.target.generation}"
+                }
+              }
+              hasRendered = true
+              renderedFrames++
+              recoveries = 0
+              // A display-paced host visits again, which drains results and re-arms the demand.
+              hostSession.requestFrame()
             }
-            hasRendered = true
+            MlnFfiFrameResult.RetryNextFrame -> hostSession.requestFrame()
+            MlnFfiFrameResult.AwaitUpdate -> Unit
           }
         }
     } finally {
@@ -198,219 +317,134 @@ private constructor(
     }
   }
 
-  fun renderFrameProjection(extent: MapExtent = initialExtent): MlnFfiMapFrameProjection {
-    session.onSurfaceChanged(extent)
-    return checkNotNull(
-      (frame(extent, captureProjection = true) as MlnFfiFrameResult.Rendered).projection,
-    )
+  /** Renders a frame that captures its projection. */
+  suspend fun renderFrameProjection(): MlnFfiMapFrameProjection {
+    // Automatic frames would draw the repaint first and leave the capturing frame nothing to draw.
+    val wasPaused = renderingPaused
+    renderingPaused = true
+    try {
+      session.onSurfaceChanged(extent)
+      // A surface demand needs an update even when the last frame already shows this camera.
+      checkNotNull(session.mapForTest).requestRepaint()
+      var projection: MlnFfiMapFrameProjection? = null
+      awaitUntil("a rendered frame projection") {
+        val result = frame(captureProjection = true)
+        if (result is MlnFfiFrameResult.Rendered) projection = result.projection
+        projection != null
+      }
+      return checkNotNull(projection)
+    } finally {
+      renderingPaused = wasPaused
+    }
   }
 
-  /** Reads one rendered RGBA pixel back from the platform/backend target. */
+  /** Reads one pixel of the last presented frame. */
   fun readPixel(x: Int, y: Int): RgbaPixel =
     checkNotNull(tryReadPixel(x, y)) { "No production bridge frame has been presented" }
 
-  /**
-   * One rendered pixel after the current surface has presented a frame, or null.
-   *
-   * [readPixel] requires that presentation. A [pumpUntil] condition uses this so a skipped frame
-   * waits for the next one.
-   */
+  /** One pixel of the last presented frame, or null before the current surface has presented. */
   fun tryReadPixel(x: Int, y: Int): RgbaPixel? = if (hasRendered) driver.readPixel(x, y) else null
 
-  /** Waits one poll interval, then runs what engine threads posted to the map's main thread. */
-  private fun pause() {
-    // A tight loop would starve the network and worker threads.
-    parkForTest(PollIntervalMillis)
-    testMain.drain()
-  }
-
-  /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
-  fun pumpUntilRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
-    pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
-  }
-
   /**
-   * Renders frames until [condition] holds, or fails. mbgl advances a camera transition from
-   * `onDidFinishRenderingFrame`, so a transition that renders no frames stalls after its first
-   * step.
-   */
-  fun pumpUntil(
-    description: String,
-    timeout: Duration = 30.seconds,
-    extent: MapExtent = initialExtent,
-    condition: suspend () -> Boolean,
-  ) {
-    val deadline = TimeSource.Monotonic.markNow() + timeout
-    var frames = 0
-    testMain.drain()
-    while (!runBlocking { condition() }) {
-      check(deadline.hasNotPassedNow()) {
-        "Timed out after $frames frames waiting for $description. Errors: $errors"
-      }
-      frame(extent)
-      frames++
-      pause()
-    }
-  }
-
-  /**
-   * Renders for [duration], but only when the session asks for a frame, and reports how many it
-   * drew. Only an on-demand loop can measure whether a map is at rest; an unconditional pump
-   * sustains and measures itself.
-   */
-  fun renderOnDemand(duration: Duration): Int {
-    val deadline = TimeSource.Monotonic.markNow() + duration
-    var rendered = 0
-    while (deadline.hasNotPassedNow()) {
-      if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
-      pause()
-    }
-    return rendered
-  }
-
-  /** Renders on demand until nothing has been asked for across [quiet], or fails. */
-  fun settle(quiet: Duration = 500.milliseconds, timeout: Duration = 30.seconds) {
-    val deadline = TimeSource.Monotonic.markNow() + timeout
-    while (renderOnDemand(quiet) > 0) {
-      check(deadline.hasNotPassedNow()) {
-        "Timed out waiting for the map to stop asking for frames. Errors: $errors"
-      }
-    }
-  }
-
-  /** Renders a fixed number of frames, letting anything queued make progress. */
-  fun pump(frames: Int = 30) {
-    repeat(frames) {
-      frame()
-      pause()
-    }
-  }
-
-  /**
-   * Runs [block] on this thread while a dedicated renderer thread drives frames, and returns its
-   * result. Renderer access from any other thread runs on that thread behind a frame that started
-   * after the request, as it does on a host that had already posted a frame. A frame that fails
-   * fails this call.
-   */
-  fun <T> whileRenderingOnRendererThread(block: () -> T): T {
-    val thread = RendererThread { frame() }
-    rendererThread = thread
-    thread.start()
-    val result = runCatching(block)
-    rendererThread = null
-    thread.stop()?.let { renderFailure ->
-      result.exceptionOrNull()?.addSuppressed(renderFailure) ?: throw renderFailure
-    }
-    return result.getOrThrow()
-  }
-
-  /**
-   * [pumpUntil] for a coroutine. It suspends between frames instead of blocking, so coroutines on
-   * this thread, which is the map's main thread, run between frames as they would in production.
+   * Suspends until [condition] holds, or fails. The condition is checked again after each frame and
+   * at least once per display frame. A camera transition and a tile load both advance from inside a
+   * render, which the fixture schedules whenever the map asks.
    */
   suspend fun awaitUntil(
     description: String,
     timeout: Duration = 30.seconds,
-    extent: MapExtent = initialExtent,
     condition: suspend () -> Boolean,
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
-    var frames = 0
-    testMain.drain()
     while (!condition()) {
+      renderFailure?.let { throw it }
       check(deadline.hasNotPassedNow()) {
-        "Timed out after $frames frames waiting for $description. Errors: $errors"
+        "Timed out after $renderedFrames frames waiting for $description. Errors: $errors"
       }
-      frame(extent)
-      frames++
-      delay(PollIntervalMillis)
-      testMain.drain()
+      val seen = visits.value
+      withTimeoutOrNull(FrameInterval) { visits.first { it != seen } }
     }
+    renderFailure?.let { throw it }
   }
 
-  /** [pumpUntilRendered] for a coroutine. */
-  suspend fun awaitRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
-    awaitUntil("the map to render its first frame", timeout, extent) { hasRendered }
+  /** Suspends until MapLibre has drawn once, so the map is known to exist. */
+  suspend fun awaitRendered(timeout: Duration = 30.seconds) {
+    awaitUntil("the map to render its first frame", timeout) { hasRendered }
   }
 
-  /** [pump] for a coroutine. */
+  /** Lets the map run for about [frames] display frames. */
   suspend fun awaitFrames(frames: Int = 30) {
-    repeat(frames) {
-      frame()
-      delay(PollIntervalMillis)
-      testMain.drain()
-    }
+    delay(FrameInterval * frames)
+    renderFailure?.let { throw it }
   }
 
-  /** [renderOnDemand] for a coroutine. */
-  suspend fun awaitRenderOnDemand(duration: Duration): Int {
-    val deadline = TimeSource.Monotonic.markNow() + duration
-    var rendered = 0
-    while (deadline.hasNotPassedNow()) {
-      if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
-      delay(PollIntervalMillis)
-      testMain.drain()
-    }
-    return rendered
+  /** How many frames the map asks for and renders across [duration]. */
+  suspend fun countFramesOver(duration: Duration): Long {
+    val before = renderedFrames
+    delay(duration)
+    renderFailure?.let { throw it }
+    return renderedFrames - before
   }
 
-  /** [settle] for a coroutine. */
+  /** Suspends until the map renders no frame across [quiet], or fails. */
   suspend fun awaitSettled(quiet: Duration = 500.milliseconds, timeout: Duration = 30.seconds) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
-    while (awaitRenderOnDemand(quiet) > 0) {
+    while (countFramesOver(quiet) > 0) {
       check(deadline.hasNotPassedNow()) {
         "Timed out waiting for the map to stop asking for frames. Errors: $errors"
       }
     }
   }
 
-  /** [loadStyle] for a coroutine. */
-  suspend fun awaitStyle(
-    style: BaseStyle,
-    timeout: Duration = 60.seconds,
-    extent: MapExtent = DefaultExtent,
-  ) {
-    val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
-    if (this.style?.isLoaded != true) {
-      awaitUntil("style $style to load", timeout, extent) {
-        events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
+  /** Runs [block] with frames rendering on a dedicated renderer thread instead of main. */
+  suspend fun <T> withRendererThread(block: suspend () -> T): T {
+    check(rendererThread == null) { "Frames already render on a renderer thread" }
+    val thread = TestThread("maplibre-compose-test-renderer")
+    val job = SupervisorJob(scope.coroutineContext[Job])
+    rendererJob = job
+    rendererThread = thread
+    return try {
+      scheduleFrame()
+      block()
+    } finally {
+      rendererThread = null
+      withContext(NonCancellable) {
+        job.cancelAndJoin()
+        frameScheduled.store(false)
       }
-    }
-    check(!stylePublishedBeforeSessionReady.load()) {
-      "The loaded style callback ran before the native session stored its binding"
+      rendererJob = null
+      thread.close()
+      scheduleFrame()
     }
   }
 
-  /**
-   * Runs [block] on this thread between frames and returns its result. Map state is main-only, and
-   * this thread is the map's main thread; a suspension inside [block] lets the next frame run.
-   */
+  /** Runs [block] while frames render, failing if it does not finish within [timeout]. */
   suspend fun <T> awaitWhileRendering(
     description: String,
     timeout: Duration = 30.seconds,
     block: suspend () -> T,
-  ): T = coroutineScope {
-    val work = async(start = CoroutineStart.UNDISPATCHED) { block() }
-    awaitUntil(description, timeout) { work.isCompleted }
-    work.await()
+  ): T =
+    try {
+      withTimeout(timeout) { block() }
+    } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
+      throw IllegalStateException("Timed out waiting for $description. Errors: $errors", error)
+    }
+
+  private fun requestStyle(style: BaseStyle) {
+    checkNotNull(state.style.asMutable).baseStyle = style
   }
 
   /**
-   * Applies a style and pumps until that load finishes.
+   * Applies a style and suspends until that load finishes.
    *
    * [MlnFfiMapSession.setBaseStyle] clears the live style before the new document loads, so this
    * waits for a `StyleLoaded` that arrives after the call.
    */
-  fun loadStyle(
-    style: BaseStyle,
-    timeout: Duration = 60.seconds,
-    extent: MapExtent = DefaultExtent,
-  ) {
+  suspend fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds) {
     val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
+    requestStyle(style)
     if (this.style?.isLoaded != true) {
-      pumpUntil("style $style to load", timeout, extent) {
+      awaitUntil("style $style to load", timeout) {
         events.count { it == StyleLoaded } > styleLoadsBefore && this.style != null
       }
     }
@@ -419,27 +453,38 @@ private constructor(
     }
   }
 
-  /**
-   * Loads [style] while leaving the render session unattached until the caller requests a frame.
-   */
-  fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
-    val styleLoadsBefore = events.count { it == StyleLoaded }
-    session.setBaseStyle(style)
-    val deadline = TimeSource.Monotonic.markNow() + timeout
-    while (events.count { it == StyleLoaded } <= styleLoadsBefore || this.style == null) {
-      check(deadline.hasNotPassedNow()) {
-        "Timed out waiting for style $style to load before rendering. Errors: $errors"
-      }
-      pause()
-    }
-    check(!stylePublishedBeforeSessionReady.load()) {
-      "The loaded style callback ran before the native session stored its binding"
-    }
+  /** [loadStyle] with rendering paused, so the render session stays as it was until [frame]. */
+  suspend fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
+    renderingPaused = true
+    loadStyle(style, timeout)
   }
 
+  private var closed = false
+
+  /**
+   * Closes the map and, when the fixture created it, the runtime. The asynchronous part finishes
+   * before the test body's `runMapTest` returns; [closeNow] finishes it inside the body.
+   */
   override fun close() {
+    if (closed) return
+    closed = true
+    state.close()
+    TestMapMain.deferCleanup { finishClose() }
+  }
+
+  /**
+   * Closes the map, its runtime when the fixture owns it, and its driver, and waits for all three.
+   */
+  suspend fun closeNow() {
+    if (closed) return
+    closed = true
+    state.close()
+    finishClose()
+  }
+
+  private suspend fun finishClose() {
     var failure: Throwable? = null
-    fun cleanup(action: () -> Unit) {
+    suspend fun cleanup(action: suspend () -> Unit) {
       try {
         action()
       } catch (error: Throwable) {
@@ -447,128 +492,43 @@ private constructor(
         if (first == null) failure = error else if (first !== error) first.addSuppressed(error)
       }
     }
-    cleanup {
-      testMain.drain()
-      state.close()
-      runBlocking { state.awaitClosed() }
-    }
+    cleanup { state.awaitClosed() }
     if (ownsRuntime)
       cleanup {
         runtime.close()
-        runBlocking { runtime.awaitClosed() }
+        runtime.awaitClosed()
       }
+    cleanup { scope.cancel() }
     cleanup { driver.close() }
     if (ownsRuntime) cleanup { FfiTestPlatform.deleteCacheFile(cacheFile) }
     failure?.let { throw it }
   }
 
-  /** Drives frames until stopped, running queued renderer access between them. */
-  private class RendererThread(private val frame: () -> Unit) {
-    private class Access(
-      val framesStartedWhenQueued: Long,
-      val run: () -> Unit,
-      val done: MlnFfiGate,
-    )
-
-    private val lock = MlnFfiLock()
-    private val queue = ArrayDeque<Access>()
-    private var framesStarted = 0L
-    private var stopped = false
-    private val finished = MlnFfiGate()
-    @Volatile private var stopRequested = false
-    @Volatile private var failure: Throwable? = null
-    private val thread = MlnFfiOwnerThread("maplibre-compose-test-renderer", ::loop)
-
-    fun start() {
-      thread.start()
-    }
-
-    fun <T> run(action: () -> T): T {
-      if (thread.isCurrent()) return action()
-      var result: Result<T>? = null
-      enqueue { result = runCatching(action) }.awaitUntilOpen()
-      return checkNotNull(result) { "The test renderer thread stopped before running an access" }
-        .getOrThrow()
-    }
-
-    /** Stops the thread and returns what failed on it, if anything. */
-    fun stop(): Throwable? {
-      stopRequested = true
-      check(finished.await(StopTimeoutMillis)) { "The test renderer thread did not stop" }
-      return failure
-    }
-
-    /** Queues [run] and returns the gate that opens once it has run or been abandoned. */
-    private fun enqueue(run: () -> Unit): MlnFfiGate {
-      val done = MlnFfiGate()
-      val accepted = lock.withLock {
-        if (!stopped) queue += Access(framesStarted, run, done)
-        !stopped
-      }
-      if (!accepted) done.open()
-      return done
-    }
-
-    private fun loop() {
-      try {
-        while (!stopRequested) {
-          runQueuedAccess()
-          lock.withLock { framesStarted++ }
-          frame()
-          parkForTest(1L)
-        }
-      } catch (error: Throwable) {
-        failure = error
-      } finally {
-        val abandoned = lock.withLock {
-          stopped = true
-          queue.toList().also { queue.clear() }
-        }
-        abandoned.forEach { it.done.open() }
-        finished.open()
-      }
-    }
-
-    private fun runQueuedAccess() {
-      while (true) {
-        val access =
-          lock.withLock {
-            val next = queue.firstOrNull() ?: return@withLock null
-            if (next.framesStartedWhenQueued < framesStarted) queue.removeFirst() else null
-          } ?: return
-        try {
-          access.run()
-        } finally {
-          access.done.open()
-        }
-      }
-    }
-
-    private companion object {
-      const val StopTimeoutMillis = 30_000L
-    }
-  }
-
   companion object {
     const val StyleLoaded: String = MapFixture.StyleLoaded
 
-    private const val PollIntervalMillis = 8L
+    /** About one display frame at 120 Hz. */
+    private val FrameInterval = 8.milliseconds
 
     val DefaultExtent: MapExtent = MapFixture.DefaultExtent
 
     val RetinaExtent: MapExtent = MapFixture.RetinaExtent
 
-    /** Creates a fixture for the one native runtime packaged into this test process. */
+    /**
+     * Creates a fixture for the one native runtime packaged into this test process. Call it from a
+     * `runMapTest` body, on [TestMapMain].
+     */
     fun create(
       initialExtent: MapExtent = DefaultExtent,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
       runtime: MapRuntime? = null,
+      present: Boolean = true,
     ): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cacheFile = runtime?.nativeOwner?.options?.cacheFile ?: FfiTestPlatform.createCacheFile()
       return try {
-        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig, runtime)
+        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig, runtime, present)
       } catch (error: Throwable) {
         runCatching { driver.close() }
         if (runtime == null) FfiTestPlatform.deleteCacheFile(cacheFile)

@@ -7,5 +7,6 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
 internal actual suspend fun benchmarkRequestRepaint(state: MapState) {
-  state.withPlatformMap { map.requestRepaint() }
+  // The command is ordered with the map's other work; wait for it outside the borrowed access.
+  state.withPlatformMap { map.requestRepaint() }.await()
 }

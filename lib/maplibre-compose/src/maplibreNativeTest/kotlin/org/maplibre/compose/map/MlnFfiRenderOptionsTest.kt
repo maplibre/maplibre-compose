@@ -7,11 +7,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 class MlnFfiRenderOptionsTest {
 
   @Test
-  fun camera_projection_reaches_the_map_and_returns_to_perspective() {
+  fun camera_projection_reaches_the_map_and_returns_to_perspective() = runMapTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val movedBefore = fixture.events.count { it == "viewportChanged" }
@@ -19,12 +20,11 @@ class MlnFfiRenderOptionsTest {
         RenderOptions { cameraProjection = CameraProjection.Axonometric() },
       )
 
-      val defaultAxonometric = assertNotNull(fixture.session.readMap { it.projectionMode })
+      val defaultAxonometric = assertNotNull(fixture.session.readMap { it.projectionMode() })
       assertTrue(assertNotNull(defaultAxonometric.axonometric))
       assertEquals(0.0, defaultAxonometric.xSkew)
       assertEquals(1.0, defaultAxonometric.ySkew)
-      // viewportChanged is delivered on the map's main thread, which the pump drains.
-      fixture.pumpUntil(
+      fixture.awaitUntil(
         "a projection change to report viewportChanged so overlays re-read the projection",
       ) {
         fixture.events.count { it == "viewportChanged" } > movedBefore
@@ -36,14 +36,14 @@ class MlnFfiRenderOptionsTest {
         },
       )
 
-      val axonometric = assertNotNull(fixture.session.readMap { it.projectionMode })
+      val axonometric = assertNotNull(fixture.session.readMap { it.projectionMode() })
       assertTrue(assertNotNull(axonometric.axonometric))
       assertEquals(0.25, axonometric.xSkew)
       assertEquals(0.5, axonometric.ySkew)
 
       fixture.session.setRenderSettings(RenderOptions.Standard)
 
-      val perspective = assertNotNull(fixture.session.readMap { it.projectionMode })
+      val perspective = assertNotNull(fixture.session.readMap { it.projectionMode() })
       assertFalse(assertNotNull(perspective.axonometric))
     }
   }

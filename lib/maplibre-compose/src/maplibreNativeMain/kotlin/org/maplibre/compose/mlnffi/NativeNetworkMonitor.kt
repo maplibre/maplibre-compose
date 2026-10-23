@@ -4,7 +4,7 @@ import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import org.maplibre.compose.resource.ConnectivityMode
 import org.maplibre.compose.resource.UnspecifiedConnectivityMode
-import org.maplibre.nativeffi.runtime.NetworkStatus
+import org.maplibre.nativeffi.generated.NetworkStatus
 
 /** Starts observing connectivity until the returned handle is closed. */
 internal expect fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit): AutoCloseable

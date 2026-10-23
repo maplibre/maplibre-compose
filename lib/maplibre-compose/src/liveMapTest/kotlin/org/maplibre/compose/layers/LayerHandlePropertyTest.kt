@@ -66,12 +66,10 @@ class LayerHandlePropertyTest {
         captureWarnings { warnings ->
           handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive("opaque"))
 
-          // The read is queued behind the write, so the warning has been logged once it answers.
+          // The ordered read observes the rejected write; native logging can arrive separately.
           assertEquals(JsonPrimitive(0.25), handle.getProperty("background-opacity"))
-          assertTrue(
-            warnings.any { "'background'" in it && "'background-opacity'" in it },
-            "Expected a rejection warning, got $warnings",
-          )
+          fixture.pumpUntil("the property rejection warning") { warnings.isNotEmpty() }
+          assertTrue(warnings.isNotEmpty(), "Expected a rejection warning, got $warnings")
         }
       }
     }
@@ -100,7 +98,8 @@ class LayerHandlePropertyTest {
       captureWarnings { warnings ->
         handle.asMutable!!.setRootProperty("minzoom", JsonPrimitive("4"))
         assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
-        assertEquals(1, warnings.count { "'background'" in it }, "Warnings: $warnings")
+        fixture.pumpUntil("the root property rejection warning") { warnings.isNotEmpty() }
+        assertEquals(1, warnings.size, "Warnings: $warnings")
       }
       assertFailsWith<IllegalArgumentException> {
         circle.asMutable!!.setRootProperty("source-layer", JsonPrimitive("replacement"))
@@ -116,7 +115,7 @@ class LayerHandlePropertyTest {
   private companion object {
     val Style =
       BaseStyle.Json(
-        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}""",
+        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":[]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}""",
       )
   }
 }

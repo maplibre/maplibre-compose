@@ -235,7 +235,7 @@ internal constructor(
             LocalDensity provides Density(scale, density.fontScale),
             LocalLayoutDirection provides layoutDirection,
           ) {
-            Content { _, _ -> }
+            Content { _, _, _ -> }
           }
         }
     } catch (error: Throwable) {
@@ -252,7 +252,7 @@ internal constructor(
   @Composable
   internal fun <T> Content(
     options: MapViewOptions = this.options,
-    content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
+    content: @Composable (MlnFfiMapSession, FeatureClickDispatcher, Boolean) -> T,
   ): T? {
     if (isClosed || state.isClosed) return null
     val available = remember { MapRenderBackend.Metal in loadRuntimeBackends(logger) }
@@ -263,7 +263,10 @@ internal constructor(
         }
       onDispose {}
     }
-    return MlnFfiMapPresentation(MapRenderBackend.Metal, state, owner, options) { session, clicks ->
+    return MlnFfiMapPresentation(MapRenderBackend.Metal, state, owner, options) {
+      session,
+      clicks,
+      canPresentFrames ->
       val controller =
         remember(session) {
           AppleMlnFfiSurfaceController(session, logger, options.renderOptions.maximumFps) { error ->
@@ -283,7 +286,7 @@ internal constructor(
         controller.setMaximumFps(options.renderOptions.maximumFps)
         controller.setActive(isActive)
       }
-      val binding = binding?.takeIf { available && session.canPresentFrames }
+      val binding = binding?.takeIf { available && canPresentFrames }
       if (binding != null) {
         val extent = binding.extent
         DisposableEffect(controller, binding) {
@@ -292,7 +295,7 @@ internal constructor(
         }
         SideEffect { binding.updateSurface(controller, extent) }
       }
-      content(session, clicks)
+      content(session, clicks, canPresentFrames)
     }
   }
 

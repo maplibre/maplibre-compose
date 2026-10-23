@@ -1,6 +1,8 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.js.Date
 import kotlin.js.Promise
 import kotlin.math.abs
@@ -292,6 +294,68 @@ class BrowserCompositingTest {
             mapOf(Red to Full * Full / 2, Blue to Full * Full / 2),
             histogram(readFramebuffer(next.gl.asDynamic(), second.framebuffer, Full, Full)),
           )
+          compositor.close()
+        }
+      }
+    }
+  }
+
+  @Test
+  fun a_webgl_context_swap_applies_the_viewport_insets_to_the_new_engine() = gpuTest { gpu ->
+    ComposeGlJsCompositor(logger = null).use { compositor ->
+      CompositedMap(BaseStyle.Empty).use { map ->
+        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
+        val first = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+        map.drawUntil(first, "the initial style") { map.loadedBinding?.isLoaded == true }
+        map.session.setViewportInsets(PaddingValues(top = 40.dp))
+        assertEquals(40.0, assertNotNull(map.session.engineMapForTest()).getPadding().top)
+        withNewWebGlContext { next ->
+          assertTrue(gpu.gl !== next.gl)
+          val second = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          assertFalse(map.drawOnce(second))
+          map.drawUntil(second, "the replacement style") {
+            map.loadedBinding?.isLoaded == true
+          }
+          // The presentation passes the same insets again, which must still reach the new engine.
+          map.session.setViewportInsets(PaddingValues(top = 40.dp))
+          assertEquals(40.0, assertNotNull(map.session.engineMapForTest()).getPadding().top)
+          compositor.close()
+        }
+      }
+    }
+  }
+
+  @Test
+  fun a_webgl_context_swap_replays_the_camera_and_options() = gpuTest { gpu ->
+    ComposeGlJsCompositor(logger = null).use { compositor ->
+      CompositedMap(BaseStyle.Empty).use { map ->
+        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
+        val first = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+        map.drawUntil(first, "the initial style") { map.loadedBinding?.isLoaded == true }
+        val camera =
+          CameraPosition(
+            center = Position(-30.0, 10.0),
+            zoom = 3.0,
+            bearing = 20.0,
+            pitch = 30.0,
+          )
+        map.state.setCameraPosition(camera)
+        map.setOverdrawInspector(true)
+        val firstEngine = assertNotNull(map.session.engineMapForTest())
+        withNewWebGlContext { next ->
+          assertTrue(gpu.gl !== next.gl)
+          val second = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          assertFalse(map.drawOnce(second))
+          map.drawUntil(second, "the replacement style") {
+            map.loadedBinding?.isLoaded == true
+          }
+          val replacement = assertNotNull(map.session.engineMapForTest())
+          assertTrue(firstEngine !== replacement)
+          assertTrue(
+            map.session.getCameraPosition().isNear(camera),
+            "context replacement must preserve the desired camera",
+          )
+          assertTrue(replacement.showOverdrawInspector)
           compositor.close()
         }
       }

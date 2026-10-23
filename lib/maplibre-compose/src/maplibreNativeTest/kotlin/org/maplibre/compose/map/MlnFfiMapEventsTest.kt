@@ -6,12 +6,13 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.nativeffi.map.RenderingStats
-import org.maplibre.nativeffi.render.RenderMode
-import org.maplibre.nativeffi.runtime.RuntimeEvent
-import org.maplibre.nativeffi.runtime.RuntimeEventPayload
-import org.maplibre.nativeffi.runtime.RuntimeEventSourceType
-import org.maplibre.nativeffi.runtime.RuntimeEventType
+import org.maplibre.nativeffi.generated.RenderMode
+import org.maplibre.nativeffi.generated.RenderingStats
+import org.maplibre.nativeffi.generated.RuntimeEvent
+import org.maplibre.nativeffi.generated.RuntimeEventPayload
+import org.maplibre.nativeffi.generated.RuntimeEventRenderFrame
+import org.maplibre.nativeffi.generated.RuntimeEventSourceType
+import org.maplibre.nativeffi.generated.RuntimeEventType
 
 class MlnFfiMapEventsTest {
 
@@ -28,17 +29,19 @@ class MlnFfiMapEventsTest {
           RuntimeEventType.MAP_RENDER_FRAME_FINISHED,
           payload =
             RuntimeEventPayload.RenderFrame(
-              mode = RenderMode.FULL,
-              needsRepaint = true,
-              placementChanged = false,
-              stats =
-                RenderingStats(
-                  encodingTime = 1.5,
-                  renderingTime = 2.5,
-                  frameCount = 3L,
-                  drawCallCount = 4L,
-                  totalDrawCallCount = 5L,
-                ),
+              RuntimeEventRenderFrame(
+                mode = RenderMode.FULL,
+                needsRepaint = true,
+                placementChanged = false,
+                stats =
+                  RenderingStats(
+                    encodingTime = 1.5,
+                    renderingTime = 2.5,
+                    frameCount = 3L,
+                    drawCallCount = 4L,
+                    totalDrawCallCount = 5L,
+                  ),
+              ),
             ),
         )
         .toMapEvent()
@@ -61,14 +64,14 @@ class MlnFfiMapEventsTest {
 
   @Test
   fun a_frame_in_an_unnamed_render_mode_keeps_its_number() {
-    assertEquals("99", frameStats(RenderMode(99)).mode.value)
+    assertEquals("99", frameStats(RenderMode(99u)).mode.value)
   }
 
   @Test
   fun an_event_outside_the_catalog_translates_to_nothing() {
     assertNull(runtimeEvent(RuntimeEventType.MAP_RENDER_ERROR).toMapEvent())
     assertNull(runtimeEvent(RuntimeEventType.MAP_STYLE_IMAGE_MISSING).toMapEvent())
-    assertNull(runtimeEvent(RuntimeEventType(9999)).toMapEvent())
+    assertNull(runtimeEvent(RuntimeEventType(9999u)).toMapEvent())
   }
 
   private fun frameStats(mode: RenderMode): RenderStats {
@@ -77,10 +80,12 @@ class MlnFfiMapEventsTest {
         RuntimeEventType.MAP_RENDER_FRAME_FINISHED,
         payload =
           RuntimeEventPayload.RenderFrame(
-            mode = mode,
-            needsRepaint = false,
-            placementChanged = false,
-            stats = RenderingStats(0.0, 0.0, 0L, 0L, 0L),
+            RuntimeEventRenderFrame(
+              mode = mode,
+              needsRepaint = false,
+              placementChanged = false,
+              stats = RenderingStats(0.0, 0.0, 0L, 0L, 0L),
+            ),
           ),
       )
     return assertNotNull((event.toMapEvent() as MapEvent.FrameRendered).stats)
@@ -95,9 +100,6 @@ class MlnFfiMapEventsTest {
     RuntimeEvent(
       type = type,
       sourceType = RuntimeEventSourceType.MAP,
-      sourceId = 0L,
-      runtimeSource = null,
-      mapSource = null,
       code = code,
       payload = payload,
       message = message,

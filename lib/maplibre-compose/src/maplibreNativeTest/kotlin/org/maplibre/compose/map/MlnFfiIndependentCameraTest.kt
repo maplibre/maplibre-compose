@@ -11,43 +11,36 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiIndependentCameraTest {
   @Test
-  fun a_queued_camera_assignment_applies_before_a_following_partial_animation() = runBlocking {
+  fun a_queued_camera_assignment_applies_before_a_following_partial_animation() = runMapTest {
     fixture().use { fixture ->
       val state = fixture.state
       val padding = DpPadding(bottom = 80.dp)
       state.setCameraPosition(state.cameraPosition.copy(padding = padding))
       fixture.awaitUntil("the initial padding") { state.cameraPosition.padding == padding }
 
-      val ownerHeld = MlnFfiGate()
-      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
+      state.setCameraPosition(
+        state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero),
+      )
       val animation =
-        try {
-          state.setCameraPosition(
-            state.cameraPosition.copy(center = Position(1.0, 1.0), padding = DpPadding.Zero),
+        async(start = CoroutineStart.UNDISPATCHED) {
+          state.animateCamera(
+            CameraUpdate(center = Position(2.0, 2.0)),
+            CameraAnimation.Ease { duration = 100.milliseconds },
           )
-          async(start = CoroutineStart.UNDISPATCHED) {
-            state.animateCamera(
-              CameraUpdate(center = Position(2.0, 2.0)),
-              CameraAnimation.Ease { duration = 100.milliseconds },
-            )
-          }
-        } finally {
-          ownerHeld.open()
         }
 
       fixture.awaitUntil("the partial animation to finish") { animation.isCompleted }
@@ -59,7 +52,7 @@ class MlnFfiIndependentCameraTest {
   }
 
   @Test
-  fun an_inset_change_queued_after_replacing_an_anchor_preserves_the_replacement() = runBlocking {
+  fun an_inset_change_queued_after_replacing_an_anchor_preserves_the_replacement() = runMapTest {
     fixture().use { fixture ->
       val state = fixture.state
       val anchored = async {
@@ -70,10 +63,7 @@ class MlnFfiIndependentCameraTest {
         )
       }
       fixture.awaitUntil("the anchor to start") { state.cameraPosition.zoom > 3.1 }
-      // The owner thread holds still, so both commands enter the same owner batch, before another
-      // native event drain.
-      val ownerHeld = MlnFfiGate()
-      fixture.session.loop.submit { ownerHeld.awaitUntilOpen() }
+      // Both commands are submitted before main handles another map event.
       val replacement =
         async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(
@@ -82,7 +72,6 @@ class MlnFfiIndependentCameraTest {
           )
         }
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
-      ownerHeld.open()
       fixture.awaitUntil("the replacement to finish") { replacement.isCompleted }
       replacement.await()
       anchored.await()
@@ -92,7 +81,7 @@ class MlnFfiIndependentCameraTest {
 
   @Test
   fun disjoint_commands_finish_independently_and_cancellation_only_withdraws_the_waiter() =
-    runBlocking {
+    runMapTest {
       fixture().use { fixture ->
         val state = fixture.state
         val zoom = async {
@@ -123,7 +112,7 @@ class MlnFfiIndependentCameraTest {
     }
 
   @Test
-  fun replacing_zoom_preserves_the_older_commands_bearing_and_completion() = runBlocking {
+  fun replacing_zoom_preserves_the_older_commands_bearing_and_completion() = runMapTest {
     fixture().use { fixture ->
       val state = fixture.state
       val original = async {
@@ -153,7 +142,7 @@ class MlnFfiIndependentCameraTest {
   }
 
   @Test
-  fun replacing_a_coupled_target_stops_its_zoom_but_preserves_unrelated_bearing() = runBlocking {
+  fun replacing_a_coupled_target_stops_its_zoom_but_preserves_unrelated_bearing() = runMapTest {
     for (anchored in listOf(false, true)) {
       fixture().use { fixture ->
         val state = fixture.state
@@ -202,14 +191,12 @@ class MlnFfiIndependentCameraTest {
     }
   }
 
-  private fun fixture(): BridgeMapFixture {
+  private suspend fun fixture(): BridgeMapFixture {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     return BridgeMapFixture.create().also {
-      it.state.publishPresentation(it.state.reservePresentation(), it.session)
-      it.bindState(it.state)
       it.loadStyle(BaseStyle.Empty)
       it.state.setCameraPosition(CameraPosition(zoom = 3.0))
-      it.pumpUntil("the initial camera") { it.state.cameraPosition.zoom == 3.0 }
+      it.awaitUntil("the initial camera") { it.state.cameraPosition.zoom == 3.0 }
     }
   }
 }

@@ -22,6 +22,7 @@ import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.FakeSnapshotterAdapter
 import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.map.testMainDispatcher
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.composeStyle
@@ -71,7 +72,11 @@ class RuntimeShaderPainterTest {
             captured.image.toImageBitmap()
           },
         )
-      val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
+      val runtime =
+        mapRuntimeForTest(
+          mainDispatcher = testMainDispatcher(),
+          createSnapshotterAdapter = { adapter },
+        )
       val source =
         GeoJsonSource(
           "features",

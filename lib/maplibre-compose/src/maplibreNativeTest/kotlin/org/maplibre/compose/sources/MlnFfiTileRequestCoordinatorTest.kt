@@ -1,45 +1,51 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.sources
 
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.MlnFfiMapRuntimeLoop
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
-import org.maplibre.compose.mlnffi.launchTestTask
+import org.maplibre.compose.mlnffi.TestMapMain
+import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.compose.testing.runMapTest
+import org.maplibre.nativeffi.generated.CanonicalTileId
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.MapHandle
 
 class MlnFfiTileRequestCoordinatorTest {
 
   @Test
   fun different_tiles_load_concurrently() = withDroppingBinding { binding ->
     val started = RecordingList<TileCoordinate>()
+    val bothStarted = CompletableDeferred<Unit>()
     val release = CompletableDeferred<Unit>()
     val coordinator =
       coordinator(binding) {
         started += it
+        if (started.size == 2) bothStarted.complete(Unit)
         release.await()
       }
 
-    coordinator.fetch(CanonicalTileId(z = 1, x = 0, y = 0))
-    coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
+    coordinator.fetch(CanonicalTileId(z = 1u, x = 0u, y = 0u))
+    coordinator.fetch(CanonicalTileId(z = 1u, x = 1u, y = 0u))
 
-    withTimeout(5.seconds) {
-      while (started.size < 2) kotlinx.coroutines.yield()
-    }
+    withTimeout(5.seconds) { bothStarted.await() }
     assertEquals(setOf(TileCoordinate(1, 0, 0), TileCoordinate(1, 1, 0)), started.toSet())
     release.complete(Unit)
     coordinator.close()
@@ -49,19 +55,21 @@ class MlnFfiTileRequestCoordinatorTest {
   fun blocking_loads_leave_default_dispatcher_work_running() = withDroppingBinding { binding ->
     // More than a pool sized to the CPU count, such as Dispatchers.Default, runs at once.
     val loads = 32
-    val started = TestLatch(loads)
+    val started = AtomicInt(0)
+    val allStarted = CompletableDeferred<Unit>()
     val release = TestLatch(1)
     val coordinator =
       coordinator(binding) {
-        started.countDown()
-        release.await()
+        if (started.incrementAndFetch() == loads) allStarted.complete(Unit)
+        // Blocks its thread, as a provider's blocking read would.
+        release.await(10_000)
       }
     try {
-      repeat(loads) { coordinator.fetch(CanonicalTileId(z = 6, x = it.toLong(), y = 0)) }
-      assertTrue(started.await(5_000), "blocking loads did not all run at once")
-      val defaultWork = TestLatch(1)
-      launchTestTask { defaultWork.countDown() }
-      assertTrue(defaultWork.await(5_000), "blocking loads starved Default")
+      repeat(loads) { coordinator.fetch(CanonicalTileId(z = 6u, x = it.toUInt(), y = 0u)) }
+      withTimeout(5.seconds) { allStarted.await() }
+      val defaultWork = CompletableDeferred<Unit>()
+      CoroutineScope(Dispatchers.Default).launch { defaultWork.complete(Unit) }
+      withTimeout(5.seconds) { defaultWork.await() }
     } finally {
       release.countDown()
       coordinator.close()
@@ -89,8 +97,12 @@ class MlnFfiTileRequestCoordinatorTest {
         }
       }
     val answers = RecordingList<Unit>()
-    binding.onDrop = { answers += Unit }
-    val tile = CanonicalTileId(z = 0, x = 0, y = 0)
+    val answered = CompletableDeferred<Unit>()
+    binding.onDrop = {
+      answers += Unit
+      answered.complete(Unit)
+    }
+    val tile = CanonicalTileId(z = 0u, x = 0u, y = 0u)
 
     coordinator.fetch(tile)
     withTimeout(5.seconds) { firstStarted.await() }
@@ -99,9 +111,8 @@ class MlnFfiTileRequestCoordinatorTest {
     withTimeout(5.seconds) {
       firstCancelled.await()
       secondFinished.await()
-      while (answers.size < 1) kotlinx.coroutines.yield()
+      answered.await()
     }
-    delay(100)
     assertEquals(2, invocations.size)
     assertEquals(1, answers.size, "the replaced request must not be answered")
     coordinator.close()
@@ -125,14 +136,13 @@ class MlnFfiTileRequestCoordinatorTest {
         }
       val answers = RecordingList<Unit>()
       binding.onDrop = { answers += Unit }
-      coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
+      coordinator.fetch(CanonicalTileId(z = 0u, x = 0u, y = 0u))
       withTimeout(5.seconds) { firstStarted.await() }
 
       coordinator.close()
       withTimeout(5.seconds) { firstCancelled.await() }
-      coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
+      coordinator.fetch(CanonicalTileId(z = 0u, x = 0u, y = 0u))
 
-      delay(100)
       assertEquals(1, starts.size, "a closed coordinator must not load")
       assertEquals(0, answers.size, "a closed coordinator must not answer")
     }
@@ -147,9 +157,9 @@ class MlnFfiTileRequestCoordinatorTest {
       }
     binding.onDrop = { failureHandled.complete(Unit) }
 
-    coordinator.fetch(CanonicalTileId(z = 1, x = 0, y = 0))
+    coordinator.fetch(CanonicalTileId(z = 1u, x = 0u, y = 0u))
     withTimeout(5.seconds) { failureHandled.await() }
-    coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
+    coordinator.fetch(CanonicalTileId(z = 1u, x = 1u, y = 0u))
 
     withTimeout(5.seconds) { successful.await() }
     coordinator.close()
@@ -161,7 +171,7 @@ class MlnFfiTileRequestCoordinatorTest {
     binding.onDrop = { answered.complete(Unit) }
     val coordinator = coordinator(binding) { withTimeout(1.milliseconds) { awaitCancellation() } }
 
-    coordinator.fetch(CanonicalTileId(z = 0, x = 0, y = 0))
+    coordinator.fetch(CanonicalTileId(z = 0u, x = 0u, y = 0u))
 
     withTimeout(5.seconds) { answered.await() }
     coordinator.close()
@@ -179,41 +189,40 @@ class MlnFfiTileRequestCoordinatorTest {
       fail = { _, _, error -> throw error },
     )
 
-  private fun withDroppingBinding(action: suspend (DroppingBinding) -> Unit) = runBlocking {
+  private fun withDroppingBinding(action: suspend (DroppingBinding) -> Unit) = runMapTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
-    val owner = MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile)).also { it.start() }
-    val binding = CompletableDeferred<DroppingBinding>()
-    lateinit var loop: MlnFfiMapRuntimeLoop
-    loop =
-      MlnFfiMapRuntimeLoop(
-        extent = MapExtent.fromLogical(1, 1, 1.0),
-        owner = owner,
-        getLogger = { null },
-        onMapCreated = {},
-        onMapPublished = { binding.complete(DroppingBinding(it, loop)) },
-        onEvent = { _, _ -> },
-        onEventsDrained = {},
-        requestFrame = {},
-        onFailure = { binding.completeExceptionally(it) },
-      )
+    val owner =
+      MlnFfiRuntime(MlnFfiRuntimeOptions(cacheFile, mainDispatcher = TestMapMain.dispatcher)).also {
+        it.start()
+      }
     try {
-      loop.start()
-      action(withTimeout(5.seconds) { binding.await() })
+      val map =
+        withTimeout(5.seconds) {
+          owner.awaitRuntime().createMap(GeneratedApi.mapOptionsDefault()).await()
+        }
+      try {
+        action(DroppingBinding(map, owner))
+      } finally {
+        map.release().await()
+      }
     } finally {
-      loop.close()
-      loop.awaitClosed()
       owner.close()
       owner.awaitClosed()
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
 
-  private class DroppingBinding(map: MapHandle, loop: MlnFfiMapRuntimeLoop) :
-    MlnFfiStyleBinding(map, loop, sessionOpen = { true }) {
+  private class DroppingBinding(map: MapHandle, owner: MlnFfiRuntime) :
+    MlnFfiStyleBinding(
+      map,
+      owner,
+      LoadedStyleContents(emptyList(), emptyList(), null),
+      sessionOpen = { true },
+    ) {
     var onDrop: () -> Unit = {}
 
-    override fun submit(onDropped: () -> Unit, action: (MapHandle) -> Unit) {
+    override fun submit(onDropped: () -> Unit, command: (MapHandle) -> Unit) {
       onDropped()
       onDrop()
     }

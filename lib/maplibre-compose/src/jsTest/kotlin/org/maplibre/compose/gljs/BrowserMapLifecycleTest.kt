@@ -119,7 +119,7 @@ class BrowserMapLifecycleTest {
         val replacementSession =
           requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
 
-        assertNotSame(firstSession, replacementSession)
+        assertSame(firstSession, replacementSession)
         assertNotSame(firstEngine, replacementSession.engineMapForTest())
         assertEquals(StyleLoadState.Loading, state.style.loadState)
         assertTrue(replacementSession.getCameraPosition().isNear(replayedCamera))
@@ -203,8 +203,8 @@ class BrowserMapLifecycleTest {
         val replacementSession = replacement.adapter as GlJsMapSession
         val replacementEngine = requireNotNull(replacementSession.engineMapForTest())
         assertFalse(firstAttachment.isValid)
-        assertNull(firstSession.engineMapForTest())
-        assertNotSame(firstSession, replacementSession)
+        assertTrue(firstEngine.asDynamic()._removed as Boolean)
+        assertSame(firstSession, replacementSession)
         assertNotSame(firstEngine, replacementEngine)
         assertTrue(state.cameraPosition.isNear(camera))
         waitUntilMap("the replacement engine's density-dependent style") {

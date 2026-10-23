@@ -4,7 +4,8 @@ package org.maplibre.compose.map
 public class MapCleanupException
 internal constructor(resourceName: String, failures: List<Throwable>) :
   RuntimeException(
-    "$resourceName cleanup failed in ${failures.size} resource(s)",
+    // Kotlin/Native test reports omit causes, so the message names the first failure.
+    "$resourceName cleanup failed in ${failures.size} resource(s): ${failures.firstOrNull()}",
     failures.firstOrNull(),
   ) {
   /** Every cleanup failure, in cleanup order. */

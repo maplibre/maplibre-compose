@@ -16,7 +16,6 @@ import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Position
@@ -65,7 +64,7 @@ class BearingAccuracyRenderingTest {
         "sector pixels are not hit targets",
       )
       layer.paint("bearing", (const(90f).compile(context)).asLayerProperty())
-      checkNotNull(fixture.style).onOwner { handle.update(layer.definition()) }
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
       fixture.pumpUntil("east-pointing sector") { fixture.readPixel(276, 256).red > 180 }
       assertTrue(fixture.readPixel(256, 236).red < 5)
       fixture.state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 2.0))
@@ -73,15 +72,17 @@ class BearingAccuracyRenderingTest {
         fixture.readPixel(346, 256).blue > 20
       }
       layer.paint("bearing-accuracy", (const(180f).compile(context)).asLayerProperty())
-      checkNotNull(fixture.style).onOwner { handle.update(layer.definition()) }
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
       fixture.pumpUntil("full circle") { fixture.readPixel(236, 256).blue > 180 }
       layer.paint("bearing-accuracy", (const(0f).compile(context)).asLayerProperty())
-      checkNotNull(fixture.style).onOwner { handle.update(layer.definition()) }
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
       fixture.pumpUntil("zero error hides sector") { fixture.readPixel(276, 256).blue < 5 }
       layer.paint("bearing-accuracy", (const(15f).compile(context)).asLayerProperty())
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
+      fixture.pumpUntil("restored sector") { fixture.readPixel(276, 256).blue > 180 }
       layer.paint("bearing-accuracy-radius", (const(0.dp).compile(context)).asLayerProperty())
-      checkNotNull(fixture.style).onOwner { handle.update(layer.definition()) }
-      fixture.pump(2)
+      checkNotNull(fixture.style).run { handle.update(layer.definition()) }
+      fixture.pumpUntil("zero radius hides sector") { fixture.readPixel(276, 256).blue < 5 }
       assertTrue(fixture.readPixel(276, 256).blue < 5, "zero radius hides sector")
       assertTrue(fixture.errors.isEmpty(), fixture.errors.toString())
     }

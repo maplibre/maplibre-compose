@@ -28,6 +28,8 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
     get() = backends.producer
 
   protected val rendererThread = MapRendererThread(rendererThreadName)
+  // TODO: replace the CPU wait with GPU consumer synchronization and a two-texture ring so
+  // rendering overlaps sampling. Measure the benefit with benchmarks first.
   protected val frameCompletion = ComposeFrameCompletion()
   protected val textures = SharedTextures<T> { release(it) }
 
@@ -55,9 +57,6 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
   /** Releases every texture and the Skia wrappers around them, for [close]. */
   protected abstract fun closeTextures()
 
-  /** Waits for the producer's writes to finish. Runs on the renderer thread. */
-  protected abstract fun waitForProducers()
-
   /** Closes the producer's contexts after their textures are gone. Runs on the renderer thread. */
   protected abstract fun closeProducers()
 
@@ -82,7 +81,19 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
   }
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run(::waitForProducers)
+    presentationHost.onGpuThread {
+      frame.releaseAfterReads?.let(frameCompletion::holdFrame)
+      frame.releaseAfterReads = null
+    }
+  }
+
+  final override fun completeConsumerAccess() {
+    var completed = false
+    try {
+      completed = withPreparedContext {} != null
+    } finally {
+      if (!completed) presentationHost.onGpuThread { frameCompletion.abandon() }
+    }
   }
 
   final override fun draw(
@@ -91,8 +102,9 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
     destination: MlnFfiMapDestination,
   ): Boolean {
     if (target.backend != producer) return false
-    return withPreparedContext { context ->
-      val texture = textures[target.generation] ?: return@withPreparedContext false
+    return withComposeContext { context ->
+      frameCompletion.adoptContext(context.skiaContext, ::contextReplaced)
+      val texture = textures[target.generation] ?: return@withComposeContext false
       val drew = present(scope, context, texture, target.generation, destination)
       if (drew) textures.releaseRetired(except = target.generation)
       drew
@@ -101,8 +113,15 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
 
   final override fun close() {
     try {
-      frameCompletion.abandon()
-      closeTextures()
+      try {
+        completeConsumerAccess()
+      } finally {
+        try {
+          presentationHost.onGpuThread { frameCompletion.abandon() }
+        } finally {
+          closeTextures()
+        }
+      }
     } finally {
       try {
         rendererThread.run(::closeProducers)

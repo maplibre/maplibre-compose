@@ -3,9 +3,12 @@ package org.maplibre.compose.offline
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toLatLngBounds
-import org.maplibre.nativeffi.offline.OfflineRegionDefinition as FfiRegionDefinition
-import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
-import org.maplibre.nativeffi.offline.OfflineRegionStatus
+import org.maplibre.nativeffi.generated.OfflineGeometryRegionDefinition
+import org.maplibre.nativeffi.generated.OfflineRegionDefinition as FfiRegionDefinition
+import org.maplibre.nativeffi.generated.OfflineRegionDefinitionData
+import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
+import org.maplibre.nativeffi.generated.OfflineRegionStatus
+import org.maplibre.nativeffi.generated.OfflineTilePyramidRegionDefinition
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.toJson
@@ -22,22 +25,30 @@ private const val IncludeIdeographs = true
 internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition =
   when (this) {
     is OfflinePackDefinition.TilePyramid ->
-      FfiRegionDefinition.TilePyramid(
-        styleUrl = styleUrl,
-        bounds = bounds.toLatLngBounds(),
-        minZoom = minZoom,
-        maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-        pixelRatio = pixelRatio,
-        includeIdeographs = IncludeIdeographs,
+      FfiRegionDefinition(
+        OfflineRegionDefinitionData.TilePyramid(
+          OfflineTilePyramidRegionDefinition(
+            styleUrl = styleUrl,
+            bounds = bounds.toLatLngBounds(),
+            minZoom = minZoom,
+            maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
+            pixelRatio = pixelRatio,
+            includeIdeographs = IncludeIdeographs,
+          ),
+        ),
       )
     is OfflinePackDefinition.Shape ->
-      FfiRegionDefinition.GeometryRegion(
-        styleUrl = styleUrl,
-        geometry = shape.toJson().encodeToByteArray(),
-        minZoom = minZoom,
-        maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-        pixelRatio = pixelRatio,
-        includeIdeographs = IncludeIdeographs,
+      FfiRegionDefinition(
+        OfflineRegionDefinitionData.Geometry(
+          OfflineGeometryRegionDefinition(
+            styleUrl = styleUrl,
+            geometry = shape.toJson().encodeToByteArray(),
+            minZoom = minZoom,
+            maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
+            pixelRatio = pixelRatio,
+            includeIdeographs = IncludeIdeographs,
+          ),
+        ),
       )
     is UnspecifiedOfflinePackDefinition ->
       error("UnspecifiedOfflinePackDefinition has no instances")
@@ -49,24 +60,28 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
  * [OfflinePackDefinition].
  */
 internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): OfflinePackDefinition? =
-  when (this) {
-    is FfiRegionDefinition.TilePyramid ->
-      OfflinePackDefinition.TilePyramid(
-        styleUrl = styleUrl,
-        bounds = bounds.toBoundingBox(),
-        pixelRatio = pixelRatio,
-        minZoom = minZoom,
-        // MapLibre stores an unlimited maximum as infinity.
-        maxZoom = maxZoom.takeIf { it.isFinite() },
-      )
-    is FfiRegionDefinition.GeometryRegion ->
-      OfflinePackDefinition.Shape(
-        styleUrl = styleUrl,
-        shape = geometry.toGeoJsonGeometry(logger),
-        pixelRatio = pixelRatio,
-        minZoom = minZoom,
-        maxZoom = maxZoom.takeIf { it.isFinite() },
-      )
+  when (val definition = data) {
+    is OfflineRegionDefinitionData.TilePyramid ->
+      with(definition.value) {
+        OfflinePackDefinition.TilePyramid(
+          styleUrl = styleUrl,
+          bounds = bounds.toBoundingBox(),
+          pixelRatio = pixelRatio,
+          minZoom = minZoom,
+          // MapLibre stores an unlimited maximum as infinity.
+          maxZoom = maxZoom.takeIf { it.isFinite() },
+        )
+      }
+    is OfflineRegionDefinitionData.Geometry ->
+      with(definition.value) {
+        OfflinePackDefinition.Shape(
+          styleUrl = styleUrl,
+          shape = geometry.toGeoJsonGeometry(logger),
+          pixelRatio = pixelRatio,
+          minZoom = minZoom,
+          maxZoom = maxZoom.takeIf { it.isFinite() },
+        )
+      }
     else -> {
       logger?.w { "Ignoring an offline region with an unrecognized definition: $this" }
       null
@@ -75,21 +90,21 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
 
 internal fun OfflineRegionStatus.toDownloadProgress(): DownloadProgress =
   DownloadProgress.Healthy(
-    completedResourceCount = completedResourceCount,
-    completedResourceBytes = completedResourceSize,
-    completedTileCount = completedTileCount,
-    completedTileBytes = completedTileSize,
+    completedResourceCount = completedResourceCount.toLong(),
+    completedResourceBytes = completedResourceSize.toLong(),
+    completedTileCount = completedTileCount.toLong(),
+    completedTileBytes = completedTileSize.toLong(),
     status =
       when {
         complete -> DownloadStatus.Complete
         downloadState == OfflineRegionDownloadState.ACTIVE -> DownloadStatus.Downloading
         downloadState == OfflineRegionDownloadState.INACTIVE -> DownloadStatus.Paused
-        // Download states are value classes over Int rather than enums, so a newer native runtime
+        // Download states are open value classes rather than enums, so a newer native runtime
         // can report one this build has never seen.
-        else -> UnrecognizedDownloadStatus(downloadState.nativeValue)
+        else -> UnrecognizedDownloadStatus(downloadState.rawValue.toInt())
       },
     isRequiredResourceCountPrecise = requiredResourceCountIsPrecise,
-    requiredResourceCount = requiredResourceCount,
+    requiredResourceCount = requiredResourceCount.toLong(),
   )
 
 private fun ByteArray.toGeoJsonGeometry(logger: MapLog?): Geometry = runCatching {

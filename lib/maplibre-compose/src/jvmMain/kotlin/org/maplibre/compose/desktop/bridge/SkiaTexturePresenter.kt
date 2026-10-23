@@ -7,6 +7,7 @@ import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -37,9 +38,15 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
       val presenter = presenters.getOrPut(wrapper.key(target)) { TexturePresenter() }
-      presenter.draw(composeCanvas.skiaCanvas, skiaContext, target, destination)
-      completion.frameRecorded(presenter::preserveFrame)
-      drew = true
+      drew =
+        presenter.draw(
+          composeCanvas.skiaCanvas,
+          skiaContext,
+          target,
+          destination,
+          completion.hasFrame,
+        )
+      if (drew) completion.frameRecorded(presenter::preserveFrame)
     }
     return drew
   }
@@ -69,32 +76,40 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     private var layout: SkiaTextureLayout? = null
     private var renderTarget: WrappedRenderTarget? = null
     private var surface: Surface? = null
+    private var image: Image? = null
 
     fun draw(
       canvas: Canvas,
       context: DirectContext,
       target: T,
       destination: MlnFfiMapDestination,
-    ) {
+      newFrame: Boolean,
+    ): Boolean {
       val currentSurface = ensureSurface(context, target)
       wrapper.beforeDraw(context)
-      currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      currentSurface.makeImageSnapshot().use { image ->
-        canvas.drawImageRect(
-          image = image,
-          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-          dst =
-            Rect.makeLTRB(
-              destination.left.toFloat(),
-              destination.top.toFloat(),
-              destination.right.toFloat(),
-              destination.bottom.toFloat(),
-            ),
-          samplingMode = SamplingMode.LINEAR,
-          paint = null,
-          strict = true,
-        )
+      if (newFrame) {
+        image?.close()
+        currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
+        image = currentSurface.makeImageSnapshot()
       }
+      // prepare preserved this snapshot before releasing the texture. A parked demand may be
+      // writing that texture now, so redraw the snapshot until another acquired frame arrives.
+      val image = image ?: return false
+      canvas.drawImageRect(
+        image = image,
+        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+        dst =
+          Rect.makeLTRB(
+            destination.left.toFloat(),
+            destination.top.toFloat(),
+            destination.right.toFloat(),
+            destination.bottom.toFloat(),
+          ),
+        samplingMode = SamplingMode.LINEAR,
+        paint = null,
+        strict = true,
+      )
+      return true
     }
 
     fun preserveFrame() {
@@ -121,6 +136,8 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     }
 
     override fun close() {
+      image?.close()
+      image = null
       surface?.close()
       surface = null
       renderTarget?.close()
@@ -129,6 +146,8 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     }
 
     fun abandon() {
+      image?.close()
+      image = null
       surface?.close()
       surface = null
       renderTarget?.abandon()

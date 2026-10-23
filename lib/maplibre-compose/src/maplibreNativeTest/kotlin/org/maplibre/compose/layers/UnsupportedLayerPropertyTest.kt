@@ -8,7 +8,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -28,10 +27,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.compose.util.onMap
-import org.maplibre.compose.util.toJsonElement
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -60,7 +57,7 @@ class UnsupportedLayerPropertyTest {
   }
 
   @Test
-  fun an_overlap_property_is_dropped_rather_than_taking_its_layer_down_with_it() {
+  fun an_overlap_property_is_dropped_rather_than_taking_its_layer_down_with_it() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -86,28 +83,20 @@ class UnsupportedLayerPropertyTest {
       )
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and installation turns that into a throw.
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
-      style.onMap { map ->
-        assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
-        // MapLibre holds no value for a property that was never written, and reports none.
-        assertNull(
-          map.layerProperty("labels", "icon-overlap"),
-          "icon-overlap should not be written",
-        )
-        assertNull(
-          map.layerProperty("labels", "text-overlap"),
-          "text-overlap should not be written",
-        )
-        assertEquals(
-          JsonPrimitive(true),
-          map.layerProperty("labels", "icon-allow-overlap")?.toJsonElement(),
-        )
-        assertEquals(
-          JsonPrimitive(true),
-          map.layerProperty("labels", "text-allow-overlap")?.toJsonElement(),
-        )
-      }
+      assertTrue("labels" in style.layerIds(), "the layer should have been added")
+      // MapLibre holds no value for a property that was never written, and reports none.
+      assertNull(
+        style.layerProperty("labels", "icon-overlap"),
+        "icon-overlap should not be written",
+      )
+      assertNull(
+        style.layerProperty("labels", "text-overlap"),
+        "text-overlap should not be written",
+      )
+      assertEquals(JsonPrimitive(true), style.layerProperty("labels", "icon-allow-overlap"))
+      assertEquals(JsonPrimitive(true), style.layerProperty("labels", "text-allow-overlap"))
 
       for (property in listOf("icon-overlap", "text-overlap")) {
         assertTrue(warnings().any { "labels" in it && property in it }, "No warning for $property")
@@ -117,20 +106,17 @@ class UnsupportedLayerPropertyTest {
         "icon-overlap",
         (const("never").compile(ExpressionContext.None)).asLayerProperty(),
       )
-      runBlocking { style.onOwner { handle.update(layer.definition()) } }
-      style.onMap { map ->
-        // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
-        assertNull(
-          map.layerProperty("labels", "icon-overlap"),
-          "icon-overlap should still not be written after installation",
-        )
-      }
+      handle.update(layer.definition())
+      assertNull(
+        style.layerProperty("labels", "icon-overlap"),
+        "icon-overlap should still not be written after installation",
+      )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
 
   @Test
-  fun an_overlap_property_is_reported_once_only_when_set() {
+  fun an_overlap_property_is_reported_once_only_when_set() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -148,12 +134,12 @@ class UnsupportedLayerPropertyTest {
         "text-overlap",
         (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val installation = runBlocking { style.install(layer) }
+      val installation = style.install(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
       for (value in listOf("cooperative", "never")) {
         layer.layout("icon-overlap", const(value).compile(ExpressionContext.None).asLayerProperty())
-        runBlocking { style.onOwner { installation.update(layer.definition()) } }
+        installation.update(layer.definition())
       }
       assertEquals(
         1,
@@ -164,7 +150,7 @@ class UnsupportedLayerPropertyTest {
   }
 
   @Test
-  fun a_refused_value_keeps_the_previous_value_and_later_batch_writes_finish_inline() {
+  fun a_refused_value_keeps_the_previous_value_and_later_writes_still_apply() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -176,7 +162,7 @@ class UnsupportedLayerPropertyTest {
         "text-rotation-alignment",
         (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty(),
       )
-      val handle = runBlocking { style.install(layer) }
+      val handle = style.install(layer)
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
@@ -186,27 +172,23 @@ class UnsupportedLayerPropertyTest {
           .asLayerProperty(),
       )
       layer.paint("text-opacity", JsonPrimitive(0.75))
-      runBlocking {
-        style.onOwner {
-          handle.update(layer.definition())
-          assertEquals(JsonPrimitive(0.75), style.layerProperty("labels", "text-opacity"))
-        }
+      handle.update(layer.definition())
+      assertEquals(JsonPrimitive(0.75), style.layerProperty("labels", "text-opacity"))
+      assertEquals(
+        JsonPrimitive("map"),
+        style.layerProperty("labels", "text-rotation-alignment"),
+        "the layer should have kept the value MapLibre accepted",
+      )
+      fixture.awaitUntil("the rejected property warning") {
+        warnings().any { "discarded command failed" in it }
       }
-
-      style.onMap { map ->
-        assertEquals(
-          JsonPrimitive("map"),
-          map.layerProperty("labels", "text-rotation-alignment")?.toJsonElement(),
-          "the layer should have kept the value MapLibre accepted",
-        )
-      }
-      assertTrue(warnings().any { "labels" in it && "text-rotation-alignment" in it })
+      assertTrue(warnings().any { "discarded command failed" in it })
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
 
   @Test
-  fun the_transition_of_an_unsupported_property_is_dropped_with_it() {
+  fun the_transition_of_an_unsupported_property_is_dropped_with_it() = runMapTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
@@ -221,19 +203,17 @@ class UnsupportedLayerPropertyTest {
       layer.paintTransition("fill-layer-opacity", TransitionOptions(500.milliseconds))
       // The assertion is that this returns at all: a layer object carrying either key is refused
       // wholesale, and installation turns that into a throw.
-      runBlocking { style.install(layer) }
+      style.install(layer)
 
-      style.onMap { map ->
-        assertTrue(map.styleLayerExists("fills"), "the layer should have been added")
-        assertNull(
-          map.layerProperty("fills", "fill-layer-opacity"),
-          "fill-layer-opacity should not be written",
-        )
-        assertNull(
-          map.layerProperty("fills", "fill-layer-opacity-transition"),
-          "fill-layer-opacity-transition should not be written",
-        )
-      }
+      assertTrue("fills" in style.layerIds(), "the layer should have been added")
+      assertNull(
+        style.layerProperty("fills", "fill-layer-opacity"),
+        "fill-layer-opacity should not be written",
+      )
+      assertNull(
+        style.layerProperty("fills", "fill-layer-opacity-transition"),
+        "fill-layer-opacity-transition should not be written",
+      )
 
       for (property in listOf("fill-layer-opacity", "fill-layer-opacity-transition")) {
         assertTrue(warnings().any { "fills" in it && property in it }, "No warning for $property")
@@ -242,14 +222,16 @@ class UnsupportedLayerPropertyTest {
     }
   }
 
-  private fun warnings(): List<String> = Captured.filter { it.startsWith("Layer ") }
+  private fun warnings(): List<String> = Captured.filter {
+    it.startsWith("Layer ") || it.startsWith("discarded command failed")
+  }
 
   private fun addSource(style: MlnFfiStyleBinding): GeoJsonSource =
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
       )
-      .also { runBlocking { style.install(it) } }
+      .also { style.install(it) }
 
   private companion object {
     /** Warnings the library logged. */

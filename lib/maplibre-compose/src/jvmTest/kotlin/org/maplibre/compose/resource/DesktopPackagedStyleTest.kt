@@ -5,10 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.onOwner
+import org.maplibre.compose.testing.runMapTest
 
 /** A style loaded by a real map from the URI shapes an application ships one in. */
 class DesktopPackagedStyleTest {
@@ -21,7 +20,7 @@ class DesktopPackagedStyleTest {
   }
 
   @Test
-  fun `a style packaged in a jar loads`() {
+  fun `a style packaged in a jar loads`() = runMapTest {
     val url =
       resources.jarEntry(
         jarName = "demo app.jar",
@@ -37,19 +36,19 @@ class DesktopPackagedStyleTest {
    * percent-encoded non-ASCII paths.
    */
   @Test
-  fun `a style beside the application loads from a path with spaces and no ASCII`() {
+  fun `a style beside the application loads from a path with spaces and no ASCII`() = runMapTest {
     val url = resources.file("style sheets/スタイル/style.json", style("read-from-file"))
 
     assertStyleLoads(url, "read-from-file")
   }
 
-  private fun assertStyleLoads(url: String, layerId: String) {
+  private suspend fun assertStyleLoads(url: String, layerId: String) {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Uri(url))
 
       assertEquals(emptyList(), fixture.errors, "the map reported errors loading $url")
       val style = assertNotNull(fixture.style, "the style should have reached the callbacks")
-      val layerIds = runBlocking { style.onOwner { style.layerIds() } }
+      val layerIds = style.layerIds()
       assertTrue(layerId in layerIds, "Expected the packaged style's own layer. Got $layerIds")
     }
   }

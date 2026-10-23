@@ -13,8 +13,7 @@ import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.resetForTest
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.compose.map.tryLoadRuntimeBackends
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
@@ -101,10 +100,11 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   private val initialDriverCount = preparedDrivers.size
   override val bridges: List<RenderBackendPair> =
     listOf(
-      when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
-        RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
-        RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.Vulkan, composeBackend())
-        RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OpenGl, composeBackend())
+      when (val packaged = tryLoadRuntimeBackends().getOrThrow().singleOrNull()) {
+        MapRenderBackend.Metal ->
+          RenderBackendPair(MapRenderBackend.Metal, ComposeRenderBackend.Metal)
+        MapRenderBackend.Vulkan -> RenderBackendPair(MapRenderBackend.Vulkan, composeBackend())
+        MapRenderBackend.OpenGl -> RenderBackendPair(MapRenderBackend.OpenGl, composeBackend())
         else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
       },
     )

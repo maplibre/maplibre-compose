@@ -30,28 +30,10 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 internal interface MapAdapter {
-  /** Whether the engine remains alive after its current presentation detaches. */
-  val retainsEngineBetweenPresentations: Boolean
-    get() = false
-
-  /** Identifies the presentation properties that constrain engine reuse. */
-  val presentationCompatibilityKey: Any?
-    get() = null
-
-  /**
-   * Ends this adapter's current presentation. An adapter that does not retain its engine closes
-   * instead. Returns after the physical detachment and throws its cleanup failures.
-   */
+  /** Ends the presentation and waits for its physical detachment. */
   suspend fun detachPresentation()
 
-  /** True once [close] has been requested. Readable from any thread. */
-  val isClosing: Boolean
-    get() = false
-
-  /**
-   * Rejects new work at once and starts cleanup. Callable from any thread. A session adopted by a
-   * [MapLifecycleAuthority] reports this with [MapLifecycleAuthority.sessionClosing].
-   */
+  /** Requests cleanup; [awaitClosed] waits for it. Callable from any thread. */
   fun close()
 
   suspend fun awaitClosed()
@@ -84,10 +66,13 @@ internal interface MapAdapter {
   fun setBaseStyle(style: BaseStyle)
 
   /**
-   * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
-   * [capture] runs immediately after mutation in the same engine-owner visit.
+   * Applies a style-composition revision: submits its writes on main, then waits for their outcome.
+   * [Callbacks.onStyleReady] reports initial readiness.
+   *
+   * @return true if the engine rejected a source, layer, or move, so the latest revision should be
+   *   applied again.
    */
-  suspend fun <T> reconcileStyleRevision(revision: StyleSnapshot, capture: (StyleBinding) -> T): T
+  suspend fun reconcileStyleRevision(revision: StyleSnapshot): Boolean
 
   fun getCameraPosition(): CameraPosition
 
@@ -202,8 +187,8 @@ internal interface MapAdapter {
      */
     fun onStyleFailed(map: MapAdapter, reason: String?)
 
-    /** Reports that the loaded style has new source metadata. */
-    fun onStyleSourcesChanged(map: MapAdapter)
+    /** Reports that the engine changed the metadata of source [sourceId], such as its TileJSON. */
+    fun onStyleSourcesChanged(map: MapAdapter, sourceId: String)
 
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
@@ -233,7 +218,7 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
 
-  override fun onStyleSourcesChanged(map: MapAdapter) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
@@ -260,31 +245,23 @@ internal class MapStateCallbacks(
   }
 
   override fun onStyleReady(map: MapAdapter) {
-    launchStyleRead(map) { owner.styleAuthority.markStyleReady(map) }
+    owner.styleAuthority.markStyleReady(map)
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {
     owner.styleAuthority.markStyleFailed(map, reason)
   }
 
-  override fun onStyleSourcesChanged(map: MapAdapter) {
-    launchStyleRead(map) { owner.styleAuthority.refreshStyleResources(map) }
-  }
-
-  /**
-   * Starts undispatched so the read captures its binding inside the engine callback, then finishes
-   * on the runtime's main scope rather than a composition's, which the engine read's owner task
-   * resumes on. A read that fails while its style is current marks the style failed.
-   */
-  private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String) {
+    // Starts undispatched so the read captures its binding inside the engine callback, then
+    // finishes on the runtime's main scope rather than the composition's.
     owner.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
-        read()
+        owner.styleAuthority.refreshStyleSource(map, sourceId)
       } catch (error: CancellationException) {
         throw error
       } catch (error: Throwable) {
-        owner.runtime.logger?.w(error) { "Could not read the loaded style" }
-        owner.styleAuthority.markStyleFailed(map, error.message)
+        owner.runtime.logger?.w(error) { "Could not read source '$sourceId' of the loaded style" }
       }
     }
   }

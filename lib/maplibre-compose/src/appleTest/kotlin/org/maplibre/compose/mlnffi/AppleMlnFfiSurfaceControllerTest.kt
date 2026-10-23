@@ -3,21 +3,25 @@ package org.maplibre.compose.mlnffi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.map.MapExtent
 import platform.QuartzCore.CAMetalLayer
 
 class AppleMlnFfiSurfaceControllerTest {
   @Test
-  fun destruction_before_layout_does_not_prevent_a_later_surface() = runBlocking {
+  fun destruction_before_layout_does_not_prevent_a_later_surface() = runAppleSurfaceTest {
     val renderer = RecordingRenderer()
     AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = { throw it }).use { controller
       ->
@@ -25,7 +29,7 @@ class AppleMlnFfiSurfaceControllerTest {
       val layer = CAMetalLayer()
       controller.surfaceDestroyed(oldLayer).await().getOrThrow()
       controller.surfaceLayoutChanged(layer, MapExtent.fromLogical(32, 32, 1.0))
-      controller.withRendererAccess {}
+      controller.awaitActions()
       controller.surfaceDestroyed(oldLayer).await().getOrThrow()
       assertEquals(listOf("available", "resized"), renderer.events)
       controller.surfaceDestroyed(layer).await().getOrThrow()
@@ -37,7 +41,7 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   @Test
-  fun terminal_failure_reports_to_the_owner_without_closing_its_map() = runBlocking {
+  fun terminal_failure_reports_to_the_owner_without_closing_its_map() = runAppleSurfaceTest {
     val expected = IllegalStateException("deliberate surface failure")
     var failure: Throwable? = null
     val renderer =
@@ -65,7 +69,7 @@ class AppleMlnFfiSurfaceControllerTest {
     AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = { failure = it }).use {
       controller ->
       controller.surfaceLayoutChanged(CAMetalLayer(), MapExtent.fromLogical(32, 32, 1.0))
-      controller.withRendererAccess {}
+      controller.awaitActions()
       controller.close()
       controller.awaitClosed()
       assertSame(expected, failure)
@@ -73,56 +77,7 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   @Test
-  fun close_returns_while_renderer_release_is_pending() = runBlocking {
-    val releasing = TestLatch(1)
-    val release = TestLatch(1)
-    val releasedBeforeTimeout = CompletableDeferred<Boolean>()
-    var releases = 0
-    val renderer =
-      object : MlnFfiMapRenderer {
-        override val backend = MapRenderBackend.Metal
-
-        override fun render(
-          host: MlnFfiMapHostSession,
-          frame: MlnFfiMapFrame,
-          captureProjection: Boolean,
-        ) = MlnFfiFrameResult.AwaitUpdate
-
-        override fun onSurfaceLost(session: MlnFfiMapHostSession) {
-          releases++
-          releasing.countDown()
-          releasedBeforeTimeout.complete(release.await(5_000L))
-        }
-
-        override fun close() = Unit
-      }
-    val controller = AppleMlnFfiSurfaceController(renderer, logger = null, onFailure = { throw it })
-    val layer = attachLayer(controller)
-    try {
-      val detached = controller.surfaceDestroyed(layer)
-      assertTrue(releasing.await(5_000L))
-      assertFalse(detached.isCompleted)
-      controller.close()
-      val closed = async(start = CoroutineStart.UNDISPATCHED) { controller.awaitClosed() }
-      assertFalse(closed.isCompleted)
-      release.countDown()
-      assertTrue(releasedBeforeTimeout.await(), "close blocked until the renderer timed out")
-      withTimeout(5_000L) {
-        detached.await().getOrThrow()
-        closed.await()
-      }
-      controller.surfaceDestroyed(layer).await().getOrThrow()
-      controller.close()
-      assertEquals(1, releases)
-    } finally {
-      release.countDown()
-      controller.close()
-      withTimeout(5_000L) { controller.awaitClosed() }
-    }
-  }
-
-  @Test
-  fun renderer_release_failure_is_reported_by_completion() = runBlocking {
+  fun renderer_release_failure_is_reported_by_completion() = runAppleSurfaceTest {
     val expected = IllegalStateException("renderer release failed")
     val renderer =
       object : MlnFfiMapRenderer {
@@ -172,6 +127,58 @@ class AppleMlnFfiSurfaceControllerTest {
     }
   }
 
+  @Test
+  fun completed_frames_rearm_until_surface_loss() = runAppleSurfaceTest {
+    val frames = MutableStateFlow(0)
+    val renderer =
+      object : MlnFfiMapRenderer {
+        override val backend = MapRenderBackend.Metal
+
+        override fun render(
+          host: MlnFfiMapHostSession,
+          frame: MlnFfiMapFrame,
+          captureProjection: Boolean,
+        ): MlnFfiFrameResult {
+          frames.value++
+          return MlnFfiFrameResult.Rendered()
+        }
+
+        override fun close() = Unit
+      }
+    val controller = AppleMlnFfiSurfaceController(renderer, null, onFailure = { throw it })
+    try {
+      val layer = attachLayer(controller)
+      withTimeout(5_000L) { frames.first { it >= 2 } }
+      controller.surfaceDestroyed(layer).await().getOrThrow()
+      val framesAtLoss = frames.value
+      controller.awaitActions()
+      assertEquals(framesAtLoss, frames.value, "A frame rendered after surface loss")
+    } finally {
+      controller.close()
+      controller.awaitClosed()
+    }
+  }
+
+  @Test
+  fun inactive_surfaces_release_the_session_and_resume_on_the_same_layer() = runAppleSurfaceTest {
+    val renderer = RecordingRenderer()
+    val controller = AppleMlnFfiSurfaceController(renderer, null, onFailure = { throw it })
+    try {
+      val layer = attachLayer(controller)
+      controller.setActive(false)
+      controller.awaitActions()
+      assertEquals(listOf("available", "resized", "lost"), renderer.events)
+      controller.setActive(true)
+      controller.awaitActions()
+      assertEquals(listOf("available", "resized", "lost", "available"), renderer.events)
+      controller.surfaceDestroyed(layer).await().getOrThrow()
+      assertEquals("lost", renderer.events.last())
+    } finally {
+      controller.close()
+      controller.awaitClosed()
+    }
+  }
+
   private fun assertRecoveryLimit(replaceLayer: Boolean) =
     withScriptedController { controller, renderer ->
       var layer = checkNotNull(renderer.layer)
@@ -200,7 +207,7 @@ class AppleMlnFfiSurfaceControllerTest {
   /** Runs [action] after the controller rendered its first frame into a layer. */
   private fun withScriptedController(
     action: suspend (AppleMlnFfiSurfaceController, ScriptedRenderer) -> Unit,
-  ) = runBlocking {
+  ) = runAppleSurfaceTest {
     val renderer = ScriptedRenderer()
     val controller =
       AppleMlnFfiSurfaceController(
@@ -224,11 +231,17 @@ class AppleMlnFfiSurfaceControllerTest {
     }
   }
 
-  private fun attachLayer(controller: AppleMlnFfiSurfaceController): CAMetalLayer {
+  private suspend fun attachLayer(controller: AppleMlnFfiSurfaceController): CAMetalLayer {
     val layer = CAMetalLayer()
     controller.surfaceLayoutChanged(layer, Extent)
-    controller.withRendererAccess {}
+    controller.awaitActions()
     return layer
+  }
+
+  private suspend fun AppleMlnFfiSurfaceController.awaitActions() {
+    val done = CompletableDeferred<Unit>()
+    assertTrue(enqueueRenderer { done.complete(Unit) })
+    done.await()
   }
 
   /** Renders successfully unless a test queued [nextError]; never touches the layer. */
@@ -237,6 +250,7 @@ class AppleMlnFfiSurfaceControllerTest {
     var layer: CAMetalLayer? = null
     var nextError: Throwable? = null
     var attachments = 0
+    private var rendered = false
     val failures = mutableListOf<Throwable>()
     val completed = Channel<Unit>(Channel.UNLIMITED)
 
@@ -246,6 +260,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       attachments++
+      rendered = false
     }
 
     override fun render(
@@ -256,6 +271,8 @@ class AppleMlnFfiSurfaceControllerTest {
       val error = nextError
       nextError = null
       if (error != null) throw error
+      if (rendered) return MlnFfiFrameResult.AwaitUpdate
+      rendered = true
       completed.trySend(Unit)
       return MlnFfiFrameResult.Rendered()
     }
@@ -290,5 +307,19 @@ class AppleMlnFfiSurfaceControllerTest {
 
   private companion object {
     val Extent = MapExtent.fromLogical(32, 32, 1.0)
+  }
+}
+
+/**
+ * Runs [action] with `Dispatchers.Main`, the controller's render thread, on the test scheduler.
+ * Tests run on the process main thread, so the controller's render-thread checks hold.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+private fun runAppleSurfaceTest(action: suspend () -> Unit) {
+  Dispatchers.setMain(StandardTestDispatcher())
+  try {
+    runTest { action() }
+  } finally {
+    Dispatchers.resetMain()
   }
 }

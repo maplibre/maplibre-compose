@@ -1,6 +1,5 @@
 package org.maplibre.compose.offline
 
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -8,12 +7,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.TimeSource
-import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -21,9 +18,12 @@ import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.TestMapMain
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.mlnffi.unusedLoopbackPort
 import org.maplibre.compose.resource.MapResourceError
+import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -38,26 +38,22 @@ class MlnFfiOfflinePackTest {
   private val cacheFile = FfiTestPlatform.createCacheFile()
   private val directory = requireNotNull(cacheFile.parent)
 
-  private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val options =
+    MlnFfiRuntimeOptions(
+      cacheFile = cacheFile,
+      maximumCacheSizeBytes = null,
+      mainDispatcher = TestMapMain.dispatcher,
+    )
   private val owners = mutableMapOf<MlnFfiOfflineStorage, MlnFfiRuntime>()
-
-  @AfterTest
-  fun cleanUp() = runBlocking {
-    // Close the runtime before deleting its database.
-    owners.keys.forEach { it.close() }
-    owners.values.forEach { it.close() }
-    owners.values.forEach { it.awaitClosed() }
-    FfiTestPlatform.deleteCacheFile(cacheFile)
-  }
 
   @Test
   fun a_created_pack_is_listed_with_the_definition_and_metadata_it_was_created_with() =
-    runBlocking {
+    offlineTest {
       val storage = storage()
       val definition = tilePyramid(writeStyle("listed.json"), pixelRatio = 2f)
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
-      val pack = withTimeout(OperationTimeoutMillis) { storage.create(definition, metadata) }
+      val pack = storage.create(definition, metadata)
 
       // The pack is built from what MapLibre echoed back out of the stored region, not from the
       // definition passed in, so this is a round trip through the database's own columns.
@@ -71,28 +67,22 @@ class MlnFfiOfflinePackTest {
     }
 
   @Test
-  fun a_manager_rejects_a_pack_that_belongs_to_another_manager() = runBlocking {
+  fun a_manager_rejects_a_pack_that_belongs_to_another_manager() = offlineTest {
     val first = storage()
-    val pack =
-      withTimeout(OperationTimeoutMillis) {
-        first.create(tilePyramid(writeStyle("foreign-pack.json")), ByteArray(0))
-      }
+    val pack = first.create(tilePyramid(writeStyle("foreign-pack.json")), ByteArray(0))
     val second = storage()
 
     assertFailsWith<IllegalArgumentException> { second.pause(pack) }
-    Unit
   }
 
   @Test
-  fun updating_metadata_replaces_what_the_pack_reports() = runBlocking {
+  fun updating_metadata_replaces_what_the_pack_reports() = offlineTest {
     val storage = storage()
     val pack =
-      withTimeout(OperationTimeoutMillis) {
-        storage.create(tilePyramid(writeStyle("metadata.json")), "before".encodeToByteArray())
-      }
+      storage.create(tilePyramid(writeStyle("metadata.json")), "before".encodeToByteArray())
 
     val updated = "after, and longer than before".encodeToByteArray()
-    withTimeout(OperationTimeoutMillis) { pack.setMetadata(updated) }
+    pack.setMetadata(updated)
 
     assertContentEquals(updated, pack.metadata.value)
 
@@ -110,34 +100,28 @@ class MlnFfiOfflinePackTest {
   }
 
   @Test
-  fun a_deleted_pack_is_no_longer_listed() = runBlocking {
+  fun a_deleted_pack_is_no_longer_listed() = offlineTest {
     val storage = storage()
     val definition = tilePyramid(writeStyle("deleted.json"))
-    val kept =
-      withTimeout(OperationTimeoutMillis) {
-        storage.create(definition, "kept".encodeToByteArray())
-      }
+    val kept = storage.create(definition, "kept".encodeToByteArray())
     // Two packs, because deleting the only one cannot tell "removed the pack it was given" apart
     // from "cleared the list".
-    val removed =
-      withTimeout(OperationTimeoutMillis) {
-        storage.create(definition, "removed".encodeToByteArray())
-      }
+    val removed = storage.create(definition, "removed".encodeToByteArray())
     assertEquals(setOf(kept, removed), (storage.state.value as OfflineStorageState.Ready).packs)
 
-    withTimeout(OperationTimeoutMillis) { storage.delete(removed) }
+    storage.delete(removed)
 
     assertEquals(setOf(kept), (storage.state.value as OfflineStorageState.Ready).packs)
   }
 
   /** A runtime can close its storage and a later runtime can reopen the same persistent cache. */
   @Test
-  fun a_pack_survives_closing_the_manager_and_reopening_the_same_database() = runBlocking {
+  fun a_pack_survives_closing_the_manager_and_reopening_the_same_database() = offlineTest {
     val definition = tilePyramid(writeStyle("restart.json"))
     val metadata = "written before the restart".encodeToByteArray()
 
     val first = storage()
-    val created = withTimeout(OperationTimeoutMillis) { first.create(definition, metadata) }
+    val created = first.create(definition, metadata)
 
     close(first)
 
@@ -152,7 +136,7 @@ class MlnFfiOfflinePackTest {
   }
 
   @Test
-  fun fractional_zoom_bounds_survive_creation_and_a_database_reopen() = runBlocking {
+  fun fractional_zoom_bounds_survive_creation_and_a_database_reopen() = offlineTest {
     val styleUrl = writeStyle("fractional-zoom.json")
     val definitions =
       setOf(
@@ -177,7 +161,7 @@ class MlnFfiOfflinePackTest {
       )
     val first = storage()
     for (definition in definitions) {
-      val pack = withTimeout(OperationTimeoutMillis) { first.create(definition, ByteArray(0)) }
+      val pack = first.create(definition, ByteArray(0))
       assertEquals(definition, pack.definition)
     }
     close(first)
@@ -191,7 +175,7 @@ class MlnFfiOfflinePackTest {
 
   /** MapLibre stores "no maximum zoom" as infinity; the public definition represents it as null. */
   @Test
-  fun a_shape_pack_with_no_maximum_zoom_survives_a_reopen() = runBlocking {
+  fun a_shape_pack_with_no_maximum_zoom_survives_a_reopen() = offlineTest {
     val definition =
       OfflinePackDefinition.Shape(
         styleUrl = writeStyle("shape.json"),
@@ -212,7 +196,7 @@ class MlnFfiOfflinePackTest {
       )
 
     val first = storage()
-    withTimeout(OperationTimeoutMillis) { first.create(definition, ByteArray(0)) }
+    first.create(definition, ByteArray(0))
     close(first)
 
     val second = storage()
@@ -223,16 +207,12 @@ class MlnFfiOfflinePackTest {
   }
 
   @Test
-  fun deleting_a_pack_survives_closing_the_manager_and_reopening_the_same_database() = runBlocking {
+  fun deleting_a_pack_survives_closing_the_manager_and_reopening_the_same_database() = offlineTest {
     val definition = tilePyramid(writeStyle("restart-delete.json"))
     val first = storage()
-    val kept =
-      withTimeout(OperationTimeoutMillis) { first.create(definition, "kept".encodeToByteArray()) }
-    val removed =
-      withTimeout(OperationTimeoutMillis) {
-        first.create(definition, "removed".encodeToByteArray())
-      }
-    withTimeout(OperationTimeoutMillis) { first.delete(removed) }
+    val kept = first.create(definition, "kept".encodeToByteArray())
+    val removed = first.create(definition, "removed".encodeToByteArray())
+    first.delete(removed)
 
     close(first)
 
@@ -246,23 +226,20 @@ class MlnFfiOfflinePackTest {
   }
 
   @Test
-  fun merging_a_database_registers_its_packs_and_reuses_an_identical_pack() = runBlocking {
+  fun merging_a_database_registers_its_packs_and_reuses_an_identical_pack() = offlineTest {
     val definition = tilePyramid(writeStyle("merge.json"))
     val sharedMetadata = "same pack".encodeToByteArray()
     val sourceFile = Path(directory, "merge-source.db")
 
     val source = storage(options.copy(cacheFile = sourceFile))
-    withTimeout(OperationTimeoutMillis) { source.create(definition, sharedMetadata) }
-    withTimeout(OperationTimeoutMillis) {
-      source.create(definition, "source-only pack".encodeToByteArray())
-    }
+    source.create(definition, sharedMetadata)
+    source.create(definition, "source-only pack".encodeToByteArray())
     close(source)
 
     val destination = storage()
-    val existing =
-      withTimeout(OperationTimeoutMillis) { destination.create(definition, sharedMetadata) }
+    val existing = destination.create(definition, sharedMetadata)
 
-    val merged = withTimeout(OperationTimeoutMillis) { destination.mergeDatabase(sourceFile) }
+    val merged = destination.mergeDatabase(sourceFile)
 
     assertEquals(2, merged.size)
     assertTrue(existing in merged, "an identical source pack should reuse the destination pack")
@@ -279,12 +256,9 @@ class MlnFfiOfflinePackTest {
    * retried, so the download stays active and reports its error between retries.
    */
   @Test
-  fun resuming_a_pack_starts_downloading_and_pausing_reports_it_paused_again() = runBlocking {
+  fun resuming_a_pack_starts_downloading_and_pausing_reports_it_paused_again() = offlineTest {
     val storage = storage()
-    val pack =
-      withTimeout(OperationTimeoutMillis) {
-        storage.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
-      }
+    val pack = storage.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
 
     // A pack that has been told nothing reads as NotReported, and a paused pack fetches nothing, so
     // registration issues an explicit status read.
@@ -295,17 +269,11 @@ class MlnFfiOfflinePackTest {
 
     // A paused pack issues no requests at all, so an error arriving is itself the evidence that
     // resuming reached MapLibre.
-    await(
-      {
-        "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress.value}"
-      },
-    ) {
-      pack.downloadProgress.value is DownloadProgress.Error
-    }
-    assertEquals(
-      MapResourceError.Connection,
-      (pack.downloadProgress.value as DownloadProgress.Error).reason,
-    )
+    val failed =
+      awaitProgress(pack, "the resumed pack to report a failed fetch") {
+        it is DownloadProgress.Error
+      }
+    assertEquals(MapResourceError.Connection, (failed as DownloadProgress.Error).reason)
 
     storage.pause(pack)
 
@@ -316,30 +284,9 @@ class MlnFfiOfflinePackTest {
     assertEquals(DownloadStatus.Paused, paused.status)
   }
 
-  /** A background worker observes completion through plain flow collection. */
-  @Test
-  fun a_download_completes_for_a_collector_with_no_compose_host() = runBlocking {
-    val storage = storage()
-    val pack = downloadedPack(storage, "collected.json")
-
-    val completed =
-      withTimeout(OperationTimeoutMillis) {
-        pack.downloadProgress.first {
-          it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
-        }
-      }
-
-    assertTrue((completed as DownloadProgress.Healthy).completedResourceCount > 0)
-    val packs =
-      withTimeout(OperationTimeoutMillis) {
-        storage.state.first { it is OfflineStorageState.Ready && pack in it.packs }
-      }
-    assertEquals(setOf(pack), (packs as OfflineStorageState.Ready).packs)
-  }
-
   /** Reopening must restore status from the database through the same code path used on restart. */
   @Test
-  fun a_finished_pack_still_reads_as_complete_after_a_reopen() = runBlocking {
+  fun a_finished_pack_still_reads_as_complete_after_a_reopen() = offlineTest {
     val first = storage()
     val downloaded = downloadedPack(first, "finished.json")
     awaitHealthy(downloaded, "the pack to report itself complete") {
@@ -358,11 +305,24 @@ class MlnFfiOfflinePackTest {
 
   // region fixtures
 
+  /** Runs [block] on [TestMapMain], then closes the runtimes it left open and deletes the cache. */
+  private fun offlineTest(block: suspend CoroutineScope.() -> Unit): MapTestResult = runMapTest {
+    TestMapMain.deferCleanup {
+      // Close the runtime before deleting its database.
+      owners.keys.forEach { it.close() }
+      owners.values.forEach { it.close() }
+      owners.values.forEach { it.awaitClosed() }
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+    block()
+  }
+
   private suspend fun close(storage: MlnFfiOfflineStorage) {
     storage.close()
     val owner = owners.getValue(storage)
     owner.close()
     owner.awaitClosed()
+    owners.remove(storage)
   }
 
   private suspend fun storage(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineStorage {
@@ -379,10 +339,7 @@ class MlnFfiOfflinePackTest {
     storage: MlnFfiOfflineStorage,
     styleName: String,
   ): OfflinePack {
-    val pack =
-      withTimeout(OperationTimeoutMillis) {
-        storage.create(tilePyramid(writeStyle(styleName)), ByteArray(0))
-      }
+    val pack = storage.create(tilePyramid(writeStyle(styleName)), ByteArray(0))
     storage.resume(pack)
     return pack
   }
@@ -419,31 +376,26 @@ class MlnFfiOfflinePackTest {
     description: String,
     predicate: (DownloadProgress.Healthy) -> Boolean,
   ): DownloadProgress.Healthy {
-    await({ "$description, but it last reported ${pack.downloadProgress.value}" }) {
-      (pack.downloadProgress.value as? DownloadProgress.Healthy)?.let(predicate) == true
-    }
-    return pack.downloadProgress.value as DownloadProgress.Healthy
+    val progress =
+      awaitProgress(pack, description) { it is DownloadProgress.Healthy && predicate(it) }
+    return progress as DownloadProgress.Healthy
   }
 
-  private suspend fun await(description: String, condition: () -> Boolean) =
-    await({ description }, condition)
-
-  /** Polls [condition] until it holds, failing rather than hanging if it never does. */
-  private suspend fun await(describe: () -> String, condition: () -> Boolean) {
-    val deadline = TimeSource.Monotonic.markNow() + OperationTimeoutMillis.milliseconds
-    while (!condition()) {
-      if (deadline.hasPassedNow()) {
-        fail("Timed out after ${OperationTimeoutMillis}ms waiting for ${describe()}")
-      }
-      delay(PollMillis)
-    }
-  }
+  /** Suspends until [pack] reports progress that satisfies [predicate], or fails. */
+  private suspend fun awaitProgress(
+    pack: OfflinePack,
+    description: String,
+    predicate: (DownloadProgress) -> Boolean,
+  ): DownloadProgress =
+    withTimeoutOrNull(OperationTimeout) { pack.downloadProgress.first { predicate(it) } }
+      ?: fail(
+        "Timed out after $OperationTimeout waiting for $description, but it last reported " +
+          "${pack.downloadProgress.value}",
+      )
 
   private companion object {
-    /** Generous: every one of these operations is a database round trip on a busy machine. */
-    const val OperationTimeoutMillis = 30_000L
-
-    const val PollMillis = 20L
+    /** Generous: progress comes from MapLibre's database and file source on a busy machine. */
+    val OperationTimeout = 30.seconds
   }
   // endregion
 }

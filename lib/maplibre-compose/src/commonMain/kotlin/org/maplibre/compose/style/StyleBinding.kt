@@ -32,12 +32,10 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * Engine reads and mutations run inline inside [awaitOwner] or [postOwner]. Handles and commands
- * choose the visit, check resource identity, and report posted refusals. Mutations throw
- * [StyleMutationException] on engine refusal; layer batches log each refusal and continue.
- *
- * Suspending feature queries use the renderer or the browser's worker API. GeoJSON submission
- * starts worker preparation without waiting; prepared data returns to the owner for installation.
+ * Writes are submitted on main and the engine runs them in submission order. A structural write
+ * returns a [StyleCommand] with the engine's outcome; any other write that the engine rejects keeps
+ * the previous value and is logged. Suspending reads observe every write submitted before them.
+ * GeoJSON preparation remains asynchronous.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -51,13 +49,15 @@ internal interface StyleBinding {
 
   val isLoaded: Boolean
 
+  /** The sources and layers that main has submitted to this style. */
+  val contents: StyleContents
+
   /** Invalidates this loaded style before its base style starts changing. */
   fun invalidate()
 
   /**
    * @throws IllegalStateException when the style has unloaded. Handles check first and never let it
-   *   reach the caller; [awaitOwner] and [postOwner] absorb it when the style unloads during a
-   *   visit.
+   *   reach the caller.
    */
   fun requireCurrent() {
     check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
@@ -73,65 +73,48 @@ internal interface StyleBinding {
   val logger: MapLog?
 
   /**
-   * Runs [action] where this binding's synchronous operations execute inline, and suspends until it
-   * has run. On MapLibre Native that is the map's owner thread, so the calls [action] makes need no
-   * round trip each and the caller's thread never waits on the owner. MapLibre GL JS runs [action]
-   * during the call.
-   *
-   * @return the result, or null when the style has unloaded or the owner stops before [action]
-   *   runs, or when the style unloads while [action] runs and [action] fails.
-   */
-  suspend fun <T> awaitOwner(action: () -> T): T? = if (isLoaded) action() else null
-
-  /**
-   * Runs [action] on the engine owner without waiting. It runs inline during an owner visit and is
-   * dropped if this style has unloaded or unloads before it runs; [onDropped] then runs instead.
-   * Callers capture and check resource identity inside [action].
-   */
-  fun postOwner(onDropped: () -> Unit = {}, action: () -> Unit) {
-    if (isLoaded) action() else onDropped()
-  }
-
-  /**
    * Adds an image, or replaces the image with its ID in place. A replacement never shows a frame
    * without the image, which a remove followed by an add does on an engine that renders between the
    * two.
    */
-  fun setImage(definition: StyleImageDefinition)
+  fun setImage(definition: StyleImageDefinition): StyleCommand
 
-  /** @return whether [id] was in the style. */
-  fun removeImage(id: String): Boolean
+  fun removeImage(id: String): StyleCommand
 
   /** @return whether [id] exists, or null when the implementation cannot determine the result. */
-  fun imageExists(id: String): Boolean?
+  suspend fun imageExists(id: String): Boolean?
 
-  fun getSource(id: String): Source?
+  suspend fun getSource(id: String): Source?
 
-  fun sourceIds(): List<String>
+  suspend fun sourceIds(): List<String>
 
-  fun getLayer(id: String): LayerDefinition?
+  /** Captures source metadata with one ordered query on native. */
+  suspend fun sources(): Map<String, Source> =
+    sourceIds()
+      .mapNotNull { id ->
+        getSource(id)?.let { id to it }
+      }
+      .toMap()
 
-  fun layerIds(): List<String>
+  suspend fun getLayer(id: String): LayerDefinition?
 
-  fun layerSummaries(): List<LayerSummary> = layerIds().mapNotNull { getLayer(it)?.summary() }
+  suspend fun layerIds(): List<String>
 
-  /**
-   * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
-   */
-  fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
+  suspend fun layerSummaries(): List<LayerSummary> =
+    layerIds().mapNotNull { getLayer(it)?.summary() }
 
-  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
+  /** Adds a complete layer object directly below [beforeLayerId], or on top when that is empty. */
+  fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand
+
+  fun addLayer(definition: LayerDefinition, beforeLayerId: String): StyleCommand {
     requireCurrent()
     return addLayer(definition.value, beforeLayerId)
   }
 
-  fun removeLayer(layerId: String)
+  fun removeLayer(layerId: String): StyleCommand
 
   /** Moves a layer directly below [beforeLayerId], or to the top when that ID is empty. */
-  fun moveLayer(layerId: String, beforeLayerId: String)
+  fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand
 
   /**
    * Sets one property on a layer that is already in the style.
@@ -184,16 +167,7 @@ internal interface StyleBinding {
   }
 
   /** @return null if the layer has no value for [name]. */
-  fun layerProperty(layerId: String, name: String): JsonElement?
-
-  /**
-   * Checks whether the style contains a live layer with [layerId]. Callers use the result to report
-   * a specific duplicate-layer error.
-   *
-   * @return null if the style has unloaded or the implementation cannot determine the result. The
-   *   engine still rejects a duplicate during insertion.
-   */
-  fun layerExists(layerId: String): Boolean?
+  suspend fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
    * The platform's current animator duration scale. Every transition the library writes to this
@@ -203,7 +177,7 @@ internal interface StyleBinding {
   val animatorDurationScale: Float
 
   /** @return the loaded style's global transition. */
-  fun transition(): TransitionOptions?
+  suspend fun transition(): TransitionOptions?
 
   /** Replaces the loaded style's global transition. */
   fun setTransition(options: TransitionOptions)
@@ -215,7 +189,7 @@ internal interface StyleBinding {
    * @return whether symbol placement changes cross-fade. An engine without
    *   [supportsPlacementTransitions] reports true.
    */
-  fun placementTransitions(): Boolean?
+  suspend fun placementTransitions(): Boolean?
 
   /**
    * Sets whether symbol placement changes cross-fade. An engine without
@@ -224,13 +198,13 @@ internal interface StyleBinding {
   fun setPlacementTransitions(enabled: Boolean)
 
   /** Reads effective global values. */
-  fun globalState(): JsonObject?
+  suspend fun globalState(): JsonObject?
 
   /** Writes global state. JSON null restores the root default, or null if absent. */
   fun setGlobalStateProperty(name: String, value: JsonElement)
 
   /** @return null if the style light sets no value for [name]. */
-  fun lightProperty(name: String): JsonElement?
+  suspend fun lightProperty(name: String): JsonElement?
 
   /**
    * Replaces the style light. A property absent from [light] returns to its spec default. An engine
@@ -245,7 +219,7 @@ internal interface StyleBinding {
    * @return null if the style sky sets no value for [name]. An engine without [supportsSky] reports
    *   null.
    */
-  fun skyProperty(name: String): JsonElement?
+  suspend fun skyProperty(name: String): JsonElement?
 
   /**
    * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
@@ -261,7 +235,7 @@ internal interface StyleBinding {
    * @return null if the style projection sets no value for [name]. An engine without
    *   [supportsProjection] reports null.
    */
-  fun projectionProperty(name: String): JsonElement?
+  suspend fun projectionProperty(name: String): JsonElement?
 
   /**
    * Replaces the style projection. A property absent from [projection] returns to its spec default.
@@ -289,16 +263,11 @@ internal interface StyleBinding {
    */
   val supportsRasterDemScheme: Boolean
 
-  /**
-   * Adds a source from its style-spec definition.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
-   */
-  fun addSource(sourceId: String, source: JsonObject): Boolean
+  /** Adds a source from its style-spec definition. */
+  fun addSource(sourceId: String, source: JsonObject): StyleCommand
 
   /** Installs an immutable source definition in this loaded style. */
-  fun addSource(definition: SourceDefinition): Boolean {
+  fun addSource(definition: SourceDefinition): StyleCommand {
     requireCurrent()
     return when (definition) {
       is SourceDefinition.Json -> addSource(definition.id, definition.value)
@@ -311,46 +280,43 @@ internal interface StyleBinding {
         addCustomGeometrySource(definition.id, definition.options, definition.provider)
       is SourceDefinition.CustomVector ->
         addCustomVectorSource(definition.id, definition.options, definition.provider)
-      is SourceDefinition.RasterDem ->
-        addSource(
-          definition.id,
-          rasterDemSourceJson(
-            tiles = definition.tiles,
-            options = definition.options,
-            tileSize = definition.tileSize,
-            decoding = definition.decoding,
-            capabilities =
-              RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
-          ),
-        )
+      is SourceDefinition.RasterDem -> {
+        val json =
+          try {
+            rasterDemSourceJson(
+              tiles = definition.tiles,
+              options = definition.options,
+              tileSize = definition.tileSize,
+              decoding = definition.decoding,
+              capabilities =
+                RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
+            )
+          } catch (error: StyleMutationException) {
+            return rejectedStyleCommand(error)
+          }
+        addSource(definition.id, json)
+      }
     }
   }
 
-  /** Removes a source and its feature state. */
-  fun removeSource(sourceId: String)
-
   /**
-   * Checks whether the style contains a live source with [sourceId]. Callers use the result to
-   * report a specific duplicate-source error.
-   *
-   * @return null if the style has unloaded or the implementation cannot determine the result. The
-   *   engine still rejects a duplicate during insertion.
+   * Removes a source and its feature state. The source's data providers stop once the engine has
+   * removed it; an engine that refuses the removal, such as for a source a layer still uses, keeps
+   * them.
    */
-  fun sourceExists(sourceId: String): Boolean?
+  fun removeSource(sourceId: String): StyleCommand
 
   /**
    * Adds an image source from prepared pixels, which source JSON cannot carry.
    *
    * @param coordinates the four corners in MapLibre's order: top left, top right, bottom right,
    *   bottom left.
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addImageSourceImage(
     sourceId: String,
     coordinates: List<Position>,
     image: PreparedImage,
-  ): Boolean
+  ): StyleCommand
 
   /** Replaces an image source's content with prepared pixels. */
   fun setImageSourceImage(sourceId: String, image: PreparedImage)
@@ -364,11 +330,8 @@ internal interface StyleBinding {
   /**
    * Adds a GeoJSON source from its data and options. The default implementation writes style-spec
    * JSON. An engine can override this function to use a typed API.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error for the source or its data.
    */
-  fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): Boolean =
+  fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): StyleCommand =
     addSource(
       sourceId,
       buildJsonObject {
@@ -391,15 +354,12 @@ internal interface StyleBinding {
   /**
    * Adds a custom geometry source that obtains feature tiles from [provider]. Removal or style
    * unload stops the source and releases its resources.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean
+  ): StyleCommand
 
   /** Requests new features for intersecting tiles. GL JS reloads the whole source. */
   fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox)
@@ -410,15 +370,12 @@ internal interface StyleBinding {
   /**
    * Adds a custom vector source that obtains MVT tiles from [provider]. Removal or style unload
    * stops the source and releases its resources.
-   *
-   * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomVectorSource(
     sourceId: String,
     options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
-  ): Boolean
+  ): StyleCommand
 
   /** Requests new data for one tile. GL JS reloads the whole source. */
   fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)
@@ -453,8 +410,8 @@ internal interface StyleBinding {
 
   /**
    * Captures [state] on the caller; the returned command merges it into one feature's state. A null
-   * value drops that key. Run it inside an owner visit after checking the source installation
-   * identity. Preparation does not call the engine.
+   * value drops that key. Run it on main after checking the source installation identity.
+   * Preparation does not call the engine.
    */
   fun prepareFeatureStateUpdate(
     sourceId: String,
@@ -464,7 +421,7 @@ internal interface StyleBinding {
   ): () -> Unit
 
   /** @return an empty object when the feature has no state. */
-  fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
+  suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
 
   /** Removes one key of a feature's state, or the whole state when [stateKey] is null. */
   fun removeFeatureState(

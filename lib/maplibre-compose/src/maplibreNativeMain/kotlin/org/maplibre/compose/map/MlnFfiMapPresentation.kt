@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshots.Snapshot
@@ -14,64 +15,52 @@ import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.mlnffi.MapRenderBackend
 
-/**
- * Owns a native presentation and its style composition for one compatible engine. Pixel density and
- * backend changes renew the reservation before selecting a replacement engine, so disposal of the
- * previous session cannot release the replacement's attachment. UI settings and font scale do not
- * change this lifetime.
- */
+/** Owns one presentation of the map state's adapter. Density changes recreate its native map. */
 @Composable
 internal fun <T> MlnFfiMapPresentation(
   renderBackend: MapRenderBackend,
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher) -> T,
+  content: @Composable (MlnFfiMapSession, FeatureClickDispatcher, Boolean) -> T,
 ): T? {
-  val compatibility =
-    NativeEngineCompatibility(renderBackend, LocalDensity.current.density.toDouble())
-  return key(compatibility) {
+  if (state.isClosed) return null
+  val compatibility = renderBackend to LocalDensity.current.density.toDouble()
+  return key(compatibility, presentationOwner) {
     MapPresentationContent(state, presentationOwner, options) { binding ->
-      val session = rememberMlnFfiMapSession(compatibility, state, binding)
-      content(session, binding.clicks)
+      val prepared = remember { mutableStateOf(false) }
+      val session =
+        rememberMlnFfiMapSession(compatibility, state, binding) { prepared.value = true }
+      content(session, binding.clicks, prepared.value && session.canPresentFrames)
     }
   }
 }
 
 @Composable
 private fun rememberMlnFfiMapSession(
-  compatibility: NativeEngineCompatibility,
+  compatibility: Pair<MapRenderBackend, Double>,
   state: MapState,
   binding: MapPresentationBinding,
+  onPrepared: () -> Unit,
 ): MlnFfiMapSession {
-  val applicationOwner = state.runtime.nativeOwner
   val layoutDirection = LocalLayoutDirection.current
-  val renderBackend = compatibility.renderBackend
-  val scaleFactor = compatibility.scaleFactor
+  val renderBackend = compatibility.first
+  val scaleFactor = compatibility.second
   val logger = state.runtime.logger
   val callbacks = binding.callbacks
   val style = state.style.baseStyle
-  val retainedSession = state.retainedAdapter(compatibility) as? MlnFfiMapSession
-
-  val unpreparedSession =
-    retainedSession
-      ?: remember(renderBackend, scaleFactor, applicationOwner, state) {
-        MlnFfiMapSession(
-            lifecycleAuthority = state.lifecycle,
-            callbacks = callbacks,
-            logger = logger,
-            renderBackend = renderBackend,
-            scaleFactor = scaleFactor,
-            layoutDirection = layoutDirection,
-            owner = state.runtime.nativeOwner,
-          )
-          .also { session ->
-            // The native map starts at this camera, so a viewport it reports before publication
-            // does not seed the default camera into the state. Not a read this composition tracks.
-            session.setCameraPosition(Snapshot.withoutReadObservation { state.cameraPosition })
-          }
-      }
-  val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
+  val session =
+    state.lifecycle.adapter {
+      MlnFfiMapSession(
+        lifecycleAuthority = state.lifecycle,
+        callbacks = callbacks,
+        logger = logger,
+        renderBackend = renderBackend,
+        scaleFactor = scaleFactor,
+        layoutDirection = layoutDirection,
+        owner = state.runtime.nativeOwner,
+      )
+    } as MlnFfiMapSession
 
   session.durableCallbacks = state.durableStyleCallbacks()
   session.callbacks = callbacks
@@ -81,18 +70,30 @@ private fun rememberMlnFfiMapSession(
   val currentUpdate = rememberUpdatedState(binding.update)
   val currentOnReset = rememberUpdatedState(binding.onReset)
 
+  DisposableEffect(session) {
+    session.preparePresentation()
+    onPrepared()
+    onDispose { currentOnReset.value() }
+  }
+
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch inserts them against the base style being
   // replaced (see #269).
   SideEffect { session.setBaseStyle(style) }
   SideEffect {
-    if (session.beginPresentationAttachment() && session.isPresentationPublished) {
+    if (!session.isPresentationPublished) {
+      session.setCameraPosition(Snapshot.withoutReadObservation { state.cameraPosition })
+    }
+    if (
+      session.beginPresentationAttachment(renderBackend, scaleFactor) &&
+        session.isPresentationPublished
+    ) {
       currentUpdate.value(session)
     }
   }
   LaunchedEffect(session) {
     try {
-      session.attachPresentation()
+      session.attachPresentation(renderBackend, scaleFactor)
       // A previous presentation's detachment may have installed the durable callbacks after this
       // composition installed its own.
       session.callbacks = currentCallbacks.value
@@ -101,20 +102,10 @@ private fun rememberMlnFfiMapSession(
         if (state.currentMapAttachment?.adapter !== session) return@LaunchedEffect
       }
       session.publishRetainedStyle()
-    } catch (_: MapClosedException) {
-      // A still-mounted UI on a closed map is inert.
-    } catch (_: MapLeaseInvalidatedException) {
-      // Detach or close won before attach finished.
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       callbacks.onStyleFailed(session, error.message)
-    }
-  }
-
-  DisposableEffect(session) {
-    onDispose {
-      currentOnReset.value()
     }
   }
 

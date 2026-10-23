@@ -4,6 +4,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -15,7 +16,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,10 +27,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.expressions.dsl.const
@@ -38,11 +36,12 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 /** Public ownership and failure behavior, including cleanup without an explicit presenter close. */
 class AndroidPresentationLifecycleTest {
   @Test
-  fun a_duplicate_presenter_does_not_detach_the_current_owner() = runBlocking {
+  fun a_duplicate_presenter_does_not_detach_the_current_owner() = runMapTest {
     withLifecycleFixture { fixture ->
       fixture.awaitRendering()
       fixture.onMain {
@@ -50,11 +49,10 @@ class AndroidPresentationLifecycleTest {
         assertNotNull(state.viewport)
         assertNull(presenter.failure)
       }
-      val framesBefore = fixture.consumer.frames.get()
+      val framesBefore = fixture.consumer.frames
       fixture.onMain { color = Color.Blue }
       fixture.await("the original presenter to render after a rejected duplicate") {
-        consumer.frames.get() > framesBefore &&
-          consumer.centerArgb.get() == android.graphics.Color.BLUE
+        consumer.frames > framesBefore && consumer.centerArgb == android.graphics.Color.BLUE
       }
       fixture.onMain {
         assertNotNull(state.viewport)
@@ -66,14 +64,14 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun closing_the_state_disposes_style_effects_and_presentation_without_explicit_close() =
-    runBlocking {
+    runMapTest {
       withLifecycleFixture { fixture ->
         fixture.awaitRendering()
-        fixture.await("the style effect to start") { activeEffects.get() > 0 }
+        fixture.await("the style effect to start") { activeEffects > 0 }
         fixture.onMain { state.close() }
         withTimeout(TimeoutMillis) { fixture.state.awaitClosed() }
         fixture.await("state closure to dispose its presentation effects") {
-          activeEffects.get() == 0
+          activeEffects == 0
         }
         fixture.onMain {
           assertNull(state.viewport)
@@ -90,7 +88,7 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun lifecycle_stop_pauses_rendering_and_destroy_releases_the_state_for_another_host() =
-    runBlocking {
+    runMapTest {
       withLifecycleFixture { fixture ->
         fixture.awaitRendering()
         fixture.onMain {
@@ -98,16 +96,15 @@ class AndroidPresentationLifecycleTest {
           color = Color.Blue
         }
         fixture.await("style recomposition while the lifecycle is stopped") {
-          composedColor.get() == android.graphics.Color.BLUE
+          composedColor == android.graphics.Color.BLUE
         }
-        val stoppedFrames = fixture.consumer.frames.get()
+        val stoppedFrames = fixture.consumer.frames
         fixture.onMain {
-          assertEquals(android.graphics.Color.RED, consumer.centerArgb.get())
+          assertEquals(android.graphics.Color.RED, consumer.centerArgb)
           lifecycleOwner.lifecycle.currentState = Lifecycle.State.STARTED
         }
         fixture.await("rendering the updated style after lifecycle start") {
-          consumer.frames.get() > stoppedFrames &&
-            consumer.centerArgb.get() == android.graphics.Color.BLUE
+          consumer.frames > stoppedFrames && consumer.centerArgb == android.graphics.Color.BLUE
         }
         val initialCamera = fixture.onMain { state.cameraPosition }
         fixture.onMain {
@@ -115,7 +112,7 @@ class AndroidPresentationLifecycleTest {
           state.panBy(DpOffset(40.dp, 0.dp))
         }
         fixture.await("recognized input to reach the presented map") {
-          clicks.get() == 1 && state.cameraPosition.center != initialCamera.center
+          clicks == 1 && state.cameraPosition.center != initialCamera.center
         }
         val retainedLongitude = fixture.onMain {
           val longitude = state.cameraPosition.center.longitude
@@ -123,7 +120,7 @@ class AndroidPresentationLifecycleTest {
           longitude
         }
         fixture.await("lifecycle destruction to dispose presentation effects") {
-          activeEffects.get() == 0
+          activeEffects == 0
         }
         fixture.onMain {
           assertFalse(state.isClosed)
@@ -139,15 +136,15 @@ class AndroidPresentationLifecycleTest {
           assertEquals(retainedLongitude, state.cameraPosition.center.longitude)
         }
         awaitNoNewRenderThreads(fixture.initialRenderThreads)
-        val previousFrames = fixture.consumer.frames.get()
+        val previousFrames = fixture.consumer.frames
         fixture.onMain {
           lifecycleOwner = PresentationLifecycleOwner()
           presenter = newPresenter()
           binding = presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new lifecycle host to present the retained map") {
-          consumer.frames.get() > previousFrames &&
-            consumer.centerArgb.get() == android.graphics.Color.BLUE &&
+          consumer.frames > previousFrames &&
+            consumer.centerArgb == android.graphics.Color.BLUE &&
             state.viewport != null
         }
         fixture.onMain {
@@ -160,18 +157,18 @@ class AndroidPresentationLifecycleTest {
 
   @Test
   fun a_failed_style_effect_is_observable_and_releases_the_state_for_a_new_presenter() =
-    runBlocking {
+    runMapTest {
       verifyFailureHandoff(FailurePhase.Effect)
     }
 
   @Test
   fun a_failed_recomposition_is_observable_and_releases_the_state_for_a_new_presenter() =
-    runBlocking {
+    runMapTest {
       verifyFailureHandoff(FailurePhase.Composition)
     }
 
   @Test
-  fun an_initial_style_application_failure_disposes_effects_and_releases_the_state() = runBlocking {
+  fun an_initial_style_application_failure_disposes_effects_and_releases_the_state() = runMapTest {
     verifyFailureHandoff(FailurePhase.InitialApply, failInitially = true)
   }
 
@@ -192,7 +189,7 @@ class AndroidPresentationLifecycleTest {
           fixture.onMain { failurePhase = phase }
         }
         fixture.await("the style failure and effect cleanup") {
-          presenter.failure != null && activeEffects.get() == 0
+          presenter.failure != null && activeEffects == 0
         }
         // The terminal write must reach an existing observer after the presentation's own snapshot
         // observer has been disposed. Do not produce an unrelated snapshot write to wake this up.
@@ -212,18 +209,18 @@ class AndroidPresentationLifecycleTest {
           assertTrue(consumer.surface.isValid)
         }
         awaitNoNewRenderThreads(fixture.initialRenderThreads)
-        val framesBefore = fixture.consumer.frames.get()
+        val framesBefore = fixture.consumer.frames
         fixture.onMain {
           failurePhase = null
           presenter = newPresenter()
           presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new presenter to render the retained state after failure") {
-          consumer.frames.get() > framesBefore && state.viewport != null
+          consumer.frames > framesBefore && state.viewport != null
         }
         fixture.onMain {
           assertNull(presenter.failure)
-          assertTrue(activeEffects.get() > 0)
+          assertTrue(activeEffects > 0)
         }
       }
     }
@@ -238,17 +235,17 @@ private enum class FailurePhase {
 private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads: Set<Thread>) {
   val consumer = SurfaceConsumer(Width, Height)
   var lifecycleOwner = PresentationLifecycleOwner()
-  val activeEffects = AtomicInteger()
-  val composedColor = AtomicInteger()
-  val clicks = AtomicInteger()
+  var activeEffects by mutableIntStateOf(0)
+  var composedColor by mutableIntStateOf(0)
+  var clicks by mutableIntStateOf(0)
   val expectedFailure = IllegalStateException("deliberate presentation style failure")
   var color by mutableStateOf(Color.Red)
   var failurePhase by mutableStateOf<FailurePhase?>(null)
   val state =
     runtime.createMapState(BaseStyle.Empty) {
       DisposableEffect(Unit) {
-        activeEffects.incrementAndGet()
-        onDispose { activeEffects.decrementAndGet() }
+        activeEffects++
+        onDispose { activeEffects-- }
       }
       if (failurePhase == FailurePhase.Composition) throw expectedFailure
       if (failurePhase == FailurePhase.InitialApply) {
@@ -261,7 +258,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
       }
       val currentColor = color
       BackgroundLayer("background", color = const(currentColor))
-      SideEffect { composedColor.set(currentColor.toArgb()) }
+      SideEffect { composedColor = currentColor.toArgb() }
     }
   private val presenters = mutableListOf<AndroidMapPresentation>()
   lateinit var presenter: AndroidMapPresentation
@@ -283,7 +280,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
             callbacks {
               click {
                 onEvent {
-                  clicks.incrementAndGet()
+                  clicks++
                   ClickResult.Consume
                 }
               }
@@ -299,20 +296,13 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
   suspend fun <T> onMain(action: LifecycleFixture.() -> T): T =
     withContext(Dispatchers.Main) { action() }
 
-  suspend fun await(description: String, predicate: LifecycleFixture.() -> Boolean) {
-    try {
-      withTimeout(TimeoutMillis) {
-        while (!onMain(predicate)) delay(10)
-      }
-    } catch (error: Throwable) {
-      throw AssertionError("Timed out waiting for $description", error)
-    }
-  }
+  suspend fun await(description: String, predicate: LifecycleFixture.() -> Boolean) =
+    awaitOnMain(description, consumer.updates) { predicate() }
 
   suspend fun awaitRendering() {
     await("initial Surface rendering") {
       presenter.failure?.let { throw AssertionError("Initial presentation failed", it) }
-      consumer.frames.get() > 0 && state.viewport != null
+      consumer.frames > 0 && state.viewport != null
     }
   }
 }
@@ -341,7 +331,7 @@ private suspend fun withLifecycleFixture(
       }
       assertEquals(
         0,
-        fixture.activeEffects.get(),
+        fixture.activeEffects,
         "Style effects remained after presentation close",
       )
     }
@@ -362,17 +352,12 @@ private fun renderThreads(): Set<Thread> =
     .filter { it.isAlive && it.name == "maplibre-compose-render" }
     .toSet()
 
+/** Waits for every render thread started since [initial] to exit. */
 private suspend fun awaitNoNewRenderThreads(initial: Set<Thread>) {
-  try {
-    withTimeout(TimeoutMillis) {
-      while ((renderThreads() - initial).isNotEmpty()) delay(10)
-    }
-  } catch (error: Throwable) {
-    throw AssertionError(
-      "Presentation render threads remained alive: ${renderThreads() - initial}",
-      error,
-    )
-  }
+  val started = renderThreads() - initial
+  withContext(Dispatchers.IO) { started.forEach { it.join(TimeoutMillis) } }
+  val alive = started.filter { it.isAlive }
+  assertTrue(alive.isEmpty(), "Presentation render threads remained alive: $alive")
 }
 
 private const val Width = 128

@@ -88,10 +88,6 @@ internal class LinuxOpenGlMapHost(
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
-  override fun waitForProducers() {
-    if (producer == MapRenderBackend.OpenGl) egl?.waitIdle() else vulkan?.waitIdle()
-  }
-
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     super.completeProducerAccess(frame)
     acquireProducerWrites = true

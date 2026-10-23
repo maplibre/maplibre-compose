@@ -11,7 +11,8 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
+import org.maplibre.nativeffi.generated.GeneratedApi
+import org.maplibre.nativeffi.generated.RenderBackendFlag
 
 /** Test tag for the color shown until the first style has loaded. */
 internal const val MapLoadPlaceholderTag = "maplibre-map-load-placeholder"
@@ -25,14 +26,17 @@ internal fun rememberMlnFfiComposeMapPresentation(
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ): ComposeMapPresentation? {
-  return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks
-    ->
+  return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) {
+    session,
+    clicks,
+    canPresentFrames ->
     ComposeMapPresentation(
       session,
       clicks,
       { state.attachmentAuthority.setEngaged(session, it) },
     ) { modifier ->
-      MlnFfiMapSurfaceContent(session, options, modifier) { surfaceModifier, revealSurface ->
+      MlnFfiMapSurfaceContent(canPresentFrames, options, modifier) { surfaceModifier, revealSurface
+        ->
         surface(session, surfaceModifier, state.runtime.logger, revealSurface)
       }
     }
@@ -42,12 +46,12 @@ internal fun rememberMlnFfiComposeMapPresentation(
 /** Draws the surface and its loading placeholder. Input belongs to their common parent. */
 @Composable
 internal fun MlnFfiMapSurfaceContent(
-  session: MlnFfiMapSession,
+  canPresentFrames: Boolean,
   options: MapViewOptions,
   modifier: Modifier,
   surface: @Composable (Modifier, Boolean) -> Unit,
 ) {
-  val revealSurface = session.canPresentFrames
+  val revealSurface = canPresentFrames
   Box(modifier) {
     surface(Modifier.fillMaxSize(), revealSurface)
     if (!revealSurface) {
@@ -74,22 +78,16 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
 internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
   try {
     Maplibre.loadNativeLibrary()
+    val supported = GeneratedApi.supportedRenderBackendMask()
     Result.success(
-      Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() },
+      buildSet {
+        if (RenderBackendFlag.METAL in supported) add(MapRenderBackend.Metal)
+        if (RenderBackendFlag.VULKAN in supported) add(MapRenderBackend.Vulkan)
+        if (RenderBackendFlag.OPENGL in supported) add(MapRenderBackend.OpenGl)
+        // WebGPU is currently supported only by the browser FFI runtime, which no host here uses.
+      },
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)
     Result.failure(error)
-  }
-
-/**
- * The corresponding Compose producer backend, or null if no host supports it. WebGPU is currently
- * supported only by the browser FFI runtime.
- */
-private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
-  when (this) {
-    RenderBackend.METAL -> MapRenderBackend.Metal
-    RenderBackend.VULKAN -> MapRenderBackend.Vulkan
-    RenderBackend.OPENGL -> MapRenderBackend.OpenGl
-    RenderBackend.WEBGPU -> null
   }

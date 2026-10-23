@@ -104,6 +104,7 @@ internal class MlnFfiSurfaceController(
 
   override fun detach() {
     requestFrame = {}
+    host?.completeConsumerAccess()
   }
 
   override fun prepare(extent: MapExtent): Boolean {
@@ -245,9 +246,15 @@ internal class MlnFfiSurfaceController(
     clearPresentation()
     val host = host ?: return
     runCatching {
-      session?.let(renderer::onSurfaceLost)
-      host.close()
-      session = null
+      try {
+        session?.let(renderer::onSurfaceLost)
+      } finally {
+        try {
+          host.close()
+        } finally {
+          session = null
+        }
+      }
     }
       .onFailure { logger?.e(it) { "Map surface failed to close" } }
   }
@@ -279,6 +286,8 @@ private class MlnFfiMapHostSessionImpl(
   override fun requestFrame() {
     onRequestFrame()
   }
+
+  override fun completeConsumerAccess() = host.completeConsumerAccess()
 
   override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
 

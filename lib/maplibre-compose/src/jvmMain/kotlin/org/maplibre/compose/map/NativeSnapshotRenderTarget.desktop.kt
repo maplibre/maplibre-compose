@@ -11,23 +11,22 @@ import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.bridge.VulkanDevice
 import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.VulkanContextHandles
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.render.MetalContextDescriptor
-import org.maplibre.nativeffi.render.MetalOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.generated.MetalContextDescriptor
+import org.maplibre.nativeffi.generated.MetalOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.OpenglOwnedTextureDescriptor
+import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
+import org.maplibre.nativeffi.generated.RenderSessionAttachment
+import org.maplibre.nativeffi.generated.VulkanOwnedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
-import org.maplibre.nativeffi.render.OpenGLOwnedTextureDescriptor
-import org.maplibre.nativeffi.render.RenderSessionHandle
-import org.maplibre.nativeffi.render.RenderTargetExtent
-import org.maplibre.nativeffi.render.VulkanContextDescriptor
-import org.maplibre.nativeffi.render.VulkanOwnedTextureDescriptor
 
 internal actual class NativeSnapshotRenderTarget
 private constructor(private val delegate: Delegate) : AutoCloseable {
-  actual fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
-    delegate.attach(map, extent)
-
-  actual fun <T> withAccess(action: () -> T): T = delegate.withAccess(action)
+  actual fun attach(
+    map: MapHandle,
+    extent: MapExtent,
+    options: RenderSessionAttachOptions,
+  ): RenderSessionAttachment = delegate.attach(map, extent, options)
 
   actual override fun close() = delegate.close()
 
@@ -59,23 +58,28 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   }
 
   private interface Delegate : AutoCloseable {
-    fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle
-
-    fun <T> withAccess(action: () -> T): T = action()
+    fun attach(
+      map: MapHandle,
+      extent: MapExtent,
+      options: RenderSessionAttachOptions,
+    ): RenderSessionAttachment
   }
 
   private class MetalDelegate(private var framework: Long, private var device: Long) : Delegate {
-    override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle = withAccess {
+    override fun attach(
+      map: MapHandle,
+      extent: MapExtent,
+      options: RenderSessionAttachOptions,
+    ): RenderSessionAttachment = ObjectiveC.runInAutoreleasePool {
       check(device != NULL) { "The Metal snapshot target is closed" }
       map.attachMetalOwnedTexture(
         MetalOwnedTextureDescriptor(
-          extent.toSnapshotRenderTargetExtent(),
+          extent.toFfiExtent(),
           MetalContextDescriptor(NativePointer.ofAddress(device)),
         ),
+        options,
       )
     }
-
-    override fun <T> withAccess(action: () -> T): T = ObjectiveC.runInAutoreleasePool(action)
 
     override fun close() {
       if (device != NULL) {
@@ -108,37 +112,30 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   }
 
   private class VulkanDelegate(private val context: VulkanDevice) : Delegate {
-    override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
+    override fun attach(
+      map: MapHandle,
+      extent: MapExtent,
+      options: RenderSessionAttachOptions,
+    ): RenderSessionAttachment =
       map.attachVulkanOwnedTexture(
-        VulkanOwnedTextureDescriptor(
-          extent.toSnapshotRenderTargetExtent(),
-          context.handles.toSnapshotVulkanContextDescriptor(),
-        ),
+        VulkanOwnedTextureDescriptor(extent.toFfiExtent(), context.handles.toFfi()),
+        options,
       )
 
     override fun close() = context.close()
   }
 
   private class OpenGlDelegate(private val context: DesktopOpenGlSnapshotContext) : Delegate {
-    override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
-      map.attachOpenGLOwnedTexture(
-        OpenGLOwnedTextureDescriptor(extent.toSnapshotRenderTargetExtent(), context.descriptor),
+    override fun attach(
+      map: MapHandle,
+      extent: MapExtent,
+      options: RenderSessionAttachOptions,
+    ): RenderSessionAttachment =
+      map.attachOpenglOwnedTexture(
+        OpenglOwnedTextureDescriptor(extent.toFfiExtent(), context.descriptor),
+        options,
       )
 
     override fun close() = context.close()
   }
 }
-
-private fun MapExtent.toSnapshotRenderTargetExtent() =
-  RenderTargetExtent(width, height, scaleFactor)
-
-private fun VulkanContextHandles.toSnapshotVulkanContextDescriptor() =
-  VulkanContextDescriptor(
-    instance = NativePointer.ofAddress(instance.address),
-    physicalDevice = NativePointer.ofAddress(physicalDevice.address),
-    device = NativePointer.ofAddress(device.address),
-    graphicsQueue = NativePointer.ofAddress(graphicsQueue.address),
-    graphicsQueueFamilyIndex = graphicsQueueFamilyIndex,
-    getInstanceProcAddr = NativePointer.ofAddress(getInstanceProcAddr.address),
-    getDeviceProcAddr = NativePointer.ofAddress(getDeviceProcAddr.address),
-  )

@@ -2,15 +2,15 @@ package org.maplibre.compose.util
 
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
-import org.maplibre.nativeffi.render.PremultipliedRgba8Image
+import org.maplibre.nativeffi.generated.PremultipliedRgba8Image
 
 /** The tightly packed premultiplied RGBA8 that MapLibre Native uploads. */
 internal actual class EnginePixels(val ffi: PremultipliedRgba8Image) {
   actual val width: Int
-    get() = ffi.width
+    get() = ffi.width.toInt()
 
   actual val height: Int
-    get() = ffi.height
+    get() = ffi.height.toInt()
 
   actual fun toStraightArgb(): IntArray {
     val rgba = ffi.pixels
@@ -24,10 +24,19 @@ internal actual class EnginePixels(val ffi: PremultipliedRgba8Image) {
     }
   }
 
-  private val hash by lazy { ffi.hashCode() }
+  // The generated image compares its pixel array by identity, so compare contents here.
+  private val hash by lazy {
+    31 * (31 * ffi.width.hashCode() + ffi.height.hashCode()) + ffi.pixels.contentHashCode()
+  }
 
   override fun equals(other: Any?): Boolean =
-    this === other || other is EnginePixels && hash == other.hash && ffi == other.ffi
+    this === other ||
+      other is EnginePixels &&
+        hash == other.hash &&
+        ffi.width == other.ffi.width &&
+        ffi.height == other.ffi.height &&
+        ffi.stride == other.ffi.stride &&
+        ffi.pixels.contentEquals(other.ffi.pixels)
 
   override fun hashCode(): Int = hash
 }
@@ -48,7 +57,14 @@ internal actual fun enginePixels(width: Int, height: Int, straightArgb: IntArray
     rgba[offset + 2] = premultiplyChannel(pixel and 0xFF, alpha).toByte()
     rgba[offset + 3] = alpha.toByte()
   }
-  return EnginePixels(PremultipliedRgba8Image(width, height, stride = width * 4, pixels = rgba))
+  return EnginePixels(
+    PremultipliedRgba8Image(
+      width.toUInt(),
+      height.toUInt(),
+      stride = (width * 4).toUInt(),
+      pixels = rgba,
+    ),
+  )
 }
 
 /** Rounds to nearest, as Skia and MapLibre GL JS do, so [unpremultiplyChannel] inverts it. */

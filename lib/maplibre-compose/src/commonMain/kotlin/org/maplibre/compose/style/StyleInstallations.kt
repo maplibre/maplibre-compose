@@ -28,16 +28,8 @@ internal class SourceInstallation(
   val definition: SourceDefinition
     get() = current.load()
 
-  init {
-    check(style.sourceExists(id) != true) { "Source ID '$id' already exists in style" }
-    val added =
-      try {
-        style.addSource(definition.forInstallation())
-      } catch (error: StyleMutationException) {
-        throw IllegalStateException("Could not add source '$id': ${error.message}", error)
-      }
-    check(added) { "Source '$id' was not added because its style is no longer loaded" }
-  }
+  /** The engine's outcome for adding this source. */
+  val added: StyleCommand = style.addSource(definition.forInstallation())
 
   fun update(definition: SourceDefinition) {
     style.requireCurrent()
@@ -94,10 +86,10 @@ internal class SourceInstallation(
     current.store(definition)
   }
 
-  fun remove() {
+  fun remove(): StyleCommand {
     style.requireCurrent()
     style.identity.sources.remove(id)
-    style.removeSource(id)
+    return style.removeSource(id)
   }
 
   private fun SourceDefinition.forInstallation(): SourceDefinition =
@@ -126,9 +118,12 @@ internal class LayerInstallation(
   private var current = definition.resolveFor(style, animatorDurationScale)
   private val reportedUnsupported = mutableSetOf<String>()
 
+  /** The engine's outcome for adding this layer. */
+  val added: StyleCommand
+
   init {
-    check(style.layerExists(id) != true) { "Layer ID '$id' already exists in style" }
-    add(beforeLayerId)
+    style.requireCurrent()
+    added = style.addLayer(current, beforeLayerId)
     reportUnsupported(definition)
   }
 
@@ -181,32 +176,21 @@ internal class LayerInstallation(
     reportUnsupported(definition)
   }
 
-  fun remove() {
+  fun remove(): StyleCommand {
     style.requireCurrent()
     style.identity.layers.remove(id)
-    style.removeLayer(id)
+    return style.removeLayer(id)
   }
 
-  fun move(beforeLayerId: String) {
+  fun move(beforeLayerId: String): StyleCommand {
     style.requireCurrent()
-    style.moveLayer(id, beforeLayerId)
+    return style.moveLayer(id, beforeLayerId)
   }
 
-  private fun add(beforeLayerId: String) {
-    style.requireCurrent()
-    val added =
-      try {
-        style.addLayer(current, beforeLayerId)
-      } catch (error: StyleMutationException) {
-        throw IllegalStateException(
-          "Could not add layer '$id' of type '${definition.type}'" +
-            (definition.sourceId?.let { " over source '$it'" } ?: "") +
-            ": ${error.message}. Layer JSON: $current",
-          error,
-        )
-      }
-    check(added) { "Layer '$id' was not added because its style is no longer loaded" }
-  }
+  /** Describes this layer in a warning about a write the engine rejected. */
+  fun describe(): String =
+    "Layer '$id' of type '${definition.type}'" +
+      (definition.sourceId?.let { " over source '$it'" } ?: "")
 
   private fun MutableList<LayerPropertyWrite>.collectProperties(
     previous: JsonObject?,

@@ -7,7 +7,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.map.styleSourceIds
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.readMap
@@ -21,20 +25,19 @@ import org.maplibre.spatialk.geojson.Position
 
 class GeoJsonPreparationThreadTest {
   @Test
-  fun initial_data_serializes_without_blocking_the_caller_or_owner(): MapTestResult =
+  fun initial_data_serializes_without_blocking_main(): MapTestResult =
     assertWorkerSerialization(initial = true)
 
   @Test
-  fun imperative_data_serializes_without_blocking_the_caller_or_owner(): MapTestResult =
+  fun imperative_data_serializes_without_blocking_main(): MapTestResult =
     assertWorkerSerialization(initial = false)
 
   private fun assertWorkerSerialization(initial: Boolean): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val binding = fixture.style as MlnFfiStyleBinding
-      val caller = Thread.currentThread()
-      val owner = checkNotNull(binding.readMap { Thread.currentThread() })
-      val entered = CountDownLatch(1)
+      val main = Thread.currentThread()
+      val entered = CompletableDeferred<Unit>()
       val release = CountDownLatch(1)
       val feature = Feature(Point(Position(0.0, 0.0)), JsonObject(emptyMap()))
       val features =
@@ -42,9 +45,8 @@ class GeoJsonPreparationThreadTest {
           override val size = 1
 
           override fun get(index: Int): Feature<Point, JsonObject> {
-            assertNotSame(caller, Thread.currentThread(), "serialization ran on the caller")
-            assertNotSame(owner, Thread.currentThread(), "serialization ran on the owner")
-            entered.countDown()
+            assertNotSame(main, Thread.currentThread(), "serialization ran on main")
+            entered.complete(Unit)
             check(release.await(5, TimeUnit.SECONDS)) { "serialization was not released" }
             return feature
           }
@@ -66,9 +68,9 @@ class GeoJsonPreparationThreadTest {
           binding.awaitGeoJsonUpdates()
           handle.asMutable!!.setData(data)
         }
-        assertTrue(entered.await(5, TimeUnit.SECONDS), "worker did not begin serialization")
-        // Preparation is still blocked, but an owner-thread round trip must finish.
-        assertTrue(binding.readMap { it.styleSourceIds().contains("points") } == true)
+        withTimeout(5.seconds) { entered.await() }
+        // Preparation is still blocked, but main and the map still answer a query.
+        assertTrue("points" in binding.readMap { it.styleSourceIds() })
       } finally {
         release.countDown()
       }

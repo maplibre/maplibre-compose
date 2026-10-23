@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -47,16 +48,23 @@ import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.groundScale
 import org.maplibre.compose.testing.setImage
+import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SnapshotCompositionTest {
+  @BeforeTest
+  fun requireSnapshots() {
+    skipUnlessSnapshotsAvailable()
+  }
+
   @Test
   fun repeated_captures_update_declared_content_and_release_its_ids() = runTest {
     val binding = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -124,6 +132,7 @@ class SnapshotCompositionTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
       )
     try {
@@ -147,6 +156,7 @@ class SnapshotCompositionTest {
     val reconciler = StyleReconciler()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -181,7 +191,11 @@ class SnapshotCompositionTest {
 
   @Test
   fun snapshot_disposes_style_effects_without_holding_resource_commands() = runTest {
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { FakeSnapshotterAdapter() })
+    val runtime =
+      mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = { FakeSnapshotterAdapter() },
+      )
     val cleanup = CompletableDeferred<Result<Unit>>()
     try {
       lateinit var snapshotter: MapSnapshotter
@@ -194,9 +208,14 @@ class SnapshotCompositionTest {
                 try {
                   awaitCancellation()
                 } finally {
-                  withContext(NonCancellable) {
+                  withContext(NonCancellable + runtime.mainDispatcher) {
                     cleanup.complete(
-                      runCatching { withTimeout(5_000) { snapshotter.style.awaitCommands() } },
+                      runCatching {
+                        withTimeout(5_000) {
+                          snapshotter.style.globalState.get()
+                          Unit
+                        }
+                      },
                     )
                   }
                 }
@@ -226,7 +245,11 @@ class SnapshotCompositionTest {
           captured.image.toImageBitmap()
         },
       )
-    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
+    val runtime =
+      mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = { adapter },
+      )
     val source =
       GeoJsonSource(
         "features",
@@ -267,6 +290,7 @@ class SnapshotCompositionTest {
     var adapterCreations = 0
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           adapterCreations++
           FakeSnapshotterAdapter()

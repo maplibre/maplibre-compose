@@ -23,6 +23,8 @@ import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.pumpUntilPixel
+import org.maplibre.compose.testing.readGlobalState
+import org.maplibre.compose.testing.readLayerProperty
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -61,19 +63,17 @@ class StyleFontScaleTest {
         }
         fixture.loadStyle(BlackStyle)
         declare(1f)
-        val binding = assertNotNull(fixture.style)
-        val expression = binding.awaitOwner { binding.layerProperty("circle", "circle-radius") }
+        assertNotNull(fixture.style)
+        val expression = fixture.readLayerProperty("circle", "circle-radius")
         fixture.pumpUntilPixel("initial circle", 256, 256, Red)
         fixture.pumpUntilPixel("outside the initial radius", 292, 256, Black)
         fixture.state.style.globalState.setProperty("theme", JsonPrimitive("dark"))
         declare(2f)
-        binding.onOwner {
-          assertEquals(expression, binding.layerProperty("circle", "circle-radius"))
-          assertEquals(
-            2.0,
-            binding.globalState()?.get(FontScaleGlobalState)?.jsonPrimitive?.double,
-          )
-        }
+        assertEquals(expression, fixture.readLayerProperty("circle", "circle-radius"))
+        assertEquals(
+          2.0,
+          fixture.readGlobalState()?.get(FontScaleGlobalState)?.jsonPrimitive?.double,
+        )
         fixture.pumpUntilPixel("scaled circle", 292, 256, Red)
         assertEquals(
           JsonObject(mapOf("theme" to JsonPrimitive("dark"))),
@@ -87,9 +87,7 @@ class StyleFontScaleTest {
         }
 
         fixture.loadStyle(BaseStyle.Empty)
-        assertNull(
-          fixture.style?.let { it.awaitOwner { it.globalState() } }?.get(FontScaleGlobalState),
-        )
+        assertNull(fixture.readGlobalState()?.get(FontScaleGlobalState))
         fixture.loadStyle(BlackStyle)
         declare(2f)
         fixture.pumpUntilPixel("scale restored on the new style", 292, 256, Red)

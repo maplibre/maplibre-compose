@@ -79,12 +79,16 @@ internal class GlJsCameraTransitions {
   }
 
   /** Retire before callbacks can start another movement; publish the camera before resuming. */
-  fun movementEnded(observe: () -> Unit) {
-    val resuming = retire()
-    try {
-      observe()
-    } finally {
-      resuming.forEach { it.release() }
+  fun movementEnded(observe: () -> Unit): () -> Unit {
+    val resuming = waiters.toList()
+    return {
+      waiters.removeAll(resuming.toSet())
+      if (anchor in resuming) anchor = null
+      try {
+        observe()
+      } finally {
+        resuming.forEach { it.release() }
+      }
     }
   }
 

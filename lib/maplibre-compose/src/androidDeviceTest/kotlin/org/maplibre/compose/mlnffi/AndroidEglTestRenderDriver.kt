@@ -9,10 +9,11 @@ import android.opengl.GLES30
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.nativeffi.render.OpenGLClientApi
-import org.maplibre.nativeffi.render.OpenGLContextOwnership
+import org.maplibre.nativeffi.generated.OpenglClientApi
+import org.maplibre.nativeffi.generated.OpenglContextOwnership
 
 /** Deterministic offscreen GLES host for the shared real-map test corpus. */
 internal class AndroidEglTestRenderDriver
@@ -25,13 +26,40 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override val backends = RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.OpenGl)
 
-  override fun <T> withRendererAccess(action: () -> T): T = action()
+  /**
+   * The thread that renders this host's frames. [BridgeMapFixture] creates the host on
+   * [TestMapMain] and renders there.
+   */
+  private val rendererThread = Thread.currentThread()
+
+  /** The first failure of an action queued from another thread, reported by the next frame. */
+  @Volatile private var queuedFailure: Throwable? = null
+
+  /** Runs [action] at once on the renderer thread, and otherwise queues it on [TestMapMain]. */
+  override fun enqueueRenderer(action: () -> Unit): Boolean {
+    if (Thread.currentThread() === rendererThread) {
+      action()
+    } else {
+      TestMapMain.dispatcher.dispatch(
+        EmptyCoroutineContext,
+        Runnable {
+          try {
+            action()
+          } catch (error: Throwable) {
+            queuedFailure = queuedFailure ?: error
+          }
+        },
+      )
+    }
+    return true
+  }
 
   override fun resize(extent: MapExtent) {
     ensureSurface(extent)
   }
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
+    queuedFailure?.let { throw it }
     ensureSurface(extent)
     return MlnFfiMapFrameAcquisition.Acquired(
       MlnFfiMapFrame(
@@ -43,8 +71,8 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
                 config = NativeHandle(config.nativeHandle),
                 shareContext = NativeHandle(0L),
                 getProcAddress = NativeHandle(0L),
-                ownership = OpenGLContextOwnership.DEDICATED,
-                clientApi = OpenGLClientApi.GLES,
+                ownership = OpenglContextOwnership.DEDICATED,
+                clientApi = OpenglClientApi.GLES,
               ),
             surface = NativeHandle(surface.nativeHandle),
             extent = extent,

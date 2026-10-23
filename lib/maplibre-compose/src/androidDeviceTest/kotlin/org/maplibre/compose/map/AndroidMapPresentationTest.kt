@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -30,7 +31,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraMoveReason
@@ -45,12 +45,13 @@ import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.runMapTest
 
 /** Exercises the public presenter with a real buffer consumer, without a Compose UI host. */
 class AndroidMapPresentationTest {
   @Test
   fun declarative_content_survives_surface_replacement_density_changes_and_inactivity() =
-    runBlocking {
+    runMapTest {
       withSurfaceMap { fixture ->
         fixture.withConsumer(256, 192) { first ->
           fixture.withConsumer(320, 240) { second ->
@@ -70,7 +71,7 @@ class AndroidMapPresentationTest {
             fixture.awaitViewport(320f, 240f)
             assertTrue(first.surface.isValid, "Replacing a binding must not release its Surface")
 
-            val beforeDensity = second.frames.get()
+            val beforeDensity = second.frames
             fixture.onMain { current.update(320, 240, 2f) }
             fixture.awaitViewport(160f, 120f)
             second.awaitColor(Green, after = beforeDensity)
@@ -114,7 +115,7 @@ class AndroidMapPresentationTest {
             }
             second.awaitColor(Green)
 
-            val beforeResize = second.frames.get()
+            val beforeResize = second.frames
             fixture.onMain { current.update(240, 160, 2f) }
             fixture.awaitViewport(120f, 80f)
             second.awaitColor(Green, after = beforeResize)
@@ -134,7 +135,7 @@ class AndroidMapPresentationTest {
             }
             assertTrue(second.surface.isValid, "Closing a presenter must not release its Surface")
 
-            val beforeReattach = second.frames.get()
+            val beforeReattach = second.frames
             fixture.onMain { presenter = newPresenter() }
             fixture.onMain { presenter.attachSurface(second.surface, 320, 240, 1f) }
             second.awaitColor(Blue, after = beforeReattach)
@@ -146,7 +147,7 @@ class AndroidMapPresentationTest {
     }
 
   @Test
-  fun recognized_gestures_use_logical_units_and_finish_camera_movement() = runBlocking {
+  fun recognized_gestures_use_logical_units_and_finish_camera_movement() = runMapTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(320, 240) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 320, 240, 2f) }
@@ -221,7 +222,7 @@ class AndroidMapPresentationTest {
 
   @Test
   fun the_same_map_moves_between_direct_and_compose_hosts_with_its_camera_and_content() =
-    runBlocking {
+    runMapTest {
       withSurfaceMap { fixture ->
         fixture.withConsumer(256, 192) { consumer ->
           fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
@@ -245,7 +246,7 @@ class AndroidMapPresentationTest {
             fixture.await("Compose to release its presentation") { state.viewport == null }
           }
 
-          val beforeReattach = consumer.frames.get()
+          val beforeReattach = consumer.frames
           fixture.onMain {
             presenter = newPresenter()
             presenter.attachSurface(consumer.surface, 256, 192, 1f)
@@ -260,7 +261,7 @@ class AndroidMapPresentationTest {
     }
 
   @Test
-  fun closing_a_map_with_an_attached_surface_leaves_the_borrowed_surface_valid() = runBlocking {
+  fun closing_a_map_with_an_attached_surface_leaves_the_borrowed_surface_valid() = runMapTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(256, 192) { consumer ->
         fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
@@ -282,8 +283,8 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
   var color by mutableStateOf(Color.Red)
   var checkNightConfiguration by mutableStateOf(false)
   var showPoint by mutableStateOf(false)
-  var lastClick: DpOffset? = null
-  var clickedFeatures = 0
+  var lastClick by mutableStateOf<DpOffset?>(null)
+  var clickedFeatures by mutableIntStateOf(0)
   val clickOrder = mutableListOf<String>()
   val state =
     runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 3.0)) {
@@ -362,18 +363,11 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
   suspend fun <T> onMain(action: SurfaceMapFixture.() -> T): T =
     withContext(Dispatchers.Main) { action() }
 
-  suspend fun await(description: String, predicate: SurfaceMapFixture.() -> Boolean) {
-    try {
-      withTimeout(TimeoutMillis) {
-        while (!onMain(predicate)) {
-          onMain { presenter.failure?.let { throw AssertionError("Presentation failed", it) } }
-          delay(10)
-        }
-      }
-    } catch (failure: Throwable) {
-      throw AssertionError("Timed out waiting for $description", failure)
+  suspend fun await(description: String, predicate: SurfaceMapFixture.() -> Boolean) =
+    awaitOnMain(description) {
+      presenter.failure?.let { throw AssertionError("Presentation failed", it) }
+      predicate()
     }
-  }
 
   suspend fun awaitViewport(width: Float, height: Float) =
     await("viewport ${width}x$height dp") {
@@ -440,6 +434,10 @@ class SurfaceHandoffActivity : ComponentActivity() {
   }
 }
 
+/**
+ * Waits for the screen's center pixel to be [expected]. The screen reports no change to wait on, so
+ * this takes a screenshot every 50 ms.
+ */
 private suspend fun awaitScreenColor(expected: Int) {
   var actual: Int? = null
   try {

@@ -29,11 +29,11 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
+import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.QueuedOwnerStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
@@ -80,9 +80,17 @@ class MapClickDispatcherTest {
   fun a_tap_before_layer_handles_are_published_waits_for_them() = runTest {
     Fixture().use { fixture ->
       // The owner has loaded the style, but its read that publishes the handles has not run.
-      val binding = QueuedOwnerStyleBinding(checkNotNull(fixture.style.value))
+      val releaseRead = CompletableDeferred<Unit>()
+      val recorded = checkNotNull(fixture.style.value)
+      val binding =
+        object : StyleBinding by recorded {
+          override suspend fun layerSummaries(): List<LayerSummary> {
+            val result = recorded.layerSummaries()
+            releaseRead.await()
+            return result
+          }
+        }
       fixture.style.value = binding
-      binding.ownerBusy = true
       assertTrue(fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding))
       val ready =
         launch(start = CoroutineStart.UNDISPATCHED) {
@@ -118,7 +126,7 @@ class MapClickDispatcherTest {
       val delivery = async(start = CoroutineStart.UNDISPATCHED) { path.deliver(fixture.event) }
       assertFalse(delivery.isCompleted, "the tap waits for the handles")
       assertEquals(0, unhandled)
-      binding.runOwnerTasks()
+      releaseRead.complete(Unit)
       ready.join()
 
       assertTrue(delivery.await().consumed)
@@ -130,9 +138,17 @@ class MapClickDispatcherTest {
   @Test
   fun a_waiting_tap_is_dropped_when_the_presentation_detaches() = runTest {
     Fixture().use { fixture ->
-      val binding = QueuedOwnerStyleBinding(checkNotNull(fixture.style.value))
+      val releaseRead = CompletableDeferred<Unit>()
+      val recorded = checkNotNull(fixture.style.value)
+      val binding =
+        object : StyleBinding by recorded {
+          override suspend fun layerSummaries(): List<LayerSummary> {
+            val result = recorded.layerSummaries()
+            releaseRead.await()
+            return result
+          }
+        }
       fixture.style.value = binding
-      binding.ownerBusy = true
       assertTrue(fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding))
       val ready =
         launch(start = CoroutineStart.UNDISPATCHED) {
@@ -160,7 +176,7 @@ class MapClickDispatcherTest {
       assertFailsWith<CancellationException> { delivery.await() }
       assertFalse(path.isValid())
       assertEquals(0, handled)
-      binding.runOwnerTasks()
+      releaseRead.complete(Unit)
       ready.join()
     }
   }
@@ -406,9 +422,11 @@ class MapClickDispatcherTest {
         )
     }
 
-    /** Publishes the engine's current layer order the way a reconciled revision does. */
+    /** Publishes the engine's current layer order, as a reconciliation that reads it back does. */
     suspend fun publishLayerOrder() {
-      state.styleAuthority.refreshStyleResources(adapter)
+      val binding = checkNotNull(style.value)
+      binding.contents.replaceLayers(binding.layerSummaries())
+      state.style.publish(binding)
     }
 
     fun node(id: String, handler: FeaturesClickHandler) =

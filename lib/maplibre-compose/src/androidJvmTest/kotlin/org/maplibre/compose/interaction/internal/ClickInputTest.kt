@@ -146,7 +146,7 @@ class ClickInputTest {
     // the shared fixture's, runs unconfined.
     val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedMain)
     val state = runtime.createMapState(BaseStyle.Empty)
-    val target = RecordingGestureTarget(state, deferred = true)
+    val target = RecordingGestureTarget(state)
     try {
       setContent {
         GestureHost(
@@ -167,15 +167,13 @@ class ClickInputTest {
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertEquals(1, target.startedCount, "the long press did not start its zoom")
-      assertTrue(target.scaleCalls.isEmpty(), "engine execution should still be paused")
+      assertEquals(1, target.scaleCalls.size, "the long press did not submit its zoom")
       mapNode().performTouchInput { up() }
-      target.drain()
       waitForIdle()
       assertEquals(1, target.scaleCalls.size, "release discarded the long press's zoom")
     } finally {
       mainClock.autoAdvance = true
       state.close()
-      target.drain()
       runtime.close()
     }
   }

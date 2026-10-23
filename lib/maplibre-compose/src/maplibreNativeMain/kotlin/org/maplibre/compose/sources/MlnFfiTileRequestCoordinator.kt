@@ -15,8 +15,8 @@ import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.generated.CanonicalTileId
+import org.maplibre.nativeffi.generated.MapHandle
 
 /**
  * Runs cancellable tile requests for one custom source of one loaded style, and delivers only the
@@ -74,6 +74,9 @@ internal class MlnFfiTileRequestCoordinator<T>(
     lock.withLock { requests.remove(tileId) }?.job?.cancel()
   }
 
+  val isClosed: Boolean
+    get() = lock.withLock { closed }
+
   /** Cancels every request and ignores later fetches. An answer already submitted is dropped. */
   override fun close() {
     lock.withLock {
@@ -106,7 +109,7 @@ internal class MlnFfiTileRequestCoordinator<T>(
 }
 
 internal fun CanonicalTileId.toTileCoordinate(): TileCoordinate =
-  TileCoordinate(zoomLevel = z, x = x, y = y)
+  TileCoordinate(zoomLevel = z.toInt(), x = x.toLong(), y = y.toLong())
 
 internal fun TileCoordinate.toMlnFfiTileId(): CanonicalTileId =
-  CanonicalTileId(z = zoomLevel, x = x, y = y)
+  CanonicalTileId(z = zoomLevel.toUInt(), x = x.toUInt(), y = y.toUInt())

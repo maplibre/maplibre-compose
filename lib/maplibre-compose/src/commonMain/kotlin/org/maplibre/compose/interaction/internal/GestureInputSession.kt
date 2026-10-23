@@ -58,7 +58,7 @@ internal class GestureInputSession(
     }
   }
 
-  /** Finish response work, then seal camera commands and wait for the backend to drain them. */
+  /** Finish response work, then end input and wait for its camera events. */
   fun end() {
     if (ending || work.isCancelled) return
     ending = true

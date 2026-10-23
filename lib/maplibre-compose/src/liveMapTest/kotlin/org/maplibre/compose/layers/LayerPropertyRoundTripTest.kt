@@ -39,15 +39,15 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
-import org.maplibre.compose.style.onOwner
 import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.mapLibreFlavor
+import org.maplibre.compose.testing.readLayerProperty
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
@@ -69,13 +69,13 @@ class LayerPropertyRoundTripTest {
         val before = TestLayer("before-$index", "symbol", source)
         case.apply(before)
         style.install(before)
-        assertProperty(style, before.id, case)
+        assertProperty(fixture, before.id, case)
 
         val after = TestLayer("after-$index", "symbol", source)
         val installation = style.install(after)
         case.apply(after)
-        style.onOwner { installation.update(after.definition()) }
-        assertProperty(style, after.id, case)
+        style.run { installation.update(after.definition()) }
+        assertProperty(fixture, after.id, case)
       }
       assertEquals(emptyList(), fixture.errors)
     }
@@ -93,25 +93,27 @@ class LayerPropertyRoundTripTest {
         }
       val installation = style.install(layer)
       layer.minZoom = 4f
-      style.onOwner {
+      style.run {
         installation.update(layer.definition())
-        assertTrue(style.layerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(4)))
-        assertTrue(style.layerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(15)))
       }
+      assertTrue(fixture.readLayerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(4)))
+      assertTrue(fixture.readLayerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(15)))
+
       layer.maxZoom = 16f
-      style.onOwner {
+      style.run {
         installation.update(layer.definition())
-        assertTrue(style.layerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(4)))
-        assertTrue(style.layerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(16)))
       }
+      assertTrue(fixture.readLayerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(4)))
+      assertTrue(fixture.readLayerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(16)))
 
       layer.root("minzoom", JsonNull)
       layer.root("maxzoom", JsonNull)
-      style.onOwner {
+      style.run {
         installation.update(layer.definition())
-        assertTrue(style.layerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(0)))
-        assertTrue(style.layerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(24)))
       }
+      assertTrue(fixture.readLayerProperty(layer.id, "minzoom")!!.equivalentTo(JsonPrimitive(0)))
+      assertTrue(fixture.readLayerProperty(layer.id, "maxzoom")!!.equivalentTo(JsonPrimitive(24)))
+
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -131,20 +133,15 @@ class LayerPropertyRoundTripTest {
       val original = Json.parseToJsonElement("""["==",["get","class"],"park"]""")
       layer.root("filter", original)
       val installation = style.install(layer)
-      assertEquals(original, style.awaitOwner { style.layerProperty(layer.id, "filter") })
+      assertEquals(original, fixture.readLayerProperty(layer.id, "filter"))
       val updated = Json.parseToJsonElement("""["==",["get","class"],"wood"]""")
       layer.root("filter", updated)
-      style.onOwner { installation.update(layer.definition()) }
-      assertEquals(updated, style.awaitOwner { style.layerProperty(layer.id, "filter") })
+      style.run { installation.update(layer.definition()) }
+      assertEquals(updated, fixture.readLayerProperty(layer.id, "filter"))
       layer.root("filter", JsonNull)
-      style.onOwner { installation.update(layer.definition()) }
-      val cleared = style.awaitOwner { style.layerProperty(layer.id, "filter") }
-      // Native represents the default as an always-true filter; GL JS removes the expression.
-      if (mapLibreFlavor == MapLibreFlavor.GlJs) {
-        assertTrue(cleared == null || cleared == JsonNull, "cleared filter: $cleared")
-      } else {
-        assertEquals(JsonPrimitive(true), cleared)
-      }
+      style.run { installation.update(layer.definition()) }
+      val cleared = fixture.readLayerProperty(layer.id, "filter")
+      assertTrue(cleared == null || cleared == JsonNull, "cleared filter: $cleared")
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -160,22 +157,21 @@ class LayerPropertyRoundTripTest {
         TransitionOptions(700.milliseconds, 50.milliseconds),
       )
       val scale = systemAnimatorDurationScale()
-      val installation = style.onOwner { LayerInstallation(style, layer.definition(), "", scale) }
-      suspend fun assertTiming(duration: Double, delay: Double) = style.onOwner {
-        val written = assertNotNull(style.layerProperty(layer.id, "background-color-transition"))
+      val installation = style.run { LayerInstallation(style, layer.definition(), "", scale) }
+      suspend fun assertTiming(duration: Double, delay: Double) {
+        val written =
+          assertNotNull(fixture.readLayerProperty(layer.id, "background-color-transition"))
         val expected =
           Json.parseToJsonElement("""{"duration":${duration * scale},"delay":${delay * scale}}""")
         assertTrue(written.equivalentTo(expected), "expected $expected, got $written")
       }
       assertTiming(700.0, 50.0)
       layer.paintTransition("background-color", TransitionOptions(200.milliseconds))
-      style.onOwner { installation.update(layer.definition(), scale) }
+      style.run { installation.update(layer.definition(), scale) }
       assertTiming(200.0, 0.0)
       layer.paintTransition("background-color", null)
-      style.onOwner { installation.update(layer.definition(), scale) }
-      val cleared = style.awaitOwner {
-        style.layerProperty(layer.id, "background-color-transition")
-      }
+      style.run { installation.update(layer.definition(), scale) }
+      val cleared = fixture.readLayerProperty(layer.id, "background-color-transition")
       // Native reports no value; GL JS reports the empty object used to clear the transition.
       assertTrue(
         cleared == null || cleared == JsonObject(emptyMap()),
@@ -185,8 +181,8 @@ class LayerPropertyRoundTripTest {
     }
   }
 
-  private suspend fun assertProperty(style: StyleBinding, id: String, case: Case) = style.onOwner {
-    val actual = assertNotNull(style.layerProperty(id, case.property), "$id ${case.property}")
+  private suspend fun assertProperty(fixture: MapFixture, id: String, case: Case) {
+    val actual = assertNotNull(fixture.readLayerProperty(id, case.property), "$id ${case.property}")
     val expected = Json.parseToJsonElement(case.expectedHere)
     assertTrue(
       actual.equivalentTo(expected),

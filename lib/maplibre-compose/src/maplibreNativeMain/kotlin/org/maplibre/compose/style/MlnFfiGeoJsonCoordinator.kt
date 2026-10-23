@@ -16,8 +16,8 @@ import org.maplibre.compose.util.rethrowIfFatal
 
 /**
  * One source installation's latest submission, with at most one active and one pending parse.
- * [install] and [reportFailure] may suspend while the owner thread runs their step; the prepared
- * data stays open until [install] returns.
+ * Preparation runs on a worker; [install] and [reportFailure] run their step on main and may
+ * suspend there. The prepared data stays open until [install] returns.
  */
 internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private val prepare: (GeoJsonData) -> P,
@@ -71,7 +71,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
     }
   }
 
-  /** Called in owner-thread submission order. [installUrl] also runs on that thread. */
+  /** Called on main, in submission order. [installUrl] also runs on main. */
   fun submit(data: GeoJsonData, installUrl: (String) -> Unit) {
     val request = Request()
     val previous = lock.withLock {
@@ -110,6 +110,9 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   }
 
   private fun isCurrent(request: Request): Boolean = lock.withLock { !closed && latest === request }
+
+  val isClosed: Boolean
+    get() = lock.withLock { closed }
 
   override fun close() {
     val request = lock.withLock {

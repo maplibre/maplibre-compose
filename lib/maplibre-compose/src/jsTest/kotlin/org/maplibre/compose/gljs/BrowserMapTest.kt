@@ -49,7 +49,7 @@ internal fun ComposeUiTest.setBrowserMapContent(size: Int = 256, content: @Compo
 internal suspend fun ComposeUiTest.waitUntilMap(
   what: String,
   timeout: Duration = 20.seconds,
-  condition: () -> Boolean,
+  condition: suspend () -> Boolean,
 ) {
   val start = Date.now()
   while (true) {

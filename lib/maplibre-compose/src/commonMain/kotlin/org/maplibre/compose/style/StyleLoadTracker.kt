@@ -3,8 +3,6 @@ package org.maplibre.compose.style
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.atomicfu.locks.reentrantLock
-import kotlinx.atomicfu.locks.withLock
 
 /** Identifies one base-style request, including a reload after engine destruction. */
 internal class StyleRequestId
@@ -21,69 +19,55 @@ internal enum class StylePresentation {
 
 /** Tracks style readiness and preserves the previous presentation during replacement. */
 internal class StyleLoadTracker {
-  // Requests and completions can arrive on different threads; the renderer reads only presentation.
-  private val lock = reentrantLock()
   private var currentRequest = StyleRequestId()
   private var load: Load = Load.Loading
-
-  /** The style that loaded for [currentRequest]. A later failure of that request keeps it. */
-  private var loadedIdentity: StyleIdentity? = null
 
   var presentation by mutableStateOf(StylePresentation.Hidden)
     private set
 
   val requestId: StyleRequestId
-    get() = lock.withLock { currentRequest }
+    get() = currentRequest
 
   val isReady: Boolean
-    get() = lock.withLock { (load as? Load.Loaded)?.isReady == true }
+    get() = (load as? Load.Loaded)?.isReady == true
 
   val contentReady: Boolean
-    get() = lock.withLock { (load as? Load.Loaded)?.contentReady == true }
+    get() = (load as? Load.Loaded)?.contentReady == true
 
-  /**
-   * Whether [identity] loaded for the current request. It stays current if that request fails
-   * afterwards, until the next request.
-   */
-  fun isCurrent(identity: StyleIdentity): Boolean = lock.withLock { loadedIdentity === identity }
-
-  fun request(): StyleRequestId = lock.withLock {
+  fun request(): StyleRequestId {
     currentRequest = StyleRequestId()
     load = Load.Loading
-    loadedIdentity = null
     retainPresentation()
-    currentRequest
+    return currentRequest
   }
 
   /** A new surface waits for its current composition, even when the engine was retained. */
-  fun resetPresentation() = lock.withLock {
+  fun resetPresentation() {
     presentation = StylePresentation.Hidden
     (load as? Load.Loaded)?.let { load = it.copy(contentReady = false) }
   }
 
-  fun engineBecameUnavailable() = lock.withLock {
+  fun engineBecameUnavailable() {
     request()
     resetPresentation()
   }
 
   /**
    * Records that [identity] loaded for [request], and returns false instead when [request] is no
-   * longer current or has already finished. The check and the record are one step, so a request
-   * made on another thread either supersedes the load or follows it.
+   * longer current or has already finished. Requests and completions run on main.
    */
   fun loaded(
     request: StyleRequestId,
     identity: StyleIdentity,
     baseStyleReady: Boolean = true,
-  ): Boolean = lock.withLock {
+  ): Boolean {
     if (request !== currentRequest || load != Load.Loading) return false
     load = Load.Loaded(identity, baseReady = baseStyleReady)
-    loadedIdentity = identity
-    true
+    return true
   }
 
   /** Returns true once both the engine and the complete application revision are ready. */
-  fun reconciled(identity: StyleIdentity): Boolean = lock.withLock {
+  fun reconciled(identity: StyleIdentity): Boolean {
     val current = load as? Load.Loaded ?: return false
     if (current.identity !== identity || current.contentReady) return false
     val next = current.copy(contentReady = true)
@@ -92,28 +76,28 @@ internal class StyleLoadTracker {
     if (presentation == StylePresentation.Retained || next.isReady) {
       presentation = StylePresentation.Live
     }
-    next.isReady
+    return next.isReady
   }
 
-  fun baseStyleReady(identity: StyleIdentity): Boolean = lock.withLock {
+  fun baseStyleReady(identity: StyleIdentity): Boolean {
     val current = load as? Load.Loaded ?: return false
     if (current.identity !== identity || current.baseReady) return false
     val next = current.copy(baseReady = true)
     load = next
     if (next.isReady) presentation = StylePresentation.Live
-    next.isReady
+    return next.isReady
   }
 
-  fun failed(request: StyleRequestId): Boolean = lock.withLock {
+  fun failed(request: StyleRequestId): Boolean {
     if (request !== currentRequest || load == Load.Failed || isReady) return false
     load = Load.Failed
     presentation = StylePresentation.Hidden
-    true
+    return true
   }
 
-  fun failed(identity: StyleIdentity) = lock.withLock {
-    val current = load as? Load.Loaded ?: return@withLock
-    if (current.identity !== identity) return@withLock
+  fun failed(identity: StyleIdentity) {
+    val current = load as? Load.Loaded ?: return
+    if (current.identity !== identity) return
     load = current.copy(contentReady = false)
     presentation = StylePresentation.Hidden
   }

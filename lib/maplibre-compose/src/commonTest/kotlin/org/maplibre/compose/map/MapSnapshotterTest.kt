@@ -95,6 +95,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = { adapter },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
       )
@@ -131,6 +132,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         physicalScope =
           CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("physical")),
         createSnapshotterAdapter = { adapter },
@@ -151,6 +153,7 @@ class MapSnapshotterTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
       )
@@ -169,16 +172,14 @@ class MapSnapshotterTest {
       val imageHandle = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       assertEquals(setOf("imperative"), binding.imageIds)
       imageHandle.remove()
-      snapshotter.style.awaitCommands()
       sourceHandle.remove()
-      snapshotter.style.awaitCommands()
       assertTrue(snapshotter.style.sources.none())
       val currentSource = checkNotNull(snapshotter.style.sources.add(source))
       val currentImage = snapshotter.style.setImage("imperative", FakeImageBitmap(1, 1))
       // These handles removed their own resources: using them again is misuse.
       assertFailsWith<IllegalStateException> { sourceHandle.remove() }
       assertFailsWith<IllegalStateException> { imageHandle.remove() }
-      assertTrue(binding.sourceExists("imperative") == true)
+      assertTrue(binding.getSource("imperative") != null)
       assertEquals(setOf("imperative"), binding.imageIds)
       snapshotter.style.asMutable!!.baseStyle =
         BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
@@ -195,6 +196,7 @@ class MapSnapshotterTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
       )
@@ -210,9 +212,9 @@ class MapSnapshotterTest {
     // A call that passed its start check before the close reaches the engine only through the
     // owner's single path, which treats the close like a style change.
     var wrote = false
-    snapshotter.style.post(binding, "The test write") { wrote = true }
+    snapshotter.style.operationGuard(binding).post("The test write", { true }) { wrote = true }
     assertFalse(wrote)
-    assertNull(snapshotter.style.visit(binding) { binding.imageIds })
+    assertNull(snapshotter.style.operationGuard(binding).read({ true }) { binding.imageIds })
     assertFailsWith<IllegalStateException> {
       snapshotter.style.images.set(
         "late",
@@ -239,6 +241,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
       )
@@ -272,6 +275,7 @@ class MapSnapshotterTest {
     var renderedAttribution: String? = null
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -307,6 +311,7 @@ class MapSnapshotterTest {
     var blockCapture = false
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
@@ -335,7 +340,6 @@ class MapSnapshotterTest {
       "crossing",
       ResolvedStyleImage(PreparedImage.fromBitmap(FakeImageBitmap(1, 1))),
     )
-    snapshotter.style.awaitCommands()
     assertEquals(setOf("crossing"), binding.imageIds)
 
     finishCapture.complete(Unit)
@@ -414,6 +418,7 @@ class MapSnapshotterTest {
         )
       val runtime =
         mapRuntimeForTest(
+          mainDispatcher = testMainDispatcher(),
           physicalScope = backgroundScope,
           createSnapshotterAdapter = { adapter },
           styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
@@ -465,6 +470,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         physicalScope = this,
         createSnapshotterAdapter = { adapter },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
@@ -512,6 +518,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
         physicalScope = this,
         createSnapshotterAdapter = { adapter },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> StyleSnapshot.Empty },
@@ -596,7 +603,7 @@ class MapSnapshotterTest {
 
   @Test
   fun capture_fails_when_the_runtime_cannot_render_snapshots() = runTest {
-    val runtime = mapRuntimeForTest()
+    val runtime = mapRuntimeForTest(mainDispatcher = testMainDispatcher())
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
 
     assertFailsWith<MapSnapshotException> {
@@ -734,13 +741,14 @@ class MapSnapshotterTest {
     }
   }
 
-  private fun runtimeWith(
+  private fun kotlinx.coroutines.test.TestScope.runtimeWith(
     adapter: SnapshotterAdapter,
     styleEvaluator: StyleCompositionEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ ->
       StyleSnapshot.Empty
     },
   ): MapRuntime =
     mapRuntimeForTest(
+      mainDispatcher = testMainDispatcher(),
       createSnapshotterAdapter = { adapter },
       styleEvaluator = styleEvaluator,
     )
