@@ -1,4 +1,7 @@
-@file:OptIn(org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class)
+@file:OptIn(
+  org.maplibre.compose.util.ExperimentalMaplibreComposeApi::class,
+  kotlinx.coroutines.ExperimentalCoroutinesApi::class,
+)
 
 package org.maplibre.compose.mlnffi
 
@@ -8,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
@@ -62,6 +66,24 @@ internal class MlnFfiRuntime(
    */
   fun completeOnMain(action: () -> Unit) {
     mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(action))
+  }
+
+  /**
+   * [completion]'s outcome, completed on main after the events native raised before it and before
+   * later ones. Its completion handlers run on main at that point. [completion] itself completes on
+   * a native thread, so main can see it before those events.
+   */
+  fun <T> inEventOrder(completion: Deferred<T>): Deferred<T> {
+    val ordered = CompletableDeferred<T>()
+    // The binding completes [completion] inside native's completion callback, which runs after the
+    // event callbacks that posted the command's events, so this post follows theirs.
+    completion.invokeOnCompletion { error ->
+      completeOnMain {
+        if (error != null) ordered.completeExceptionally(error)
+        else ordered.complete(completion.getCompleted())
+      }
+    }
+    return ordered
   }
 
   /** Starts suspending work from an event handler. */

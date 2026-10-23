@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
@@ -194,8 +193,6 @@ internal class MlnFfiMapSession(
   private var styleCommandGroupOpen = false
   private var activeGestureToken: CameraInputToken? = null
   private var gestureBearing: Double? = null
-  private var gestureEndGeneration = 0uL
-  private var gestureEnd: Deferred<CommandCompletion>? = null
 
   private var styleBinding: MlnFfiStyleBinding? = null
 
@@ -467,23 +464,10 @@ internal class MlnFfiMapSession(
   /**
    * Runs on main, as do the callbacks it makes.
    *
-   * TODO: once https://github.com/maplibre/maplibre-native-ffi/issues/959 delivers events and
-   *   completions to main in native order, handle style-loaded and loading-failed events after the
-   *   style command's completion, and end gesture reporting at the END completion, without the
-   *   generation comparisons here.
+   * A style command queues its own events before its completion, so a style event waits for that
+   * completion's generation to tell the requested style from the one it replaced.
    */
   private fun handleEvent(map: MapHandle, event: RuntimeEvent) {
-    // Native completes END before reporting a newer generation. Its completed result identifies
-    // where gesture camera reporting stops, even before the END waiter resumes on main.
-    val ending = gestureEnd
-    if (ending?.isCompleted == true) {
-      @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-      val generation = runCatching { ending.getCompleted().generation }.getOrNull()
-      if (generation != null) gestureEndGeneration = generation
-      if (generation != null && event.generation > generation && activeGestureToken == null) {
-        reportGestureActive(false)
-      }
-    }
     val mapEvent = event.toMapEvent()
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
@@ -766,10 +750,9 @@ internal class MlnFfiMapSession(
     val map = checkNotNull(map) { "The map became unavailable during the bounds fit" }
     val camera = cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
     if (guard?.isValid() == false) return
-    val completion = map.updateCamera(FfiCameraUpdate(camera = camera)).await()
+    // Returns once main has handled the command's camera events.
+    val completion = owner.inEventOrder(map.updateCamera(FfiCameraUpdate(camera = camera))).await()
     if (completion.failed) throw CommandFailedException(completion)
-    // Deliver already-posted camera events on the runtime dispatcher before returning.
-    withContext(owner.mainDispatcher) { yield() }
   }
 
   private suspend fun cameraForBounds(
@@ -1217,16 +1200,11 @@ internal class MlnFfiMapSession(
       if (cancelled) map.discarding.cancelTransitions()
       val last =
         map.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.END)).report("end a gesture")
-      gestureEnd = last
-      owner.launchOnMain {
+      // Runs after the gesture's final camera events and before any later ones.
+      owner.inEventOrder(last).invokeOnCompletion {
         try {
-          gestureEndGeneration = last.await().generation
-          // Deliver the events already posted to main before completing the gesture.
-          yield()
-
           if (activeGestureToken == null) reportGestureActive(false)
         } finally {
-          if (gestureEnd === last) gestureEnd = null
           token.complete()
         }
       }
