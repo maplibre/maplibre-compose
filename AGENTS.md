@@ -145,56 +145,28 @@ Site pages that show how to use the library import Kotlin examples from `//
 with the demo app, so examples stay correct as the API changes. Add or update a
 region for each Kotlin example.
 
-## Issue and PR organization
+## Issues and pull requests
 
 [Rubberstamp](https://github.com/apps/rubberstamp-bot) labels each new issue and
-PR from `.config/rubberstamp.yml`: one kind, at least one `area:*` label, and
-`engine:`, `platform:`, `breaking`, `upstream`, and `dependencies` labels when
-they apply. Don't label by hand; correct a wrong label instead. Leave native
-issue types unset. Usage questions go to Discussions.
+PR from `.config/rubberstamp.yml`. Don't label by hand; correct a wrong label
+instead, and leave GitHub's native issue type unset.
 
-## Pull requests
+PR titles follow Conventional Commits, since they become the squash-merge commit
+message. Write a short title and description for a reviewer who will read the
+diff. Say what the diff, its KDoc, and CI can't:
 
-Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Use draft
-status for unfinished work, unresolved decisions, or generated code pending
-human review. Prefer Conventional Commits for PR titles, which become the
-squash-merge commit message.
+- Open with the problem and what users can now do, or what maintainers gain.
+- Show one small example of new API, or a bug's trigger with before and after.
+- Add these only if they apply: what library users must change, measured numbers
+  with a one-line method, and validation that CI does not run.
+- Rewrite both when review changes the scope.
 
-Write the description for a reviewer who has not seen your working session, and
-for someone reading the history later. Aim for the shortest description that
-lets them understand and trust the change; the diff carries the details.
+When you post AI-contributed GitHub content, including a new Discussion or
+Issue, a reply, or a PR description or comment, append this disclosure:
+`_AI-assisted — Tool: <tool>; model: <provider>/<model>_`
 
-- Start from the problem as a user or maintainer experiences it.
-- Explain what behaves differently, in the project's and MapLibre's vocabulary.
-- If library users must change their code, or the PR knowingly leaves part of
-  the problem unsolved, say so.
-
-Validation covers what CI does not show. CI runs the checks and the test suites
-that the change puts at risk, so passing them needs no mention. Describe how the
-tests changed and what they now catch, and anything checked outside CI:
-benchmark comparisons for performance work, code metrics for refactors, and
-manual checks in the demo for UI changes. Name any affected behavior that went
-unverified.
-
-### CI coverage
-
-Rubberstamp plans which coverage units each PR commit runs, from the units in
-the `ci` section of `.config/rubberstamp.yml`. A unit runs when Rubberstamp
-judges that the change puts it at risk or when a changed file matches its
-`paths`, and a later push is judged only on what changed since the unit last
-passed. Hygiene always runs, and pushes to `main` and manual runs run every
-unit. The plan job's summary links to the Rubberstamp dashboard with the reason
-for each unit.
-
-`ci/jobs.json` assigns each job and variant to a unit, and `ci/plan.py` turns
-the plan into the jobs and matrices of `.github/workflows/ci.yml`. A job with
-multiple configurations is a matrix over the variants the plan selected.
-`all-good` is the required check.
-
-If a plan skips coverage that the change needs, sharpen that unit's `covers`
-text or `paths`, and run every unit with `gh workflow run CI --ref <branch>`.
-Rubberstamp reads the units from `main`, so a unit that a PR adds or renames
-runs only on manual runs until the PR merges.
+If Rubberstamp's CI plan skips coverage that a change needs, run every unit with
+`gh workflow run CI --ref <branch>`.
 
 ## Code review rules
 

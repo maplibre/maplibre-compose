@@ -48,9 +48,6 @@ maintainer approval.
 
 ## Disclosure
 
-When disclosure applies under MapLibre's policy, fill in the **AI assistance**
-section of the pull request template. Disclosure is not penalized.
-
 When planning docs guided the work, commit them on your branch as you go.
 Removing them before merge is fine; reviewers can still follow the process in
 the commit history.
