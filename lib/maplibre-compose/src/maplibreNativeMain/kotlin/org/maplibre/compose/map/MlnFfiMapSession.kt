@@ -354,7 +354,7 @@ internal class MlnFfiMapSession(
   internal fun publishRetainedStyle() {
     // The installed binding stays after a replacement is requested, and after that replacement
     // fails. Only the current request's style is republished.
-    styleBinding?.let { callbacks.onStyleChanged(this, it) }
+    styleBinding?.takeIf { it.isLoaded }?.let { callbacks.onStyleChanged(this, it) }
   }
 
   /**

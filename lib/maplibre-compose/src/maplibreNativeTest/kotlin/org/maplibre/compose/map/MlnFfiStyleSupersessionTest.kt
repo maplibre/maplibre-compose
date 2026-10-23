@@ -93,6 +93,20 @@ class MlnFfiStyleSupersessionTest {
   }
 
   @Test
+  fun a_new_presentation_keeps_a_failed_replacement_failed() = runMapTest {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(style("loaded"), Timeout)
+      fixture.session.setBaseStyle(BaseStyle.Json("{invalid"))
+      fixture.awaitUntil("the replacement failure", Timeout) {
+        fixture.state.style.loadState is StyleLoadState.Failed
+      }
+      // A new presentation republishes the retained style. The replaced one is no longer it.
+      fixture.session.publishRetainedStyle()
+      assertTrue(fixture.state.style.loadState is StyleLoadState.Failed)
+    }
+  }
+
+  @Test
   fun a_setter_rejected_before_native_cannot_adopt_the_old_documents_late_success() = runMapTest {
     val first = HeldDocument()
     val config = MapResourceConfig(provider = MapResourceProvider("held") { first.load() })
