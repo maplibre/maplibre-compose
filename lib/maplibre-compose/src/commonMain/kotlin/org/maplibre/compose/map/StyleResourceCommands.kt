@@ -26,9 +26,17 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
     mutableMapOf<String, Pair<OwnedSource?, StyleContents.SourceEntry>>()
 
   /** Image writes whose outcome is pending, with what to restore if the engine rejects them all. */
+  /**
+   * Overlapping writes to one image, and the state from before the first. When the latest write is
+   * rejected, the image returns to what the latest accepted write produced, or to the earlier state
+   * if none was accepted.
+   */
   private class PendingImageWrites(val identity: Any?, val ownership: Boolean?) {
-    var count = 0
-    var anyAccepted = false
+    var submitted = 0
+    var completed = 0
+    var latestAccepted = -1
+    var latestAcceptedOwnership: Boolean? = null
+    var latestError: Throwable? = null
   }
 
   private val pendingImageWrites = mutableMapOf<String, PendingImageWrites>()
@@ -178,18 +186,28 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
       pendingImageWrites.getOrPut(id) {
         PendingImageWrites(binding.identity.images.peek(id), images[id])
       }
-    pending.count++
+    val write = pending.submitted++
+    val ownership = if (definition == null) null else false
     binding.identity.images.take(id)
-    if (definition == null) images.remove(id) else images[id] = false
+    if (ownership == null) images.remove(id) else images[id] = ownership
     command.invokeOnCompletion { error ->
-      if (error == null) pending.anyAccepted = true
+      if (error == null && write > pending.latestAccepted) {
+        pending.latestAccepted = write
+        pending.latestAcceptedOwnership = ownership
+      }
+      if (write == pending.submitted - 1) pending.latestError = error
       if (error is StyleMutationException) binding.reportRejectedWrite("Image '$id'", null, error)
-      if (--pending.count > 0 || pendingImageWrites[id] !== pending) return@invokeOnCompletion
+      if (++pending.completed < pending.submitted || pendingImageWrites[id] !== pending)
+        return@invokeOnCompletion
       pendingImageWrites.remove(id)
-      if (pending.anyAccepted || error !is StyleMutationException) return@invokeOnCompletion
+      if (pending.latestError !is StyleMutationException) return@invokeOnCompletion
       if (!style.isCurrentLoadedStyle(binding)) return@invokeOnCompletion
-      if (pending.ownership == null) images.remove(id) else images[id] = pending.ownership
-      pending.identity?.let { binding.identity.images.restore(id, it) }
+      val restored =
+        if (pending.latestAccepted >= 0) pending.latestAcceptedOwnership else pending.ownership
+      if (restored == null) images.remove(id) else images[id] = restored
+      // An accepted write replaced the image, so only a group with none keeps the earlier handle.
+      if (pending.latestAccepted < 0)
+        pending.identity?.let { binding.identity.images.restore(id, it) }
     }
   }
 

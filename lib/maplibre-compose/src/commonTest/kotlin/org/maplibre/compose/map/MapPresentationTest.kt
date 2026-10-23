@@ -1205,6 +1205,39 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_rejected_write_after_an_accepted_removal_leaves_the_image_removed() = runTest {
+    val fixture = presentationFixture()
+    val recording = RecordingStyleBinding()
+    val removal = CompletableDeferred<Unit>()
+    val replacement = CompletableDeferred<Unit>()
+    var pending = false
+    val binding =
+      object : StyleBinding by recording {
+        override fun removeImage(id: String): StyleCommand =
+          if (pending) removal.also { recording.removeImage(id) } else recording.removeImage(id)
+
+        override fun setImage(definition: StyleImageDefinition): StyleCommand =
+          if (pending) replacement else recording.setImage(definition)
+      }
+    val image = FakeImageBitmap(1, 1)
+    fixture.state.missingImageResolver = { ResolvedStyleImage(PreparedImage.fromBitmap(image)) }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    fixture.state.style.setImage("marker", image)
+
+    pending = true
+    fixture.state.style.images.remove("marker")
+    fixture.state.style.images.set("marker", ResolvedStyleImage(PreparedImage.fromBitmap(image)))
+    removal.complete(Unit)
+    replacement.completeExceptionally(StyleMutationException("refused", null))
+
+    // The engine has no image, so the ID is no longer imperatively owned: the resolver may fill it.
+    assertTrue("marker" !in recording.imageIds)
+    assertNotNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "marker"))
+    fixture.close()
+  }
+
+  @Test
   fun a_batch_failure_keeps_the_previous_image_handle_and_installs_other_images() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))
