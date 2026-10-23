@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -282,8 +283,8 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
   var color by mutableStateOf(Color.Red)
   var checkNightConfiguration by mutableStateOf(false)
   var showPoint by mutableStateOf(false)
-  var lastClick: DpOffset? = null
-  var clickedFeatures = 0
+  var lastClick by mutableStateOf<DpOffset?>(null)
+  var clickedFeatures by mutableIntStateOf(0)
   val clickOrder = mutableListOf<String>()
   val state =
     runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 3.0)) {
@@ -362,18 +363,11 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
   suspend fun <T> onMain(action: SurfaceMapFixture.() -> T): T =
     withContext(Dispatchers.Main) { action() }
 
-  suspend fun await(description: String, predicate: SurfaceMapFixture.() -> Boolean) {
-    try {
-      withTimeout(TimeoutMillis) {
-        while (!onMain(predicate)) {
-          onMain { presenter.failure?.let { throw AssertionError("Presentation failed", it) } }
-          delay(10)
-        }
-      }
-    } catch (failure: Throwable) {
-      throw AssertionError("Timed out waiting for $description", failure)
+  suspend fun await(description: String, predicate: SurfaceMapFixture.() -> Boolean) =
+    awaitOnMain(description) {
+      presenter.failure?.let { throw AssertionError("Presentation failed", it) }
+      predicate()
     }
-  }
 
   suspend fun awaitViewport(width: Float, height: Float) =
     await("viewport ${width}x$height dp") {
@@ -440,6 +434,10 @@ class SurfaceHandoffActivity : ComponentActivity() {
   }
 }
 
+/**
+ * Waits for the screen's center pixel to be [expected]. The screen reports no change to wait on, so
+ * this takes a screenshot every 50 ms.
+ */
 private suspend fun awaitScreenColor(expected: Int) {
   var actual: Int? = null
   try {

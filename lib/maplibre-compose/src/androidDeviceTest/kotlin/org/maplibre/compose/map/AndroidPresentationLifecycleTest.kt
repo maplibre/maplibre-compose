@@ -4,6 +4,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -15,7 +16,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,7 +27,6 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -68,11 +67,11 @@ class AndroidPresentationLifecycleTest {
     runMapTest {
       withLifecycleFixture { fixture ->
         fixture.awaitRendering()
-        fixture.await("the style effect to start") { activeEffects.get() > 0 }
+        fixture.await("the style effect to start") { activeEffects > 0 }
         fixture.onMain { state.close() }
         withTimeout(TimeoutMillis) { fixture.state.awaitClosed() }
         fixture.await("state closure to dispose its presentation effects") {
-          activeEffects.get() == 0
+          activeEffects == 0
         }
         fixture.onMain {
           assertNull(state.viewport)
@@ -97,7 +96,7 @@ class AndroidPresentationLifecycleTest {
           color = Color.Blue
         }
         fixture.await("style recomposition while the lifecycle is stopped") {
-          composedColor.get() == android.graphics.Color.BLUE
+          composedColor == android.graphics.Color.BLUE
         }
         val stoppedFrames = fixture.consumer.frames
         fixture.onMain {
@@ -113,7 +112,7 @@ class AndroidPresentationLifecycleTest {
           state.panBy(DpOffset(40.dp, 0.dp))
         }
         fixture.await("recognized input to reach the presented map") {
-          clicks.get() == 1 && state.cameraPosition.center != initialCamera.center
+          clicks == 1 && state.cameraPosition.center != initialCamera.center
         }
         val retainedLongitude = fixture.onMain {
           val longitude = state.cameraPosition.center.longitude
@@ -121,7 +120,7 @@ class AndroidPresentationLifecycleTest {
           longitude
         }
         fixture.await("lifecycle destruction to dispose presentation effects") {
-          activeEffects.get() == 0
+          activeEffects == 0
         }
         fixture.onMain {
           assertFalse(state.isClosed)
@@ -190,7 +189,7 @@ class AndroidPresentationLifecycleTest {
           fixture.onMain { failurePhase = phase }
         }
         fixture.await("the style failure and effect cleanup") {
-          presenter.failure != null && activeEffects.get() == 0
+          presenter.failure != null && activeEffects == 0
         }
         // The terminal write must reach an existing observer after the presentation's own snapshot
         // observer has been disposed. Do not produce an unrelated snapshot write to wake this up.
@@ -221,7 +220,7 @@ class AndroidPresentationLifecycleTest {
         }
         fixture.onMain {
           assertNull(presenter.failure)
-          assertTrue(activeEffects.get() > 0)
+          assertTrue(activeEffects > 0)
         }
       }
     }
@@ -236,17 +235,17 @@ private enum class FailurePhase {
 private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads: Set<Thread>) {
   val consumer = SurfaceConsumer(Width, Height)
   var lifecycleOwner = PresentationLifecycleOwner()
-  val activeEffects = AtomicInteger()
-  val composedColor = AtomicInteger()
-  val clicks = AtomicInteger()
+  var activeEffects by mutableIntStateOf(0)
+  var composedColor by mutableIntStateOf(0)
+  var clicks by mutableIntStateOf(0)
   val expectedFailure = IllegalStateException("deliberate presentation style failure")
   var color by mutableStateOf(Color.Red)
   var failurePhase by mutableStateOf<FailurePhase?>(null)
   val state =
     runtime.createMapState(BaseStyle.Empty) {
       DisposableEffect(Unit) {
-        activeEffects.incrementAndGet()
-        onDispose { activeEffects.decrementAndGet() }
+        activeEffects++
+        onDispose { activeEffects-- }
       }
       if (failurePhase == FailurePhase.Composition) throw expectedFailure
       if (failurePhase == FailurePhase.InitialApply) {
@@ -259,7 +258,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
       }
       val currentColor = color
       BackgroundLayer("background", color = const(currentColor))
-      SideEffect { composedColor.set(currentColor.toArgb()) }
+      SideEffect { composedColor = currentColor.toArgb() }
     }
   private val presenters = mutableListOf<AndroidMapPresentation>()
   lateinit var presenter: AndroidMapPresentation
@@ -281,7 +280,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
             callbacks {
               click {
                 onEvent {
-                  clicks.incrementAndGet()
+                  clicks++
                   ClickResult.Consume
                 }
               }
@@ -297,15 +296,8 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
   suspend fun <T> onMain(action: LifecycleFixture.() -> T): T =
     withContext(Dispatchers.Main) { action() }
 
-  suspend fun await(description: String, predicate: LifecycleFixture.() -> Boolean) {
-    try {
-      withTimeout(TimeoutMillis) {
-        while (!onMain(predicate)) delay(10)
-      }
-    } catch (error: Throwable) {
-      throw AssertionError("Timed out waiting for $description", error)
-    }
-  }
+  suspend fun await(description: String, predicate: LifecycleFixture.() -> Boolean) =
+    awaitOnMain(description, consumer.updates) { predicate() }
 
   suspend fun awaitRendering() {
     await("initial Surface rendering") {
@@ -339,7 +331,7 @@ private suspend fun withLifecycleFixture(
       }
       assertEquals(
         0,
-        fixture.activeEffects.get(),
+        fixture.activeEffects,
         "Style effects remained after presentation close",
       )
     }
@@ -360,17 +352,12 @@ private fun renderThreads(): Set<Thread> =
     .filter { it.isAlive && it.name == "maplibre-compose-render" }
     .toSet()
 
+/** Waits for every render thread started since [initial] to exit. */
 private suspend fun awaitNoNewRenderThreads(initial: Set<Thread>) {
-  try {
-    withTimeout(TimeoutMillis) {
-      while ((renderThreads() - initial).isNotEmpty()) delay(10)
-    }
-  } catch (error: Throwable) {
-    throw AssertionError(
-      "Presentation render threads remained alive: ${renderThreads() - initial}",
-      error,
-    )
-  }
+  val started = renderThreads() - initial
+  withContext(Dispatchers.IO) { started.forEach { it.join(TimeoutMillis) } }
+  val alive = started.filter { it.isAlive }
+  assertTrue(alive.isEmpty(), "Presentation render threads remained alive: $alive")
 }
 
 private const val Width = 128

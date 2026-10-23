@@ -6,9 +6,11 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
 import kotlin.test.assertFalse
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.withTimeout
 
 /**
@@ -29,6 +31,10 @@ internal class SurfaceConsumer(width: Int, height: Int) : AutoCloseable {
   /** The center pixel of the latest frame, as an `android.graphics.Color` ARGB value. */
   val centerArgb: Int
     get() = latest.value.centerArgb
+
+  /** Emits after each consumed frame and on a consumer failure. */
+  val updates: Flow<*>
+    get() = merge(latest, failure)
 
   init {
     reader.setOnImageAvailableListener(
