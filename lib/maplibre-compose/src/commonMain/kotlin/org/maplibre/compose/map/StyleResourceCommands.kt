@@ -20,10 +20,13 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
   private val sources = mutableMapOf<String, OwnedSource>()
   // False means explicit ownership; true means the missing-image resolver supplied the image.
   private val images = mutableMapOf<String, Boolean>()
+  // The latest image write by ID, until the engine reports its outcome.
+  private val imageWrites = mutableMapOf<String, Any>()
 
   fun clear() {
     sources.clear()
     images.clear()
+    imageWrites.clear()
   }
 
   fun sourceDefinition(id: String): SourceDefinition? = currentSource(id)?.definition
@@ -146,17 +149,20 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
   }
 
   /**
-   * Writes or removes an image. A successful write expires the image's handles; the engine keeps
-   * its previous image, and its handles, when it rejects the write.
+   * Writes or removes an image and expires its handles. A write the engine rejects keeps the
+   * engine's previous image, and gives its handles back unless a later write changed the image.
    */
   private fun writeImage(binding: StyleBinding, id: String, definition: StyleImageDefinition?) {
     val command = if (definition == null) binding.removeImage(id) else binding.setImage(definition)
     if (definition == null) images.remove(id) else images[id] = false
+    val previous = binding.identity.images.take(id)
+    val write = Any()
+    imageWrites[id] = write
     command.invokeOnCompletion { error ->
-      when (error) {
-        null -> binding.identity.images.remove(id)
-        is StyleMutationException -> binding.reportRejectedWrite("Image '$id'", null, error)
-      }
+      if (imageWrites[id] === write) imageWrites.remove(id)
+      if (error !is StyleMutationException) return@invokeOnCompletion
+      binding.reportRejectedWrite("Image '$id'", null, error)
+      if (previous != null && imageWrites[id] == null) binding.identity.images.restore(id, previous)
     }
   }
 

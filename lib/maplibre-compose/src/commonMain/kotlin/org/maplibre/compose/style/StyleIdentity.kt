@@ -29,4 +29,12 @@ internal class ResourceIdentities {
   fun remove(id: String) {
     identities.remove(id)
   }
+
+  /** Expires [id]'s identity and returns it, so a write the engine rejects can [restore] it. */
+  fun take(id: String): Any? = identities.remove(id)
+
+  /** Gives [id] back an identity that [take] returned. */
+  fun restore(id: String, identity: Any) {
+    identities[id] = identity
+  }
 }
