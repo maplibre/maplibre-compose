@@ -810,10 +810,12 @@ internal class MlnFfiMapSession(
 
     // Native returns the fit padding as persistent camera state. Preserve the fitted transform
     // while retaining only the viewport insets and destination camera padding.
+    // One view, so the projection and its extent describe the same viewport.
+    val view = map.getSnapshot().view
     val center =
-      GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
+      GeneratedApi.mapProjectionCreate(view).use { projection ->
         projection.setCamera(camera)
-        val size = map.getSnapshot().view.extent
+        val size = view.extent
         projection.latLngForPixel(
           ScreenPoint(
             x = (size.width.toDouble() + persistent.left - persistent.right) / 2.0,
@@ -863,9 +865,10 @@ internal class MlnFfiMapSession(
           if (pitch != null) add(TransitionField.Pitch)
         },
     ) { map, options ->
-      val size = map.getSnapshot().view.extent
+      val view = map.getSnapshot().view
+      val size = view.extent
       val point =
-        GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
+        GeneratedApi.mapProjectionCreate(view).use { projection ->
           anchor.resolveScreenPoint(
             DpSize(size.width.toInt().dp, size.height.toInt().dp),
             centerLongitude = checkNotNull(projection.getCamera().center).longitude,
