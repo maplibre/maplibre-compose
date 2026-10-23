@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import java.lang.FunctionalInterface
 import java.lang.invoke.MethodHandles
 import java.nio.file.Files
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -15,6 +16,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -73,7 +75,8 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
-import org.maplibre.compose.map.UnconfinedMain
+import org.maplibre.compose.map.TestMain
+import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.createNativeMapRuntime
 import org.maplibre.compose.map.nativeOwner
 import org.maplibre.compose.map.tryLoadRuntimeBackends
@@ -340,12 +343,13 @@ class LinuxOpenGlInteropTest {
         override fun onViewportChanged(map: MapAdapter) {}
       }
 
-    // The pump loop on the test thread never drains a queued main dispatcher; run inline instead.
+    // Main is this test thread. Its pump loops drain what other threads post there.
+    private val testMain = TestMainDispatcher()
     private val runtime =
       createNativeMapRuntime(
         MlnFfiRuntimeOptions(
           cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
-          mainDispatcher = UnconfinedMain,
+          mainDispatcher = testMain,
         ),
       )
     private val state = runtime.createMapState(BaseStyle.Demo)
@@ -394,6 +398,7 @@ class LinuxOpenGlInteropTest {
             "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
             "last result: $lastResult, failure: $failure"
         }
+        testMain.drain()
         failure?.let { error(it) }
         if (styleLoads < expectedStyleLoads) {
           Thread.sleep(PollIntervalMillis)
@@ -417,6 +422,7 @@ class LinuxOpenGlInteropTest {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering at $extent; last result: $lastResult, failure: $failure"
         }
+        testMain.drain()
         failure?.let { error(it) }
         val pumped = pumpFrame(extent)
         lastResult = pumped.result
@@ -439,13 +445,25 @@ class LinuxOpenGlInteropTest {
       }
     }
 
-    fun releasePresentation() = runBlocking { renderer.presentation.release() }
+    fun releasePresentation() = runOnMain { renderer.presentation.release() }
 
     override fun close() {
       renderer.onSurfaceLost(hostSession)
       runtime.close()
-      runBlocking { withTimeout(TestTimeout.inWholeMilliseconds) { runtime.awaitClosed() } }
+      runOnMain { withTimeout(TestTimeout.inWholeMilliseconds) { runtime.awaitClosed() } }
       cacheDirectory.toFile().deleteRecursively()
+    }
+
+    /** Runs [block] on this thread, draining main into the loop while [block] suspends. */
+    private fun <T> runOnMain(block: suspend () -> T): T = runBlocking {
+      val previous = TestMain.loop
+      TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+      try {
+        testMain.drain()
+        block()
+      } finally {
+        TestMain.loop = previous
+      }
     }
 
     private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
