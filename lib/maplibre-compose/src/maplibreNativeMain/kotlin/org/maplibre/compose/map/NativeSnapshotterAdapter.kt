@@ -460,17 +460,28 @@ private constructor(
       extent: MapExtent,
     ): NativeSnapshotEngine {
       val runtime = owner.awaitRuntime()
+      val creating =
+        runtime.createMap(
+          GeneratedApi.mapOptionsDefault()
+            .copy(
+              initialExtent = extent.toFfiExtent(),
+              mapMode = MapMode.STATIC,
+              eventMask = SnapshotEvents,
+            ),
+        )
       val map =
-        runtime
-          .createMap(
-            GeneratedApi.mapOptionsDefault()
-              .copy(
-                initialExtent = extent.toFfiExtent(),
-                mapMode = MapMode.STATIC,
-                eventMask = SnapshotEvents,
-              ),
-          )
-          .await()
+        try {
+          creating.await()
+        } catch (error: CancellationException) {
+          // Native still creates the map. Release it before the capture ends, so the next one
+          // starts after this one's cleanup.
+          withContext(NonCancellable) {
+            runCatching { creating.await().release().await() }
+              .exceptionOrNull()
+              ?.let(error::addSuppressed)
+          }
+          throw error
+        }
       val target =
         try {
           plan.create()
