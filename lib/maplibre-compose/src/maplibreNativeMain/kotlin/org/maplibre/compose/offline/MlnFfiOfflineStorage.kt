@@ -48,6 +48,9 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   private val logger = options.logger
   private val scope = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
 
+  // Not cancelled by close: an operation native accepted still updates the packs when it finishes.
+  private val operations = CoroutineScope(SupervisorJob() + owner.mainDispatcher)
+
   private val storageState = MutableStateFlow<OfflineStorageState>(OfflineStorageState.Loading)
 
   /** The packs this storage has seen, keyed by native region id, under [lock]. */
@@ -122,15 +125,17 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
     val ffiDefinition = definition.toFfiRegionDefinition()
     val runtime = awaitRuntime()
-    val info =
-      run("create an offline pack") {
-        // Native copies the metadata at submission, so the caller keeps its array.
-        runtime.createOfflineRegion(ffiDefinition, metadata)
-      }
-    return registerRegion(runtime, info)
-      ?: throw OfflineStorageException(
-        "MapLibre created an offline region that this build cannot represent",
-      )
+    return finishing {
+      val info =
+        run("create an offline pack") {
+          // Native copies the metadata at submission, so the caller keeps its array.
+          runtime.createOfflineRegion(ffiDefinition, metadata)
+        }
+      registerRegion(runtime, info)
+        ?: throw OfflineStorageException(
+          "MapLibre created an offline region that this build cannot represent",
+        )
+    }
   }
 
   override fun resume(pack: OfflinePack) {
@@ -146,10 +151,12 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   override suspend fun delete(pack: OfflinePack) {
     requireOwned(pack)
     val runtime = awaitRuntime()
-    run("delete offline pack ${pack.regionId}") { runtime.deleteOfflineRegion(pack.regionId) }
-    lock.withLock {
-      packsById.remove(pack.regionId)
-      publishPacks()
+    finishing {
+      run("delete offline pack ${pack.regionId}") { runtime.deleteOfflineRegion(pack.regionId) }
+      lock.withLock {
+        packsById.remove(pack.regionId)
+        publishPacks()
+      }
     }
   }
 
@@ -167,11 +174,11 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       "The source database must differ from this storage's database"
     }
     val runtime = awaitRuntime()
-    val merged =
-      run("merge offline database $sourceFile") {
-        runtime.mergeOfflineRegions(sourceFile.toString())
-      }
-    return withContext(owner.mainDispatcher) {
+    return finishing {
+      val merged =
+        run("merge offline database $sourceFile") {
+          runtime.mergeOfflineRegions(sourceFile.toString())
+        }
       coroutineScope {
         merged
           .map { info ->
@@ -218,12 +225,14 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
   override suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
     val runtime = awaitRuntime()
-    val info =
-      run("update the metadata of offline pack ${pack.regionId}") {
-        runtime.updateOfflineRegionMetadata(pack.regionId, metadata)
-      }
-    // Native echoes back what it stored, which is what the pack should show.
-    pack.metadataState.value = info.metadata.copyOf()
+    finishing {
+      val info =
+        run("update the metadata of offline pack ${pack.regionId}") {
+          runtime.updateOfflineRegionMetadata(pack.regionId, metadata)
+        }
+      // Native echoes back what it stored, which is what the pack should show.
+      pack.metadataState.value = info.metadata.copyOf()
+    }
   }
 
   // region bookkeeping
@@ -386,6 +395,16 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
     } catch (error: Throwable) {
       throw error.toOfflineStorageException(description)
     }
+  }
+
+  /**
+   * Runs [operation], which changes what the storage holds, to its end even when the caller stops
+   * waiting, so the published packs follow what native did. A caller cancelled before it starts
+   * starts nothing.
+   */
+  private suspend fun <T> finishing(operation: suspend CoroutineScope.() -> T): T {
+    currentCoroutineContext().ensureActive()
+    return operations.async(start = CoroutineStart.UNDISPATCHED, block = operation).await()
   }
 
   /** Starts an operation nobody waits on, logging its failure. */

@@ -6,9 +6,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -79,6 +83,38 @@ class MlnFfiOfflineStorageTest {
       query.await()
 
       assertEquals(newer.toDownloadProgress(), pack.downloadProgress.value)
+    } finally {
+      storage.close()
+      owner.close()
+      owner.awaitClosed()
+    }
+  }
+
+  @Test
+  fun a_create_whose_caller_stops_waiting_still_publishes_its_pack() = runMapTest {
+    val owner = MlnFfiRuntime(options)
+    val storage = MlnFfiOfflineStorage(owner)
+    owner.start()
+    try {
+      storage.awaitReady()
+      // Undispatched, so native accepts the create before the caller is cancelled.
+      val caller =
+        launch(start = CoroutineStart.UNDISPATCHED) {
+          storage.create(
+            OfflinePackDefinition.TilePyramid(
+              styleUrl = "https://example.com/style.json",
+              bounds = BoundingBox(Position(0.0, 0.0), Position(0.25, 0.25)),
+              pixelRatio = 1f,
+              minZoom = 0.0,
+              maxZoom = 1.0,
+            ),
+            ByteArray(0),
+          )
+        }
+      caller.cancel()
+      withTimeout(10.seconds) {
+        storage.state.first { (it as? OfflineStorageState.Ready)?.packs?.size == 1 }
+      }
     } finally {
       storage.close()
       owner.close()
