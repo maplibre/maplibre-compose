@@ -195,7 +195,7 @@ class AppleMapPresentationTest {
       release.countDown()
       awaitApple { firstResult != null }
       firstResult!!.getOrThrow()
-      assertTrue(releasing.await(5_000))
+      assertEquals(0L, releasing.count, "close finished before the renderer released")
       assertTrue(releasedInTime, "close waited for renderer release")
       assertEquals(1, currentReleases)
 
@@ -365,7 +365,11 @@ private fun withFixture(block: (AppleFixture) -> Unit) {
   AppleFixture().use(block)
 }
 
-/** Pumps the native main run loop without installing Compose UI's snapshot manager or clock. */
+/**
+ * Runs the main run loop until [predicate] holds, without installing Compose UI's snapshot manager
+ * or clock. The test runner holds the main thread, so main-queue work, including UIKit layout and
+ * map callbacks, runs only here, as it would in an app's run loop.
+ */
 internal fun awaitApple(predicate: () -> Boolean) {
   val deadline = NSProcessInfo.processInfo.systemUptime + 10.0
   while (!predicate()) {

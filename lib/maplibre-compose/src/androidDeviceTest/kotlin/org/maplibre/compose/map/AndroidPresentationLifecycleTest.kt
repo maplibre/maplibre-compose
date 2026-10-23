@@ -50,11 +50,10 @@ class AndroidPresentationLifecycleTest {
         assertNotNull(state.viewport)
         assertNull(presenter.failure)
       }
-      val framesBefore = fixture.consumer.frames.get()
+      val framesBefore = fixture.consumer.frames
       fixture.onMain { color = Color.Blue }
       fixture.await("the original presenter to render after a rejected duplicate") {
-        consumer.frames.get() > framesBefore &&
-          consumer.centerArgb.get() == android.graphics.Color.BLUE
+        consumer.frames > framesBefore && consumer.centerArgb == android.graphics.Color.BLUE
       }
       fixture.onMain {
         assertNotNull(state.viewport)
@@ -100,14 +99,13 @@ class AndroidPresentationLifecycleTest {
         fixture.await("style recomposition while the lifecycle is stopped") {
           composedColor.get() == android.graphics.Color.BLUE
         }
-        val stoppedFrames = fixture.consumer.frames.get()
+        val stoppedFrames = fixture.consumer.frames
         fixture.onMain {
-          assertEquals(android.graphics.Color.RED, consumer.centerArgb.get())
+          assertEquals(android.graphics.Color.RED, consumer.centerArgb)
           lifecycleOwner.lifecycle.currentState = Lifecycle.State.STARTED
         }
         fixture.await("rendering the updated style after lifecycle start") {
-          consumer.frames.get() > stoppedFrames &&
-            consumer.centerArgb.get() == android.graphics.Color.BLUE
+          consumer.frames > stoppedFrames && consumer.centerArgb == android.graphics.Color.BLUE
         }
         val initialCamera = fixture.onMain { state.cameraPosition }
         fixture.onMain {
@@ -139,15 +137,15 @@ class AndroidPresentationLifecycleTest {
           assertEquals(retainedLongitude, state.cameraPosition.center.longitude)
         }
         awaitNoNewRenderThreads(fixture.initialRenderThreads)
-        val previousFrames = fixture.consumer.frames.get()
+        val previousFrames = fixture.consumer.frames
         fixture.onMain {
           lifecycleOwner = PresentationLifecycleOwner()
           presenter = newPresenter()
           binding = presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new lifecycle host to present the retained map") {
-          consumer.frames.get() > previousFrames &&
-            consumer.centerArgb.get() == android.graphics.Color.BLUE &&
+          consumer.frames > previousFrames &&
+            consumer.centerArgb == android.graphics.Color.BLUE &&
             state.viewport != null
         }
         fixture.onMain {
@@ -212,14 +210,14 @@ class AndroidPresentationLifecycleTest {
           assertTrue(consumer.surface.isValid)
         }
         awaitNoNewRenderThreads(fixture.initialRenderThreads)
-        val framesBefore = fixture.consumer.frames.get()
+        val framesBefore = fixture.consumer.frames
         fixture.onMain {
           failurePhase = null
           presenter = newPresenter()
           presenter.attachSurface(consumer.surface, Width, Height, 1f)
         }
         fixture.await("a new presenter to render the retained state after failure") {
-          consumer.frames.get() > framesBefore && state.viewport != null
+          consumer.frames > framesBefore && state.viewport != null
         }
         fixture.onMain {
           assertNull(presenter.failure)
@@ -312,7 +310,7 @@ private class LifecycleFixture(val runtime: MapRuntime, val initialRenderThreads
   suspend fun awaitRendering() {
     await("initial Surface rendering") {
       presenter.failure?.let { throw AssertionError("Initial presentation failed", it) }
-      consumer.frames.get() > 0 && state.viewport != null
+      consumer.frames > 0 && state.viewport != null
     }
   }
 }

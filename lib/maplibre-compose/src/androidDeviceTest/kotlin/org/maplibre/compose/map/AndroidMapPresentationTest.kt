@@ -70,7 +70,7 @@ class AndroidMapPresentationTest {
             fixture.awaitViewport(320f, 240f)
             assertTrue(first.surface.isValid, "Replacing a binding must not release its Surface")
 
-            val beforeDensity = second.frames.get()
+            val beforeDensity = second.frames
             fixture.onMain { current.update(320, 240, 2f) }
             fixture.awaitViewport(160f, 120f)
             second.awaitColor(Green, after = beforeDensity)
@@ -114,7 +114,7 @@ class AndroidMapPresentationTest {
             }
             second.awaitColor(Green)
 
-            val beforeResize = second.frames.get()
+            val beforeResize = second.frames
             fixture.onMain { current.update(240, 160, 2f) }
             fixture.awaitViewport(120f, 80f)
             second.awaitColor(Green, after = beforeResize)
@@ -134,7 +134,7 @@ class AndroidMapPresentationTest {
             }
             assertTrue(second.surface.isValid, "Closing a presenter must not release its Surface")
 
-            val beforeReattach = second.frames.get()
+            val beforeReattach = second.frames
             fixture.onMain { presenter = newPresenter() }
             fixture.onMain { presenter.attachSurface(second.surface, 320, 240, 1f) }
             second.awaitColor(Blue, after = beforeReattach)
@@ -245,7 +245,7 @@ class AndroidMapPresentationTest {
             fixture.await("Compose to release its presentation") { state.viewport == null }
           }
 
-          val beforeReattach = consumer.frames.get()
+          val beforeReattach = consumer.frames
           fixture.onMain {
             presenter = newPresenter()
             presenter.attachSurface(consumer.surface, 256, 192, 1f)

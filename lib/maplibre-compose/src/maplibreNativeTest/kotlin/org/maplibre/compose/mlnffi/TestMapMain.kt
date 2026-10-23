@@ -54,7 +54,7 @@ internal object TestMapMain {
   suspend fun runCleanups() {
     var failure: Throwable? = null
     while (cleanups.isNotEmpty()) {
-      val cleanup = cleanups.removeFirst()
+      val cleanup = cleanups.removeAt(0)
       try {
         cleanup()
       } catch (error: Throwable) {

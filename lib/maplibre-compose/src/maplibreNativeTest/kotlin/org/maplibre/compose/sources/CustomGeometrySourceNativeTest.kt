@@ -3,7 +3,6 @@ package org.maplibre.compose.sources
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -39,10 +38,10 @@ class CustomGeometrySourceNativeTest {
       fun isMapFullyLoaded(): Boolean? = fixture.bridge.session.readMap { map -> map.isFullyLoaded }
 
       fixture.pumpUntil("the source to request a tile") { requested.isCompleted }
-      assertFalse(
-        isMapFullyLoaded() ?: true,
-        "the pending provider must keep the map from finishing its load",
-      )
+      // The map snapshot reflects the pending tile once a later event refreshes it.
+      fixture.pumpUntil("the pending provider to hold the map's load") {
+        isMapFullyLoaded() == false
+      }
       fail.complete(Unit)
       fixture.pumpUntil("the failed tile request to complete", 5.seconds) {
         isMapFullyLoaded() == true
