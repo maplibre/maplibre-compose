@@ -74,6 +74,9 @@ internal class MlnFfiTileRequestCoordinator<T>(
     lock.withLock { requests.remove(tileId) }?.job?.cancel()
   }
 
+  val isClosed: Boolean
+    get() = lock.withLock { closed }
+
   /** Cancels every request and ignores later fetches. An answer already submitted is dropped. */
   override fun close() {
     lock.withLock {

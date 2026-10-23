@@ -111,6 +111,9 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
 
   private fun isCurrent(request: Request): Boolean = lock.withLock { !closed && latest === request }
 
+  val isClosed: Boolean
+    get() = lock.withLock { closed }
+
   override fun close() {
     val request = lock.withLock {
       closed = true

@@ -20,6 +20,9 @@ internal class ResourceIdentities {
 
   fun get(id: String): Any = identities.getOrPut(id) { Any() }
 
+  /** The identity [id] has now, without creating one. */
+  fun peek(id: String): Any? = identities[id]
+
   fun isCurrent(id: String, identity: Any): Boolean = identities[id] === identity
 
   fun retain(ids: Set<String>) {

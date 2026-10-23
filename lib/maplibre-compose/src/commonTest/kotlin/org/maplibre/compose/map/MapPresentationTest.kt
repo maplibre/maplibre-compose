@@ -1176,6 +1176,35 @@ class MapPresentationTest {
   }
 
   @Test
+  fun overlapping_rejected_image_writes_keep_the_original_handle() = runTest {
+    val fixture = presentationFixture()
+    val recording = RecordingStyleBinding()
+    val outcomes = mutableListOf<CompletableDeferred<Unit>>()
+    var pending = false
+    val binding =
+      object : StyleBinding by recording {
+        override fun setImage(definition: StyleImageDefinition): StyleCommand =
+          if (pending) CompletableDeferred<Unit>().also { outcomes += it }
+          else recording.setImage(definition)
+      }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val image = FakeImageBitmap(1, 1)
+    val original = fixture.state.style.setImage("marker", image)
+
+    pending = true
+    val prepared = ResolvedStyleImage(PreparedImage.fromBitmap(image))
+    fixture.state.style.images.set("marker", prepared)
+    fixture.state.style.images.set("marker", prepared)
+    outcomes.forEach { it.completeExceptionally(StyleMutationException("refused", null)) }
+
+    // Neither write replaced the image, so the original handle still removes it.
+    original.remove()
+    assertTrue("marker" !in recording.imageIds)
+    fixture.close()
+  }
+
+  @Test
   fun a_batch_failure_keeps_the_previous_image_handle_and_installs_other_images() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))

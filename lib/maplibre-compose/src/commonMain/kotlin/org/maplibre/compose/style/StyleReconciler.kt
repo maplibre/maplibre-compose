@@ -29,6 +29,13 @@ internal class StyleReconciler {
    */
   private val images = linkedMapOf<String, StyleImageDefinition?>()
 
+  /**
+   * Sources whose removal the engine refused while a replacement with the same ID was pending. A
+   * rejected replacement leaves the engine with the refused source, which is tracked again.
+   */
+  private val retainedSources =
+    mutableMapOf<String, Pair<SourceInstallation, StyleContents.SourceEntry>>()
+
   /** Source definitions the engine rejected, skipped until the revision changes them. */
   private val rejectedSources = mutableMapOf<String, SourceDefinition>()
 
@@ -202,6 +209,7 @@ internal class StyleReconciler {
     layers.clear()
     images.clear()
     rejectedSources.clear()
+    retainedSources.clear()
     rejectedLayers.clear()
     pending.clear()
     rejected = false
@@ -242,6 +250,10 @@ internal class StyleReconciler {
       sources.remove(definition.id)
       style.contents.removeSource(definition.id)
       style.identity.sources.remove(definition.id)
+      retainedSources.remove(definition.id)?.let { (retained, entry) ->
+        sources[definition.id] = retained
+        style.contents.restoreSource(definition.id, entry)
+      }
       rejectedSources[definition.id] = definition
       rejected = true
       style.logger?.w(error) {
@@ -256,10 +268,13 @@ internal class StyleReconciler {
     val entry = style.contents.removeSource(applied.id)
     track(applied.remove()) { error ->
       style.logger?.w(error) { "Source '${applied.id}' was not removed: ${error.message}" }
-      // The engine kept the source, such as for a layer added outside the style API. It stays
-      // tracked unless a later write took its ID.
+      // The engine kept the source, such as for a layer added outside the style API. A pending
+      // replacement with the same ID will be rejected, and the source is tracked again then.
       if (binding !== style || entry == null) return@track
-      if (applied.id in sources || applied.id in style.contents.sources) return@track
+      if (applied.id in sources || applied.id in style.contents.sources) {
+        retainedSources[applied.id] = applied to entry
+        return@track
+      }
       sources[applied.id] = applied
       style.contents.restoreSource(applied.id, entry)
     }

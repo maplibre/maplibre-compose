@@ -499,13 +499,34 @@ internal open class MlnFfiStyleBinding(
     coordinator: MlnFfiTileRequestCoordinator<*>,
     add: (MapHandle) -> Deferred<CommandCompletion>,
   ): StyleCommand {
-    if (!isLoaded) coordinator.close() else tileCoordinators.put(sourceId, coordinator)?.close()
+    if (!isLoaded) coordinator.close()
     val added = addSourceWith(add)
-    added.onRejected {
-      if (tileCoordinators[sourceId] === coordinator) tileCoordinators.remove(sourceId)
+    if (isLoaded) tileCoordinators.replaceWhile(sourceId, coordinator, added) { it.isClosed }
+    return added
+  }
+
+  /**
+   * Serves [sourceId] with [coordinator] once [added] is submitted. The previous coordinator keeps
+   * its source's data until the engine has answered: an accepted add closes it, and a rejected one,
+   * which leaves the previous source in place, gives it back the ID.
+   */
+  private fun <C : AutoCloseable> MutableMap<String, C>.replaceWhile(
+    sourceId: String,
+    coordinator: C,
+    added: StyleCommand,
+    isClosed: (C) -> Boolean,
+  ) {
+    val previous = put(sourceId, coordinator)
+    added.invokeOnCompletion { error ->
+      if (error == null) {
+        previous?.close()
+        return@invokeOnCompletion
+      }
+      if (get(sourceId) === coordinator) {
+        if (previous != null && !isClosed(previous)) put(sourceId, previous) else remove(sourceId)
+      }
       coordinator.close()
     }
-    return added
   }
 
   override fun addImageSourceImage(
@@ -549,13 +570,10 @@ internal open class MlnFfiStyleBinding(
       }
     }
     val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
+    geoJsonCoordinators.replaceWhile(sourceId, coordinator, added) { it.isClosed }
     // Register initial data before notifying source observers, which can submit newer data.
     if (data !is GeoJsonData.Uri) {
       coordinator.submit(data) { error("Expected inline data") }
-    }
-    added.onRejected {
-      if (geoJsonCoordinators[sourceId] === coordinator) geoJsonCoordinators.remove(sourceId)
-      coordinator.close()
     }
     return added
   }
@@ -569,9 +587,10 @@ internal open class MlnFfiStyleBinding(
     val coordinator =
       geoJsonCoordinators[sourceId]
         ?: geoJsonCoordinator(
-          sourceId,
-          loadedGeoJsonOptions(sourceId) ?: fallbackOptions.toFfiOptions(),
-        )
+            sourceId,
+            loadedGeoJsonOptions(sourceId) ?: fallbackOptions.toFfiOptions(),
+          )
+          .also { geoJsonCoordinators[sourceId] = it }
     try {
       coordinator.submit(data) { url -> write { it.setGeojsonSourceUrl(sourceId, url) } }
     } catch (error: StyleMutationException) {
@@ -592,7 +611,7 @@ internal open class MlnFfiStyleBinding(
       throw StyleMutationException(error.message, error)
     }
 
-  /** Each replacement gets a new coordinator and fixed options. */
+  /** Each source installation gets a new coordinator with fixed options. */
   private fun geoJsonCoordinator(
     sourceId: String,
     options: GeojsonSourceOptions,
@@ -618,7 +637,6 @@ internal open class MlnFfiStyleBinding(
         },
       )
     requireCurrent()
-    geoJsonCoordinators.put(sourceId, coordinator)?.close()
     return coordinator
   }
 

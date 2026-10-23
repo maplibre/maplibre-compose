@@ -7,6 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -232,6 +233,42 @@ class StyleReconcilerTest {
 
     assertTrue("kept" in style.contents.sources)
     assertTrue("kept" in style.installedSourceIds)
+  }
+
+  @Test
+  fun a_refused_replacement_keeps_tracking_the_source_the_engine_kept() = runTest {
+    val recording = RecordingStyleBinding()
+    val outcomes = mutableListOf<CompletableDeferred<Unit>>()
+    var pending = false
+    val style =
+      object : StyleBinding by recording {
+        override fun addSource(definition: SourceDefinition): StyleCommand =
+          if (pending) CompletableDeferred<Unit>().also { outcomes += it }
+          else recording.addSource(definition)
+
+        override fun removeSource(sourceId: String): StyleCommand =
+          if (pending) CompletableDeferred<Unit>().also { outcomes += it }
+          else recording.removeSource(sourceId)
+      }
+    val reconciler = StyleReconciler()
+    fun revisionWith(source: RasterTileSource) =
+      StyleSnapshot(listOf(source.definition()), emptyList(), emptyList())
+
+    reconciler.apply(style, revisionWith(source("replaced")))
+    assertFalse(reconciler.settle(style))
+
+    // A source that cannot be updated in place is removed, then added again.
+    pending = true
+    val replacement =
+      RasterTileSource("replaced", listOf("https://example.invalid/other/{z}/{x}/{y}.png"))
+    reconciler.apply(style, revisionWith(replacement))
+    assertEquals(2, outcomes.size)
+    // The engine refuses the removal, then rejects the addition of the ID it still holds.
+    outcomes[0].completeExceptionally(StyleMutationException("in use", null))
+    outcomes[1].completeExceptionally(StyleMutationException("already exists", null))
+    reconciler.settle(style)
+
+    assertTrue("replaced" in style.contents.sources)
   }
 
   @Test

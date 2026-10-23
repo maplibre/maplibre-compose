@@ -4,6 +4,7 @@ import org.maplibre.compose.sources.MutableSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleContents
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleMutationException
@@ -20,13 +21,23 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
   private val sources = mutableMapOf<String, OwnedSource>()
   // False means explicit ownership; true means the missing-image resolver supplied the image.
   private val images = mutableMapOf<String, Boolean>()
-  // The latest image write by ID, until the engine reports its outcome.
-  private val imageWrites = mutableMapOf<String, Any>()
+  // Sources whose removal the engine refused while an addition with the same ID was pending.
+  private val retainedSources =
+    mutableMapOf<String, Pair<OwnedSource?, StyleContents.SourceEntry>>()
+
+  /** Image writes whose outcome is pending, with what to restore if the engine rejects them all. */
+  private class PendingImageWrites(val identity: Any?, val ownership: Boolean?) {
+    var count = 0
+    var anyAccepted = false
+  }
+
+  private val pendingImageWrites = mutableMapOf<String, PendingImageWrites>()
 
   fun clear() {
     sources.clear()
     images.clear()
-    imageWrites.clear()
+    retainedSources.clear()
+    pendingImageWrites.clear()
   }
 
   fun sourceDefinition(id: String): SourceDefinition? = currentSource(id)?.definition
@@ -70,6 +81,11 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
       sources.remove(source.id)
       binding.contents.removeSource(source.id)
       binding.identity.sources.remove(source.id)
+      // A refused removal of the previous source with this ID left it in the engine.
+      retainedSources.remove(source.id)?.let { (retained, entry) ->
+        if (retained != null) sources[source.id] = retained
+        binding.contents.restoreSource(source.id, entry)
+      }
       if (style.isCurrentLoadedStyle(binding)) style.publish(binding)
     }
     try {
@@ -91,9 +107,12 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
     onRemoved()
     binding.removeSource(id).onRejected { error ->
       binding.reportRejectedWrite("Source '$id'", null, error)
-      // A refused removal, such as for a source a layer still uses, keeps the source. Unless a
-      // later write took the ID, it gets its ownership back and a new handle.
-      if (!style.isCurrentLoadedStyle(binding) || entry == null || id in binding.contents.sources) {
+      // A refused removal, such as for a source a layer still uses, keeps the source, which gets
+      // its ownership back and a new handle. A pending addition with the ID will be rejected, and
+      // the source comes back then.
+      if (!style.isCurrentLoadedStyle(binding) || entry == null) return@onRejected
+      if (id in binding.contents.sources) {
+        retainedSources[id] = owned to entry
         return@onRejected
       }
       if (owned != null) sources[id] = owned
@@ -149,25 +168,28 @@ internal class StyleResourceCommands(private val style: MapStyleState) {
   }
 
   /**
-   * Writes or removes an image and expires its handles. A write the engine rejects keeps the
-   * engine's previous image, and gives back its handles and ownership unless a later write changed
-   * the image.
+   * Writes or removes an image and expires its handles. The engine keeps its previous image when it
+   * rejects the write. When it rejects every write submitted since the image was last settled, the
+   * image gets back the handles and ownership it had before them.
    */
   private fun writeImage(binding: StyleBinding, id: String, definition: StyleImageDefinition?) {
     val command = if (definition == null) binding.removeImage(id) else binding.setImage(definition)
-    val previousOwnership = images[id]
+    val pending =
+      pendingImageWrites.getOrPut(id) {
+        PendingImageWrites(binding.identity.images.peek(id), images[id])
+      }
+    pending.count++
+    binding.identity.images.take(id)
     if (definition == null) images.remove(id) else images[id] = false
-    val previous = binding.identity.images.take(id)
-    val write = Any()
-    imageWrites[id] = write
     command.invokeOnCompletion { error ->
-      if (imageWrites[id] === write) imageWrites.remove(id)
-      if (error !is StyleMutationException) return@invokeOnCompletion
-      binding.reportRejectedWrite("Image '$id'", null, error)
-      // Unless a later write changed the image, the engine still holds what it held before.
-      if (imageWrites[id] != null || !style.isCurrentLoadedStyle(binding)) return@invokeOnCompletion
-      if (previousOwnership == null) images.remove(id) else images[id] = previousOwnership
-      if (previous != null) binding.identity.images.restore(id, previous)
+      if (error == null) pending.anyAccepted = true
+      if (error is StyleMutationException) binding.reportRejectedWrite("Image '$id'", null, error)
+      if (--pending.count > 0 || pendingImageWrites[id] !== pending) return@invokeOnCompletion
+      pendingImageWrites.remove(id)
+      if (pending.anyAccepted || error !is StyleMutationException) return@invokeOnCompletion
+      if (!style.isCurrentLoadedStyle(binding)) return@invokeOnCompletion
+      if (pending.ownership == null) images.remove(id) else images[id] = pending.ownership
+      pending.identity?.let { binding.identity.images.restore(id, it) }
     }
   }
 
