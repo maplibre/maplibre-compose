@@ -49,9 +49,8 @@ public interface HeadingProvider {
   /**
    * Returns a cold stream of heading events.
    *
-   * A provider reports conditions and platform failures that prevent heading delivery as
-   * [HeadingEvent.Unavailable] instead of failing the flow. A device without a heading sensor emits
-   * [HeadingUnavailableReason.Unsupported] and completes.
+   * A provider reports conditions that prevent heading delivery as [HeadingEvent.Unavailable]. A
+   * device without a heading sensor emits [HeadingUnavailableReason.Unsupported] and completes.
    *
    * Each collector starts an independent platform sensor request. Cancelling collection stops that
    * request and unregisters its callbacks.

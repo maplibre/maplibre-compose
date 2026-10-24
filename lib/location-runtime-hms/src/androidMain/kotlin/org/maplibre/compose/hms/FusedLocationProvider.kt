@@ -5,6 +5,7 @@ import android.os.HandlerThread
 import androidx.annotation.MainThread
 import com.huawei.hmf.tasks.Task
 import com.huawei.hmf.tasks.TaskExecutors
+import com.huawei.hms.common.ApiException
 import com.huawei.hms.location.FusedLocationProviderClient
 import com.huawei.hms.location.LocationAvailability
 import com.huawei.hms.location.LocationCallback
@@ -12,7 +13,6 @@ import com.huawei.hms.location.LocationRequest as HmsLocationRequest
 import com.huawei.hms.location.LocationResult
 import com.huawei.hms.location.LocationServices
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -40,8 +40,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * and minimum distance. [LocationAccuracy.Lowest] receives passive updates.
  *
  * Unavailable locations report [LocationUnavailableReason.TemporarilyUnavailable]. Missing
- * permission reports [LocationUnavailableReason.PermissionDenied]. Other failures report a `null`
- * reason with the failure as the cause.
+ * permission reports [LocationUnavailableReason.PermissionDenied].
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
@@ -105,7 +104,7 @@ internal constructor(
             true
           }
           .catch { error ->
-            if (error is CancellationException) throw error
+            if (error !is ApiException) throw error
             emit(LocationEvent.Unavailable(reason = null, cause = error))
           }
       } else {

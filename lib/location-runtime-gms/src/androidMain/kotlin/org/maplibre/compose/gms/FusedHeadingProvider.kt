@@ -1,6 +1,7 @@
 package org.maplibre.compose.gms
 
 import android.os.SystemClock
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.location.DeviceOrientation
 import com.google.android.gms.location.DeviceOrientationRequest
 import com.google.android.gms.location.FusedOrientationProviderClient
@@ -8,7 +9,6 @@ import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -37,8 +37,6 @@ import org.maplibre.spatialk.units.extensions.degrees
  * [`DeviceOrientation.headingErrorDegrees`](https://developers.google.com/android/reference/com/google/android/gms/location/DeviceOrientation#getHeadingErrorDegrees())
  * maps to its accuracy. The value `180`, which denotes complete ignorance of the heading, reports
  * [HeadingUnavailableReason.Unreliable].
- *
- * A failed registration reports a `null` reason with the failure as its cause and completes.
  *
  * @param orientationClient Client used to request orientation updates.
  */
@@ -92,7 +90,7 @@ internal constructor(
         }
       }
       .catch { error ->
-        if (error is CancellationException) throw error
+        if (error !is ApiException) throw error
         emit(HeadingEvent.Unavailable(reason = null, cause = error))
       }
       .distinctUntilChanged()

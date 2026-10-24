@@ -1,5 +1,7 @@
 package org.maplibre.compose.gms
 
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Status
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.TaskCompletionSource
@@ -11,8 +13,6 @@ import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,7 +48,7 @@ class FusedLocationProviderTest {
 
   @Test
   fun `registration failure reports unavailable`() = runTest {
-    val failure = IllegalStateException("Google Play services unavailable")
+    val failure = ApiException(Status.RESULT_INTERNAL_ERROR)
     val provider =
       FusedLocationProvider(
         locationClient = fakeClient(Tasks.forException(failure)),
@@ -56,9 +56,10 @@ class FusedLocationProviderTest {
         executor = DirectExecutor,
       )
 
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
-    assertNull(event.reason)
-    assertEquals(failure.message, event.cause?.message)
+    assertEquals(
+      LocationEvent.Unavailable(reason = null, cause = failure),
+      provider.updates().first(),
+    )
   }
 
   private fun fakeClient(

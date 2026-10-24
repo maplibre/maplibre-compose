@@ -18,7 +18,6 @@ import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
@@ -26,7 +25,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.retryWhen
@@ -40,8 +38,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * accuracy on earlier versions. [LocationAccuracy.Lowest] receives passive updates.
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Missing
- * permission reports [LocationUnavailableReason.PermissionDenied]. Other failures report a `null`
- * reason with the failure as the cause and complete.
+ * permission reports [LocationUnavailableReason.PermissionDenied].
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *
@@ -78,10 +75,6 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
               emit(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
               delay(1.seconds)
               true
-            }
-            .catch { error ->
-              if (error is CancellationException) throw error
-              emit(LocationEvent.Unavailable(reason = null, cause = error))
             }
             .collect { send(it) }
           close()
@@ -150,7 +143,10 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
         override fun onReceive(context: Context, intent: Intent) {
           try {
             refreshRegistration()
-          } catch (error: RuntimeException) {
+          } catch (error: IllegalArgumentException) {
+            trySend(LocationEvent.Unavailable(reason = null, cause = error))
+            close()
+          } catch (error: SecurityException) {
             close(error)
           }
         }
@@ -159,7 +155,10 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
     try {
       context.registerLocationSettingsReceiver(settingsReceiver)
       refreshRegistration()
-    } catch (error: RuntimeException) {
+    } catch (error: IllegalArgumentException) {
+      trySend(LocationEvent.Unavailable(reason = null, cause = error))
+      close()
+    } catch (error: SecurityException) {
       close(error)
     }
 

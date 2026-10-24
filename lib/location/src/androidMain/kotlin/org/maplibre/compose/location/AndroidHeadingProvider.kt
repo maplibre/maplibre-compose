@@ -11,11 +11,9 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.radians
@@ -32,8 +30,7 @@ import org.maplibre.spatialk.units.extensions.radians
  * Readings with the
  * [`SENSOR_STATUS_UNRELIABLE`](https://developer.android.com/reference/android/hardware/SensorManager#SENSOR_STATUS_UNRELIABLE)
  * status report [HeadingUnavailableReason.Unreliable]. A device without a rotation-vector sensor
- * reports [HeadingUnavailableReason.Unsupported]. When the system refuses to enable the sensor,
- * collection reports a `null` reason with the failure as its cause and completes.
+ * reports [HeadingUnavailableReason.Unsupported].
  *
  * @param context Context used to obtain the platform sensor manager.
  */
@@ -94,17 +91,14 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
         Handler(handlerThread.looper),
       )
     if (!registered) {
-      close(IllegalStateException("Android rotation-vector sensor registration failed"))
+      val failure = IllegalStateException("Android rotation-vector sensor registration failed")
+      send(HeadingEvent.Unavailable(reason = null, cause = failure))
+      close()
       return@callbackFlow
     }
 
     awaitClose { sensorManager.unregisterListener(listener) }
   }
-  // Also catches the exception for exceeding the per-application sensor listener limit.
-  .catch { error ->
-      if (error is CancellationException) throw error
-      emit(HeadingEvent.Unavailable(reason = null, cause = error))
-    }
     .distinctUntilChanged()
     .throttleUpdates(request.minimumInterval)
 

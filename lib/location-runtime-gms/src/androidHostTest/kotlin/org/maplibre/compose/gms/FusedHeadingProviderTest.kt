@@ -1,5 +1,7 @@
 package org.maplibre.compose.gms
 
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Status
 import com.google.android.gms.location.DeviceOrientation
 import com.google.android.gms.location.DeviceOrientationListener
 import com.google.android.gms.location.FusedOrientationProviderClient
@@ -14,7 +16,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
@@ -69,16 +70,17 @@ class FusedHeadingProviderTest {
 
   @Test
   fun `registration failure reports unavailable and completes`() = runTest {
-    val failure = IllegalStateException("registration failed")
+    val failure = ApiException(Status.RESULT_INTERNAL_ERROR)
     val provider =
       FusedHeadingProvider(
         orientationClient = fakeClient(failure = failure),
         elapsedRealtimeNanos = { 0L },
       )
 
-    val event = assertIs<HeadingEvent.Unavailable>(provider.updates().toList().single())
-    assertNull(event.reason)
-    assertEquals(failure.message, event.cause?.message)
+    assertEquals(
+      listOf(HeadingEvent.Unavailable(reason = null, cause = failure)),
+      provider.updates().toList(),
+    )
   }
 
   @Test

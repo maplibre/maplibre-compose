@@ -2,6 +2,7 @@ package org.maplibre.compose.gms
 
 import android.content.Context
 import androidx.annotation.MainThread
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Granularity
 import com.google.android.gms.location.LastLocationRequest
@@ -15,7 +16,6 @@ import com.google.android.gms.tasks.Task
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
@@ -45,8 +45,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * and minimum distance. [LocationAccuracy.Lowest] receives passive updates.
  *
  * Unavailable locations report [LocationUnavailableReason.TemporarilyUnavailable]. Missing
- * permission reports [LocationUnavailableReason.PermissionDenied]. Other failures report a `null`
- * reason with the failure as the cause.
+ * permission reports [LocationUnavailableReason.PermissionDenied].
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
@@ -111,7 +110,7 @@ internal constructor(
             true
           }
           .catch { error ->
-            if (error is CancellationException) throw error
+            if (error !is ApiException) throw error
             emit(LocationEvent.Unavailable(reason = null, cause = error))
           }
       } else {

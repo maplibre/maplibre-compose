@@ -52,11 +52,9 @@ public interface LocationProvider : AutoCloseable {
   /**
    * Returns a cold stream of foreground location updates.
    *
-   * A provider reports conditions and platform failures that prevent location delivery as
-   * [LocationEvent.Unavailable] instead of failing the flow. When [backendAvailability] is
-   * [LocationBackendAvailability.Unsupported], collection emits [LocationEvent.Unavailable] with
-   * [LocationUnavailableReason.Unsupported] and completes. Only a
-   * [LocationBackendAvailability.Misconfigured] provider fails collection, with an
+   * When [backendAvailability] is [LocationBackendAvailability.Unsupported], collection emits
+   * [LocationEvent.Unavailable] with [LocationUnavailableReason.Unsupported] and completes. A
+   * [LocationBackendAvailability.Misconfigured] provider fails collection with an
    * [IllegalStateException].
    *
    * Each collector starts an independent platform location request. Cancelling collection stops

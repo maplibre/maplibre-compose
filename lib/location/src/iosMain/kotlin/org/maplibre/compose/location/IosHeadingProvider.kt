@@ -35,9 +35,8 @@ import platform.darwin.NSObject
  * A negative accuracy, which Core Location reports for an uncalibrated device or strong magnetic
  * interference, and the
  * [`headingFailure`](https://developer.apple.com/documentation/corelocation/clerror/code/headingfailure)
- * error report [HeadingUnavailableReason.Unreliable]. Other Core Location errors report a `null`
- * reason. Collection continues after an error and delivers the next valid heading. A device without
- * a magnetometer reports [HeadingUnavailableReason.Unsupported].
+ * error report [HeadingUnavailableReason.Unreliable]. A device without a magnetometer reports
+ * [HeadingUnavailableReason.Unsupported].
  */
 public class IosHeadingProvider
 internal constructor(
