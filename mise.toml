@@ -30,7 +30,7 @@ cascade = true
 shell = "bash -e -c"
 
 [vars]
-android_cmdline_tools_version = "22.0"
+android_cmdline_tools_version = "23.0"
 android_api_level = "36"
 actionlint_version = "1.7.12"
 dprint_version = "0.64.3"
