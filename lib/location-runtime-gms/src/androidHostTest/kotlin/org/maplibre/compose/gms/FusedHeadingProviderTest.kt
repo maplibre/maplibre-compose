@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.HeadingEvent
-import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
 import org.maplibre.compose.location.HeadingUnavailableReason
@@ -45,13 +44,11 @@ class FusedHeadingProviderTest {
           elapsedRealtimeNanos = { 0L },
         )
 
-      val result = provider.firstMeasurement()
+      val event = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
+      val result = assertIs<HeadingEvent.Update>(event).measurement
+      val bearing = result.bearing
 
-      assertEquals(
-        heading.toDouble(),
-        Bearing.North.clockwiseRotationTo(result.bearing).inDegrees,
-        1e-10,
-      )
+      assertEquals(heading.toDouble(), Bearing.North.clockwiseRotationTo(bearing).inDegrees, 1e-10)
       assertEquals(HeadingReference.TrueOrMagneticNorth, result.reference)
     }
   }
@@ -109,12 +106,6 @@ class FusedHeadingProviderTest {
     registration.setResult(null)
     assertTrue(removed.isCompleted)
   }
-
-  private suspend fun FusedHeadingProvider.firstMeasurement(): HeadingMeasurement =
-    assertIs<HeadingEvent.Update>(
-        updates(HeadingRequest { minimumInterval = Duration.ZERO }).first(),
-      )
-      .measurement
 
   private fun fakeClient(
     heading: Float = 0f,

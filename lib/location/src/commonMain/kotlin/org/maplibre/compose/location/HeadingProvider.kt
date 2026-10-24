@@ -4,14 +4,11 @@ import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.ChannelResult
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 
 /**
  * Preferences for device-heading updates.
@@ -53,10 +50,8 @@ public interface HeadingProvider {
    * Returns a cold stream of heading events.
    *
    * A provider reports conditions and platform failures that prevent heading delivery as
-   * [HeadingEvent.Unavailable] instead of failing the flow. After
-   * [HeadingUnavailableReason.Unreliable], the next [HeadingEvent.Update] means a valid heading is
-   * available again. A device without a heading sensor emits [HeadingUnavailableReason.Unsupported]
-   * and completes.
+   * [HeadingEvent.Unavailable] instead of failing the flow. A device without a heading sensor emits
+   * [HeadingUnavailableReason.Unsupported] and completes.
    *
    * Each collector starts an independent platform sensor request. Cancelling collection stops that
    * request and unregisters its callbacks.
@@ -111,12 +106,10 @@ public sealed interface HeadingUnavailableReason {
   public data object Unsupported : HeadingUnavailableReason
 
   /**
-   * The sensor cannot measure a valid heading now, because it needs calibration or because a nearby
-   * magnetic field disturbs it.
+   * The sensor cannot measure a valid heading now, because it needs calibration or a nearby
+   * magnetic field disturbs it. The provider keeps measuring and delivers the next valid heading.
    *
-   * Platforms often cannot tell these two causes apart. The provider keeps measuring and delivers
-   * the next valid heading. The user can help by moving the device in a figure-eight pattern or by
-   * moving away from metal objects and electronics.
+   * Moving the device in a figure-eight pattern, or away from metal objects, can restore it.
    */
   public data object Unreliable : HeadingUnavailableReason
 }
@@ -142,44 +135,12 @@ internal data object UnspecifiedHeadingUnavailableReason : HeadingUnavailableRea
 public fun Flow<HeadingEvent>.throttleUpdates(minimumInterval: Duration): Flow<HeadingEvent> =
   if (minimumInterval == Duration.ZERO) this
   else
-    flow {
-      coroutineScope {
-        val events = this@throttleUpdates.produceIn(this)
-        var cooldown: Job? = null
-        var pending: HeadingEvent.Update? = null
-        while (true) {
-          // A null result means the cooldown ended.
-          val received =
-            select<ChannelResult<HeadingEvent>?> {
-              events.onReceiveCatching { it }
-              cooldown?.onJoin { null }
-            }
-          if (received == null) {
-            cooldown = null
-            pending?.let { update ->
-              pending = null
-              emit(update)
-              cooldown = launch { delay(minimumInterval) }
-            }
-            continue
-          }
-          val event = received.getOrNull()
-          when {
-            event == null -> {
-              cooldown?.join()
-              pending?.let { emit(it) }
-              break
-            }
-            event !is HeadingEvent.Update -> {
-              pending = null
-              emit(event)
-            }
-            cooldown == null -> {
-              emit(event)
-              cooldown = launch { delay(minimumInterval) }
-            }
-            else -> pending = event
-          }
-        }
+    channelFlow {
+      var cooldown: Job? = null
+      collectLatest { event ->
+        // A newer event cancels this wait, so only the latest held-back update is delivered.
+        if (event is HeadingEvent.Update) cooldown?.join()
+        send(event)
+        if (event is HeadingEvent.Update) cooldown = launch { delay(minimumInterval) }
       }
     }

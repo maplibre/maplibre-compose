@@ -27,8 +27,7 @@ import org.maplibre.spatialk.units.extensions.degrees
  *
  * [availability] describes the provider setup for its lifetime. [permission] describes the current
  * foreground authorization. [status] describes only an active tracking session. [lastLocation] and
- * [lastHeading] retain their most recently received measurements when collection stops. While
- * [headingStatus] is [HeadingTrackingStatus.Unavailable], [lastHeading] is `null`.
+ * [lastHeading] retain their most recently received measurements when collection stops.
  */
 @Stable
 public class LocationState

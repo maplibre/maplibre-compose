@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -59,22 +60,17 @@ internal constructor(
     awaitClose { delegate.stop(manager) }
   }
     .flowOn(coroutineContext)
+    .distinctUntilChanged()
     .throttleUpdates(request.minimumInterval)
 }
 
 internal class IosHeadingDelegate(private val channel: SendChannel<HeadingEvent>) :
   NSObject(), CLLocationManagerDelegateProtocol {
-  private var unreliable = false
-
   override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
     if (didUpdateHeading.headingAccuracy < 0.0) {
-      if (!unreliable) {
-        unreliable = true
-        channel.trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
-      }
+      channel.trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
       return
     }
-    unreliable = false
     val hasTrueHeading = didUpdateHeading.trueHeading >= 0.0
     val heading =
       if (hasTrueHeading) didUpdateHeading.trueHeading else didUpdateHeading.magneticHeading
@@ -97,7 +93,6 @@ internal class IosHeadingDelegate(private val channel: SendChannel<HeadingEvent>
   override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
     val headingFailure =
       didFailWithError.domain == kCLErrorDomain && didFailWithError.code == kCLErrorHeadingFailure
-    unreliable = headingFailure
     channel.trySend(
       HeadingEvent.Unavailable(
         reason = if (headingFailure) HeadingUnavailableReason.Unreliable else null,

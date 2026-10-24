@@ -34,7 +34,6 @@ class IosHeadingProviderTest {
     val manager = CLLocationManager()
 
     delegate.locationManager(manager, didUpdateHeading = InvalidHeading())
-    delegate.locationManager(manager, didUpdateHeading = InvalidHeading())
     delegate.locationManager(
       manager,
       didFailWithError = NSError.errorWithDomain(kCLErrorDomain, kCLErrorHeadingFailure, null),

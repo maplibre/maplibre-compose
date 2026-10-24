@@ -14,6 +14,7 @@ import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.radians
 
@@ -49,18 +50,12 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
 
     val listener =
       object : SensorEventListener {
-        private var unreliable = false
-
         override fun onSensorChanged(event: SensorEvent?) {
           if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
             if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-              if (!unreliable) {
-                unreliable = true
-                trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
-              }
+              trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
               return
             }
-            unreliable = false
             SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
             SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
@@ -88,25 +83,16 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
       }
 
-    val failure =
-      try {
-        val registered =
-          sensorManager.registerListener(
-            listener,
-            sensor,
-            SensorManager.SENSOR_DELAY_NORMAL,
-            request.minimumInterval.inWholeMicroseconds
-              .coerceAtMost(Int.MAX_VALUE.toLong())
-              .toInt(),
-            Handler(handlerThread.looper),
-          )
-        if (registered) null
-        else IllegalStateException("Android rotation-vector sensor registration failed")
-      } catch (error: IllegalStateException) {
-        // Thrown when the application has too many sensor listeners.
-        error
-      }
-    if (failure != null) {
+    val registered =
+      sensorManager.registerListener(
+        listener,
+        sensor,
+        SensorManager.SENSOR_DELAY_NORMAL,
+        request.minimumInterval.inWholeMicroseconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+        Handler(handlerThread.looper),
+      )
+    if (!registered) {
+      val failure = IllegalStateException("Android rotation-vector sensor registration failed")
       send(HeadingEvent.Unavailable(reason = null, cause = failure))
       close()
       return@callbackFlow
@@ -114,6 +100,7 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
 
     awaitClose { sensorManager.unregisterListener(listener) }
   }
+    .distinctUntilChanged()
     .throttleUpdates(request.minimumInterval)
 
   private companion object {

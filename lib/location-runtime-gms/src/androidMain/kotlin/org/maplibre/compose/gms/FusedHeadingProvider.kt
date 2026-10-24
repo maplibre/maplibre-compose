@@ -14,6 +14,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
@@ -55,16 +56,11 @@ internal constructor(
     callbackFlow<HeadingEvent> {
         val deviceOrientationRequest =
           DeviceOrientationRequest.Builder(request.minimumInterval.inWholeMicroseconds).build()
-        var unreliable = false
         val callback: (DeviceOrientation) -> Unit = callback@{ orientation ->
           if (orientation.headingErrorDegrees >= 180f) {
-            if (!unreliable) {
-              unreliable = true
-              trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
-            }
+            trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
             return@callback
           }
-          unreliable = false
           trySend(
             HeadingEvent.Update(
               HeadingMeasurement(
@@ -99,6 +95,7 @@ internal constructor(
         if (error is CancellationException) throw error
         emit(HeadingEvent.Unavailable(reason = null, cause = error))
       }
+      .distinctUntilChanged()
       .throttleUpdates(request.minimumInterval)
 
   private companion object {
